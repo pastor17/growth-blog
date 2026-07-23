@@ -1,0 +1,490 @@
+<!DOCTYPE html>
+<html lang="zh-cn" dir="ltr">
+    <head><meta charset='utf-8'>
+<meta name='viewport' content='width=device-width, initial-scale=1'><meta name='description' content="也就是去年的这个时候，我差点把自己的副业搞黄了。\n那时候我觉得要搞就搞个大的，花了两周时间，熬夜写了一个&quot;全能型AI法律顾问&quot;，接入了OpenAI的API，功能堆得满满当当。结果呢？上线一个月，服务器费亏了200刀，付费用户只有个位数——还是我发朋友圈求来的友情赞助。\n为什么？因为我试图去解决一个&quot;我不懂&quot;且&quot;太宏大&quot;的问题。\n直到后来，我把方向转到了一个个不起眼的&quot;小工具&quot;上，情况才开始逆转。现在的我，每周五下午都会雷打不动地抽出两个小时，专门用来复盘我那几个小插件的数据。\n很多人觉得开发AI插件是程序员的专利，或者需要几十万的投入。其实，对于想轻资产创业的普通人来说，&ldquo;小而美&quot;才是唯一的出路。\n今天就不扯那些高大上的概念，单纯聊聊我踩坑换来的这条&quot;低成本变现路径&rdquo;。\n别做&quot;瑞士军刀&quot;，要做&quot;指甲刀&quot;\r这是大多数新手（包括之前的我）最容易掉进的坑：总想做一个无所不能的超级应用。\n在这个赛道，贪大必死。\n我有个做跨境电商的朋友老李，他之前想做一个&quot;AI电商运营全案系统&quot;，结果开发周期拖了三个月，还没上线，市场风向就变了。\n后来我们聊了一下午，我建议他砍掉90%的功能，只保留一个痛点：亚马逊Listing（商品详情页）的关键词埋词。\n只要这个功能做得足够深，就能赚钱。\n于是他找人做了一个极简的Chrome插件：用户在浏览器里打开竞品的页面，点击一下，AI自动抓取标题和描述，分析出高频关键词，然后根据用户的草稿自动插入这些词。\n结果复盘：\n开发成本： 找大学生兼职写的，花了不到2000块人民币，外加我也帮他调了调Prompt。 推广： 他混了几个电商卖家的微信群，发了个免费试用的链接。 收益： 采用&quot;免费试用5次，之后19.9元/月&quot;的订阅制。上线第二个月，这个不起眼的小工具给他带来了4000多的纯利润。 很多时候，用户不需要一个钢铁侠，他们只需要一个能帮他拧开瓶盖的人。\n怎么落地？ 如果你想做，千万别从&quot;我要改变世界&quot;出发。去看看你身边的人，哪个环节最繁琐、最机械？\n会计最烦发票录入？做一个OCR识别+自动分类插件。 HR最烦筛选简历？做一个自动提取简历关键词并打分的GPTs。 代码能力不是门槛，&ldquo;提问&quot;才是\r看到这里，你可能会说：&ldquo;我不会写代码啊，这怎么低成本？&rdquo;\n现在的开发逻辑已经变了。以前是人写代码，现在是人教AI写代码。\n我目前手头维护着3个小插件，其中有一个是&quot;网页长文一键生成思维导图&rdquo;。说实话，对于前端的SVG渲染逻辑，我一窍不通。\n我是怎么做出来的？我全程用了 Cursor（一个集成了AI的代码编辑器）。\n我的操作流程是这样的：\n我用大白话告诉AI：&ldquo;我要写一个Chrome插件，功能是读取当前页面的文本，发给GPT-4，返回Markdown格式，然后把这个格式渲染成思维导图。&rdquo; AI 给了我一段代码。 我运行，报错了。 我把报错信息复制给AI：&ldquo;报错了，显示XX变量未定义。&rdquo; AI 修正代码，我再运行。 真实数据： 这个&quot;思维导图&quot;插件，核心代码大概400行。我只手动改了不到10行（主要是改配置文件的API Key位置），剩下的全靠复制粘贴。\n// 比如这段核心的API调用代码，完全是AI生成的 async function fetchSummary(text) { const response = await fetch(&#39;https://api.openai.com/v1/chat/completions&#39;, { method: &#39;POST&#39;, headers: { &#39;Authorization&#39;: `Bearer ${API_KEY}`, &#39;Content-Type&#39;: &#39;application/json&#39; }, body: JSON.stringify({ model: &#34;gpt-3.5-turbo&#34;, messages: [{&#34;role&#34;: &#34;user&#34;, &#34;content&#34;: `Summarize this for a mind map: ${text}`}] }) }); return await response.json(); } 如果你连代码编辑器都不想装，现在的 GPTs（OpenAI的自定义GPT） 更是零代码门槛。\n">
+<title>我也曾亏钱：ChatGPT插件开发，普通人如何低成本搞到第一桶金？</title>
+
+<link rel='canonical' href='https://blog.irudder.me/business/aiplusxiaochengbenchuangyeshijianzongjie/chatgptchajiankaifa_xiaochengbenbianxianlujing.html'>
+
+<link rel="stylesheet" href="/scss/style.min.b9e9128fec450ebccecc4ec9900157f32b85d0609bcd5ee3293968bcaa1235f2.css"><meta property='og:title' content="我也曾亏钱：ChatGPT插件开发，普通人如何低成本搞到第一桶金？">
+<meta property='og:description' content="也就是去年的这个时候，我差点把自己的副业搞黄了。\n那时候我觉得要搞就搞个大的，花了两周时间，熬夜写了一个&quot;全能型AI法律顾问&quot;，接入了OpenAI的API，功能堆得满满当当。结果呢？上线一个月，服务器费亏了200刀，付费用户只有个位数——还是我发朋友圈求来的友情赞助。\n为什么？因为我试图去解决一个&quot;我不懂&quot;且&quot;太宏大&quot;的问题。\n直到后来，我把方向转到了一个个不起眼的&quot;小工具&quot;上，情况才开始逆转。现在的我，每周五下午都会雷打不动地抽出两个小时，专门用来复盘我那几个小插件的数据。\n很多人觉得开发AI插件是程序员的专利，或者需要几十万的投入。其实，对于想轻资产创业的普通人来说，&ldquo;小而美&quot;才是唯一的出路。\n今天就不扯那些高大上的概念，单纯聊聊我踩坑换来的这条&quot;低成本变现路径&rdquo;。\n别做&quot;瑞士军刀&quot;，要做&quot;指甲刀&quot;\r这是大多数新手（包括之前的我）最容易掉进的坑：总想做一个无所不能的超级应用。\n在这个赛道，贪大必死。\n我有个做跨境电商的朋友老李，他之前想做一个&quot;AI电商运营全案系统&quot;，结果开发周期拖了三个月，还没上线，市场风向就变了。\n后来我们聊了一下午，我建议他砍掉90%的功能，只保留一个痛点：亚马逊Listing（商品详情页）的关键词埋词。\n只要这个功能做得足够深，就能赚钱。\n于是他找人做了一个极简的Chrome插件：用户在浏览器里打开竞品的页面，点击一下，AI自动抓取标题和描述，分析出高频关键词，然后根据用户的草稿自动插入这些词。\n结果复盘：\n开发成本： 找大学生兼职写的，花了不到2000块人民币，外加我也帮他调了调Prompt。 推广： 他混了几个电商卖家的微信群，发了个免费试用的链接。 收益： 采用&quot;免费试用5次，之后19.9元/月&quot;的订阅制。上线第二个月，这个不起眼的小工具给他带来了4000多的纯利润。 很多时候，用户不需要一个钢铁侠，他们只需要一个能帮他拧开瓶盖的人。\n怎么落地？ 如果你想做，千万别从&quot;我要改变世界&quot;出发。去看看你身边的人，哪个环节最繁琐、最机械？\n会计最烦发票录入？做一个OCR识别+自动分类插件。 HR最烦筛选简历？做一个自动提取简历关键词并打分的GPTs。 代码能力不是门槛，&ldquo;提问&quot;才是\r看到这里，你可能会说：&ldquo;我不会写代码啊，这怎么低成本？&rdquo;\n现在的开发逻辑已经变了。以前是人写代码，现在是人教AI写代码。\n我目前手头维护着3个小插件，其中有一个是&quot;网页长文一键生成思维导图&rdquo;。说实话，对于前端的SVG渲染逻辑，我一窍不通。\n我是怎么做出来的？我全程用了 Cursor（一个集成了AI的代码编辑器）。\n我的操作流程是这样的：\n我用大白话告诉AI：&ldquo;我要写一个Chrome插件，功能是读取当前页面的文本，发给GPT-4，返回Markdown格式，然后把这个格式渲染成思维导图。&rdquo; AI 给了我一段代码。 我运行，报错了。 我把报错信息复制给AI：&ldquo;报错了，显示XX变量未定义。&rdquo; AI 修正代码，我再运行。 真实数据： 这个&quot;思维导图&quot;插件，核心代码大概400行。我只手动改了不到10行（主要是改配置文件的API Key位置），剩下的全靠复制粘贴。\n// 比如这段核心的API调用代码，完全是AI生成的 async function fetchSummary(text) { const response = await fetch(&#39;https://api.openai.com/v1/chat/completions&#39;, { method: &#39;POST&#39;, headers: { &#39;Authorization&#39;: `Bearer ${API_KEY}`, &#39;Content-Type&#39;: &#39;application/json&#39; }, body: JSON.stringify({ model: &#34;gpt-3.5-turbo&#34;, messages: [{&#34;role&#34;: &#34;user&#34;, &#34;content&#34;: `Summarize this for a mind map: ${text}`}] }) }); return await response.json(); } 如果你连代码编辑器都不想装，现在的 GPTs（OpenAI的自定义GPT） 更是零代码门槛。\n">
+<meta property='og:url' content='https://blog.irudder.me/business/aiplusxiaochengbenchuangyeshijianzongjie/chatgptchajiankaifa_xiaochengbenbianxianlujing.html'>
+<meta property='og:site_name' content='SelfTechHub'>
+<meta property='og:type' content='article'><meta property='article:section' content='Business' /><meta property='article:tag' content='ChatGPT插件开发：小成本变现路径' /><meta property='article:published_time' content='2024-07-13T00:00:00&#43;00:00'/><meta property='article:modified_time' content='2024-07-13T00:00:00&#43;00:00'/>
+<meta name="twitter:title" content="我也曾亏钱：ChatGPT插件开发，普通人如何低成本搞到第一桶金？">
+<meta name="twitter:description" content="也就是去年的这个时候，我差点把自己的副业搞黄了。\n那时候我觉得要搞就搞个大的，花了两周时间，熬夜写了一个&quot;全能型AI法律顾问&quot;，接入了OpenAI的API，功能堆得满满当当。结果呢？上线一个月，服务器费亏了200刀，付费用户只有个位数——还是我发朋友圈求来的友情赞助。\n为什么？因为我试图去解决一个&quot;我不懂&quot;且&quot;太宏大&quot;的问题。\n直到后来，我把方向转到了一个个不起眼的&quot;小工具&quot;上，情况才开始逆转。现在的我，每周五下午都会雷打不动地抽出两个小时，专门用来复盘我那几个小插件的数据。\n很多人觉得开发AI插件是程序员的专利，或者需要几十万的投入。其实，对于想轻资产创业的普通人来说，&ldquo;小而美&quot;才是唯一的出路。\n今天就不扯那些高大上的概念，单纯聊聊我踩坑换来的这条&quot;低成本变现路径&rdquo;。\n别做&quot;瑞士军刀&quot;，要做&quot;指甲刀&quot;\r这是大多数新手（包括之前的我）最容易掉进的坑：总想做一个无所不能的超级应用。\n在这个赛道，贪大必死。\n我有个做跨境电商的朋友老李，他之前想做一个&quot;AI电商运营全案系统&quot;，结果开发周期拖了三个月，还没上线，市场风向就变了。\n后来我们聊了一下午，我建议他砍掉90%的功能，只保留一个痛点：亚马逊Listing（商品详情页）的关键词埋词。\n只要这个功能做得足够深，就能赚钱。\n于是他找人做了一个极简的Chrome插件：用户在浏览器里打开竞品的页面，点击一下，AI自动抓取标题和描述，分析出高频关键词，然后根据用户的草稿自动插入这些词。\n结果复盘：\n开发成本： 找大学生兼职写的，花了不到2000块人民币，外加我也帮他调了调Prompt。 推广： 他混了几个电商卖家的微信群，发了个免费试用的链接。 收益： 采用&quot;免费试用5次，之后19.9元/月&quot;的订阅制。上线第二个月，这个不起眼的小工具给他带来了4000多的纯利润。 很多时候，用户不需要一个钢铁侠，他们只需要一个能帮他拧开瓶盖的人。\n怎么落地？ 如果你想做，千万别从&quot;我要改变世界&quot;出发。去看看你身边的人，哪个环节最繁琐、最机械？\n会计最烦发票录入？做一个OCR识别+自动分类插件。 HR最烦筛选简历？做一个自动提取简历关键词并打分的GPTs。 代码能力不是门槛，&ldquo;提问&quot;才是\r看到这里，你可能会说：&ldquo;我不会写代码啊，这怎么低成本？&rdquo;\n现在的开发逻辑已经变了。以前是人写代码，现在是人教AI写代码。\n我目前手头维护着3个小插件，其中有一个是&quot;网页长文一键生成思维导图&rdquo;。说实话，对于前端的SVG渲染逻辑，我一窍不通。\n我是怎么做出来的？我全程用了 Cursor（一个集成了AI的代码编辑器）。\n我的操作流程是这样的：\n我用大白话告诉AI：&ldquo;我要写一个Chrome插件，功能是读取当前页面的文本，发给GPT-4，返回Markdown格式，然后把这个格式渲染成思维导图。&rdquo; AI 给了我一段代码。 我运行，报错了。 我把报错信息复制给AI：&ldquo;报错了，显示XX变量未定义。&rdquo; AI 修正代码，我再运行。 真实数据： 这个&quot;思维导图&quot;插件，核心代码大概400行。我只手动改了不到10行（主要是改配置文件的API Key位置），剩下的全靠复制粘贴。\n// 比如这段核心的API调用代码，完全是AI生成的 async function fetchSummary(text) { const response = await fetch(&#39;https://api.openai.com/v1/chat/completions&#39;, { method: &#39;POST&#39;, headers: { &#39;Authorization&#39;: `Bearer ${API_KEY}`, &#39;Content-Type&#39;: &#39;application/json&#39; }, body: JSON.stringify({ model: &#34;gpt-3.5-turbo&#34;, messages: [{&#34;role&#34;: &#34;user&#34;, &#34;content&#34;: `Summarize this for a mind map: ${text}`}] }) }); return await response.json(); } 如果你连代码编辑器都不想装，现在的 GPTs（OpenAI的自定义GPT） 更是零代码门槛。\n">
+    </head>
+    <body class="
+    article-page
+    ">
+    <script>
+        (function() {
+            const colorSchemeKey = 'StackColorScheme';
+            if(!localStorage.getItem(colorSchemeKey)){
+                localStorage.setItem(colorSchemeKey, "auto");
+            }
+        })();
+    </script><script>
+    (function() {
+        const colorSchemeKey = 'StackColorScheme';
+        const colorSchemeItem = localStorage.getItem(colorSchemeKey);
+        const supportDarkMode = window.matchMedia('(prefers-color-scheme: dark)').matches === true;
+
+        if (colorSchemeItem == 'dark' || colorSchemeItem === 'auto' && supportDarkMode) {
+            
+
+            document.documentElement.dataset.scheme = 'dark';
+        } else {
+            document.documentElement.dataset.scheme = 'light';
+        }
+    })();
+</script>
+<div class="container main-container flex on-phone--column compact"><aside class="sidebar left-sidebar sticky ">
+    <button class="hamburger hamburger--spin" type="button" id="toggle-menu" aria-label="切换菜单">
+        <span class="hamburger-box">
+            <span class="hamburger-inner"></span>
+        </span>
+    </button>
+
+    <header>
+        
+            
+            <figure class="site-avatar">
+                <a href="/">
+                
+                    
+                    
+                    
+                        
+                        <img src="/img/avatar_hu_8588ce14af1147e2.png" width="300"
+                            height="286" class="site-logo" loading="lazy" alt="Avatar">
+                    
+                
+                </a>
+                
+            </figure>
+            
+        
+        
+        <div class="site-meta">
+            <h1 class="site-name"><a href="/">SelfTechHub</a></h1>
+            <h2 class="site-description"></h2>
+        </div>
+    </header><ol class="menu" id="main-menu">
+        
+        
+        <li class="menu-bottom-section">
+            <ol class="menu">
+
+                
+                    <li id="dark-mode-toggle">
+                        <svg xmlns="http://www.w3.org/2000/svg" class="icon icon-tabler icon-tabler-toggle-left" width="24" height="24" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor" fill="none" stroke-linecap="round" stroke-linejoin="round">
+  <path stroke="none" d="M0 0h24v24H0z"/>
+  <circle cx="8" cy="12" r="2" />
+  <rect x="2" y="6" width="20" height="12" rx="6" />
+</svg>
+
+
+
+                        <svg xmlns="http://www.w3.org/2000/svg" class="icon icon-tabler icon-tabler-toggle-right" width="24" height="24" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor" fill="none" stroke-linecap="round" stroke-linejoin="round">
+  <path stroke="none" d="M0 0h24v24H0z"/>
+  <circle cx="16" cy="12" r="2" />
+  <rect x="2" y="6" width="20" height="12" rx="6" />
+</svg>
+
+
+
+                        <span>暗色模式</span>
+                    </li>
+                
+            </ol>
+        </li>
+    </ol>
+</aside>
+
+    
+
+            <main class="main full-width">
+    <article class="main-article">
+    <header class="article-header">
+
+    <div class="article-details">
+    
+    <header class="article-category">
+        
+            <a href="/categories/%E5%95%86%E4%B8%9A.html" >
+                财富自由
+            </a>
+        
+    </header>
+    
+
+    <div class="article-title-wrapper">
+        <h2 class="article-title">
+            <a href="/business/aiplusxiaochengbenchuangyeshijianzongjie/chatgptchajiankaifa_xiaochengbenbianxianlujing.html">我也曾亏钱：ChatGPT插件开发，普通人如何低成本搞到第一桶金？</a>
+        </h2>
+    
+        
+    </div>
+
+    
+    
+    
+    
+    <footer class="article-time">
+        
+            <div>
+                <svg xmlns="http://www.w3.org/2000/svg" class="icon icon-tabler icon-tabler-calendar-time" width="56" height="56" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor" fill="none" stroke-linecap="round" stroke-linejoin="round">
+  <path stroke="none" d="M0 0h24v24H0z"/>
+  <path d="M11.795 21h-6.795a2 2 0 0 1 -2 -2v-12a2 2 0 0 1 2 -2h12a2 2 0 0 1 2 2v4" />
+  <circle cx="18" cy="18" r="4" />
+  <path d="M15 3v4" />
+  <path d="M7 3v4" />
+  <path d="M3 11h16" />
+  <path d="M18 16.496v1.504l1 1" />
+</svg>
+                <time class="article-time--published" datetime='2024-07-13T00:00:00Z'>Jul 13, 2024</time>
+            </div>
+        
+
+        
+            <div>
+                <svg xmlns="http://www.w3.org/2000/svg" class="icon icon-tabler icon-tabler-clock" width="24" height="24" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor" fill="none" stroke-linecap="round" stroke-linejoin="round">
+  <path stroke="none" d="M0 0h24v24H0z"/>
+  <circle cx="12" cy="12" r="9" />
+  <polyline points="12 7 12 12 15 15" />
+</svg>
+
+
+
+                <time class="article-time--reading">
+                    阅读时长: 1 分钟
+                </time>
+            </div>
+        
+    </footer>
+    
+
+    
+</div>
+
+</header>
+
+    <section class="article-content">
+    
+    
+    <p>也就是去年的这个时候，我差点把自己的副业搞黄了。</p>
+<p>那时候我觉得要搞就搞个大的，花了两周时间，熬夜写了一个&quot;全能型AI法律顾问&quot;，接入了OpenAI的API，功能堆得满满当当。结果呢？上线一个月，服务器费亏了200刀，付费用户只有个位数——还是我发朋友圈求来的友情赞助。</p>
+<p>为什么？因为我试图去解决一个&quot;我不懂&quot;且&quot;太宏大&quot;的问题。</p>
+<p><img src="https://picsum.photos/800/450?random=1768391216788"
+	
+	
+	
+	loading="lazy"
+	
+		alt="配图"
+	
+	
+></p>
+<p>直到后来，我把方向转到了一个个不起眼的&quot;小工具&quot;上，情况才开始逆转。现在的我，每周五下午都会雷打不动地抽出两个小时，专门用来复盘我那几个小插件的数据。</p>
+<p>很多人觉得开发AI插件是程序员的专利，或者需要几十万的投入。其实，对于想轻资产创业的普通人来说，<strong>&ldquo;小而美&quot;才是唯一的出路</strong>。</p>
+<p><img src="https://picsum.photos/800/450?random=1768391220029"
+	
+	
+	
+	loading="lazy"
+	
+		alt="配图"
+	
+	
+></p>
+<p>今天就不扯那些高大上的概念，单纯聊聊我踩坑换来的这条&quot;低成本变现路径&rdquo;。</p>
+<h2 id="别做瑞士军刀要做指甲刀">别做&quot;瑞士军刀&quot;，要做&quot;指甲刀&quot;
+</h2><p>这是大多数新手（包括之前的我）最容易掉进的坑：总想做一个无所不能的超级应用。</p>
+<p><strong>在这个赛道，贪大必死。</strong></p>
+<p>我有个做跨境电商的朋友老李，他之前想做一个&quot;AI电商运营全案系统&quot;，结果开发周期拖了三个月，还没上线，市场风向就变了。</p>
+<p>后来我们聊了一下午，我建议他砍掉90%的功能，只保留一个痛点：<strong>亚马逊Listing（商品详情页）的关键词埋词。</strong></p>
+<p>只要这个功能做得足够深，就能赚钱。</p>
+<p>于是他找人做了一个极简的Chrome插件：用户在浏览器里打开竞品的页面，点击一下，AI自动抓取标题和描述，分析出高频关键词，然后根据用户的草稿自动插入这些词。</p>
+<p><strong>结果复盘：</strong></p>
+<ul>
+<li><strong>开发成本：</strong> 找大学生兼职写的，花了不到2000块人民币，外加我也帮他调了调Prompt。</li>
+<li><strong>推广：</strong> 他混了几个电商卖家的微信群，发了个免费试用的链接。</li>
+<li><strong>收益：</strong> 采用&quot;免费试用5次，之后19.9元/月&quot;的订阅制。上线第二个月，这个不起眼的小工具给他带来了4000多的纯利润。</li>
+</ul>
+<blockquote>
+<p>很多时候，用户不需要一个钢铁侠，他们只需要一个能帮他拧开瓶盖的人。</p>
+</blockquote>
+<p><strong>怎么落地？</strong>
+如果你想做，千万别从&quot;我要改变世界&quot;出发。去看看你身边的人，哪个环节最繁琐、最机械？</p>
+<ul>
+<li>会计最烦发票录入？做一个OCR识别+自动分类插件。</li>
+<li>HR最烦筛选简历？做一个自动提取简历关键词并打分的GPTs。</li>
+</ul>
+<h2 id="代码能力不是门槛提问才是">代码能力不是门槛，&ldquo;提问&quot;才是
+</h2><p>看到这里，你可能会说：&ldquo;我不会写代码啊，这怎么低成本？&rdquo;</p>
+<p>现在的开发逻辑已经变了。以前是人写代码，现在是<strong>人教AI写代码</strong>。</p>
+<p>我目前手头维护着3个小插件，其中有一个是&quot;网页长文一键生成思维导图&rdquo;。说实话，对于前端的SVG渲染逻辑，我一窍不通。</p>
+<p>我是怎么做出来的？我全程用了 <code>Cursor</code>（一个集成了AI的代码编辑器）。</p>
+<p>我的操作流程是这样的：</p>
+<ol>
+<li>我用大白话告诉AI：&ldquo;我要写一个Chrome插件，功能是读取当前页面的文本，发给GPT-4，返回Markdown格式，然后把这个格式渲染成思维导图。&rdquo;</li>
+<li>AI 给了我一段代码。</li>
+<li>我运行，报错了。</li>
+<li>我把报错信息复制给AI：&ldquo;报错了，显示XX变量未定义。&rdquo;</li>
+<li>AI 修正代码，我再运行。</li>
+</ol>
+<p><strong>真实数据：</strong>
+这个&quot;思维导图&quot;插件，核心代码大概400行。我只手动改了不到10行（主要是改配置文件的API Key位置），剩下的全靠复制粘贴。</p>
+<div class="highlight"><pre tabindex="0" style="color:#f8f8f2;background-color:#272822;-moz-tab-size:4;-o-tab-size:4;tab-size:4;"><code class="language-javascript" data-lang="javascript"><span style="display:flex;"><span><span style="color:#75715e">// 比如这段核心的API调用代码，完全是AI生成的
+</span></span></span><span style="display:flex;"><span><span style="color:#75715e"></span><span style="color:#66d9ef">async</span> <span style="color:#66d9ef">function</span> <span style="color:#a6e22e">fetchSummary</span>(<span style="color:#a6e22e">text</span>) {
+</span></span><span style="display:flex;"><span>  <span style="color:#66d9ef">const</span> <span style="color:#a6e22e">response</span> <span style="color:#f92672">=</span> <span style="color:#66d9ef">await</span> <span style="color:#a6e22e">fetch</span>(<span style="color:#e6db74">&#39;https://api.openai.com/v1/chat/completions&#39;</span>, {
+</span></span><span style="display:flex;"><span>    <span style="color:#a6e22e">method</span><span style="color:#f92672">:</span> <span style="color:#e6db74">&#39;POST&#39;</span>,
+</span></span><span style="display:flex;"><span>    <span style="color:#a6e22e">headers</span><span style="color:#f92672">:</span> {
+</span></span><span style="display:flex;"><span>      <span style="color:#e6db74">&#39;Authorization&#39;</span><span style="color:#f92672">:</span> <span style="color:#e6db74">`Bearer </span><span style="color:#e6db74">${</span><span style="color:#a6e22e">API_KEY</span><span style="color:#e6db74">}</span><span style="color:#e6db74">`</span>,
+</span></span><span style="display:flex;"><span>      <span style="color:#e6db74">&#39;Content-Type&#39;</span><span style="color:#f92672">:</span> <span style="color:#e6db74">&#39;application/json&#39;</span>
+</span></span><span style="display:flex;"><span>    },
+</span></span><span style="display:flex;"><span>    <span style="color:#a6e22e">body</span><span style="color:#f92672">:</span> <span style="color:#a6e22e">JSON</span>.<span style="color:#a6e22e">stringify</span>({
+</span></span><span style="display:flex;"><span>      <span style="color:#a6e22e">model</span><span style="color:#f92672">:</span> <span style="color:#e6db74">&#34;gpt-3.5-turbo&#34;</span>,
+</span></span><span style="display:flex;"><span>      <span style="color:#a6e22e">messages</span><span style="color:#f92672">:</span> [{<span style="color:#e6db74">&#34;role&#34;</span><span style="color:#f92672">:</span> <span style="color:#e6db74">&#34;user&#34;</span>, <span style="color:#e6db74">&#34;content&#34;</span><span style="color:#f92672">:</span> <span style="color:#e6db74">`Summarize this for a mind map: </span><span style="color:#e6db74">${</span><span style="color:#a6e22e">text</span><span style="color:#e6db74">}</span><span style="color:#e6db74">`</span>}]
+</span></span><span style="display:flex;"><span>    })
+</span></span><span style="display:flex;"><span>  });
+</span></span><span style="display:flex;"><span>  <span style="color:#66d9ef">return</span> <span style="color:#66d9ef">await</span> <span style="color:#a6e22e">response</span>.<span style="color:#a6e22e">json</span>();
+</span></span><span style="display:flex;"><span>}
+</span></span></code></pre></div><p>如果你连代码编辑器都不想装，现在的 <strong>GPTs（OpenAI的自定义GPT）</strong> 更是零代码门槛。</p>
+<p>我见过一个做小红书文案生成的GPTs，作者只是精心打磨了一套3000字的Prompt（提示词），教会AI如何模仿&quot;小红书味儿&quot;（emoji、语气、标签），然后把这个GPTs放在专门的导航站或者知识星球里通过&quot;卖门票&quot;变现。</p>
+<p><strong>避坑指南：</strong>
+千万别为了学编程而去报几千块的班。对于想做副业的你来说，<strong>理解程序的逻辑（输入-处理-输出）比背诵语法重要一万倍。</strong></p>
+<h2 id="变现不只有卖会员这一条路">变现不只有&quot;卖会员&quot;这一条路
+</h2><p>把工具做出来了，怎么收钱？这是最现实的问题。</p>
+<p>很多人一上来就想搞SaaS订阅制（每月收钱），但这对于没有品牌背书的个人开发者来说，信任成本太高了。</p>
+<p><img src="https://picsum.photos/800/450?random=1768391223523"
+	
+	
+	
+	loading="lazy"
+	
+		alt="配图"
+	
+	
+></p>
+<p>我尝试过三种模式，分享一下我的实测转化率：</p>
+<p><strong>1. 订阅制（每月9.9元）：</strong>
+转化率极低，不到0.5%。用户会想：&ldquo;我凭什么每个月都要付钱给你这个不知名的小插件？&rdquo;</p>
+<p><strong>2. 买断制（一次性19.9元）：</strong>
+转化率提升到2%左右。大家觉得也就是一杯奶茶钱，被骗也就认了，心理负担小。</p>
+<p><strong>3. API Key自带模式（免费工具 + 卖教程/卖Prompt）：</strong>
+这是我现在最推荐的<strong>轻资产玩法</strong>。</p>
+<p>你开发的插件完全免费，但是用户需要填入他们自己的OpenAI API Key才能用。</p>
+<ul>
+<li><strong>好处：</strong> 你没有任何服务器成本，不用担心OpenAI扣你的费。</li>
+<li><strong>盈利点：</strong> 你在插件界面留一个入口——&ldquo;不知道怎么申请Key？不知道怎么写好用的提示词？购买我的《AI效率手册》或《行业专用Prompt包》，仅需9.9元。&rdquo;</li>
+</ul>
+<p>我之前做了一个&quot;周报润色器&quot;，工具免费，但是我打包了一份《100个职场高情商回复模板》，放在面包多（一个数字内容售卖平台）上卖，转化率竟然做到了8%！</p>
+<blockquote>
+<p>用户其实不是不愿意付费，他们只是不愿意为&quot;不确定的服务&quot;付费，但愿意为&quot;确定的结果&quot;（比如那个模板包）买单。</p>
+</blockquote>
+<hr>
+<h2 id="写在最后的小思考">写在最后的小思考
+</h2><p>读到这里，<strong>你有没有发现自己其实也有这样的思维误区：总觉得要准备好了再出发，总觉得技术才是壁垒？</strong></p>
+<p>其实在AI时代，<strong>对场景的敏感度</strong>才是最大的壁垒。</p>
+<p>如果你想在这个周末就开始尝试，我给你3个马上能落地的建议：</p>
+<ol>
+<li><strong>做减法：</strong> 这一周工作中，哪个环节让你觉得&quot;又来了，好烦&quot;？把它记录下来，这大概率就是一个插件的需求点。</li>
+<li><strong>先验证：</strong> 不要写代码。先用ChatGPT对话框手动跑通这个流程。如果你自己都觉得手动复制粘贴很麻烦，再考虑做成插件。</li>
+<li><strong>找对标：</strong> 去Chrome应用商店或者GPT Store搜一下类似关键词。如果有人在做，且评价一般，那就是你的机会；如果没有人在做，大概率是个伪需求，请慎重。</li>
+</ol>
+<p>这一行，行动力比完美主义值钱得多。别等了，先搞个最小能用的版本（MVP）出来再说。</p>
+
+</section>
+
+
+    <footer class="article-footer">
+    
+    <section class="article-tags">
+        
+            <a href="/tags/ChatGPT%E6%8F%92%E4%BB%B6%E5%BC%80%E5%8F%91%E5%B0%8F%E6%88%90%E6%9C%AC%E5%8F%98%E7%8E%B0%E8%B7%AF%E5%BE%84.html">ChatGPT插件开发：小成本变现路径</a>
+        
+    </section>
+
+
+    </footer>
+
+
+    
+</article>
+
+    
+
+    
+
+     
+    
+        
+    <script
+    src="https://giscus.app/client.js"
+    data-repo="pastor17/bloggiscus"
+    data-repo-id="R_kgDOQ6H9qQ"
+    data-category=""
+    data-category-id="DIC_kwDOQ6H9qc4C0-T8"
+    data-mapping="pathname"
+    data-strict="0"
+    data-reactions-enabled="1"
+    data-emit-metadata="0"
+    data-input-position="bottom"
+    data-theme="light"
+    data-lang="zh-CN"
+    data-loading="lazy"
+    crossorigin="anonymous"
+    async
+></script>
+<script>
+    function setGiscusTheme(theme) {
+        let giscus = document.querySelector("iframe.giscus-frame");
+        if (giscus) {
+            giscus.contentWindow.postMessage(
+                {
+                    giscus: {
+                        setConfig: {
+                            theme: theme,
+                        },
+                    },
+                },
+                "https://giscus.app"
+            );
+        }
+    }
+
+    (function () {
+        addEventListener("message", (e) => {
+            if (event.origin !== "https://giscus.app") return;
+            handler();
+        });
+        window.addEventListener("onColorSchemeChange", handler);
+
+        function handler() {
+            if (document.documentElement.dataset.scheme === "light") {
+                setGiscusTheme('light');
+            } else {
+                setGiscusTheme('dark_dimmed');
+            }
+        }
+    })();
+</script>
+
+    
+
+    <footer class="site-footer">
+    <section class="copyright">
+        &copy; 
+        
+        2026 SelfTechHub
+    </section>
+    
+    <section class="powerby">
+        
+
+    </section>
+</footer>
+
+
+    
+<div class="pswp" tabindex="-1" role="dialog" aria-hidden="true">
+
+    
+    <div class="pswp__bg"></div>
+
+    
+    <div class="pswp__scroll-wrap">
+
+        
+        <div class="pswp__container">
+            <div class="pswp__item"></div>
+            <div class="pswp__item"></div>
+            <div class="pswp__item"></div>
+        </div>
+
+        
+        <div class="pswp__ui pswp__ui--hidden">
+
+            <div class="pswp__top-bar">
+
+                
+
+                <div class="pswp__counter"></div>
+
+                <button class="pswp__button pswp__button--close" title="Close (Esc)"></button>
+
+                <button class="pswp__button pswp__button--share" title="Share"></button>
+
+                <button class="pswp__button pswp__button--fs" title="Toggle fullscreen"></button>
+
+                <button class="pswp__button pswp__button--zoom" title="Zoom in/out"></button>
+
+                
+                
+                <div class="pswp__preloader">
+                    <div class="pswp__preloader__icn">
+                        <div class="pswp__preloader__cut">
+                            <div class="pswp__preloader__donut"></div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <div class="pswp__share-modal pswp__share-modal--hidden pswp__single-tap">
+                <div class="pswp__share-tooltip"></div>
+            </div>
+
+            <button class="pswp__button pswp__button--arrow--left" title="Previous (arrow left)">
+            </button>
+
+            <button class="pswp__button pswp__button--arrow--right" title="Next (arrow right)">
+            </button>
+
+            <div class="pswp__caption">
+                <div class="pswp__caption__center"></div>
+            </div>
+
+        </div>
+
+    </div>
+
+</div><script 
+                src="https://cdn.jsdelivr.net/npm/photoswipe@4.1.3/dist/photoswipe.min.js"integrity="sha256-ePwmChbbvXbsO02lbM3HoHbSHTHFAeChekF1xKJdleo="crossorigin="anonymous"
+                defer
+                >
+            </script><script 
+                src="https://cdn.jsdelivr.net/npm/photoswipe@4.1.3/dist/photoswipe-ui-default.min.js"integrity="sha256-UKkzOn/w1mBxRmLLGrSeyB4e1xbrp4xylgAWb3M42pU="crossorigin="anonymous"
+                defer
+                >
+            </script><link 
+                rel="stylesheet" 
+                href="https://cdn.jsdelivr.net/npm/photoswipe@4.1.3/dist/default-skin/default-skin.min.css"crossorigin="anonymous"
+            ><link 
+                rel="stylesheet" 
+                href="https://cdn.jsdelivr.net/npm/photoswipe@4.1.3/dist/photoswipe.min.css"crossorigin="anonymous"
+            >
+    
+
+            </main>
+        </div>
+        <script 
+                src="https://cdn.jsdelivr.net/npm/node-vibrant@3.1.6/dist/vibrant.min.js"integrity="sha256-awcR2jno4kI5X0zL8ex0vi2z&#43;KMkF24hUW8WePSA9HM="crossorigin="anonymous"
+                
+                >
+            </script><script type="text/javascript" src="/ts/main.c922af694cc257bf1ecc41c0dd7b0430f9114ec280ccf67cd2c6ad55f5316c4e.js" defer></script>
+<script>
+    (function () {
+        const customFont = document.createElement('link');
+        customFont.href = "https://fonts.googleapis.com/css2?family=Lato:wght@300;400;700&display=swap";
+
+        customFont.type = "text/css";
+        customFont.rel = "stylesheet";
+
+        document.head.appendChild(customFont);
+    }());
+</script>
+
+    </body>
+</html>

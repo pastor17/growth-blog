@@ -1,0 +1,140 @@
+<?xml version="1.0" encoding="utf-8" standalone="yes"?>
+<rss version="2.0" xmlns:atom="http://www.w3.org/2005/Atom">
+    <channel>
+        <title>代码评审：高效且不伤人的方法 on SelfTechHub</title>
+        <link>https://blog.irudder.me/tags/%E4%BB%A3%E7%A0%81%E8%AF%84%E5%AE%A1%E9%AB%98%E6%95%88%E4%B8%94%E4%B8%8D%E4%BC%A4%E4%BA%BA%E7%9A%84%E6%96%B9%E6%B3%95.html</link>
+        <description>Recent content in 代码评审：高效且不伤人的方法 on SelfTechHub</description>
+        <generator>Hugo -- gohugo.io</generator>
+        <language>zh-cn</language>
+        <lastBuildDate>Tue, 21 Nov 2023 00:00:00 +0000</lastBuildDate><atom:link href="https://blog.irudder.me/tags/%E4%BB%A3%E7%A0%81%E8%AF%84%E5%AE%A1%E9%AB%98%E6%95%88%E4%B8%94%E4%B8%8D%E4%BC%A4%E4%BA%BA%E7%9A%84%E6%96%B9%E6%B3%95/index.xml" rel="self" type="application/rss+xml" /><item>
+        <title>不做&#34;代码警察&#34;！3招让Code Review提效50%且不伤人</title>
+        <link>https://blog.irudder.me/tech/danxiangmuquanliuchengchaijie10fenzhongkedu/daimapingshen_gaoxiaoqiebushangrendefangfa.html</link>
+        <pubDate>Tue, 21 Nov 2023 00:00:00 +0000</pubDate>
+        
+        <guid>https://blog.irudder.me/tech/danxiangmuquanliuchengchaijie10fenzhongkedu/daimapingshen_gaoxiaoqiebushangrendefangfa.html</guid>
+        <description>&lt;p&gt;说实话，我曾经非常讨厌代码评审（Code Review，简称CR）。&lt;/p&gt;
+&lt;p&gt;&lt;img src=&#34;https://picsum.photos/800/450?random=1768449837130&#34;
+	
+	
+	
+	loading=&#34;lazy&#34;
+	
+		alt=&#34;配图&#34;
+	
+	
+&gt;&lt;/p&gt;
+&lt;p&gt;大概三年前，我刚带一个小团队时，我觉得自己责任重大，必须把控每一行代码的质量。于是，我化身成了无情的&amp;quot;找茬机器&amp;quot;。每次CR，我都会在同事的PR（Pull Request）下留几十条评论：&lt;/p&gt;
+&lt;blockquote&gt;
+&lt;p&gt;&amp;ldquo;这里缩进不对。&amp;rdquo;
+&amp;ldquo;变量名拼错了。&amp;rdquo;
+&amp;ldquo;这行代码太丑了，重写。&amp;rdquo;&lt;/p&gt;
+&lt;/blockquote&gt;
+&lt;p&gt;结果呢？团队气氛降到了冰点。大家看到我走过来都想躲，提交代码时更是战战兢兢，生怕被我当众&amp;quot;处刑&amp;quot;。更糟糕的是，在这种高压对抗下，由于大家把精力都花在和我争论格式问题上，一个严重的逻辑漏洞反而被漏掉了，导致上线当晚生产环境直接宕机。&lt;/p&gt;
+&lt;p&gt;&lt;img src=&#34;https://picsum.photos/800/450?random=1768449834494&#34;
+	
+	
+	
+	loading=&#34;lazy&#34;
+	
+		alt=&#34;配图&#34;
+	
+	
+&gt;&lt;/p&gt;
+&lt;p&gt;那一刻我才明白：&lt;strong&gt;一旦CR变成了&amp;quot;找茬&amp;quot;，效率和质量都会崩盘。&lt;/strong&gt;&lt;/p&gt;
+&lt;p&gt;对于咱们中小团队来说，资源本来就紧，大家都是兄弟，抬头不见低头见。怎么才能既保证代码质量，又不伤感情，还能把效率提上去？今天我想复盘那次惨痛经历后，我摸索出的三个&amp;quot;落地&amp;quot;方法。&lt;/p&gt;
+&lt;h2 id=&#34;一把机器能做的交给机器人只看逻辑&#34;&gt;一、把&amp;quot;机器能做的&amp;quot;交给机器，人只看逻辑
+&lt;/h2&gt;&lt;p&gt;很多团队CR做不下去，最大的阻力就是**&amp;ldquo;琐碎&amp;rdquo;**。&lt;/p&gt;
+&lt;p&gt;我有段时间每天要花2个小时在CR上，其中80%的时间都在纠结：为什么你不加分号？为什么你的花括号换行了？这种争论毫无意义，而且极易引发情绪对立。&lt;/p&gt;
+&lt;p&gt;&lt;strong&gt;观点：&lt;/strong&gt; 人的精力是昂贵的，不应该用来当&amp;quot;人肉语法检查器&amp;quot;。&lt;/p&gt;
+&lt;p&gt;&lt;strong&gt;真实案例：&lt;/strong&gt;
+当时组里有个刚毕业的小伙子小王，技术不错，就是代码风格狂放不羁。我每次都要在评论区给他捉几十个格式虫子，他也很委屈：&amp;ldquo;哥，这功能跑起来没问题啊，你老盯着空格干嘛？&amp;rdquo;&lt;/p&gt;
+&lt;p&gt;后来我痛定思痛，花半天时间在项目里强制接入了 ESLint + Prettier，并配置了 &lt;code&gt;husky&lt;/code&gt; 在提交前自动修复格式。&lt;/p&gt;
+&lt;p&gt;&lt;strong&gt;效果立竿见影：&lt;/strong&gt;
+第二天小王再提交代码，我打开一看，清清爽爽。我不再需要关注缩进、分号、单双引号这些皮毛，直接把精力集中在：&lt;/p&gt;
+&lt;ul&gt;
+&lt;li&gt;&lt;strong&gt;业务逻辑对不对？&lt;/strong&gt;&lt;/li&gt;
+&lt;li&gt;&lt;strong&gt;有没有潜在的死循环？&lt;/strong&gt;&lt;/li&gt;
+&lt;li&gt;&lt;strong&gt;数据库查询有没有性能隐患？&lt;/strong&gt;&lt;/li&gt;
+&lt;/ul&gt;
+&lt;p&gt;&lt;strong&gt;落地方法：&lt;/strong&gt;
+不要靠口头约定代码规范，没人记得住。&lt;/p&gt;
+&lt;ol&gt;
+&lt;li&gt;&lt;strong&gt;统一配置&lt;/strong&gt;：在项目根目录配置好 Lint 工具。&lt;/li&gt;
+&lt;li&gt;&lt;strong&gt;强制执行&lt;/strong&gt;：使用 &lt;code&gt;pre-commit&lt;/code&gt; 钩子，格式不通过直接不让提交。&lt;/li&gt;
+&lt;/ol&gt;
+&lt;div class=&#34;highlight&#34;&gt;&lt;pre tabindex=&#34;0&#34; style=&#34;color:#f8f8f2;background-color:#272822;-moz-tab-size:4;-o-tab-size:4;tab-size:4;&#34;&gt;&lt;code class=&#34;language-json&#34; data-lang=&#34;json&#34;&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;&lt;span style=&#34;color:#75715e&#34;&gt;// package.json 示例片段
+&lt;/span&gt;&lt;/span&gt;&lt;/span&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;&lt;span style=&#34;color:#75715e&#34;&gt;&lt;/span&gt;&lt;span style=&#34;color:#e6db74&#34;&gt;&amp;#34;husky&amp;#34;&lt;/span&gt;&lt;span style=&#34;color:#960050;background-color:#1e0010&#34;&gt;:&lt;/span&gt; {
+&lt;/span&gt;&lt;/span&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;  &lt;span style=&#34;color:#f92672&#34;&gt;&amp;#34;hooks&amp;#34;&lt;/span&gt;: {
+&lt;/span&gt;&lt;/span&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;    &lt;span style=&#34;color:#f92672&#34;&gt;&amp;#34;pre-commit&amp;#34;&lt;/span&gt;: &lt;span style=&#34;color:#e6db74&#34;&gt;&amp;#34;lint-staged&amp;#34;&lt;/span&gt; &lt;span style=&#34;color:#75715e&#34;&gt;// 提交前自动扫描并修复
+&lt;/span&gt;&lt;/span&gt;&lt;/span&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;&lt;span style=&#34;color:#75715e&#34;&gt;&lt;/span&gt;  }
+&lt;/span&gt;&lt;/span&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;}
+&lt;/span&gt;&lt;/span&gt;&lt;/code&gt;&lt;/pre&gt;&lt;/div&gt;&lt;p&gt;当你把&amp;quot;找茬&amp;quot;的任务甩给工具，你作为评审人，就不再是&amp;quot;警察&amp;quot;，而是帮忙查漏补缺的&amp;quot;队友&amp;quot;。&lt;/p&gt;
+&lt;h2 id=&#34;二换种说话方式把你应该改成我们或许可以&#34;&gt;二、换种说话方式：把&amp;quot;你应该&amp;quot;改成&amp;quot;我们或许可以&amp;quot;
+&lt;/h2&gt;&lt;p&gt;解决了工具问题，剩下就是人的问题了。&lt;/p&gt;
+&lt;p&gt;很多技术大牛在CR时喜欢居高临下，觉得代码写得烂就是能力不行。但你要知道，代码是程序员的&amp;quot;孩子&amp;quot;，你直接说&amp;quot;这孩子长得丑&amp;quot;，谁都会急眼。&lt;/p&gt;
+&lt;p&gt;&lt;strong&gt;观点：&lt;/strong&gt; CR的目的是&lt;strong&gt;代码改进&lt;/strong&gt;和&lt;strong&gt;知识共享&lt;/strong&gt;，而不是&lt;strong&gt;智力碾压&lt;/strong&gt;。&lt;/p&gt;
+&lt;p&gt;&lt;img src=&#34;https://picsum.photos/800/450?random=1768449833074&#34;
+	
+	
+	
+	loading=&#34;lazy&#34;
+	
+		alt=&#34;配图&#34;
+	
+	
+&gt;&lt;/p&gt;
+&lt;p&gt;&lt;strong&gt;踩坑经历：&lt;/strong&gt;
+我以前特别喜欢用祈使句：&amp;ldquo;把这个循环改成Map&amp;rdquo;、&amp;ldquo;这里判空逻辑不对，改掉&amp;rdquo;。
+有一次，一位老员工直接在周会上拍桌子：&amp;ldquo;你这种语气，我觉得你在针对我。&amp;rdquo;&lt;/p&gt;
+&lt;p&gt;那次冲突后，我强迫自己改变提建议的&amp;quot;话术&amp;quot;。我发现，只要把主语从**&amp;ldquo;你&amp;rdquo;（You）&lt;strong&gt;换成&lt;/strong&gt;&amp;ldquo;我们&amp;rdquo;（We）&lt;strong&gt;，把&lt;/strong&gt;命令&lt;strong&gt;换成&lt;/strong&gt;疑问**，由于心理防御机制的降低，对方的接受度会高出好几个量级。&lt;/p&gt;
+&lt;p&gt;&lt;strong&gt;对比一下这两种说法：&lt;/strong&gt;&lt;/p&gt;
+&lt;ul&gt;
+&lt;li&gt;❌ &lt;strong&gt;伤人版&lt;/strong&gt;：&amp;ldquo;这个函数写得太长了，很难维护，拆分一下。&amp;quot;（潜台词：你写得烂。）&lt;/li&gt;
+&lt;li&gt;✅ &lt;strong&gt;高效版&lt;/strong&gt;：&amp;ldquo;我看这个函数逻辑有点复杂，&lt;strong&gt;我们&lt;/strong&gt;是不是可以把它拆分成几个小函数，这样&lt;strong&gt;大家&lt;/strong&gt;以后维护起来会更方便？&amp;quot;（潜台词：为了团队好，咱们一起优化。）&lt;/li&gt;
+&lt;/ul&gt;
+&lt;p&gt;&lt;strong&gt;再比如性能问题：&lt;/strong&gt;&lt;/p&gt;
+&lt;ul&gt;
+&lt;li&gt;❌ &lt;strong&gt;伤人版&lt;/strong&gt;：&amp;ldquo;这里用双重循环会卡死，必须改。&amp;rdquo;&lt;/li&gt;
+&lt;li&gt;✅ &lt;strong&gt;高效版&lt;/strong&gt;：&amp;ldquo;我不确定当数据量达到1万条时，这里会不会有性能瓶颈？&lt;strong&gt;你有考虑过&lt;/strong&gt;换成哈希表来处理吗？&amp;rdquo;&lt;/li&gt;
+&lt;/ul&gt;
+&lt;p&gt;&lt;strong&gt;落地方法：&lt;/strong&gt;
+这就叫&amp;quot;Praise Sandwich&amp;rdquo;（三明治沟通法）的变体。&lt;/p&gt;
+&lt;ol&gt;
+&lt;li&gt;&lt;strong&gt;先肯定&lt;/strong&gt;：如果代码写得好，不要吝啬赞美（&amp;ldquo;这个正则写得真漂亮！&amp;quot;）。&lt;/li&gt;
+&lt;li&gt;&lt;strong&gt;再建议&lt;/strong&gt;：用询问的语气提出改进点。&lt;/li&gt;
+&lt;li&gt;&lt;strong&gt;给理由&lt;/strong&gt;：一定要解释&lt;strong&gt;为什么&lt;/strong&gt;要改（是为了性能、可读性，还是扩展性？），而不是&amp;quot;因为我说了算&amp;rdquo;。&lt;/li&gt;
+&lt;/ol&gt;
+&lt;p&gt;自从我改了说话方式，团队里的技术讨论氛围明显变好了，大家甚至开始期待我在CR里留下的&amp;quot;骚操作&amp;quot;建议。&lt;/p&gt;
+&lt;h2 id=&#34;三拒绝大爆炸式提交设定400行红线&#34;&gt;三、拒绝&amp;quot;大爆炸&amp;quot;式提交，设定&amp;quot;400行&amp;quot;红线
+&lt;/h2&gt;&lt;p&gt;这是中小团队最容易踩的坑：&lt;strong&gt;憋大招&lt;/strong&gt;。&lt;/p&gt;
+&lt;p&gt;很多项目经理喜欢催进度，开发人员就闷头写代码，写了一周，周五下午快下班了，突然甩出一个包含 50 个文件、改动了 2000 行代码的 PR，然后喊一声：&amp;ldquo;哥，帮忙过一下，急着上线！&amp;rdquo;&lt;/p&gt;
+&lt;p&gt;&lt;strong&gt;观点：&lt;/strong&gt; 超过400行的代码变更，人类的大脑是无法有效处理的。&lt;/p&gt;
+&lt;p&gt;&lt;strong&gt;真实案例：&lt;/strong&gt;
+就是文章开头提到的那次事故。当时因为赶工期，核心开发老张一次性提交了整个订单模块的重构代码。我看了一周的代码已经头昏脑涨，面对这几千行代码，我根本没心思细看，心想&amp;quot;老张是老手了，应该没问题&amp;rdquo;，于是只花了5分钟扫了一眼就点了 &lt;code&gt;Approve&lt;/code&gt;。&lt;/p&gt;
+&lt;p&gt;结果，里面藏了一个极深的逻辑漏洞：在特定并发场景下，库存扣减不一致。如果我当时是一点点看的，大概率能发现；但混在几千行代码里，神仙也看不出来。&lt;/p&gt;
+&lt;p&gt;&lt;strong&gt;落地方法：&lt;/strong&gt;
+后来我给团队定了一条死规矩：&lt;strong&gt;&amp;ldquo;Small CLs&amp;rdquo;（小粒度提交）。&lt;/strong&gt;&lt;/p&gt;
+&lt;ol&gt;
+&lt;li&gt;&lt;strong&gt;拆分任务&lt;/strong&gt;：一个功能如果需要写3天，那就拆成3个甚至6个小任务。&lt;/li&gt;
+&lt;li&gt;&lt;strong&gt;设定红线&lt;/strong&gt;：单个PR尽量控制在 &lt;strong&gt;200-400行&lt;/strong&gt; 变动以内。&lt;/li&gt;
+&lt;li&gt;&lt;strong&gt;日清日毕&lt;/strong&gt;：每天都要提交代码，每天都要做CR。不要堆到周五下午。&lt;/li&gt;
+&lt;/ol&gt;
+&lt;p&gt;这就像批改作业，改一篇作文很容易，但让你一口气改完一个班的作文，你只会想随便打个分了事。&lt;/p&gt;
+&lt;hr&gt;
+&lt;h2 id=&#34;总结与行动&#34;&gt;总结与行动
+&lt;/h2&gt;&lt;p&gt;回过头看，高效且不伤人的代码评审，核心其实就一句话：&lt;strong&gt;对事不对人，机器能干的机器干，人只负责思考。&lt;/strong&gt;&lt;/p&gt;
+&lt;p&gt;当我们把情绪对抗拿掉，把机械劳动拿掉，剩下的才是 Code Review 真正的价值——它是一次次微型的技术分享会，是你拉着队友的手，帮他避开前面那个坑。&lt;/p&gt;
+&lt;p&gt;如果你现在的团队里 CR 推行得很痛苦，不妨试着从这三步开始改变：&lt;/p&gt;
+&lt;ol&gt;
+&lt;li&gt;&lt;strong&gt;本周行动&lt;/strong&gt;：花1小时配置好 ESLint/Prettier，并确保全员同步。&lt;/li&gt;
+&lt;li&gt;&lt;strong&gt;沟通微调&lt;/strong&gt;：下一次评论时，试着把&amp;quot;你为什么&amp;quot;改成&amp;quot;我们是否可以&amp;quot;，看看对方的反应。&lt;/li&gt;
+&lt;li&gt;&lt;strong&gt;流程优化&lt;/strong&gt;：拒绝下一个超过 800 行的巨型 PR，要求对方拆分后再看。&lt;/li&gt;
+&lt;/ol&gt;
+&lt;p&gt;&lt;strong&gt;最后想问问大家：&lt;/strong&gt;
+在你经历过的代码评审中，有没有哪一句评论让你印象最深刻（不管是让你醍醐灌顶的，还是让你想顺着网线打人的）？&lt;/p&gt;
+&lt;p&gt;欢迎在评论区里吐槽或分享，咱们一起避坑！&lt;/p&gt;
+</description>
+        </item>
+        
+    </channel>
+</rss>

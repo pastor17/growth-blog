@@ -1,0 +1,170 @@
+<?xml version="1.0" encoding="utf-8" standalone="yes"?>
+<rss version="2.0" xmlns:atom="http://www.w3.org/2005/Atom">
+    <channel>
+        <title>Jenkins/GitLab CI流水线搭建保姆级教程 on SelfTechHub</title>
+        <link>https://blog.irudder.me/tags/Jenkins/GitLab-CI%E6%B5%81%E6%B0%B4%E7%BA%BF%E6%90%AD%E5%BB%BA%E4%BF%9D%E5%A7%86%E7%BA%A7%E6%95%99%E7%A8%8B.html</link>
+        <description>Recent content in Jenkins/GitLab CI流水线搭建保姆级教程 on SelfTechHub</description>
+        <generator>Hugo -- gohugo.io</generator>
+        <language>zh-cn</language>
+        <lastBuildDate>Wed, 03 Jun 2020 00:00:00 +0000</lastBuildDate><atom:link href="https://blog.irudder.me/tags/Jenkins/GitLab-CI%E6%B5%81%E6%B0%B4%E7%BA%BF%E6%90%AD%E5%BB%BA%E4%BF%9D%E5%A7%86%E7%BA%A7%E6%95%99%E7%A8%8B/index.xml" rel="self" type="application/rss+xml" /><item>
+        <title>凌晨3点回滚代码后，我重构了这套CI/CD流水线</title>
+        <link>https://blog.irudder.me/tech/devopsjichugongjurumenyushicao/jenkins_gitlab-ciliushuixiandajianbaomujijiaocheng.html</link>
+        <pubDate>Wed, 03 Jun 2020 00:00:00 +0000</pubDate>
+        
+        <guid>https://blog.irudder.me/tech/devopsjichugongjurumenyushicao/jenkins_gitlab-ciliushuixiandajianbaomujijiaocheng.html</guid>
+        <description>&lt;p&gt;很多年前，我经历过一次堪称“噩梦”的发布事故。&lt;/p&gt;
+&lt;p&gt;那时我们团队还在用“半自动化”脚本发布：本地打包jar包，FTP上传服务器，手动重启脚本。某天凌晨上线，因为我的本地JDK版本和服务器不一致，导致服务启动后隐蔽报错。排查、回滚、重新打包，折腾到凌晨3点，整个人都在发抖。&lt;/p&gt;
+&lt;p&gt;那一刻我意识到：&lt;strong&gt;依赖人的记性和手速去发布代码，是系统稳定性的最大隐患。&lt;/strong&gt;&lt;/p&gt;
+&lt;p&gt;后来我花了两个周末，把团队的发布流程从“刀耕火种”迁移到了标准化的CI/CD流水线上。结果是惊人的：部署频率从每周1次变成了每天10次，回滚时间从30分钟缩短到了30秒。&lt;/p&gt;
+&lt;p&gt;这篇文章不讲那些虚无缥缈的概念，我把这几年在中小团队落地Jenkins和GitLab CI摸索出的“保姆级”框架分享给你。&lt;/p&gt;
+&lt;h2 id=&#34;告别人工智障拥抱不可变基础设施&#34;&gt;告别“人工智障”，拥抱“不可变基础设施”
+&lt;/h2&gt;&lt;p&gt;&lt;img src=&#34;https://picsum.photos/800/450?random=1768387659579&#34;
+	
+	
+	
+	loading=&#34;lazy&#34;
+	
+		alt=&#34;配图&#34;
+	
+	
+&gt;&lt;/p&gt;
+&lt;p&gt;很多运维新手搭建流水线时，容易陷入一个误区：把CI工具仅仅当作一个“远程执行脚本”的工具。&lt;/p&gt;
+&lt;p&gt;比如，在Jenkins里写一堆Shell脚本，连到服务器上去&lt;code&gt;git pull&lt;/code&gt;，然后&lt;code&gt;mvn clean install&lt;/code&gt;。这其实是“伪CI”。一旦服务器环境被谁偷偷改了个配置，流水线立马炸锅。&lt;/p&gt;
+&lt;p&gt;&lt;strong&gt;真实的痛点是环境一致性问题。&lt;/strong&gt;&lt;/p&gt;
+&lt;p&gt;我之前带过一个电商项目，开发环境一切正常，上线就报&lt;code&gt;ClassNotDefFound&lt;/code&gt;。查了一整天，发现是运维在生产环境手动装了个老版本的依赖库。&lt;/p&gt;
+&lt;p&gt;从那之后，我强制推行&lt;strong&gt;基于Docker的流水线构建&lt;/strong&gt;。&lt;/p&gt;
+&lt;p&gt;在此逻辑下，我们的流水线不再依赖物理机的环境，而是“自带环境”。&lt;/p&gt;
+&lt;blockquote&gt;
+&lt;p&gt;&lt;strong&gt;核心思路&lt;/strong&gt;：所有的构建（Build）、测试（Test）都在容器内完成。产出的不再是jar/war包，而是一个Docker镜像。&lt;/p&gt;
+&lt;/blockquote&gt;
+&lt;p&gt;采用这种方式后，我们团队的故障率下降了80%。因为只要镜像在测试环境跑通了，推到生产环境就一定能跑通，这就是“不可变基础设施”的魅力。&lt;/p&gt;
+&lt;h2 id=&#34;jenkins还是gitlab-ci成年人不做选择看场景&#34;&gt;Jenkins还是GitLab CI？成年人不做选择，看场景
+&lt;/h2&gt;&lt;p&gt;这大概是读者问我最多的问题。我的建议非常直接：&lt;/p&gt;
+&lt;ul&gt;
+&lt;li&gt;&lt;strong&gt;如果你是新团队、中小规模、代码托管在GitLab：&lt;/strong&gt; 无脑选 &lt;strong&gt;GitLab CI&lt;/strong&gt;。&lt;/li&gt;
+&lt;li&gt;&lt;strong&gt;如果你是大型企业、有复杂的权限管理、需要跨多平台构建：&lt;/strong&gt; 老实选 &lt;strong&gt;Jenkins&lt;/strong&gt;。&lt;/li&gt;
+&lt;/ul&gt;
+&lt;p&gt;我有过惨痛教训。两年前，我为了“显得专业”，在一个5人的初创团队强推Jenkins。结果光是配置Slave节点、维护那堆三天两头更新的插件、处理权限隔离，就占用了我每周五下午的宝贵摸鱼时间。&lt;/p&gt;
+&lt;p&gt;后来切到GitLab CI，就一个&lt;code&gt;.gitlab-ci.yml&lt;/code&gt;文件随代码库管理，开发人员自己就能看懂改懂。&lt;/p&gt;
+&lt;p&gt;&lt;img src=&#34;https://picsum.photos/800/450?random=1768387654494&#34;
+	
+	
+	
+	loading=&#34;lazy&#34;
+	
+		alt=&#34;配图&#34;
+	
+	
+&gt;&lt;/p&gt;
+&lt;p&gt;&lt;strong&gt;这里有一个我亲测好用的判断标准：&lt;/strong&gt;&lt;/p&gt;
+&lt;p&gt;如果你的构建逻辑能写在200行Shell脚本内，用GitLab CI效率最高；如果你的构建需要审批流、需要调用十几个外部系统接口、需要复杂的UI交互，Jenkins才是重型武器。&lt;/p&gt;
+&lt;h2 id=&#34;保姆级实战打造一条防弹流水线&#34;&gt;保姆级实战：打造一条“防弹”流水线
+&lt;/h2&gt;&lt;p&gt;不管用什么工具，一条合格的生产级流水线，必须包含这四个阶段：&lt;strong&gt;静态检查 -&amp;gt; 构建打包 -&amp;gt; 镜像推送 -&amp;gt; 部署通知&lt;/strong&gt;。&lt;/p&gt;
+&lt;p&gt;缺少任何一环，都是在“裸奔”。&lt;/p&gt;
+&lt;p&gt;下面我以GitLab CI为例（Jenkins逻辑同理），拆解一个我用了2年的通用模板。这个模板帮助我们拦截了至少90%的低级语法错误。&lt;/p&gt;
+&lt;h3 id=&#34;1-静态检查lint与-单元测试&#34;&gt;1. 静态检查（Lint）与 单元测试
+&lt;/h3&gt;&lt;p&gt;不要等到代码上线了才发现少写了一个分号。&lt;/p&gt;
+&lt;p&gt;在我们的流程里，如果&lt;code&gt;Lint&lt;/code&gt;阶段不通过，代码根本没机会进入构建环节。这倒逼开发人员在提交代码前必须自测。&lt;/p&gt;
+&lt;div class=&#34;highlight&#34;&gt;&lt;pre tabindex=&#34;0&#34; style=&#34;color:#f8f8f2;background-color:#272822;-moz-tab-size:4;-o-tab-size:4;tab-size:4;&#34;&gt;&lt;code class=&#34;language-yaml&#34; data-lang=&#34;yaml&#34;&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;&lt;span style=&#34;color:#f92672&#34;&gt;stages&lt;/span&gt;:
+&lt;/span&gt;&lt;/span&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;  - &lt;span style=&#34;color:#ae81ff&#34;&gt;check&lt;/span&gt;
+&lt;/span&gt;&lt;/span&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;  - &lt;span style=&#34;color:#ae81ff&#34;&gt;build&lt;/span&gt;
+&lt;/span&gt;&lt;/span&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;  - &lt;span style=&#34;color:#ae81ff&#34;&gt;deploy&lt;/span&gt;
+&lt;/span&gt;&lt;/span&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;
+&lt;/span&gt;&lt;/span&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;&lt;span style=&#34;color:#75715e&#34;&gt;# 阶段一：代码检查与单元测试&lt;/span&gt;
+&lt;/span&gt;&lt;/span&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;&lt;span style=&#34;color:#f92672&#34;&gt;code_analysis&lt;/span&gt;:
+&lt;/span&gt;&lt;/span&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;  &lt;span style=&#34;color:#f92672&#34;&gt;stage&lt;/span&gt;: &lt;span style=&#34;color:#ae81ff&#34;&gt;check&lt;/span&gt;
+&lt;/span&gt;&lt;/span&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;  &lt;span style=&#34;color:#f92672&#34;&gt;image&lt;/span&gt;: &lt;span style=&#34;color:#ae81ff&#34;&gt;maven:3.8-openjdk-11&lt;/span&gt;
+&lt;/span&gt;&lt;/span&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;  &lt;span style=&#34;color:#f92672&#34;&gt;script&lt;/span&gt;:
+&lt;/span&gt;&lt;/span&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;    - &lt;span style=&#34;color:#ae81ff&#34;&gt;echo &amp;#34;正在进行代码静态扫描...&amp;#34;&lt;/span&gt;
+&lt;/span&gt;&lt;/span&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;    - &lt;span style=&#34;color:#ae81ff&#34;&gt;mvn sonar:sonar &lt;/span&gt; &lt;span style=&#34;color:#75715e&#34;&gt;# 接入SonarQube，没有可跳过&lt;/span&gt;
+&lt;/span&gt;&lt;/span&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;    - &lt;span style=&#34;color:#ae81ff&#34;&gt;mvn test        &lt;/span&gt; &lt;span style=&#34;color:#75715e&#34;&gt;# 跑单元测试&lt;/span&gt;
+&lt;/span&gt;&lt;/span&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;  &lt;span style=&#34;color:#f92672&#34;&gt;only&lt;/span&gt;:
+&lt;/span&gt;&lt;/span&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;    - &lt;span style=&#34;color:#ae81ff&#34;&gt;merge_requests&lt;/span&gt;
+&lt;/span&gt;&lt;/span&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;    - &lt;span style=&#34;color:#ae81ff&#34;&gt;master&lt;/span&gt;
+&lt;/span&gt;&lt;/span&gt;&lt;/code&gt;&lt;/pre&gt;&lt;/div&gt;&lt;h3 id=&#34;2-构建与镜像推送&#34;&gt;2. 构建与镜像推送
+&lt;/h3&gt;&lt;p&gt;这一步是核心。很多教程教你用&lt;code&gt;docker build&lt;/code&gt;，但在CI容器里跑docker（Docker in Docker）不仅慢而且有安全隐患。&lt;/p&gt;
+&lt;p&gt;我推荐使用 &lt;strong&gt;Kaniko&lt;/strong&gt; 或者 &lt;strong&gt;Buildah&lt;/strong&gt;，但在简单场景下，通过挂载宿主机Docker socket是最快的方式。&lt;/p&gt;
+&lt;p&gt;&lt;strong&gt;注意细节：&lt;/strong&gt; 一定要给镜像打上具体的Tag（通常是Commit SHA），千万别只用&lt;code&gt;latest&lt;/code&gt;，否则回滚时你会哭。&lt;/p&gt;
+&lt;div class=&#34;highlight&#34;&gt;&lt;pre tabindex=&#34;0&#34; style=&#34;color:#f8f8f2;background-color:#272822;-moz-tab-size:4;-o-tab-size:4;tab-size:4;&#34;&gt;&lt;code class=&#34;language-yaml&#34; data-lang=&#34;yaml&#34;&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;&lt;span style=&#34;color:#75715e&#34;&gt;# 阶段二：构建镜像&lt;/span&gt;
+&lt;/span&gt;&lt;/span&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;&lt;span style=&#34;color:#f92672&#34;&gt;docker_build&lt;/span&gt;:
+&lt;/span&gt;&lt;/span&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;  &lt;span style=&#34;color:#f92672&#34;&gt;stage&lt;/span&gt;: &lt;span style=&#34;color:#ae81ff&#34;&gt;build&lt;/span&gt;
+&lt;/span&gt;&lt;/span&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;  &lt;span style=&#34;color:#f92672&#34;&gt;image&lt;/span&gt;: &lt;span style=&#34;color:#ae81ff&#34;&gt;docker:stable&lt;/span&gt;
+&lt;/span&gt;&lt;/span&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;  &lt;span style=&#34;color:#f92672&#34;&gt;services&lt;/span&gt;:
+&lt;/span&gt;&lt;/span&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;    - &lt;span style=&#34;color:#ae81ff&#34;&gt;docker:dind&lt;/span&gt;
+&lt;/span&gt;&lt;/span&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;  &lt;span style=&#34;color:#f92672&#34;&gt;script&lt;/span&gt;:
+&lt;/span&gt;&lt;/span&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;    - &lt;span style=&#34;color:#ae81ff&#34;&gt;docker login -u $CI_REGISTRY_USER -p $CI_REGISTRY_PASSWORD $CI_REGISTRY&lt;/span&gt;
+&lt;/span&gt;&lt;/span&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;    &lt;span style=&#34;color:#75715e&#34;&gt;# 使用Commit SHA作为版本号，确保唯一性&lt;/span&gt;
+&lt;/span&gt;&lt;/span&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;    - &lt;span style=&#34;color:#ae81ff&#34;&gt;docker build -t $CI_REGISTRY_IMAGE:$CI_COMMIT_SHORT_SHA .&lt;/span&gt;
+&lt;/span&gt;&lt;/span&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;    - &lt;span style=&#34;color:#ae81ff&#34;&gt;docker push $CI_REGISTRY_IMAGE:$CI_COMMIT_SHORT_SHA&lt;/span&gt;
+&lt;/span&gt;&lt;/span&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;  &lt;span style=&#34;color:#f92672&#34;&gt;tags&lt;/span&gt;:
+&lt;/span&gt;&lt;/span&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;    - &lt;span style=&#34;color:#ae81ff&#34;&gt;docker-runner&lt;/span&gt;
+&lt;/span&gt;&lt;/span&gt;&lt;/code&gt;&lt;/pre&gt;&lt;/div&gt;&lt;h3 id=&#34;3-部署与通知&#34;&gt;3. 部署与通知
+&lt;/h3&gt;&lt;p&gt;部署不是目的，让团队知道部署结果才是关键。&lt;/p&gt;
+&lt;p&gt;我见过太多次，开发人员提交了代码就以为万事大吉，结果流水线挂了半小时都没人知道。&lt;/p&gt;
+&lt;p&gt;我写了一个简单的Python脚本，集成在流水线的最后一步。无论成功还是失败，都会发送一条消息到钉钉或飞书群，包含：&lt;strong&gt;提交人、Commit信息、耗时、状态&lt;/strong&gt;。&lt;/p&gt;
+&lt;p&gt;这带来了一个意想不到的好处：&lt;strong&gt;“红灯羞耻感”&lt;/strong&gt;。因为群里所有人都能看到是谁把流水线搞挂了，大家提交代码时变得格外小心。&lt;/p&gt;
+&lt;h2 id=&#34;给你一个拿来即用的万能模板&#34;&gt;给你一个“拿来即用”的万能模板
+&lt;/h2&gt;&lt;p&gt;为了让你能立刻上手，我整理了一份可以直接复制的 &lt;code&gt;.gitlab-ci.yml&lt;/code&gt; 模板。这套配置适配了大部分Spring Boot/Node.js应用。&lt;/p&gt;
+&lt;p&gt;你只需要把其中的镜像地址换成你自己的即可。&lt;/p&gt;
+&lt;div class=&#34;highlight&#34;&gt;&lt;pre tabindex=&#34;0&#34; style=&#34;color:#f8f8f2;background-color:#272822;-moz-tab-size:4;-o-tab-size:4;tab-size:4;&#34;&gt;&lt;code class=&#34;language-yaml&#34; data-lang=&#34;yaml&#34;&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;&lt;span style=&#34;color:#f92672&#34;&gt;stages&lt;/span&gt;:
+&lt;/span&gt;&lt;/span&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;  - &lt;span style=&#34;color:#ae81ff&#34;&gt;build&lt;/span&gt;
+&lt;/span&gt;&lt;/span&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;  - &lt;span style=&#34;color:#ae81ff&#34;&gt;deploy&lt;/span&gt;
+&lt;/span&gt;&lt;/span&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;  - &lt;span style=&#34;color:#ae81ff&#34;&gt;notify&lt;/span&gt;
+&lt;/span&gt;&lt;/span&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;
+&lt;/span&gt;&lt;/span&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;&lt;span style=&#34;color:#f92672&#34;&gt;variables&lt;/span&gt;:
+&lt;/span&gt;&lt;/span&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;  &lt;span style=&#34;color:#75715e&#34;&gt;# 定义全局变量，方便维护&lt;/span&gt;
+&lt;/span&gt;&lt;/span&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;  &lt;span style=&#34;color:#f92672&#34;&gt;APP_NAME&lt;/span&gt;: &lt;span style=&#34;color:#e6db74&#34;&gt;&amp;#34;demo-service&amp;#34;&lt;/span&gt;
+&lt;/span&gt;&lt;/span&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;  &lt;span style=&#34;color:#f92672&#34;&gt;DOCKER_IMAGE&lt;/span&gt;: &lt;span style=&#34;color:#e6db74&#34;&gt;&amp;#34;registry.example.com/group/${APP_NAME}&amp;#34;&lt;/span&gt;
+&lt;/span&gt;&lt;/span&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;
+&lt;/span&gt;&lt;/span&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;&lt;span style=&#34;color:#75715e&#34;&gt;# 步骤1：构建镜像（带缓存优化）&lt;/span&gt;
+&lt;/span&gt;&lt;/span&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;&lt;span style=&#34;color:#f92672&#34;&gt;build_image&lt;/span&gt;:
+&lt;/span&gt;&lt;/span&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;  &lt;span style=&#34;color:#f92672&#34;&gt;stage&lt;/span&gt;: &lt;span style=&#34;color:#ae81ff&#34;&gt;build&lt;/span&gt;
+&lt;/span&gt;&lt;/span&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;  &lt;span style=&#34;color:#f92672&#34;&gt;image&lt;/span&gt;: &lt;span style=&#34;color:#ae81ff&#34;&gt;docker:latest&lt;/span&gt;
+&lt;/span&gt;&lt;/span&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;  &lt;span style=&#34;color:#f92672&#34;&gt;volumes&lt;/span&gt;:
+&lt;/span&gt;&lt;/span&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;    - &lt;span style=&#34;color:#ae81ff&#34;&gt;/var/run/docker.sock:/var/run/docker.sock&lt;/span&gt;
+&lt;/span&gt;&lt;/span&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;  &lt;span style=&#34;color:#f92672&#34;&gt;script&lt;/span&gt;:
+&lt;/span&gt;&lt;/span&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;    - &lt;span style=&#34;color:#ae81ff&#34;&gt;echo &amp;#34;开始构建 $APP_NAME...&amp;#34;&lt;/span&gt;
+&lt;/span&gt;&lt;/span&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;    - &lt;span style=&#34;color:#ae81ff&#34;&gt;docker login -u $CI_USER -p $CI_PWD registry.example.com&lt;/span&gt;
+&lt;/span&gt;&lt;/span&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;    &lt;span style=&#34;color:#75715e&#34;&gt;# 巧妙利用缓存，加速构建&lt;/span&gt;
+&lt;/span&gt;&lt;/span&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;    - &lt;span style=&#34;color:#ae81ff&#34;&gt;docker pull $DOCKER_IMAGE:latest || true&lt;/span&gt;
+&lt;/span&gt;&lt;/span&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;    - &lt;span style=&#34;color:#ae81ff&#34;&gt;docker build --cache-from $DOCKER_IMAGE:latest -t $DOCKER_IMAGE:$CI_COMMIT_SHORT_SHA -t $DOCKER_IMAGE:latest .&lt;/span&gt;
+&lt;/span&gt;&lt;/span&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;    - &lt;span style=&#34;color:#ae81ff&#34;&gt;docker push $DOCKER_IMAGE:$CI_COMMIT_SHORT_SHA&lt;/span&gt;
+&lt;/span&gt;&lt;/span&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;    - &lt;span style=&#34;color:#ae81ff&#34;&gt;docker push $DOCKER_IMAGE:latest&lt;/span&gt;
+&lt;/span&gt;&lt;/span&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;
+&lt;/span&gt;&lt;/span&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;&lt;span style=&#34;color:#75715e&#34;&gt;# 步骤2：部署到测试环境&lt;/span&gt;
+&lt;/span&gt;&lt;/span&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;&lt;span style=&#34;color:#f92672&#34;&gt;deploy_dev&lt;/span&gt;:
+&lt;/span&gt;&lt;/span&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;  &lt;span style=&#34;color:#f92672&#34;&gt;stage&lt;/span&gt;: &lt;span style=&#34;color:#ae81ff&#34;&gt;deploy&lt;/span&gt;
+&lt;/span&gt;&lt;/span&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;  &lt;span style=&#34;color:#f92672&#34;&gt;image&lt;/span&gt;: &lt;span style=&#34;color:#ae81ff&#34;&gt;roffe/kubectl:latest&lt;/span&gt;
+&lt;/span&gt;&lt;/span&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;  &lt;span style=&#34;color:#f92672&#34;&gt;script&lt;/span&gt;:
+&lt;/span&gt;&lt;/span&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;    - &lt;span style=&#34;color:#ae81ff&#34;&gt;echo &amp;#34;正在更新K8s/Docker Compose...&amp;#34;&lt;/span&gt;
+&lt;/span&gt;&lt;/span&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;    &lt;span style=&#34;color:#75715e&#34;&gt;# 这里替换镜像版本&lt;/span&gt;
+&lt;/span&gt;&lt;/span&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;    - &lt;span style=&#34;color:#ae81ff&#34;&gt;sed -i &amp;#34;s|IMAGE_TAG|${CI_COMMIT_SHORT_SHA}|g&amp;#34; deployment.yaml&lt;/span&gt;
+&lt;/span&gt;&lt;/span&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;    - &lt;span style=&#34;color:#ae81ff&#34;&gt;kubectl apply -f deployment.yaml&lt;/span&gt;
+&lt;/span&gt;&lt;/span&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;  &lt;span style=&#34;color:#f92672&#34;&gt;only&lt;/span&gt;:
+&lt;/span&gt;&lt;/span&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;    - &lt;span style=&#34;color:#ae81ff&#34;&gt;develop&lt;/span&gt;
+&lt;/span&gt;&lt;/span&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;
+&lt;/span&gt;&lt;/span&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;![&lt;span style=&#34;color:#ae81ff&#34;&gt;配图](https://picsum.photos/800/450?random=1768387659882)&lt;/span&gt;
+&lt;/span&gt;&lt;/span&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;
+&lt;/span&gt;&lt;/span&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;&lt;span style=&#34;color:#75715e&#34;&gt;# 步骤3：失败/成功通知&lt;/span&gt;
+&lt;/span&gt;&lt;/span&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;&lt;span style=&#34;color:#f92672&#34;&gt;job_notify&lt;/span&gt;:
+&lt;/span&gt;&lt;/span&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;  &lt;span style=&#34;color:#f92672&#34;&gt;stage&lt;/span&gt;: &lt;span style=&#34;color:#ae81ff&#34;&gt;notify&lt;/span&gt;
+&lt;/span&gt;&lt;/span&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;  &lt;span style=&#34;color:#f92672&#34;&gt;script&lt;/span&gt;:
+&lt;/span&gt;&lt;/span&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;    - &lt;span style=&#34;color:#f92672&#34;&gt;&amp;#34;curl &amp;#39;https://oapi.dingtalk.com/robot/send?access_token=YOUR_TOKEN&amp;#39; -H &amp;#39;Content-Type: application/json&amp;#39; -d &amp;#39;{\&amp;#34;msgtype\&amp;#34;: \&amp;#34;text\&amp;#34;,\&amp;#34;text\&amp;#34;: {\&amp;#34;content\&amp;#34;: &lt;/span&gt;&lt;span style=&#34;color:#ae81ff&#34;&gt;\&amp;#34;构建通知：项目 ${APP_NAME} 构建完成！\&amp;#34;}}&amp;#39;&amp;#34;&lt;/span&gt;
+&lt;/span&gt;&lt;/span&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;  &lt;span style=&#34;color:#f92672&#34;&gt;when&lt;/span&gt;: &lt;span style=&#34;color:#ae81ff&#34;&gt;always&lt;/span&gt;
+&lt;/span&gt;&lt;/span&gt;&lt;/code&gt;&lt;/pre&gt;&lt;/div&gt;&lt;h2 id=&#34;最后的话工具只是手段信心才是目的&#34;&gt;最后的话：工具只是手段，信心才是目的
+&lt;/h2&gt;&lt;p&gt;搭建CI/CD流水线，技术上真的不难，难的是改变团队的习惯。&lt;/p&gt;
+&lt;p&gt;刚开始推行时，你一定会遇到阻力：“本地跑得好好的，为什么要等流水线跑几分钟？”“配置好麻烦，能不能直接传包？”&lt;/p&gt;
+&lt;p&gt;这时候，请坚持住。&lt;/p&gt;
+&lt;p&gt;当我看到团队成员从“不敢周五发布”变成“随时随地、喝着咖啡点一下Merge就能上线”时，我知道这一切折腾都是值得的。&lt;strong&gt;DevOps的核心价值，不是自动化，而是给整个团队交付代码的信心。&lt;/strong&gt;&lt;/p&gt;
+&lt;p&gt;&lt;strong&gt;接下来的行动建议：&lt;/strong&gt;&lt;/p&gt;
+&lt;ol&gt;
+&lt;li&gt;&lt;strong&gt;先跑通Hello World&lt;/strong&gt;：不要试图一步到位，先在GitLab/Jenkins里建个任务，能打印出&lt;code&gt;echo &amp;quot;Hello&amp;quot;&lt;/code&gt;就算成功。&lt;/li&gt;
+&lt;li&gt;&lt;strong&gt;容器化你的应用&lt;/strong&gt;：如果你还没有Dockerfile，现在就去写一个。这是自动化的基石。&lt;/li&gt;
+&lt;li&gt;&lt;strong&gt;复制上面的模板&lt;/strong&gt;：根据你的项目微调，尝试跑一次完整的构建。&lt;/li&gt;
+&lt;/ol&gt;
+&lt;p&gt;哪怕只省下每天10分钟的重复劳动，一年下来，你也多出了整整一周的“带薪休假”时间。&lt;/p&gt;
+</description>
+        </item>
+        
+    </channel>
+</rss>

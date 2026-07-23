@@ -1,0 +1,478 @@
+<!DOCTYPE html>
+<html lang="zh-cn" dir="ltr">
+    <head><meta charset='utf-8'>
+<meta name='viewport' content='width=device-width, initial-scale=1'><meta name='description' content="\n五年前，我刚做架构那会儿，特别迷信“大厂方案”。\n手里明明只是个日活几千的中型SaaS项目，我非得要把微服务拆得七零八落，Redis集群、ES搜索引擎全给整上。结果呢？服务器成本直接飙升了3倍，不仅没感觉到快，每次排查问题都要跨三个服务，组里的兄弟们怨声载道。\n那个周末我在机房通宵加班时就在想：对于咱们这种没几十亿流量、也没几百亿预算的中小团队，到底什么才是好的性能优化？\n这几年踩坑踩下来，我得出一个反常识的结论：性价比最高的优化，往往不是引入新技术，而是把手头最基础的东西用到极致。 很多时候，你并不需要一把屠龙刀来杀一只鸡。\n今天咱们就聊聊，如何在不加人、少加机器的前提下，搞定那些让人头秃的性能瓶颈。\n01 别急着上缓存，先把数据库“榨干”\r很多资深开发有个习惯，一听到“接口慢”，第一反应就是：“加个Redis缓存吧”。\n我承认缓存好用，但它带来了数据一致性维护成本和额外的运维复杂度。在中小项目中，90%的性能问题，其实都是“烂SQL”或者“缺索引”造成的。\n去年我接手过一个电商小程序的抢救工作。有个“热销商品列表”接口，QPS才不到200，响应时间却要2秒多。当时的开发负责人老张跟我说：“准备上ES了，MySQL扛不住。”\n我没说话，让他把 Slow Query Log（慢查询日志）打开给我看一眼。\n结果发现，就是一条简单的关联查询，因为主表和关联表的字符集（Charset）不一样（一个是 utf8，一个是 utf8mb4），导致索引失效，直接走了全表扫描。\n解决方法多简单？ 统一字符集，重建索引。\n结果？ 接口耗时从2.3秒降到了80毫秒。没花一分钱，没引入任何新组件，系统稳如老狗。\n我的建议： 在决定引入缓存中间件之前，请先问自己三个问题：\nExplain 跑过了吗？索引真的命中了？ 也是最容易被忽略的，你的SQL里是不是查了一堆不需要的字段（select *）？ 业务真的需要毫秒级响应吗？有时候前端加个Loading动画比后端折腾三天更管用。 02 内存是用来计算的，不是用来“循环查库”的\r除了SQL本身，应用层的代码逻辑也是重灾区。我见过最恐怖的代码，是在一个 for 循环里调数据库。\n这是我亲历的一个惨案。有个负责报表导出的兄弟，逻辑是这样的：先查出1000个订单，然后遍历这1000个订单，拿着订单ID去查用户信息，再拿着用户ID去查积分详情。\n// 反面教材：典型的 N+1 问题 List&lt;Order&gt; orders = orderRepo.findAll(); for (Order order : orders) { // 循环里查库，简直是性能杀手 User user = userRepo.findById(order.getUserId()); // ... 更多逻辑 } 这就是经典的 N+1 问题。如果列表有1000条，这就意味着要跟数据库握手1001次。哪怕网络延迟只有1ms，光网络开销就去了1秒多，这还不算DB的压力。\n后来那个功能上线导致数据库连接池爆满，整个系统挂了半小时。\n复盘的时候，我带着他重构了代码。思路很简单：用空间换时间。\n先把那1000个订单的 userId 全部提取出来，做成一个列表。 用 Where ID IN (...) 一次性把所有相关用户查出来。 在内存里转成 Map&lt;UserId, User&gt; 结构。 最后在循环里直接从 Map 取数据。 这招虽然老套，但极其有效。数据库交互从1000次变成了2次，性能提升了整整两个数量级。\n">
+<title>中小项目别学大厂！3个“抠门”优化法，性能翻倍</title>
+
+<link rel='canonical' href='https://blog.irudder.me/tech/zhongxiaoxingxiangmujiagoushejizhinan/zhongxiaoxiangmudixingnengyouhua_xingjiabiyouxian.html'>
+
+<link rel="stylesheet" href="/scss/style.min.b9e9128fec450ebccecc4ec9900157f32b85d0609bcd5ee3293968bcaa1235f2.css"><meta property='og:title' content="中小项目别学大厂！3个“抠门”优化法，性能翻倍">
+<meta property='og:description' content="\n五年前，我刚做架构那会儿，特别迷信“大厂方案”。\n手里明明只是个日活几千的中型SaaS项目，我非得要把微服务拆得七零八落，Redis集群、ES搜索引擎全给整上。结果呢？服务器成本直接飙升了3倍，不仅没感觉到快，每次排查问题都要跨三个服务，组里的兄弟们怨声载道。\n那个周末我在机房通宵加班时就在想：对于咱们这种没几十亿流量、也没几百亿预算的中小团队，到底什么才是好的性能优化？\n这几年踩坑踩下来，我得出一个反常识的结论：性价比最高的优化，往往不是引入新技术，而是把手头最基础的东西用到极致。 很多时候，你并不需要一把屠龙刀来杀一只鸡。\n今天咱们就聊聊，如何在不加人、少加机器的前提下，搞定那些让人头秃的性能瓶颈。\n01 别急着上缓存，先把数据库“榨干”\r很多资深开发有个习惯，一听到“接口慢”，第一反应就是：“加个Redis缓存吧”。\n我承认缓存好用，但它带来了数据一致性维护成本和额外的运维复杂度。在中小项目中，90%的性能问题，其实都是“烂SQL”或者“缺索引”造成的。\n去年我接手过一个电商小程序的抢救工作。有个“热销商品列表”接口，QPS才不到200，响应时间却要2秒多。当时的开发负责人老张跟我说：“准备上ES了，MySQL扛不住。”\n我没说话，让他把 Slow Query Log（慢查询日志）打开给我看一眼。\n结果发现，就是一条简单的关联查询，因为主表和关联表的字符集（Charset）不一样（一个是 utf8，一个是 utf8mb4），导致索引失效，直接走了全表扫描。\n解决方法多简单？ 统一字符集，重建索引。\n结果？ 接口耗时从2.3秒降到了80毫秒。没花一分钱，没引入任何新组件，系统稳如老狗。\n我的建议： 在决定引入缓存中间件之前，请先问自己三个问题：\nExplain 跑过了吗？索引真的命中了？ 也是最容易被忽略的，你的SQL里是不是查了一堆不需要的字段（select *）？ 业务真的需要毫秒级响应吗？有时候前端加个Loading动画比后端折腾三天更管用。 02 内存是用来计算的，不是用来“循环查库”的\r除了SQL本身，应用层的代码逻辑也是重灾区。我见过最恐怖的代码，是在一个 for 循环里调数据库。\n这是我亲历的一个惨案。有个负责报表导出的兄弟，逻辑是这样的：先查出1000个订单，然后遍历这1000个订单，拿着订单ID去查用户信息，再拿着用户ID去查积分详情。\n// 反面教材：典型的 N+1 问题 List&lt;Order&gt; orders = orderRepo.findAll(); for (Order order : orders) { // 循环里查库，简直是性能杀手 User user = userRepo.findById(order.getUserId()); // ... 更多逻辑 } 这就是经典的 N+1 问题。如果列表有1000条，这就意味着要跟数据库握手1001次。哪怕网络延迟只有1ms，光网络开销就去了1秒多，这还不算DB的压力。\n后来那个功能上线导致数据库连接池爆满，整个系统挂了半小时。\n复盘的时候，我带着他重构了代码。思路很简单：用空间换时间。\n先把那1000个订单的 userId 全部提取出来，做成一个列表。 用 Where ID IN (...) 一次性把所有相关用户查出来。 在内存里转成 Map&lt;UserId, User&gt; 结构。 最后在循环里直接从 Map 取数据。 这招虽然老套，但极其有效。数据库交互从1000次变成了2次，性能提升了整整两个数量级。\n">
+<meta property='og:url' content='https://blog.irudder.me/tech/zhongxiaoxingxiangmujiagoushejizhinan/zhongxiaoxiangmudixingnengyouhua_xingjiabiyouxian.html'>
+<meta property='og:site_name' content='SelfTechHub'>
+<meta property='og:type' content='article'><meta property='article:section' content='Tech' /><meta property='article:tag' content='中小项目的性能优化：性价比优先' /><meta property='article:published_time' content='2025-03-04T00:00:00&#43;00:00'/><meta property='article:modified_time' content='2025-03-04T00:00:00&#43;00:00'/>
+<meta name="twitter:title" content="中小项目别学大厂！3个“抠门”优化法，性能翻倍">
+<meta name="twitter:description" content="\n五年前，我刚做架构那会儿，特别迷信“大厂方案”。\n手里明明只是个日活几千的中型SaaS项目，我非得要把微服务拆得七零八落，Redis集群、ES搜索引擎全给整上。结果呢？服务器成本直接飙升了3倍，不仅没感觉到快，每次排查问题都要跨三个服务，组里的兄弟们怨声载道。\n那个周末我在机房通宵加班时就在想：对于咱们这种没几十亿流量、也没几百亿预算的中小团队，到底什么才是好的性能优化？\n这几年踩坑踩下来，我得出一个反常识的结论：性价比最高的优化，往往不是引入新技术，而是把手头最基础的东西用到极致。 很多时候，你并不需要一把屠龙刀来杀一只鸡。\n今天咱们就聊聊，如何在不加人、少加机器的前提下，搞定那些让人头秃的性能瓶颈。\n01 别急着上缓存，先把数据库“榨干”\r很多资深开发有个习惯，一听到“接口慢”，第一反应就是：“加个Redis缓存吧”。\n我承认缓存好用，但它带来了数据一致性维护成本和额外的运维复杂度。在中小项目中，90%的性能问题，其实都是“烂SQL”或者“缺索引”造成的。\n去年我接手过一个电商小程序的抢救工作。有个“热销商品列表”接口，QPS才不到200，响应时间却要2秒多。当时的开发负责人老张跟我说：“准备上ES了，MySQL扛不住。”\n我没说话，让他把 Slow Query Log（慢查询日志）打开给我看一眼。\n结果发现，就是一条简单的关联查询，因为主表和关联表的字符集（Charset）不一样（一个是 utf8，一个是 utf8mb4），导致索引失效，直接走了全表扫描。\n解决方法多简单？ 统一字符集，重建索引。\n结果？ 接口耗时从2.3秒降到了80毫秒。没花一分钱，没引入任何新组件，系统稳如老狗。\n我的建议： 在决定引入缓存中间件之前，请先问自己三个问题：\nExplain 跑过了吗？索引真的命中了？ 也是最容易被忽略的，你的SQL里是不是查了一堆不需要的字段（select *）？ 业务真的需要毫秒级响应吗？有时候前端加个Loading动画比后端折腾三天更管用。 02 内存是用来计算的，不是用来“循环查库”的\r除了SQL本身，应用层的代码逻辑也是重灾区。我见过最恐怖的代码，是在一个 for 循环里调数据库。\n这是我亲历的一个惨案。有个负责报表导出的兄弟，逻辑是这样的：先查出1000个订单，然后遍历这1000个订单，拿着订单ID去查用户信息，再拿着用户ID去查积分详情。\n// 反面教材：典型的 N+1 问题 List&lt;Order&gt; orders = orderRepo.findAll(); for (Order order : orders) { // 循环里查库，简直是性能杀手 User user = userRepo.findById(order.getUserId()); // ... 更多逻辑 } 这就是经典的 N+1 问题。如果列表有1000条，这就意味着要跟数据库握手1001次。哪怕网络延迟只有1ms，光网络开销就去了1秒多，这还不算DB的压力。\n后来那个功能上线导致数据库连接池爆满，整个系统挂了半小时。\n复盘的时候，我带着他重构了代码。思路很简单：用空间换时间。\n先把那1000个订单的 userId 全部提取出来，做成一个列表。 用 Where ID IN (...) 一次性把所有相关用户查出来。 在内存里转成 Map&lt;UserId, User&gt; 结构。 最后在循环里直接从 Map 取数据。 这招虽然老套，但极其有效。数据库交互从1000次变成了2次，性能提升了整整两个数量级。\n">
+    </head>
+    <body class="
+    article-page
+    ">
+    <script>
+        (function() {
+            const colorSchemeKey = 'StackColorScheme';
+            if(!localStorage.getItem(colorSchemeKey)){
+                localStorage.setItem(colorSchemeKey, "auto");
+            }
+        })();
+    </script><script>
+    (function() {
+        const colorSchemeKey = 'StackColorScheme';
+        const colorSchemeItem = localStorage.getItem(colorSchemeKey);
+        const supportDarkMode = window.matchMedia('(prefers-color-scheme: dark)').matches === true;
+
+        if (colorSchemeItem == 'dark' || colorSchemeItem === 'auto' && supportDarkMode) {
+            
+
+            document.documentElement.dataset.scheme = 'dark';
+        } else {
+            document.documentElement.dataset.scheme = 'light';
+        }
+    })();
+</script>
+<div class="container main-container flex on-phone--column compact"><aside class="sidebar left-sidebar sticky ">
+    <button class="hamburger hamburger--spin" type="button" id="toggle-menu" aria-label="切换菜单">
+        <span class="hamburger-box">
+            <span class="hamburger-inner"></span>
+        </span>
+    </button>
+
+    <header>
+        
+            
+            <figure class="site-avatar">
+                <a href="/">
+                
+                    
+                    
+                    
+                        
+                        <img src="/img/avatar_hu_8588ce14af1147e2.png" width="300"
+                            height="286" class="site-logo" loading="lazy" alt="Avatar">
+                    
+                
+                </a>
+                
+            </figure>
+            
+        
+        
+        <div class="site-meta">
+            <h1 class="site-name"><a href="/">SelfTechHub</a></h1>
+            <h2 class="site-description"></h2>
+        </div>
+    </header><ol class="menu" id="main-menu">
+        
+        
+        <li class="menu-bottom-section">
+            <ol class="menu">
+
+                
+                    <li id="dark-mode-toggle">
+                        <svg xmlns="http://www.w3.org/2000/svg" class="icon icon-tabler icon-tabler-toggle-left" width="24" height="24" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor" fill="none" stroke-linecap="round" stroke-linejoin="round">
+  <path stroke="none" d="M0 0h24v24H0z"/>
+  <circle cx="8" cy="12" r="2" />
+  <rect x="2" y="6" width="20" height="12" rx="6" />
+</svg>
+
+
+
+                        <svg xmlns="http://www.w3.org/2000/svg" class="icon icon-tabler icon-tabler-toggle-right" width="24" height="24" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor" fill="none" stroke-linecap="round" stroke-linejoin="round">
+  <path stroke="none" d="M0 0h24v24H0z"/>
+  <circle cx="16" cy="12" r="2" />
+  <rect x="2" y="6" width="20" height="12" rx="6" />
+</svg>
+
+
+
+                        <span>暗色模式</span>
+                    </li>
+                
+            </ol>
+        </li>
+    </ol>
+</aside>
+
+    
+
+            <main class="main full-width">
+    <article class="main-article">
+    <header class="article-header">
+
+    <div class="article-details">
+    
+    <header class="article-category">
+        
+            <a href="/categories/%E6%8A%80%E6%9C%AF.html" >
+                技术精进
+            </a>
+        
+    </header>
+    
+
+    <div class="article-title-wrapper">
+        <h2 class="article-title">
+            <a href="/tech/zhongxiaoxingxiangmujiagoushejizhinan/zhongxiaoxiangmudixingnengyouhua_xingjiabiyouxian.html">中小项目别学大厂！3个“抠门”优化法，性能翻倍</a>
+        </h2>
+    
+        
+    </div>
+
+    
+    
+    
+    
+    <footer class="article-time">
+        
+            <div>
+                <svg xmlns="http://www.w3.org/2000/svg" class="icon icon-tabler icon-tabler-calendar-time" width="56" height="56" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor" fill="none" stroke-linecap="round" stroke-linejoin="round">
+  <path stroke="none" d="M0 0h24v24H0z"/>
+  <path d="M11.795 21h-6.795a2 2 0 0 1 -2 -2v-12a2 2 0 0 1 2 -2h12a2 2 0 0 1 2 2v4" />
+  <circle cx="18" cy="18" r="4" />
+  <path d="M15 3v4" />
+  <path d="M7 3v4" />
+  <path d="M3 11h16" />
+  <path d="M18 16.496v1.504l1 1" />
+</svg>
+                <time class="article-time--published" datetime='2025-03-04T00:00:00Z'>Mar 04, 2025</time>
+            </div>
+        
+
+        
+            <div>
+                <svg xmlns="http://www.w3.org/2000/svg" class="icon icon-tabler icon-tabler-clock" width="24" height="24" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor" fill="none" stroke-linecap="round" stroke-linejoin="round">
+  <path stroke="none" d="M0 0h24v24H0z"/>
+  <circle cx="12" cy="12" r="9" />
+  <polyline points="12 7 12 12 15 15" />
+</svg>
+
+
+
+                <time class="article-time--reading">
+                    阅读时长: 1 分钟
+                </time>
+            </div>
+        
+    </footer>
+    
+
+    
+</div>
+
+</header>
+
+    <section class="article-content">
+    
+    
+    <p><img src="https://picsum.photos/800/450?random=1768456699417"
+	
+	
+	
+	loading="lazy"
+	
+		alt="配图"
+	
+	
+></p>
+<p>五年前，我刚做架构那会儿，特别迷信“大厂方案”。</p>
+<p>手里明明只是个日活几千的中型SaaS项目，我非得要把微服务拆得七零八落，Redis集群、ES搜索引擎全给整上。结果呢？服务器成本直接飙升了3倍，不仅没感觉到快，每次排查问题都要跨三个服务，组里的兄弟们怨声载道。</p>
+<p>那个周末我在机房通宵加班时就在想：<strong>对于咱们这种没几十亿流量、也没几百亿预算的中小团队，到底什么才是好的性能优化？</strong></p>
+<p>这几年踩坑踩下来，我得出一个反常识的结论：<strong>性价比最高的优化，往往不是引入新技术，而是把手头最基础的东西用到极致。</strong> 很多时候，你并不需要一把屠龙刀来杀一只鸡。</p>
+<p>今天咱们就聊聊，如何在不加人、少加机器的前提下，搞定那些让人头秃的性能瓶颈。</p>
+<h2 id="01-别急着上缓存先把数据库榨干">01 别急着上缓存，先把数据库“榨干”
+</h2><p>很多资深开发有个习惯，一听到“接口慢”，第一反应就是：“加个Redis缓存吧”。</p>
+<p>我承认缓存好用，但它带来了数据一致性维护成本和额外的运维复杂度。在中小项目中，<strong>90%的性能问题，其实都是“烂SQL”或者“缺索引”造成的。</strong></p>
+<p><img src="https://picsum.photos/800/450?random=1768456701499"
+	
+	
+	
+	loading="lazy"
+	
+		alt="配图"
+	
+	
+></p>
+<p>去年我接手过一个电商小程序的抢救工作。有个“热销商品列表”接口，QPS才不到200，响应时间却要2秒多。当时的开发负责人老张跟我说：“准备上ES了，MySQL扛不住。”</p>
+<p>我没说话，让他把 <code>Slow Query Log</code>（慢查询日志）打开给我看一眼。</p>
+<p>结果发现，就是一条简单的关联查询，因为主表和关联表的字符集（Charset）不一样（一个是 <code>utf8</code>，一个是 <code>utf8mb4</code>），导致索引失效，直接走了全表扫描。</p>
+<p><strong>解决方法多简单？</strong>
+统一字符集，重建索引。</p>
+<p><img src="https://picsum.photos/800/450?random=1768456704715"
+	
+	
+	
+	loading="lazy"
+	
+		alt="配图"
+	
+	
+></p>
+<p><strong>结果？</strong>
+接口耗时从2.3秒降到了80毫秒。没花一分钱，没引入任何新组件，系统稳如老狗。</p>
+<blockquote>
+<p><strong>我的建议：</strong>
+在决定引入缓存中间件之前，请先问自己三个问题：</p>
+<ol>
+<li><code>Explain</code> 跑过了吗？索引真的命中了？</li>
+<li>也是最容易被忽略的，你的SQL里是不是查了一堆不需要的字段（select *）？</li>
+<li>业务真的需要毫秒级响应吗？有时候前端加个Loading动画比后端折腾三天更管用。</li>
+</ol>
+</blockquote>
+<h2 id="02-内存是用来计算的不是用来循环查库的">02 内存是用来计算的，不是用来“循环查库”的
+</h2><p>除了SQL本身，应用层的代码逻辑也是重灾区。我见过最恐怖的代码，是在一个 <code>for</code> 循环里调数据库。</p>
+<p>这是我亲历的一个惨案。有个负责报表导出的兄弟，逻辑是这样的：先查出1000个订单，然后遍历这1000个订单，拿着订单ID去查用户信息，再拿着用户ID去查积分详情。</p>
+<div class="highlight"><pre tabindex="0" style="color:#f8f8f2;background-color:#272822;-moz-tab-size:4;-o-tab-size:4;tab-size:4;"><code class="language-java" data-lang="java"><span style="display:flex;"><span><span style="color:#75715e">// 反面教材：典型的 N+1 问题</span>
+</span></span><span style="display:flex;"><span>List<span style="color:#f92672">&lt;</span>Order<span style="color:#f92672">&gt;</span> orders <span style="color:#f92672">=</span> orderRepo.<span style="color:#a6e22e">findAll</span>(); 
+</span></span><span style="display:flex;"><span><span style="color:#66d9ef">for</span> (Order order : orders) {
+</span></span><span style="display:flex;"><span>    <span style="color:#75715e">// 循环里查库，简直是性能杀手</span>
+</span></span><span style="display:flex;"><span>    User user <span style="color:#f92672">=</span> userRepo.<span style="color:#a6e22e">findById</span>(order.<span style="color:#a6e22e">getUserId</span>()); 
+</span></span><span style="display:flex;"><span>    <span style="color:#75715e">// ... 更多逻辑</span>
+</span></span><span style="display:flex;"><span>}
+</span></span></code></pre></div><p>这就是经典的 <strong>N+1 问题</strong>。如果列表有1000条，这就意味着要跟数据库握手1001次。哪怕网络延迟只有1ms，光网络开销就去了1秒多，这还不算DB的压力。</p>
+<p>后来那个功能上线导致数据库连接池爆满，整个系统挂了半小时。</p>
+<p>复盘的时候，我带着他重构了代码。思路很简单：<strong>用空间换时间。</strong></p>
+<ol>
+<li>先把那1000个订单的 <code>userId</code> 全部提取出来，做成一个列表。</li>
+<li>用 <code>Where ID IN (...)</code> 一次性把所有相关用户查出来。</li>
+<li>在内存里转成 <code>Map&lt;UserId, User&gt;</code> 结构。</li>
+<li>最后在循环里直接从 Map 取数据。</li>
+</ol>
+<p>这招虽然老套，但极其有效。数据库交互从1000次变成了2次，性能提升了整整两个数量级。</p>
+<p><strong>在这个内存白菜价的年代，尽量把复杂的关联逻辑放到应用层的内存里做，而不是让数据库去扛。</strong> 数据库连接不仅贵，而且难扩展；应用服务器不够了，加台机器容易得多。</p>
+<h2 id="03-警惕微服务大跃进单体架构真的很香">03 警惕“微服务大跃进”，单体架构真的很香
+</h2><p>这点可能很多人不爱听，但我必须得说：<strong>对于大部分几十人规模的团队，微服务就是个伪命题。</strong></p>
+<p>我见过一个只有5个后端的初创团队，硬是把系统拆成了8个微服务。原本一个简单的“下单”操作，现在需要：</p>
+<ul>
+<li>订单服务调库存服务</li>
+<li>库存服务调积分服务</li>
+<li>积分服务调消息队列</li>
+<li>&hellip;</li>
+</ul>
+<p>结果就是一个简单的事务一致性问题，让他们加了一堆 <code>Seata</code> 之类的分布式事务框架，代码复杂得像迷宫。一旦某个服务网络抖一下，整个链路全崩，排查日志得开5个窗口对比时间戳。</p>
+<p><strong>对于中小项目，Modular Monolith（模块化单体）才是性价比之王。</strong></p>
+<p>什么是模块化单体？就是代码逻辑上你是分模块的（订单包、用户包、支付包），但在部署上，大家都在一个进程里跑。</p>
+<p>这样做的好处太明显了：</p>
+<ul>
+<li><strong>调用零延时：</strong> 模块间调用是函数调用，不是HTTP请求，快到飞起。</li>
+<li><strong>事务很简单：</strong> 一个 <code>@Transactional</code> 就能搞定，不需要搞什么最终一致性。</li>
+<li><strong>省钱：</strong> 不需要额外部署服务发现、网关、链路追踪那一套全家桶。</li>
+</ul>
+<p>我就有个习惯，在项目初期，能不拆就不拆。等到哪天某个模块（比如抢购模块）真的扛不住流量了，我再把它单独拎出来独立部署。<strong>架构是演进出来的，不是设计出来的。</strong></p>
+<h2 id="总结与落地">总结与落地
+</h2><p>说了这么多，其实核心逻辑就一条：<strong>在中小项目里，复杂度就是成本，简单就是效率。</strong> 我们不需要为了证明自己技术牛X而去用屠龙术，把问题解决了，系统稳了，才是最大的牛X。</p>
+<p>最后，我想做个小调查：</p>
+<blockquote>
+<p><strong>如果接手一个响应慢的老项目，你更倾向于哪种方案？</strong>
+A. 直接重构，上微服务、上缓存，长痛不如短痛。
+B. 贴膏药优化，改SQL、优化代码逻辑，先跑起来再说。</p>
+<p>（欢迎在评论区告诉我你的选择，我是坚定的B派哈哈）</p>
+</blockquote>
+<p>如果你想从明天开始动手优化，我有 <strong>3个可落地的行动步骤</strong> 建议你立刻尝试：</p>
+<ol>
+<li><strong>开启慢查询监控：</strong> 设置阈值为 1秒（甚至500ms），每天早上花15分钟扫一眼昨天的慢SQL，这是ROI最高的事情。</li>
+<li><strong>Code Review 抓循环：</strong> 下次代码评审，盯着 <code>for/foreach</code> 循环看，只要发现循环里有 I/O 操作（查库、调接口），直接打回重写。</li>
+<li><strong>做减法：</strong> 审视一下你的架构图，有没有哪个中间件是“为了用而用”的？如果去掉它只增加一点点代码复杂度，但能省下维护成本，那就大胆干掉它。</li>
+</ol>
+<p>性能优化是一场持久战，咱们不求一招制敌，但求刀刀致命，花小钱办大事。</p>
+
+</section>
+
+
+    <footer class="article-footer">
+    
+    <section class="article-tags">
+        
+            <a href="/tags/%E4%B8%AD%E5%B0%8F%E9%A1%B9%E7%9B%AE%E7%9A%84%E6%80%A7%E8%83%BD%E4%BC%98%E5%8C%96%E6%80%A7%E4%BB%B7%E6%AF%94%E4%BC%98%E5%85%88.html">中小项目的性能优化：性价比优先</a>
+        
+    </section>
+
+
+    </footer>
+
+
+    
+</article>
+
+    
+
+    
+
+     
+    
+        
+    <script
+    src="https://giscus.app/client.js"
+    data-repo="pastor17/bloggiscus"
+    data-repo-id="R_kgDOQ6H9qQ"
+    data-category=""
+    data-category-id="DIC_kwDOQ6H9qc4C0-T8"
+    data-mapping="pathname"
+    data-strict="0"
+    data-reactions-enabled="1"
+    data-emit-metadata="0"
+    data-input-position="bottom"
+    data-theme="light"
+    data-lang="zh-CN"
+    data-loading="lazy"
+    crossorigin="anonymous"
+    async
+></script>
+<script>
+    function setGiscusTheme(theme) {
+        let giscus = document.querySelector("iframe.giscus-frame");
+        if (giscus) {
+            giscus.contentWindow.postMessage(
+                {
+                    giscus: {
+                        setConfig: {
+                            theme: theme,
+                        },
+                    },
+                },
+                "https://giscus.app"
+            );
+        }
+    }
+
+    (function () {
+        addEventListener("message", (e) => {
+            if (event.origin !== "https://giscus.app") return;
+            handler();
+        });
+        window.addEventListener("onColorSchemeChange", handler);
+
+        function handler() {
+            if (document.documentElement.dataset.scheme === "light") {
+                setGiscusTheme('light');
+            } else {
+                setGiscusTheme('dark_dimmed');
+            }
+        }
+    })();
+</script>
+
+    
+
+    <footer class="site-footer">
+    <section class="copyright">
+        &copy; 
+        
+        2026 SelfTechHub
+    </section>
+    
+    <section class="powerby">
+        
+
+    </section>
+</footer>
+
+
+    
+<div class="pswp" tabindex="-1" role="dialog" aria-hidden="true">
+
+    
+    <div class="pswp__bg"></div>
+
+    
+    <div class="pswp__scroll-wrap">
+
+        
+        <div class="pswp__container">
+            <div class="pswp__item"></div>
+            <div class="pswp__item"></div>
+            <div class="pswp__item"></div>
+        </div>
+
+        
+        <div class="pswp__ui pswp__ui--hidden">
+
+            <div class="pswp__top-bar">
+
+                
+
+                <div class="pswp__counter"></div>
+
+                <button class="pswp__button pswp__button--close" title="Close (Esc)"></button>
+
+                <button class="pswp__button pswp__button--share" title="Share"></button>
+
+                <button class="pswp__button pswp__button--fs" title="Toggle fullscreen"></button>
+
+                <button class="pswp__button pswp__button--zoom" title="Zoom in/out"></button>
+
+                
+                
+                <div class="pswp__preloader">
+                    <div class="pswp__preloader__icn">
+                        <div class="pswp__preloader__cut">
+                            <div class="pswp__preloader__donut"></div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <div class="pswp__share-modal pswp__share-modal--hidden pswp__single-tap">
+                <div class="pswp__share-tooltip"></div>
+            </div>
+
+            <button class="pswp__button pswp__button--arrow--left" title="Previous (arrow left)">
+            </button>
+
+            <button class="pswp__button pswp__button--arrow--right" title="Next (arrow right)">
+            </button>
+
+            <div class="pswp__caption">
+                <div class="pswp__caption__center"></div>
+            </div>
+
+        </div>
+
+    </div>
+
+</div><script 
+                src="https://cdn.jsdelivr.net/npm/photoswipe@4.1.3/dist/photoswipe.min.js"integrity="sha256-ePwmChbbvXbsO02lbM3HoHbSHTHFAeChekF1xKJdleo="crossorigin="anonymous"
+                defer
+                >
+            </script><script 
+                src="https://cdn.jsdelivr.net/npm/photoswipe@4.1.3/dist/photoswipe-ui-default.min.js"integrity="sha256-UKkzOn/w1mBxRmLLGrSeyB4e1xbrp4xylgAWb3M42pU="crossorigin="anonymous"
+                defer
+                >
+            </script><link 
+                rel="stylesheet" 
+                href="https://cdn.jsdelivr.net/npm/photoswipe@4.1.3/dist/default-skin/default-skin.min.css"crossorigin="anonymous"
+            ><link 
+                rel="stylesheet" 
+                href="https://cdn.jsdelivr.net/npm/photoswipe@4.1.3/dist/photoswipe.min.css"crossorigin="anonymous"
+            >
+    
+
+            </main>
+        </div>
+        <script 
+                src="https://cdn.jsdelivr.net/npm/node-vibrant@3.1.6/dist/vibrant.min.js"integrity="sha256-awcR2jno4kI5X0zL8ex0vi2z&#43;KMkF24hUW8WePSA9HM="crossorigin="anonymous"
+                
+                >
+            </script><script type="text/javascript" src="/ts/main.c922af694cc257bf1ecc41c0dd7b0430f9114ec280ccf67cd2c6ad55f5316c4e.js" defer></script>
+<script>
+    (function () {
+        const customFont = document.createElement('link');
+        customFont.href = "https://fonts.googleapis.com/css2?family=Lato:wght@300;400;700&display=swap";
+
+        customFont.type = "text/css";
+        customFont.rel = "stylesheet";
+
+        document.head.appendChild(customFont);
+    }());
+</script>
+
+    </body>
+</html>

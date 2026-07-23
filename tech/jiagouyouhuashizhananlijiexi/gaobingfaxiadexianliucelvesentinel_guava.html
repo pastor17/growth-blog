@@ -1,0 +1,478 @@
+<!DOCTYPE html>
+<html lang="zh-cn" dir="ltr">
+    <head><meta charset='utf-8'>
+<meta name='viewport' content='width=device-width, initial-scale=1'><meta name='description' content="&ldquo;叮叮叮……&rdquo;\n凌晨 3 点 15 分，手机疯狂震动，运维告警群的消息像雪花一样炸开。作为后端负责人的我，迷迷糊糊抓起手机，看到那行让人心跳骤停的红字：&ldquo;数据库 CPU 使用率 99%，连接数耗尽，订单服务响应超时。&rdquo;\n那是我刚升任架构师的第一个月。为了迎接一场大促，我们扩容了服务器，优化了 SQL，甚至提前喝了两罐红牛。但我唯独忽略了一件事：当流量像海啸一样涌来时，大坝如果没有泄洪闸，崩塌只在一瞬间。\n以前我总以为，&ldquo;限流&quot;是拒绝用户，是把送上门的钱推出去。直到踩了这个大坑，我才明白：限流不是为了拒绝，而是为了保护。它是在告诉系统：&ldquo;别逞强，活下来最重要。&rdquo;\n如果你也曾面对流量洪峰手足无措，或者对着 Sentinel 和 Guava 的文档一头雾水，请深呼吸。今天我们不谈枯燥的原理，聊聊怎么用这两个&quot;保命符&rdquo;，让你的服务（和你自己）睡个安稳觉。\n既然扩容了，为什么还要限流？\r很多新手开发常有一个误区：并发高了？加机器啊！\n让我讲个真实的故事。那是两年前的一个周五下午，我们上线了一个&quot;整点抢券&quot;活动。预估 QPS（每秒请求数）大概在 2000 左右。为了保险，我把应用服务器从 3 台扩到了 10 台。\n结果呢？活动开始第 5 秒，系统全挂。\n复盘时我们发现了一个惨痛的真相： 应用服务器是扩容了，但底层的数据库和 Redis 并没有无限抗压能力。10 台机器同时向数据库发起请求，瞬间打满了数据库连接池。这就像是你把公路拓宽了 10 倍，但收费站的窗口还是只有 2 个，结果就是所有车都堵死在收费站门口。\n核心观点：系统的短板永远在最脆弱的那个环节（通常是数据库）。限流，就是给这个脆弱环节加一个&quot;排号机&quot;。\n单机卫士：Guava RateLimiter 的&quot;极简主义&quot;\r如果你的业务场景比较简单，比如写一个内部的数据同步脚本，或者是非集群环境下的接口保护，Google 的 Guava 工具包是你最好的朋友。\n场景还原： 那个让我崩溃的深夜之后，我接手了一个旧项目：一个导出 Excel 报表的接口。这个接口非常耗内存，一旦有超过 5 个人同时点&quot;导出&quot;，服务器就会因为 OOM（内存溢出）宕机。\n我的解决方案： 我没有重构代码（风险太大），而是引入了 Guava 的 RateLimiter。你可以把它想象成一个拿着秒表的体育老师，它不管有多少学生想跑步，它只按固定的节奏发令。\n看看这几行救命的代码，简单到令人发指：\n// 每秒只允许 2 个请求通过（令牌桶算法） RateLimiter limiter = RateLimiter.create(2.0); public void exportReport() { // 尝试获取令牌，拿不到就等待（或者你可以选择直接拒绝） limiter.acquire(); // 下面是原本的业务逻辑 System.out.println(&#34;开始执行耗时的导出任务...&#34;); } 效果立竿见影： 那天之后，无论运营部的同事怎么狂点&quot;导出&quot;按钮，服务器始终稳如老狗。多余的请求会自动排队，大家顶多觉得&quot;稍微慢了一点&quot;，但再也没有人喊&quot;系统挂了&quot;。\n">
+<title>服务雪崩？深夜3点，我用限流救回了崩溃的系统</title>
+
+<link rel='canonical' href='https://blog.irudder.me/tech/jiagouyouhuashizhananlijiexi/gaobingfaxiadexianliucelvesentinel_guava.html'>
+
+<link rel="stylesheet" href="/scss/style.min.b9e9128fec450ebccecc4ec9900157f32b85d0609bcd5ee3293968bcaa1235f2.css"><meta property='og:title' content="服务雪崩？深夜3点，我用限流救回了崩溃的系统">
+<meta property='og:description' content="&ldquo;叮叮叮……&rdquo;\n凌晨 3 点 15 分，手机疯狂震动，运维告警群的消息像雪花一样炸开。作为后端负责人的我，迷迷糊糊抓起手机，看到那行让人心跳骤停的红字：&ldquo;数据库 CPU 使用率 99%，连接数耗尽，订单服务响应超时。&rdquo;\n那是我刚升任架构师的第一个月。为了迎接一场大促，我们扩容了服务器，优化了 SQL，甚至提前喝了两罐红牛。但我唯独忽略了一件事：当流量像海啸一样涌来时，大坝如果没有泄洪闸，崩塌只在一瞬间。\n以前我总以为，&ldquo;限流&quot;是拒绝用户，是把送上门的钱推出去。直到踩了这个大坑，我才明白：限流不是为了拒绝，而是为了保护。它是在告诉系统：&ldquo;别逞强，活下来最重要。&rdquo;\n如果你也曾面对流量洪峰手足无措，或者对着 Sentinel 和 Guava 的文档一头雾水，请深呼吸。今天我们不谈枯燥的原理，聊聊怎么用这两个&quot;保命符&rdquo;，让你的服务（和你自己）睡个安稳觉。\n既然扩容了，为什么还要限流？\r很多新手开发常有一个误区：并发高了？加机器啊！\n让我讲个真实的故事。那是两年前的一个周五下午，我们上线了一个&quot;整点抢券&quot;活动。预估 QPS（每秒请求数）大概在 2000 左右。为了保险，我把应用服务器从 3 台扩到了 10 台。\n结果呢？活动开始第 5 秒，系统全挂。\n复盘时我们发现了一个惨痛的真相： 应用服务器是扩容了，但底层的数据库和 Redis 并没有无限抗压能力。10 台机器同时向数据库发起请求，瞬间打满了数据库连接池。这就像是你把公路拓宽了 10 倍，但收费站的窗口还是只有 2 个，结果就是所有车都堵死在收费站门口。\n核心观点：系统的短板永远在最脆弱的那个环节（通常是数据库）。限流，就是给这个脆弱环节加一个&quot;排号机&quot;。\n单机卫士：Guava RateLimiter 的&quot;极简主义&quot;\r如果你的业务场景比较简单，比如写一个内部的数据同步脚本，或者是非集群环境下的接口保护，Google 的 Guava 工具包是你最好的朋友。\n场景还原： 那个让我崩溃的深夜之后，我接手了一个旧项目：一个导出 Excel 报表的接口。这个接口非常耗内存，一旦有超过 5 个人同时点&quot;导出&quot;，服务器就会因为 OOM（内存溢出）宕机。\n我的解决方案： 我没有重构代码（风险太大），而是引入了 Guava 的 RateLimiter。你可以把它想象成一个拿着秒表的体育老师，它不管有多少学生想跑步，它只按固定的节奏发令。\n看看这几行救命的代码，简单到令人发指：\n// 每秒只允许 2 个请求通过（令牌桶算法） RateLimiter limiter = RateLimiter.create(2.0); public void exportReport() { // 尝试获取令牌，拿不到就等待（或者你可以选择直接拒绝） limiter.acquire(); // 下面是原本的业务逻辑 System.out.println(&#34;开始执行耗时的导出任务...&#34;); } 效果立竿见影： 那天之后，无论运营部的同事怎么狂点&quot;导出&quot;按钮，服务器始终稳如老狗。多余的请求会自动排队，大家顶多觉得&quot;稍微慢了一点&quot;，但再也没有人喊&quot;系统挂了&quot;。\n">
+<meta property='og:url' content='https://blog.irudder.me/tech/jiagouyouhuashizhananlijiexi/gaobingfaxiadexianliucelvesentinel_guava.html'>
+<meta property='og:site_name' content='SelfTechHub'>
+<meta property='og:type' content='article'><meta property='article:section' content='Tech' /><meta property='article:tag' content='高并发下的限流策略（Sentinel/Guava）' /><meta property='article:published_time' content='2024-07-01T00:00:00&#43;00:00'/><meta property='article:modified_time' content='2024-07-01T00:00:00&#43;00:00'/>
+<meta name="twitter:title" content="服务雪崩？深夜3点，我用限流救回了崩溃的系统">
+<meta name="twitter:description" content="&ldquo;叮叮叮……&rdquo;\n凌晨 3 点 15 分，手机疯狂震动，运维告警群的消息像雪花一样炸开。作为后端负责人的我，迷迷糊糊抓起手机，看到那行让人心跳骤停的红字：&ldquo;数据库 CPU 使用率 99%，连接数耗尽，订单服务响应超时。&rdquo;\n那是我刚升任架构师的第一个月。为了迎接一场大促，我们扩容了服务器，优化了 SQL，甚至提前喝了两罐红牛。但我唯独忽略了一件事：当流量像海啸一样涌来时，大坝如果没有泄洪闸，崩塌只在一瞬间。\n以前我总以为，&ldquo;限流&quot;是拒绝用户，是把送上门的钱推出去。直到踩了这个大坑，我才明白：限流不是为了拒绝，而是为了保护。它是在告诉系统：&ldquo;别逞强，活下来最重要。&rdquo;\n如果你也曾面对流量洪峰手足无措，或者对着 Sentinel 和 Guava 的文档一头雾水，请深呼吸。今天我们不谈枯燥的原理，聊聊怎么用这两个&quot;保命符&rdquo;，让你的服务（和你自己）睡个安稳觉。\n既然扩容了，为什么还要限流？\r很多新手开发常有一个误区：并发高了？加机器啊！\n让我讲个真实的故事。那是两年前的一个周五下午，我们上线了一个&quot;整点抢券&quot;活动。预估 QPS（每秒请求数）大概在 2000 左右。为了保险，我把应用服务器从 3 台扩到了 10 台。\n结果呢？活动开始第 5 秒，系统全挂。\n复盘时我们发现了一个惨痛的真相： 应用服务器是扩容了，但底层的数据库和 Redis 并没有无限抗压能力。10 台机器同时向数据库发起请求，瞬间打满了数据库连接池。这就像是你把公路拓宽了 10 倍，但收费站的窗口还是只有 2 个，结果就是所有车都堵死在收费站门口。\n核心观点：系统的短板永远在最脆弱的那个环节（通常是数据库）。限流，就是给这个脆弱环节加一个&quot;排号机&quot;。\n单机卫士：Guava RateLimiter 的&quot;极简主义&quot;\r如果你的业务场景比较简单，比如写一个内部的数据同步脚本，或者是非集群环境下的接口保护，Google 的 Guava 工具包是你最好的朋友。\n场景还原： 那个让我崩溃的深夜之后，我接手了一个旧项目：一个导出 Excel 报表的接口。这个接口非常耗内存，一旦有超过 5 个人同时点&quot;导出&quot;，服务器就会因为 OOM（内存溢出）宕机。\n我的解决方案： 我没有重构代码（风险太大），而是引入了 Guava 的 RateLimiter。你可以把它想象成一个拿着秒表的体育老师，它不管有多少学生想跑步，它只按固定的节奏发令。\n看看这几行救命的代码，简单到令人发指：\n// 每秒只允许 2 个请求通过（令牌桶算法） RateLimiter limiter = RateLimiter.create(2.0); public void exportReport() { // 尝试获取令牌，拿不到就等待（或者你可以选择直接拒绝） limiter.acquire(); // 下面是原本的业务逻辑 System.out.println(&#34;开始执行耗时的导出任务...&#34;); } 效果立竿见影： 那天之后，无论运营部的同事怎么狂点&quot;导出&quot;按钮，服务器始终稳如老狗。多余的请求会自动排队，大家顶多觉得&quot;稍微慢了一点&quot;，但再也没有人喊&quot;系统挂了&quot;。\n">
+    </head>
+    <body class="
+    article-page
+    ">
+    <script>
+        (function() {
+            const colorSchemeKey = 'StackColorScheme';
+            if(!localStorage.getItem(colorSchemeKey)){
+                localStorage.setItem(colorSchemeKey, "auto");
+            }
+        })();
+    </script><script>
+    (function() {
+        const colorSchemeKey = 'StackColorScheme';
+        const colorSchemeItem = localStorage.getItem(colorSchemeKey);
+        const supportDarkMode = window.matchMedia('(prefers-color-scheme: dark)').matches === true;
+
+        if (colorSchemeItem == 'dark' || colorSchemeItem === 'auto' && supportDarkMode) {
+            
+
+            document.documentElement.dataset.scheme = 'dark';
+        } else {
+            document.documentElement.dataset.scheme = 'light';
+        }
+    })();
+</script>
+<div class="container main-container flex on-phone--column compact"><aside class="sidebar left-sidebar sticky ">
+    <button class="hamburger hamburger--spin" type="button" id="toggle-menu" aria-label="切换菜单">
+        <span class="hamburger-box">
+            <span class="hamburger-inner"></span>
+        </span>
+    </button>
+
+    <header>
+        
+            
+            <figure class="site-avatar">
+                <a href="/">
+                
+                    
+                    
+                    
+                        
+                        <img src="/img/avatar_hu_8588ce14af1147e2.png" width="300"
+                            height="286" class="site-logo" loading="lazy" alt="Avatar">
+                    
+                
+                </a>
+                
+            </figure>
+            
+        
+        
+        <div class="site-meta">
+            <h1 class="site-name"><a href="/">SelfTechHub</a></h1>
+            <h2 class="site-description"></h2>
+        </div>
+    </header><ol class="menu" id="main-menu">
+        
+        
+        <li class="menu-bottom-section">
+            <ol class="menu">
+
+                
+                    <li id="dark-mode-toggle">
+                        <svg xmlns="http://www.w3.org/2000/svg" class="icon icon-tabler icon-tabler-toggle-left" width="24" height="24" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor" fill="none" stroke-linecap="round" stroke-linejoin="round">
+  <path stroke="none" d="M0 0h24v24H0z"/>
+  <circle cx="8" cy="12" r="2" />
+  <rect x="2" y="6" width="20" height="12" rx="6" />
+</svg>
+
+
+
+                        <svg xmlns="http://www.w3.org/2000/svg" class="icon icon-tabler icon-tabler-toggle-right" width="24" height="24" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor" fill="none" stroke-linecap="round" stroke-linejoin="round">
+  <path stroke="none" d="M0 0h24v24H0z"/>
+  <circle cx="16" cy="12" r="2" />
+  <rect x="2" y="6" width="20" height="12" rx="6" />
+</svg>
+
+
+
+                        <span>暗色模式</span>
+                    </li>
+                
+            </ol>
+        </li>
+    </ol>
+</aside>
+
+    
+
+            <main class="main full-width">
+    <article class="main-article">
+    <header class="article-header">
+
+    <div class="article-details">
+    
+    <header class="article-category">
+        
+            <a href="/categories/%E6%8A%80%E6%9C%AF.html" >
+                技术精进
+            </a>
+        
+    </header>
+    
+
+    <div class="article-title-wrapper">
+        <h2 class="article-title">
+            <a href="/tech/jiagouyouhuashizhananlijiexi/gaobingfaxiadexianliucelvesentinel_guava.html">服务雪崩？深夜3点，我用限流救回了崩溃的系统</a>
+        </h2>
+    
+        
+    </div>
+
+    
+    
+    
+    
+    <footer class="article-time">
+        
+            <div>
+                <svg xmlns="http://www.w3.org/2000/svg" class="icon icon-tabler icon-tabler-calendar-time" width="56" height="56" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor" fill="none" stroke-linecap="round" stroke-linejoin="round">
+  <path stroke="none" d="M0 0h24v24H0z"/>
+  <path d="M11.795 21h-6.795a2 2 0 0 1 -2 -2v-12a2 2 0 0 1 2 -2h12a2 2 0 0 1 2 2v4" />
+  <circle cx="18" cy="18" r="4" />
+  <path d="M15 3v4" />
+  <path d="M7 3v4" />
+  <path d="M3 11h16" />
+  <path d="M18 16.496v1.504l1 1" />
+</svg>
+                <time class="article-time--published" datetime='2024-07-01T00:00:00Z'>Jul 01, 2024</time>
+            </div>
+        
+
+        
+            <div>
+                <svg xmlns="http://www.w3.org/2000/svg" class="icon icon-tabler icon-tabler-clock" width="24" height="24" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor" fill="none" stroke-linecap="round" stroke-linejoin="round">
+  <path stroke="none" d="M0 0h24v24H0z"/>
+  <circle cx="12" cy="12" r="9" />
+  <polyline points="12 7 12 12 15 15" />
+</svg>
+
+
+
+                <time class="article-time--reading">
+                    阅读时长: 1 分钟
+                </time>
+            </div>
+        
+    </footer>
+    
+
+    
+</div>
+
+</header>
+
+    <section class="article-content">
+    
+    
+    <p>&ldquo;叮叮叮……&rdquo;</p>
+<p>凌晨 3 点 15 分，手机疯狂震动，运维告警群的消息像雪花一样炸开。作为后端负责人的我，迷迷糊糊抓起手机，看到那行让人心跳骤停的红字：&ldquo;数据库 CPU 使用率 99%，连接数耗尽，订单服务响应超时。&rdquo;</p>
+<p>那是我刚升任架构师的第一个月。为了迎接一场大促，我们扩容了服务器，优化了 SQL，甚至提前喝了两罐红牛。但我唯独忽略了一件事：<strong>当流量像海啸一样涌来时，大坝如果没有泄洪闸，崩塌只在一瞬间。</strong></p>
+<p><img src="https://picsum.photos/800/450?random=1768457395047"
+	
+	
+	
+	loading="lazy"
+	
+		alt="配图"
+	
+	
+></p>
+<p>以前我总以为，&ldquo;限流&quot;是拒绝用户，是把送上门的钱推出去。直到踩了这个大坑，我才明白：<strong>限流不是为了拒绝，而是为了保护。它是在告诉系统：&ldquo;别逞强，活下来最重要。&rdquo;</strong></p>
+<p>如果你也曾面对流量洪峰手足无措，或者对着 Sentinel 和 Guava 的文档一头雾水，请深呼吸。今天我们不谈枯燥的原理，聊聊怎么用这两个&quot;保命符&rdquo;，让你的服务（和你自己）睡个安稳觉。</p>
+<h2 id="既然扩容了为什么还要限流">既然扩容了，为什么还要限流？
+</h2><p>很多新手开发常有一个误区：并发高了？加机器啊！</p>
+<p>让我讲个真实的故事。那是两年前的一个周五下午，我们上线了一个&quot;整点抢券&quot;活动。预估 QPS（每秒请求数）大概在 2000 左右。为了保险，我把应用服务器从 3 台扩到了 10 台。</p>
+<p>结果呢？活动开始第 5 秒，系统全挂。</p>
+<p><strong>复盘时我们发现了一个惨痛的真相：</strong>
+应用服务器是扩容了，但底层的数据库和 Redis 并没有无限抗压能力。10 台机器同时向数据库发起请求，瞬间打满了数据库连接池。这就像是你把公路拓宽了 10 倍，但收费站的窗口还是只有 2 个，结果就是所有车都堵死在收费站门口。</p>
+<blockquote>
+<p><strong>核心观点</strong>：系统的短板永远在最脆弱的那个环节（通常是数据库）。限流，就是给这个脆弱环节加一个&quot;排号机&quot;。</p>
+</blockquote>
+<hr>
+<h2 id="单机卫士guava-ratelimiter-的极简主义">单机卫士：Guava RateLimiter 的&quot;极简主义&quot;
+</h2><p>如果你的业务场景比较简单，比如写一个内部的数据同步脚本，或者是非集群环境下的接口保护，Google 的 Guava 工具包是你最好的朋友。</p>
+<p><strong>场景还原：</strong>
+那个让我崩溃的深夜之后，我接手了一个旧项目：一个导出 Excel 报表的接口。这个接口非常耗内存，一旦有超过 5 个人同时点&quot;导出&quot;，服务器就会因为 OOM（内存溢出）宕机。</p>
+<p><strong>我的解决方案：</strong>
+我没有重构代码（风险太大），而是引入了 Guava 的 <code>RateLimiter</code>。你可以把它想象成一个拿着秒表的体育老师，它不管有多少学生想跑步，它只按固定的节奏发令。</p>
+<p>看看这几行救命的代码，简单到令人发指：</p>
+<div class="highlight"><pre tabindex="0" style="color:#f8f8f2;background-color:#272822;-moz-tab-size:4;-o-tab-size:4;tab-size:4;"><code class="language-java" data-lang="java"><span style="display:flex;"><span><span style="color:#75715e">// 每秒只允许 2 个请求通过（令牌桶算法）</span>
+</span></span><span style="display:flex;"><span>RateLimiter limiter <span style="color:#f92672">=</span> RateLimiter.<span style="color:#a6e22e">create</span>(2.<span style="color:#a6e22e">0</span>);
+</span></span><span style="display:flex;"><span>
+</span></span><span style="display:flex;"><span><span style="color:#66d9ef">public</span> <span style="color:#66d9ef">void</span> <span style="color:#a6e22e">exportReport</span>() {
+</span></span><span style="display:flex;"><span>    <span style="color:#75715e">// 尝试获取令牌，拿不到就等待（或者你可以选择直接拒绝）</span>
+</span></span><span style="display:flex;"><span>    limiter.<span style="color:#a6e22e">acquire</span>(); 
+</span></span><span style="display:flex;"><span>    
+</span></span><span style="display:flex;"><span>    <span style="color:#75715e">// 下面是原本的业务逻辑</span>
+</span></span><span style="display:flex;"><span>    System.<span style="color:#a6e22e">out</span>.<span style="color:#a6e22e">println</span>(<span style="color:#e6db74">&#34;开始执行耗时的导出任务...&#34;</span>);
+</span></span><span style="display:flex;"><span>}
+</span></span></code></pre></div><p><strong>效果立竿见影：</strong>
+那天之后，无论运营部的同事怎么狂点&quot;导出&quot;按钮，服务器始终稳如老狗。多余的请求会自动排队，大家顶多觉得&quot;稍微慢了一点&quot;，但再也没有人喊&quot;系统挂了&quot;。</p>
+<p><strong>避坑提示：</strong>
+Guava 是<strong>单机限流</strong>。如果你有 10 台服务器，每台限制 2 QPS，那么总的流量就是 20 QPS。千万别在分布式大流量场景下，把它当做唯一的防线。</p>
+<hr>
+<h2 id="集群指挥官sentinel-的上帝视角">集群指挥官：Sentinel 的&quot;上帝视角&quot;
+</h2><p>当你面对的是微服务架构，或者像&quot;双十一&quot;那种级别的流量，Guava 就显得力不从心了。这时候，你需要阿里巴巴开源的 <strong>Sentinel</strong>。</p>
+<p><strong>场景还原：</strong>
+去年，我们的支付服务因为依赖的第三方渠道偶尔超时，导致整个调用链路卡死。只要第三方一抖动，我们的线程池就被占满，连带其他正常的查询业务也无法响应。这就是典型的&quot;雪崩&quot;。</p>
+<p><strong>我的行动：</strong>
+我花了一个下午接入 Sentinel。这东西最治愈的地方在于它有一个<strong>可视化控制台</strong>。你不需要改一行代码，就能在界面上看到每个接口的实时流量。</p>
+<p><img src="https://picsum.photos/800/450?random=1768457398790"
+	
+	
+	
+	loading="lazy"
+	
+		alt="配图"
+	
+	
+></p>
+<p>针对支付接口，我配置了一条&quot;熔断降级&quot;规则：</p>
+<ul>
+<li><strong>规则</strong>：当 1 秒内响应时间超过 500ms 的请求比例达到 50%。</li>
+<li><strong>动作</strong>：自动熔断 10 秒（这 10 秒内直接返回&quot;支付繁忙&quot;，不再请求第三方）。</li>
+</ul>
+<div class="highlight"><pre tabindex="0" style="color:#f8f8f2;background-color:#272822;-moz-tab-size:4;-o-tab-size:4;tab-size:4;"><code class="language-java" data-lang="java"><span style="display:flex;"><span><span style="color:#75715e">// 使用注解定义资源，配置 fallback 处理降级逻辑</span>
+</span></span><span style="display:flex;"><span><span style="color:#a6e22e">@SentinelResource</span>(value <span style="color:#f92672">=</span> <span style="color:#e6db74">&#34;payOrder&#34;</span>, fallback <span style="color:#f92672">=</span> <span style="color:#e6db74">&#34;handleFallback&#34;</span>)
+</span></span><span style="display:flex;"><span><span style="color:#66d9ef">public</span> String <span style="color:#a6e22e">payOrder</span>(String orderId) {
+</span></span><span style="display:flex;"><span>    <span style="color:#75715e">// 模拟调用第三方支付</span>
+</span></span><span style="display:flex;"><span>    <span style="color:#66d9ef">return</span> paymentService.<span style="color:#a6e22e">process</span>(orderId);
+</span></span><span style="display:flex;"><span>}
+</span></span><span style="display:flex;"><span>
+</span></span><span style="display:flex;"><span><span style="color:#75715e">// 降级后的兜底方法：给用户一个温暖的提示，而不是报错页面</span>
+</span></span><span style="display:flex;"><span><span style="color:#66d9ef">public</span> String <span style="color:#a6e22e">handleFallback</span>(String orderId, Throwable e) {
+</span></span><span style="display:flex;"><span>    <span style="color:#66d9ef">return</span> <span style="color:#e6db74">&#34;支付通道拥挤，请稍后重试（我们正在全力疏通中...）&#34;</span>;
+</span></span><span style="display:flex;"><span>}
+</span></span></code></pre></div><p><strong>最终结果：</strong>
+一周后，第三方渠道再次故障。监控大屏上显示支付接口触发熔断，红线飙升，但整个系统的 CPU 仅仅波动了 5%。用户看到了友好的提示，而不是白屏。那一刻，我坐在工位上喝着我的冻顶乌龙，心里前所未有的平静。</p>
+<hr>
+<h2 id="写给正在焦虑的你">写给正在焦虑的你
+</h2><p>技术圈里，我们总在追求高性能、高可用，却很少谈论<strong>开发者的心理可用性</strong>。</p>
+<p>我见过太多优秀的工程师，因为一次线上故障而陷入深深的自责，甚至产生&quot;我不适合做开发&quot;的念头。其实，<strong>系统出问题是常态，不出问题才是运气。</strong></p>
+<p>限流策略，本质上是一种&quot;接受不完美&quot;的智慧。它承认系统的能力有上限，承认我们无法掌控所有外部流量。</p>
+<ul>
+<li><strong>Guava</strong> 告诉我们：做好当下的事，守住自己的那一份节奏。</li>
+<li><strong>Sentinel</strong> 告诉我们：当压力大到无法承受时，懂得拒绝和休息（熔断），是为了稍后更好地出发。</li>
+</ul>
+<p>这难道不像我们的人生吗？</p>
+<h2 id="马上行动给自己穿上铠甲">马上行动：给自己穿上铠甲
+</h2><p>看完文章，不需要你马上去重构系统。我建议你做 3 件小事，明天上班就能落地：</p>
+<p><img src="https://picsum.photos/800/450?random=1768457396294"
+	
+	
+	
+	loading="lazy"
+	
+		alt="配图"
+	
+	
+></p>
+<ol>
+<li><strong>盘点核心接口</strong>：找出你们系统中那 20% 最重要、或者最容易出问题的接口（通常是写库频繁或依赖第三方的接口）。</li>
+<li><strong>设置&quot;软&quot;限流</strong>：如果你不敢直接拒绝用户，先用 Sentinel 设置一个较高的阈值，模式选择&quot;记录日志&quot;而不是&quot;抛出异常&quot;。观察一周，看看真实的流量峰值到底是多少。</li>
+<li><strong>准备一个兜底文案</strong>：找产品经理聊聊，如果触发限流，给用户返回什么？是冷冰冰的 <code>429 Too Many Requests</code>，还是&quot;哎呀，挤爆了，正在为您疏通&quot;？相信我，温暖的文案能减少一半的客诉。</li>
+</ol>
+<p><strong>你在项目中遇到过因为流量过大导致的&quot;惊魂时刻&quot;吗？你是怎么解决的？</strong></p>
+<p>欢迎在评论区分享你的故事（或者吐槽），说不定你的经历，恰好能帮到另一个正在熬夜排查问题的兄弟。</p>
+
+</section>
+
+
+    <footer class="article-footer">
+    
+    <section class="article-tags">
+        
+            <a href="/tags/%E9%AB%98%E5%B9%B6%E5%8F%91%E4%B8%8B%E7%9A%84%E9%99%90%E6%B5%81%E7%AD%96%E7%95%A5Sentinel/Guava.html">高并发下的限流策略（Sentinel/Guava）</a>
+        
+    </section>
+
+
+    </footer>
+
+
+    
+</article>
+
+    
+
+    
+
+     
+    
+        
+    <script
+    src="https://giscus.app/client.js"
+    data-repo="pastor17/bloggiscus"
+    data-repo-id="R_kgDOQ6H9qQ"
+    data-category=""
+    data-category-id="DIC_kwDOQ6H9qc4C0-T8"
+    data-mapping="pathname"
+    data-strict="0"
+    data-reactions-enabled="1"
+    data-emit-metadata="0"
+    data-input-position="bottom"
+    data-theme="light"
+    data-lang="zh-CN"
+    data-loading="lazy"
+    crossorigin="anonymous"
+    async
+></script>
+<script>
+    function setGiscusTheme(theme) {
+        let giscus = document.querySelector("iframe.giscus-frame");
+        if (giscus) {
+            giscus.contentWindow.postMessage(
+                {
+                    giscus: {
+                        setConfig: {
+                            theme: theme,
+                        },
+                    },
+                },
+                "https://giscus.app"
+            );
+        }
+    }
+
+    (function () {
+        addEventListener("message", (e) => {
+            if (event.origin !== "https://giscus.app") return;
+            handler();
+        });
+        window.addEventListener("onColorSchemeChange", handler);
+
+        function handler() {
+            if (document.documentElement.dataset.scheme === "light") {
+                setGiscusTheme('light');
+            } else {
+                setGiscusTheme('dark_dimmed');
+            }
+        }
+    })();
+</script>
+
+    
+
+    <footer class="site-footer">
+    <section class="copyright">
+        &copy; 
+        
+        2026 SelfTechHub
+    </section>
+    
+    <section class="powerby">
+        
+
+    </section>
+</footer>
+
+
+    
+<div class="pswp" tabindex="-1" role="dialog" aria-hidden="true">
+
+    
+    <div class="pswp__bg"></div>
+
+    
+    <div class="pswp__scroll-wrap">
+
+        
+        <div class="pswp__container">
+            <div class="pswp__item"></div>
+            <div class="pswp__item"></div>
+            <div class="pswp__item"></div>
+        </div>
+
+        
+        <div class="pswp__ui pswp__ui--hidden">
+
+            <div class="pswp__top-bar">
+
+                
+
+                <div class="pswp__counter"></div>
+
+                <button class="pswp__button pswp__button--close" title="Close (Esc)"></button>
+
+                <button class="pswp__button pswp__button--share" title="Share"></button>
+
+                <button class="pswp__button pswp__button--fs" title="Toggle fullscreen"></button>
+
+                <button class="pswp__button pswp__button--zoom" title="Zoom in/out"></button>
+
+                
+                
+                <div class="pswp__preloader">
+                    <div class="pswp__preloader__icn">
+                        <div class="pswp__preloader__cut">
+                            <div class="pswp__preloader__donut"></div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <div class="pswp__share-modal pswp__share-modal--hidden pswp__single-tap">
+                <div class="pswp__share-tooltip"></div>
+            </div>
+
+            <button class="pswp__button pswp__button--arrow--left" title="Previous (arrow left)">
+            </button>
+
+            <button class="pswp__button pswp__button--arrow--right" title="Next (arrow right)">
+            </button>
+
+            <div class="pswp__caption">
+                <div class="pswp__caption__center"></div>
+            </div>
+
+        </div>
+
+    </div>
+
+</div><script 
+                src="https://cdn.jsdelivr.net/npm/photoswipe@4.1.3/dist/photoswipe.min.js"integrity="sha256-ePwmChbbvXbsO02lbM3HoHbSHTHFAeChekF1xKJdleo="crossorigin="anonymous"
+                defer
+                >
+            </script><script 
+                src="https://cdn.jsdelivr.net/npm/photoswipe@4.1.3/dist/photoswipe-ui-default.min.js"integrity="sha256-UKkzOn/w1mBxRmLLGrSeyB4e1xbrp4xylgAWb3M42pU="crossorigin="anonymous"
+                defer
+                >
+            </script><link 
+                rel="stylesheet" 
+                href="https://cdn.jsdelivr.net/npm/photoswipe@4.1.3/dist/default-skin/default-skin.min.css"crossorigin="anonymous"
+            ><link 
+                rel="stylesheet" 
+                href="https://cdn.jsdelivr.net/npm/photoswipe@4.1.3/dist/photoswipe.min.css"crossorigin="anonymous"
+            >
+    
+
+            </main>
+        </div>
+        <script 
+                src="https://cdn.jsdelivr.net/npm/node-vibrant@3.1.6/dist/vibrant.min.js"integrity="sha256-awcR2jno4kI5X0zL8ex0vi2z&#43;KMkF24hUW8WePSA9HM="crossorigin="anonymous"
+                
+                >
+            </script><script type="text/javascript" src="/ts/main.c922af694cc257bf1ecc41c0dd7b0430f9114ec280ccf67cd2c6ad55f5316c4e.js" defer></script>
+<script>
+    (function () {
+        const customFont = document.createElement('link');
+        customFont.href = "https://fonts.googleapis.com/css2?family=Lato:wght@300;400;700&display=swap";
+
+        customFont.type = "text/css";
+        customFont.rel = "stylesheet";
+
+        document.head.appendChild(customFont);
+    }());
+</script>
+
+    </body>
+</html>

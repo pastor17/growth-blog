@@ -1,0 +1,294 @@
+<?xml version="1.0" encoding="utf-8" standalone="yes"?>
+<rss version="2.0" xmlns:atom="http://www.w3.org/2005/Atom">
+    <channel>
+        <title>Function Calling on SelfTechHub</title>
+        <link>https://blog.irudder.me/tags/Function-Calling.html</link>
+        <description>Recent content in Function Calling on SelfTechHub</description>
+        <generator>Hugo -- gohugo.io</generator>
+        <language>zh-cn</language>
+        <lastBuildDate>Mon, 01 Jun 2026 00:00:00 +0000</lastBuildDate><atom:link href="https://blog.irudder.me/tags/Function-Calling/index.xml" rel="self" type="application/rss+xml" /><item>
+        <title>第5章：MCP——工具调用的标准化革命</title>
+        <link>https://blog.irudder.me/ai/knowledge-series/05-MCP-and-Protocolized-Tool-Ecosystem.html</link>
+        <pubDate>Mon, 01 Jun 2026 00:00:00 +0000</pubDate>
+        
+        <guid>https://blog.irudder.me/ai/knowledge-series/05-MCP-and-Protocolized-Tool-Ecosystem.html</guid>
+        <description>&lt;h1 id=&#34;第5章mcp工具调用的标准化革命&#34;&gt;第5章：MCP——工具调用的标准化革命
+&lt;/h1&gt;&lt;blockquote&gt;
+&lt;p&gt;系列导读：本章是上章的延伸。如果你还在手写每个工具的集成代码，MCP 就是来救你的。它能让你接入一个工具的效率从「一天」降到「十分钟」。&lt;/p&gt;
+&lt;/blockquote&gt;
+&lt;h2 id=&#34;一没有-mcp-之前接工具有多麻烦&#34;&gt;一、没有 MCP 之前，接工具有多麻烦？
+&lt;/h2&gt;&lt;p&gt;想象你要给 Claude Desktop 接入三个工具：GitHub（查仓库）、文件系统（读本地文件）、Slack（发通知）。&lt;/p&gt;
+&lt;p&gt;在没有 MCP 之前：&lt;/p&gt;
+&lt;ol&gt;
+&lt;li&gt;写 GitHub API 调用代码 + OAuth 认证 + 错误处理 + 格式转换，确保返回结果能被模型理解&lt;/li&gt;
+&lt;li&gt;写文件系统操作代码 + 权限管控 + 路径沙箱，防止模型删除不该删的文件&lt;/li&gt;
+&lt;li&gt;写 Slack API 调用代码 + Bot 配置 + 消息格式化&lt;/li&gt;
+&lt;/ol&gt;
+&lt;p&gt;折腾了三周，终于接好了。三个月后 Claude 升级了，接口变了，你的代码又得重写。&lt;/p&gt;
+&lt;p&gt;最致命的问题：每个工具都要单独集成，而且强绑定到某个模型。你想换 Gemini 用这些工具？之前写的所有代码都要重写一遍嫁接逻辑。更别说换个多模态模型（比如能看图、能听语音的），工具 layer 可能完全不兼容。&lt;/p&gt;
+&lt;p&gt;这种碎片化的结果就是：目前市面上有成百上千个有用的工具 API，开发者和模型提供者之间形成了一个糟糕的分发瓶颈——每一家模型厂都要跟每一家工具厂谈合作、做适配。&lt;/p&gt;
+&lt;h2 id=&#34;二mcp-是什么&#34;&gt;二、MCP 是什么？
+&lt;/h2&gt;&lt;p&gt;MCP（Model Context Protocol，模型上下文协议）是 Anthropic 在 2024 年底推出的开放协议（不是框架，是协议）。&lt;/p&gt;
+&lt;p&gt;它的核心目标是：工具实现一次，到处复用；任何支持 MCP 的 AI 客户端，都能自动发现并接入。&lt;/p&gt;
+&lt;p&gt;你可以把它理解成 AI 时代的「USB-C 接口」——所有工具都按统一标准做接口，所有 AI 客户端都支持这个接口。工具提供者按协议标准写一个 Server，任何支持 MCP 的客户端都能直接拿来用，不需要再说服 OpenAI 或 Google 专门为你做对接。&lt;/p&gt;
+&lt;h2 id=&#34;三mcp-的架构client-server-模式&#34;&gt;三、MCP 的架构：Client-Server 模式
+&lt;/h2&gt;&lt;pre tabindex=&#34;0&#34;&gt;&lt;code&gt;    ┌──────────────┐                    ┌──────────────┐
+    │  AI Client   │ ←─── MCP 协议 ───→ │ MCP Server 1 │ (GitHub工具)
+    │ (Claude,     │    JSON-RPC 2.0     └──────────────┘
+    │  OpenAI SDK) │                          ┌──────────────┐
+    │              │ ←─── MCP 协议 ───→       │ MCP Server 2 │ (文件系统)
+    └──────────────┘    (stdio / SSE / HTTP) └──────────────┘
+&lt;/code&gt;&lt;/pre&gt;&lt;ul&gt;
+&lt;li&gt;MCP Server：每个工具按 MCP 协议实现一个服务进程，暴露能力&lt;/li&gt;
+&lt;li&gt;AI Client：在配置文件中声明 MCP Server 地址，自动发现可用的工具&lt;/li&gt;
+&lt;li&gt;通信方式：支持 stdio（本地进程）、SSE（HTTP流式）、HTTP（远程调用）&lt;/li&gt;
+&lt;/ul&gt;
+&lt;p&gt;这种设计的妙处在于：工具提供者只需要写一份标准化的 Server 实现，所有客户端（Claude、OpenAI SDK、Cursor IDE、Zed 编辑器等）都能自动发现并调用它的能力。工具生态的分发效率得到了本质提升。&lt;/p&gt;
+&lt;h2 id=&#34;四mcp-的三类核心能力&#34;&gt;四、MCP 的三类核心能力
+&lt;/h2&gt;&lt;h3 id=&#34;1-tools工具-执行有副作用的操作&#34;&gt;1. Tools（工具）—— 执行有副作用的操作
+&lt;/h3&gt;&lt;p&gt;如发送邮件、创建文件、调用 API。每次调用都可能改变外部世界状态。工具调用后需要返回执行结果给模型，模型据此决定下一步。&lt;/p&gt;
+&lt;h3 id=&#34;2-resources资源-只读数据通道&#34;&gt;2. Resources（资源）—— 只读数据通道
+&lt;/h3&gt;&lt;p&gt;如读取文件内容、访问数据库、查看日志。资源可以被&amp;quot;挂载&amp;quot;到客户端上下文，模型可以随时调用，不会产生副作用。&lt;/p&gt;
+&lt;h3 id=&#34;3-prompts提示词模板-结构化输入模板&#34;&gt;3. Prompts（提示词模板）—— 结构化输入模板
+&lt;/h3&gt;&lt;p&gt;预定义一组任务模板，用户可以在使用前填充参数。比如 &amp;ldquo;生成代码审查提示词&amp;rdquo; → 填充 &amp;ldquo;文件路径&amp;rdquo; → 拿到完整 prompt。这类能力让 MCP Server 不仅是被动的工具提供者，也是主动的交互助手。&lt;/p&gt;
+&lt;p&gt;这三类能力覆盖了 AI 工具生态中的&amp;quot;执行&amp;quot;、&amp;ldquo;读取&amp;rdquo;、&amp;ldquo;交互模板&amp;quot;三个核心场景。&lt;/p&gt;
+&lt;h2 id=&#34;五mcp-vs-function-calling不是替代是互补&#34;&gt;五、MCP vs Function Calling：不是替代，是互补
+&lt;/h2&gt;&lt;table&gt;
+  &lt;thead&gt;
+      &lt;tr&gt;
+          &lt;th&gt;维度&lt;/th&gt;
+          &lt;th&gt;Function Calling&lt;/th&gt;
+          &lt;th&gt;MCP&lt;/th&gt;
+      &lt;/tr&gt;
+  &lt;/thead&gt;
+  &lt;tbody&gt;
+      &lt;tr&gt;
+          &lt;td&gt;层级&lt;/td&gt;
+          &lt;td&gt;API 调用格式（命令）&lt;/td&gt;
+          &lt;td&gt;工具生态协议 + 发现机制&lt;/td&gt;
+      &lt;/tr&gt;
+      &lt;tr&gt;
+          &lt;td&gt;解决的问题&lt;/td&gt;
+          &lt;td&gt;模型怎么说出「我要调什么」&lt;/td&gt;
+          &lt;td&gt;工具怎么被接入和管理&lt;/td&gt;
+      &lt;/tr&gt;
+      &lt;tr&gt;
+          &lt;td&gt;类比&lt;/td&gt;
+          &lt;td&gt;HTTP 请求格式&lt;/td&gt;
+          &lt;td&gt;REST API 规范 + 服务注册发现&lt;/td&gt;
+      &lt;/tr&gt;
+      &lt;tr&gt;
+          &lt;td&gt;关系&lt;/td&gt;
+          &lt;td&gt;依赖关系&lt;/td&gt;
+          &lt;td&gt;MCP 底层还是靠 Function Calling！&lt;/td&gt;
+      &lt;/tr&gt;
+  &lt;/tbody&gt;
+&lt;/table&gt;
+&lt;p&gt;最关键的一句话：MCP 底层驱动的仍然是 Function Calling。MCP 不是「不用 Function Calling 了」，而是在 Function Calling 之上加了一层生态层。&lt;/p&gt;
+&lt;ul&gt;
+&lt;li&gt;Function Calling 说：模型输出的工具调用应该是 JSON Schema 格式&lt;/li&gt;
+&lt;li&gt;MCP 说：工具怎么注册、怎么发现、怎么通信、怎么复用，都按统一标准来&lt;/li&gt;
+&lt;/ul&gt;
+&lt;p&gt;你可以只靠 Function Calling 写一辈子代码，但接入第10个工具时你就会想要 MCP。手动管理10个工具的 schema、认证、状态同步、错误重试，是在做重复的体力活。&lt;/p&gt;
+&lt;h2 id=&#34;六配置一个-mcp-server-有多简单&#34;&gt;六、配置一个 MCP Server 有多简单？
+&lt;/h2&gt;&lt;p&gt;以 Claude Desktop 为例，它的配置文件中加几行就行：&lt;/p&gt;
+&lt;div class=&#34;highlight&#34;&gt;&lt;pre tabindex=&#34;0&#34; style=&#34;color:#f8f8f2;background-color:#272822;-moz-tab-size:4;-o-tab-size:4;tab-size:4;&#34;&gt;&lt;code class=&#34;language-json&#34; data-lang=&#34;json&#34;&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;{
+&lt;/span&gt;&lt;/span&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;  &lt;span style=&#34;color:#f92672&#34;&gt;&amp;#34;mcpServers&amp;#34;&lt;/span&gt;: {
+&lt;/span&gt;&lt;/span&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;    &lt;span style=&#34;color:#f92672&#34;&gt;&amp;#34;filesystem&amp;#34;&lt;/span&gt;: {
+&lt;/span&gt;&lt;/span&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;      &lt;span style=&#34;color:#f92672&#34;&gt;&amp;#34;command&amp;#34;&lt;/span&gt;: &lt;span style=&#34;color:#e6db74&#34;&gt;&amp;#34;npx&amp;#34;&lt;/span&gt;,
+&lt;/span&gt;&lt;/span&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;      &lt;span style=&#34;color:#f92672&#34;&gt;&amp;#34;args&amp;#34;&lt;/span&gt;: [&lt;span style=&#34;color:#e6db74&#34;&gt;&amp;#34;-y&amp;#34;&lt;/span&gt;, &lt;span style=&#34;color:#e6db74&#34;&gt;&amp;#34;@modelcontextprotocol/server-filesystem&amp;#34;&lt;/span&gt;, &lt;span style=&#34;color:#e6db74&#34;&gt;&amp;#34;/Users/me/docs&amp;#34;&lt;/span&gt;]
+&lt;/span&gt;&lt;/span&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;    },
+&lt;/span&gt;&lt;/span&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;    &lt;span style=&#34;color:#f92672&#34;&gt;&amp;#34;github&amp;#34;&lt;/span&gt;: {
+&lt;/span&gt;&lt;/span&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;      &lt;span style=&#34;color:#f92672&#34;&gt;&amp;#34;command&amp;#34;&lt;/span&gt;: &lt;span style=&#34;color:#e6db74&#34;&gt;&amp;#34;npx&amp;#34;&lt;/span&gt;,
+&lt;/span&gt;&lt;/span&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;      &lt;span style=&#34;color:#f92672&#34;&gt;&amp;#34;args&amp;#34;&lt;/span&gt;: [&lt;span style=&#34;color:#e6db74&#34;&gt;&amp;#34;-y&amp;#34;&lt;/span&gt;, &lt;span style=&#34;color:#e6db74&#34;&gt;&amp;#34;@modelcontextprotocol/server-github&amp;#34;&lt;/span&gt;],
+&lt;/span&gt;&lt;/span&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;      &lt;span style=&#34;color:#f92672&#34;&gt;&amp;#34;env&amp;#34;&lt;/span&gt;: { &lt;span style=&#34;color:#f92672&#34;&gt;&amp;#34;GITHUB_PERSONAL_ACCESS_TOKEN&amp;#34;&lt;/span&gt;: &lt;span style=&#34;color:#e6db74&#34;&gt;&amp;#34;ghp_xxx&amp;#34;&lt;/span&gt; }
+&lt;/span&gt;&lt;/span&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;    }
+&lt;/span&gt;&lt;/span&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;  }
+&lt;/span&gt;&lt;/span&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;}
+&lt;/span&gt;&lt;/span&gt;&lt;/code&gt;&lt;/pre&gt;&lt;/div&gt;&lt;p&gt;启动 Claude Desktop 后：&lt;/p&gt;
+&lt;ol&gt;
+&lt;li&gt;自动启动各 MCP Server 进程&lt;/li&gt;
+&lt;li&gt;读取各 Server 暴露的 tools/resources/prompts 列表&lt;/li&gt;
+&lt;li&gt;Claude 自动发现这些工具并能随时调用&lt;/li&gt;
+&lt;/ol&gt;
+&lt;p&gt;零代码接入。&lt;/p&gt;
+&lt;h2 id=&#34;七mcp-对生态的影响&#34;&gt;七、MCP 对生态的影响
+&lt;/h2&gt;&lt;ul&gt;
+&lt;li&gt;工具开发者：按 MCP 标准实现一次，OpenAI、Claude、Gemini 都能用。分发成本从 O(NxM) 降到 O(N+M)。&lt;/li&gt;
+&lt;li&gt;AI 客户端开发者：接入 MCP 协议就能自动获得成百上千的工具&lt;/li&gt;
+&lt;li&gt;终端用户：AI 能做的事情从「聊天+联网搜索」变成「调用整个数字世界&amp;rdquo;&lt;/li&gt;
+&lt;/ul&gt;
+&lt;p&gt;MCP 的意义跟当年 HTTP 协议标准化 web 服务是一样的底层逻辑。如果没有 HTTP，每个网站都得写自己的传输协议，浏览器永远做不到通用。MCP 的目标是让 AI 工具的接入也有同样的标准化基础。&lt;/p&gt;
+&lt;h2 id=&#34;八本章小结&#34;&gt;八、本章小结
+&lt;/h2&gt;&lt;ul&gt;
+&lt;li&gt;MCP 是 AI 工具生态的&amp;quot;USB-C&amp;quot;标准化协议&lt;/li&gt;
+&lt;li&gt;三类能力：Tools（执行）、Resources（只读数据）、Prompts（模板）&lt;/li&gt;
+&lt;li&gt;MCP 和 Function Calling 是不同层次的东西：FC 解决&amp;quot;格式&amp;quot;问题，MCP 解决&amp;quot;生态&amp;quot;问题&lt;/li&gt;
+&lt;li&gt;配置 MCP Server 只需几行配置，零代码接入&lt;/li&gt;
+&lt;li&gt;MCP 代表了 AI 工具生态从碎片化走向标准化的关键转折点&lt;/li&gt;
+&lt;/ul&gt;
+&lt;h2 id=&#34;思考题&#34;&gt;思考题
+&lt;/h2&gt;&lt;ol&gt;
+&lt;li&gt;MCP 的「开放协议」定位意味着它的生命周期会长于任何单一公司的产品。如果这个协议成为事实标准，会对 AI 工具生态产生什么深远影响？&lt;/li&gt;
+&lt;li&gt;在 MCP 的三种能力（Tools/Resources/Prompts）中，你认为哪一类最有商业想象空间？为什么？&lt;/li&gt;
+&lt;/ol&gt;
+</description>
+        </item>
+        <item>
+        <title>第4章：Function Calling——让大模型从「聊天者」变成「执行者」</title>
+        <link>https://blog.irudder.me/ai/knowledge-series/04-Function-Calling.html</link>
+        <pubDate>Sat, 30 May 2026 00:00:00 +0000</pubDate>
+        
+        <guid>https://blog.irudder.me/ai/knowledge-series/04-Function-Calling.html</guid>
+        <description>&lt;h1 id=&#34;第4章function-calling让大模型从聊天者变成执行者&#34;&gt;第4章：Function Calling——让大模型从「聊天者」变成「执行者」
+&lt;/h1&gt;&lt;blockquote&gt;
+&lt;p&gt;系列导读：从本章开始，我们进入 LLM 的「行动能力」阶段。如果你还没看第1章，建议先了解 LLM 的本质，再去理解为什么它能「调用工具」是真正的事半功倍。&lt;/p&gt;
+&lt;/blockquote&gt;
+&lt;hr&gt;
+&lt;h2 id=&#34;一function-calling-到底是什么&#34;&gt;一、Function Calling 到底是什么？
+&lt;/h2&gt;&lt;p&gt;LLM 本身是一个&lt;strong&gt;文本生成器&lt;/strong&gt;，它生成了天气查询请求，但它不能自己去调用 API。&lt;/p&gt;
+&lt;p&gt;Function Calling（工具调用）就是解决这个问题的机制：让 LLM &lt;strong&gt;输出结构化的工具调用指令&lt;/strong&gt;（通常是 JSON 格式），你的代码负责解析并执行真实的调用。&lt;/p&gt;
+&lt;p&gt;&lt;strong&gt;核心原则&lt;/strong&gt;：模型只判断「该做什么」，代码负责「真正把它做了」。&lt;/p&gt;
+&lt;h2 id=&#34;二function-calling-的两轮对话流程&#34;&gt;二、Function Calling 的两轮对话流程
+&lt;/h2&gt;&lt;pre tabindex=&#34;0&#34;&gt;&lt;code&gt;用户提问 → LLM 判断需要调工具 → 输出 tool_call JSON →
+代码解析 JSON → 真正调用 API → 获得结果 →
+把结果塞回对话 → LLM 生成最终答案
+&lt;/code&gt;&lt;/pre&gt;&lt;p&gt;这是最基础的流程，实际可能有多次工具调用循环。&lt;/p&gt;
+&lt;h3 id=&#34;具体例子&#34;&gt;具体例子
+&lt;/h3&gt;&lt;p&gt;&lt;strong&gt;Round 1 - 用户输入：&lt;/strong&gt;&lt;/p&gt;
+&lt;blockquote&gt;
+&lt;p&gt;&amp;ldquo;北京今天的天气怎么样？&amp;rdquo;&lt;/p&gt;
+&lt;/blockquote&gt;
+&lt;p&gt;&lt;strong&gt;Round 1 - LLM 响应（不是答案，是工具调用指令）：&lt;/strong&gt;&lt;/p&gt;
+&lt;div class=&#34;highlight&#34;&gt;&lt;pre tabindex=&#34;0&#34; style=&#34;color:#f8f8f2;background-color:#272822;-moz-tab-size:4;-o-tab-size:4;tab-size:4;&#34;&gt;&lt;code class=&#34;language-json&#34; data-lang=&#34;json&#34;&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;{
+&lt;/span&gt;&lt;/span&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;  &lt;span style=&#34;color:#f92672&#34;&gt;&amp;#34;tool_calls&amp;#34;&lt;/span&gt;: [{
+&lt;/span&gt;&lt;/span&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;    &lt;span style=&#34;color:#f92672&#34;&gt;&amp;#34;id&amp;#34;&lt;/span&gt;: &lt;span style=&#34;color:#e6db74&#34;&gt;&amp;#34;call_abc123&amp;#34;&lt;/span&gt;,
+&lt;/span&gt;&lt;/span&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;    &lt;span style=&#34;color:#f92672&#34;&gt;&amp;#34;type&amp;#34;&lt;/span&gt;: &lt;span style=&#34;color:#e6db74&#34;&gt;&amp;#34;function&amp;#34;&lt;/span&gt;,
+&lt;/span&gt;&lt;/span&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;    &lt;span style=&#34;color:#f92672&#34;&gt;&amp;#34;function&amp;#34;&lt;/span&gt;: {
+&lt;/span&gt;&lt;/span&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;      &lt;span style=&#34;color:#f92672&#34;&gt;&amp;#34;name&amp;#34;&lt;/span&gt;: &lt;span style=&#34;color:#e6db74&#34;&gt;&amp;#34;get_weather&amp;#34;&lt;/span&gt;,
+&lt;/span&gt;&lt;/span&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;      &lt;span style=&#34;color:#f92672&#34;&gt;&amp;#34;arguments&amp;#34;&lt;/span&gt;: &lt;span style=&#34;color:#e6db74&#34;&gt;&amp;#34;{\&amp;#34;city\&amp;#34;: \&amp;#34;北京\&amp;#34;, \&amp;#34;date\&amp;#34;: \&amp;#34;2026-07-21\&amp;#34;}&amp;#34;&lt;/span&gt;
+&lt;/span&gt;&lt;/span&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;    }
+&lt;/span&gt;&lt;/span&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;  }]
+&lt;/span&gt;&lt;/span&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;}
+&lt;/span&gt;&lt;/span&gt;&lt;/code&gt;&lt;/pre&gt;&lt;/div&gt;&lt;p&gt;&lt;strong&gt;代码层 - 解析并执行：&lt;/strong&gt;&lt;/p&gt;
+&lt;div class=&#34;highlight&#34;&gt;&lt;pre tabindex=&#34;0&#34; style=&#34;color:#f8f8f2;background-color:#272822;-moz-tab-size:4;-o-tab-size:4;tab-size:4;&#34;&gt;&lt;code class=&#34;language-python&#34; data-lang=&#34;python&#34;&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;tool_call &lt;span style=&#34;color:#f92672&#34;&gt;=&lt;/span&gt; response&lt;span style=&#34;color:#f92672&#34;&gt;.&lt;/span&gt;tool_calls[&lt;span style=&#34;color:#ae81ff&#34;&gt;0&lt;/span&gt;]
+&lt;/span&gt;&lt;/span&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;&lt;span style=&#34;color:#66d9ef&#34;&gt;if&lt;/span&gt; tool_call&lt;span style=&#34;color:#f92672&#34;&gt;.&lt;/span&gt;function&lt;span style=&#34;color:#f92672&#34;&gt;.&lt;/span&gt;name &lt;span style=&#34;color:#f92672&#34;&gt;==&lt;/span&gt; &lt;span style=&#34;color:#e6db74&#34;&gt;&amp;#34;get_weather&amp;#34;&lt;/span&gt;:
+&lt;/span&gt;&lt;/span&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;    args &lt;span style=&#34;color:#f92672&#34;&gt;=&lt;/span&gt; json&lt;span style=&#34;color:#f92672&#34;&gt;.&lt;/span&gt;loads(tool_call&lt;span style=&#34;color:#f92672&#34;&gt;.&lt;/span&gt;function&lt;span style=&#34;color:#f92672&#34;&gt;.&lt;/span&gt;arguments)
+&lt;/span&gt;&lt;/span&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;    result &lt;span style=&#34;color:#f92672&#34;&gt;=&lt;/span&gt; get_weather(args[&lt;span style=&#34;color:#e6db74&#34;&gt;&amp;#34;city&amp;#34;&lt;/span&gt;], args[&lt;span style=&#34;color:#e6db74&#34;&gt;&amp;#34;date&amp;#34;&lt;/span&gt;])
+&lt;/span&gt;&lt;/span&gt;&lt;/code&gt;&lt;/pre&gt;&lt;/div&gt;&lt;p&gt;&lt;strong&gt;Round 2 - 把结果塞回对话：&lt;/strong&gt;&lt;/p&gt;
+&lt;pre tabindex=&#34;0&#34;&gt;&lt;code&gt;User: 北京今天的天气怎么样？
+Assistant: [tool_call: get_weather(city=&amp;#34;北京&amp;#34;, date=&amp;#34;2026-07-21&amp;#34;)]
+Function: {&amp;#34;temperature&amp;#34;: 32, &amp;#34;condition&amp;#34;: &amp;#34;晴&amp;#34;, &amp;#34;humidity&amp;#34;: &amp;#34;65%&amp;#34;}
+Assistant: 北京今天晴天，气温 32℃，湿度 65%，非常适合户外活动！
+&lt;/code&gt;&lt;/pre&gt;&lt;h2 id=&#34;三schema-定义关键工程细节&#34;&gt;三、Schema 定义：关键工程细节
+&lt;/h2&gt;&lt;p&gt;Function Calling 的核心是 schema 的定义。schema 告诉模型每个工具：&lt;/p&gt;
+&lt;ul&gt;
+&lt;li&gt;&lt;strong&gt;name&lt;/strong&gt;：工具名称，越具体越好&lt;/li&gt;
+&lt;li&gt;&lt;strong&gt;description&lt;/strong&gt;：工具的详细用途，模型靠这个决定要不要调它&lt;/li&gt;
+&lt;li&gt;&lt;strong&gt;parameters&lt;/strong&gt;：参数结构，包含每个参数名、类型、描述、是否必填&lt;/li&gt;
+&lt;li&gt;&lt;strong&gt;required&lt;/strong&gt;：必填参数列表&lt;/li&gt;
+&lt;/ul&gt;
+&lt;p&gt;&lt;strong&gt;Schema 示例&lt;/strong&gt;：&lt;/p&gt;
+&lt;div class=&#34;highlight&#34;&gt;&lt;pre tabindex=&#34;0&#34; style=&#34;color:#f8f8f2;background-color:#272822;-moz-tab-size:4;-o-tab-size:4;tab-size:4;&#34;&gt;&lt;code class=&#34;language-json&#34; data-lang=&#34;json&#34;&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;{
+&lt;/span&gt;&lt;/span&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;  &lt;span style=&#34;color:#f92672&#34;&gt;&amp;#34;name&amp;#34;&lt;/span&gt;: &lt;span style=&#34;color:#e6db74&#34;&gt;&amp;#34;get_weather&amp;#34;&lt;/span&gt;,
+&lt;/span&gt;&lt;/span&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;  &lt;span style=&#34;color:#f92672&#34;&gt;&amp;#34;description&amp;#34;&lt;/span&gt;: &lt;span style=&#34;color:#e6db74&#34;&gt;&amp;#34;获取指定城市和日期的天气信息，包括温度、天气状况、湿度。支持中国境内城市。&amp;#34;&lt;/span&gt;,
+&lt;/span&gt;&lt;/span&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;  &lt;span style=&#34;color:#f92672&#34;&gt;&amp;#34;parameters&amp;#34;&lt;/span&gt;: {
+&lt;/span&gt;&lt;/span&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;    &lt;span style=&#34;color:#f92672&#34;&gt;&amp;#34;type&amp;#34;&lt;/span&gt;: &lt;span style=&#34;color:#e6db74&#34;&gt;&amp;#34;object&amp;#34;&lt;/span&gt;,
+&lt;/span&gt;&lt;/span&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;    &lt;span style=&#34;color:#f92672&#34;&gt;&amp;#34;properties&amp;#34;&lt;/span&gt;: {
+&lt;/span&gt;&lt;/span&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;      &lt;span style=&#34;color:#f92672&#34;&gt;&amp;#34;city&amp;#34;&lt;/span&gt;: {
+&lt;/span&gt;&lt;/span&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;        &lt;span style=&#34;color:#f92672&#34;&gt;&amp;#34;type&amp;#34;&lt;/span&gt;: &lt;span style=&#34;color:#e6db74&#34;&gt;&amp;#34;string&amp;#34;&lt;/span&gt;,
+&lt;/span&gt;&lt;/span&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;        &lt;span style=&#34;color:#f92672&#34;&gt;&amp;#34;description&amp;#34;&lt;/span&gt;: &lt;span style=&#34;color:#e6db74&#34;&gt;&amp;#34;要查询天气的城市名称，例如：北京、上海、广州&amp;#34;&lt;/span&gt;
+&lt;/span&gt;&lt;/span&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;      },
+&lt;/span&gt;&lt;/span&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;      &lt;span style=&#34;color:#f92672&#34;&gt;&amp;#34;date&amp;#34;&lt;/span&gt;: {
+&lt;/span&gt;&lt;/span&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;        &lt;span style=&#34;color:#f92672&#34;&gt;&amp;#34;type&amp;#34;&lt;/span&gt;: &lt;span style=&#34;color:#e6db74&#34;&gt;&amp;#34;string&amp;#34;&lt;/span&gt;,
+&lt;/span&gt;&lt;/span&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;        &lt;span style=&#34;color:#f92672&#34;&gt;&amp;#34;description&amp;#34;&lt;/span&gt;: &lt;span style=&#34;color:#e6db74&#34;&gt;&amp;#34;查询日期，格式为 YYYY-MM-DD&amp;#34;&lt;/span&gt;
+&lt;/span&gt;&lt;/span&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;      }
+&lt;/span&gt;&lt;/span&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;    },
+&lt;/span&gt;&lt;/span&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;    &lt;span style=&#34;color:#f92672&#34;&gt;&amp;#34;required&amp;#34;&lt;/span&gt;: [&lt;span style=&#34;color:#e6db74&#34;&gt;&amp;#34;city&amp;#34;&lt;/span&gt;, &lt;span style=&#34;color:#e6db74&#34;&gt;&amp;#34;date&amp;#34;&lt;/span&gt;]
+&lt;/span&gt;&lt;/span&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;  }
+&lt;/span&gt;&lt;/span&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;}
+&lt;/span&gt;&lt;/span&gt;&lt;/code&gt;&lt;/pre&gt;&lt;/div&gt;&lt;p&gt;&lt;strong&gt;description 是最关键的字段&lt;/strong&gt;。模型完全靠 description 来判断该不该调这个工具。写 description 的技巧：&lt;/p&gt;
+&lt;ol&gt;
+&lt;li&gt;&lt;strong&gt;明确边界&lt;/strong&gt;：不是什么都调，只在什么场景下调&lt;/li&gt;
+&lt;li&gt;&lt;strong&gt;给出例子&lt;/strong&gt;：比如 &amp;ldquo;当用户问 xx 时调用&amp;rdquo;&lt;/li&gt;
+&lt;li&gt;&lt;strong&gt;避免触发词陷阱&lt;/strong&gt;：description里别用模型的名字（如 &amp;ldquo;ChatGPT&amp;rdquo;），否则模型可能误触发&lt;/li&gt;
+&lt;/ol&gt;
+&lt;h2 id=&#34;四function-calling-和土办法的区别&#34;&gt;四、Function Calling 和「土办法」的区别
+&lt;/h2&gt;&lt;p&gt;在没有 Function Calling 之前，开发者只能靠解析自然语言文本来判断模型要不要调工具：&lt;/p&gt;
+&lt;div class=&#34;highlight&#34;&gt;&lt;pre tabindex=&#34;0&#34; style=&#34;color:#f8f8f2;background-color:#272822;-moz-tab-size:4;-o-tab-size:4;tab-size:4;&#34;&gt;&lt;code class=&#34;language-python&#34; data-lang=&#34;python&#34;&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;&lt;span style=&#34;color:#75715e&#34;&gt;# 土办法&lt;/span&gt;
+&lt;/span&gt;&lt;/span&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;response &lt;span style=&#34;color:#f92672&#34;&gt;=&lt;/span&gt; model&lt;span style=&#34;color:#f92672&#34;&gt;.&lt;/span&gt;chat(&lt;span style=&#34;color:#e6db74&#34;&gt;&amp;#34;帮我查北京天气&amp;#34;&lt;/span&gt;)
+&lt;/span&gt;&lt;/span&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;&lt;span style=&#34;color:#66d9ef&#34;&gt;if&lt;/span&gt; &lt;span style=&#34;color:#e6db74&#34;&gt;&amp;#34;天气&amp;#34;&lt;/span&gt; &lt;span style=&#34;color:#f92672&#34;&gt;in&lt;/span&gt; response:
+&lt;/span&gt;&lt;/span&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;    &lt;span style=&#34;color:#75715e&#34;&gt;# 手动解析，极其脆弱&lt;/span&gt;
+&lt;/span&gt;&lt;/span&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;    city &lt;span style=&#34;color:#f92672&#34;&gt;=&lt;/span&gt; extract_city(response)  &lt;span style=&#34;color:#75715e&#34;&gt;# 容易出错&lt;/span&gt;
+&lt;/span&gt;&lt;/span&gt;&lt;/code&gt;&lt;/pre&gt;&lt;/div&gt;&lt;p&gt;Function Calling 以后：&lt;/p&gt;
+&lt;div class=&#34;highlight&#34;&gt;&lt;pre tabindex=&#34;0&#34; style=&#34;color:#f8f8f2;background-color:#272822;-moz-tab-size:4;-o-tab-size:4;tab-size:4;&#34;&gt;&lt;code class=&#34;language-python&#34; data-lang=&#34;python&#34;&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;&lt;span style=&#34;color:#75715e&#34;&gt;# Function Calling 方式&lt;/span&gt;
+&lt;/span&gt;&lt;/span&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;response &lt;span style=&#34;color:#f92672&#34;&gt;=&lt;/span&gt; model&lt;span style=&#34;color:#f92672&#34;&gt;.&lt;/span&gt;chat(&lt;span style=&#34;color:#e6db74&#34;&gt;&amp;#34;帮我查北京天气&amp;#34;&lt;/span&gt;, tools&lt;span style=&#34;color:#f92672&#34;&gt;=&lt;/span&gt;[weather_tool_schema])
+&lt;/span&gt;&lt;/span&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;&lt;span style=&#34;color:#66d9ef&#34;&gt;if&lt;/span&gt; response&lt;span style=&#34;color:#f92672&#34;&gt;.&lt;/span&gt;tool_calls:
+&lt;/span&gt;&lt;/span&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;    &lt;span style=&#34;color:#75715e&#34;&gt;# 模型输出的是结构化 JSON，解析安全得多&lt;/span&gt;
+&lt;/span&gt;&lt;/span&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;    tool_call &lt;span style=&#34;color:#f92672&#34;&gt;=&lt;/span&gt; response&lt;span style=&#34;color:#f92672&#34;&gt;.&lt;/span&gt;tool_calls[&lt;span style=&#34;color:#ae81ff&#34;&gt;0&lt;/span&gt;]
+&lt;/span&gt;&lt;/span&gt;&lt;/code&gt;&lt;/pre&gt;&lt;/div&gt;&lt;p&gt;关键区别：&lt;strong&gt;结构化输出 vs 自然语言解析&lt;/strong&gt;。结构化输出准确率接近100%，自然语言解析经常抽风。&lt;/p&gt;
+&lt;h2 id=&#34;五高级特性&#34;&gt;五、高级特性
+&lt;/h2&gt;&lt;h3 id=&#34;1-并行工具调用&#34;&gt;1. 并行工具调用
+&lt;/h3&gt;&lt;p&gt;模型可能在一次响应中输出多个 tool_calls，比如用户问&amp;quot;北京和上海的天气&amp;quot;:&lt;/p&gt;
+&lt;div class=&#34;highlight&#34;&gt;&lt;pre tabindex=&#34;0&#34; style=&#34;color:#f8f8f2;background-color:#272822;-moz-tab-size:4;-o-tab-size:4;tab-size:4;&#34;&gt;&lt;code class=&#34;language-json&#34; data-lang=&#34;json&#34;&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;{
+&lt;/span&gt;&lt;/span&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;  &lt;span style=&#34;color:#f92672&#34;&gt;&amp;#34;tool_calls&amp;#34;&lt;/span&gt;: [
+&lt;/span&gt;&lt;/span&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;    {&lt;span style=&#34;color:#f92672&#34;&gt;&amp;#34;function&amp;#34;&lt;/span&gt;: {&lt;span style=&#34;color:#f92672&#34;&gt;&amp;#34;name&amp;#34;&lt;/span&gt;: &lt;span style=&#34;color:#e6db74&#34;&gt;&amp;#34;get_weather&amp;#34;&lt;/span&gt;, &lt;span style=&#34;color:#f92672&#34;&gt;&amp;#34;arguments&amp;#34;&lt;/span&gt;: &lt;span style=&#34;color:#e6db74&#34;&gt;&amp;#34;{\&amp;#34;city\&amp;#34;: \&amp;#34;北京\&amp;#34;}&amp;#34;&lt;/span&gt;}},
+&lt;/span&gt;&lt;/span&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;    {&lt;span style=&#34;color:#f92672&#34;&gt;&amp;#34;function&amp;#34;&lt;/span&gt;: {&lt;span style=&#34;color:#f92672&#34;&gt;&amp;#34;name&amp;#34;&lt;/span&gt;: &lt;span style=&#34;color:#e6db74&#34;&gt;&amp;#34;get_weather&amp;#34;&lt;/span&gt;, &lt;span style=&#34;color:#f92672&#34;&gt;&amp;#34;arguments&amp;#34;&lt;/span&gt;: &lt;span style=&#34;color:#e6db74&#34;&gt;&amp;#34;{\&amp;#34;city\&amp;#34;: \&amp;#34;上海\&amp;#34;}&amp;#34;&lt;/span&gt;}}
+&lt;/span&gt;&lt;/span&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;  ]
+&lt;/span&gt;&lt;/span&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;}
+&lt;/span&gt;&lt;/span&gt;&lt;/code&gt;&lt;/pre&gt;&lt;/div&gt;&lt;p&gt;你的代码可以并行执行两个调用，然后再把结果一起塞回去。&lt;/p&gt;
+&lt;h3 id=&#34;2-强制使用工具&#34;&gt;2. 强制使用工具
+&lt;/h3&gt;&lt;p&gt;有些场景要求模型&lt;strong&gt;必须&lt;/strong&gt;调工具，不提供直接回答：&lt;/p&gt;
+&lt;div class=&#34;highlight&#34;&gt;&lt;pre tabindex=&#34;0&#34; style=&#34;color:#f8f8f2;background-color:#272822;-moz-tab-size:4;-o-tab-size:4;tab-size:4;&#34;&gt;&lt;code class=&#34;language-python&#34; data-lang=&#34;python&#34;&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;response &lt;span style=&#34;color:#f92672&#34;&gt;=&lt;/span&gt; model&lt;span style=&#34;color:#f92672&#34;&gt;.&lt;/span&gt;chat(query, tools&lt;span style=&#34;color:#f92672&#34;&gt;=&lt;/span&gt;tools, tool_choice&lt;span style=&#34;color:#f92672&#34;&gt;=&lt;/span&gt;&lt;span style=&#34;color:#e6db74&#34;&gt;&amp;#34;required&amp;#34;&lt;/span&gt;)
+&lt;/span&gt;&lt;/span&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;&lt;span style=&#34;color:#75715e&#34;&gt;# 设置 tool_choice 为 &amp;#34;required&amp;#34; 强制模型输出 tool_calls&lt;/span&gt;
+&lt;/span&gt;&lt;/span&gt;&lt;/code&gt;&lt;/pre&gt;&lt;/div&gt;&lt;h3 id=&#34;3-多轮工具调用链&#34;&gt;3. 多轮工具调用链
+&lt;/h3&gt;&lt;p&gt;复杂任务可能需要多次调用：查天气 → 根据温度推荐衣服 → 查找推荐店铺的地址 → 查询交通路线。&lt;/p&gt;
+&lt;p&gt;每一轮把结果塞回 history，LLM 自动判断下一步该做什么。这就是 Agent 的基础。&lt;/p&gt;
+&lt;h2 id=&#34;六常见坑&#34;&gt;六、常见坑
+&lt;/h2&gt;&lt;table&gt;
+  &lt;thead&gt;
+      &lt;tr&gt;
+          &lt;th&gt;坑&lt;/th&gt;
+          &lt;th&gt;解决方案&lt;/th&gt;
+      &lt;/tr&gt;
+  &lt;/thead&gt;
+  &lt;tbody&gt;
+      &lt;tr&gt;
+          &lt;td&gt;模型选错工具&lt;/td&gt;
+          &lt;td&gt;description 写清楚边界 + 用 tool_choice 限制&lt;/td&gt;
+      &lt;/tr&gt;
+      &lt;tr&gt;
+          &lt;td&gt;参数类型错误&lt;/td&gt;
+          &lt;td&gt;schema 中严格定义 enum/number/string&lt;/td&gt;
+      &lt;/tr&gt;
+      &lt;tr&gt;
+          &lt;td&gt;函数结果太长塞爆 context&lt;/td&gt;
+          &lt;td&gt;摘要压缩后返回&lt;/td&gt;
+      &lt;/tr&gt;
+      &lt;tr&gt;
+          &lt;td&gt;工具调用死循环&lt;/td&gt;
+          &lt;td&gt;max_iterations 限制 + 超时熔断&lt;/td&gt;
+      &lt;/tr&gt;
+      &lt;tr&gt;
+          &lt;td&gt;结果格式不一致&lt;/td&gt;
+          &lt;td&gt;在 function result 中也标准化输出格式&lt;/td&gt;
+      &lt;/tr&gt;
+  &lt;/tbody&gt;
+&lt;/table&gt;
+&lt;h2 id=&#34;七本章小结&#34;&gt;七、本章小结
+&lt;/h2&gt;&lt;ul&gt;
+&lt;li&gt;Function Calling = 模型决策 + 代码执行，两者严格分离&lt;/li&gt;
+&lt;li&gt;Schema description 是核心，决定了模型是否选对工具、传对参数&lt;/li&gt;
+&lt;li&gt;并行调用、强制调用、多轮链式调用是高级用法&lt;/li&gt;
+&lt;li&gt;它是通往 Agent 的必经之路&lt;/li&gt;
+&lt;/ul&gt;
+&lt;h2 id=&#34;思考题&#34;&gt;思考题
+&lt;/h2&gt;&lt;ol&gt;
+&lt;li&gt;为什么 Function Calling 要求模型输出的是 JSON schema 而不是自由文本？这背后的设计哲学是什么？&lt;/li&gt;
+&lt;li&gt;如果模型的 tool_calls 返回的参数含危险操作（如删除文件），你的拦截策略应该放在哪一层？&lt;/li&gt;
+&lt;/ol&gt;
+</description>
+        </item>
+        
+    </channel>
+</rss>

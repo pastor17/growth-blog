@@ -1,0 +1,248 @@
+<?xml version="1.0" encoding="utf-8" standalone="yes"?>
+<rss version="2.0" xmlns:atom="http://www.w3.org/2005/Atom">
+    <channel>
+        <title>CoT on SelfTechHub</title>
+        <link>https://blog.irudder.me/tags/CoT.html</link>
+        <description>Recent content in CoT on SelfTechHub</description>
+        <generator>Hugo -- gohugo.io</generator>
+        <language>zh-cn</language>
+        <lastBuildDate>Fri, 26 Jun 2026 00:00:00 +0000</lastBuildDate><atom:link href="https://blog.irudder.me/tags/CoT/index.xml" rel="self" type="application/rss+xml" /><item>
+        <title>第12章：Agent 推理模式——从 CoT 到 ReAct 再到自主执行</title>
+        <link>https://blog.irudder.me/ai/knowledge-series/12-Agent-Reasoning-Patterns-and-ReAct.html</link>
+        <pubDate>Fri, 26 Jun 2026 00:00:00 +0000</pubDate>
+        
+        <guid>https://blog.irudder.me/ai/knowledge-series/12-Agent-Reasoning-Patterns-and-ReAct.html</guid>
+        <description>&lt;h1 id=&#34;第12章agent-推理模式从-cot-到-react-再到自主执行&#34;&gt;第12章：Agent 推理模式——从 CoT 到 ReAct 再到自主执行
+&lt;/h1&gt;&lt;blockquote&gt;
+&lt;p&gt;系列导读：本章深入 Agent 的&amp;quot;思考方式&amp;quot;，是它之所以&amp;quot;智能&amp;quot;的核心机制。理解了推理模式，你才能真正设计好一个 Agent 的行为逻辑。&lt;/p&gt;
+&lt;/blockquote&gt;
+&lt;hr&gt;
+&lt;h2 id=&#34;一推理模式agent-的思考方式&#34;&gt;一、推理模式：Agent 的&amp;quot;思考方式&amp;quot;
+&lt;/h2&gt;&lt;p&gt;LLM 面对复杂任务时，&amp;ldquo;一口气&amp;quot;预测答案容易出错。推理模式就是给 LLM 一个&amp;quot;思考框架&amp;rdquo;，让它分步骤、有结构地解决问题。&lt;/p&gt;
+&lt;p&gt;从最基础到最复杂，主要有三种推理模式：&lt;/p&gt;
+&lt;table&gt;
+  &lt;thead&gt;
+      &lt;tr&gt;
+          &lt;th&gt;模式&lt;/th&gt;
+          &lt;th&gt;本质&lt;/th&gt;
+          &lt;th&gt;是否可观察推理过程&lt;/th&gt;
+          &lt;th&gt;复杂度&lt;/th&gt;
+      &lt;/tr&gt;
+  &lt;/thead&gt;
+  &lt;tbody&gt;
+      &lt;tr&gt;
+          &lt;td&gt;&lt;strong&gt;Direct（直接回答）&lt;/strong&gt;&lt;/td&gt;
+          &lt;td&gt;一步到位给出答案&lt;/td&gt;
+          &lt;td&gt;否&lt;/td&gt;
+          &lt;td&gt;低&lt;/td&gt;
+      &lt;/tr&gt;
+      &lt;tr&gt;
+          &lt;td&gt;&lt;strong&gt;CoT（思维链）&lt;/strong&gt;&lt;/td&gt;
+          &lt;td&gt;先写出推理过程，再给答案&lt;/td&gt;
+          &lt;td&gt;是&lt;/td&gt;
+          &lt;td&gt;中&lt;/td&gt;
+      &lt;/tr&gt;
+      &lt;tr&gt;
+          &lt;td&gt;&lt;strong&gt;ReAct（推理+行动）&lt;/strong&gt;&lt;/td&gt;
+          &lt;td&gt;交替推理和工具调用，形成循环&lt;/td&gt;
+          &lt;td&gt;是&lt;/td&gt;
+          &lt;td&gt;高&lt;/td&gt;
+      &lt;/tr&gt;
+  &lt;/tbody&gt;
+&lt;/table&gt;
+&lt;h2 id=&#34;二cotchain-of-thought-思维链&#34;&gt;二、CoT：Chain-of-Thought 思维链
+&lt;/h2&gt;&lt;p&gt;&lt;strong&gt;核心思想&lt;/strong&gt;：让 LLM 不要直接给答案，而是先把中间推理步骤写出来。&lt;/p&gt;
+&lt;h3 id=&#34;为什么-cot-有效&#34;&gt;为什么 CoT 有效？
+&lt;/h3&gt;&lt;p&gt;数学问题是最好的案例：&lt;/p&gt;
+&lt;p&gt;&lt;strong&gt;不用 CoT&lt;/strong&gt;：&lt;/p&gt;
+&lt;blockquote&gt;
+&lt;p&gt;问题：小明有 5 个苹果，小红比他多 3 个，小红有几个？
+答案：8（对了）&lt;/p&gt;
+&lt;/blockquote&gt;
+&lt;p&gt;&lt;strong&gt;用 CoT&lt;/strong&gt;：&lt;/p&gt;
+&lt;blockquote&gt;
+&lt;p&gt;问题：小明有 5 个苹果，小红比他多 3 个，小红有几个？
+推理：小明的数量 = 5，小红比小明多 3 个，所以小红的数量 = 5 + 3 = 8。
+答案：8（更可靠）&lt;/p&gt;
+&lt;/blockquote&gt;
+&lt;p&gt;虽然加法例子不明显，但换到多步推理时：&lt;/p&gt;
+&lt;blockquote&gt;
+&lt;p&gt;问题：鸡兔同笼，头共 35 个，脚共 94 只，鸡和兔各多少？&lt;/p&gt;
+&lt;/blockquote&gt;
+&lt;p&gt;不用 CoT 时，模型可能直接猜一个数。用 CoT 时，模型会一步步：&lt;/p&gt;
+&lt;ol&gt;
+&lt;li&gt;设鸡 x 只，兔 y 只&lt;/li&gt;
+&lt;li&gt;x + y = 35&lt;/li&gt;
+&lt;li&gt;2x + 4y = 94&lt;/li&gt;
+&lt;li&gt;解方程组&amp;hellip;&lt;/li&gt;
+&lt;/ol&gt;
+&lt;h3 id=&#34;触发-cot-的方法&#34;&gt;触发 CoT 的方法
+&lt;/h3&gt;&lt;p&gt;最简单的触发是在 prompt 里加一句：&lt;/p&gt;
+&lt;blockquote&gt;
+&lt;p&gt;&amp;ldquo;Let&amp;rsquo;s think step by step.&amp;quot;（让我们一步步来）&lt;/p&gt;
+&lt;/blockquote&gt;
+&lt;p&gt;进阶方法是给几个 Few-shot 示例，每个示例都展示完整的推理过程：&lt;/p&gt;
+&lt;blockquote&gt;
+&lt;p&gt;&amp;ldquo;请按照以下格式回答：[推理过程] → [最终答案]&amp;rdquo;&lt;/p&gt;
+&lt;/blockquote&gt;
+&lt;h2 id=&#34;三reactreason--act-推理行动&#34;&gt;三、ReAct：Reason + Act 推理+行动
+&lt;/h2&gt;&lt;p&gt;ReAct 是 Agent 中最核心的推理模式，来源论文：《ReAct: Synergizing Reasoning and Acting in Language Models》(2022)。&lt;/p&gt;
+&lt;h3 id=&#34;react-的核心循环&#34;&gt;ReAct 的核心循环
+&lt;/h3&gt;&lt;p&gt;LLM 在执行中的每一步，都必须输出一个固定格式的三元组：&lt;/p&gt;
+&lt;pre tabindex=&#34;0&#34;&gt;&lt;code&gt;Thought: [对当前状态的推理思考]
+Action: [决定调用哪个工具，带什么参数]
+Observation: [工具返回的结果]
+&lt;/code&gt;&lt;/pre&gt;&lt;p&gt;循环执行，直到任务完成：&lt;/p&gt;
+&lt;pre tabindex=&#34;0&#34;&gt;&lt;code&gt;用户：北京今天天气怎么样适合穿什么？
+
+Thought: 用户想知道北京的天气和穿衣建议。我需要先查天气。
+Action: weather_query(city=&amp;#34;北京&amp;#34;, date=&amp;#34;today&amp;#34;)
+Observation: {temperature: 25, condition: &amp;#34;多云&amp;#34;, wind: &amp;#34;2级&amp;#34;}
+
+Thought: 北京今天25度多云，适宜穿着。可以建议轻薄长袖或短袖加薄外套。
+Action: user_answer(&amp;#34;北京今天多云，气温25度，风力较小。建议穿短袖配薄外套，或轻薄长袖。&amp;#34;)
+&lt;/code&gt;&lt;/pre&gt;&lt;h3 id=&#34;react-为什么是最主流的-agent-模式&#34;&gt;ReAct 为什么是最主流的 Agent 模式？
+&lt;/h3&gt;&lt;ol&gt;
+&lt;li&gt;&lt;strong&gt;推理过程透明&lt;/strong&gt;：每一步都在 &amp;ldquo;Thought&amp;rdquo; 里写明白了为什么做这个决定&lt;/li&gt;
+&lt;li&gt;&lt;strong&gt;错误可诊断&lt;/strong&gt;：如果结果错了，可以回看 &amp;ldquo;Thought&amp;rdquo; 找到决策缺陷&lt;/li&gt;
+&lt;li&gt;&lt;strong&gt;接口标准化&lt;/strong&gt;：代码只需要解析 Thought/Action/Observation 三种标签&lt;/li&gt;
+&lt;li&gt;&lt;strong&gt;可扩展性强&lt;/strong&gt;：新工具加进来，不需要改代码逻辑，只需要加 schema&lt;/li&gt;
+&lt;/ol&gt;
+&lt;h3 id=&#34;react-的实现要点&#34;&gt;ReAct 的实现要点
+&lt;/h3&gt;&lt;p&gt;&lt;strong&gt;System Prompt 的设计&lt;/strong&gt;：&lt;/p&gt;
+&lt;pre tabindex=&#34;0&#34;&gt;&lt;code&gt;你是 ReAct 智能体。遵循以下工作流程：
+
+1. 分析当前任务状态
+2. 在 Thought 中写出你的推理过程
+3. 如果有需要调用的工具，在 Action 中输出工具调用 JSON
+4. 等待 Observation 结果
+5. 重复步骤 1-4 直到任务完成
+6. 最后直接在 Answer 中给出最终答案
+
+格式要求：
+Thought: [你的思考]
+Action: {&amp;#34;tool&amp;#34;: &amp;#34;tool_name&amp;#34;, &amp;#34;params&amp;#34;: {...}}
+Observation: [工具结果（由系统自动填充）]
+Answer: [最终答案（仅在任务完成时输出）]
+
+重要：如果没有需要调用的工具，直接输出 Answer。不要编造 Observation。
+&lt;/code&gt;&lt;/pre&gt;&lt;h2 id=&#34;四plan-and-execute先规划再执行&#34;&gt;四、Plan-and-Execute：先规划再执行
+&lt;/h2&gt;&lt;p&gt;ReAct 是&amp;quot;走一步看一步&amp;quot;的灵活模式，Plan-and-Execute 是&amp;quot;先想好全盘再动手&amp;rdquo;。&lt;/p&gt;
+&lt;h3 id=&#34;流程对比&#34;&gt;流程对比
+&lt;/h3&gt;&lt;p&gt;&lt;strong&gt;ReAct&lt;/strong&gt;：&lt;/p&gt;
+&lt;pre tabindex=&#34;0&#34;&gt;&lt;code&gt;用户目标 → LLM 思考 → 调工具 → 看到结果 → LLM 再思考 → 调工具...
+（每一步都根据上一步结果动态决定）
+&lt;/code&gt;&lt;/pre&gt;&lt;p&gt;&lt;strong&gt;Plan-and-Execute&lt;/strong&gt;：&lt;/p&gt;
+&lt;pre tabindex=&#34;0&#34;&gt;&lt;code&gt;用户目标 → LLM 生成完整计划（步骤1-5） → 按顺序执行每一步 → 汇总输出
+&lt;/code&gt;&lt;/pre&gt;&lt;h3 id=&#34;各自优劣&#34;&gt;各自优劣
+&lt;/h3&gt;&lt;table&gt;
+  &lt;thead&gt;
+      &lt;tr&gt;
+          &lt;th&gt;&lt;/th&gt;
+          &lt;th&gt;ReAct&lt;/th&gt;
+          &lt;th&gt;Plan-and-Execute&lt;/th&gt;
+      &lt;/tr&gt;
+  &lt;/thead&gt;
+  &lt;tbody&gt;
+      &lt;tr&gt;
+          &lt;td&gt;适用任务&lt;/td&gt;
+          &lt;td&gt;信息不确定、需要探索的&lt;/td&gt;
+          &lt;td&gt;流程清晰、确定性高的&lt;/td&gt;
+      &lt;/tr&gt;
+      &lt;tr&gt;
+          &lt;td&gt;灵活性&lt;/td&gt;
+          &lt;td&gt;高&lt;/td&gt;
+          &lt;td&gt;低&lt;/td&gt;
+      &lt;/tr&gt;
+      &lt;tr&gt;
+          &lt;td&gt;可控性&lt;/td&gt;
+          &lt;td&gt;低（可能跑偏）&lt;/td&gt;
+          &lt;td&gt;高&lt;/td&gt;
+      &lt;/tr&gt;
+      &lt;tr&gt;
+          &lt;td&gt;token 消耗&lt;/td&gt;
+          &lt;td&gt;多（每步都推理）&lt;/td&gt;
+          &lt;td&gt;少（一次规划）&lt;/td&gt;
+      &lt;/tr&gt;
+      &lt;tr&gt;
+          &lt;td&gt;调试难度&lt;/td&gt;
+          &lt;td&gt;高&lt;/td&gt;
+          &lt;td&gt;低&lt;/td&gt;
+      &lt;/tr&gt;
+  &lt;/tbody&gt;
+&lt;/table&gt;
+&lt;h3 id=&#34;实践中怎么选&#34;&gt;实践中怎么选？
+&lt;/h3&gt;&lt;ul&gt;
+&lt;li&gt;&lt;strong&gt;知识问答类&lt;/strong&gt;（搜索→整合→回答）：ReAct，过程中信息不确定&lt;/li&gt;
+&lt;li&gt;&lt;strong&gt;数据分析类&lt;/strong&gt;（读数据→分析→出报告）：Plan-and-Execute，流程相对固定&lt;/li&gt;
+&lt;li&gt;&lt;strong&gt;复杂长流程&lt;/strong&gt;：混合模式，大方向 plan → 每步内部用 ReAct 灵活处理&lt;/li&gt;
+&lt;/ul&gt;
+&lt;h2 id=&#34;五reflection自我检查与修正&#34;&gt;五、Reflection：自我检查与修正
+&lt;/h2&gt;&lt;p&gt;Reflection 不是独立的流程，而是给 ReAct 或 Plan-and-Execute 加的&lt;strong&gt;质量检查 buff&lt;/strong&gt;。&lt;/p&gt;
+&lt;h3 id=&#34;思路&#34;&gt;思路
+&lt;/h3&gt;&lt;p&gt;在完成输出后，让 LLM 自己审视一下：&lt;/p&gt;
+&lt;pre tabindex=&#34;0&#34;&gt;&lt;code&gt;Thought: 我已经完成了任务，给出了回答。让我检查一下：
+1. 答案是否完整覆盖了用户的所有问题？
+2. 有没有遗漏的关键信息？
+3. 推理过程是否有漏洞？
+
+反思：我注意到用户的问题里还提到了&amp;#34;预算&amp;#34;，但我的回答里没有涉及费用评估...
+修正：补充预算分析...
+&lt;/code&gt;&lt;/pre&gt;&lt;h3 id=&#34;适用场景&#34;&gt;适用场景
+&lt;/h3&gt;&lt;ul&gt;
+&lt;li&gt;高风险任务（如医疗建议、法律分析）&lt;/li&gt;
+&lt;li&gt;输出后用户可以清晰判断对错的任务&lt;/li&gt;
+&lt;li&gt;有客观评估标准的任务&lt;/li&gt;
+&lt;/ul&gt;
+&lt;h3 id=&#34;代价&#34;&gt;代价
+&lt;/h3&gt;&lt;p&gt;Self-reflection 多跑一次 LLM，&lt;strong&gt;token 成本和延迟都会增加&lt;/strong&gt;。这是工程上的必要取舍。&lt;/p&gt;
+&lt;h2 id=&#34;六三种范式的核心区别&#34;&gt;六、三种范式的核心区别
+&lt;/h2&gt;&lt;table&gt;
+  &lt;thead&gt;
+      &lt;tr&gt;
+          &lt;th&gt;范式&lt;/th&gt;
+          &lt;th&gt;解决什么问题&lt;/th&gt;
+          &lt;th&gt;决策时机&lt;/th&gt;
+          &lt;th&gt;工程复杂度&lt;/th&gt;
+      &lt;/tr&gt;
+  &lt;/thead&gt;
+  &lt;tbody&gt;
+      &lt;tr&gt;
+          &lt;td&gt;&lt;strong&gt;ReAct&lt;/strong&gt;&lt;/td&gt;
+          &lt;td&gt;单步灵活性，动态调整&lt;/td&gt;
+          &lt;td&gt;每一步实时决策&lt;/td&gt;
+          &lt;td&gt;高&lt;/td&gt;
+      &lt;/tr&gt;
+      &lt;tr&gt;
+          &lt;td&gt;&lt;strong&gt;Plan-and-Execute&lt;/strong&gt;&lt;/td&gt;
+          &lt;td&gt;长任务不跑偏&lt;/td&gt;
+          &lt;td&gt;开始前一次性规划&lt;/td&gt;
+          &lt;td&gt;中&lt;/td&gt;
+      &lt;/tr&gt;
+      &lt;tr&gt;
+          &lt;td&gt;&lt;strong&gt;Reflection&lt;/strong&gt;&lt;/td&gt;
+          &lt;td&gt;输出质量不够好&lt;/td&gt;
+          &lt;td&gt;完成后检查修正&lt;/td&gt;
+          &lt;td&gt;中（作为模块叠加）&lt;/td&gt;
+      &lt;/tr&gt;
+  &lt;/tbody&gt;
+&lt;/table&gt;
+&lt;h2 id=&#34;七本章小结&#34;&gt;七、本章小结
+&lt;/h2&gt;&lt;ul&gt;
+&lt;li&gt;推理模式是给 LLM 一个&amp;quot;思考框架&amp;quot;&lt;/li&gt;
+&lt;li&gt;CoT 教 LLM&amp;quot;先想后答&amp;quot;，适合数学题、推理解释&lt;/li&gt;
+&lt;li&gt;ReAct 教 LLM&amp;quot;边想边做&amp;quot;，是 Agent 最主流的推理范式&lt;/li&gt;
+&lt;li&gt;Plan-and-Execute 教 LLM&amp;quot;先想全再做&amp;quot;，适合确定性流程&lt;/li&gt;
+&lt;li&gt;Reflection 是&amp;quot;做完检查&amp;quot;的质量保障机制，可与前两者叠加&lt;/li&gt;
+&lt;li&gt;选型标准：任务复杂度、流程确定性、输出质量要求&lt;/li&gt;
+&lt;/ul&gt;
+&lt;h2 id=&#34;思考题&#34;&gt;思考题
+&lt;/h2&gt;&lt;ol&gt;
+&lt;li&gt;一个客服 Agent 处理退款申请，适合用哪种推理模式？为什么？&lt;/li&gt;
+&lt;li&gt;如果你发现 ReAct 模式下 Agent 经常陷入循环（思考 → 调工具 → 思考 → 调同一个工具），你会从哪些角度排查和解决？&lt;/li&gt;
+&lt;/ol&gt;
+</description>
+        </item>
+        
+    </channel>
+</rss>

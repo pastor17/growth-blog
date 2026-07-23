@@ -1,0 +1,142 @@
+<?xml version="1.0" encoding="utf-8" standalone="yes"?>
+<rss version="2.0" xmlns:atom="http://www.w3.org/2005/Atom">
+    <channel>
+        <title>MySQL慢查询优化：索引失效的十大场景 on SelfTechHub</title>
+        <link>https://blog.irudder.me/tags/MySQL%E6%85%A2%E6%9F%A5%E8%AF%A2%E4%BC%98%E5%8C%96%E7%B4%A2%E5%BC%95%E5%A4%B1%E6%95%88%E7%9A%84%E5%8D%81%E5%A4%A7%E5%9C%BA%E6%99%AF.html</link>
+        <description>Recent content in MySQL慢查询优化：索引失效的十大场景 on SelfTechHub</description>
+        <generator>Hugo -- gohugo.io</generator>
+        <language>zh-cn</language>
+        <lastBuildDate>Sun, 23 Aug 2020 00:00:00 +0000</lastBuildDate><atom:link href="https://blog.irudder.me/tags/MySQL%E6%85%A2%E6%9F%A5%E8%AF%A2%E4%BC%98%E5%8C%96%E7%B4%A2%E5%BC%95%E5%A4%B1%E6%95%88%E7%9A%84%E5%8D%81%E5%A4%A7%E5%9C%BA%E6%99%AF/index.xml" rel="self" type="application/rss+xml" /><item>
+        <title>加了索引还慢？揭秘10个索引失效现场，别再背锅了！</title>
+        <link>https://blog.irudder.me/tech/jiagouyouhuashizhananlijiexi/mysqlmanchaxunyouhua_suoyinshixiaodeshidachangjing.html</link>
+        <pubDate>Sun, 23 Aug 2020 00:00:00 +0000</pubDate>
+        
+        <guid>https://blog.irudder.me/tech/jiagouyouhuashizhananlijiexi/mysqlmanchaxunyouhua_suoyinshixiaodeshidachangjing.html</guid>
+        <description>&lt;p&gt;凌晨两点，报警群里的钉钉机器人突然“发疯”，提示数据库 CPU 飙升到 99%。&lt;/p&gt;
+&lt;p&gt;作为运维负责人，我揉着惺忪的睡眼打开监控，发现一条看起来“人畜无害”的查询 SQL 堵塞了整个线程池。更要命的是，开发兄弟在旁边一脸委屈地发誓：“哥，这个字段我明明加了索引的，本地测都很快，怎么上线就炸了？”&lt;/p&gt;
+&lt;p&gt;这种场景，不知道你是不是也似曾相识？&lt;/p&gt;
+&lt;p&gt;很多时候，我们以为加了索引就是给数据库穿上了“加速鞋”，殊不知在某些特定写法的“骚操作”下，索引会直接失效，让查询变成全表扫描（Full Table Scan）的“慢动作重播”。&lt;/p&gt;
+&lt;p&gt;今天咱们不聊晦涩的 B+树原理，就聊聊我这几年实实在在踩过的坑。我整理了 &lt;strong&gt;10个最常见的索引失效场景&lt;/strong&gt;，特别是前三个，简直是“性能杀手”。&lt;/p&gt;
+&lt;hr&gt;
+&lt;h2 id=&#34;一-隐形的类型转换最冤枉的失效&#34;&gt;一、 “隐形”的类型转换：最冤枉的失效
+&lt;/h2&gt;&lt;p&gt;这是新手最容易犯，也是老手偶尔会翻车的坑。&lt;/p&gt;
+&lt;p&gt;&lt;strong&gt;真实复盘：&lt;/strong&gt;
+大概两年前，我们接手了一个电商大促活动。系统里有一个根据手机号查询用户订单的接口。表结构里 &lt;code&gt;phone&lt;/code&gt; 字段定义的是 &lt;code&gt;VARCHAR(20)&lt;/code&gt;，并且建了索引。&lt;/p&gt;
+&lt;p&gt;结果大促开始没多久，数据库就开始告警。DBA 一看慢日志，抓到了这条 SQL：&lt;/p&gt;
+&lt;p&gt;&lt;img src=&#34;https://picsum.photos/800/450?random=1768457181740&#34;
+	
+	
+	
+	loading=&#34;lazy&#34;
+	
+		alt=&#34;配图&#34;
+	
+	
+&gt;&lt;/p&gt;
+&lt;div class=&#34;highlight&#34;&gt;&lt;pre tabindex=&#34;0&#34; style=&#34;color:#f8f8f2;background-color:#272822;-moz-tab-size:4;-o-tab-size:4;tab-size:4;&#34;&gt;&lt;code class=&#34;language-sql&#34; data-lang=&#34;sql&#34;&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;&lt;span style=&#34;color:#66d9ef&#34;&gt;SELECT&lt;/span&gt; &lt;span style=&#34;color:#f92672&#34;&gt;*&lt;/span&gt; &lt;span style=&#34;color:#66d9ef&#34;&gt;FROM&lt;/span&gt; user_orders &lt;span style=&#34;color:#66d9ef&#34;&gt;WHERE&lt;/span&gt; phone &lt;span style=&#34;color:#f92672&#34;&gt;=&lt;/span&gt; &lt;span style=&#34;color:#ae81ff&#34;&gt;13800138000&lt;/span&gt;;
+&lt;/span&gt;&lt;/span&gt;&lt;/code&gt;&lt;/pre&gt;&lt;/div&gt;&lt;p&gt;看着没毛病？甚至觉得很标准？&lt;/p&gt;
+&lt;p&gt;&lt;strong&gt;坑在这里：&lt;/strong&gt;
+注意那个手机号，&lt;strong&gt;它没加单引号&lt;/strong&gt;。&lt;/p&gt;
+&lt;p&gt;在 MySQL 眼里，&lt;code&gt;phone&lt;/code&gt; 是字符串，而输入的 &lt;code&gt;13800138000&lt;/code&gt; 是数字。MySQL 的优化器虽然聪明，它会试着帮你把字符串转成数字来进行比较。&lt;/p&gt;
+&lt;p&gt;但是，这种&lt;strong&gt;隐式类型转换&lt;/strong&gt;一旦发生，索引就彻底废了。这就好比你书架上的书是按拼音排序的，结果你非要按书的重量去找书，那目录（索引）自然就没用了，只能一本本称重（全表扫描）。&lt;/p&gt;
+&lt;p&gt;&lt;strong&gt;避坑指南：&lt;/strong&gt;
+写代码时，参数类型必须和数据库字段类型&lt;strong&gt;严格一致&lt;/strong&gt;。如果是字符串，千万别省那对单引号。&lt;/p&gt;
+&lt;hr&gt;
+&lt;h2 id=&#34;二-在索引列上动刀子计算与函数&#34;&gt;二、 在索引列上“动刀子”：计算与函数
+&lt;/h2&gt;&lt;p&gt;我以前有个习惯，写 SQL 喜欢怎么顺手怎么来，觉得数据库既然提供了函数，不用白不用。直到有一次，我把一张千万级流水表的查询搞崩了。&lt;/p&gt;
+&lt;p&gt;&lt;strong&gt;真实场景：&lt;/strong&gt;
+我们要统计“2023年所有订单”。我当时是这么写的：&lt;/p&gt;
+&lt;div class=&#34;highlight&#34;&gt;&lt;pre tabindex=&#34;0&#34; style=&#34;color:#f8f8f2;background-color:#272822;-moz-tab-size:4;-o-tab-size:4;tab-size:4;&#34;&gt;&lt;code class=&#34;language-sql&#34; data-lang=&#34;sql&#34;&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;&lt;span style=&#34;color:#66d9ef&#34;&gt;SELECT&lt;/span&gt; &lt;span style=&#34;color:#66d9ef&#34;&gt;count&lt;/span&gt;(&lt;span style=&#34;color:#f92672&#34;&gt;*&lt;/span&gt;) &lt;span style=&#34;color:#66d9ef&#34;&gt;FROM&lt;/span&gt; orders &lt;span style=&#34;color:#66d9ef&#34;&gt;WHERE&lt;/span&gt; &lt;span style=&#34;color:#66d9ef&#34;&gt;YEAR&lt;/span&gt;(create_time) &lt;span style=&#34;color:#f92672&#34;&gt;=&lt;/span&gt; &lt;span style=&#34;color:#ae81ff&#34;&gt;2023&lt;/span&gt;;
+&lt;/span&gt;&lt;/span&gt;&lt;/code&gt;&lt;/pre&gt;&lt;/div&gt;&lt;p&gt;&lt;code&gt;create_time&lt;/code&gt; 字段明明有索引，但这条 SQL 跑了十几秒才出结果。&lt;/p&gt;
+&lt;p&gt;&lt;strong&gt;原因分析：&lt;/strong&gt;
+我们在索引列 &lt;code&gt;create_time&lt;/code&gt; 上套了一个 &lt;code&gt;YEAR()&lt;/code&gt; 函数。
+这就像是你去查字典，字典是按 &lt;code&gt;a, b, c...&lt;/code&gt; 排序的，但你现在的要求是：“帮我找所有倒数第三个字母是 k 的单词”。字典的目录结构对这种需求完全无能为力。&lt;/p&gt;
+&lt;p&gt;&lt;strong&gt;只要在索引列上做计算、使用函数（如 &lt;code&gt;left&lt;/code&gt;, &lt;code&gt;substr&lt;/code&gt;, &lt;code&gt;to_days&lt;/code&gt; 等），索引大概率会失效。&lt;/strong&gt;&lt;/p&gt;
+&lt;p&gt;&lt;strong&gt;落地建议：&lt;/strong&gt;
+把计算放到“等号右边”，或者在应用层算好再传给数据库。上面那个例子，改成范围查询瞬间起飞：&lt;/p&gt;
+&lt;p&gt;&lt;img src=&#34;https://picsum.photos/800/450?random=1768457179798&#34;
+	
+	
+	
+	loading=&#34;lazy&#34;
+	
+		alt=&#34;配图&#34;
+	
+	
+&gt;&lt;/p&gt;
+&lt;div class=&#34;highlight&#34;&gt;&lt;pre tabindex=&#34;0&#34; style=&#34;color:#f8f8f2;background-color:#272822;-moz-tab-size:4;-o-tab-size:4;tab-size:4;&#34;&gt;&lt;code class=&#34;language-sql&#34; data-lang=&#34;sql&#34;&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;&lt;span style=&#34;color:#66d9ef&#34;&gt;SELECT&lt;/span&gt; &lt;span style=&#34;color:#66d9ef&#34;&gt;count&lt;/span&gt;(&lt;span style=&#34;color:#f92672&#34;&gt;*&lt;/span&gt;) &lt;span style=&#34;color:#66d9ef&#34;&gt;FROM&lt;/span&gt; orders 
+&lt;/span&gt;&lt;/span&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;&lt;span style=&#34;color:#66d9ef&#34;&gt;WHERE&lt;/span&gt; create_time &lt;span style=&#34;color:#66d9ef&#34;&gt;BETWEEN&lt;/span&gt; &lt;span style=&#34;color:#e6db74&#34;&gt;&amp;#39;2023-01-01 00:00:00&amp;#39;&lt;/span&gt; &lt;span style=&#34;color:#66d9ef&#34;&gt;AND&lt;/span&gt; &lt;span style=&#34;color:#e6db74&#34;&gt;&amp;#39;2023-12-31 23:59:59&amp;#39;&lt;/span&gt;;
+&lt;/span&gt;&lt;/span&gt;&lt;/code&gt;&lt;/pre&gt;&lt;/div&gt;&lt;hr&gt;
+&lt;h2 id=&#34;三-模糊查询的左撇子陷阱&#34;&gt;三、 模糊查询的“左撇子”陷阱
+&lt;/h2&gt;&lt;p&gt;很多业务场景需要做搜索，比如“查找名字里包含‘小’的用户”。&lt;/p&gt;
+&lt;p&gt;如果你写成：&lt;/p&gt;
+&lt;div class=&#34;highlight&#34;&gt;&lt;pre tabindex=&#34;0&#34; style=&#34;color:#f8f8f2;background-color:#272822;-moz-tab-size:4;-o-tab-size:4;tab-size:4;&#34;&gt;&lt;code class=&#34;language-sql&#34; data-lang=&#34;sql&#34;&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;&lt;span style=&#34;color:#66d9ef&#34;&gt;SELECT&lt;/span&gt; &lt;span style=&#34;color:#f92672&#34;&gt;*&lt;/span&gt; &lt;span style=&#34;color:#66d9ef&#34;&gt;FROM&lt;/span&gt; users &lt;span style=&#34;color:#66d9ef&#34;&gt;WHERE&lt;/span&gt; name &lt;span style=&#34;color:#66d9ef&#34;&gt;LIKE&lt;/span&gt; &lt;span style=&#34;color:#e6db74&#34;&gt;&amp;#39;%小%&amp;#39;&lt;/span&gt;;
+&lt;/span&gt;&lt;/span&gt;&lt;/code&gt;&lt;/pre&gt;&lt;/div&gt;&lt;p&gt;或者&lt;/p&gt;
+&lt;div class=&#34;highlight&#34;&gt;&lt;pre tabindex=&#34;0&#34; style=&#34;color:#f8f8f2;background-color:#272822;-moz-tab-size:4;-o-tab-size:4;tab-size:4;&#34;&gt;&lt;code class=&#34;language-sql&#34; data-lang=&#34;sql&#34;&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;&lt;span style=&#34;color:#66d9ef&#34;&gt;SELECT&lt;/span&gt; &lt;span style=&#34;color:#f92672&#34;&gt;*&lt;/span&gt; &lt;span style=&#34;color:#66d9ef&#34;&gt;FROM&lt;/span&gt; users &lt;span style=&#34;color:#66d9ef&#34;&gt;WHERE&lt;/span&gt; name &lt;span style=&#34;color:#66d9ef&#34;&gt;LIKE&lt;/span&gt; &lt;span style=&#34;color:#e6db74&#34;&gt;&amp;#39;%小&amp;#39;&lt;/span&gt;;
+&lt;/span&gt;&lt;/span&gt;&lt;/code&gt;&lt;/pre&gt;&lt;/div&gt;&lt;p&gt;恭喜你，索引又失效了。&lt;/p&gt;
+&lt;p&gt;&lt;strong&gt;原理大白话：&lt;/strong&gt;
+MySQL 的 B+树索引是“最左前缀”匹配。想象你在查电话簿，如果你知道姓“张”，你可以很快定位到；但如果你只知道名字里带个“伟”字，或者名字以“伟”结尾，你是没法利用姓氏排序来查找的，只能从头翻到尾。&lt;/p&gt;
+&lt;p&gt;&lt;strong&gt;踩坑经验：&lt;/strong&gt;
+只有 &lt;code&gt;LIKE &#39;小%&#39;&lt;/code&gt;（通配符在最右边）才能用到索引。&lt;/p&gt;
+&lt;p&gt;&lt;strong&gt;怎么办？&lt;/strong&gt;
+如果业务非要两边都模糊匹配（&lt;code&gt;%...%&lt;/code&gt;）怎么办？&lt;/p&gt;
+&lt;ol&gt;
+&lt;li&gt;&lt;strong&gt;覆盖索引&lt;/strong&gt;：如果你的查询字段都在索引里（比如只查 &lt;code&gt;id&lt;/code&gt;），那虽然不能快速定位，但至少不用回表，速度能快点。&lt;/li&gt;
+&lt;li&gt;&lt;strong&gt;别难为 MySQL&lt;/strong&gt;：这种全文检索的需求，建议出门左转找 Elasticsearch (ES)。术业有专攻，别拿水果刀砍柴。&lt;/li&gt;
+&lt;/ol&gt;
+&lt;hr&gt;
+&lt;h2 id=&#34;四-还有哪些坑索引失效的全家桶&#34;&gt;四、 还有哪些坑？索引失效的“全家桶”
+&lt;/h2&gt;&lt;p&gt;除了上面三个“大坑”，我把剩下的常见场景整理了一份清单。这张清单我至今贴在工位的隔板上，每次 Code Review 都会扫一眼：&lt;/p&gt;
+&lt;ol start=&#34;4&#34;&gt;
+&lt;li&gt;&lt;strong&gt;不等于的坑&lt;/strong&gt;：使用 &lt;code&gt;!=&lt;/code&gt; 或者 &lt;code&gt;&amp;lt;&amp;gt;&lt;/code&gt; 时，MySQL 经常会觉得“查大部分数据还不如全表扫描快”，从而放弃索引。&lt;/li&gt;
+&lt;li&gt;&lt;strong&gt;IS NULL / IS NOT NULL&lt;/strong&gt;：这个看运气（数据分布）。如果数据库里大部分数据都是 NULL，你查 &lt;code&gt;IS NOT NULL&lt;/code&gt; 就会走全表扫描，反之亦然。&lt;/li&gt;
+&lt;li&gt;&lt;strong&gt;OR 的锅&lt;/strong&gt;：&lt;code&gt;WHERE id = 1 OR age = 18&lt;/code&gt;。如果 &lt;code&gt;id&lt;/code&gt; 有索引但 &lt;code&gt;age&lt;/code&gt; 没有，整个查询就会变成全表扫描。解决办法是给 &lt;code&gt;age&lt;/code&gt; 也加索引，或者用 &lt;code&gt;UNION ALL&lt;/code&gt; 代替 &lt;code&gt;OR&lt;/code&gt;。&lt;/li&gt;
+&lt;li&gt;&lt;strong&gt;联合索引没用对&lt;/strong&gt;：建了联合索引 &lt;code&gt;(a, b, c)&lt;/code&gt;，结果查询只用了 &lt;code&gt;WHERE b = 1&lt;/code&gt;。这违背了“最左前缀法则”，就像你还没上楼梯的第一阶，就想直接踩第二阶，肯定不行。&lt;/li&gt;
+&lt;li&gt;&lt;strong&gt;字符串不加引号&lt;/strong&gt;：虽然前面说了，但还是要强调，这是低级错误之王。&lt;/li&gt;
+&lt;li&gt;&lt;strong&gt;全表扫描更快&lt;/strong&gt;：这不是 bug。如果表里一共就 10 行数据，MySQL 觉得直接读比去翻索引再回表还要快，它就会弃用索引。这属于“正常失效”。&lt;/li&gt;
+&lt;li&gt;&lt;strong&gt;字符集不统一&lt;/strong&gt;：两个表做关联查询（JOIN），如果一个表是 &lt;code&gt;utf8&lt;/code&gt;，另一个是 &lt;code&gt;utf8mb4&lt;/code&gt;，索引也会失效！这个问题极隐蔽，排查起来能要把人逼疯。&lt;/li&gt;
+&lt;/ol&gt;
+&lt;hr&gt;
+&lt;p&gt;&lt;img src=&#34;https://picsum.photos/800/450?random=1768457180805&#34;
+	
+	
+	
+	loading=&#34;lazy&#34;
+	
+		alt=&#34;配图&#34;
+	
+	
+&gt;&lt;/p&gt;
+&lt;h2 id=&#34;五-写给你的落地锦囊&#34;&gt;五、 写给你的落地锦囊
+&lt;/h2&gt;&lt;p&gt;说了这么多坑，最后给你一套我一直在用的&lt;strong&gt;排查与优化模板&lt;/strong&gt;。下次遇到慢查询，别慌，按这个步骤来。&lt;/p&gt;
+&lt;h3 id=&#34;1-必杀技explain&#34;&gt;1. 必杀技：EXPLAIN
+&lt;/h3&gt;&lt;p&gt;遇到慢 SQL，第一反应不应该是改代码，而是加个 &lt;code&gt;EXPLAIN&lt;/code&gt; 看看执行计划。&lt;/p&gt;
+&lt;p&gt;&lt;strong&gt;复制这个模板去跑一下：&lt;/strong&gt;&lt;/p&gt;
+&lt;div class=&#34;highlight&#34;&gt;&lt;pre tabindex=&#34;0&#34; style=&#34;color:#f8f8f2;background-color:#272822;-moz-tab-size:4;-o-tab-size:4;tab-size:4;&#34;&gt;&lt;code class=&#34;language-sql&#34; data-lang=&#34;sql&#34;&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;&lt;span style=&#34;color:#66d9ef&#34;&gt;EXPLAIN&lt;/span&gt; &lt;span style=&#34;color:#66d9ef&#34;&gt;SELECT&lt;/span&gt; &lt;span style=&#34;color:#f92672&#34;&gt;*&lt;/span&gt; &lt;span style=&#34;color:#66d9ef&#34;&gt;FROM&lt;/span&gt; your_table &lt;span style=&#34;color:#66d9ef&#34;&gt;WHERE&lt;/span&gt; ...;
+&lt;/span&gt;&lt;/span&gt;&lt;/code&gt;&lt;/pre&gt;&lt;/div&gt;&lt;p&gt;&lt;strong&gt;重点看这三列：&lt;/strong&gt;&lt;/p&gt;
+&lt;ul&gt;
+&lt;li&gt;&lt;strong&gt;type&lt;/strong&gt;：如果是 &lt;code&gt;ALL&lt;/code&gt;，说明全表扫描了，准备挨打吧；如果是 &lt;code&gt;ref&lt;/code&gt; 或 &lt;code&gt;range&lt;/code&gt;，说明还凑合。&lt;/li&gt;
+&lt;li&gt;&lt;strong&gt;key&lt;/strong&gt;：显示实际用到的索引。如果是 &lt;code&gt;NULL&lt;/code&gt;，说明没用到。&lt;/li&gt;
+&lt;li&gt;&lt;strong&gt;key_len&lt;/strong&gt;：通过这个长度可以推算出联合索引到底用到了哪几列。&lt;/li&gt;
+&lt;/ul&gt;
+&lt;h3 id=&#34;2-开发自查清单建议加入代码走查规范&#34;&gt;2. 开发自查清单（建议加入代码走查规范）
+&lt;/h3&gt;&lt;ul&gt;
+&lt;li&gt;&lt;input disabled=&#34;&#34; type=&#34;checkbox&#34;&gt; &lt;code&gt;WHERE&lt;/code&gt; 后面的字段，类型是否匹配？（特别是数字vs字符串）&lt;/li&gt;
+&lt;li&gt;&lt;input disabled=&#34;&#34; type=&#34;checkbox&#34;&gt; 是否对索引字段进行了 &lt;code&gt;+ - * /&lt;/code&gt; 或函数操作？&lt;/li&gt;
+&lt;li&gt;&lt;input disabled=&#34;&#34; type=&#34;checkbox&#34;&gt; &lt;code&gt;LIKE&lt;/code&gt; 语句是否把 &lt;code&gt;%&lt;/code&gt; 放在了最前面？&lt;/li&gt;
+&lt;li&gt;&lt;input disabled=&#34;&#34; type=&#34;checkbox&#34;&gt; 联合索引是否遵守了“最左前缀”原则？&lt;/li&gt;
+&lt;li&gt;&lt;input disabled=&#34;&#34; type=&#34;checkbox&#34;&gt; &lt;code&gt;OR&lt;/code&gt; 两边的字段是否都有索引？&lt;/li&gt;
+&lt;/ul&gt;
+&lt;h3 id=&#34;3-行动建议&#34;&gt;3. 行动建议
+&lt;/h3&gt;&lt;p&gt;如果你的项目里已经有不少慢查询了，不要试图一次性全部优化完。
+&lt;strong&gt;建议做法：&lt;/strong&gt;
+每周五下午抽出半小时，拉出线上的 &lt;strong&gt;Slow Query Log（慢查询日志）&lt;/strong&gt;，按“执行频率 * 平均耗时”排序，每次只优化 Top 3。&lt;/p&gt;
+&lt;p&gt;相信我，坚持两个月，你的数据库负载能降一半，报警群也能清净不少。&lt;/p&gt;
+&lt;blockquote&gt;
+&lt;p&gt;&lt;strong&gt;小互动&lt;/strong&gt;：你在生产环境遇到过最离谱的索引失效是什么情况？欢迎在评论区吐个槽，让我们避避坑！&lt;/p&gt;
+&lt;/blockquote&gt;
+</description>
+        </item>
+        
+    </channel>
+</rss>

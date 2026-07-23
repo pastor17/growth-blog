@@ -1,0 +1,127 @@
+<?xml version="1.0" encoding="utf-8" standalone="yes"?>
+<rss version="2.0" xmlns:atom="http://www.w3.org/2005/Atom">
+    <channel>
+        <title>技术方案评审：避免过度设计 on SelfTechHub</title>
+        <link>https://blog.irudder.me/tags/%E6%8A%80%E6%9C%AF%E6%96%B9%E6%A1%88%E8%AF%84%E5%AE%A1%E9%81%BF%E5%85%8D%E8%BF%87%E5%BA%A6%E8%AE%BE%E8%AE%A1.html</link>
+        <description>Recent content in 技术方案评审：避免过度设计 on SelfTechHub</description>
+        <generator>Hugo -- gohugo.io</generator>
+        <language>zh-cn</language>
+        <lastBuildDate>Sat, 24 Aug 2024 00:00:00 +0000</lastBuildDate><atom:link href="https://blog.irudder.me/tags/%E6%8A%80%E6%9C%AF%E6%96%B9%E6%A1%88%E8%AF%84%E5%AE%A1%E9%81%BF%E5%85%8D%E8%BF%87%E5%BA%A6%E8%AE%BE%E8%AE%A1/index.xml" rel="self" type="application/rss+xml" /><item>
+        <title>技术评审避坑：我是如何用&#34;过度设计&#34;拖垮项目的？</title>
+        <link>https://blog.irudder.me/tech/danxiangmuquanliuchengchaijie10fenzhongkedu/jishufanganpingshen_bimianguodusheji.html</link>
+        <pubDate>Sat, 24 Aug 2024 00:00:00 +0000</pubDate>
+        
+        <guid>https://blog.irudder.me/tech/danxiangmuquanliuchengchaijie10fenzhongkedu/jishufanganpingshen_bimianguodusheji.html</guid>
+        <description>&lt;p&gt;我曾经以为，所谓的&amp;quot;架构能力&amp;quot;，就是能把简单的业务画出最复杂的架构图。&lt;/p&gt;
+&lt;p&gt;直到2020年，我负责一个企业内部报销系统的小项目。当时为了展示技术深度，我强行引入了微服务、CQRS（读写分离）和全套分布式事务方案。结果呢？一个本该2周上线的CRUD项目，硬生生拖了1个半月。最讽刺的是，上线后第一周，运维报警群炸了——不是因为流量太大，而是因为我引入的中间件太多，服务器内存爆了。&lt;/p&gt;
+&lt;p&gt;那个深夜，看着控制台满屏的报错，我意识到：&lt;strong&gt;在中小团队里，过度设计不仅是浪费，更是一种技术负债的犯罪。&lt;/strong&gt;&lt;/p&gt;
+&lt;p&gt;很多技术同学，尤其是有追求的开发者，很容易在技术评审时陷入&amp;quot;自嗨&amp;quot;模式。今天我们就来聊聊，那些打着&amp;quot;长远考虑&amp;quot;旗号的过度设计坑，以及如何避开它们。&lt;/p&gt;
+&lt;h2 id=&#34;一-万一以后用户量破百万怎么办拒绝预设性扩容&#34;&gt;一、 &amp;ldquo;万一以后用户量破百万怎么办？&amp;quot;——拒绝预设性扩容
+&lt;/h2&gt;&lt;p&gt;这是评审会上最常听到的一句话。当我们讨论一个只有500个日活的内部系统时，总有人会跳出来问：&amp;ldquo;现在的MySQL单表只能抗两千万，万一以后业务爆发怎么办？我们要不要先上分库分表？&amp;rdquo;&lt;/p&gt;
+&lt;p&gt;&lt;strong&gt;真实案例：&lt;/strong&gt;&lt;/p&gt;
+&lt;p&gt;2021年，我们做过一个针对供应商的采购管理系统。需求很简单：下单、发货、对账。当时团队里的一位资深开发老张，坚持要引入RabbitMQ做异步解耦，理由是&amp;quot;为了应对未来可能的高并发下单&amp;rdquo;。&lt;/p&gt;
+&lt;p&gt;&lt;strong&gt;结果是灾难性的：&lt;/strong&gt;&lt;/p&gt;
+&lt;ol&gt;
+&lt;li&gt;&lt;strong&gt;开发成本激增&lt;/strong&gt;：本来直接写库的操作，变成了 生产消息 -&amp;gt; 消费消息 -&amp;gt; 处理失败 -&amp;gt; 死信队列 -&amp;gt; 补偿机制。代码量翻了三倍。&lt;/li&gt;
+&lt;li&gt;&lt;strong&gt;排查难度地狱级&lt;/strong&gt;：采购员反馈&amp;quot;订单状态没变&amp;quot;，我们得去查MQ日志、查消费端日志、查数据库，链路长得让人绝望。&lt;/li&gt;
+&lt;li&gt;&lt;strong&gt;真实数据打脸&lt;/strong&gt;：系统运行了两年，峰值QPS从未超过5。为了这5 QPS，我们维护了一套高可用的MQ集群。&lt;/li&gt;
+&lt;/ol&gt;
+&lt;p&gt;&lt;strong&gt;避坑方法：10倍原则&lt;/strong&gt;&lt;/p&gt;
+&lt;p&gt;我现在做技术评审，坚持一个原则：&lt;strong&gt;只为当前规模的10倍做设计，而不是100倍。&lt;/strong&gt;&lt;/p&gt;
+&lt;p&gt;&lt;img src=&#34;https://picsum.photos/800/450?random=1768449926839&#34;
+	
+	
+	
+	loading=&#34;lazy&#34;
+	
+		alt=&#34;配图&#34;
+	
+	
+&gt;&lt;/p&gt;
+&lt;p&gt;如果现在只有1万数据，按10万数据的规模设计，单表绰绰有余；如果未来真的到了1000万，那时候的业务逻辑和现在的代码大概率已经重构过两轮了。&lt;strong&gt;为了那&amp;quot;万一&amp;quot;的未来，牺牲&amp;quot;确定&amp;quot;的当下，是极不划算的。&lt;/strong&gt;&lt;/p&gt;
+&lt;h2 id=&#34;二-我想试试这个新技术警惕简历驱动开发-rdd&#34;&gt;二、 &amp;ldquo;我想试试这个新技术&amp;rdquo;——警惕简历驱动开发 (RDD)
+&lt;/h2&gt;&lt;p&gt;这是一个很隐晦但普遍存在的现象。很多开发者（包括当年的我）在选型时，潜意识里想的不是&amp;quot;哪个技术最适合业务&amp;quot;，而是&amp;quot;哪个技术写在简历上更值钱&amp;quot;。&lt;/p&gt;
+&lt;p&gt;&lt;img src=&#34;https://picsum.photos/800/450?random=1768449933976&#34;
+	
+	
+	
+	loading=&#34;lazy&#34;
+	
+		alt=&#34;配图&#34;
+	
+	
+&gt;&lt;/p&gt;
+&lt;p&gt;&lt;strong&gt;真实案例：&lt;/strong&gt;&lt;/p&gt;
+&lt;p&gt;去年我们接手维护一个遗留项目，是一个简单的内容管理后台（CMS）。前任负责人为了&amp;quot;拥抱前沿&amp;quot;，强行使用了GraphQL替代RESTful API，并且后端用的是一个非常小众的Rust异步框架。&lt;/p&gt;
+&lt;p&gt;&lt;img src=&#34;https://picsum.photos/800/450?random=1768449935599&#34;
+	
+	
+	
+	loading=&#34;lazy&#34;
+	
+		alt=&#34;配图&#34;
+	
+	
+&gt;&lt;/p&gt;
+&lt;p&gt;&lt;strong&gt;后果不堪设想：&lt;/strong&gt;&lt;/p&gt;
+&lt;ul&gt;
+&lt;li&gt;&lt;strong&gt;招聘困难&lt;/strong&gt;：那个Rust框架文档极少，招进来的Java/Go背景的新人根本看不懂，导致一个简单的字段修改都要耗费两天。&lt;/li&gt;
+&lt;li&gt;&lt;strong&gt;N+1问题泛滥&lt;/strong&gt;：因为GraphQL使用不当，前端一个查询触发了后端几百次数据库查询，DBA差点提刀来见。&lt;/li&gt;
+&lt;li&gt;&lt;strong&gt;最后结局&lt;/strong&gt;：我们花了两个月时间，把这个&amp;quot;高大上&amp;quot;的项目重写回了SpringBoot + MyBatis。虽然技术栈&amp;quot;土&amp;quot;，但新人半天就能上手干活。&lt;/li&gt;
+&lt;/ul&gt;
+&lt;p&gt;&lt;strong&gt;避坑方法：创新代币 (Innovation Tokens)&lt;/strong&gt;&lt;/p&gt;
+&lt;p&gt;借用丹·麦金利的一个概念：&lt;strong&gt;每个项目只有3枚&amp;quot;创新代币&amp;quot;。&lt;/strong&gt;&lt;/p&gt;
+&lt;ul&gt;
+&lt;li&gt;选用一个成熟的语言框架（如Spring Boot）？不消耗代币。&lt;/li&gt;
+&lt;li&gt;选用一个PostgreSQL数据库？不消耗代币。&lt;/li&gt;
+&lt;li&gt;要引入Rust？消耗1枚。&lt;/li&gt;
+&lt;li&gt;要引入一种新的RPC协议？消耗1枚。&lt;/li&gt;
+&lt;/ul&gt;
+&lt;p&gt;一旦3枚代币用完，剩下的所有选型必须用最无聊、最成熟、最普通的技术。&lt;strong&gt;把&amp;quot;无聊&amp;quot;的技术留给基础设施，把&amp;quot;创新&amp;quot;的精力留给业务逻辑。&lt;/strong&gt;&lt;/p&gt;
+&lt;h2 id=&#34;三-我要写一套通用的抽象过早是万恶之源&#34;&gt;三、 &amp;ldquo;我要写一套通用的&amp;hellip;&amp;quot;——抽象过早是万恶之源
+&lt;/h2&gt;&lt;p&gt;&amp;ldquo;这个导出功能，虽然现在只有Excel，但为了通用性，我要设计一套支持PDF、CSV、甚至未来对接第三方API的各种Strategy模式&amp;hellip;&amp;rdquo;&lt;/p&gt;
+&lt;p&gt;听起来很美，对吧？&lt;/p&gt;
+&lt;p&gt;&lt;strong&gt;真实案例：&lt;/strong&gt;&lt;/p&gt;
+&lt;p&gt;我曾负责过一个营销活动的规则引擎。当时我想做一个&amp;quot;万能活动配置器&amp;rdquo;，通过极其复杂的抽象类、接口继承和反射，试图涵盖&amp;quot;满减&amp;quot;、&amp;ldquo;折扣&amp;rdquo;、&amp;ldquo;拼团&amp;quot;等所有场景。&lt;/p&gt;
+&lt;p&gt;代码写得非常&amp;quot;优雅&amp;rdquo;，全是设计模式。结果业务方提了一个需求：&amp;ldquo;拼团成功后，如果是周五，额外送一张优惠券&amp;rdquo;。&lt;/p&gt;
+&lt;p&gt;我的&amp;quot;万能架构&amp;quot;瞬间崩塌。因为我的抽象层把逻辑封死在了&amp;quot;拼团&amp;quot;和&amp;quot;发券&amp;quot;两个独立的模块里，为了打通这两个模块，我不得不破坏原本的封装，写了一堆恶心的&lt;code&gt;if (instanceof Friday)&lt;/code&gt;代码。&lt;/p&gt;
+&lt;p&gt;如果当初直接写两个独立的Service，哪怕代码有重复，改这个需求只需要10分钟。而维护那套&amp;quot;通用架构&amp;quot;，我花了一整天。&lt;/p&gt;
+&lt;p&gt;&lt;strong&gt;避坑方法：事不过三 (Rule of Three)&lt;/strong&gt;&lt;/p&gt;
+&lt;p&gt;不要预先抽象。&lt;/p&gt;
+&lt;ol&gt;
+&lt;li&gt;第一次做：直接硬编码，怎么快怎么来。&lt;/li&gt;
+&lt;li&gt;第二次做类似功能：复制粘贴，修修补补。&lt;/li&gt;
+&lt;li&gt;&lt;strong&gt;第三次做类似功能：&lt;/strong&gt; 也就是当你有三份重复代码时，这才是进行重构和抽象的最佳时机。&lt;/li&gt;
+&lt;/ol&gt;
+&lt;p&gt;&lt;strong&gt;过早的抽象，往往是对业务理解不深的表现。&lt;/strong&gt; 只有当你真正看到了三次重复，你才能通过对比，准确地识别出什么才是真正需要&amp;quot;通用&amp;quot;的部分。&lt;/p&gt;
+&lt;h2 id=&#34;结语与落地工具&#34;&gt;结语与落地工具
+&lt;/h2&gt;&lt;p&gt;避免过度设计，本质上是克制技术人员的&amp;quot;炫技欲&amp;quot;和&amp;quot;掌控欲&amp;quot;。我们做技术的，终究是为了交付价值，而不是交付代码。&lt;/p&gt;
+&lt;p&gt;我每周五下午做Code Review时，都会反复问团队一个问题：&amp;ldquo;如果把你写的这段复杂代码删掉一半，业务还能跑通吗？&amp;ldquo;如果答案是肯定的，那就删掉它。&lt;/p&gt;
+&lt;p&gt;为了方便大家在评审中落地，分享一个我自用的**「技术方案极简性自查表」**，建议每次评审前对照一遍：&lt;/p&gt;
+&lt;div class=&#34;highlight&#34;&gt;&lt;pre tabindex=&#34;0&#34; style=&#34;color:#f8f8f2;background-color:#272822;-moz-tab-size:4;-o-tab-size:4;tab-size:4;&#34;&gt;&lt;code class=&#34;language-markdown&#34; data-lang=&#34;markdown&#34;&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;&lt;span style=&#34;color:#75715e&#34;&gt;### 🛠️ 技术方案极简性自查表 (Anti-Over-Engineering Checklist)
+&lt;/span&gt;&lt;/span&gt;&lt;/span&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;&lt;span style=&#34;color:#75715e&#34;&gt;&lt;/span&gt;
+&lt;/span&gt;&lt;/span&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;&lt;span style=&#34;font-weight:bold&#34;&gt;**1. 规模性自查**&lt;/span&gt;
+&lt;/span&gt;&lt;/span&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;&lt;span style=&#34;color:#66d9ef&#34;&gt;- [ ]&lt;/span&gt; 方案是否是针对当前数据量级设计的？(是/否)
+&lt;/span&gt;&lt;/span&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;&lt;span style=&#34;color:#66d9ef&#34;&gt;- [ ]&lt;/span&gt; 如果业务量增长10倍，此方案是否依然可用？(是，通过；否，需重新评估)
+&lt;/span&gt;&lt;/span&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;&lt;span style=&#34;color:#66d9ef&#34;&gt;- [ ]&lt;/span&gt; 是否引入了为了解决&amp;#34;未来假设性问题&amp;#34;而存在的组件？(如有，请从V1版本移除)
+&lt;/span&gt;&lt;/span&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;
+&lt;/span&gt;&lt;/span&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;&lt;span style=&#34;font-weight:bold&#34;&gt;**2. 复杂度自查**&lt;/span&gt;
+&lt;/span&gt;&lt;/span&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;&lt;span style=&#34;color:#66d9ef&#34;&gt;- [ ]&lt;/span&gt; 新引入的技术栈/中间件，团队内是否有至少2人精通？
+&lt;/span&gt;&lt;/span&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;&lt;span style=&#34;color:#66d9ef&#34;&gt;- [ ]&lt;/span&gt; 这一层抽象逻辑，新入职的初级开发能否在30分钟内看懂？
+&lt;/span&gt;&lt;/span&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;&lt;span style=&#34;color:#66d9ef&#34;&gt;- [ ]&lt;/span&gt; 是否为了复用10%的代码，增加了50%的耦合度？
+&lt;/span&gt;&lt;/span&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;
+&lt;/span&gt;&lt;/span&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;&lt;span style=&#34;font-weight:bold&#34;&gt;**3. 维护性自查**&lt;/span&gt;
+&lt;/span&gt;&lt;/span&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;&lt;span style=&#34;color:#66d9ef&#34;&gt;- [ ]&lt;/span&gt; 出现Bug时，是否需要跨越3个以上的服务/组件才能定位？
+&lt;/span&gt;&lt;/span&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;&lt;span style=&#34;color:#66d9ef&#34;&gt;- [ ]&lt;/span&gt; 如果该核心开发离职，这套方案是否可以被低成本接手？
+&lt;/span&gt;&lt;/span&gt;&lt;/code&gt;&lt;/pre&gt;&lt;/div&gt;&lt;p&gt;&lt;strong&gt;最后，给项目经理和开发者的3个具体行动建议：&lt;/strong&gt;&lt;/p&gt;
+&lt;ol&gt;
+&lt;li&gt;&lt;strong&gt;砍掉一半的中间件&lt;/strong&gt;：在V1版本中，能用数据库解决的，绝不引入MQ；能用单体解决的，绝不拆微服务。&lt;/li&gt;
+&lt;li&gt;&lt;strong&gt;建立&amp;quot;技术负债墙&amp;rdquo;&lt;/strong&gt;：如果确实因为赶进度写了烂代码，不要为了面子用设计模式包装它。直接在代码里标记&lt;code&gt;// TODO: Tech Debt&lt;/code&gt;，并在物理墙上贴出来，排期偿还。&lt;/li&gt;
+&lt;li&gt;&lt;strong&gt;多问&amp;quot;为什么&amp;rdquo;&lt;/strong&gt;：在评审会上，当有人提出复杂方案时，连续问三个&amp;quot;为什么要这么做？不这么做会怎样？&amp;quot;，通常问到第三个，过度设计的理由就站不住脚了。&lt;/li&gt;
+&lt;/ol&gt;
+&lt;p&gt;技术是用来解决问题的，不是用来制造问题的。保持简单，才是最高级的技术能力。&lt;/p&gt;
+</description>
+        </item>
+        
+    </channel>
+</rss>

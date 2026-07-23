@@ -1,0 +1,154 @@
+<?xml version="1.0" encoding="utf-8" standalone="yes"?>
+<rss version="2.0" xmlns:atom="http://www.w3.org/2005/Atom">
+    <channel>
+        <title>代码性能优化：循环与递归的效率对比 on SelfTechHub</title>
+        <link>https://blog.irudder.me/tags/%E4%BB%A3%E7%A0%81%E6%80%A7%E8%83%BD%E4%BC%98%E5%8C%96%E5%BE%AA%E7%8E%AF%E4%B8%8E%E9%80%92%E5%BD%92%E7%9A%84%E6%95%88%E7%8E%87%E5%AF%B9%E6%AF%94.html</link>
+        <description>Recent content in 代码性能优化：循环与递归的效率对比 on SelfTechHub</description>
+        <generator>Hugo -- gohugo.io</generator>
+        <language>zh-cn</language>
+        <lastBuildDate>Thu, 14 Oct 2021 00:00:00 +0000</lastBuildDate><atom:link href="https://blog.irudder.me/tags/%E4%BB%A3%E7%A0%81%E6%80%A7%E8%83%BD%E4%BC%98%E5%8C%96%E5%BE%AA%E7%8E%AF%E4%B8%8E%E9%80%92%E5%BD%92%E7%9A%84%E6%95%88%E7%8E%87%E5%AF%B9%E6%AF%94/index.xml" rel="self" type="application/rss+xml" /><item>
+        <title>别让优雅的代码拖垮系统：递归转循环的实战自救</title>
+        <link>https://blog.irudder.me/tech/jiagouyouhuashizhananlijiexi/daimaxingnengyouhua_xunhuanyudiguidexiaolvduibi.html</link>
+        <pubDate>Thu, 14 Oct 2021 00:00:00 +0000</pubDate>
+        
+        <guid>https://blog.irudder.me/tech/jiagouyouhuashizhananlijiexi/daimaxingnengyouhua_xunhuanyudiguidexiaolvduibi.html</guid>
+        <description>&lt;p&gt;还记得刚入行那会儿，我特别迷恋递归。那时的我觉得，一段不到5行的递归代码，能把复杂的树形结构遍历得清清楚楚，简直就是“代码美学”的巅峰。&lt;/p&gt;
+&lt;p&gt;直到2019年双十一前夕，我亲手写的“优雅递归”在压测环节直接把生产环境的JVM堆栈打爆，导致服务雪崩，运维主管当时看我的眼神，我至今都记得。那一刻我才明白：&lt;strong&gt;在海量数据和高并发面前，代码的“优雅”如果不能转化为“效率”，那就是一颗定时炸弹。&lt;/strong&gt;&lt;/p&gt;
+&lt;p&gt;很多兄弟在面试时能把斐波那契数列背得滚瓜烂熟，但在实际业务中，对于何时该用递归、何时必须切循环，往往缺乏清晰的判断标准。今天不谈算法导论，只聊聊我在一线踩坑换来的血泪经验。&lt;/p&gt;
+&lt;h2 id=&#34;一-递归的温柔陷阱当层级突破临界点&#34;&gt;一、 递归的温柔陷阱：当层级突破临界点
+&lt;/h2&gt;&lt;p&gt;那是我们重构商品类目系统的时候。需求很简单：查询某个父类目下所有的子孙类目ID。&lt;/p&gt;
+&lt;p&gt;&lt;strong&gt;当时的场景：&lt;/strong&gt;
+我想都没想，反手写了一个标准的递归搜索。逻辑清晰，代码极简，单元测试跑几十个节点也没问题。&lt;/p&gt;
+&lt;div class=&#34;highlight&#34;&gt;&lt;pre tabindex=&#34;0&#34; style=&#34;color:#f8f8f2;background-color:#272822;-moz-tab-size:4;-o-tab-size:4;tab-size:4;&#34;&gt;&lt;code class=&#34;language-java&#34; data-lang=&#34;java&#34;&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;&lt;span style=&#34;color:#75715e&#34;&gt;// 那个让我后悔的代码片段&lt;/span&gt;
+&lt;/span&gt;&lt;/span&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;&lt;span style=&#34;color:#66d9ef&#34;&gt;public&lt;/span&gt; &lt;span style=&#34;color:#66d9ef&#34;&gt;void&lt;/span&gt; &lt;span style=&#34;color:#a6e22e&#34;&gt;getAllSubIds&lt;/span&gt;(Long parentId, List&lt;span style=&#34;color:#f92672&#34;&gt;&amp;lt;&lt;/span&gt;Long&lt;span style=&#34;color:#f92672&#34;&gt;&amp;gt;&lt;/span&gt; result) {
+&lt;/span&gt;&lt;/span&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;    List&lt;span style=&#34;color:#f92672&#34;&gt;&amp;lt;&lt;/span&gt;Category&lt;span style=&#34;color:#f92672&#34;&gt;&amp;gt;&lt;/span&gt; children &lt;span style=&#34;color:#f92672&#34;&gt;=&lt;/span&gt; repo.&lt;span style=&#34;color:#a6e22e&#34;&gt;findByParentId&lt;/span&gt;(parentId);
+&lt;/span&gt;&lt;/span&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;    &lt;span style=&#34;color:#66d9ef&#34;&gt;for&lt;/span&gt; (Category child : children) {
+&lt;/span&gt;&lt;/span&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;        result.&lt;span style=&#34;color:#a6e22e&#34;&gt;add&lt;/span&gt;(child.&lt;span style=&#34;color:#a6e22e&#34;&gt;getId&lt;/span&gt;());
+&lt;/span&gt;&lt;/span&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;        getAllSubIds(child.&lt;span style=&#34;color:#a6e22e&#34;&gt;getId&lt;/span&gt;(), result); &lt;span style=&#34;color:#75715e&#34;&gt;// 递归调用&lt;/span&gt;
+&lt;/span&gt;&lt;/span&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;    }
+&lt;/span&gt;&lt;/span&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;}
+&lt;/span&gt;&lt;/span&gt;&lt;/code&gt;&lt;/pre&gt;&lt;/div&gt;&lt;p&gt;&lt;strong&gt;爆发的问题：&lt;/strong&gt;
+压测开始后，为了模拟极端情况，QA构造了一组深度达到5000+的类目树（虽然业务上不合理，但数据结构允许）。
+结果：&lt;/p&gt;
+&lt;ol&gt;
+&lt;li&gt;&lt;strong&gt;StackOverflowError&lt;/strong&gt; 瞬间抛出，线程直接挂掉。&lt;/li&gt;
+&lt;li&gt;即使调大栈内存，&lt;strong&gt;GC（垃圾回收）频率&lt;/strong&gt;也开始异常飙升。&lt;/li&gt;
+&lt;/ol&gt;
+&lt;p&gt;&lt;strong&gt;复盘分析：&lt;/strong&gt;
+每一次递归调用，都需要在栈内存（Stack）中压入一个新的栈帧（Stack Frame），保存局部变量、返回地址等。Java默认的栈深度是非常有限的（通常几千层就顶不住了）。更要命的是，频繁的压栈出栈对CPU的上下文切换也是一种隐形消耗。&lt;/p&gt;
+&lt;p&gt;&lt;img src=&#34;https://picsum.photos/800/450?random=1768458070501&#34;
+	
+	
+	
+	loading=&#34;lazy&#34;
+	
+		alt=&#34;配图&#34;
+	
+	
+&gt;&lt;/p&gt;
+&lt;p&gt;&lt;strong&gt;我不建议你为了用递归而去调整JVM参数（-Xss），那是治标不治本，是在掩盖架构缺陷。&lt;/strong&gt;&lt;/p&gt;
+&lt;h2 id=&#34;二-循环的暴力美学用堆内存换取稳定性&#34;&gt;二、 循环的暴力美学：用堆内存换取稳定性
+&lt;/h2&gt;&lt;p&gt;在那次事故后，我连夜把核心路径上的所有递归逻辑全部重写成了迭代（循环）。&lt;/p&gt;
+&lt;p&gt;&lt;strong&gt;改造方案：&lt;/strong&gt;
+利用一个显式的&lt;code&gt;Stack&lt;/code&gt;（栈）或&lt;code&gt;Queue&lt;/code&gt;（队列）数据结构，将系统的隐式递归调用栈，转化为我们在堆内存（Heap）中自己管理的对象。&lt;/p&gt;
+&lt;p&gt;&lt;strong&gt;改造后的代码（伪代码）：&lt;/strong&gt;&lt;/p&gt;
+&lt;div class=&#34;highlight&#34;&gt;&lt;pre tabindex=&#34;0&#34; style=&#34;color:#f8f8f2;background-color:#272822;-moz-tab-size:4;-o-tab-size:4;tab-size:4;&#34;&gt;&lt;code class=&#34;language-java&#34; data-lang=&#34;java&#34;&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;&lt;span style=&#34;color:#66d9ef&#34;&gt;public&lt;/span&gt; List&lt;span style=&#34;color:#f92672&#34;&gt;&amp;lt;&lt;/span&gt;Long&lt;span style=&#34;color:#f92672&#34;&gt;&amp;gt;&lt;/span&gt; &lt;span style=&#34;color:#a6e22e&#34;&gt;getAllSubIdsIterative&lt;/span&gt;(Long rootId) {
+&lt;/span&gt;&lt;/span&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;    List&lt;span style=&#34;color:#f92672&#34;&gt;&amp;lt;&lt;/span&gt;Long&lt;span style=&#34;color:#f92672&#34;&gt;&amp;gt;&lt;/span&gt; result &lt;span style=&#34;color:#f92672&#34;&gt;=&lt;/span&gt; &lt;span style=&#34;color:#66d9ef&#34;&gt;new&lt;/span&gt; ArrayList&lt;span style=&#34;color:#f92672&#34;&gt;&amp;lt;&amp;gt;&lt;/span&gt;();
+&lt;/span&gt;&lt;/span&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;    Stack&lt;span style=&#34;color:#f92672&#34;&gt;&amp;lt;&lt;/span&gt;Long&lt;span style=&#34;color:#f92672&#34;&gt;&amp;gt;&lt;/span&gt; stack &lt;span style=&#34;color:#f92672&#34;&gt;=&lt;/span&gt; &lt;span style=&#34;color:#66d9ef&#34;&gt;new&lt;/span&gt; Stack&lt;span style=&#34;color:#f92672&#34;&gt;&amp;lt;&amp;gt;&lt;/span&gt;();
+&lt;/span&gt;&lt;/span&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;    stack.&lt;span style=&#34;color:#a6e22e&#34;&gt;push&lt;/span&gt;(rootId);
+&lt;/span&gt;&lt;/span&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;
+&lt;/span&gt;&lt;/span&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;    &lt;span style=&#34;color:#66d9ef&#34;&gt;while&lt;/span&gt; (&lt;span style=&#34;color:#f92672&#34;&gt;!&lt;/span&gt;stack.&lt;span style=&#34;color:#a6e22e&#34;&gt;isEmpty&lt;/span&gt;()) {
+&lt;/span&gt;&lt;/span&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;        Long currentId &lt;span style=&#34;color:#f92672&#34;&gt;=&lt;/span&gt; stack.&lt;span style=&#34;color:#a6e22e&#34;&gt;pop&lt;/span&gt;();
+&lt;/span&gt;&lt;/span&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;        &lt;span style=&#34;color:#75715e&#34;&gt;// 业务处理&lt;/span&gt;
+&lt;/span&gt;&lt;/span&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;        result.&lt;span style=&#34;color:#a6e22e&#34;&gt;add&lt;/span&gt;(currentId);
+&lt;/span&gt;&lt;/span&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;        
+&lt;/span&gt;&lt;/span&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;        &lt;span style=&#34;color:#75715e&#34;&gt;// 获取子节点并压栈&lt;/span&gt;
+&lt;/span&gt;&lt;/span&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;        List&lt;span style=&#34;color:#f92672&#34;&gt;&amp;lt;&lt;/span&gt;Category&lt;span style=&#34;color:#f92672&#34;&gt;&amp;gt;&lt;/span&gt; children &lt;span style=&#34;color:#f92672&#34;&gt;=&lt;/span&gt; repo.&lt;span style=&#34;color:#a6e22e&#34;&gt;findByParentId&lt;/span&gt;(currentId);
+&lt;/span&gt;&lt;/span&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;        &lt;span style=&#34;color:#66d9ef&#34;&gt;if&lt;/span&gt; (children &lt;span style=&#34;color:#f92672&#34;&gt;!=&lt;/span&gt; &lt;span style=&#34;color:#66d9ef&#34;&gt;null&lt;/span&gt;) {
+&lt;/span&gt;&lt;/span&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;            &lt;span style=&#34;color:#66d9ef&#34;&gt;for&lt;/span&gt; (Category child : children) {
+&lt;/span&gt;&lt;/span&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;                stack.&lt;span style=&#34;color:#a6e22e&#34;&gt;push&lt;/span&gt;(child.&lt;span style=&#34;color:#a6e22e&#34;&gt;getId&lt;/span&gt;());
+&lt;/span&gt;&lt;/span&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;            }
+&lt;/span&gt;&lt;/span&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;        }
+&lt;/span&gt;&lt;/span&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;    }
+&lt;/span&gt;&lt;/span&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;    &lt;span style=&#34;color:#66d9ef&#34;&gt;return&lt;/span&gt; result;
+&lt;/span&gt;&lt;/span&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;}
+&lt;/span&gt;&lt;/span&gt;&lt;/code&gt;&lt;/pre&gt;&lt;/div&gt;&lt;p&gt;&lt;img src=&#34;https://picsum.photos/800/450?random=1768458070704&#34;
+	
+	
+	
+	loading=&#34;lazy&#34;
+	
+		alt=&#34;配图&#34;
+	
+	
+&gt;&lt;/p&gt;
+&lt;p&gt;&lt;strong&gt;效果对比：&lt;/strong&gt;
+我特意做了一组对比测试，针对10万个节点的树进行遍历：&lt;/p&gt;
+&lt;ul&gt;
+&lt;li&gt;&lt;strong&gt;递归版&lt;/strong&gt;：在深度超过3000时直接报错；深度2000时，耗时约180ms，但CPU波动剧烈。&lt;/li&gt;
+&lt;li&gt;&lt;strong&gt;循环版&lt;/strong&gt;：深度10000+毫无压力，耗时稳定在120ms左右，最重要的是&lt;strong&gt;内存曲线非常平滑&lt;/strong&gt;，没有锯齿状的剧烈波动。&lt;/li&gt;
+&lt;/ul&gt;
+&lt;p&gt;&lt;strong&gt;核心观点：&lt;/strong&gt;
+堆内存（Heap）的大小通常是G级别，而栈内存（Stack）通常只有M级别。&lt;strong&gt;把压力转移到堆上，是你对抗深层嵌套数据的唯一出路。&lt;/strong&gt; 虽然代码行数变多了，看起来没那么“聪明”，但它足够皮实。&lt;/p&gt;
+&lt;p&gt;&lt;img src=&#34;https://picsum.photos/800/450?random=1768458073148&#34;
+	
+	
+	
+	loading=&#34;lazy&#34;
+	
+		alt=&#34;配图&#34;
+	
+	
+&gt;&lt;/p&gt;
+&lt;h2 id=&#34;三-不是不能用而是要防守型使用&#34;&gt;三、 不是不能用，而是要“防守型”使用
+&lt;/h2&gt;&lt;p&gt;这时候肯定有架构师会反驳：“难道递归就一无是处吗？” 当然不是。&lt;/p&gt;
+&lt;p&gt;我在做配置解析、前端组件渲染（如React组件树）时，依然会大量使用递归。因为这些场景有一个共同点：&lt;strong&gt;深度可控且有限。&lt;/strong&gt; 一个JSON配置文件很难嵌套超过100层，一个UI界面也很难有1000层嵌套。&lt;/p&gt;
+&lt;p&gt;但在以下三种场景，我强制团队禁止使用递归：&lt;/p&gt;
+&lt;ol&gt;
+&lt;li&gt;&lt;strong&gt;链表/图的遍历&lt;/strong&gt;：数据量不可控，容易成环。&lt;/li&gt;
+&lt;li&gt;&lt;strong&gt;用户生成内容（UGC）的处理&lt;/strong&gt;：用户是不可预测的，他们可能搞出无限嵌套的引用。&lt;/li&gt;
+&lt;li&gt;&lt;strong&gt;高频热点代码路径&lt;/strong&gt;：哪怕递归深度只有50层，在QPS（每秒查询率）上万的接口里，积少成多的压栈开销也会拖慢响应速度。&lt;/li&gt;
+&lt;/ol&gt;
+&lt;blockquote&gt;
+&lt;p&gt;我曾见过一个同事在Python里试图用尾递归优化，结果发现Python解释器根本不支持尾递归消除（Tail Call Optimization），最后还得老老实实改循环。这提醒我们：&lt;strong&gt;不要过度依赖语言特性的“糖”，除非你完全吃透了底层的编译原理。&lt;/strong&gt;&lt;/p&gt;
+&lt;/blockquote&gt;
+&lt;h2 id=&#34;四-拿来即用的实操工具&#34;&gt;四、 拿来即用的实操工具
+&lt;/h2&gt;&lt;p&gt;为了避免大家重复造轮子，分享一个我常用的通用模板。无论是文件目录扫描、组织架构遍历还是图搜索，套用这个结构基本不会出错。&lt;/p&gt;
+&lt;p&gt;&lt;strong&gt;通用迭代遍历模板（Java/Python通用逻辑）：&lt;/strong&gt;&lt;/p&gt;
+&lt;div class=&#34;highlight&#34;&gt;&lt;pre tabindex=&#34;0&#34; style=&#34;color:#f8f8f2;background-color:#272822;-moz-tab-size:4;-o-tab-size:4;tab-size:4;&#34;&gt;&lt;code class=&#34;language-python&#34; data-lang=&#34;python&#34;&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;&lt;span style=&#34;color:#66d9ef&#34;&gt;def&lt;/span&gt; &lt;span style=&#34;color:#a6e22e&#34;&gt;generic_iterative_traversal&lt;/span&gt;(root_node):
+&lt;/span&gt;&lt;/span&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;    &lt;span style=&#34;color:#75715e&#34;&gt;# 1. 边界检查&lt;/span&gt;
+&lt;/span&gt;&lt;/span&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;    &lt;span style=&#34;color:#66d9ef&#34;&gt;if&lt;/span&gt; &lt;span style=&#34;color:#f92672&#34;&gt;not&lt;/span&gt; root_node:
+&lt;/span&gt;&lt;/span&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;        &lt;span style=&#34;color:#66d9ef&#34;&gt;return&lt;/span&gt; []
+&lt;/span&gt;&lt;/span&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;
+&lt;/span&gt;&lt;/span&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;    &lt;span style=&#34;color:#75715e&#34;&gt;# 2. 初始化容器（用栈做DFS，用队列做BFS）&lt;/span&gt;
+&lt;/span&gt;&lt;/span&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;    &lt;span style=&#34;color:#75715e&#34;&gt;# stack = [root_node]  # 深度优先&lt;/span&gt;
+&lt;/span&gt;&lt;/span&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;    queue &lt;span style=&#34;color:#f92672&#34;&gt;=&lt;/span&gt; [root_node]    &lt;span style=&#34;color:#75715e&#34;&gt;# 广度优先&lt;/span&gt;
+&lt;/span&gt;&lt;/span&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;    results &lt;span style=&#34;color:#f92672&#34;&gt;=&lt;/span&gt; []
+&lt;/span&gt;&lt;/span&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;
+&lt;/span&gt;&lt;/span&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;    &lt;span style=&#34;color:#75715e&#34;&gt;# 3. 循环处理&lt;/span&gt;
+&lt;/span&gt;&lt;/span&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;    &lt;span style=&#34;color:#66d9ef&#34;&gt;while&lt;/span&gt; queue:
+&lt;/span&gt;&lt;/span&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;        current &lt;span style=&#34;color:#f92672&#34;&gt;=&lt;/span&gt; queue&lt;span style=&#34;color:#f92672&#34;&gt;.&lt;/span&gt;pop(&lt;span style=&#34;color:#ae81ff&#34;&gt;0&lt;/span&gt;) &lt;span style=&#34;color:#75715e&#34;&gt;# 弹出元素&lt;/span&gt;
+&lt;/span&gt;&lt;/span&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;        
+&lt;/span&gt;&lt;/span&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;        &lt;span style=&#34;color:#75715e&#34;&gt;# --- 业务逻辑开始 ---&lt;/span&gt;
+&lt;/span&gt;&lt;/span&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;        &lt;span style=&#34;color:#75715e&#34;&gt;# 在这里处理当前节点，例如：数据转换、过滤&lt;/span&gt;
+&lt;/span&gt;&lt;/span&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;        results&lt;span style=&#34;color:#f92672&#34;&gt;.&lt;/span&gt;append(current&lt;span style=&#34;color:#f92672&#34;&gt;.&lt;/span&gt;data)
+&lt;/span&gt;&lt;/span&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;        &lt;span style=&#34;color:#75715e&#34;&gt;# --- 业务逻辑结束 ---&lt;/span&gt;
+&lt;/span&gt;&lt;/span&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;
+&lt;/span&gt;&lt;/span&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;        &lt;span style=&#34;color:#75715e&#34;&gt;# 4. 子节点入列&lt;/span&gt;
+&lt;/span&gt;&lt;/span&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;        &lt;span style=&#34;color:#66d9ef&#34;&gt;if&lt;/span&gt; current&lt;span style=&#34;color:#f92672&#34;&gt;.&lt;/span&gt;children:
+&lt;/span&gt;&lt;/span&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;            &lt;span style=&#34;color:#66d9ef&#34;&gt;for&lt;/span&gt; child &lt;span style=&#34;color:#f92672&#34;&gt;in&lt;/span&gt; current&lt;span style=&#34;color:#f92672&#34;&gt;.&lt;/span&gt;children:
+&lt;/span&gt;&lt;/span&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;                queue&lt;span style=&#34;color:#f92672&#34;&gt;.&lt;/span&gt;append(child)
+&lt;/span&gt;&lt;/span&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;                
+&lt;/span&gt;&lt;/span&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;    &lt;span style=&#34;color:#66d9ef&#34;&gt;return&lt;/span&gt; results
+&lt;/span&gt;&lt;/span&gt;&lt;/code&gt;&lt;/pre&gt;&lt;/div&gt;&lt;p&gt;&lt;strong&gt;最后，给兄弟们三个具体的行动建议：&lt;/strong&gt;&lt;/p&gt;
+&lt;ol&gt;
+&lt;li&gt;&lt;strong&gt;代码审查（Code Review）&lt;/strong&gt;：本周抽出半小时，全局搜索项目中的递归调用（函数自己调用自己）。重点检查那些入参来自数据库或外部接口的地方。&lt;/li&gt;
+&lt;li&gt;&lt;strong&gt;防御性编程&lt;/strong&gt;：如果你必须保留递归，&lt;strong&gt;请务必加上深度计数器&lt;/strong&gt;。例如，传一个 &lt;code&gt;depth&lt;/code&gt; 参数，当 &lt;code&gt;depth &amp;gt; 500&lt;/code&gt; 时，直接抛出异常或中断，这是生产环境的最后一道防线。&lt;/li&gt;
+&lt;li&gt;&lt;strong&gt;压测真实场景&lt;/strong&gt;：不要只用只有3层结构的Demo数据做测试。去生产环境导一份真实复杂的脏数据，跑一遍你的逻辑，大概率会有惊喜（惊吓）。&lt;/li&gt;
+&lt;/ol&gt;
+&lt;p&gt;代码的价值不在于它写起来有多炫技，而在于它跑起来有多稳。&lt;strong&gt;宁愿写丑陋的循环让服务活下来，也不要写优雅的递归让它半夜挂掉。&lt;/strong&gt;&lt;/p&gt;
+</description>
+        </item>
+        
+    </channel>
+</rss>

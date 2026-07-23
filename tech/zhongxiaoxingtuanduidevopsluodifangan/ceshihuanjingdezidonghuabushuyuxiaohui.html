@@ -1,0 +1,462 @@
+<!DOCTYPE html>
+<html lang="zh-cn" dir="ltr">
+    <head><meta charset='utf-8'>
+<meta name='viewport' content='width=device-width, initial-scale=1'><meta name='description' content="以前每到月底核对阿里云账单，我都觉得心在滴血。\n作为一家不到30人技术团队的负责人，我曾陷入过这样一个怪圈：开发为了并行开发几个功能，嚷嚷着要加机器；测试因为环境不稳定，经常在群里喊“谁又改配置了？”；运维（其实就是我兼职）每天还要手动去清理那些早就没人用的“僵尸容器”。\n最惨的一次，一个已经上线三个月的营销活动环境，因为忘了关，默默跑了一整季度的流量费，够买好几台高配MacBook了。\n那时我才意识到，对于中小团队，搭建环境不难，难的是如何优雅地“销毁”它。\n今天我想聊聊，在没有专职运维、预算有限的情况下，我们是如何通过一套“用完即焚”的机制，把测试环境管理顺畅的。\n既然没钱，就别搞“长生不老”的环境\r很多中小团队的测试环境是“固定资产”。比如 IP 为 .100 的是开发联调环境，.101 是集成测试环境。所有人的代码都往这两个大熔炉里扔。\n这就导致一个经典场景：前端小刘刚部署完，后端大李这边的接口改了还没发，环境瞬间崩盘。排查一小时，代码五分钟。\n观点：测试环境应该是“一次性餐具”，而不是“传家宝”。\n我们要做的，是基于 Feature Branch（特性分支）动态生成环境。\n去年双十一前夕，我们要并行开发三个大需求。按照老路子，我得去开三台云服务器，配环境、装依赖，等项目结束了还得记着去退订。\n后来我们逼了自己一把，把整个流程改成了**“按需拉起”**。\n大概逻辑是这样的：\n开发提交代码到 feature/xxx 分支； GitLab CI 自动触发，根据 Docker Compose 模板，在并在集群里拉起一套独立命名空间的服务（比如 app-feature-xxx）； 自动配置一个动态域名（如 xxx.test.mycompany.com）丢到钉钉群里。 结果非常直观： 测试人员拿到的是一个纯净、独立的环境，随便折腾都不会影响别人。更关键的是，我们引入了一个规则：分支合并即销毁。一旦代码合入主干，这个环境及其占用的资源立刻被脚本自动回收。\n这不仅仅是技术变更，更是资源管理思维的转变。\n哪怕是脚本，也要做成“一键式”\r只要涉及到“人”去操作，就一定会出错。\n我之前有个习惯，每周五下午会手动去清理那些未使用的Docker容器。但有一次因为临时开会忘了，结果周末流量激增，一台残留的压力测试容器把数据库连接池打爆了，导致线上服务短暂不可用。\n这事儿让我背了个大锅，也让我下定决心做全链路自动化。\n观点：把部署和销毁的逻辑封装进代码仓库，别藏在运维的脑子里。\n对于我们这种中小团队，上 Kubernetes (K8s) 可能有点重，维护成本高。我推荐一个简单的组合拳：Docker Compose + Makefile + Shell Script。\n我们在每个项目的根目录下都放了一个 Makefile。不管是新来的实习生，还是我也好，需要环境时，只需要敲一个命令。\n举个真实的例子，我们的后端项目里有这样一个 deploy.sh 脚本片段，它不仅负责跑起来，还负责给自己设定“寿命”：\n#!/bin/bash # 自动生成唯一标识 ENV_ID=$(git rev-parse --short HEAD) echo &#34;正在部署环境: $ENV_ID&#34; # 启动服务 docker-compose -p $ENV_ID up -d # 【关键点】记录创建时间，用于后续超时销毁 echo &#34;$(date +%s) $ENV_ID&#34; &gt;&gt; /opt/env_tracker/active_envs.log # 自动清理逻辑：如果是临时测试，设置TTL（比如4小时后自动下线） if [ &#34;$DEPLOY_TYPE&#34; == &#34;temp&#34; ]; then echo &#34;警告：此环境将在4小时后自毁&#34; # 调用延时任务或注册到清理脚本中 fi 这个改动落地后，最直接的效果是扯皮变少了。以前部署失败，开发会说“环境有问题”；现在部署脚本跟代码在一起，环境起不来，那就是代码或者配置有问题，修就完事了。\n">
+<title>穷团队逆袭：测试环境“用完即焚”，云账单省一半</title>
+
+<link rel='canonical' href='https://blog.irudder.me/tech/zhongxiaoxingtuanduidevopsluodifangan/ceshihuanjingdezidonghuabushuyuxiaohui.html'>
+
+<link rel="stylesheet" href="/scss/style.min.b9e9128fec450ebccecc4ec9900157f32b85d0609bcd5ee3293968bcaa1235f2.css"><meta property='og:title' content="穷团队逆袭：测试环境“用完即焚”，云账单省一半">
+<meta property='og:description' content="以前每到月底核对阿里云账单，我都觉得心在滴血。\n作为一家不到30人技术团队的负责人，我曾陷入过这样一个怪圈：开发为了并行开发几个功能，嚷嚷着要加机器；测试因为环境不稳定，经常在群里喊“谁又改配置了？”；运维（其实就是我兼职）每天还要手动去清理那些早就没人用的“僵尸容器”。\n最惨的一次，一个已经上线三个月的营销活动环境，因为忘了关，默默跑了一整季度的流量费，够买好几台高配MacBook了。\n那时我才意识到，对于中小团队，搭建环境不难，难的是如何优雅地“销毁”它。\n今天我想聊聊，在没有专职运维、预算有限的情况下，我们是如何通过一套“用完即焚”的机制，把测试环境管理顺畅的。\n既然没钱，就别搞“长生不老”的环境\r很多中小团队的测试环境是“固定资产”。比如 IP 为 .100 的是开发联调环境，.101 是集成测试环境。所有人的代码都往这两个大熔炉里扔。\n这就导致一个经典场景：前端小刘刚部署完，后端大李这边的接口改了还没发，环境瞬间崩盘。排查一小时，代码五分钟。\n观点：测试环境应该是“一次性餐具”，而不是“传家宝”。\n我们要做的，是基于 Feature Branch（特性分支）动态生成环境。\n去年双十一前夕，我们要并行开发三个大需求。按照老路子，我得去开三台云服务器，配环境、装依赖，等项目结束了还得记着去退订。\n后来我们逼了自己一把，把整个流程改成了**“按需拉起”**。\n大概逻辑是这样的：\n开发提交代码到 feature/xxx 分支； GitLab CI 自动触发，根据 Docker Compose 模板，在并在集群里拉起一套独立命名空间的服务（比如 app-feature-xxx）； 自动配置一个动态域名（如 xxx.test.mycompany.com）丢到钉钉群里。 结果非常直观： 测试人员拿到的是一个纯净、独立的环境，随便折腾都不会影响别人。更关键的是，我们引入了一个规则：分支合并即销毁。一旦代码合入主干，这个环境及其占用的资源立刻被脚本自动回收。\n这不仅仅是技术变更，更是资源管理思维的转变。\n哪怕是脚本，也要做成“一键式”\r只要涉及到“人”去操作，就一定会出错。\n我之前有个习惯，每周五下午会手动去清理那些未使用的Docker容器。但有一次因为临时开会忘了，结果周末流量激增，一台残留的压力测试容器把数据库连接池打爆了，导致线上服务短暂不可用。\n这事儿让我背了个大锅，也让我下定决心做全链路自动化。\n观点：把部署和销毁的逻辑封装进代码仓库，别藏在运维的脑子里。\n对于我们这种中小团队，上 Kubernetes (K8s) 可能有点重，维护成本高。我推荐一个简单的组合拳：Docker Compose + Makefile + Shell Script。\n我们在每个项目的根目录下都放了一个 Makefile。不管是新来的实习生，还是我也好，需要环境时，只需要敲一个命令。\n举个真实的例子，我们的后端项目里有这样一个 deploy.sh 脚本片段，它不仅负责跑起来，还负责给自己设定“寿命”：\n#!/bin/bash # 自动生成唯一标识 ENV_ID=$(git rev-parse --short HEAD) echo &#34;正在部署环境: $ENV_ID&#34; # 启动服务 docker-compose -p $ENV_ID up -d # 【关键点】记录创建时间，用于后续超时销毁 echo &#34;$(date +%s) $ENV_ID&#34; &gt;&gt; /opt/env_tracker/active_envs.log # 自动清理逻辑：如果是临时测试，设置TTL（比如4小时后自动下线） if [ &#34;$DEPLOY_TYPE&#34; == &#34;temp&#34; ]; then echo &#34;警告：此环境将在4小时后自毁&#34; # 调用延时任务或注册到清理脚本中 fi 这个改动落地后，最直接的效果是扯皮变少了。以前部署失败，开发会说“环境有问题”；现在部署脚本跟代码在一起，环境起不来，那就是代码或者配置有问题，修就完事了。\n">
+<meta property='og:url' content='https://blog.irudder.me/tech/zhongxiaoxingtuanduidevopsluodifangan/ceshihuanjingdezidonghuabushuyuxiaohui.html'>
+<meta property='og:site_name' content='SelfTechHub'>
+<meta property='og:type' content='article'><meta property='article:section' content='Tech' /><meta property='article:tag' content='测试环境的自动化部署与销毁' /><meta property='article:published_time' content='2024-09-01T00:00:00&#43;00:00'/><meta property='article:modified_time' content='2024-09-01T00:00:00&#43;00:00'/>
+<meta name="twitter:title" content="穷团队逆袭：测试环境“用完即焚”，云账单省一半">
+<meta name="twitter:description" content="以前每到月底核对阿里云账单，我都觉得心在滴血。\n作为一家不到30人技术团队的负责人，我曾陷入过这样一个怪圈：开发为了并行开发几个功能，嚷嚷着要加机器；测试因为环境不稳定，经常在群里喊“谁又改配置了？”；运维（其实就是我兼职）每天还要手动去清理那些早就没人用的“僵尸容器”。\n最惨的一次，一个已经上线三个月的营销活动环境，因为忘了关，默默跑了一整季度的流量费，够买好几台高配MacBook了。\n那时我才意识到，对于中小团队，搭建环境不难，难的是如何优雅地“销毁”它。\n今天我想聊聊，在没有专职运维、预算有限的情况下，我们是如何通过一套“用完即焚”的机制，把测试环境管理顺畅的。\n既然没钱，就别搞“长生不老”的环境\r很多中小团队的测试环境是“固定资产”。比如 IP 为 .100 的是开发联调环境，.101 是集成测试环境。所有人的代码都往这两个大熔炉里扔。\n这就导致一个经典场景：前端小刘刚部署完，后端大李这边的接口改了还没发，环境瞬间崩盘。排查一小时，代码五分钟。\n观点：测试环境应该是“一次性餐具”，而不是“传家宝”。\n我们要做的，是基于 Feature Branch（特性分支）动态生成环境。\n去年双十一前夕，我们要并行开发三个大需求。按照老路子，我得去开三台云服务器，配环境、装依赖，等项目结束了还得记着去退订。\n后来我们逼了自己一把，把整个流程改成了**“按需拉起”**。\n大概逻辑是这样的：\n开发提交代码到 feature/xxx 分支； GitLab CI 自动触发，根据 Docker Compose 模板，在并在集群里拉起一套独立命名空间的服务（比如 app-feature-xxx）； 自动配置一个动态域名（如 xxx.test.mycompany.com）丢到钉钉群里。 结果非常直观： 测试人员拿到的是一个纯净、独立的环境，随便折腾都不会影响别人。更关键的是，我们引入了一个规则：分支合并即销毁。一旦代码合入主干，这个环境及其占用的资源立刻被脚本自动回收。\n这不仅仅是技术变更，更是资源管理思维的转变。\n哪怕是脚本，也要做成“一键式”\r只要涉及到“人”去操作，就一定会出错。\n我之前有个习惯，每周五下午会手动去清理那些未使用的Docker容器。但有一次因为临时开会忘了，结果周末流量激增，一台残留的压力测试容器把数据库连接池打爆了，导致线上服务短暂不可用。\n这事儿让我背了个大锅，也让我下定决心做全链路自动化。\n观点：把部署和销毁的逻辑封装进代码仓库，别藏在运维的脑子里。\n对于我们这种中小团队，上 Kubernetes (K8s) 可能有点重，维护成本高。我推荐一个简单的组合拳：Docker Compose + Makefile + Shell Script。\n我们在每个项目的根目录下都放了一个 Makefile。不管是新来的实习生，还是我也好，需要环境时，只需要敲一个命令。\n举个真实的例子，我们的后端项目里有这样一个 deploy.sh 脚本片段，它不仅负责跑起来，还负责给自己设定“寿命”：\n#!/bin/bash # 自动生成唯一标识 ENV_ID=$(git rev-parse --short HEAD) echo &#34;正在部署环境: $ENV_ID&#34; # 启动服务 docker-compose -p $ENV_ID up -d # 【关键点】记录创建时间，用于后续超时销毁 echo &#34;$(date +%s) $ENV_ID&#34; &gt;&gt; /opt/env_tracker/active_envs.log # 自动清理逻辑：如果是临时测试，设置TTL（比如4小时后自动下线） if [ &#34;$DEPLOY_TYPE&#34; == &#34;temp&#34; ]; then echo &#34;警告：此环境将在4小时后自毁&#34; # 调用延时任务或注册到清理脚本中 fi 这个改动落地后，最直接的效果是扯皮变少了。以前部署失败，开发会说“环境有问题”；现在部署脚本跟代码在一起，环境起不来，那就是代码或者配置有问题，修就完事了。\n">
+    </head>
+    <body class="
+    article-page
+    ">
+    <script>
+        (function() {
+            const colorSchemeKey = 'StackColorScheme';
+            if(!localStorage.getItem(colorSchemeKey)){
+                localStorage.setItem(colorSchemeKey, "auto");
+            }
+        })();
+    </script><script>
+    (function() {
+        const colorSchemeKey = 'StackColorScheme';
+        const colorSchemeItem = localStorage.getItem(colorSchemeKey);
+        const supportDarkMode = window.matchMedia('(prefers-color-scheme: dark)').matches === true;
+
+        if (colorSchemeItem == 'dark' || colorSchemeItem === 'auto' && supportDarkMode) {
+            
+
+            document.documentElement.dataset.scheme = 'dark';
+        } else {
+            document.documentElement.dataset.scheme = 'light';
+        }
+    })();
+</script>
+<div class="container main-container flex on-phone--column compact"><aside class="sidebar left-sidebar sticky ">
+    <button class="hamburger hamburger--spin" type="button" id="toggle-menu" aria-label="切换菜单">
+        <span class="hamburger-box">
+            <span class="hamburger-inner"></span>
+        </span>
+    </button>
+
+    <header>
+        
+            
+            <figure class="site-avatar">
+                <a href="/">
+                
+                    
+                    
+                    
+                        
+                        <img src="/img/avatar_hu_8588ce14af1147e2.png" width="300"
+                            height="286" class="site-logo" loading="lazy" alt="Avatar">
+                    
+                
+                </a>
+                
+            </figure>
+            
+        
+        
+        <div class="site-meta">
+            <h1 class="site-name"><a href="/">SelfTechHub</a></h1>
+            <h2 class="site-description"></h2>
+        </div>
+    </header><ol class="menu" id="main-menu">
+        
+        
+        <li class="menu-bottom-section">
+            <ol class="menu">
+
+                
+                    <li id="dark-mode-toggle">
+                        <svg xmlns="http://www.w3.org/2000/svg" class="icon icon-tabler icon-tabler-toggle-left" width="24" height="24" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor" fill="none" stroke-linecap="round" stroke-linejoin="round">
+  <path stroke="none" d="M0 0h24v24H0z"/>
+  <circle cx="8" cy="12" r="2" />
+  <rect x="2" y="6" width="20" height="12" rx="6" />
+</svg>
+
+
+
+                        <svg xmlns="http://www.w3.org/2000/svg" class="icon icon-tabler icon-tabler-toggle-right" width="24" height="24" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor" fill="none" stroke-linecap="round" stroke-linejoin="round">
+  <path stroke="none" d="M0 0h24v24H0z"/>
+  <circle cx="16" cy="12" r="2" />
+  <rect x="2" y="6" width="20" height="12" rx="6" />
+</svg>
+
+
+
+                        <span>暗色模式</span>
+                    </li>
+                
+            </ol>
+        </li>
+    </ol>
+</aside>
+
+    
+
+            <main class="main full-width">
+    <article class="main-article">
+    <header class="article-header">
+
+    <div class="article-details">
+    
+    <header class="article-category">
+        
+            <a href="/categories/%E6%8A%80%E6%9C%AF.html" >
+                技术精进
+            </a>
+        
+    </header>
+    
+
+    <div class="article-title-wrapper">
+        <h2 class="article-title">
+            <a href="/tech/zhongxiaoxingtuanduidevopsluodifangan/ceshihuanjingdezidonghuabushuyuxiaohui.html">穷团队逆袭：测试环境“用完即焚”，云账单省一半</a>
+        </h2>
+    
+        
+    </div>
+
+    
+    
+    
+    
+    <footer class="article-time">
+        
+            <div>
+                <svg xmlns="http://www.w3.org/2000/svg" class="icon icon-tabler icon-tabler-calendar-time" width="56" height="56" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor" fill="none" stroke-linecap="round" stroke-linejoin="round">
+  <path stroke="none" d="M0 0h24v24H0z"/>
+  <path d="M11.795 21h-6.795a2 2 0 0 1 -2 -2v-12a2 2 0 0 1 2 -2h12a2 2 0 0 1 2 2v4" />
+  <circle cx="18" cy="18" r="4" />
+  <path d="M15 3v4" />
+  <path d="M7 3v4" />
+  <path d="M3 11h16" />
+  <path d="M18 16.496v1.504l1 1" />
+</svg>
+                <time class="article-time--published" datetime='2024-09-01T00:00:00Z'>Sep 01, 2024</time>
+            </div>
+        
+
+        
+            <div>
+                <svg xmlns="http://www.w3.org/2000/svg" class="icon icon-tabler icon-tabler-clock" width="24" height="24" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor" fill="none" stroke-linecap="round" stroke-linejoin="round">
+  <path stroke="none" d="M0 0h24v24H0z"/>
+  <circle cx="12" cy="12" r="9" />
+  <polyline points="12 7 12 12 15 15" />
+</svg>
+
+
+
+                <time class="article-time--reading">
+                    阅读时长: 1 分钟
+                </time>
+            </div>
+        
+    </footer>
+    
+
+    
+</div>
+
+</header>
+
+    <section class="article-content">
+    
+    
+    <p>以前每到月底核对阿里云账单，我都觉得心在滴血。</p>
+<p>作为一家不到30人技术团队的负责人，我曾陷入过这样一个怪圈：开发为了并行开发几个功能，嚷嚷着要加机器；测试因为环境不稳定，经常在群里喊“谁又改配置了？”；运维（其实就是我兼职）每天还要手动去清理那些早就没人用的“僵尸容器”。</p>
+<p>最惨的一次，一个已经上线三个月的营销活动环境，因为忘了关，默默跑了一整季度的流量费，够买好几台高配MacBook了。</p>
+<p><strong>那时我才意识到，对于中小团队，搭建环境不难，难的是如何优雅地“销毁”它。</strong></p>
+<p>今天我想聊聊，在没有专职运维、预算有限的情况下，我们是如何通过一套“用完即焚”的机制，把测试环境管理顺畅的。</p>
+<h2 id="既然没钱就别搞长生不老的环境">既然没钱，就别搞“长生不老”的环境
+</h2><p>很多中小团队的测试环境是“固定资产”。比如 IP 为 <code>.100</code> 的是开发联调环境，<code>.101</code> 是集成测试环境。所有人的代码都往这两个大熔炉里扔。</p>
+<p>这就导致一个经典场景：前端小刘刚部署完，后端大李这边的接口改了还没发，环境瞬间崩盘。排查一小时，代码五分钟。</p>
+<p><img src="https://picsum.photos/800/450?random=1768389290147"
+	
+	
+	
+	loading="lazy"
+	
+		alt="配图"
+	
+	
+></p>
+<p><strong>观点：测试环境应该是“一次性餐具”，而不是“传家宝”。</strong></p>
+<p>我们要做的，是基于 Feature Branch（特性分支）动态生成环境。</p>
+<p>去年双十一前夕，我们要并行开发三个大需求。按照老路子，我得去开三台云服务器，配环境、装依赖，等项目结束了还得记着去退订。</p>
+<p><img src="https://picsum.photos/800/450?random=1768389293347"
+	
+	
+	
+	loading="lazy"
+	
+		alt="配图"
+	
+	
+></p>
+<p>后来我们逼了自己一把，把整个流程改成了**“按需拉起”**。</p>
+<p>大概逻辑是这样的：</p>
+<ol>
+<li>开发提交代码到 <code>feature/xxx</code> 分支；</li>
+<li>GitLab CI 自动触发，根据 Docker Compose 模板，在并在集群里拉起一套独立命名空间的服务（比如 <code>app-feature-xxx</code>）；</li>
+<li>自动配置一个动态域名（如 <code>xxx.test.mycompany.com</code>）丢到钉钉群里。</li>
+</ol>
+<p><strong>结果非常直观：</strong>
+测试人员拿到的是一个<strong>纯净、独立</strong>的环境，随便折腾都不会影响别人。更关键的是，我们引入了一个规则：<strong>分支合并即销毁</strong>。一旦代码合入主干，这个环境及其占用的资源立刻被脚本自动回收。</p>
+<p>这不仅仅是技术变更，更是资源管理思维的转变。</p>
+<h2 id="哪怕是脚本也要做成一键式">哪怕是脚本，也要做成“一键式”
+</h2><p>只要涉及到“人”去操作，就一定会出错。</p>
+<p>我之前有个习惯，每周五下午会手动去清理那些未使用的Docker容器。但有一次因为临时开会忘了，结果周末流量激增，一台残留的压力测试容器把数据库连接池打爆了，导致线上服务短暂不可用。</p>
+<p>这事儿让我背了个大锅，也让我下定决心做<strong>全链路自动化</strong>。</p>
+<p><strong>观点：把部署和销毁的逻辑封装进代码仓库，别藏在运维的脑子里。</strong></p>
+<p>对于我们这种中小团队，上 Kubernetes (K8s) 可能有点重，维护成本高。我推荐一个简单的组合拳：<strong>Docker Compose + Makefile + Shell Script</strong>。</p>
+<p>我们在每个项目的根目录下都放了一个 <code>Makefile</code>。不管是新来的实习生，还是我也好，需要环境时，只需要敲一个命令。</p>
+<p>举个真实的例子，我们的后端项目里有这样一个 <code>deploy.sh</code> 脚本片段，它不仅负责跑起来，还负责给自己设定“寿命”：</p>
+<div class="highlight"><pre tabindex="0" style="color:#f8f8f2;background-color:#272822;-moz-tab-size:4;-o-tab-size:4;tab-size:4;"><code class="language-bash" data-lang="bash"><span style="display:flex;"><span><span style="color:#75715e">#!/bin/bash
+</span></span></span><span style="display:flex;"><span><span style="color:#75715e"></span><span style="color:#75715e"># 自动生成唯一标识</span>
+</span></span><span style="display:flex;"><span>ENV_ID<span style="color:#f92672">=</span><span style="color:#66d9ef">$(</span>git rev-parse --short HEAD<span style="color:#66d9ef">)</span>
+</span></span><span style="display:flex;"><span>echo <span style="color:#e6db74">&#34;正在部署环境: </span>$ENV_ID<span style="color:#e6db74">&#34;</span>
+</span></span><span style="display:flex;"><span>
+</span></span><span style="display:flex;"><span><span style="color:#75715e"># 启动服务</span>
+</span></span><span style="display:flex;"><span>docker-compose -p $ENV_ID up -d
+</span></span><span style="display:flex;"><span>
+</span></span><span style="display:flex;"><span><span style="color:#75715e"># 【关键点】记录创建时间，用于后续超时销毁</span>
+</span></span><span style="display:flex;"><span>echo <span style="color:#e6db74">&#34;</span><span style="color:#66d9ef">$(</span>date +%s<span style="color:#66d9ef">)</span><span style="color:#e6db74"> </span>$ENV_ID<span style="color:#e6db74">&#34;</span> &gt;&gt; /opt/env_tracker/active_envs.log
+</span></span><span style="display:flex;"><span>
+</span></span><span style="display:flex;"><span><span style="color:#75715e"># 自动清理逻辑：如果是临时测试，设置TTL（比如4小时后自动下线）</span>
+</span></span><span style="display:flex;"><span><span style="color:#66d9ef">if</span> <span style="color:#f92672">[</span> <span style="color:#e6db74">&#34;</span>$DEPLOY_TYPE<span style="color:#e6db74">&#34;</span> <span style="color:#f92672">==</span> <span style="color:#e6db74">&#34;temp&#34;</span> <span style="color:#f92672">]</span>; <span style="color:#66d9ef">then</span>
+</span></span><span style="display:flex;"><span>    echo <span style="color:#e6db74">&#34;警告：此环境将在4小时后自毁&#34;</span>
+</span></span><span style="display:flex;"><span>    <span style="color:#75715e"># 调用延时任务或注册到清理脚本中</span>
+</span></span><span style="display:flex;"><span><span style="color:#66d9ef">fi</span>
+</span></span></code></pre></div><p>这个改动落地后，最直接的效果是<strong>扯皮变少了</strong>。以前部署失败，开发会说“环境有问题”；现在部署脚本跟代码在一起，环境起不来，那就是代码或者配置有问题，修就完事了。</p>
+<h2 id="对抗惰性给环境装个定时炸弹">对抗惰性：给环境装个“定时炸弹”
+</h2><p>人性是懒惰的。即便有了自动销毁机制，大家还是习惯开着环境“以防万一”。</p>
+<p>我曾做过一次突击检查，发现服务器上跑着20多个容器，真正活跃的只有3个。问了一圈，开发A说“那个Bug还没复现出来，先留着”，开发B说“我待会儿还要用”。结果这个“待会儿”就是一个星期。</p>
+<p><strong>观点：默认销毁，保留需申请。</strong></p>
+<p>我们制定了一条硬性规则：<strong>非主干环境，生命周期只有 24 小时。</strong></p>
+<p>为了落地这个规则，我写了一个简单的 Python 脚本（我们戏称为“灭霸脚本”），挂在 Crontab 里，每天凌晨 3 点运行。</p>
+<p>它的工作逻辑很简单：</p>
+<ol>
+<li>扫描所有非 Master 分支对应的容器；</li>
+<li>检查该容器的最后活跃时间（通过日志或者 Git 提交时间）；</li>
+<li>如果超过 24 小时无人认领，直接 Kill，并发送一条钉钉通知：“环境 <code>feature-login-fix</code> 已被系统回收，如有需要请重新触发流水线。”</li>
+</ol>
+<blockquote>
+<p>刚开始推行的时候，骂声一片。有兄弟抱怨：“我昨天配好的数据今天没了！”</p>
+</blockquote>
+<p><strong>但坚持了两个月后，神奇的事情发生了：</strong>
+大家开始习惯把初始化数据的动作写进 <code>seed</code> 脚本里，而不是手动去数据库插数据（因为环境随时会没）。这反倒逼着大家提升了测试数据的管理能力。</p>
+<p>现在，我们的云服务器资源利用率维持在 70% 左右，再也没有那种“CPU利用率 5%，内存却爆了”的怪象。</p>
+<h2 id="看到这里不妨停下来想一想">看到这里，不妨停下来想一想
+</h2><p>你现在的团队里，是不是也有几个“没人敢动”的测试环境？或者几台你根本不知道在跑什么的云主机？</p>
+<p><strong>你有没有发现，很多时候我们不敢销毁环境，是因为重建环境的成本太高？</strong></p>
+<p>如果你也想改变现状，不需要一上来就搞高大上的云原生，建议从这 3 个动作开始：</p>
+<ol>
+<li><strong>盘点家底</strong>：今天就登录你的云控制台，把所有正在运行的实例列个表，标记出哪些是最近一周没人在用的。</li>
+<li><strong>容器化一切</strong>：如果还在用虚机手动部署，赶紧切到 Docker。这是“用完即焚”的前提。</li>
+<li><strong>配置即代码</strong>：把环境变量、启动参数全部抽离到配置文件或代码仓库中，确保任何一个人拿到代码，都能一键拉起一模一样的环境。</li>
+</ol>
+<p>DevOps 不是只有大厂才能玩的高精尖，对于我们中小团队来说，它更像是一种**“抠门”的艺术**——用最少的资源，跑最稳的代码。</p>
+
+</section>
+
+
+    <footer class="article-footer">
+    
+    <section class="article-tags">
+        
+            <a href="/tags/%E6%B5%8B%E8%AF%95%E7%8E%AF%E5%A2%83%E7%9A%84%E8%87%AA%E5%8A%A8%E5%8C%96%E9%83%A8%E7%BD%B2%E4%B8%8E%E9%94%80%E6%AF%81.html">测试环境的自动化部署与销毁</a>
+        
+    </section>
+
+
+    </footer>
+
+
+    
+</article>
+
+    
+
+    
+
+     
+    
+        
+    <script
+    src="https://giscus.app/client.js"
+    data-repo="pastor17/bloggiscus"
+    data-repo-id="R_kgDOQ6H9qQ"
+    data-category=""
+    data-category-id="DIC_kwDOQ6H9qc4C0-T8"
+    data-mapping="pathname"
+    data-strict="0"
+    data-reactions-enabled="1"
+    data-emit-metadata="0"
+    data-input-position="bottom"
+    data-theme="light"
+    data-lang="zh-CN"
+    data-loading="lazy"
+    crossorigin="anonymous"
+    async
+></script>
+<script>
+    function setGiscusTheme(theme) {
+        let giscus = document.querySelector("iframe.giscus-frame");
+        if (giscus) {
+            giscus.contentWindow.postMessage(
+                {
+                    giscus: {
+                        setConfig: {
+                            theme: theme,
+                        },
+                    },
+                },
+                "https://giscus.app"
+            );
+        }
+    }
+
+    (function () {
+        addEventListener("message", (e) => {
+            if (event.origin !== "https://giscus.app") return;
+            handler();
+        });
+        window.addEventListener("onColorSchemeChange", handler);
+
+        function handler() {
+            if (document.documentElement.dataset.scheme === "light") {
+                setGiscusTheme('light');
+            } else {
+                setGiscusTheme('dark_dimmed');
+            }
+        }
+    })();
+</script>
+
+    
+
+    <footer class="site-footer">
+    <section class="copyright">
+        &copy; 
+        
+        2026 SelfTechHub
+    </section>
+    
+    <section class="powerby">
+        
+
+    </section>
+</footer>
+
+
+    
+<div class="pswp" tabindex="-1" role="dialog" aria-hidden="true">
+
+    
+    <div class="pswp__bg"></div>
+
+    
+    <div class="pswp__scroll-wrap">
+
+        
+        <div class="pswp__container">
+            <div class="pswp__item"></div>
+            <div class="pswp__item"></div>
+            <div class="pswp__item"></div>
+        </div>
+
+        
+        <div class="pswp__ui pswp__ui--hidden">
+
+            <div class="pswp__top-bar">
+
+                
+
+                <div class="pswp__counter"></div>
+
+                <button class="pswp__button pswp__button--close" title="Close (Esc)"></button>
+
+                <button class="pswp__button pswp__button--share" title="Share"></button>
+
+                <button class="pswp__button pswp__button--fs" title="Toggle fullscreen"></button>
+
+                <button class="pswp__button pswp__button--zoom" title="Zoom in/out"></button>
+
+                
+                
+                <div class="pswp__preloader">
+                    <div class="pswp__preloader__icn">
+                        <div class="pswp__preloader__cut">
+                            <div class="pswp__preloader__donut"></div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <div class="pswp__share-modal pswp__share-modal--hidden pswp__single-tap">
+                <div class="pswp__share-tooltip"></div>
+            </div>
+
+            <button class="pswp__button pswp__button--arrow--left" title="Previous (arrow left)">
+            </button>
+
+            <button class="pswp__button pswp__button--arrow--right" title="Next (arrow right)">
+            </button>
+
+            <div class="pswp__caption">
+                <div class="pswp__caption__center"></div>
+            </div>
+
+        </div>
+
+    </div>
+
+</div><script 
+                src="https://cdn.jsdelivr.net/npm/photoswipe@4.1.3/dist/photoswipe.min.js"integrity="sha256-ePwmChbbvXbsO02lbM3HoHbSHTHFAeChekF1xKJdleo="crossorigin="anonymous"
+                defer
+                >
+            </script><script 
+                src="https://cdn.jsdelivr.net/npm/photoswipe@4.1.3/dist/photoswipe-ui-default.min.js"integrity="sha256-UKkzOn/w1mBxRmLLGrSeyB4e1xbrp4xylgAWb3M42pU="crossorigin="anonymous"
+                defer
+                >
+            </script><link 
+                rel="stylesheet" 
+                href="https://cdn.jsdelivr.net/npm/photoswipe@4.1.3/dist/default-skin/default-skin.min.css"crossorigin="anonymous"
+            ><link 
+                rel="stylesheet" 
+                href="https://cdn.jsdelivr.net/npm/photoswipe@4.1.3/dist/photoswipe.min.css"crossorigin="anonymous"
+            >
+    
+
+            </main>
+        </div>
+        <script 
+                src="https://cdn.jsdelivr.net/npm/node-vibrant@3.1.6/dist/vibrant.min.js"integrity="sha256-awcR2jno4kI5X0zL8ex0vi2z&#43;KMkF24hUW8WePSA9HM="crossorigin="anonymous"
+                
+                >
+            </script><script type="text/javascript" src="/ts/main.c922af694cc257bf1ecc41c0dd7b0430f9114ec280ccf67cd2c6ad55f5316c4e.js" defer></script>
+<script>
+    (function () {
+        const customFont = document.createElement('link');
+        customFont.href = "https://fonts.googleapis.com/css2?family=Lato:wght@300;400;700&display=swap";
+
+        customFont.type = "text/css";
+        customFont.rel = "stylesheet";
+
+        document.head.appendChild(customFont);
+    }());
+</script>
+
+    </body>
+</html>

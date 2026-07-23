@@ -1,0 +1,185 @@
+<?xml version="1.0" encoding="utf-8" standalone="yes"?>
+<rss version="2.0" xmlns:atom="http://www.w3.org/2005/Atom">
+    <channel>
+        <title>Search Quality on SelfTechHub</title>
+        <link>https://blog.irudder.me/tags/Search-Quality.html</link>
+        <description>Recent content in Search Quality on SelfTechHub</description>
+        <generator>Hugo -- gohugo.io</generator>
+        <language>zh-cn</language>
+        <lastBuildDate>Mon, 15 Jun 2026 00:00:00 +0000</lastBuildDate><atom:link href="https://blog.irudder.me/tags/Search-Quality/index.xml" rel="self" type="application/rss+xml" /><item>
+        <title>第9章：RAG 检索优化全攻略——从召回率到答案质量</title>
+        <link>https://blog.irudder.me/ai/knowledge-series/09-RAG-Retrieval-Optimization-Guide.html</link>
+        <pubDate>Mon, 15 Jun 2026 00:00:00 +0000</pubDate>
+        
+        <guid>https://blog.irudder.me/ai/knowledge-series/09-RAG-Retrieval-Optimization-Guide.html</guid>
+        <description>&lt;h1 id=&#34;第9章rag-检索优化全攻略从召回率到答案质量&#34;&gt;第9章：RAG 检索优化全攻略——从召回率到答案质量
+&lt;/h1&gt;&lt;blockquote&gt;
+&lt;p&gt;系列导读：检索是 RAG 的命脉，召回的内容质量决定了 LLM 回答的天花板。本章系统讲解检索优化的四维框架。&lt;/p&gt;
+&lt;/blockquote&gt;
+&lt;hr&gt;
+&lt;h2 id=&#34;一为什么要系统优化检索&#34;&gt;一、为什么要系统优化检索？
+&lt;/h2&gt;&lt;p&gt;先看三个现实问题：&lt;/p&gt;
+&lt;ol&gt;
+&lt;li&gt;用户问&amp;quot;退款政策&amp;quot;，召回的第一步是&amp;quot;配送说明&amp;quot;，第二步才是&amp;quot;退款政策&amp;quot;——漏召回&lt;/li&gt;
+&lt;li&gt;用户问&amp;quot;这个功能怎么用？&amp;quot;，召回的 10 个 chunk 里有 3 个完全无关——召回噪音大&lt;/li&gt;
+&lt;li&gt;用户问了一个涉及两个不同知识点的复合问题，检索只找到了其中一个——覆盖不全&lt;/li&gt;
+&lt;/ol&gt;
+&lt;p&gt;这三个问题对应的分别是：&lt;/p&gt;
+&lt;ul&gt;
+&lt;li&gt;召回精度的优化&lt;/li&gt;
+&lt;li&gt;召回噪音的优化&lt;/li&gt;
+&lt;li&gt;多路召回的优化&lt;/li&gt;
+&lt;/ul&gt;
+&lt;h2 id=&#34;二四层检索优化框架&#34;&gt;二、四层检索优化框架
+&lt;/h2&gt;&lt;h3 id=&#34;第一层索引层知识怎么存&#34;&gt;第一层：索引层——知识怎么存
+&lt;/h3&gt;&lt;p&gt;&lt;strong&gt;切割策略优化&lt;/strong&gt;：&lt;/p&gt;
+&lt;ul&gt;
+&lt;li&gt;第7章讲过的四种策略按需选择和组合&lt;/li&gt;
+&lt;li&gt;父子结构不过分零碎也不过分庞大&lt;/li&gt;
+&lt;/ul&gt;
+&lt;p&gt;&lt;strong&gt;metadata 索引&lt;/strong&gt;：&lt;/p&gt;
+&lt;ul&gt;
+&lt;li&gt;为每个 chunk 打上分类标签、文档类型、版本号、创建时间&lt;/li&gt;
+&lt;li&gt;检索时做前置过滤，缩小搜索范围&lt;/li&gt;
+&lt;/ul&gt;
+&lt;p&gt;&lt;strong&gt;向量索引参数调优&lt;/strong&gt;：&lt;/p&gt;
+&lt;ul&gt;
+&lt;li&gt;HNSW 的 ef_construction：构建时越精细，搜索越准，但构建越慢&lt;/li&gt;
+&lt;li&gt;HNSW 的 ef_search：搜索时额外探索更多候选，提高召回率但增加延迟&lt;/li&gt;
+&lt;/ul&gt;
+&lt;h3 id=&#34;第二层查询层问题怎么转换&#34;&gt;第二层：查询层——问题怎么转换
+&lt;/h3&gt;&lt;p&gt;&lt;strong&gt;Query Rewrite 四大方法&lt;/strong&gt;（详见第6章总结）：&lt;/p&gt;
+&lt;table&gt;
+  &lt;thead&gt;
+      &lt;tr&gt;
+          &lt;th&gt;方法&lt;/th&gt;
+          &lt;th&gt;核心思想&lt;/th&gt;
+          &lt;th&gt;解决的问题&lt;/th&gt;
+      &lt;/tr&gt;
+  &lt;/thead&gt;
+  &lt;tbody&gt;
+      &lt;tr&gt;
+          &lt;td&gt;直接改写&lt;/td&gt;
+          &lt;td&gt;口语 → 书面语&lt;/td&gt;
+          &lt;td&gt;用户提问随意&lt;/td&gt;
+      &lt;/tr&gt;
+      &lt;tr&gt;
+          &lt;td&gt;查询扩展&lt;/td&gt;
+          &lt;td&gt;加相关关键词&lt;/td&gt;
+          &lt;td&gt;术语不匹配&lt;/td&gt;
+      &lt;/tr&gt;
+      &lt;tr&gt;
+          &lt;td&gt;HyDE&lt;/td&gt;
+          &lt;td&gt;LLM 假设答案 → 用答案向量检索&lt;/td&gt;
+          &lt;td&gt;用户问题表述匮乏&lt;/td&gt;
+      &lt;/tr&gt;
+      &lt;tr&gt;
+          &lt;td&gt;Step-back&lt;/td&gt;
+          &lt;td&gt;抽象具体问题&lt;/td&gt;
+          &lt;td&gt;需要更广泛背景&lt;/td&gt;
+      &lt;/tr&gt;
+  &lt;/tbody&gt;
+&lt;/table&gt;
+&lt;p&gt;&lt;strong&gt;应用场景举例&lt;/strong&gt;：&lt;/p&gt;
+&lt;ul&gt;
+&lt;li&gt;用户问&amp;quot;这东西坏了咋整&amp;quot;→ 直接改写成&amp;quot;产品故障排查指南&amp;quot;&lt;/li&gt;
+&lt;li&gt;用户问&amp;quot;张三是谁&amp;quot;→ 扩展&amp;quot;张三 | 人物 | 简介 | 生平&amp;quot;&lt;/li&gt;
+&lt;li&gt;用户只有一个缩写词&amp;quot;OKR&amp;quot;→ Step-back 到&amp;quot;目标管理体系&amp;quot;&lt;/li&gt;
+&lt;/ul&gt;
+&lt;h3 id=&#34;第三层召回层从哪些路径找&#34;&gt;第三层：召回层——从哪些路径找
+&lt;/h3&gt;&lt;p&gt;&lt;strong&gt;多路召回&lt;/strong&gt;：不走单一检索路径，而是从多个角度同时找，然后把结果合并：&lt;/p&gt;
+&lt;div class=&#34;highlight&#34;&gt;&lt;pre tabindex=&#34;0&#34; style=&#34;color:#f8f8f2;background-color:#272822;-moz-tab-size:4;-o-tab-size:4;tab-size:4;&#34;&gt;&lt;code class=&#34;language-text&#34; data-lang=&#34;text&#34;&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;┌─ 向量检索（语义匹配） → Top-K1 结果
+&lt;/span&gt;&lt;/span&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;├─ BM25/全文检索（关键词匹配） → Top-K2 结果
+&lt;/span&gt;&lt;/span&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;├─ 结构化查询（metadata过滤 + 精确匹配） → Top-K3 结果
+&lt;/span&gt;&lt;/span&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;└─ 混合融合 → 去重 → 合并排序 → 进入 Rerank
+&lt;/span&gt;&lt;/span&gt;&lt;/code&gt;&lt;/pre&gt;&lt;/div&gt;&lt;p&gt;&lt;strong&gt;每种召回方法有不同的优势&lt;/strong&gt;：&lt;/p&gt;
+&lt;ul&gt;
+&lt;li&gt;&lt;strong&gt;向量检索&lt;/strong&gt;：语义相近但用词不同的内容&lt;/li&gt;
+&lt;li&gt;&lt;strong&gt;BM25&lt;/strong&gt;：精确的关键词匹配、术语命中&lt;/li&gt;
+&lt;li&gt;&lt;strong&gt;Structured Query&lt;/strong&gt;：条件查找（某版本、某产品的文档）&lt;/li&gt;
+&lt;/ul&gt;
+&lt;p&gt;&lt;strong&gt;融合策略&lt;/strong&gt;：&lt;/p&gt;
+&lt;ul&gt;
+&lt;li&gt;&lt;strong&gt;加权融合&lt;/strong&gt;：weight_vector × score_vector + weight_bm25 × score_bm25&lt;/li&gt;
+&lt;li&gt;&lt;strong&gt;RRF（Reciprocal Rank Fusion）&lt;/strong&gt;：不关心绝对分数，只关心排名位置&lt;/li&gt;
+&lt;/ul&gt;
+&lt;h3 id=&#34;第四层重排序层哪些给-llm&#34;&gt;第四层：重排序层——哪些给 LLM
+&lt;/h3&gt;&lt;p&gt;粗招召回的结果数量通常远超过 LLM context 能容纳的。Rerank 的作用：&lt;/p&gt;
+&lt;blockquote&gt;
+&lt;p&gt;用更精确的模型重新打分，选最相关的 Top-N 传给 LLM&lt;/p&gt;
+&lt;/blockquote&gt;
+&lt;p&gt;&lt;strong&gt;常见 Rerank 方案&lt;/strong&gt;：&lt;/p&gt;
+&lt;ol&gt;
+&lt;li&gt;&lt;strong&gt;Cross-Encoder Reranker&lt;/strong&gt;：问题和每个 chunk 拼接一起送进模型，输出一个相关性分数。比双塔（bi-encoder）更准但计算更慢&lt;/li&gt;
+&lt;li&gt;&lt;strong&gt;LLM-as-Judge&lt;/strong&gt;：让 LLM 对每个召回 chunk 打分（慢但效果最好，适合少量结果）&lt;/li&gt;
+&lt;li&gt;&lt;strong&gt;规则过滤&lt;/strong&gt;：按 metadata 排除明显不相关的&lt;/li&gt;
+&lt;/ol&gt;
+&lt;h2 id=&#34;三系统性优化流程&#34;&gt;三、系统性优化流程
+&lt;/h2&gt;&lt;p&gt;不要东一榔头西一棒槌，按以下流程来：&lt;/p&gt;
+&lt;pre tabindex=&#34;0&#34;&gt;&lt;code&gt;步骤1：建立评估基准
+  └─ 标注 50-100 组&amp;#34;问题/期望答案&amp;#34;，称为 golden set
+
+步骤2：跑基线
+  └─ 用最简单的 chunking + 默认模型 + 向量检索，测召回率和答案质量
+
+步骤3：逐层优化
+  └─ 先看召回层：调整 chunking、换 Embedding 模型、加多路召回
+  └─ 再看查询层：加 Query Rewrite，看是否能召回原本漏掉的内容
+  └─ 最后看重排序层：加 Reranker，提高精度、降低噪音
+
+步骤4：回归验证
+  └─ 每次改动后跑 full golden set，确保没有 regression
+&lt;/code&gt;&lt;/pre&gt;&lt;h2 id=&#34;四常见检索-bad-case-速查表&#34;&gt;四、常见检索 bad case 速查表
+&lt;/h2&gt;&lt;table&gt;
+  &lt;thead&gt;
+      &lt;tr&gt;
+          &lt;th&gt;现象&lt;/th&gt;
+          &lt;th&gt;根因&lt;/th&gt;
+          &lt;th&gt;解法&lt;/th&gt;
+      &lt;/tr&gt;
+  &lt;/thead&gt;
+  &lt;tbody&gt;
+      &lt;tr&gt;
+          &lt;td&gt;问题措辞不同就检索不到&lt;/td&gt;
+          &lt;td&gt;Embedding 语义映射不够&lt;/td&gt;
+          &lt;td&gt;换模型 / 加 Query Rewrite&lt;/td&gt;
+      &lt;/tr&gt;
+      &lt;tr&gt;
+          &lt;td&gt;专有名词搜不到&lt;/td&gt;
+          &lt;td&gt;语义匹配 + 精确匹配不足&lt;/td&gt;
+          &lt;td&gt;加 BM25 / 结构化索引&lt;/td&gt;
+      &lt;/tr&gt;
+      &lt;tr&gt;
+          &lt;td&gt;召回很多无关内容&lt;/td&gt;
+          &lt;td&gt;粗排粒度太粗&lt;/td&gt;
+          &lt;td&gt;加 Reranker / 缩小 Top-K&lt;/td&gt;
+      &lt;/tr&gt;
+      &lt;tr&gt;
+          &lt;td&gt;需要跨文档关联才能回答&lt;/td&gt;
+          &lt;td&gt;单路召回覆盖不全&lt;/td&gt;
+          &lt;td&gt;多路召回 + 多跳检索&lt;/td&gt;
+      &lt;/tr&gt;
+      &lt;tr&gt;
+          &lt;td&gt;召回内容正确但太碎片化&lt;/td&gt;
+          &lt;td&gt;Chunk 太小&lt;/td&gt;
+          &lt;td&gt;父子结构 / 增大 chunk&lt;/td&gt;
+      &lt;/tr&gt;
+  &lt;/tbody&gt;
+&lt;/table&gt;
+&lt;h2 id=&#34;五本章小结&#34;&gt;五、本章小结
+&lt;/h2&gt;&lt;ul&gt;
+&lt;li&gt;检索优化的目标：不漏（召回率）、不杂（精确度）、够用（覆盖度）&lt;/li&gt;
+&lt;li&gt;四层框架：索引层 → 查询层 → 召回层 → 重排序层&lt;/li&gt;
+&lt;li&gt;黄金法则：先建评估基准（golden set），再逐层优化，每次改动都跑回归&lt;/li&gt;
+&lt;li&gt;RAG 系统的上限在检索层，搜索做得越好，LLM 回答的天花板越高&lt;/li&gt;
+&lt;/ul&gt;
+&lt;h2 id=&#34;思考题&#34;&gt;思考题
+&lt;/h2&gt;&lt;ol&gt;
+&lt;li&gt;多路召回中，向量检索和 BM25 的分数范围不同，直接加权融合可能不公平。你除了 RRF 之外还有什么融合策略？&lt;/li&gt;
+&lt;li&gt;如果你的 golden set 只有 20 条，怎么防止过拟合评估集？&lt;/li&gt;
+&lt;/ol&gt;
+</description>
+        </item>
+        
+    </channel>
+</rss>

@@ -1,0 +1,137 @@
+<?xml version="1.0" encoding="utf-8" standalone="yes"?>
+<rss version="2.0" xmlns:atom="http://www.w3.org/2005/Atom">
+    <channel>
+        <title>架构优化的回滚策略：应对优化失败 on SelfTechHub</title>
+        <link>https://blog.irudder.me/tags/%E6%9E%B6%E6%9E%84%E4%BC%98%E5%8C%96%E7%9A%84%E5%9B%9E%E6%BB%9A%E7%AD%96%E7%95%A5%E5%BA%94%E5%AF%B9%E4%BC%98%E5%8C%96%E5%A4%B1%E8%B4%A5.html</link>
+        <description>Recent content in 架构优化的回滚策略：应对优化失败 on SelfTechHub</description>
+        <generator>Hugo -- gohugo.io</generator>
+        <language>zh-cn</language>
+        <lastBuildDate>Wed, 26 Jan 2022 00:00:00 +0000</lastBuildDate><atom:link href="https://blog.irudder.me/tags/%E6%9E%B6%E6%9E%84%E4%BC%98%E5%8C%96%E7%9A%84%E5%9B%9E%E6%BB%9A%E7%AD%96%E7%95%A5%E5%BA%94%E5%AF%B9%E4%BC%98%E5%8C%96%E5%A4%B1%E8%B4%A5/index.xml" rel="self" type="application/rss+xml" /><item>
+        <title>架构优化翻车？3个“保命”回滚策略，别等炸库才看</title>
+        <link>https://blog.irudder.me/tech/jiagouyouhuashizhananlijiexi/jiagouyouhuadehuiguncelve_yingduiyouhuashibai.html</link>
+        <pubDate>Wed, 26 Jan 2022 00:00:00 +0000</pubDate>
+        
+        <guid>https://blog.irudder.me/tech/jiagouyouhuashizhananlijiexi/jiagouyouhuadehuiguncelve_yingduiyouhuashibai.html</guid>
+        <description>&lt;p&gt;&lt;img src=&#34;https://picsum.photos/800/450?random=1768531784584&#34;
+	
+	
+	
+	loading=&#34;lazy&#34;
+	
+		alt=&#34;配图&#34;
+	
+	
+&gt;&lt;/p&gt;
+&lt;p&gt;做架构优化这么多年，我养成了一个略显“神经质”的习惯：&lt;strong&gt;每次审核技术方案，我都会直接跳过花里胡哨的性能提升数据，先翻到最后一页看“回滚方案”。&lt;/strong&gt;&lt;/p&gt;
+&lt;p&gt;如果没有回滚方案，或者只写了轻飘飘的一句“重新部署旧版本”，这个方案在我这儿绝对过不去。&lt;/p&gt;
+&lt;p&gt;很多开发同学有个误区，觉得架构优化就是“升级打怪”，只要技术够新、方案够牛，就一定能成。但我亲眼见过太多次，为了追求那20%的性能提升，因为没有兜底策略，导致核心业务瘫痪，最后不得不全组通宵填坑。&lt;/p&gt;
+&lt;p&gt;&lt;strong&gt;架构优化的本质不是代码重构，而是一场带保险的“心脏手术”。&lt;/strong&gt; 手术失败不可怕，可怕的是你把病人的氧气管拔了，却接不回去。&lt;/p&gt;
+&lt;p&gt;今天不谈怎么做优化，咱们只聊聊当优化失败时，怎么体面地“撤退”。&lt;/p&gt;
+&lt;h2 id=&#34;策略一数据层面的双写保险别让新库成孤岛&#34;&gt;策略一：数据层面的“双写”保险——别让新库成孤岛
+&lt;/h2&gt;&lt;p&gt;很多架构优化涉及到底层存储的变更，比如从 MySQL 迁移到 MongoDB，或者分库分表。这是风险最高的环节。代码回滚只要几分钟，数据回滚可能需要几十个小时。&lt;/p&gt;
+&lt;p&gt;&lt;strong&gt;真实案例：&lt;/strong&gt;
+2021年，我参与过一家电商公司的订单系统重构。为了解决 MySQL 单表过亿的查询慢问题，架构师老李决定把历史订单迁移到 ES（Elasticsearch）。
+迁移脚本跑得很欢，上线当天也很顺利。但第二天大促，ES 集群因为配置参数问题，瞬间被打挂，无法写入。&lt;/p&gt;
+&lt;p&gt;这时候老李傻眼了：&lt;strong&gt;因为是全量切换，MySQL 已经停止写入了。&lt;/strong&gt; 想回滚？昨晚到现在产生的一百多万条新数据都在 ES 的内存或者损坏的索引里，MySQL 里根本没有。最后只能停机维护，全组人对着日志人肉补数据，那场面惨不忍睹。&lt;/p&gt;
+&lt;p&gt;&lt;strong&gt;硬核解法：双写 + 灰度读&lt;/strong&gt;&lt;/p&gt;
+&lt;p&gt;&lt;img src=&#34;https://picsum.photos/800/450?random=1768531784484&#34;
+	
+	
+	
+	loading=&#34;lazy&#34;
+	
+		alt=&#34;配图&#34;
+	
+	
+&gt;&lt;/p&gt;
+&lt;p&gt;对数据存储的优化，永远不要做“切换”，要做“过渡”。&lt;/p&gt;
+&lt;ol&gt;
+&lt;li&gt;&lt;strong&gt;第一阶段（双写）：&lt;/strong&gt; 老库（MySQL）保持主写入，新库（ES）异步写入。此时读取依然走老库。&lt;/li&gt;
+&lt;li&gt;&lt;strong&gt;第二阶段（数据校验）：&lt;/strong&gt; 持续运行一周，对比两边的 count 和 detail，确保数据一致性达到 99.999%。&lt;/li&gt;
+&lt;li&gt;&lt;strong&gt;第三阶段（灰度读）：&lt;/strong&gt; 通过配置中心（Config Center），切 1% 的流量去读新库。如果报错，开关一秒切回老库。&lt;/li&gt;
+&lt;li&gt;&lt;strong&gt;第四阶段（断奶）：&lt;/strong&gt; 只有确认新库完全扛得住，才停止老库写入。&lt;/li&gt;
+&lt;/ol&gt;
+&lt;p&gt;&lt;strong&gt;代码示例（伪代码）：&lt;/strong&gt;&lt;/p&gt;
+&lt;div class=&#34;highlight&#34;&gt;&lt;pre tabindex=&#34;0&#34; style=&#34;color:#f8f8f2;background-color:#272822;-moz-tab-size:4;-o-tab-size:4;tab-size:4;&#34;&gt;&lt;code class=&#34;language-java&#34; data-lang=&#34;java&#34;&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;&lt;span style=&#34;color:#66d9ef&#34;&gt;public&lt;/span&gt; &lt;span style=&#34;color:#66d9ef&#34;&gt;void&lt;/span&gt; &lt;span style=&#34;color:#a6e22e&#34;&gt;createOrder&lt;/span&gt;(Order order) {
+&lt;/span&gt;&lt;/span&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;    &lt;span style=&#34;color:#75715e&#34;&gt;// 1. 始终写入老库（兜底）&lt;/span&gt;
+&lt;/span&gt;&lt;/span&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;    mysqlRepository.&lt;span style=&#34;color:#a6e22e&#34;&gt;save&lt;/span&gt;(order);
+&lt;/span&gt;&lt;/span&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;    
+&lt;/span&gt;&lt;/span&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;    &lt;span style=&#34;color:#75715e&#34;&gt;// 2. 异步或同步写入新库（根据开关控制）&lt;/span&gt;
+&lt;/span&gt;&lt;/span&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;    &lt;span style=&#34;color:#66d9ef&#34;&gt;if&lt;/span&gt; (featureFlags.&lt;span style=&#34;color:#a6e22e&#34;&gt;isOn&lt;/span&gt;(&lt;span style=&#34;color:#e6db74&#34;&gt;&amp;#34;dual-write-enabled&amp;#34;&lt;/span&gt;)) {
+&lt;/span&gt;&lt;/span&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;        &lt;span style=&#34;color:#66d9ef&#34;&gt;try&lt;/span&gt; {
+&lt;/span&gt;&lt;/span&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;            esRepository.&lt;span style=&#34;color:#a6e22e&#34;&gt;saveAsync&lt;/span&gt;(order);
+&lt;/span&gt;&lt;/span&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;        } &lt;span style=&#34;color:#66d9ef&#34;&gt;catch&lt;/span&gt; (Exception e) {
+&lt;/span&gt;&lt;/span&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;            &lt;span style=&#34;color:#75715e&#34;&gt;// 新库挂了不能影响主流程，只记录日志&lt;/span&gt;
+&lt;/span&gt;&lt;/span&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;            log.&lt;span style=&#34;color:#a6e22e&#34;&gt;error&lt;/span&gt;(&lt;span style=&#34;color:#e6db74&#34;&gt;&amp;#34;ES dual write failed&amp;#34;&lt;/span&gt;, e);
+&lt;/span&gt;&lt;/span&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;        }
+&lt;/span&gt;&lt;/span&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;    }
+&lt;/span&gt;&lt;/span&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;}
+&lt;/span&gt;&lt;/span&gt;&lt;/code&gt;&lt;/pre&gt;&lt;/div&gt;&lt;p&gt;&lt;strong&gt;底层逻辑：&lt;/strong&gt; 这种策略的核心在于&lt;strong&gt;数据冗余&lt;/strong&gt;。用存储空间换取回滚的“时间窗口”。只要老库里有全量数据，任何时候你都有按 Ctrl+Z 的底气。&lt;/p&gt;
+&lt;h2 id=&#34;策略二流量层面的金丝雀别搞大爆炸式上线&#34;&gt;策略二：流量层面的“金丝雀”——别搞大爆炸式上线
+&lt;/h2&gt;&lt;p&gt;&lt;img src=&#34;https://picsum.photos/800/450?random=1768531783126&#34;
+	
+	
+	
+	loading=&#34;lazy&#34;
+	
+		alt=&#34;配图&#34;
+	
+	
+&gt;&lt;/p&gt;
+&lt;p&gt;“大爆炸”式发布（Big Bang Release）是运维的噩梦。有些架构师喜欢把重构后的代码一次性全量推上线，美其名曰“长痛不如短痛”。结果往往是痛得死去活来。&lt;/p&gt;
+&lt;p&gt;&lt;strong&gt;真实案例：&lt;/strong&gt;
+某金融科技公司的支付网关重构，从单体应用拆分成微服务。周五晚上（犯了大忌）全量上线。
+刚开始半小时没问题，凌晨流量低峰也没事。周六早上高峰期一来，由于微服务之间的 RPC 超时设置不合理，导致雪崩效应。所有支付请求卡死。
+想回滚？因为微服务拆分修改了大量依赖包版本，旧版本的镜像在新的 K8s 环境里跑不起来了。&lt;/p&gt;
+&lt;p&gt;&lt;strong&gt;硬核解法：金丝雀发布 + 流量染色&lt;/strong&gt;&lt;/p&gt;
+&lt;p&gt;你需要一套能精确控制流量的路由机制。&lt;/p&gt;
+&lt;ol&gt;
+&lt;li&gt;&lt;strong&gt;部署新版本：&lt;/strong&gt; 但不向其导入任何公网流量。&lt;/li&gt;
+&lt;li&gt;&lt;strong&gt;内部验证：&lt;/strong&gt; 通过 HTTP Header 里的特殊标识（如 &lt;code&gt;x-canary: true&lt;/code&gt;），让内部测试人员访问新版本。&lt;/li&gt;
+&lt;li&gt;&lt;strong&gt;小流量放行：&lt;/strong&gt; 选取特定特征的用户（如 UserID 尾号为 0-5 的用户，或者内部员工账号），将这 5% 的流量导入新架构。&lt;/li&gt;
+&lt;li&gt;&lt;strong&gt;全量观测：&lt;/strong&gt; 盯着监控看板的 Error Rate 和 Latency（延迟）。一旦 P99 延迟飙升，脚本自动把流量切回 0%。&lt;/li&gt;
+&lt;/ol&gt;
+&lt;blockquote&gt;
+&lt;p&gt;行业里有个不成文的规矩：如果你不能在 60 秒内完成流量回切，你的架构就是不合格的。&lt;/p&gt;
+&lt;/blockquote&gt;
+&lt;p&gt;这需要你的网关层（Nginx/Zuul/Spring Cloud Gateway）具备动态路由的能力，而不是写死在代码里。&lt;/p&gt;
+&lt;h2 id=&#34;策略三接口层面的扩展-收缩别让客户端陪你挂&#34;&gt;策略三：接口层面的“扩展-收缩”——别让客户端陪你挂
+&lt;/h2&gt;&lt;p&gt;很多后端架构优化会调整 API 接口格式。比如为了规范，把 &lt;code&gt;userId&lt;/code&gt; 改成 &lt;code&gt;user_id&lt;/code&gt;，或者把返回的 JSON 结构拍平。
+后端改爽了，移动端（App）就炸了。因为你无法强迫用户立刻升级 App 版本。旧版本的 App 还在请求老接口，新版本的后端却不认了。&lt;/p&gt;
+&lt;p&gt;&lt;strong&gt;真实案例：&lt;/strong&gt;
+我以前团队的一个小伙子，觉得旧的 API 响应体嵌套太深，重构时直接把结构改了。
+上线后，所有未更新 App 的用户打开应用直接闪退（Crash）。因为客户端解析 JSON 失败抛出异常，没做兜底。这次事故导致 App Store 评分直接掉了一颗星。&lt;/p&gt;
+&lt;p&gt;&lt;strong&gt;硬核解法：Expand-Contract（扩展-收缩）模式&lt;/strong&gt;&lt;/p&gt;
+&lt;p&gt;也被称为“平行变更”模式。&lt;/p&gt;
+&lt;ol&gt;
+&lt;li&gt;&lt;strong&gt;Expand（扩展）：&lt;/strong&gt; 在新版本接口中，&lt;strong&gt;同时&lt;/strong&gt;返回旧字段和新字段。
+&lt;ul&gt;
+&lt;li&gt;旧：&lt;code&gt;{ &amp;quot;userId&amp;quot;: 123 }&lt;/code&gt;&lt;/li&gt;
+&lt;li&gt;新：&lt;code&gt;{ &amp;quot;userId&amp;quot;: 123, &amp;quot;user_id&amp;quot;: 123 }&lt;/code&gt;&lt;/li&gt;
+&lt;/ul&gt;
+&lt;/li&gt;
+&lt;li&gt;&lt;strong&gt;Migrate（迁移）：&lt;/strong&gt; 通知客户端团队发版，将读取逻辑改为优先读新字段。&lt;/li&gt;
+&lt;li&gt;&lt;strong&gt;Wait（等待）：&lt;/strong&gt; 观察日志，当旧字段的访问量降到 1% 以下（通常需要几个月，等用户慢慢升级 App）。&lt;/li&gt;
+&lt;li&gt;&lt;strong&gt;Contract（收缩）：&lt;/strong&gt; 下线旧字段。&lt;/li&gt;
+&lt;/ol&gt;
+&lt;p&gt;&lt;strong&gt;底层逻辑：&lt;/strong&gt; 兼容性是架构演进的“政治正确”。&lt;strong&gt;永远不要假设调用方会配合你的修改&lt;/strong&gt;，你必须要在服务端做好向下兼容。&lt;/p&gt;
+&lt;hr&gt;
+&lt;h2 id=&#34;结尾敢回滚才是真架构&#34;&gt;结尾：敢回滚，才是真架构
+&lt;/h2&gt;&lt;p&gt;回顾这十几个失败案例，我发现一个共同点：&lt;strong&gt;所有的重大事故，都是因为自信心爆棚，堵死了自己的退路。&lt;/strong&gt;&lt;/p&gt;
+&lt;p&gt;真正的架构高手，不是看他怎么设计一套完美的系统，而是看他怎么在一堆烂摊子即将发生时，用最快速度把系统拉回安全线。&lt;/p&gt;
+&lt;p&gt;&lt;strong&gt;我常用的 3 个落地行动步骤，建议你贴在显示器旁边：&lt;/strong&gt;&lt;/p&gt;
+&lt;ol&gt;
+&lt;li&gt;&lt;strong&gt;开关思维：&lt;/strong&gt; 所有的新功能、新逻辑、新查询，都要加上 Feature Flag（配置开关）。能配置动态生效的，绝不重新发版。&lt;/li&gt;
+&lt;li&gt;&lt;strong&gt;回滚演练：&lt;/strong&gt; 别光做灾备演练，试着在测试环境模拟一次“上线失败”，看你的团队能不能在 5 分钟内把代码和数据都切回去。&lt;/li&gt;
+&lt;li&gt;&lt;strong&gt;数据库备份校验：&lt;/strong&gt; 上线前那一刻的数据库备份，务必试着恢复一次。备份文件损坏导致无法回滚的那个夜晚，是我职业生涯最冷的时刻。&lt;/li&gt;
+&lt;/ol&gt;
+&lt;p&gt;&lt;strong&gt;最后，我想做一个小调查：&lt;/strong&gt;&lt;/p&gt;
+&lt;p&gt;在面对复杂的微服务重构时，你更倾向于哪种策略？
+A. &lt;strong&gt;蓝绿部署&lt;/strong&gt;（两套环境并行，一键切换，成本高但安全）
+B. &lt;strong&gt;金丝雀发布&lt;/strong&gt;（按比例逐步放量，成本低但对监控要求高）&lt;/p&gt;
+&lt;p&gt;欢迎在评论区告诉我你的选择，或者分享一次你印象最深的“炸库”经历。&lt;/p&gt;
+</description>
+        </item>
+        
+    </channel>
+</rss>

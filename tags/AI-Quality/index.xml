@@ -1,0 +1,226 @@
+<?xml version="1.0" encoding="utf-8" standalone="yes"?>
+<rss version="2.0" xmlns:atom="http://www.w3.org/2005/Atom">
+    <channel>
+        <title>AI Quality on SelfTechHub</title>
+        <link>https://blog.irudder.me/tags/AI-Quality.html</link>
+        <description>Recent content in AI Quality on SelfTechHub</description>
+        <generator>Hugo -- gohugo.io</generator>
+        <language>zh-cn</language>
+        <lastBuildDate>Wed, 22 Jul 2026 00:00:00 +0000</lastBuildDate><atom:link href="https://blog.irudder.me/tags/AI-Quality/index.xml" rel="self" type="application/rss+xml" /><item>
+        <title>第19章：大模型评估与测试——怎么知道你的 AI 系统好还是不好？</title>
+        <link>https://blog.irudder.me/ai/knowledge-series/19-LLM-Evaluation-and-Testing.html</link>
+        <pubDate>Wed, 22 Jul 2026 00:00:00 +0000</pubDate>
+        
+        <guid>https://blog.irudder.me/ai/knowledge-series/19-LLM-Evaluation-and-Testing.html</guid>
+        <description>&lt;h1 id=&#34;第19章大模型评估与测试怎么知道你的-ai-系统好还是不好&#34;&gt;第19章：大模型评估与测试——怎么知道你的 AI 系统好还是不好？
+&lt;/h1&gt;&lt;blockquote&gt;
+&lt;p&gt;系列导读：&amp;ldquo;感觉不错&amp;quot;不是一个好的评估标准。本章教你建立一套可复现、可量化、可迭代的评估体系。&lt;/p&gt;
+&lt;/blockquote&gt;
+&lt;hr&gt;
+&lt;h2 id=&#34;一为什么评估很重要&#34;&gt;一、为什么评估很重要？
+&lt;/h2&gt;&lt;p&gt;你改了一个 Prompt、换了一个模型、加了一个工具——&lt;strong&gt;效果到底变好了还是变差了？&lt;/strong&gt;&lt;/p&gt;
+&lt;p&gt;没有评估体系，你就只能凭感觉。而&amp;quot;感觉&amp;quot;在实际工程中往往是错的，因为：&lt;/p&gt;
+&lt;ul&gt;
+&lt;li&gt;&lt;strong&gt;幻觉的答案听起来可能很有道理&lt;/strong&gt;&lt;/li&gt;
+&lt;li&gt;&lt;strong&gt;模型在某些问题上碰巧答对了，不代表整体变好了&lt;/strong&gt;&lt;/li&gt;
+&lt;li&gt;&lt;strong&gt;不同批次、不同负载下的表现波动很大&lt;/strong&gt;&lt;/li&gt;
+&lt;/ul&gt;
+&lt;h2 id=&#34;二评估的三个维度&#34;&gt;二、评估的三个维度
+&lt;/h2&gt;&lt;p&gt;把 LLM 系统的评估拆成三个层面：&lt;/p&gt;
+&lt;h3 id=&#34;维度1输出质量&#34;&gt;维度1：输出质量
+&lt;/h3&gt;&lt;p&gt;回答的内容是否正确、有用、完整？&lt;/p&gt;
+&lt;table&gt;
+  &lt;thead&gt;
+      &lt;tr&gt;
+          &lt;th&gt;指标&lt;/th&gt;
+          &lt;th&gt;说明&lt;/th&gt;
+          &lt;th&gt;怎么测&lt;/th&gt;
+      &lt;/tr&gt;
+  &lt;/thead&gt;
+  &lt;tbody&gt;
+      &lt;tr&gt;
+          &lt;td&gt;准确率&lt;/td&gt;
+          &lt;td&gt;事实性问题答对的占比&lt;/td&gt;
+          &lt;td&gt;标注事实问答对，跑批量测试&lt;/td&gt;
+      &lt;/tr&gt;
+      &lt;tr&gt;
+          &lt;td&gt;相关性&lt;/td&gt;
+          &lt;td&gt;回答是否针对用户问题&lt;/td&gt;
+          &lt;td&gt;人工打分 / LLM-as-Judge&lt;/td&gt;
+      &lt;/tr&gt;
+      &lt;tr&gt;
+          &lt;td&gt;完整性&lt;/td&gt;
+          &lt;td&gt;是否覆盖了问题的所有方面&lt;/td&gt;
+          &lt;td&gt;检查清单覆盖度&lt;/td&gt;
+      &lt;/tr&gt;
+      &lt;tr&gt;
+          &lt;td&gt;幻觉率&lt;/td&gt;
+          &lt;td&gt;编造信息的出现频率&lt;/td&gt;
+          &lt;td&gt;人工抽查 / 和知识库交叉验证&lt;/td&gt;
+      &lt;/tr&gt;
+      &lt;tr&gt;
+          &lt;td&gt;一致性&lt;/td&gt;
+          &lt;td&gt;同问法不同表述，输出是否一致&lt;/td&gt;
+          &lt;td&gt;改写问句重复测试&lt;/td&gt;
+      &lt;/tr&gt;
+  &lt;/tbody&gt;
+&lt;/table&gt;
+&lt;h3 id=&#34;维度2推理质量&#34;&gt;维度2：推理质量
+&lt;/h3&gt;&lt;p&gt;Agent 的推理过程是否正确？&lt;/p&gt;
+&lt;table&gt;
+  &lt;thead&gt;
+      &lt;tr&gt;
+          &lt;th&gt;指标&lt;/th&gt;
+          &lt;th&gt;说明&lt;/th&gt;
+          &lt;th&gt;怎么测&lt;/th&gt;
+      &lt;/tr&gt;
+  &lt;/thead&gt;
+  &lt;tbody&gt;
+      &lt;tr&gt;
+          &lt;td&gt;工具选择准确率&lt;/td&gt;
+          &lt;td&gt;选的工具对不对&lt;/td&gt;
+          &lt;td&gt;标注每个场景应调用的工具&lt;/td&gt;
+      &lt;/tr&gt;
+      &lt;tr&gt;
+          &lt;td&gt;参数准确率&lt;/td&gt;
+          &lt;td&gt;传的参数对不对&lt;/td&gt;
+          &lt;td&gt;参数值和期望值的匹配度&lt;/td&gt;
+      &lt;/tr&gt;
+      &lt;tr&gt;
+          &lt;td&gt;终止条件达成率&lt;/td&gt;
+          &lt;td&gt;任务是否结束在正确状态&lt;/td&gt;
+          &lt;td&gt;检查最终输出是否回答完问题&lt;/td&gt;
+      &lt;/tr&gt;
+      &lt;tr&gt;
+          &lt;td&gt;循环检测&lt;/td&gt;
+          &lt;td&gt;是否陷入死循环（反复调用同一工具）&lt;/td&gt;
+          &lt;td&gt;监控调用次数和去重&lt;/td&gt;
+      &lt;/tr&gt;
+  &lt;/tbody&gt;
+&lt;/table&gt;
+&lt;h3 id=&#34;维度3系统性能&#34;&gt;维度3：系统性能
+&lt;/h3&gt;&lt;p&gt;速度、成本、稳定性&lt;/p&gt;
+&lt;table&gt;
+  &lt;thead&gt;
+      &lt;tr&gt;
+          &lt;th&gt;指标&lt;/th&gt;
+          &lt;th&gt;说明&lt;/th&gt;
+          &lt;th&gt;目标值&lt;/th&gt;
+      &lt;/tr&gt;
+  &lt;/thead&gt;
+  &lt;tbody&gt;
+      &lt;tr&gt;
+          &lt;td&gt;首 token 延迟&lt;/td&gt;
+          &lt;td&gt;从提问到第一个输出生成的时间&lt;/td&gt;
+          &lt;td&gt;&amp;lt;1s&lt;/td&gt;
+      &lt;/tr&gt;
+      &lt;tr&gt;
+          &lt;td&gt;吞吐率&lt;/td&gt;
+          &lt;td&gt;每分钟处理请求数&lt;/td&gt;
+          &lt;td&gt;按业务需求&lt;/td&gt;
+      &lt;/tr&gt;
+      &lt;tr&gt;
+          &lt;td&gt;Token 消耗&lt;/td&gt;
+          &lt;td&gt;每次调用的平均 token 数&lt;/td&gt;
+          &lt;td&gt;越低越好&lt;/td&gt;
+      &lt;/tr&gt;
+      &lt;tr&gt;
+          &lt;td&gt;错误率&lt;/td&gt;
+          &lt;td&gt;API 调用失败 / 超时 / 异常的占比&lt;/td&gt;
+          &lt;td&gt;&amp;lt;0.1%&lt;/td&gt;
+      &lt;/tr&gt;
+      &lt;tr&gt;
+          &lt;td&gt;并发能力&lt;/td&gt;
+          &lt;td&gt;同时处理的最大请求数&lt;/td&gt;
+          &lt;td&gt;按 SLA&lt;/td&gt;
+      &lt;/tr&gt;
+  &lt;/tbody&gt;
+&lt;/table&gt;
+&lt;h2 id=&#34;三llm-as-judge用模型来评估模型&#34;&gt;三、LLM-as-Judge：用模型来评估模型
+&lt;/h2&gt;&lt;p&gt;让 GPT-4 来评分你的 GPT-3.5 输出——这是目前最火的自动化评估手段。&lt;/p&gt;
+&lt;h3 id=&#34;思路&#34;&gt;思路
+&lt;/h3&gt;&lt;pre tabindex=&#34;0&#34;&gt;&lt;code&gt;评估 Prompt：
+&amp;#34;以下是用户的问题和模型生成的答案。请从以下几个方面打分（1-5分）：
+
+1. 准确性：答案中的事实是否正确？
+2. 完整性：答案是否覆盖了用户的所有问题？
+3. 有用性：答案对用户是否有实际帮助？
+4. 安全性：答案是否有有害内容？
+
+用户问题：{question}
+模型答案：{answer}
+参考答案：{golden_answer}
+
+请输出 JSON 格式的评分。&amp;#34;
+&lt;/code&gt;&lt;/pre&gt;&lt;h3 id=&#34;局限性&#34;&gt;局限性
+&lt;/h3&gt;&lt;ol&gt;
+&lt;li&gt;&lt;strong&gt;评分者偏见&lt;/strong&gt;：GPT-4 可能偏好某些风格（比如长回答）&lt;/li&gt;
+&lt;li&gt;&lt;strong&gt;对事实问题判断不准&lt;/strong&gt;：LLM 自己也会幻觉，用它评估事实准确性有风险&lt;/li&gt;
+&lt;li&gt;&lt;strong&gt;对复杂推理评价弱&lt;/strong&gt;：LLM 不一定能判断复杂推理链的正确性&lt;/li&gt;
+&lt;/ol&gt;
+&lt;p&gt;&lt;strong&gt;黄金法则&lt;/strong&gt;：LLM-as-Judge 适合做筛选和初步分级，最终重要决策仍需人工审核。&lt;/p&gt;
+&lt;h2 id=&#34;四建立-golden-set黄金评估集&#34;&gt;四、建立 Golden Set（黄金评估集）
+&lt;/h2&gt;&lt;p&gt;&lt;strong&gt;Golden Set 是一组人工标注的高质量&amp;quot;问题-期望答案&amp;quot;对&lt;/strong&gt;，是评估的基石。&lt;/p&gt;
+&lt;h3 id=&#34;golden-set-建集原则&#34;&gt;Golden Set 建集原则
+&lt;/h3&gt;&lt;ol&gt;
+&lt;li&gt;&lt;strong&gt;覆盖核心场景&lt;/strong&gt;：涵盖你的 Agent 最常见的 10-20 类问题&lt;/li&gt;
+&lt;li&gt;&lt;strong&gt;标注&amp;quot;完整期望&amp;rdquo;&lt;/strong&gt;：不仅标对/错，还要标&amp;quot;好的回答长什么样&amp;quot;&lt;/li&gt;
+&lt;li&gt;&lt;strong&gt;包含边界案例&lt;/strong&gt;：边缘输入、模糊问题、歧义问题&lt;/li&gt;
+&lt;li&gt;&lt;strong&gt;定期更新&lt;/strong&gt;：Agent 迭代、业务变化后，golden set 也要跟进&lt;/li&gt;
+&lt;/ol&gt;
+&lt;h3 id=&#34;规模建议&#34;&gt;规模建议
+&lt;/h3&gt;&lt;table&gt;
+  &lt;thead&gt;
+      &lt;tr&gt;
+          &lt;th&gt;Agent 复杂度&lt;/th&gt;
+          &lt;th&gt;Golden Set 大小&lt;/th&gt;
+          &lt;th&gt;覆盖度&lt;/th&gt;
+      &lt;/tr&gt;
+  &lt;/thead&gt;
+  &lt;tbody&gt;
+      &lt;tr&gt;
+          &lt;td&gt;简单问答 Agent&lt;/td&gt;
+          &lt;td&gt;20-50 条&lt;/td&gt;
+          &lt;td&gt;主要场景&lt;/td&gt;
+      &lt;/tr&gt;
+      &lt;tr&gt;
+          &lt;td&gt;多工具 Agent&lt;/td&gt;
+          &lt;td&gt;50-200 条&lt;/td&gt;
+          &lt;td&gt;核心路径 + 分支&lt;/td&gt;
+      &lt;/tr&gt;
+      &lt;tr&gt;
+          &lt;td&gt;Multi-Agent 系统&lt;/td&gt;
+          &lt;td&gt;100-500 条&lt;/td&gt;
+          &lt;td&gt;全链路场景&lt;/td&gt;
+      &lt;/tr&gt;
+  &lt;/tbody&gt;
+&lt;/table&gt;
+&lt;h2 id=&#34;五评估系统的自动化跑通&#34;&gt;五、评估系统的自动化跑通
+&lt;/h2&gt;&lt;pre tabindex=&#34;0&#34;&gt;&lt;code&gt;每次迭代（改 Prompt / 换模型 / 加工具）：
+  ↓
+1. 在 Golden Set 上跑完整评测
+  ↓
+2. 生成评估报告（准确度、幻觉率、延迟）
+  ↓
+3. 对比上个版本的 diff
+  ↓
+4. regression 检测：有没有之前对的问题现在错了？
+  ↓
+5. 决定是否合并到主分支
+&lt;/code&gt;&lt;/pre&gt;&lt;h2 id=&#34;六本章小结&#34;&gt;六、本章小结
+&lt;/h2&gt;&lt;ul&gt;
+&lt;li&gt;评估分三层：输出质量 + 推理质量 + 系统性能&lt;/li&gt;
+&lt;li&gt;LLM-as-Judge 是自动化评估的有效工具，但不能取代人工审核&lt;/li&gt;
+&lt;li&gt;Golden Set 是评估根基，要覆盖主要场景和边界案例&lt;/li&gt;
+&lt;li&gt;每次修改都跑回归测试，防止&amp;quot;修好一个问题，坏掉另一个&amp;quot;&lt;/li&gt;
+&lt;/ul&gt;
+&lt;h2 id=&#34;思考题&#34;&gt;思考题
+&lt;/h2&gt;&lt;ol&gt;
+&lt;li&gt;LLM-as-Judge 的打分结果和标准评分的 Correlation（相关性）一般有多少？怎么验证你的 LLM-as-Judge 是靠谱的？&lt;/li&gt;
+&lt;li&gt;如果你发现每次改了某处后，Golden Set 里有 3 条本来对的问题现在错了，但同时有 5 条之前有问题的现在好了——你怎么决定要不要合并这个改动？&lt;/li&gt;
+&lt;/ol&gt;
+</description>
+        </item>
+        
+    </channel>
+</rss>

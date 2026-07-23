@@ -1,0 +1,456 @@
+<!DOCTYPE html>
+<html lang="zh-cn" dir="ltr">
+    <head><meta charset='utf-8'>
+<meta name='viewport' content='width=device-width, initial-scale=1'><meta name='description' content="我还记得2019年的那个冬天，那是我们团队最黑暗的一段日子。\n那时候，我是个刚升职的技术主管，手下带着4个开发兄弟。为了赶业务进度，我们几乎每周都要发两个版本。那时候的发布流程全靠&quot;人肉&quot;：本地打包 Jar 包，用 FTP 传到服务器，手动杀进程，再手动启动，盯着滚动的日志祈祷不要报错。\n有一次凌晨3点，眼皮打架的我，在生产环境误删了一个配置文件。虽然只花了15分钟恢复，但这15分钟里，我的心跳大概有一百八。也就是在那个吃着已经凉透的泡面的深夜，我突然意识到：我们要对抗的不是复杂的业务逻辑，而是对&quot;人肉操作&quot;的盲目自信。\n如果你也正身处在一个没有专职运维、资源有限的中小团队，每天在写代码和修服务器之间反复横跳，那么这篇文章就是写给你的。我想和你聊聊，我是如何用最土、但也最管用的 Shell 脚本，把团队从发布的焦虑中解救出来的。\n承认吧，&ldquo;高级工具&quot;有时是甜蜜陷阱\r刚开始想做自动化部署时，我也陷入过&quot;工具崇拜&quot;的怪圈。\n我看遍了网上的 DevOps 教程，试图在只有几台服务器的环境里搭建一套完整的 Jenkins + Docker + K8s。结果呢？我和团队花了整整两周时间去折腾环境，陷入了无尽的配置地狱。\n你的团队规模和业务复杂度，决定了你的工具选择。\n对于只有几台机器、且业务架构相对简单的中小团队来说，有时候一把瑞士军刀（Shell）比重型机械（K8s）更趁手。\n我做了一个大胆的决定：砍掉所有重型工具，回归最原始的 Shell 脚本。我们的目标很简单——让任何人（哪怕是新来的实习生）都能在3分钟内，安全地完成一次发布。\n哪怕是最笨的脚本，也比聪明的人脑可靠\r为了落地这个想法，我花了一个周末，写了一个名为 deploy.sh 的脚本。它不通过什么高大上的平台触发，就静静地躺在服务器的 /opt/scripts 目录下。\n这个脚本没有什么高深的语法，逻辑非常线性，全是笨功夫：\n备份（Backup）： 永远给自己留条后路。 停止（Stop）： 优雅关闭，而不是直接 kill -9。 部署（Deploy）： 移动文件，建立软链接。 启动（Start）： 启动服务。 体检（Health Check）： 最关键的一步，脚本替你确认服务是否活过来了。 这其中，最让我和团队受益的，是那个简单的&quot;健康检查&quot;函数。以前我们发布完，得瞪大眼睛盯着日志看半天，生怕漏掉一个 Exception。现在，脚本替我们做这件事。\n这里分享一段我用了3年的核心逻辑（去敏版），它很简单，但无数次救了我的命：\n# 健康检查函数示例 check_health() { echo &#34;正在检查服务状态...&#34; for i in {1..10}; do # 请求应用的健康检查接口 http_code=$(curl -s -o /dev/null -w &#34;%{http_code}&#34; http://localhost:8080/actuator/health) if [ &#34;$http_code&#34; == &#34;200&#34; ]; then echo -e &#34;\\033[32m[SUCCESS] 服务启动成功！HTTP 状态码: $http_code \\033[0m&#34; return 0 fi echo &#34;等待服务启动中... ($i/10)&#34; sleep 5 done echo -e &#34;\\033[31m[ERROR] 服务启动超时或失败，请立即检查日志！\\033[0m&#34; # 这里甚至可以加上发送钉钉/企微报警的逻辑 return 1 } 当屏幕上出现那行绿色的 [SUCCESS] 时，那种多巴胺分泌的快乐，比写出一段精妙的代码还要强烈。因为它意味着：今晚可以按时回家了。\n">
+<title>告别凌晨3点上线：一个Shell脚本如何拯救了我的发际线</title>
+
+<link rel='canonical' href='https://blog.irudder.me/tech/zhongxiaoxingtuanduidevopsluodifangan/yijianbushu_shelljiaobenjianhuafabuliucheng.html'>
+
+<link rel="stylesheet" href="/scss/style.min.b9e9128fec450ebccecc4ec9900157f32b85d0609bcd5ee3293968bcaa1235f2.css"><meta property='og:title' content="告别凌晨3点上线：一个Shell脚本如何拯救了我的发际线">
+<meta property='og:description' content="我还记得2019年的那个冬天，那是我们团队最黑暗的一段日子。\n那时候，我是个刚升职的技术主管，手下带着4个开发兄弟。为了赶业务进度，我们几乎每周都要发两个版本。那时候的发布流程全靠&quot;人肉&quot;：本地打包 Jar 包，用 FTP 传到服务器，手动杀进程，再手动启动，盯着滚动的日志祈祷不要报错。\n有一次凌晨3点，眼皮打架的我，在生产环境误删了一个配置文件。虽然只花了15分钟恢复，但这15分钟里，我的心跳大概有一百八。也就是在那个吃着已经凉透的泡面的深夜，我突然意识到：我们要对抗的不是复杂的业务逻辑，而是对&quot;人肉操作&quot;的盲目自信。\n如果你也正身处在一个没有专职运维、资源有限的中小团队，每天在写代码和修服务器之间反复横跳，那么这篇文章就是写给你的。我想和你聊聊，我是如何用最土、但也最管用的 Shell 脚本，把团队从发布的焦虑中解救出来的。\n承认吧，&ldquo;高级工具&quot;有时是甜蜜陷阱\r刚开始想做自动化部署时，我也陷入过&quot;工具崇拜&quot;的怪圈。\n我看遍了网上的 DevOps 教程，试图在只有几台服务器的环境里搭建一套完整的 Jenkins + Docker + K8s。结果呢？我和团队花了整整两周时间去折腾环境，陷入了无尽的配置地狱。\n你的团队规模和业务复杂度，决定了你的工具选择。\n对于只有几台机器、且业务架构相对简单的中小团队来说，有时候一把瑞士军刀（Shell）比重型机械（K8s）更趁手。\n我做了一个大胆的决定：砍掉所有重型工具，回归最原始的 Shell 脚本。我们的目标很简单——让任何人（哪怕是新来的实习生）都能在3分钟内，安全地完成一次发布。\n哪怕是最笨的脚本，也比聪明的人脑可靠\r为了落地这个想法，我花了一个周末，写了一个名为 deploy.sh 的脚本。它不通过什么高大上的平台触发，就静静地躺在服务器的 /opt/scripts 目录下。\n这个脚本没有什么高深的语法，逻辑非常线性，全是笨功夫：\n备份（Backup）： 永远给自己留条后路。 停止（Stop）： 优雅关闭，而不是直接 kill -9。 部署（Deploy）： 移动文件，建立软链接。 启动（Start）： 启动服务。 体检（Health Check）： 最关键的一步，脚本替你确认服务是否活过来了。 这其中，最让我和团队受益的，是那个简单的&quot;健康检查&quot;函数。以前我们发布完，得瞪大眼睛盯着日志看半天，生怕漏掉一个 Exception。现在，脚本替我们做这件事。\n这里分享一段我用了3年的核心逻辑（去敏版），它很简单，但无数次救了我的命：\n# 健康检查函数示例 check_health() { echo &#34;正在检查服务状态...&#34; for i in {1..10}; do # 请求应用的健康检查接口 http_code=$(curl -s -o /dev/null -w &#34;%{http_code}&#34; http://localhost:8080/actuator/health) if [ &#34;$http_code&#34; == &#34;200&#34; ]; then echo -e &#34;\\033[32m[SUCCESS] 服务启动成功！HTTP 状态码: $http_code \\033[0m&#34; return 0 fi echo &#34;等待服务启动中... ($i/10)&#34; sleep 5 done echo -e &#34;\\033[31m[ERROR] 服务启动超时或失败，请立即检查日志！\\033[0m&#34; # 这里甚至可以加上发送钉钉/企微报警的逻辑 return 1 } 当屏幕上出现那行绿色的 [SUCCESS] 时，那种多巴胺分泌的快乐，比写出一段精妙的代码还要强烈。因为它意味着：今晚可以按时回家了。\n">
+<meta property='og:url' content='https://blog.irudder.me/tech/zhongxiaoxingtuanduidevopsluodifangan/yijianbushu_shelljiaobenjianhuafabuliucheng.html'>
+<meta property='og:site_name' content='SelfTechHub'>
+<meta property='og:type' content='article'><meta property='article:section' content='Tech' /><meta property='article:tag' content='一键部署：Shell脚本简化发布流程' /><meta property='article:published_time' content='2023-06-23T00:00:00&#43;00:00'/><meta property='article:modified_time' content='2023-06-23T00:00:00&#43;00:00'/>
+<meta name="twitter:title" content="告别凌晨3点上线：一个Shell脚本如何拯救了我的发际线">
+<meta name="twitter:description" content="我还记得2019年的那个冬天，那是我们团队最黑暗的一段日子。\n那时候，我是个刚升职的技术主管，手下带着4个开发兄弟。为了赶业务进度，我们几乎每周都要发两个版本。那时候的发布流程全靠&quot;人肉&quot;：本地打包 Jar 包，用 FTP 传到服务器，手动杀进程，再手动启动，盯着滚动的日志祈祷不要报错。\n有一次凌晨3点，眼皮打架的我，在生产环境误删了一个配置文件。虽然只花了15分钟恢复，但这15分钟里，我的心跳大概有一百八。也就是在那个吃着已经凉透的泡面的深夜，我突然意识到：我们要对抗的不是复杂的业务逻辑，而是对&quot;人肉操作&quot;的盲目自信。\n如果你也正身处在一个没有专职运维、资源有限的中小团队，每天在写代码和修服务器之间反复横跳，那么这篇文章就是写给你的。我想和你聊聊，我是如何用最土、但也最管用的 Shell 脚本，把团队从发布的焦虑中解救出来的。\n承认吧，&ldquo;高级工具&quot;有时是甜蜜陷阱\r刚开始想做自动化部署时，我也陷入过&quot;工具崇拜&quot;的怪圈。\n我看遍了网上的 DevOps 教程，试图在只有几台服务器的环境里搭建一套完整的 Jenkins + Docker + K8s。结果呢？我和团队花了整整两周时间去折腾环境，陷入了无尽的配置地狱。\n你的团队规模和业务复杂度，决定了你的工具选择。\n对于只有几台机器、且业务架构相对简单的中小团队来说，有时候一把瑞士军刀（Shell）比重型机械（K8s）更趁手。\n我做了一个大胆的决定：砍掉所有重型工具，回归最原始的 Shell 脚本。我们的目标很简单——让任何人（哪怕是新来的实习生）都能在3分钟内，安全地完成一次发布。\n哪怕是最笨的脚本，也比聪明的人脑可靠\r为了落地这个想法，我花了一个周末，写了一个名为 deploy.sh 的脚本。它不通过什么高大上的平台触发，就静静地躺在服务器的 /opt/scripts 目录下。\n这个脚本没有什么高深的语法，逻辑非常线性，全是笨功夫：\n备份（Backup）： 永远给自己留条后路。 停止（Stop）： 优雅关闭，而不是直接 kill -9。 部署（Deploy）： 移动文件，建立软链接。 启动（Start）： 启动服务。 体检（Health Check）： 最关键的一步，脚本替你确认服务是否活过来了。 这其中，最让我和团队受益的，是那个简单的&quot;健康检查&quot;函数。以前我们发布完，得瞪大眼睛盯着日志看半天，生怕漏掉一个 Exception。现在，脚本替我们做这件事。\n这里分享一段我用了3年的核心逻辑（去敏版），它很简单，但无数次救了我的命：\n# 健康检查函数示例 check_health() { echo &#34;正在检查服务状态...&#34; for i in {1..10}; do # 请求应用的健康检查接口 http_code=$(curl -s -o /dev/null -w &#34;%{http_code}&#34; http://localhost:8080/actuator/health) if [ &#34;$http_code&#34; == &#34;200&#34; ]; then echo -e &#34;\\033[32m[SUCCESS] 服务启动成功！HTTP 状态码: $http_code \\033[0m&#34; return 0 fi echo &#34;等待服务启动中... ($i/10)&#34; sleep 5 done echo -e &#34;\\033[31m[ERROR] 服务启动超时或失败，请立即检查日志！\\033[0m&#34; # 这里甚至可以加上发送钉钉/企微报警的逻辑 return 1 } 当屏幕上出现那行绿色的 [SUCCESS] 时，那种多巴胺分泌的快乐，比写出一段精妙的代码还要强烈。因为它意味着：今晚可以按时回家了。\n">
+    </head>
+    <body class="
+    article-page
+    ">
+    <script>
+        (function() {
+            const colorSchemeKey = 'StackColorScheme';
+            if(!localStorage.getItem(colorSchemeKey)){
+                localStorage.setItem(colorSchemeKey, "auto");
+            }
+        })();
+    </script><script>
+    (function() {
+        const colorSchemeKey = 'StackColorScheme';
+        const colorSchemeItem = localStorage.getItem(colorSchemeKey);
+        const supportDarkMode = window.matchMedia('(prefers-color-scheme: dark)').matches === true;
+
+        if (colorSchemeItem == 'dark' || colorSchemeItem === 'auto' && supportDarkMode) {
+            
+
+            document.documentElement.dataset.scheme = 'dark';
+        } else {
+            document.documentElement.dataset.scheme = 'light';
+        }
+    })();
+</script>
+<div class="container main-container flex on-phone--column compact"><aside class="sidebar left-sidebar sticky ">
+    <button class="hamburger hamburger--spin" type="button" id="toggle-menu" aria-label="切换菜单">
+        <span class="hamburger-box">
+            <span class="hamburger-inner"></span>
+        </span>
+    </button>
+
+    <header>
+        
+            
+            <figure class="site-avatar">
+                <a href="/">
+                
+                    
+                    
+                    
+                        
+                        <img src="/img/avatar_hu_8588ce14af1147e2.png" width="300"
+                            height="286" class="site-logo" loading="lazy" alt="Avatar">
+                    
+                
+                </a>
+                
+            </figure>
+            
+        
+        
+        <div class="site-meta">
+            <h1 class="site-name"><a href="/">SelfTechHub</a></h1>
+            <h2 class="site-description"></h2>
+        </div>
+    </header><ol class="menu" id="main-menu">
+        
+        
+        <li class="menu-bottom-section">
+            <ol class="menu">
+
+                
+                    <li id="dark-mode-toggle">
+                        <svg xmlns="http://www.w3.org/2000/svg" class="icon icon-tabler icon-tabler-toggle-left" width="24" height="24" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor" fill="none" stroke-linecap="round" stroke-linejoin="round">
+  <path stroke="none" d="M0 0h24v24H0z"/>
+  <circle cx="8" cy="12" r="2" />
+  <rect x="2" y="6" width="20" height="12" rx="6" />
+</svg>
+
+
+
+                        <svg xmlns="http://www.w3.org/2000/svg" class="icon icon-tabler icon-tabler-toggle-right" width="24" height="24" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor" fill="none" stroke-linecap="round" stroke-linejoin="round">
+  <path stroke="none" d="M0 0h24v24H0z"/>
+  <circle cx="16" cy="12" r="2" />
+  <rect x="2" y="6" width="20" height="12" rx="6" />
+</svg>
+
+
+
+                        <span>暗色模式</span>
+                    </li>
+                
+            </ol>
+        </li>
+    </ol>
+</aside>
+
+    
+
+            <main class="main full-width">
+    <article class="main-article">
+    <header class="article-header">
+
+    <div class="article-details">
+    
+    <header class="article-category">
+        
+            <a href="/categories/%E6%8A%80%E6%9C%AF.html" >
+                技术精进
+            </a>
+        
+    </header>
+    
+
+    <div class="article-title-wrapper">
+        <h2 class="article-title">
+            <a href="/tech/zhongxiaoxingtuanduidevopsluodifangan/yijianbushu_shelljiaobenjianhuafabuliucheng.html">告别凌晨3点上线：一个Shell脚本如何拯救了我的发际线</a>
+        </h2>
+    
+        
+    </div>
+
+    
+    
+    
+    
+    <footer class="article-time">
+        
+            <div>
+                <svg xmlns="http://www.w3.org/2000/svg" class="icon icon-tabler icon-tabler-calendar-time" width="56" height="56" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor" fill="none" stroke-linecap="round" stroke-linejoin="round">
+  <path stroke="none" d="M0 0h24v24H0z"/>
+  <path d="M11.795 21h-6.795a2 2 0 0 1 -2 -2v-12a2 2 0 0 1 2 -2h12a2 2 0 0 1 2 2v4" />
+  <circle cx="18" cy="18" r="4" />
+  <path d="M15 3v4" />
+  <path d="M7 3v4" />
+  <path d="M3 11h16" />
+  <path d="M18 16.496v1.504l1 1" />
+</svg>
+                <time class="article-time--published" datetime='2023-06-23T00:00:00Z'>Jun 23, 2023</time>
+            </div>
+        
+
+        
+            <div>
+                <svg xmlns="http://www.w3.org/2000/svg" class="icon icon-tabler icon-tabler-clock" width="24" height="24" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor" fill="none" stroke-linecap="round" stroke-linejoin="round">
+  <path stroke="none" d="M0 0h24v24H0z"/>
+  <circle cx="12" cy="12" r="9" />
+  <polyline points="12 7 12 12 15 15" />
+</svg>
+
+
+
+                <time class="article-time--reading">
+                    阅读时长: 1 分钟
+                </time>
+            </div>
+        
+    </footer>
+    
+
+    
+</div>
+
+</header>
+
+    <section class="article-content">
+    
+    
+    <p>我还记得2019年的那个冬天，那是我们团队最黑暗的一段日子。</p>
+<p>那时候，我是个刚升职的技术主管，手下带着4个开发兄弟。为了赶业务进度，我们几乎每周都要发两个版本。那时候的发布流程全靠&quot;人肉&quot;：本地打包 Jar 包，用 FTP 传到服务器，手动杀进程，再手动启动，盯着滚动的日志祈祷不要报错。</p>
+<p>有一次凌晨3点，眼皮打架的我，在生产环境误删了一个配置文件。虽然只花了15分钟恢复，但这15分钟里，我的心跳大概有一百八。也就是在那个吃着已经凉透的泡面的深夜，我突然意识到：<strong>我们要对抗的不是复杂的业务逻辑，而是对&quot;人肉操作&quot;的盲目自信。</strong></p>
+<p>如果你也正身处在一个没有专职运维、资源有限的中小团队，每天在写代码和修服务器之间反复横跳，那么这篇文章就是写给你的。我想和你聊聊，我是如何用最土、但也最管用的 Shell 脚本，把团队从发布的焦虑中解救出来的。</p>
+<h2 id="承认吧高级工具有时是甜蜜陷阱">承认吧，&ldquo;高级工具&quot;有时是甜蜜陷阱
+</h2><p>刚开始想做自动化部署时，我也陷入过&quot;工具崇拜&quot;的怪圈。</p>
+<p>我看遍了网上的 DevOps 教程，试图在只有几台服务器的环境里搭建一套完整的 Jenkins + Docker + K8s。结果呢？我和团队花了整整两周时间去折腾环境，陷入了无尽的配置地狱。</p>
+<blockquote>
+<p>你的团队规模和业务复杂度，决定了你的工具选择。</p>
+</blockquote>
+<p>对于只有几台机器、且业务架构相对简单的中小团队来说，<strong>有时候一把瑞士军刀（Shell）比重型机械（K8s）更趁手。</strong></p>
+<p>我做了一个大胆的决定：砍掉所有重型工具，回归最原始的 Shell 脚本。我们的目标很简单——<strong>让任何人（哪怕是新来的实习生）都能在3分钟内，安全地完成一次发布。</strong></p>
+<h2 id="哪怕是最笨的脚本也比聪明的人脑可靠">哪怕是最笨的脚本，也比聪明的人脑可靠
+</h2><p>为了落地这个想法，我花了一个周末，写了一个名为 <code>deploy.sh</code> 的脚本。它不通过什么高大上的平台触发，就静静地躺在服务器的 <code>/opt/scripts</code> 目录下。</p>
+<p>这个脚本没有什么高深的语法，逻辑非常线性，全是笨功夫：</p>
+<ol>
+<li><strong>备份（Backup）：</strong> 永远给自己留条后路。</li>
+<li><strong>停止（Stop）：</strong> 优雅关闭，而不是直接 <code>kill -9</code>。</li>
+<li><strong>部署（Deploy）：</strong> 移动文件，建立软链接。</li>
+<li><strong>启动（Start）：</strong> 启动服务。</li>
+<li><strong>体检（Health Check）：</strong> 最关键的一步，脚本替你确认服务是否活过来了。</li>
+</ol>
+<p>这其中，最让我和团队受益的，是那个简单的&quot;健康检查&quot;函数。以前我们发布完，得瞪大眼睛盯着日志看半天，生怕漏掉一个 <code>Exception</code>。现在，脚本替我们做这件事。</p>
+<p>这里分享一段我用了3年的核心逻辑（去敏版），它很简单，但无数次救了我的命：</p>
+<div class="highlight"><pre tabindex="0" style="color:#f8f8f2;background-color:#272822;-moz-tab-size:4;-o-tab-size:4;tab-size:4;"><code class="language-bash" data-lang="bash"><span style="display:flex;"><span><span style="color:#75715e"># 健康检查函数示例</span>
+</span></span><span style="display:flex;"><span>check_health<span style="color:#f92672">()</span> <span style="color:#f92672">{</span>
+</span></span><span style="display:flex;"><span>    echo <span style="color:#e6db74">&#34;正在检查服务状态...&#34;</span>
+</span></span><span style="display:flex;"><span>    <span style="color:#66d9ef">for</span> i in <span style="color:#f92672">{</span>1..10<span style="color:#f92672">}</span>; <span style="color:#66d9ef">do</span>
+</span></span><span style="display:flex;"><span>        <span style="color:#75715e"># 请求应用的健康检查接口</span>
+</span></span><span style="display:flex;"><span>        http_code<span style="color:#f92672">=</span><span style="color:#66d9ef">$(</span>curl -s -o /dev/null -w <span style="color:#e6db74">&#34;%{http_code}&#34;</span> http://localhost:8080/actuator/health<span style="color:#66d9ef">)</span>
+</span></span><span style="display:flex;"><span>        
+</span></span><span style="display:flex;"><span>        <span style="color:#66d9ef">if</span> <span style="color:#f92672">[</span> <span style="color:#e6db74">&#34;</span>$http_code<span style="color:#e6db74">&#34;</span> <span style="color:#f92672">==</span> <span style="color:#e6db74">&#34;200&#34;</span> <span style="color:#f92672">]</span>; <span style="color:#66d9ef">then</span>
+</span></span><span style="display:flex;"><span>            echo -e <span style="color:#e6db74">&#34;\033[32m[SUCCESS] 服务启动成功！HTTP 状态码: </span>$http_code<span style="color:#e6db74"> \033[0m&#34;</span>
+</span></span><span style="display:flex;"><span>            <span style="color:#66d9ef">return</span> <span style="color:#ae81ff">0</span>
+</span></span><span style="display:flex;"><span>        <span style="color:#66d9ef">fi</span>
+</span></span><span style="display:flex;"><span>        
+</span></span><span style="display:flex;"><span>        echo <span style="color:#e6db74">&#34;等待服务启动中... (</span>$i<span style="color:#e6db74">/10)&#34;</span>
+</span></span><span style="display:flex;"><span>        sleep <span style="color:#ae81ff">5</span>
+</span></span><span style="display:flex;"><span>    <span style="color:#66d9ef">done</span>
+</span></span><span style="display:flex;"><span>    
+</span></span><span style="display:flex;"><span>    echo -e <span style="color:#e6db74">&#34;\033[31m[ERROR] 服务启动超时或失败，请立即检查日志！\033[0m&#34;</span>
+</span></span><span style="display:flex;"><span>    <span style="color:#75715e"># 这里甚至可以加上发送钉钉/企微报警的逻辑</span>
+</span></span><span style="display:flex;"><span>    <span style="color:#66d9ef">return</span> <span style="color:#ae81ff">1</span>
+</span></span><span style="display:flex;"><span><span style="color:#f92672">}</span>
+</span></span></code></pre></div><p>当屏幕上出现那行绿色的 <code>[SUCCESS]</code> 时，那种多巴胺分泌的快乐，比写出一段精妙的代码还要强烈。因为它意味着：<strong>今晚可以按时回家了。</strong></p>
+<h2 id="脚本之外建立不焦虑的发布文化">脚本之外：建立&quot;不焦虑&quot;的发布文化
+</h2><p>有了脚本只是第一步，更重要的是改变习惯。</p>
+<p><img src="https://picsum.photos/800/450?random=1768389806188"
+	
+	
+	
+	loading="lazy"
+	
+		alt="配图"
+	
+	
+></p>
+<p>起初，团队里的老开发老李很抵触，他觉得：&ldquo;我手动搞了两年也没出大事，敲个脚本命令反而觉得心里没底，不知道它在后台干了啥。&rdquo;</p>
+<p>这很正常，<strong>恐惧源于不可控。</strong></p>
+<p>为了消除这种顾虑，我做了一件小事：<strong>把脚本代码纳入版本管理，并邀请大家一起 Review。</strong></p>
+<p>我们在周五下午的例会（我习惯在这个时候买点奶茶，大家心态比较放松）上，逐行讲解脚本的逻辑。当大家看到脚本里把 <code>cp</code>（复制）改成了 <code>rsync</code>（同步），把粗暴的 <code>kill</code> 变成了循环检测 pid 消失时，信任感建立起来了。</p>
+<p>后来，老李成了这个脚本的维护主力。有一次，他在脚本里增加了一个&quot;回滚&quot;功能——只需要加一个 <code>-r</code> 参数，就能在一分钟内把服务切回上一个备份版本。</p>
+<p>那次改动后的一个月，线上出现了一个严重的空指针异常。当时正好我在高铁上，信号极差。老李在群里淡定地回了一句：&ldquo;别慌，我执行了回滚。&rdquo;</p>
+<p><img src="https://picsum.photos/800/450?random=1768389803575"
+	
+	
+	
+	loading="lazy"
+	
+		alt="配图"
+	
+	
+></p>
+<p>那一刻，我知道，我们终于从&quot;发布焦虑症&quot;中毕业了。我们不再依赖某个人的&quot;高超手速&rdquo;，而是依赖一套固化的、可重复的逻辑。</p>
+<h2 id="给你的落地建议">给你的落地建议
+</h2><p>如果你也想开始这段旅程，不需要等到下个季度，也不需要申请什么大笔预算。我也<strong>不建议</strong>你一上来就去追求所谓完美的 DevOps 流程。</p>
+<p>你可以从这三个具体的动作开始：</p>
+<ol>
+<li><strong>标准化路径：</strong> 无论你有几台服务器，请确保应用包、日志、配置文件的路径是完全一致的。这是自动化的基石。</li>
+<li><strong>写出你的第一个备份函数：</strong> 哪怕现在的发布还是手动的，先写一个脚本专门用来做&quot;发布前备份&quot;。这是你建立信心的第一步。</li>
+<li><strong>把&quot;检查&quot;交给机器：</strong> 别再用肉眼看日志来判断服务是否启动了，写一个简单的 <code>curl</code> 脚本来探测接口，它比你疲惫的双眼更诚实。</li>
+</ol>
+<p>回头看这几年，那个几百行的 Shell 脚本虽然简陋，甚至有点&quot;土&quot;，但它却是我们团队最宝贵的资产之一。它不仅是一个工具，更是一种承诺——<strong>它承诺我们在追求技术效率的同时，也能拥有属于自己的生活。</strong></p>
+<p>技术是为了让人活得更有尊严，而不是更累，不是吗？</p>
+<hr>
+<p><strong>最后，想问问大家：</strong></p>
+<p>在你经历过的发布流程中，发生过什么让你&quot;心跳停止&quot;的事故？或者你有什么独门的&quot;偷懒&quot;小技巧？</p>
+<p>欢迎在评论区聊聊，哪怕只是吐槽一下，也是一种治愈。</p>
+
+</section>
+
+
+    <footer class="article-footer">
+    
+    <section class="article-tags">
+        
+            <a href="/tags/%E4%B8%80%E9%94%AE%E9%83%A8%E7%BD%B2Shell%E8%84%9A%E6%9C%AC%E7%AE%80%E5%8C%96%E5%8F%91%E5%B8%83%E6%B5%81%E7%A8%8B.html">一键部署：Shell脚本简化发布流程</a>
+        
+    </section>
+
+
+    </footer>
+
+
+    
+</article>
+
+    
+
+    
+
+     
+    
+        
+    <script
+    src="https://giscus.app/client.js"
+    data-repo="pastor17/bloggiscus"
+    data-repo-id="R_kgDOQ6H9qQ"
+    data-category=""
+    data-category-id="DIC_kwDOQ6H9qc4C0-T8"
+    data-mapping="pathname"
+    data-strict="0"
+    data-reactions-enabled="1"
+    data-emit-metadata="0"
+    data-input-position="bottom"
+    data-theme="light"
+    data-lang="zh-CN"
+    data-loading="lazy"
+    crossorigin="anonymous"
+    async
+></script>
+<script>
+    function setGiscusTheme(theme) {
+        let giscus = document.querySelector("iframe.giscus-frame");
+        if (giscus) {
+            giscus.contentWindow.postMessage(
+                {
+                    giscus: {
+                        setConfig: {
+                            theme: theme,
+                        },
+                    },
+                },
+                "https://giscus.app"
+            );
+        }
+    }
+
+    (function () {
+        addEventListener("message", (e) => {
+            if (event.origin !== "https://giscus.app") return;
+            handler();
+        });
+        window.addEventListener("onColorSchemeChange", handler);
+
+        function handler() {
+            if (document.documentElement.dataset.scheme === "light") {
+                setGiscusTheme('light');
+            } else {
+                setGiscusTheme('dark_dimmed');
+            }
+        }
+    })();
+</script>
+
+    
+
+    <footer class="site-footer">
+    <section class="copyright">
+        &copy; 
+        
+        2026 SelfTechHub
+    </section>
+    
+    <section class="powerby">
+        
+
+    </section>
+</footer>
+
+
+    
+<div class="pswp" tabindex="-1" role="dialog" aria-hidden="true">
+
+    
+    <div class="pswp__bg"></div>
+
+    
+    <div class="pswp__scroll-wrap">
+
+        
+        <div class="pswp__container">
+            <div class="pswp__item"></div>
+            <div class="pswp__item"></div>
+            <div class="pswp__item"></div>
+        </div>
+
+        
+        <div class="pswp__ui pswp__ui--hidden">
+
+            <div class="pswp__top-bar">
+
+                
+
+                <div class="pswp__counter"></div>
+
+                <button class="pswp__button pswp__button--close" title="Close (Esc)"></button>
+
+                <button class="pswp__button pswp__button--share" title="Share"></button>
+
+                <button class="pswp__button pswp__button--fs" title="Toggle fullscreen"></button>
+
+                <button class="pswp__button pswp__button--zoom" title="Zoom in/out"></button>
+
+                
+                
+                <div class="pswp__preloader">
+                    <div class="pswp__preloader__icn">
+                        <div class="pswp__preloader__cut">
+                            <div class="pswp__preloader__donut"></div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <div class="pswp__share-modal pswp__share-modal--hidden pswp__single-tap">
+                <div class="pswp__share-tooltip"></div>
+            </div>
+
+            <button class="pswp__button pswp__button--arrow--left" title="Previous (arrow left)">
+            </button>
+
+            <button class="pswp__button pswp__button--arrow--right" title="Next (arrow right)">
+            </button>
+
+            <div class="pswp__caption">
+                <div class="pswp__caption__center"></div>
+            </div>
+
+        </div>
+
+    </div>
+
+</div><script 
+                src="https://cdn.jsdelivr.net/npm/photoswipe@4.1.3/dist/photoswipe.min.js"integrity="sha256-ePwmChbbvXbsO02lbM3HoHbSHTHFAeChekF1xKJdleo="crossorigin="anonymous"
+                defer
+                >
+            </script><script 
+                src="https://cdn.jsdelivr.net/npm/photoswipe@4.1.3/dist/photoswipe-ui-default.min.js"integrity="sha256-UKkzOn/w1mBxRmLLGrSeyB4e1xbrp4xylgAWb3M42pU="crossorigin="anonymous"
+                defer
+                >
+            </script><link 
+                rel="stylesheet" 
+                href="https://cdn.jsdelivr.net/npm/photoswipe@4.1.3/dist/default-skin/default-skin.min.css"crossorigin="anonymous"
+            ><link 
+                rel="stylesheet" 
+                href="https://cdn.jsdelivr.net/npm/photoswipe@4.1.3/dist/photoswipe.min.css"crossorigin="anonymous"
+            >
+    
+
+            </main>
+        </div>
+        <script 
+                src="https://cdn.jsdelivr.net/npm/node-vibrant@3.1.6/dist/vibrant.min.js"integrity="sha256-awcR2jno4kI5X0zL8ex0vi2z&#43;KMkF24hUW8WePSA9HM="crossorigin="anonymous"
+                
+                >
+            </script><script type="text/javascript" src="/ts/main.c922af694cc257bf1ecc41c0dd7b0430f9114ec280ccf67cd2c6ad55f5316c4e.js" defer></script>
+<script>
+    (function () {
+        const customFont = document.createElement('link');
+        customFont.href = "https://fonts.googleapis.com/css2?family=Lato:wght@300;400;700&display=swap";
+
+        customFont.type = "text/css";
+        customFont.rel = "stylesheet";
+
+        document.head.appendChild(customFont);
+    }());
+</script>
+
+    </body>
+</html>

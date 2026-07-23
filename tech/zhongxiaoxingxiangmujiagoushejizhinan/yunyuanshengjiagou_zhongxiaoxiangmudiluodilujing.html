@@ -1,0 +1,461 @@
+<!DOCTYPE html>
+<html lang="zh-cn" dir="ltr">
+    <head><meta charset='utf-8'>
+<meta name='viewport' content='width=device-width, initial-scale=1'><meta name='description' content="\n我曾以为把应用打进 Docker 镜像，再推到 Kubernetes 上跑起来，就叫&quot;云原生&quot;了。\n直到两年前，我带着一个 8 人的技术团队，在那场惨痛的&quot;双十一&quot;备战里摔得鼻青脸肿。当时我们为了追求所谓的&quot;极致弹性&quot;，强行把原本运行良好的单体应用拆成了 15 个微服务，还自建了一套 K8s 集群。结果大促当晚，流量才刚上来，服务间调用链路就超时熔断，而我们盯着满屏的报错日志，居然花了 40 分钟才定位到是某个中间件的配置没对齐。\n那次复盘会开到了凌晨三点。我深刻意识到：对于中小团队，脱离业务规模谈架构，就是耍流氓。\n很多架构师（包括当年的我）容易陷入一个误区：觉得大厂的方案就是标准答案。其实，中小项目的云原生落地路径，和大厂完全是两个物种。今天想和大家聊聊，我是如何把一个虚胖的架构&quot;减肥&quot;成功的，以及这中间踩过的坑。\n坑位一：自建集群的&quot;高大上&quot;陷阱\r很多兄弟可能都有过这种冲动：买几台 ECS（云服务器），照着网上的教程 kubeadm init 一把梭，觉得这样既省钱又能掌控底层。\n这是个巨大的幻觉。\n我那个项目起初为了省那点托管费，坚持自建 K8s。结果是什么？我的核心开发人员每周五下午原本该做代码 Review 的时间，全在折腾网络插件（CNI）不通、存储卷（CSI）挂载失败、或者证书过期的问题。\n真实案例： 当时我们的核心支付服务偶尔会出现 502 错误。为了查这个问题，我们最好的后端工程师花了整整 3 天去排查 Calico 的网络路由表。而这 3 天，如果用来做业务功能迭代，可能新的一期活动都上线了。\n落地方法论：用金钱换时间 后来我做了一个决定：全线迁移到云厂商的托管 K8s（如 TKE/ACK/EKS）。\n一个月虽然多花了千把块钱的管理费，但效果立竿见影：\nMaster 节点的高可用不用管了； 节点的自动扩缩容（Autoscaler）变成了配置项，而不是脚本； 最重要的是，团队心智负担降维了。 如果你团队里没有专职的运维专家（SRE），请务必使用托管服务。对于中小团队，SaaS &gt; PaaS &gt; IaaS &gt; 自建。你的核心竞争力是业务交付速度，而不是运维底层基础设施的能力。\n坑位二：微服务拆分的&quot;过度洁癖&quot;\r&ldquo;单体应用是落后的，微服务才是未来。&rdquo; 这句话害人不浅。\n在那个项目里，我们只有 6 个后端开发，却维护了 12 个微服务。加上前端 BFF 层、网关、定时任务，总共有 20 多个部署单元。 这就导致了一个极其荒谬的场景：加一个简单的&quot;用户积分展示&quot;字段，需要改 3 个服务的代码，发 3 次版，还得协调上线顺序。\n">
+<title>中小团队别碰K8s？云原生落地的3个血泪真相</title>
+
+<link rel='canonical' href='https://blog.irudder.me/tech/zhongxiaoxingxiangmujiagoushejizhinan/yunyuanshengjiagou_zhongxiaoxiangmudiluodilujing.html'>
+
+<link rel="stylesheet" href="/scss/style.min.b9e9128fec450ebccecc4ec9900157f32b85d0609bcd5ee3293968bcaa1235f2.css"><meta property='og:title' content="中小团队别碰K8s？云原生落地的3个血泪真相">
+<meta property='og:description' content="\n我曾以为把应用打进 Docker 镜像，再推到 Kubernetes 上跑起来，就叫&quot;云原生&quot;了。\n直到两年前，我带着一个 8 人的技术团队，在那场惨痛的&quot;双十一&quot;备战里摔得鼻青脸肿。当时我们为了追求所谓的&quot;极致弹性&quot;，强行把原本运行良好的单体应用拆成了 15 个微服务，还自建了一套 K8s 集群。结果大促当晚，流量才刚上来，服务间调用链路就超时熔断，而我们盯着满屏的报错日志，居然花了 40 分钟才定位到是某个中间件的配置没对齐。\n那次复盘会开到了凌晨三点。我深刻意识到：对于中小团队，脱离业务规模谈架构，就是耍流氓。\n很多架构师（包括当年的我）容易陷入一个误区：觉得大厂的方案就是标准答案。其实，中小项目的云原生落地路径，和大厂完全是两个物种。今天想和大家聊聊，我是如何把一个虚胖的架构&quot;减肥&quot;成功的，以及这中间踩过的坑。\n坑位一：自建集群的&quot;高大上&quot;陷阱\r很多兄弟可能都有过这种冲动：买几台 ECS（云服务器），照着网上的教程 kubeadm init 一把梭，觉得这样既省钱又能掌控底层。\n这是个巨大的幻觉。\n我那个项目起初为了省那点托管费，坚持自建 K8s。结果是什么？我的核心开发人员每周五下午原本该做代码 Review 的时间，全在折腾网络插件（CNI）不通、存储卷（CSI）挂载失败、或者证书过期的问题。\n真实案例： 当时我们的核心支付服务偶尔会出现 502 错误。为了查这个问题，我们最好的后端工程师花了整整 3 天去排查 Calico 的网络路由表。而这 3 天，如果用来做业务功能迭代，可能新的一期活动都上线了。\n落地方法论：用金钱换时间 后来我做了一个决定：全线迁移到云厂商的托管 K8s（如 TKE/ACK/EKS）。\n一个月虽然多花了千把块钱的管理费，但效果立竿见影：\nMaster 节点的高可用不用管了； 节点的自动扩缩容（Autoscaler）变成了配置项，而不是脚本； 最重要的是，团队心智负担降维了。 如果你团队里没有专职的运维专家（SRE），请务必使用托管服务。对于中小团队，SaaS &gt; PaaS &gt; IaaS &gt; 自建。你的核心竞争力是业务交付速度，而不是运维底层基础设施的能力。\n坑位二：微服务拆分的&quot;过度洁癖&quot;\r&ldquo;单体应用是落后的，微服务才是未来。&rdquo; 这句话害人不浅。\n在那个项目里，我们只有 6 个后端开发，却维护了 12 个微服务。加上前端 BFF 层、网关、定时任务，总共有 20 多个部署单元。 这就导致了一个极其荒谬的场景：加一个简单的&quot;用户积分展示&quot;字段，需要改 3 个服务的代码，发 3 次版，还得协调上线顺序。\n">
+<meta property='og:url' content='https://blog.irudder.me/tech/zhongxiaoxingxiangmujiagoushejizhinan/yunyuanshengjiagou_zhongxiaoxiangmudiluodilujing.html'>
+<meta property='og:site_name' content='SelfTechHub'>
+<meta property='og:type' content='article'><meta property='article:section' content='Tech' /><meta property='article:tag' content='云原生架构：中小项目的落地路径' /><meta property='article:published_time' content='2024-07-04T00:00:00&#43;00:00'/><meta property='article:modified_time' content='2024-07-04T00:00:00&#43;00:00'/>
+<meta name="twitter:title" content="中小团队别碰K8s？云原生落地的3个血泪真相">
+<meta name="twitter:description" content="\n我曾以为把应用打进 Docker 镜像，再推到 Kubernetes 上跑起来，就叫&quot;云原生&quot;了。\n直到两年前，我带着一个 8 人的技术团队，在那场惨痛的&quot;双十一&quot;备战里摔得鼻青脸肿。当时我们为了追求所谓的&quot;极致弹性&quot;，强行把原本运行良好的单体应用拆成了 15 个微服务，还自建了一套 K8s 集群。结果大促当晚，流量才刚上来，服务间调用链路就超时熔断，而我们盯着满屏的报错日志，居然花了 40 分钟才定位到是某个中间件的配置没对齐。\n那次复盘会开到了凌晨三点。我深刻意识到：对于中小团队，脱离业务规模谈架构，就是耍流氓。\n很多架构师（包括当年的我）容易陷入一个误区：觉得大厂的方案就是标准答案。其实，中小项目的云原生落地路径，和大厂完全是两个物种。今天想和大家聊聊，我是如何把一个虚胖的架构&quot;减肥&quot;成功的，以及这中间踩过的坑。\n坑位一：自建集群的&quot;高大上&quot;陷阱\r很多兄弟可能都有过这种冲动：买几台 ECS（云服务器），照着网上的教程 kubeadm init 一把梭，觉得这样既省钱又能掌控底层。\n这是个巨大的幻觉。\n我那个项目起初为了省那点托管费，坚持自建 K8s。结果是什么？我的核心开发人员每周五下午原本该做代码 Review 的时间，全在折腾网络插件（CNI）不通、存储卷（CSI）挂载失败、或者证书过期的问题。\n真实案例： 当时我们的核心支付服务偶尔会出现 502 错误。为了查这个问题，我们最好的后端工程师花了整整 3 天去排查 Calico 的网络路由表。而这 3 天，如果用来做业务功能迭代，可能新的一期活动都上线了。\n落地方法论：用金钱换时间 后来我做了一个决定：全线迁移到云厂商的托管 K8s（如 TKE/ACK/EKS）。\n一个月虽然多花了千把块钱的管理费，但效果立竿见影：\nMaster 节点的高可用不用管了； 节点的自动扩缩容（Autoscaler）变成了配置项，而不是脚本； 最重要的是，团队心智负担降维了。 如果你团队里没有专职的运维专家（SRE），请务必使用托管服务。对于中小团队，SaaS &gt; PaaS &gt; IaaS &gt; 自建。你的核心竞争力是业务交付速度，而不是运维底层基础设施的能力。\n坑位二：微服务拆分的&quot;过度洁癖&quot;\r&ldquo;单体应用是落后的，微服务才是未来。&rdquo; 这句话害人不浅。\n在那个项目里，我们只有 6 个后端开发，却维护了 12 个微服务。加上前端 BFF 层、网关、定时任务，总共有 20 多个部署单元。 这就导致了一个极其荒谬的场景：加一个简单的&quot;用户积分展示&quot;字段，需要改 3 个服务的代码，发 3 次版，还得协调上线顺序。\n">
+    </head>
+    <body class="
+    article-page
+    ">
+    <script>
+        (function() {
+            const colorSchemeKey = 'StackColorScheme';
+            if(!localStorage.getItem(colorSchemeKey)){
+                localStorage.setItem(colorSchemeKey, "auto");
+            }
+        })();
+    </script><script>
+    (function() {
+        const colorSchemeKey = 'StackColorScheme';
+        const colorSchemeItem = localStorage.getItem(colorSchemeKey);
+        const supportDarkMode = window.matchMedia('(prefers-color-scheme: dark)').matches === true;
+
+        if (colorSchemeItem == 'dark' || colorSchemeItem === 'auto' && supportDarkMode) {
+            
+
+            document.documentElement.dataset.scheme = 'dark';
+        } else {
+            document.documentElement.dataset.scheme = 'light';
+        }
+    })();
+</script>
+<div class="container main-container flex on-phone--column compact"><aside class="sidebar left-sidebar sticky ">
+    <button class="hamburger hamburger--spin" type="button" id="toggle-menu" aria-label="切换菜单">
+        <span class="hamburger-box">
+            <span class="hamburger-inner"></span>
+        </span>
+    </button>
+
+    <header>
+        
+            
+            <figure class="site-avatar">
+                <a href="/">
+                
+                    
+                    
+                    
+                        
+                        <img src="/img/avatar_hu_8588ce14af1147e2.png" width="300"
+                            height="286" class="site-logo" loading="lazy" alt="Avatar">
+                    
+                
+                </a>
+                
+            </figure>
+            
+        
+        
+        <div class="site-meta">
+            <h1 class="site-name"><a href="/">SelfTechHub</a></h1>
+            <h2 class="site-description"></h2>
+        </div>
+    </header><ol class="menu" id="main-menu">
+        
+        
+        <li class="menu-bottom-section">
+            <ol class="menu">
+
+                
+                    <li id="dark-mode-toggle">
+                        <svg xmlns="http://www.w3.org/2000/svg" class="icon icon-tabler icon-tabler-toggle-left" width="24" height="24" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor" fill="none" stroke-linecap="round" stroke-linejoin="round">
+  <path stroke="none" d="M0 0h24v24H0z"/>
+  <circle cx="8" cy="12" r="2" />
+  <rect x="2" y="6" width="20" height="12" rx="6" />
+</svg>
+
+
+
+                        <svg xmlns="http://www.w3.org/2000/svg" class="icon icon-tabler icon-tabler-toggle-right" width="24" height="24" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor" fill="none" stroke-linecap="round" stroke-linejoin="round">
+  <path stroke="none" d="M0 0h24v24H0z"/>
+  <circle cx="16" cy="12" r="2" />
+  <rect x="2" y="6" width="20" height="12" rx="6" />
+</svg>
+
+
+
+                        <span>暗色模式</span>
+                    </li>
+                
+            </ol>
+        </li>
+    </ol>
+</aside>
+
+    
+
+            <main class="main full-width">
+    <article class="main-article">
+    <header class="article-header">
+
+    <div class="article-details">
+    
+    <header class="article-category">
+        
+            <a href="/categories/%E6%8A%80%E6%9C%AF.html" >
+                技术精进
+            </a>
+        
+    </header>
+    
+
+    <div class="article-title-wrapper">
+        <h2 class="article-title">
+            <a href="/tech/zhongxiaoxingxiangmujiagoushejizhinan/yunyuanshengjiagou_zhongxiaoxiangmudiluodilujing.html">中小团队别碰K8s？云原生落地的3个血泪真相</a>
+        </h2>
+    
+        
+    </div>
+
+    
+    
+    
+    
+    <footer class="article-time">
+        
+            <div>
+                <svg xmlns="http://www.w3.org/2000/svg" class="icon icon-tabler icon-tabler-calendar-time" width="56" height="56" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor" fill="none" stroke-linecap="round" stroke-linejoin="round">
+  <path stroke="none" d="M0 0h24v24H0z"/>
+  <path d="M11.795 21h-6.795a2 2 0 0 1 -2 -2v-12a2 2 0 0 1 2 -2h12a2 2 0 0 1 2 2v4" />
+  <circle cx="18" cy="18" r="4" />
+  <path d="M15 3v4" />
+  <path d="M7 3v4" />
+  <path d="M3 11h16" />
+  <path d="M18 16.496v1.504l1 1" />
+</svg>
+                <time class="article-time--published" datetime='2024-07-04T00:00:00Z'>Jul 04, 2024</time>
+            </div>
+        
+
+        
+            <div>
+                <svg xmlns="http://www.w3.org/2000/svg" class="icon icon-tabler icon-tabler-clock" width="24" height="24" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor" fill="none" stroke-linecap="round" stroke-linejoin="round">
+  <path stroke="none" d="M0 0h24v24H0z"/>
+  <circle cx="12" cy="12" r="9" />
+  <polyline points="12 7 12 12 15 15" />
+</svg>
+
+
+
+                <time class="article-time--reading">
+                    阅读时长: 1 分钟
+                </time>
+            </div>
+        
+    </footer>
+    
+
+    
+</div>
+
+</header>
+
+    <section class="article-content">
+    
+    
+    <p><img src="https://picsum.photos/800/450?random=1768456897994"
+	
+	
+	
+	loading="lazy"
+	
+		alt="配图"
+	
+	
+></p>
+<p>我曾以为把应用打进 Docker 镜像，再推到 Kubernetes 上跑起来，就叫&quot;云原生&quot;了。</p>
+<p>直到两年前，我带着一个 8 人的技术团队，在那场惨痛的&quot;双十一&quot;备战里摔得鼻青脸肿。当时我们为了追求所谓的&quot;极致弹性&quot;，强行把原本运行良好的单体应用拆成了 15 个微服务，还自建了一套 K8s 集群。结果大促当晚，流量才刚上来，服务间调用链路就超时熔断，而我们盯着满屏的报错日志，居然花了 40 分钟才定位到是某个中间件的配置没对齐。</p>
+<p>那次复盘会开到了凌晨三点。我深刻意识到：<strong>对于中小团队，脱离业务规模谈架构，就是耍流氓。</strong></p>
+<p>很多架构师（包括当年的我）容易陷入一个误区：觉得大厂的方案就是标准答案。其实，中小项目的云原生落地路径，和大厂完全是两个物种。今天想和大家聊聊，我是如何把一个虚胖的架构&quot;减肥&quot;成功的，以及这中间踩过的坑。</p>
+<h2 id="坑位一自建集群的高大上陷阱">坑位一：自建集群的&quot;高大上&quot;陷阱
+</h2><p>很多兄弟可能都有过这种冲动：买几台 ECS（云服务器），照着网上的教程 <code>kubeadm init</code> 一把梭，觉得这样既省钱又能掌控底层。</p>
+<p><strong>这是个巨大的幻觉。</strong></p>
+<p><img src="https://picsum.photos/800/450?random=1768456901000"
+	
+	
+	
+	loading="lazy"
+	
+		alt="配图"
+	
+	
+></p>
+<p>我那个项目起初为了省那点托管费，坚持自建 K8s。结果是什么？我的核心开发人员每周五下午原本该做代码 Review 的时间，全在折腾网络插件（CNI）不通、存储卷（CSI）挂载失败、或者证书过期的问题。</p>
+<p><strong>真实案例：</strong>
+当时我们的核心支付服务偶尔会出现 502 错误。为了查这个问题，我们最好的后端工程师花了整整 3 天去排查 Calico 的网络路由表。而这 3 天，如果用来做业务功能迭代，可能新的一期活动都上线了。</p>
+<p><strong>落地方法论：用金钱换时间</strong>
+后来我做了一个决定：全线迁移到云厂商的托管 K8s（如 TKE/ACK/EKS）。</p>
+<p>一个月虽然多花了千把块钱的管理费，但效果立竿见影：</p>
+<ul>
+<li>Master 节点的高可用不用管了；</li>
+<li>节点的自动扩缩容（Autoscaler）变成了配置项，而不是脚本；</li>
+<li><strong>最重要的是，团队心智负担降维了。</strong></li>
+</ul>
+<p>如果你团队里没有专职的运维专家（SRE），<strong>请务必使用托管服务</strong>。对于中小团队，SaaS &gt; PaaS &gt; IaaS &gt; 自建。你的核心竞争力是业务交付速度，而不是运维底层基础设施的能力。</p>
+<h2 id="坑位二微服务拆分的过度洁癖">坑位二：微服务拆分的&quot;过度洁癖&quot;
+</h2><p>&ldquo;单体应用是落后的，微服务才是未来。&rdquo; 这句话害人不浅。</p>
+<p>在那个项目里，我们只有 6 个后端开发，却维护了 12 个微服务。加上前端 BFF 层、网关、定时任务，总共有 20 多个部署单元。
+这就导致了一个极其荒谬的场景：<strong>加一个简单的&quot;用户积分展示&quot;字段，需要改 3 个服务的代码，发 3 次版，还得协调上线顺序。</strong></p>
+<p><strong>真实案例：</strong>
+有次上线，因为 A 服务先发了，B 服务没发，接口契约不兼容，直接导致线上报错 15 分钟。那个月，我们的研发效能（从需求到上线的时间）反而比单体时期下降了 40%。</p>
+<p><strong>落地方法论：模块化单体（Modular Monolith）</strong>
+痛定思痛，我们开始了架构&quot;回缩&quot;。
+我们并没有完全退回到&quot;一坨大泥球&quot;，而是采用了<strong>模块化单体</strong>的策略：</p>
+<ol>
+<li><strong>物理统一，逻辑隔离</strong>：代码还是在一个 Repo 里，部署也是一个镜像，但在代码结构上严格划分 <code>Order</code>、<code>User</code>、<code>Payment</code> 模块。</li>
+<li><strong>进程内调用</strong>：模块间调用走本地方法，而不是 HTTP/RPC，性能提升了，排查问题也简单了（不用链路追踪）。</li>
+<li><strong>甚至用了简单的代码约束</strong>：</li>
+</ol>
+<div class="highlight"><pre tabindex="0" style="color:#f8f8f2;background-color:#272822;-moz-tab-size:4;-o-tab-size:4;tab-size:4;"><code class="language-java" data-lang="java"><span style="display:flex;"><span><span style="color:#75715e">// 禁止跨模块直接数据库访问，必须通过 Service 接口</span>
+</span></span><span style="display:flex;"><span><span style="color:#75715e">// 这种简单的架构守护测试，比拆分服务管用得多</span>
+</span></span><span style="display:flex;"><span><span style="color:#a6e22e">@ArchTest</span>
+</span></span><span style="display:flex;"><span><span style="color:#66d9ef">public</span> <span style="color:#66d9ef">static</span> <span style="color:#66d9ef">final</span> ArchRule modules_should_respect_boundaries <span style="color:#f92672">=</span>
+</span></span><span style="display:flex;"><span>    slices().<span style="color:#a6e22e">matching</span>(<span style="color:#e6db74">&#34;com.myapp.modules.(*)..&#34;</span>)
+</span></span><span style="display:flex;"><span>            .<span style="color:#a6e22e">should</span>().<span style="color:#a6e22e">beFreeOfCycles</span>();
+</span></span></code></pre></div><p>现在的原则是：<strong>除非某个模块需要独立的扩展能力（比如瞬时高并发）或者独立的团队维护（超过 5-8 人），否则不要拆分微服务。</strong></p>
+<h2 id="坑位三又聋又瞎的黑盒运行">坑位三：又聋又瞎的&quot;黑盒运行&quot;
+</h2><p>云原生环境下，容器随时可能飘移重启。以前那种&quot;SSH 到服务器上去 tail 日志&quot;的土办法，在多副本环境下完全失效了。</p>
+<p>我遇到过最抓狂的情况是：用户反馈报错，我去查日志，发现容器已经重启了，本地磁盘上的日志文件随风而去。那一刻，我就像个盲人一样无助。</p>
+<p><strong>真实案例：</strong>
+某次内存泄露导致 OOM，容器被 K8s 杀掉重启。因为没有持久化日志和监控指标，我们根本不知道是哪个接口导致的，只能守着屏幕等它下一次崩溃。</p>
+<p><strong>落地方法论：可观测性是生命线</strong>
+不要搞复杂的 ELK（Elasticsearch对于小团队太重了），我推荐一套轻量级组合拳：<strong>Prometheus + Grafana + Loki</strong>。</p>
+<ul>
+<li><strong>Loki</strong>：它是日志界的&quot;轻骑兵&quot;，不建索引，只对标签索引，资源占用极低。</li>
+<li><strong>标准输出</strong>：应用日志别写文件了，全部打到 <code>Stdout</code>（标准输出），让 Docker 引擎去收集。</li>
+</ul>
+<p>我现在的团队有一个硬性规定：<strong>任何报错日志，必须包含 TraceID。</strong></p>
+<p>我们花了两周时间封装了日志库，确保所有请求入口生成一个 ID，并透传到所有层级。现在查问题，只需要在 Grafana 里输入 ID，整个链路的日志清清楚楚。</p>
+<blockquote>
+<p>&ldquo;在这个系统里，如果我不能在 3 次点击内找到报错原因，那就是架构设计的失败。&rdquo; —— 这成了我们架构组的座右铭。</p>
+</blockquote>
+<h2 id="总结与行动">总结与行动
+</h2><p>云原生不是为了炫技，而是为了<strong>更稳定、更快的交付</strong>。对于中小团队，&ldquo;够用&quot;远比&quot;完美&quot;重要。</p>
+<p>回顾这两年的&quot;填坑&quot;之路，我总结出的<strong>中小项目云原生黄金法则</strong>是：</p>
+<ol>
+<li><strong>基建外包</strong>：能买托管服务，绝不自己运维。</li>
+<li><strong>架构从简</strong>：优先单体，逻辑拆分，等到痛得不行了再拆微服务。</li>
+<li><strong>监控先行</strong>：没有可观测性，就别谈云原生。</li>
+</ol>
+<p><strong>最后，做个小调查：</strong>
+如果在资源有限的情况下，必须二选一，你会优先选择 <strong>A. 完善的自动化CI/CD流水线</strong> 还是 <strong>B. 全面的微服务治理体系</strong>？</p>
+<p>如果你正准备或者正在进行云原生改造，建议明天上班就可以做这 3 件事：</p>
+<ol>
+<li><strong>检查你的日志</strong>：是不是还在写本地文件？尝试改成标准输出并接入一个轻量级日志系统。</li>
+<li><strong>计算一下TCO</strong>：把你团队花在运维自建组件上的时间折算成工资，对比一下云厂商托管服务的价格。</li>
+<li><strong>封锁边界</strong>：在单体应用里，开始尝试用包结构或者模块工具强制隔离业务逻辑，为未来可能的（虽然不一定发生）拆分做准备。</li>
+</ol>
+<p>评论区告诉我你的选择，或者你遇到过的最奇葩的&quot;架构坑&rdquo;，咱们一起避雷。</p>
+
+</section>
+
+
+    <footer class="article-footer">
+    
+    <section class="article-tags">
+        
+            <a href="/tags/%E4%BA%91%E5%8E%9F%E7%94%9F%E6%9E%B6%E6%9E%84%E4%B8%AD%E5%B0%8F%E9%A1%B9%E7%9B%AE%E7%9A%84%E8%90%BD%E5%9C%B0%E8%B7%AF%E5%BE%84.html">云原生架构：中小项目的落地路径</a>
+        
+    </section>
+
+
+    </footer>
+
+
+    
+</article>
+
+    
+
+    
+
+     
+    
+        
+    <script
+    src="https://giscus.app/client.js"
+    data-repo="pastor17/bloggiscus"
+    data-repo-id="R_kgDOQ6H9qQ"
+    data-category=""
+    data-category-id="DIC_kwDOQ6H9qc4C0-T8"
+    data-mapping="pathname"
+    data-strict="0"
+    data-reactions-enabled="1"
+    data-emit-metadata="0"
+    data-input-position="bottom"
+    data-theme="light"
+    data-lang="zh-CN"
+    data-loading="lazy"
+    crossorigin="anonymous"
+    async
+></script>
+<script>
+    function setGiscusTheme(theme) {
+        let giscus = document.querySelector("iframe.giscus-frame");
+        if (giscus) {
+            giscus.contentWindow.postMessage(
+                {
+                    giscus: {
+                        setConfig: {
+                            theme: theme,
+                        },
+                    },
+                },
+                "https://giscus.app"
+            );
+        }
+    }
+
+    (function () {
+        addEventListener("message", (e) => {
+            if (event.origin !== "https://giscus.app") return;
+            handler();
+        });
+        window.addEventListener("onColorSchemeChange", handler);
+
+        function handler() {
+            if (document.documentElement.dataset.scheme === "light") {
+                setGiscusTheme('light');
+            } else {
+                setGiscusTheme('dark_dimmed');
+            }
+        }
+    })();
+</script>
+
+    
+
+    <footer class="site-footer">
+    <section class="copyright">
+        &copy; 
+        
+        2026 SelfTechHub
+    </section>
+    
+    <section class="powerby">
+        
+
+    </section>
+</footer>
+
+
+    
+<div class="pswp" tabindex="-1" role="dialog" aria-hidden="true">
+
+    
+    <div class="pswp__bg"></div>
+
+    
+    <div class="pswp__scroll-wrap">
+
+        
+        <div class="pswp__container">
+            <div class="pswp__item"></div>
+            <div class="pswp__item"></div>
+            <div class="pswp__item"></div>
+        </div>
+
+        
+        <div class="pswp__ui pswp__ui--hidden">
+
+            <div class="pswp__top-bar">
+
+                
+
+                <div class="pswp__counter"></div>
+
+                <button class="pswp__button pswp__button--close" title="Close (Esc)"></button>
+
+                <button class="pswp__button pswp__button--share" title="Share"></button>
+
+                <button class="pswp__button pswp__button--fs" title="Toggle fullscreen"></button>
+
+                <button class="pswp__button pswp__button--zoom" title="Zoom in/out"></button>
+
+                
+                
+                <div class="pswp__preloader">
+                    <div class="pswp__preloader__icn">
+                        <div class="pswp__preloader__cut">
+                            <div class="pswp__preloader__donut"></div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <div class="pswp__share-modal pswp__share-modal--hidden pswp__single-tap">
+                <div class="pswp__share-tooltip"></div>
+            </div>
+
+            <button class="pswp__button pswp__button--arrow--left" title="Previous (arrow left)">
+            </button>
+
+            <button class="pswp__button pswp__button--arrow--right" title="Next (arrow right)">
+            </button>
+
+            <div class="pswp__caption">
+                <div class="pswp__caption__center"></div>
+            </div>
+
+        </div>
+
+    </div>
+
+</div><script 
+                src="https://cdn.jsdelivr.net/npm/photoswipe@4.1.3/dist/photoswipe.min.js"integrity="sha256-ePwmChbbvXbsO02lbM3HoHbSHTHFAeChekF1xKJdleo="crossorigin="anonymous"
+                defer
+                >
+            </script><script 
+                src="https://cdn.jsdelivr.net/npm/photoswipe@4.1.3/dist/photoswipe-ui-default.min.js"integrity="sha256-UKkzOn/w1mBxRmLLGrSeyB4e1xbrp4xylgAWb3M42pU="crossorigin="anonymous"
+                defer
+                >
+            </script><link 
+                rel="stylesheet" 
+                href="https://cdn.jsdelivr.net/npm/photoswipe@4.1.3/dist/default-skin/default-skin.min.css"crossorigin="anonymous"
+            ><link 
+                rel="stylesheet" 
+                href="https://cdn.jsdelivr.net/npm/photoswipe@4.1.3/dist/photoswipe.min.css"crossorigin="anonymous"
+            >
+    
+
+            </main>
+        </div>
+        <script 
+                src="https://cdn.jsdelivr.net/npm/node-vibrant@3.1.6/dist/vibrant.min.js"integrity="sha256-awcR2jno4kI5X0zL8ex0vi2z&#43;KMkF24hUW8WePSA9HM="crossorigin="anonymous"
+                
+                >
+            </script><script type="text/javascript" src="/ts/main.c922af694cc257bf1ecc41c0dd7b0430f9114ec280ccf67cd2c6ad55f5316c4e.js" defer></script>
+<script>
+    (function () {
+        const customFont = document.createElement('link');
+        customFont.href = "https://fonts.googleapis.com/css2?family=Lato:wght@300;400;700&display=swap";
+
+        customFont.type = "text/css";
+        customFont.rel = "stylesheet";
+
+        document.head.appendChild(customFont);
+    }());
+</script>
+
+    </body>
+</html>

@@ -1,0 +1,110 @@
+<?xml version="1.0" encoding="utf-8" standalone="yes"?>
+<rss version="2.0" xmlns:atom="http://www.w3.org/2005/Atom">
+    <channel>
+        <title>Large Language Model on SelfTechHub</title>
+        <link>https://blog.irudder.me/tags/Large-Language-Model.html</link>
+        <description>Recent content in Large Language Model on SelfTechHub</description>
+        <generator>Hugo -- gohugo.io</generator>
+        <language>zh-cn</language>
+        <lastBuildDate>Thu, 28 May 2026 00:00:00 +0000</lastBuildDate><atom:link href="https://blog.irudder.me/tags/Large-Language-Model/index.xml" rel="self" type="application/rss+xml" /><item>
+        <title>第1章：大语言模型到底是什么？从零开始的AI认知升级</title>
+        <link>https://blog.irudder.me/ai/knowledge-series/01-What-is-LLM.html</link>
+        <pubDate>Thu, 28 May 2026 00:00:00 +0000</pubDate>
+        
+        <guid>https://blog.irudder.me/ai/knowledge-series/01-What-is-LLM.html</guid>
+        <description>&lt;h1 id=&#34;第1章大语言模型到底是什么从零开始的ai认知升级&#34;&gt;第1章：大语言模型到底是什么？从零开始的AI认知升级
+&lt;/h1&gt;&lt;blockquote&gt;
+&lt;p&gt;系列导读：这是「AI知识成长体系」系列的开篇。如果你刚接触大模型，本章帮你建立底层认知；如果你已有经验，建议从第3章「幻觉与可控性」开始，那里的工程视角同样值得回顾。&lt;/p&gt;
+&lt;/blockquote&gt;
+&lt;hr&gt;
+&lt;h2 id=&#34;一一句话定义&#34;&gt;一、一句话定义
+&lt;/h2&gt;&lt;p&gt;&lt;strong&gt;大语言模型（LLM, Large Language Model）&lt;strong&gt;是用海量文本语料预训练、参数规模达到百亿乃至万亿级别、基于&lt;/strong&gt;自回归&lt;/strong&gt;方式逐字生成文本的统一模型。&lt;/p&gt;
+&lt;p&gt;它不是「一台能聊天的电脑」，也不是「一个搜索引擎」。最本质的理解是：&lt;strong&gt;它是一个概率续写器&lt;/strong&gt;——给定前n个词，预测第n+1个词的概率分布，然后挑一个词，继续往下预测。&lt;/p&gt;
+&lt;h2 id=&#34;二一个核心类比&#34;&gt;二、一个核心类比
+&lt;/h2&gt;&lt;p&gt;想象你在玩「成语接龙」：我说「指鹿为马」，你说「马到成功」；我说「功」，你说「功成名就」……&lt;/p&gt;
+&lt;p&gt;LLM 每天都在玩这个游戏，只是规模不一样：它接的不是几个字，是互联网上的几千亿个token。玩了几个月后，它发现自己不仅能填词，还能写诗、编程、做数学题。这就是 LLM 的根本工作方式——&lt;strong&gt;下一个 token 预测&lt;/strong&gt;。&lt;/p&gt;
+&lt;h2 id=&#34;三llm-vs-传统-nlp-的本质区别&#34;&gt;三、LLM vs 传统 NLP 的本质区别
+&lt;/h2&gt;&lt;table&gt;
+  &lt;thead&gt;
+      &lt;tr&gt;
+          &lt;th&gt;维度&lt;/th&gt;
+          &lt;th&gt;传统 NLP&lt;/th&gt;
+          &lt;th&gt;大语言模型&lt;/th&gt;
+      &lt;/tr&gt;
+  &lt;/thead&gt;
+  &lt;tbody&gt;
+      &lt;tr&gt;
+          &lt;td&gt;任务模式&lt;/td&gt;
+          &lt;td&gt;一任务一模型&lt;/td&gt;
+          &lt;td&gt;一模型万任务&lt;/td&gt;
+      &lt;/tr&gt;
+      &lt;tr&gt;
+          &lt;td&gt;实现方式&lt;/td&gt;
+          &lt;td&gt;流水线拆分：分词→词性标注→NER→下游任务&lt;/td&gt;
+          &lt;td&gt;端到端：输入文本，输出文本&lt;/td&gt;
+      &lt;/tr&gt;
+      &lt;tr&gt;
+          &lt;td&gt;模型性质&lt;/td&gt;
+          &lt;td&gt;判别式（输出标签/概率）&lt;/td&gt;
+          &lt;td&gt;生成式（输出新文本）&lt;/td&gt;
+      &lt;/tr&gt;
+      &lt;tr&gt;
+          &lt;td&gt;能力边界&lt;/td&gt;
+          &lt;td&gt;训练目标里有的才会&lt;/td&gt;
+          &lt;td&gt;规模够大时&lt;strong&gt;涌现&lt;/strong&gt;出新能力&lt;/td&gt;
+      &lt;/tr&gt;
+      &lt;tr&gt;
+          &lt;td&gt;迁移学习&lt;/td&gt;
+          &lt;td&gt;需要微调适配&lt;/td&gt;
+          &lt;td&gt;Prompt 即任务&lt;/td&gt;
+      &lt;/tr&gt;
+  &lt;/tbody&gt;
+&lt;/table&gt;
+&lt;h3 id=&#34;为什么说这是质变&#34;&gt;为什么说这是「质变」？
+&lt;/h3&gt;&lt;p&gt;传统 NLP 里，你要做情感分析，就训练一个情感分类器；做命名实体识别，就训一个 NER 模型。每个模型只会在训练数据里的「标签空间」内输出结果。&lt;/p&gt;
+&lt;p&gt;LLM 不一样。它只学了一件事：&lt;strong&gt;预测下一个词&lt;/strong&gt;。但这个任务太极端了——互联网上的每一个句子都是一个训练样本。学会这个任务的过程中，它被迫理解了语法、语义、推理、常识、编程逻辑……所有能用语言表达的思维模式。&lt;/p&gt;
+&lt;h3 id=&#34;涌现能力emergent-abilities&#34;&gt;涌现能力（Emergent Abilities）
+&lt;/h3&gt;&lt;p&gt;这是 LLM 最令人惊讶的特征。当模型规模突破某个阈值（通常是数十亿到百亿参数），会突然「涌现」出训练目标里没有显式教过的能力：&lt;/p&gt;
+&lt;ul&gt;
+&lt;li&gt;&lt;strong&gt;上下文学习（In-Context Learning）&lt;/strong&gt;：给几个示例，模型就能学会新任务模式&lt;/li&gt;
+&lt;li&gt;&lt;strong&gt;多步推理（Chain-of-Thought Reasoning）&lt;/strong&gt;：面对复杂问题能一步步拆解思考&lt;/li&gt;
+&lt;li&gt;&lt;strong&gt;跨语言迁移&lt;/strong&gt;：主要训练英语，却也能流畅地说中文、日语&lt;/li&gt;
+&lt;/ul&gt;
+&lt;p&gt;这些能力在结构上没有变化，只是参数量变多了。就像水加热到100度突然沸腾——量变到了阈值，质变自然发生。&lt;/p&gt;
+&lt;h2 id=&#34;四llm-的核心特性&#34;&gt;四、LLM 的核心特性
+&lt;/h2&gt;&lt;h3 id=&#34;1-知识冻结knowledge-cutoff&#34;&gt;1. 知识冻结（Knowledge Cutoff）
+&lt;/h3&gt;&lt;p&gt;LLM 的知识截止到训练数据的收集日期。GPT-4 训练数据到2024年初，之后的事它不知道。你问它2026年7月的股市走势，它会一本正经地编答案——这就是&lt;strong&gt;幻觉&lt;/strong&gt;。&lt;/p&gt;
+&lt;h3 id=&#34;2-没有真正的理解&#34;&gt;2. 没有真正的「理解」
+&lt;/h3&gt;&lt;p&gt;LLM 并不「理解」你说的每一句话。它只是在统计意义上学会了「哪些词组合在一起概率最高」。这带来了两个后果：&lt;/p&gt;
+&lt;ul&gt;
+&lt;li&gt;&lt;strong&gt;它能做对数学题，但可能不理解数学意义&lt;/strong&gt;——因为训练数据里见过足够多的推导过程&lt;/li&gt;
+&lt;li&gt;&lt;strong&gt;它不会主动说「我不知道」&lt;/strong&gt;——因为训练目标要求它必须产出下一个词&lt;/li&gt;
+&lt;/ul&gt;
+&lt;h3 id=&#34;3-上下文长度有限&#34;&gt;3. 上下文长度有限
+&lt;/h3&gt;&lt;p&gt;LLM 的「工作台」（context window）不是无限的。GPT-4o 是 128K token（约10万字），Claude 3.5 是 200K（约15万字），超过的部分会被遗忘。这意味着：&lt;/p&gt;
+&lt;ul&gt;
+&lt;li&gt;长文档对话到后面会开始「掉线」&lt;/li&gt;
+&lt;li&gt;RAG（检索增强生成）成为必修课&lt;/li&gt;
+&lt;li&gt;任务拆解和记忆压缩是工程核心&lt;/li&gt;
+&lt;/ul&gt;
+&lt;h2 id=&#34;五为什么说这是一个时代的开始&#34;&gt;五、为什么说这是一个时代的开始？
+&lt;/h2&gt;&lt;p&gt;LLM 的伟大之处，不在于它有多聪明，而在于&lt;strong&gt;它是第一个能用自然语言跟全世界沟通的通用接口&lt;/strong&gt;。&lt;/p&gt;
+&lt;p&gt;在它之前，你想让计算机做一件事，需要学编程语言、API 文档、数据库查询。现在你只需要说：「帮我写一个爬虫，抓取某网站的新闻标题。」&lt;/p&gt;
+&lt;p&gt;它不完美，经常出错，但它开启了一个人机协作的新时代。它不是「替代人类」，而是「让人类用更自然的方式调用信息」。&lt;/p&gt;
+&lt;h2 id=&#34;六本章小结&#34;&gt;六、本章小结
+&lt;/h2&gt;&lt;ul&gt;
+&lt;li&gt;LLM 本质是「下一个 token 预测」，参数规模带来的涌现效果是质变&lt;/li&gt;
+&lt;li&gt;与传统 NLP 的根本区别在于「一模型万任务」和「涌现能力」&lt;/li&gt;
+&lt;li&gt;LLM 有三大天生缺陷：知识冻结、没有真正的「理解」、上下文有限&lt;/li&gt;
+&lt;li&gt;认识这些缺陷，才不会陷入「AI万能论」或「AI无用论」的两个极端&lt;/li&gt;
+&lt;/ul&gt;
+&lt;h2 id=&#34;思考题&#34;&gt;思考题
+&lt;/h2&gt;&lt;ol&gt;
+&lt;li&gt;如果 LLM 只是在做「概率续写」，为什么它能做对数学题？是「真正学会了」还是「模式匹配」？&lt;/li&gt;
+&lt;li&gt;涌现能力的出现，对人工智能研究意味着什么？它是否暗示了规模是通往通用智能的路径之一？&lt;/li&gt;
+&lt;/ol&gt;
+</description>
+        </item>
+        
+    </channel>
+</rss>

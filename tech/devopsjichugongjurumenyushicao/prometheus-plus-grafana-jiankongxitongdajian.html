@@ -1,0 +1,510 @@
+<!DOCTYPE html>
+<html lang="zh-cn" dir="ltr">
+    <head><meta charset='utf-8'>
+<meta name='viewport' content='width=device-width, initial-scale=1'><meta name='description' content="你有没有过这样的经历：接到老板电话问“为什么网站打不开了”，你却还在一脸懵地回答“我看看”？或者，系统突然变慢，你只能靠 top 命令盯着跳动的数字，凭感觉猜测是数据库锁了还是内存漏了？\n我曾经也是这样。直到三年前的一个凌晨3点，我们的支付服务因为磁盘写满而挂机，而我是在客户投诉两小时后才被电话轰炸醒的。那天之后，我意识到：没有监控的系统，就像在高速公路上闭眼开车。\n很多人觉得搭建监控系统很重、很贵、很复杂。其实，对于中小团队或个人开发者，用 Prometheus + Grafana 这一套“黄金搭档”，15分钟就能搭建起一套可视化的监控大屏。\n今天我就把这套我用了两年、改了无数个版本的“保姆级”方案分享给你。\n一、 为什么选 Prometheus？别被“推”和“拉”绕晕了\r在讲怎么做之前，得先解决一个认知误区。很多运维新人还在纠结 Zabbix 和 Prometheus 谁更好。\n我曾在一个拥有50台服务器的项目中强推 Zabbix，结果光是配置 Agent 主动推送和复杂的模板，就耗费了我整整一周。后来切换到 Prometheus，才发现它的Pull（拉取）模式有多香。\n简单来说，Prometheus 就像一个勤劳的“查表员”，每隔几秒钟去各个服务（Exporter）那里抄一次水表（数据），然后存起来。这带来两个巨大的好处：\n服务解耦：被监控的服务不需要知道监控中心在哪里，只管暴露接口就行。 极简部署：只要网络通，配一行 IP 就能抓数据。 实操建议：对于刚起步的团队，不要搞复杂的二进制安装，Docker 是唯一的真理。\n下面这份 docker-compose.yml 是我目前生产环境在用的精简版，直接复制就能跑：\nversion: &#39;3.8&#39; services: # 监控核心：Prometheus prometheus: image: prom/prometheus:latest container_name: prometheus volumes: - ./prometheus.yml:/etc/prometheus/prometheus.yml ports: - &#34;9090:9090&#34; restart: always # 数据展示：Grafana grafana: image: grafana/grafana:latest container_name: grafana ports: - &#34;3000:3000&#34; volumes: - grafana-storage:/var/lib/grafana restart: always # 采集本机数据：Node Exporter node-exporter: image: prom/node-exporter:latest container_name: node-exporter ports: - &#34;9100:9100&#34; restart: always volumes: grafana-storage: 把这个文件保存，并在同级目录下创建一个基础的 prometheus.yml 配置文件：\n">
+<title>0成本搭建监控：别让服务器在凌晨3点叫醒你</title>
+
+<link rel='canonical' href='https://blog.irudder.me/tech/devopsjichugongjurumenyushicao/prometheus-plus-grafana-jiankongxitongdajian.html'>
+
+<link rel="stylesheet" href="/scss/style.min.b9e9128fec450ebccecc4ec9900157f32b85d0609bcd5ee3293968bcaa1235f2.css"><meta property='og:title' content="0成本搭建监控：别让服务器在凌晨3点叫醒你">
+<meta property='og:description' content="你有没有过这样的经历：接到老板电话问“为什么网站打不开了”，你却还在一脸懵地回答“我看看”？或者，系统突然变慢，你只能靠 top 命令盯着跳动的数字，凭感觉猜测是数据库锁了还是内存漏了？\n我曾经也是这样。直到三年前的一个凌晨3点，我们的支付服务因为磁盘写满而挂机，而我是在客户投诉两小时后才被电话轰炸醒的。那天之后，我意识到：没有监控的系统，就像在高速公路上闭眼开车。\n很多人觉得搭建监控系统很重、很贵、很复杂。其实，对于中小团队或个人开发者，用 Prometheus + Grafana 这一套“黄金搭档”，15分钟就能搭建起一套可视化的监控大屏。\n今天我就把这套我用了两年、改了无数个版本的“保姆级”方案分享给你。\n一、 为什么选 Prometheus？别被“推”和“拉”绕晕了\r在讲怎么做之前，得先解决一个认知误区。很多运维新人还在纠结 Zabbix 和 Prometheus 谁更好。\n我曾在一个拥有50台服务器的项目中强推 Zabbix，结果光是配置 Agent 主动推送和复杂的模板，就耗费了我整整一周。后来切换到 Prometheus，才发现它的Pull（拉取）模式有多香。\n简单来说，Prometheus 就像一个勤劳的“查表员”，每隔几秒钟去各个服务（Exporter）那里抄一次水表（数据），然后存起来。这带来两个巨大的好处：\n服务解耦：被监控的服务不需要知道监控中心在哪里，只管暴露接口就行。 极简部署：只要网络通，配一行 IP 就能抓数据。 实操建议：对于刚起步的团队，不要搞复杂的二进制安装，Docker 是唯一的真理。\n下面这份 docker-compose.yml 是我目前生产环境在用的精简版，直接复制就能跑：\nversion: &#39;3.8&#39; services: # 监控核心：Prometheus prometheus: image: prom/prometheus:latest container_name: prometheus volumes: - ./prometheus.yml:/etc/prometheus/prometheus.yml ports: - &#34;9090:9090&#34; restart: always # 数据展示：Grafana grafana: image: grafana/grafana:latest container_name: grafana ports: - &#34;3000:3000&#34; volumes: - grafana-storage:/var/lib/grafana restart: always # 采集本机数据：Node Exporter node-exporter: image: prom/node-exporter:latest container_name: node-exporter ports: - &#34;9100:9100&#34; restart: always volumes: grafana-storage: 把这个文件保存，并在同级目录下创建一个基础的 prometheus.yml 配置文件：\n">
+<meta property='og:url' content='https://blog.irudder.me/tech/devopsjichugongjurumenyushicao/prometheus-plus-grafana-jiankongxitongdajian.html'>
+<meta property='og:site_name' content='SelfTechHub'>
+<meta property='og:type' content='article'><meta property='article:section' content='Tech' /><meta property='article:tag' content='Prometheus &#43; Grafana 监控系统搭建' /><meta property='article:published_time' content='2023-04-26T00:00:00&#43;00:00'/><meta property='article:modified_time' content='2023-04-26T00:00:00&#43;00:00'/>
+<meta name="twitter:title" content="0成本搭建监控：别让服务器在凌晨3点叫醒你">
+<meta name="twitter:description" content="你有没有过这样的经历：接到老板电话问“为什么网站打不开了”，你却还在一脸懵地回答“我看看”？或者，系统突然变慢，你只能靠 top 命令盯着跳动的数字，凭感觉猜测是数据库锁了还是内存漏了？\n我曾经也是这样。直到三年前的一个凌晨3点，我们的支付服务因为磁盘写满而挂机，而我是在客户投诉两小时后才被电话轰炸醒的。那天之后，我意识到：没有监控的系统，就像在高速公路上闭眼开车。\n很多人觉得搭建监控系统很重、很贵、很复杂。其实，对于中小团队或个人开发者，用 Prometheus + Grafana 这一套“黄金搭档”，15分钟就能搭建起一套可视化的监控大屏。\n今天我就把这套我用了两年、改了无数个版本的“保姆级”方案分享给你。\n一、 为什么选 Prometheus？别被“推”和“拉”绕晕了\r在讲怎么做之前，得先解决一个认知误区。很多运维新人还在纠结 Zabbix 和 Prometheus 谁更好。\n我曾在一个拥有50台服务器的项目中强推 Zabbix，结果光是配置 Agent 主动推送和复杂的模板，就耗费了我整整一周。后来切换到 Prometheus，才发现它的Pull（拉取）模式有多香。\n简单来说，Prometheus 就像一个勤劳的“查表员”，每隔几秒钟去各个服务（Exporter）那里抄一次水表（数据），然后存起来。这带来两个巨大的好处：\n服务解耦：被监控的服务不需要知道监控中心在哪里，只管暴露接口就行。 极简部署：只要网络通，配一行 IP 就能抓数据。 实操建议：对于刚起步的团队，不要搞复杂的二进制安装，Docker 是唯一的真理。\n下面这份 docker-compose.yml 是我目前生产环境在用的精简版，直接复制就能跑：\nversion: &#39;3.8&#39; services: # 监控核心：Prometheus prometheus: image: prom/prometheus:latest container_name: prometheus volumes: - ./prometheus.yml:/etc/prometheus/prometheus.yml ports: - &#34;9090:9090&#34; restart: always # 数据展示：Grafana grafana: image: grafana/grafana:latest container_name: grafana ports: - &#34;3000:3000&#34; volumes: - grafana-storage:/var/lib/grafana restart: always # 采集本机数据：Node Exporter node-exporter: image: prom/node-exporter:latest container_name: node-exporter ports: - &#34;9100:9100&#34; restart: always volumes: grafana-storage: 把这个文件保存，并在同级目录下创建一个基础的 prometheus.yml 配置文件：\n">
+    </head>
+    <body class="
+    article-page
+    ">
+    <script>
+        (function() {
+            const colorSchemeKey = 'StackColorScheme';
+            if(!localStorage.getItem(colorSchemeKey)){
+                localStorage.setItem(colorSchemeKey, "auto");
+            }
+        })();
+    </script><script>
+    (function() {
+        const colorSchemeKey = 'StackColorScheme';
+        const colorSchemeItem = localStorage.getItem(colorSchemeKey);
+        const supportDarkMode = window.matchMedia('(prefers-color-scheme: dark)').matches === true;
+
+        if (colorSchemeItem == 'dark' || colorSchemeItem === 'auto' && supportDarkMode) {
+            
+
+            document.documentElement.dataset.scheme = 'dark';
+        } else {
+            document.documentElement.dataset.scheme = 'light';
+        }
+    })();
+</script>
+<div class="container main-container flex on-phone--column compact"><aside class="sidebar left-sidebar sticky ">
+    <button class="hamburger hamburger--spin" type="button" id="toggle-menu" aria-label="切换菜单">
+        <span class="hamburger-box">
+            <span class="hamburger-inner"></span>
+        </span>
+    </button>
+
+    <header>
+        
+            
+            <figure class="site-avatar">
+                <a href="/">
+                
+                    
+                    
+                    
+                        
+                        <img src="/img/avatar_hu_8588ce14af1147e2.png" width="300"
+                            height="286" class="site-logo" loading="lazy" alt="Avatar">
+                    
+                
+                </a>
+                
+            </figure>
+            
+        
+        
+        <div class="site-meta">
+            <h1 class="site-name"><a href="/">SelfTechHub</a></h1>
+            <h2 class="site-description"></h2>
+        </div>
+    </header><ol class="menu" id="main-menu">
+        
+        
+        <li class="menu-bottom-section">
+            <ol class="menu">
+
+                
+                    <li id="dark-mode-toggle">
+                        <svg xmlns="http://www.w3.org/2000/svg" class="icon icon-tabler icon-tabler-toggle-left" width="24" height="24" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor" fill="none" stroke-linecap="round" stroke-linejoin="round">
+  <path stroke="none" d="M0 0h24v24H0z"/>
+  <circle cx="8" cy="12" r="2" />
+  <rect x="2" y="6" width="20" height="12" rx="6" />
+</svg>
+
+
+
+                        <svg xmlns="http://www.w3.org/2000/svg" class="icon icon-tabler icon-tabler-toggle-right" width="24" height="24" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor" fill="none" stroke-linecap="round" stroke-linejoin="round">
+  <path stroke="none" d="M0 0h24v24H0z"/>
+  <circle cx="16" cy="12" r="2" />
+  <rect x="2" y="6" width="20" height="12" rx="6" />
+</svg>
+
+
+
+                        <span>暗色模式</span>
+                    </li>
+                
+            </ol>
+        </li>
+    </ol>
+</aside>
+
+    
+
+            <main class="main full-width">
+    <article class="main-article">
+    <header class="article-header">
+
+    <div class="article-details">
+    
+    <header class="article-category">
+        
+            <a href="/categories/%E6%8A%80%E6%9C%AF.html" >
+                技术精进
+            </a>
+        
+    </header>
+    
+
+    <div class="article-title-wrapper">
+        <h2 class="article-title">
+            <a href="/tech/devopsjichugongjurumenyushicao/prometheus-plus-grafana-jiankongxitongdajian.html">0成本搭建监控：别让服务器在凌晨3点叫醒你</a>
+        </h2>
+    
+        
+    </div>
+
+    
+    
+    
+    
+    <footer class="article-time">
+        
+            <div>
+                <svg xmlns="http://www.w3.org/2000/svg" class="icon icon-tabler icon-tabler-calendar-time" width="56" height="56" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor" fill="none" stroke-linecap="round" stroke-linejoin="round">
+  <path stroke="none" d="M0 0h24v24H0z"/>
+  <path d="M11.795 21h-6.795a2 2 0 0 1 -2 -2v-12a2 2 0 0 1 2 -2h12a2 2 0 0 1 2 2v4" />
+  <circle cx="18" cy="18" r="4" />
+  <path d="M15 3v4" />
+  <path d="M7 3v4" />
+  <path d="M3 11h16" />
+  <path d="M18 16.496v1.504l1 1" />
+</svg>
+                <time class="article-time--published" datetime='2023-04-26T00:00:00Z'>Apr 26, 2023</time>
+            </div>
+        
+
+        
+            <div>
+                <svg xmlns="http://www.w3.org/2000/svg" class="icon icon-tabler icon-tabler-clock" width="24" height="24" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor" fill="none" stroke-linecap="round" stroke-linejoin="round">
+  <path stroke="none" d="M0 0h24v24H0z"/>
+  <circle cx="12" cy="12" r="9" />
+  <polyline points="12 7 12 12 15 15" />
+</svg>
+
+
+
+                <time class="article-time--reading">
+                    阅读时长: 2 分钟
+                </time>
+            </div>
+        
+    </footer>
+    
+
+    
+</div>
+
+</header>
+
+    <section class="article-content">
+    
+    
+    <p>你有没有过这样的经历：接到老板电话问“为什么网站打不开了”，你却还在一脸懵地回答“我看看”？或者，系统突然变慢，你只能靠 <code>top</code> 命令盯着跳动的数字，凭感觉猜测是数据库锁了还是内存漏了？</p>
+<p><img src="https://picsum.photos/800/450?random=1768387875303"
+	
+	
+	
+	loading="lazy"
+	
+		alt="配图"
+	
+	
+></p>
+<p>我曾经也是这样。直到三年前的一个凌晨3点，我们的支付服务因为磁盘写满而挂机，而我是在客户投诉两小时后才被电话轰炸醒的。那天之后，我意识到：<strong>没有监控的系统，就像在高速公路上闭眼开车。</strong></p>
+<p>很多人觉得搭建监控系统很重、很贵、很复杂。其实，对于中小团队或个人开发者，用 Prometheus + Grafana 这一套“黄金搭档”，15分钟就能搭建起一套可视化的监控大屏。</p>
+<p>今天我就把这套我用了两年、改了无数个版本的“保姆级”方案分享给你。</p>
+<h2 id="一-为什么选-prometheus别被推和拉绕晕了">一、 为什么选 Prometheus？别被“推”和“拉”绕晕了
+</h2><p>在讲怎么做之前，得先解决一个认知误区。很多运维新人还在纠结 Zabbix 和 Prometheus 谁更好。</p>
+<p>我曾在一个拥有50台服务器的项目中强推 Zabbix，结果光是配置 Agent 主动推送和复杂的模板，就耗费了我整整一周。后来切换到 Prometheus，才发现它的<strong>Pull（拉取）模式</strong>有多香。</p>
+<p>简单来说，Prometheus 就像一个勤劳的“查表员”，每隔几秒钟去各个服务（Exporter）那里抄一次水表（数据），然后存起来。这带来两个巨大的好处：</p>
+<ol>
+<li><strong>服务解耦</strong>：被监控的服务不需要知道监控中心在哪里，只管暴露接口就行。</li>
+<li><strong>极简部署</strong>：只要网络通，配一行 IP 就能抓数据。</li>
+</ol>
+<p><strong>实操建议</strong>：对于刚起步的团队，不要搞复杂的二进制安装，<strong>Docker 是唯一的真理</strong>。</p>
+<p>下面这份 <code>docker-compose.yml</code> 是我目前生产环境在用的精简版，直接复制就能跑：</p>
+<div class="highlight"><pre tabindex="0" style="color:#f8f8f2;background-color:#272822;-moz-tab-size:4;-o-tab-size:4;tab-size:4;"><code class="language-yaml" data-lang="yaml"><span style="display:flex;"><span><span style="color:#f92672">version</span>: <span style="color:#e6db74">&#39;3.8&#39;</span>
+</span></span><span style="display:flex;"><span>
+</span></span><span style="display:flex;"><span><span style="color:#f92672">services</span>:
+</span></span><span style="display:flex;"><span>  <span style="color:#75715e"># 监控核心：Prometheus</span>
+</span></span><span style="display:flex;"><span>  <span style="color:#f92672">prometheus</span>:
+</span></span><span style="display:flex;"><span>    <span style="color:#f92672">image</span>: <span style="color:#ae81ff">prom/prometheus:latest</span>
+</span></span><span style="display:flex;"><span>    <span style="color:#f92672">container_name</span>: <span style="color:#ae81ff">prometheus</span>
+</span></span><span style="display:flex;"><span>    <span style="color:#f92672">volumes</span>:
+</span></span><span style="display:flex;"><span>      - <span style="color:#ae81ff">./prometheus.yml:/etc/prometheus/prometheus.yml</span>
+</span></span><span style="display:flex;"><span>    <span style="color:#f92672">ports</span>:
+</span></span><span style="display:flex;"><span>      - <span style="color:#e6db74">&#34;9090:9090&#34;</span>
+</span></span><span style="display:flex;"><span>    <span style="color:#f92672">restart</span>: <span style="color:#ae81ff">always</span>
+</span></span><span style="display:flex;"><span>
+</span></span><span style="display:flex;"><span>  <span style="color:#75715e"># 数据展示：Grafana</span>
+</span></span><span style="display:flex;"><span>  <span style="color:#f92672">grafana</span>:
+</span></span><span style="display:flex;"><span>    <span style="color:#f92672">image</span>: <span style="color:#ae81ff">grafana/grafana:latest</span>
+</span></span><span style="display:flex;"><span>    <span style="color:#f92672">container_name</span>: <span style="color:#ae81ff">grafana</span>
+</span></span><span style="display:flex;"><span>    <span style="color:#f92672">ports</span>:
+</span></span><span style="display:flex;"><span>      - <span style="color:#e6db74">&#34;3000:3000&#34;</span>
+</span></span><span style="display:flex;"><span>    <span style="color:#f92672">volumes</span>:
+</span></span><span style="display:flex;"><span>      - <span style="color:#ae81ff">grafana-storage:/var/lib/grafana</span>
+</span></span><span style="display:flex;"><span>    <span style="color:#f92672">restart</span>: <span style="color:#ae81ff">always</span>
+</span></span><span style="display:flex;"><span>
+</span></span><span style="display:flex;"><span>  <span style="color:#75715e"># 采集本机数据：Node Exporter</span>
+</span></span><span style="display:flex;"><span>  <span style="color:#f92672">node-exporter</span>:
+</span></span><span style="display:flex;"><span>    <span style="color:#f92672">image</span>: <span style="color:#ae81ff">prom/node-exporter:latest</span>
+</span></span><span style="display:flex;"><span>    <span style="color:#f92672">container_name</span>: <span style="color:#ae81ff">node-exporter</span>
+</span></span><span style="display:flex;"><span>    <span style="color:#f92672">ports</span>:
+</span></span><span style="display:flex;"><span>      - <span style="color:#e6db74">&#34;9100:9100&#34;</span>
+</span></span><span style="display:flex;"><span>    <span style="color:#f92672">restart</span>: <span style="color:#ae81ff">always</span>
+</span></span><span style="display:flex;"><span>
+</span></span><span style="display:flex;"><span><span style="color:#f92672">volumes</span>:
+</span></span><span style="display:flex;"><span>  <span style="color:#f92672">grafana-storage</span>:
+</span></span></code></pre></div><p>把这个文件保存，并在同级目录下创建一个基础的 <code>prometheus.yml</code> 配置文件：</p>
+<div class="highlight"><pre tabindex="0" style="color:#f8f8f2;background-color:#272822;-moz-tab-size:4;-o-tab-size:4;tab-size:4;"><code class="language-yaml" data-lang="yaml"><span style="display:flex;"><span><span style="color:#f92672">global</span>:
+</span></span><span style="display:flex;"><span>  <span style="color:#f92672">scrape_interval</span>: <span style="color:#ae81ff">15s</span> <span style="color:#75715e"># 每15秒抄一次表</span>
+</span></span><span style="display:flex;"><span>
+</span></span><span style="display:flex;"><span><span style="color:#f92672">scrape_configs</span>:
+</span></span><span style="display:flex;"><span>  - <span style="color:#f92672">job_name</span>: <span style="color:#e6db74">&#39;my-server&#39;</span>
+</span></span><span style="display:flex;"><span>    <span style="color:#f92672">static_configs</span>:
+</span></span><span style="display:flex;"><span>      - <span style="color:#f92672">targets</span>: [<span style="color:#e6db74">&#39;node-exporter:9100&#39;</span>] <span style="color:#75715e"># 告诉它去哪里抄表</span>
+</span></span></code></pre></div><p>在终端敲下 <code>docker-compose up -d</code>，你的监控系统就已经活了。</p>
+<h2 id="二-数据采集让服务器开口说话">二、 数据采集：让服务器“开口说话”
+</h2><p>系统跑起来了，但现在的 Prometheus 还是个瞎子。我们需要给服务器装上“传感器”，也就是 <strong>Exporter</strong>。</p>
+<p>还记得我上面配置里的 <code>node-exporter</code> 吗？它就是负责采集服务器基础指标（CPU、内存、磁盘、网络）的传感器。</p>
+<p><strong>真实案例</strong>：
+上个月，我们的测试环境每到下午4点就卡顿。开发说是网络问题，运维说是代码问题。</p>
+<p>我打开 Prometheus 的数据面板，发现 <code>node_memory_MemAvailable_bytes</code> 指标在每天下午3点55分呈断崖式下跌。结合时间点，我们发现是一个定时跑批任务把内存吃光了。</p>
+<p>如果没有这个数据支撑，我们可能还在无休止的“甩锅”会议中。</p>
+<blockquote>
+<p>这里的核心逻辑是：<strong>不要猜，看数据。</strong></p>
+</blockquote>
+<p><img src="https://picsum.photos/800/450?random=1768387872874"
+	
+	
+	
+	loading="lazy"
+	
+		alt="配图"
+	
+	
+></p>
+<p>除了基础的 Node Exporter，你还需要关注你的业务组件：</p>
+<ul>
+<li><strong>数据库</strong>：用 <code>mysqld_exporter</code> 监控慢查询、连接数。</li>
+<li><strong>容器</strong>：用 <code>cAdvisor</code> 监控 Docker 容器的资源使用。</li>
+<li><strong>应用</strong>：如果是 Spring Boot，直接开启 Actuator；如果是 Go，用官方 SDK 埋点。</li>
+</ul>
+<p><strong>思考题</strong>：你现在的系统里，有没有哪个核心指标是完全黑盒的？如果它现在挂了，你多久能发现？</p>
+<h2 id="三-颜值即正义用-grafana-讲故事">三、 颜值即正义：用 Grafana 讲故事
+</h2><p>Prometheus 自带的界面非常简陋，简直是“程序员审美”的巅峰。这时候 Grafana 就登场了。</p>
+<p>Grafana 的强大之处不在于它能画图，而在于它的<strong>社区生态</strong>。你根本不需要自己从零开始设计图表。</p>
+<p>我刚开始用 Grafana 时，花了一整天时间去研究怎么写 PromQL（查询语言）来画一个 CPU 使用率的饼图，结果丑得没法看。后来我发现了 <strong>Dashboard ID</strong> 这个神器。</p>
+<p><strong>实操步骤</strong>：</p>
+<ol>
+<li>登录 Grafana (默认账号密码都是 admin)。</li>
+<li>点击左侧菜单 <code>Dashboards</code> -&gt; <code>Import</code>。</li>
+<li>输入 ID <strong>1860</strong>（这是一个经典的 Linux 主机监控模板，备受好评）。</li>
+<li>点击 Load，选择你的 Prometheus 数据源。</li>
+</ol>
+<p>瞬间，一个包含 CPU 负载、内存水位、磁盘 IO、网络流量的专业大屏就呈现在你面前。</p>
+<p><strong>避坑指南</strong>：
+不要迷恋那种“看起来很酷炫但没啥用”的3D图表。
+我曾经为了在大屏上展示一个旋转的地球模型浪费了大量资源，结果排查故障时，最有用还是那几条简单的折线图。<strong>监控是为了发现问题，不是为了做科幻电影特效。</strong></p>
+<p>每逢周五下午发版前，我都会习惯性地把 Grafana 的时间范围调成 <code>Last 1 hour</code>，盯着那个错误率的红线。只要它不动，我就能安心过周末。</p>
+<h2 id="四-告警配置狼来了的故事别重演">四、 告警配置：狼来了的故事别重演
+</h2><p>最后，也是最重要的一环：<strong>告警</strong>。</p>
+<p>监控大屏做得再好看，你也无法24小时盯着它。你需要 Prometheus 在出问题时主动通知你。但这里有一个巨大的坑——<strong>告警风暴</strong>。</p>
+<p>我见过一个团队的运维群，每天几百条告警信息：“CPU 使用率超过 80%”、“内存使用率超过 70%”。刚开始大家还紧张一下，后来发现大部分都是短暂的波动，根本不需要处理。</p>
+<p>结果有一天，数据库真的挂了，告警混在那几百条垃圾信息里，没人看见。</p>
+<p><strong>我的血泪经验总结出三条原则</strong>：</p>
+<ol>
+<li><strong>少即是多</strong>：只告警需要<strong>立刻介入</strong>的问题。磁盘快满了？告警。CPU 飙高但服务没挂？记录日志就行，别发短信。</li>
+<li><strong>分级处理</strong>：把告警分为 P0（宕机，打电话）、P1（性能下降，发钉钉/企业微信）、P2（资源预测，发邮件）。</li>
+<li><strong>附带上下文</strong>：告警信息里别只发“CPU 高”，要带上“当前值 95%，持续时间 5分钟，涉及主机 xxx”。</li>
+</ol>
+<p>配置告警并不难，Prometheus 配合 <code>Alertmanager</code> 可以轻松实现对接钉钉、飞书或 Slack 机器人。</p>
+<div class="highlight"><pre tabindex="0" style="color:#f8f8f2;background-color:#272822;-moz-tab-size:4;-o-tab-size:4;tab-size:4;"><code class="language-yaml" data-lang="yaml"><span style="display:flex;"><span><span style="color:#75715e"># 一个简单的告警规则示例</span>
+</span></span><span style="display:flex;"><span><span style="color:#f92672">groups</span>:
+</span></span><span style="display:flex;"><span>- <span style="color:#f92672">name</span>: <span style="color:#ae81ff">host-monitor</span>
+</span></span><span style="display:flex;"><span>  <span style="color:#f92672">rules</span>:
+</span></span><span style="display:flex;"><span>  - <span style="color:#f92672">alert</span>: <span style="color:#ae81ff">HostDown</span>
+</span></span><span style="display:flex;"><span>    <span style="color:#f92672">expr</span>: <span style="color:#ae81ff">up == 0</span>
+</span></span><span style="display:flex;"><span>    <span style="color:#f92672">for</span>: <span style="color:#ae81ff">1m</span> <span style="color:#75715e"># 只有挂了超过1分钟才叫，防止网络抖动误报</span>
+</span></span><span style="display:flex;"><span>    <span style="color:#f92672">labels</span>:
+</span></span><span style="display:flex;"><span>      <span style="color:#f92672">severity</span>: <span style="color:#ae81ff">critical</span>
+</span></span><span style="display:flex;"><span>    <span style="color:#f92672">annotations</span>:
+</span></span><span style="display:flex;"><span>      <span style="color:#f92672">summary</span>: <span style="color:#e6db74">&#34;服务器  挂了！&#34;</span>
+</span></span></code></pre></div><h2 id="写在最后">写在最后
+</h2><p>搭建一套监控系统，技术上真的不难，难的是<strong>从被动救火到主动预防的思维转变</strong>。</p>
+<p>当你看着 Grafana 面板上那条平稳的绿色曲线，或者在用户投诉前就收到了磁盘预警并处理完毕时，那种掌控感会让你觉得，所有的折腾都是值得的。</p>
+<p><strong>现在，给自己定个小目标：</strong></p>
+<ol>
+<li>本周内，找一台测试服务器，用 Docker 跑起 Prometheus 和 Grafana。</li>
+<li>导入 ID 为 1860 的模板，看看你的服务器到底在忙什么。</li>
+<li>设置一条最简单的规则：当机器关机时，给你的飞书/钉钉发一条“救命”。</li>
+</ol>
+<p>别等到服务器再次在凌晨叫醒你，才后悔没有早点迈出这一步。</p>
+
+</section>
+
+
+    <footer class="article-footer">
+    
+    <section class="article-tags">
+        
+            <a href="/tags/Prometheus-&#43;-Grafana-%E7%9B%91%E6%8E%A7%E7%B3%BB%E7%BB%9F%E6%90%AD%E5%BB%BA.html">Prometheus &#43; Grafana 监控系统搭建</a>
+        
+    </section>
+
+
+    </footer>
+
+
+    
+</article>
+
+    
+
+    
+
+     
+    
+        
+    <script
+    src="https://giscus.app/client.js"
+    data-repo="pastor17/bloggiscus"
+    data-repo-id="R_kgDOQ6H9qQ"
+    data-category=""
+    data-category-id="DIC_kwDOQ6H9qc4C0-T8"
+    data-mapping="pathname"
+    data-strict="0"
+    data-reactions-enabled="1"
+    data-emit-metadata="0"
+    data-input-position="bottom"
+    data-theme="light"
+    data-lang="zh-CN"
+    data-loading="lazy"
+    crossorigin="anonymous"
+    async
+></script>
+<script>
+    function setGiscusTheme(theme) {
+        let giscus = document.querySelector("iframe.giscus-frame");
+        if (giscus) {
+            giscus.contentWindow.postMessage(
+                {
+                    giscus: {
+                        setConfig: {
+                            theme: theme,
+                        },
+                    },
+                },
+                "https://giscus.app"
+            );
+        }
+    }
+
+    (function () {
+        addEventListener("message", (e) => {
+            if (event.origin !== "https://giscus.app") return;
+            handler();
+        });
+        window.addEventListener("onColorSchemeChange", handler);
+
+        function handler() {
+            if (document.documentElement.dataset.scheme === "light") {
+                setGiscusTheme('light');
+            } else {
+                setGiscusTheme('dark_dimmed');
+            }
+        }
+    })();
+</script>
+
+    
+
+    <footer class="site-footer">
+    <section class="copyright">
+        &copy; 
+        
+        2026 SelfTechHub
+    </section>
+    
+    <section class="powerby">
+        
+
+    </section>
+</footer>
+
+
+    
+<div class="pswp" tabindex="-1" role="dialog" aria-hidden="true">
+
+    
+    <div class="pswp__bg"></div>
+
+    
+    <div class="pswp__scroll-wrap">
+
+        
+        <div class="pswp__container">
+            <div class="pswp__item"></div>
+            <div class="pswp__item"></div>
+            <div class="pswp__item"></div>
+        </div>
+
+        
+        <div class="pswp__ui pswp__ui--hidden">
+
+            <div class="pswp__top-bar">
+
+                
+
+                <div class="pswp__counter"></div>
+
+                <button class="pswp__button pswp__button--close" title="Close (Esc)"></button>
+
+                <button class="pswp__button pswp__button--share" title="Share"></button>
+
+                <button class="pswp__button pswp__button--fs" title="Toggle fullscreen"></button>
+
+                <button class="pswp__button pswp__button--zoom" title="Zoom in/out"></button>
+
+                
+                
+                <div class="pswp__preloader">
+                    <div class="pswp__preloader__icn">
+                        <div class="pswp__preloader__cut">
+                            <div class="pswp__preloader__donut"></div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <div class="pswp__share-modal pswp__share-modal--hidden pswp__single-tap">
+                <div class="pswp__share-tooltip"></div>
+            </div>
+
+            <button class="pswp__button pswp__button--arrow--left" title="Previous (arrow left)">
+            </button>
+
+            <button class="pswp__button pswp__button--arrow--right" title="Next (arrow right)">
+            </button>
+
+            <div class="pswp__caption">
+                <div class="pswp__caption__center"></div>
+            </div>
+
+        </div>
+
+    </div>
+
+</div><script 
+                src="https://cdn.jsdelivr.net/npm/photoswipe@4.1.3/dist/photoswipe.min.js"integrity="sha256-ePwmChbbvXbsO02lbM3HoHbSHTHFAeChekF1xKJdleo="crossorigin="anonymous"
+                defer
+                >
+            </script><script 
+                src="https://cdn.jsdelivr.net/npm/photoswipe@4.1.3/dist/photoswipe-ui-default.min.js"integrity="sha256-UKkzOn/w1mBxRmLLGrSeyB4e1xbrp4xylgAWb3M42pU="crossorigin="anonymous"
+                defer
+                >
+            </script><link 
+                rel="stylesheet" 
+                href="https://cdn.jsdelivr.net/npm/photoswipe@4.1.3/dist/default-skin/default-skin.min.css"crossorigin="anonymous"
+            ><link 
+                rel="stylesheet" 
+                href="https://cdn.jsdelivr.net/npm/photoswipe@4.1.3/dist/photoswipe.min.css"crossorigin="anonymous"
+            >
+    
+
+            </main>
+        </div>
+        <script 
+                src="https://cdn.jsdelivr.net/npm/node-vibrant@3.1.6/dist/vibrant.min.js"integrity="sha256-awcR2jno4kI5X0zL8ex0vi2z&#43;KMkF24hUW8WePSA9HM="crossorigin="anonymous"
+                
+                >
+            </script><script type="text/javascript" src="/ts/main.c922af694cc257bf1ecc41c0dd7b0430f9114ec280ccf67cd2c6ad55f5316c4e.js" defer></script>
+<script>
+    (function () {
+        const customFont = document.createElement('link');
+        customFont.href = "https://fonts.googleapis.com/css2?family=Lato:wght@300;400;700&display=swap";
+
+        customFont.type = "text/css";
+        customFont.rel = "stylesheet";
+
+        document.head.appendChild(customFont);
+    }());
+</script>
+
+    </body>
+</html>

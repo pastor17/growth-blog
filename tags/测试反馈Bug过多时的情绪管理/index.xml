@@ -1,0 +1,138 @@
+<?xml version="1.0" encoding="utf-8" standalone="yes"?>
+<rss version="2.0" xmlns:atom="http://www.w3.org/2005/Atom">
+    <channel>
+        <title>测试反馈Bug过多时的情绪管理 on SelfTechHub</title>
+        <link>https://blog.irudder.me/tags/%E6%B5%8B%E8%AF%95%E5%8F%8D%E9%A6%88Bug%E8%BF%87%E5%A4%9A%E6%97%B6%E7%9A%84%E6%83%85%E7%BB%AA%E7%AE%A1%E7%90%86.html</link>
+        <description>Recent content in 测试反馈Bug过多时的情绪管理 on SelfTechHub</description>
+        <generator>Hugo -- gohugo.io</generator>
+        <language>zh-cn</language>
+        <lastBuildDate>Mon, 06 Nov 2023 00:00:00 +0000</lastBuildDate><atom:link href="https://blog.irudder.me/tags/%E6%B5%8B%E8%AF%95%E5%8F%8D%E9%A6%88Bug%E8%BF%87%E5%A4%9A%E6%97%B6%E7%9A%84%E6%83%85%E7%BB%AA%E7%AE%A1%E7%90%86/index.xml" rel="self" type="application/rss+xml" /><item>
+        <title>测试提了50个Bug后，我如何从崩溃到准点下班？</title>
+        <link>https://blog.irudder.me/tech/kuabumenxiezuogaopinwentijiejueqingdan/ceshifankuibugguoduoshideqingxuguanli.html</link>
+        <pubDate>Mon, 06 Nov 2023 00:00:00 +0000</pubDate>
+        
+        <guid>https://blog.irudder.me/tech/kuabumenxiezuogaopinwentijiejueqingdan/ceshifankuibugguoduoshideqingxuguanli.html</guid>
+        <description>&lt;p&gt;以前每次项目提测阶段，尤其是周五下午，我听到钉钉或者飞书那声清脆的提示音，心里都会“咯噔”一下。&lt;/p&gt;
+&lt;p&gt;如果是连着响十几声，看着Jira或者TAPD上那红彤彤的一片“Bug列表”，我第一反应不是“怎么修”，而是生理性的反胃和愤怒。脑子里瞬间弹幕刷屏：&lt;/p&gt;
+&lt;ul&gt;
+&lt;li&gt;“这测试是不是针对我？”&lt;/li&gt;
+&lt;li&gt;“这明明是产品设计逻辑漏洞，凭什么算我Bug？”&lt;/li&gt;
+&lt;li&gt;“本地明明没问题，肯定是环境没配好。”&lt;/li&gt;
+&lt;/ul&gt;
+&lt;p&gt;我曾经因为一次提测反馈了30+个Bug，在工位上直接红温，跟测试同学吵了半小时，结果不仅Bug没修完，整个周末都在焦虑中度过。&lt;/p&gt;
+&lt;p&gt;&lt;img src=&#34;https://picsum.photos/800/450?random=1768531289551&#34;
+	
+	
+	
+	loading=&#34;lazy&#34;
+	
+		alt=&#34;配图&#34;
+	
+	
+&gt;&lt;/p&gt;
+&lt;p&gt;直到后来我带了新人，经历了上百个版本的迭代，我才发现：&lt;strong&gt;让我们崩溃的从来不是Bug本身，而是那一瞬间失控的“对抗情绪”和“无序感”。&lt;/strong&gt;&lt;/p&gt;
+&lt;p&gt;今天想跟大家聊聊，作为一个技术人或产品经理，面对满屏Bug反馈时，怎么让情绪“软着陆”，甚至还能把这变成一次漂亮的职场协作。&lt;/p&gt;
+&lt;h2 id=&#34;01-哪怕是低级错误也别急着自证清白&#34;&gt;01. 哪怕是“低级错误”，也别急着自证清白
+&lt;/h2&gt;&lt;p&gt;刚入行时，我最大的雷区就是听到测试说“这个功能跑不通”。我的DNA会立刻动起来，脱口而出：“不可能，我本地是好的。”&lt;/p&gt;
+&lt;p&gt;这种下意识的&lt;strong&gt;自我防御机制&lt;/strong&gt;，是沟通最大的杀手。&lt;/p&gt;
+&lt;p&gt;&lt;strong&gt;真实案例：&lt;/strong&gt;
+两年前做电商大促项目，测试阿明在群里艾特我：“购物车结算金额不对，少算了一分钱，P0级Bug。”&lt;/p&gt;
+&lt;p&gt;当时已经是晚上9点，我即使疲惫也瞬间炸毛：“用的BigDecimal，怎么可能丢精度？你是不是优惠券配错了？”我们在群里来回拉扯了十几轮，截图满天飞，气氛降至冰点。&lt;/p&gt;
+&lt;p&gt;&lt;strong&gt;反转时刻：&lt;/strong&gt;
+后来我强行让自己冷静下来，不再回复群消息，而是默默拉取了测试环境的日志。五分钟后，我发现确实是某个极其冷门的组合场景下，我的舍入逻辑有一行代码写反了。&lt;/p&gt;
+&lt;p&gt;那一刻，羞愧感比愤怒更难受。&lt;/p&gt;
+&lt;p&gt;&lt;strong&gt;我的避坑指南：&lt;/strong&gt;
+现在，当测试甩过来一堆Bug，尤其是那种看起来很“弱智”的报错时，我会强迫自己执行**“黄金3分钟”**原则：&lt;/p&gt;
+&lt;ol&gt;
+&lt;li&gt;&lt;strong&gt;闭嘴：&lt;/strong&gt; 不回复任何带有情绪的反问句（如“怎么可能？”“你确定？”）。&lt;/li&gt;
+&lt;li&gt;&lt;strong&gt;复现：&lt;/strong&gt; 默默在自己的环境按对方的步骤走一遍。&lt;/li&gt;
+&lt;li&gt;&lt;strong&gt;认领：&lt;/strong&gt; 如果是Bug，直接回“收到，我看下”。&lt;/li&gt;
+&lt;/ol&gt;
+&lt;blockquote&gt;
+&lt;p&gt;记住一句话：代码是你的作品，但不是你的人格。Bug多不代表你能力差，只代表这个系统的复杂度超过了单脑处理的极限。&lt;/p&gt;
+&lt;/blockquote&gt;
+&lt;h2 id=&#34;02-给bug做急诊分诊而不是全盘接收&#34;&gt;02. 给Bug做“急诊分诊”，而不是全盘接收
+&lt;/h2&gt;&lt;p&gt;很多新人的焦虑来源于“数量”。看到50个Bug，觉得天塌了，今晚不用睡了。&lt;/p&gt;
+&lt;p&gt;但实际上，&lt;strong&gt;Bug是有权重的，情绪也需要分配权重。&lt;/strong&gt;&lt;/p&gt;
+&lt;p&gt;&lt;strong&gt;真实案例：&lt;/strong&gt;
+有次接手一个烂尾项目，提测第一天反馈了48个Bug。我看了一眼列表，血压飙升。但我没急着修，而是拉着产品经理老张和测试开了个15分钟的“分诊会”。&lt;/p&gt;
+&lt;p&gt;我们对着列表一个个过：&lt;/p&gt;
+&lt;ul&gt;
+&lt;li&gt;“这个按钮颜色偏浅” —— &lt;strong&gt;P3&lt;/strong&gt;（即使不改也不影响上线，延后）。&lt;/li&gt;
+&lt;li&gt;“登录偶尔超时” —— &lt;strong&gt;P0&lt;/strong&gt;（必须修，哪怕通宵）。&lt;/li&gt;
+&lt;li&gt;“提示文案有错别字” —— &lt;strong&gt;P2&lt;/strong&gt;（顺手修，修不好也不致命）。&lt;/li&gt;
+&lt;/ul&gt;
+&lt;p&gt;&lt;strong&gt;结果惊人：&lt;/strong&gt;
+48个Bug里，真正如果不修完就不能上线的核心问题，只有5个。剩下的43个，我们商定其中20个留到下一版本优化，23个次要问题这周内慢慢改。&lt;/p&gt;
+&lt;p&gt;原本以为要通宵的“灾难现场”，最后我们在当晚8点就搞定了那5个核心Bug，准时下班。&lt;/p&gt;
+&lt;p&gt;&lt;strong&gt;实操方法：&lt;/strong&gt;
+不要被数字吓倒。当你面对一堆反馈时，试着建立一个“Bug分诊台”。你可以把这套标准发给你的PM和QA：&lt;/p&gt;
+&lt;div class=&#34;highlight&#34;&gt;&lt;pre tabindex=&#34;0&#34; style=&#34;color:#f8f8f2;background-color:#272822;-moz-tab-size:4;-o-tab-size:4;tab-size:4;&#34;&gt;&lt;code class=&#34;language-markdown&#34; data-lang=&#34;markdown&#34;&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;&lt;span style=&#34;color:#75715e&#34;&gt;### Bug 紧急度分类标准（建议收藏）
+&lt;/span&gt;&lt;/span&gt;&lt;/span&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;&lt;span style=&#34;color:#75715e&#34;&gt;&lt;/span&gt;
+&lt;/span&gt;&lt;/span&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;&lt;span style=&#34;color:#66d9ef&#34;&gt;-&lt;/span&gt; **P0（致命伤）：** 流程走不通、甚至崩溃、资损风险。
+&lt;/span&gt;&lt;/span&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;&lt;span style=&#34;color:#66d9ef&#34;&gt;  &amp;gt; &lt;/span&gt;&lt;span style=&#34;font-style:italic&#34;&gt;动作：立刻放下手头所有事，优先修复。
+&lt;/span&gt;&lt;/span&gt;&lt;/span&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;&lt;span style=&#34;font-style:italic&#34;&gt;&lt;/span&gt;
+&lt;/span&gt;&lt;/span&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;&lt;span style=&#34;color:#66d9ef&#34;&gt;-&lt;/span&gt; **P1（重伤）：** 核心功能有缺陷，但有绕过方案。
+&lt;/span&gt;&lt;/span&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;&lt;span style=&#34;color:#66d9ef&#34;&gt;  &amp;gt; &lt;/span&gt;&lt;span style=&#34;font-style:italic&#34;&gt;动作：上线前必须修复。
+&lt;/span&gt;&lt;/span&gt;&lt;/span&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;&lt;span style=&#34;font-style:italic&#34;&gt;&lt;/span&gt;
+&lt;/span&gt;&lt;/span&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;&lt;span style=&#34;color:#66d9ef&#34;&gt;-&lt;/span&gt; **P2（轻伤）：** UI细节、文案错误、极低频场景。
+&lt;/span&gt;&lt;/span&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;&lt;span style=&#34;color:#66d9ef&#34;&gt;  &amp;gt; &lt;/span&gt;&lt;span style=&#34;font-style:italic&#34;&gt;动作：有时间就修，没时间协商由于“排期原因”延后（Won&amp;#39;t Fix / Defer）。
+&lt;/span&gt;&lt;/span&gt;&lt;/span&gt;&lt;/code&gt;&lt;/pre&gt;&lt;/div&gt;&lt;p&gt;把精力花在刀刃上，你的焦虑感会瞬间减少80%。&lt;/p&gt;
+&lt;h2 id=&#34;03-哪怕修不完也要让进度可见&#34;&gt;03. 哪怕修不完，也要让进度“可见”
+&lt;/h2&gt;&lt;p&gt;有时候，Bug确实多且难，真的修不完。这时候最怕的是&lt;strong&gt;沉默&lt;/strong&gt;。&lt;/p&gt;
+&lt;p&gt;作为技术人员，我们容易陷入一种“死磕模式”：我想把它彻底修好再说话。但在产品经理和业务方眼里，你的沉默=失控=项目要延期=我要背锅。&lt;/p&gt;
+&lt;p&gt;&lt;strong&gt;我的个人习惯：&lt;/strong&gt;
+这招我用了两年，效果极好。&lt;/p&gt;
+&lt;p&gt;不管情况多糟，每天下班前（或者压力大的时候每隔4小时），我会主动发一个**“进度同步”**。这不仅是给别人看的，也是给自己的一种心理暗示：&lt;strong&gt;我在掌控局面。&lt;/strong&gt;&lt;/p&gt;
+&lt;p&gt;我通常会用这种格式：&lt;/p&gt;
+&lt;p&gt;&lt;img src=&#34;https://picsum.photos/800/450?random=1768531290599&#34;
+	
+	
+	
+	loading=&#34;lazy&#34;
+	
+		alt=&#34;配图&#34;
+	
+	
+&gt;&lt;/p&gt;
+&lt;blockquote&gt;
+&lt;p&gt;&lt;strong&gt;【修复进度同步】&lt;/strong&gt; 2023-10-27 18:00&lt;/p&gt;
+&lt;ul&gt;
+&lt;li&gt;&lt;strong&gt;当前剩余Bug：&lt;/strong&gt; 12个（今日已修 8个）&lt;/li&gt;
+&lt;li&gt;&lt;strong&gt;风险点：&lt;/strong&gt; 订单模块的死锁问题比较复杂，正在排查。&lt;/li&gt;
+&lt;li&gt;&lt;strong&gt;需要支持：&lt;/strong&gt; 需要产品确认一下，这个弹窗逻辑是否可以简化？&lt;/li&gt;
+&lt;li&gt;&lt;strong&gt;预计：&lt;/strong&gt; 今晚搞定核心流程，剩下的UI问题明天上午处理。&lt;/li&gt;
+&lt;/ul&gt;
+&lt;/blockquote&gt;
+&lt;p&gt;&lt;strong&gt;为什么这能缓解焦虑？&lt;/strong&gt;
+这把“由于我能力不足导致Bug修不完”的内疚感，转化为了“这是一个复杂的工程问题，我们正在协作解决”的团队任务。&lt;/p&gt;
+&lt;p&gt;当你主动暴露风险，PM会帮你挡住业务方的催促，测试会帮你精简验证流程。&lt;strong&gt;你不再是一个人在战斗。&lt;/strong&gt;&lt;/p&gt;
+&lt;h2 id=&#34;写在最后&#34;&gt;写在最后
+&lt;/h2&gt;&lt;p&gt;技术圈有句话说得好：“没有不出Bug的代码，只有心态崩了的程序员。”&lt;/p&gt;
+&lt;p&gt;当你下次再看到Jira上那一长串红色的Issue时，试着深呼吸，去倒杯水，戴上降噪耳机，告诉自己：&lt;strong&gt;这是工作的一部分，不是对我个人的审判。&lt;/strong&gt;&lt;/p&gt;
+&lt;p&gt;我们要做的是解决问题，而不是被问题解决。&lt;/p&gt;
+&lt;p&gt;&lt;img src=&#34;https://picsum.photos/800/450?random=1768531287449&#34;
+	
+	
+	
+	loading=&#34;lazy&#34;
+	
+		alt=&#34;配图&#34;
+	
+	
+&gt;&lt;/p&gt;
+&lt;p&gt;&lt;strong&gt;想听听大家的故事：&lt;/strong&gt;
+你在项目中遇到过最崩溃的“Bug爆发”时刻是什么时候？当时你是怎么熬过来的？
+欢迎在评论区分享你的“回血”小妙招，说不定能帮到正在焦虑的同行。&lt;/p&gt;
+&lt;hr&gt;
+&lt;p&gt;&lt;strong&gt;送给大家3个马上能用的行动清单：&lt;/strong&gt;&lt;/p&gt;
+&lt;ol&gt;
+&lt;li&gt;&lt;strong&gt;物理降温：&lt;/strong&gt; 收到大量负面反馈时，离开工位5分钟，不要立刻回复消息。&lt;/li&gt;
+&lt;li&gt;&lt;strong&gt;分类谈判：&lt;/strong&gt; 哪怕只有10个Bug，也要拉上PM区分优先级，不要照单全收。&lt;/li&gt;
+&lt;li&gt;&lt;strong&gt;主动报备：&lt;/strong&gt; 每天下班前发一段简短的进度文字，哪怕只有三行字，也能极大降低团队的焦虑。&lt;/li&gt;
+&lt;/ol&gt;
+</description>
+        </item>
+        
+    </channel>
+</rss>

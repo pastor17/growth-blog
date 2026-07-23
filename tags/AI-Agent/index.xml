@@ -1,0 +1,159 @@
+<?xml version="1.0" encoding="utf-8" standalone="yes"?>
+<rss version="2.0" xmlns:atom="http://www.w3.org/2005/Atom">
+    <channel>
+        <title>AI Agent on SelfTechHub</title>
+        <link>https://blog.irudder.me/tags/AI-Agent.html</link>
+        <description>Recent content in AI Agent on SelfTechHub</description>
+        <generator>Hugo -- gohugo.io</generator>
+        <language>zh-cn</language>
+        <lastBuildDate>Tue, 16 Jun 2026 00:00:00 +0000</lastBuildDate><atom:link href="https://blog.irudder.me/tags/AI-Agent/index.xml" rel="self" type="application/rss+xml" /><item>
+        <title>第10章：从 Prompt 到 Agent——AI 能力跃迁的分水岭</title>
+        <link>https://blog.irudder.me/ai/knowledge-series/10-From-Prompt-to-Agent.html</link>
+        <pubDate>Tue, 16 Jun 2026 00:00:00 +0000</pubDate>
+        
+        <guid>https://blog.irudder.me/ai/knowledge-series/10-From-Prompt-to-Agent.html</guid>
+        <description>&lt;h1 id=&#34;第10章从-prompt-到-agentai-能力跃迁的分水岭&#34;&gt;第10章：从 Prompt 到 Agent——AI 能力跃迁的分水岭
+&lt;/h1&gt;&lt;blockquote&gt;
+&lt;p&gt;系列导读：本章是 Agent 模块的开篇。建议先看第1-5章建立 LLM 和工具调用的基础认知，再进入 Agent 的学习。&lt;/p&gt;
+&lt;/blockquote&gt;
+&lt;hr&gt;
+&lt;h2 id=&#34;一为什么说-prompt-和-agent-之间有一道鸿沟&#34;&gt;一、为什么说 Prompt 和 Agent 之间有一道鸿沟？
+&lt;/h2&gt;&lt;p&gt;&lt;strong&gt;Prompt 时代&lt;/strong&gt;：你给模型一个指令，模型给你一个回答。对话结束。&lt;/p&gt;
+&lt;p&gt;&lt;strong&gt;Agent 时代&lt;/strong&gt;：你给模型一个目标，模型决定需要什么信息，去搜索、执行、验证，最终给你一个完整的解决方案。&lt;/p&gt;
+&lt;p&gt;这个分水岭就是：&lt;strong&gt;自主性（Autonomy）&lt;/strong&gt;。&lt;/p&gt;
+&lt;table&gt;
+  &lt;thead&gt;
+      &lt;tr&gt;
+          &lt;th&gt;能力&lt;/th&gt;
+          &lt;th&gt;Prompt&lt;/th&gt;
+          &lt;th&gt;Agent&lt;/th&gt;
+      &lt;/tr&gt;
+  &lt;/thead&gt;
+  &lt;tbody&gt;
+      &lt;tr&gt;
+          &lt;td&gt;理解任务&lt;/td&gt;
+          &lt;td&gt;被动接收指令&lt;/td&gt;
+          &lt;td&gt;主动解析目标&lt;/td&gt;
+      &lt;/tr&gt;
+      &lt;tr&gt;
+          &lt;td&gt;工具调用&lt;/td&gt;
+          &lt;td&gt;没有&lt;/td&gt;
+          &lt;td&gt;自主决定用什么工具&lt;/td&gt;
+      &lt;/tr&gt;
+      &lt;tr&gt;
+          &lt;td&gt;多步执行&lt;/td&gt;
+          &lt;td&gt;没有&lt;/td&gt;
+          &lt;td&gt;可执行多步操作链&lt;/td&gt;
+      &lt;/tr&gt;
+      &lt;tr&gt;
+          &lt;td&gt;状态保持&lt;/td&gt;
+          &lt;td&gt;无（每次独立）&lt;/td&gt;
+          &lt;td&gt;有（记忆系统）&lt;/td&gt;
+      &lt;/tr&gt;
+      &lt;tr&gt;
+          &lt;td&gt;结果验证&lt;/td&gt;
+          &lt;td&gt;没有&lt;/td&gt;
+          &lt;td&gt;自检查/自修正&lt;/td&gt;
+      &lt;/tr&gt;
+      &lt;tr&gt;
+          &lt;td&gt;闭环能力&lt;/td&gt;
+          &lt;td&gt;开环（输出即结束）&lt;/td&gt;
+          &lt;td&gt;闭环（输出→行动→反馈→再决策）&lt;/td&gt;
+      &lt;/tr&gt;
+  &lt;/tbody&gt;
+&lt;/table&gt;
+&lt;h2 id=&#34;二理解-agent不是加了工具的-llm&#34;&gt;二、理解 Agent：不是「加了工具的 LLM」
+&lt;/h2&gt;&lt;p&gt;最常被误解的概念：Agent 不是&amp;quot;给 LLM 加了几个 Function Calling&amp;quot;。&lt;/p&gt;
+&lt;p&gt;真正的 Agent 有三个核心特征：&lt;/p&gt;
+&lt;h3 id=&#34;1-自主决策&#34;&gt;1. 自主决策
+&lt;/h3&gt;&lt;p&gt;模型自己判断「下一步该做什么」，不是人类在每个节点发指令。&lt;/p&gt;
+&lt;h3 id=&#34;2-行动-感知-调整闭环&#34;&gt;2. 行动-感知-调整闭环
+&lt;/h3&gt;&lt;p&gt;模型执行一个行动（如搜索），收到结果，然后根据结果调整下一步的计划。&lt;/p&gt;
+&lt;h3 id=&#34;3-状态管理&#34;&gt;3. 状态管理
+&lt;/h3&gt;&lt;p&gt;在多步执行过程中，模型知道自己之前做了什么、当前进展到哪一步。这不是简单的对话历史，而是&lt;strong&gt;结构化的任务状态&lt;/strong&gt;。&lt;/p&gt;
+&lt;h2 id=&#34;三agent-与三个易混淆概念的区别&#34;&gt;三、Agent 与三个易混淆概念的区别
+&lt;/h2&gt;&lt;h3 id=&#34;tools最小的能力积木&#34;&gt;Tools：最小的能力积木
+&lt;/h3&gt;&lt;ul&gt;
+&lt;li&gt;一个封装好的可调用函数&lt;/li&gt;
+&lt;li&gt;只负责执行，自己不做任何决策&lt;/li&gt;
+&lt;li&gt;如：搜索 API、发邮件 API、查询数据库&lt;/li&gt;
+&lt;/ul&gt;
+&lt;h3 id=&#34;agent完整的决策系统&#34;&gt;Agent：完整的决策系统
+&lt;/h3&gt;&lt;ul&gt;
+&lt;li&gt;内部用 LLM 做大脑&lt;/li&gt;
+&lt;li&gt;自己判断「要不要调工具」「调哪个工具」「什么时候结束&amp;quot;&lt;/li&gt;
+&lt;li&gt;是主动的执行者&lt;/li&gt;
+&lt;/ul&gt;
+&lt;h3 id=&#34;workflow确定性流程编排&#34;&gt;Workflow：确定性流程编排
+&lt;/h3&gt;&lt;ul&gt;
+&lt;li&gt;开发者事先写好所有节点和流转逻辑&lt;/li&gt;
+&lt;li&gt;什么时候调什么工具、走什么分支，都是代码写死的&lt;/li&gt;
+&lt;li&gt;LLM 只负责某个节点的执行，不负责流程决策&lt;/li&gt;
+&lt;/ul&gt;
+&lt;p&gt;&lt;strong&gt;核心区分维度：谁来做&amp;quot;下一步该干什么&amp;quot;这个决策？&lt;/strong&gt;&lt;/p&gt;
+&lt;ul&gt;
+&lt;li&gt;Tools：不做决策，只执行&lt;/li&gt;
+&lt;li&gt;Agent：自己决策&lt;/li&gt;
+&lt;li&gt;Workflow：开发者替所有节点决策&lt;/li&gt;
+&lt;/ul&gt;
+&lt;h2 id=&#34;四为什么说-agent-是-llm-进化的必然&#34;&gt;四、为什么说 Agent 是 LLM 进化的必然？
+&lt;/h2&gt;&lt;p&gt;你问 LLM：&amp;ldquo;帮我规划一个去三亚旅游的7天行程。&amp;rdquo;&lt;/p&gt;
+&lt;p&gt;&lt;strong&gt;如果没有工具&lt;/strong&gt;：LLM 只能根据训练数据给出建议，信息可能已经过时，也无法查实时机票和酒店价格。&lt;/p&gt;
+&lt;p&gt;&lt;strong&gt;有了工具但没 Agent&lt;/strong&gt;：你可以手动把多个工具的调用写好，串成一个流程。但问题是：不同的输入可能需要不同的流程。&lt;/p&gt;
+&lt;p&gt;&lt;strong&gt;有了 Agent&lt;/strong&gt;：把目标交给它，它自己决定要不要查天气、查酒店、查景点，把所有信息汇总后再出方案，而且每个步骤都会有实时数据。&lt;/p&gt;
+&lt;p&gt;Agent 让 LLM 从一个「有知识的回答者」变成了一个「能行动的智能体」。&lt;/p&gt;
+&lt;h2 id=&#34;五agent-基础工作模式&#34;&gt;五、Agent 基础工作模式
+&lt;/h2&gt;&lt;p&gt;最基础的 Agent 循环：&lt;/p&gt;
+&lt;pre tabindex=&#34;0&#34;&gt;&lt;code&gt;            ┌───────────────────┐
+            │   用户输入目标     │
+            └─────────┬─────────┘
+                      ↓
+     ┌─────────────────────────────────┐
+     │  LLM 分析目标，判断需要什么信息   │
+     └─────────────────┬───────────────┘
+                       ↓
+     ┌─────────────────────────────────┐
+     │  LLM 决定调用哪个工具，输出参数   │
+     └─────────────────┬───────────────┘
+                       ↓
+     ┌─────────────────────────────────┐
+     │  代码执行工具，获取结果          │
+     └─────────────────┬───────────────┘
+                       ↓
+     ┌─────────────────────────────────┐
+     │  结果反馈给 LLM                  │
+     └─────────────────┬───────────────┘
+                       ↓
+     ┌─────────────────────────────────┐
+     │  LLM 判断是否完成任务：           │
+     │  → 未完成，继续循环              │
+     │  → 完成，输出最终答案            │
+     └─────────────────────────────────┘
+&lt;/code&gt;&lt;/pre&gt;&lt;p&gt;这个循环跑几次（迭代次数取决于任务复杂度），最后输出综合答案。&lt;/p&gt;
+&lt;h2 id=&#34;六从-prompt-到-agent-的思维转变&#34;&gt;六、从 Prompt 到 Agent 的思维转变
+&lt;/h2&gt;&lt;p&gt;作为开发者，你需要从「写 prompt 让模型回答」转变为「设计一个系统让模型自主决策」。&lt;/p&gt;
+&lt;p&gt;核心设计要素：&lt;/p&gt;
+&lt;ol&gt;
+&lt;li&gt;&lt;strong&gt;System Prompt&lt;/strong&gt;：给模型设定 &amp;ldquo;你是谁、你能做什么、你的工具是什么&amp;rdquo;&lt;/li&gt;
+&lt;li&gt;&lt;strong&gt;Tool Schema&lt;/strong&gt;：精确定义工具的使用方式&lt;/li&gt;
+&lt;li&gt;&lt;strong&gt;Memory 设计&lt;/strong&gt;：管理中间状态和历史 context&lt;/li&gt;
+&lt;li&gt;&lt;strong&gt;终止条件&lt;/strong&gt;：什么时候算完成了？&lt;/li&gt;
+&lt;li&gt;&lt;strong&gt;错误处理&lt;/strong&gt;：工具调用失败怎么办？模型决策跑偏怎么办？&lt;/li&gt;
+&lt;/ol&gt;
+&lt;h2 id=&#34;七本章小结&#34;&gt;七、本章小结
+&lt;/h2&gt;&lt;ul&gt;
+&lt;li&gt;Agent 的质变在于&amp;quot;自主决策&amp;quot;和&amp;quot;行动-感知-调整闭环&amp;quot;&lt;/li&gt;
+&lt;li&gt;Tools、Agent、Workflow 是三层不同粒度的概念，不是替代关系&lt;/li&gt;
+&lt;li&gt;Agent 让 LLM 从&amp;quot;回答者&amp;quot;升级为&amp;quot;行动者&amp;quot;&lt;/li&gt;
+&lt;li&gt;开发 Agent 需要设计思维转变：从&amp;quot;写 prompt&amp;quot;到&amp;quot;设计自主系统&amp;quot;&lt;/li&gt;
+&lt;/ul&gt;
+&lt;h2 id=&#34;思考题&#34;&gt;思考题
+&lt;/h2&gt;&lt;ol&gt;
+&lt;li&gt;一个天气预报查询任务，用纯 prompt、用 workflow、用 agent，三种方案各有什么优劣？&lt;/li&gt;
+&lt;li&gt;Agent 的&amp;quot;自主决策&amp;quot;在哪些场景下是优势，在哪些场景下是风险？如何平衡自主性和可控性？&lt;/li&gt;
+&lt;/ol&gt;
+</description>
+        </item>
+        
+    </channel>
+</rss>

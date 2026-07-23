@@ -1,0 +1,101 @@
+<?xml version="1.0" encoding="utf-8" standalone="yes"?>
+<rss version="2.0" xmlns:atom="http://www.w3.org/2005/Atom">
+    <channel>
+        <title>项目风险评估：提前识别潜在问题 on SelfTechHub</title>
+        <link>https://blog.irudder.me/tags/%E9%A1%B9%E7%9B%AE%E9%A3%8E%E9%99%A9%E8%AF%84%E4%BC%B0%E6%8F%90%E5%89%8D%E8%AF%86%E5%88%AB%E6%BD%9C%E5%9C%A8%E9%97%AE%E9%A2%98.html</link>
+        <description>Recent content in 项目风险评估：提前识别潜在问题 on SelfTechHub</description>
+        <generator>Hugo -- gohugo.io</generator>
+        <language>zh-cn</language>
+        <lastBuildDate>Sat, 02 Dec 2023 00:00:00 +0000</lastBuildDate><atom:link href="https://blog.irudder.me/tags/%E9%A1%B9%E7%9B%AE%E9%A3%8E%E9%99%A9%E8%AF%84%E4%BC%B0%E6%8F%90%E5%89%8D%E8%AF%86%E5%88%AB%E6%BD%9C%E5%9C%A8%E9%97%AE%E9%A2%98/index.xml" rel="self" type="application/rss+xml" /><item>
+        <title>项目延期只会加班？这3个「隐形地雷」你必须提前排掉</title>
+        <link>https://blog.irudder.me/tech/danxiangmuquanliuchengchaijie10fenzhongkedu/xiangmufengxianpinggu_tiqianshibieqianzaiwenti.html</link>
+        <pubDate>Sat, 02 Dec 2023 00:00:00 +0000</pubDate>
+        
+        <guid>https://blog.irudder.me/tech/danxiangmuquanliuchengchaijie10fenzhongkedu/xiangmufengxianpinggu_tiqianshibieqianzaiwenti.html</guid>
+        <description>&lt;p&gt;你有没有过这种经历：周五下午4点，本来准备开心提交代码过周末，结果测试突然甩来一个致命Bug，或者PM突然说“老板觉得这个流程要改一下”。&lt;/p&gt;
+&lt;p&gt;那一刻，你的血压是不是飙升？&lt;/p&gt;
+&lt;p&gt;我做技术管理这几年，最大的感悟不是技术有多难，而是**“意外”往往来自于我们以为“没问题”的地方**。很多团队把风险评估当作走过场，填填表格完事。但我必须说，&lt;strong&gt;真正的风控不是写在文档里的，而是刻在脑子里的条件反射。&lt;/strong&gt;&lt;/p&gt;
+&lt;p&gt;当你觉得“这个功能很简单，两天就能搞定”的时候，风险其实已经悄悄站在你身后了。&lt;/p&gt;
+&lt;p&gt;今天不谈虚的理论，我结合过去带项目的“血泪史”，聊聊在中小团队里，那三个最容易被忽视、杀伤力最大的隐形地雷，以及我是怎么把它们挖出来的。&lt;/p&gt;
+&lt;hr&gt;
+&lt;h2 id=&#34;一-技术盲区别信文档信拽光弹&#34;&gt;一、 技术盲区：别信文档，信“拽光弹”
+&lt;/h2&gt;&lt;p&gt;很多开发兄弟（包括当年的我）都有个坏习惯：做需求评估时，如果是没用过的第三方库或者API，扫一眼官方文档，觉得“人家写支持就是支持”，然后自信满满地给出了工期。&lt;/p&gt;
+&lt;p&gt;&lt;strong&gt;这种“默认信任”，是项目延期的头号杀手。&lt;/strong&gt;&lt;/p&gt;
+&lt;blockquote&gt;
+&lt;p&gt;“文档上写的是返回JSON，结果上线前一晚发现它返回的是XML，甚至有时候是HTML报错页面。” —— 这是一个真实发生在2021年某电商项目中的惨案。&lt;/p&gt;
+&lt;/blockquote&gt;
+&lt;p&gt;当时我们接了一个海外支付渠道。文档写得漂亮极了，SDK看着也完善。负责对接的兄弟小张评估说：“一天搞定”。结果等到联调时才发现，对方的沙箱环境和生产环境签名算法不一样！而且他们的技术支持有时差，邮件回得比蜗牛还慢。&lt;/p&gt;
+&lt;p&gt;原本预留的一天变成了五天，整个项目上线被迫推迟一周。&lt;/p&gt;
+&lt;p&gt;&lt;strong&gt;怎么办？我的解法是：拽光弹（Tracer Bullets）。&lt;/strong&gt;&lt;/p&gt;
+&lt;p&gt;这个概念源自《程序员修炼之道》，但我做了一些实操上的改良。&lt;/p&gt;
+&lt;p&gt;在项目启动的第一周，甚至在写任何业务逻辑之前，我会要求团队先写一段“能跑通全流程”的最简代码。这段代码不处理任何业务细节，只为了打通最不确定的那个环节。&lt;/p&gt;
+&lt;p&gt;比如对接支付，不要等业务逻辑写完了再接。&lt;strong&gt;第一天就写一段代码，真的去调一下对方的生产环境接口（哪怕是一笔0.01元的真实交易）。&lt;/strong&gt;&lt;/p&gt;
+&lt;p&gt;&lt;strong&gt;实操建议：&lt;/strong&gt;
+不要相信“原理上可行”。把所有你不熟悉的技术点（新中间件、第三方API、老旧的祖传代码模块）列出来，在Sprint的第一天就安排“技术探针”任务。&lt;/p&gt;
+&lt;p&gt;如果探针任务失败，马上报警，重新调整排期。这时候改计划，老板能接受；上线前一晚改计划，你只能背锅。&lt;/p&gt;
+&lt;hr&gt;
+&lt;h2 id=&#34;二-需求蔓延警惕那些顺手改一下&#34;&gt;二、 需求蔓延：警惕那些“顺手改一下”
+&lt;/h2&gt;&lt;p&gt;在中小团队，流程往往不如大厂规范。PM或老板经常会走到你工位旁，拍拍你肩膀：“嘿，这个按钮能不能顺便加个排序功能？很简单的。”&lt;/p&gt;
+&lt;p&gt;这时候，如果你回答“行，没问题”，你就踩中了第二颗雷。&lt;/p&gt;
+&lt;p&gt;有个叫阿豪的后端兄弟，就因为这一句“行”，通宵了两个晚上。当时PM让他“顺手”加个按照用户最后登录时间排序的功能。阿豪心想，SQL里加个&lt;code&gt;ORDER BY&lt;/code&gt;不就完事了吗？&lt;/p&gt;
+&lt;p&gt;结果呢？那是张千万级的日志表，而且&lt;code&gt;last_login_time&lt;/code&gt;字段没有索引。这一加排序，数据库直接CPU 100%报警，查询接口从200ms变成了5秒超时。为了解决这个问题，他不得不做数据迁移、加索引、改缓存策略。&lt;/p&gt;
+&lt;p&gt;这哪里是“顺手”，这是“顺便重构”。&lt;/p&gt;
+&lt;p&gt;&lt;strong&gt;我的应对策略是：贴上“价格标签”。&lt;/strong&gt;&lt;/p&gt;
+&lt;p&gt;我们要做的不是无情拒绝，而是&lt;strong&gt;把隐形成本显性化&lt;/strong&gt;。&lt;/p&gt;
+&lt;p&gt;我现在有个习惯，不管谁来提“小需求”，我都会打开IDE或者画图工具，快速过一遍为了实现这个需求，我需要动哪些文件，改哪些表。&lt;/p&gt;
+&lt;p&gt;然后我会告诉对方：&lt;/p&gt;
+&lt;blockquote&gt;
+&lt;p&gt;“加这个排序是可以的。但是，因为数据量大，我需要做索引优化和全量数据清洗。如果你坚持要加，原本周五上线的版本得推迟到下周二。你看是砍掉这个功能保上线，还是接受延期？”&lt;/p&gt;
+&lt;/blockquote&gt;
+&lt;p&gt;这时候，选择权就回到了PM或老板手里。&lt;strong&gt;你会发现，当需求被标上昂贵的“时间价格”后，80%的“顺手改一下”都会被他们自己砍掉。&lt;/strong&gt;&lt;/p&gt;
+&lt;hr&gt;
+&lt;h2 id=&#34;三-人员单点谁是那个不可替代的英雄&#34;&gt;三、 人员单点：谁是那个不可替代的“英雄”？
+&lt;/h2&gt;&lt;p&gt;这是中小团队最致命的问题。每个团队似乎都有一个“技术大拿”或者“老员工”，他对系统的某个核心模块（通常是那坨最烂的祖传代码）了如指掌。&lt;/p&gt;
+&lt;p&gt;大家都觉得有他在很安心。&lt;strong&gt;大错特错，这是巨大的风险。&lt;/strong&gt;&lt;/p&gt;
+&lt;p&gt;2022年冬天，我们要上线一个核心版本，正好赶上流感爆发。那个最懂核心交易逻辑的主管高烧请假了一周。那周正好出了个线上死锁问题，剩下的三个中级开发面面相觑，谁都不敢动那段代码，因为连注释都没有。&lt;/p&gt;
+&lt;p&gt;结果就是，业务停摆了4个小时，直到那个主管在病床上远程指导才解决。&lt;/p&gt;
+&lt;p&gt;如果你发现团队里有人是“不可替代”的，那你就要警惕了。&lt;/p&gt;
+&lt;p&gt;&lt;img src=&#34;https://picsum.photos/800/450?random=1768449786946&#34;
+	
+	
+	
+	loading=&#34;lazy&#34;
+	
+		alt=&#34;配图&#34;
+	
+	
+&gt;&lt;/p&gt;
+&lt;p&gt;&lt;strong&gt;我用了两年这个方法：代码审查轮盘赌（Code Review Roulette）。&lt;/strong&gt;&lt;/p&gt;
+&lt;p&gt;&lt;img src=&#34;https://picsum.photos/800/450?random=1768449788291&#34;
+	
+	
+	
+	loading=&#34;lazy&#34;
+	
+		alt=&#34;配图&#34;
+	
+	
+&gt;&lt;/p&gt;
+&lt;p&gt;不要让固定的人Review固定的模块。我强制要求：&lt;strong&gt;最复杂的模块，必须让团队里最资历浅或者最不熟悉这块业务的人来Review。&lt;/strong&gt;&lt;/p&gt;
+&lt;p&gt;为什么？&lt;/p&gt;
+&lt;ol&gt;
+&lt;li&gt;如果新人看不懂，说明代码可读性差，或者文档缺失。这时候必须逼着“老鸟”把逻辑讲清楚，补上文档。&lt;/li&gt;
+&lt;li&gt;强迫知识流动。通过Review，新人被迫了解了核心逻辑。&lt;/li&gt;
+&lt;/ol&gt;
+&lt;p&gt;此外，我还会定期搞**“反向宣讲”**。让新人给老人讲系统的某个模块是怎么跑的，讲错了当场纠正。&lt;/p&gt;
+&lt;hr&gt;
+&lt;h2 id=&#34;你的行动指南&#34;&gt;你的行动指南
+&lt;/h2&gt;&lt;p&gt;读到这里，不妨停下来思考一下：&lt;strong&gt;如果明天你的团队核心成员离职，或者你用的核心第三方服务挂了，你的项目能撑多久？&lt;/strong&gt;&lt;/p&gt;
+&lt;p&gt;风险评估不是为了吓唬自己，而是为了让自己掌握主动权。&lt;/p&gt;
+&lt;p&gt;最后，给你三个明天回公司就能落地的具体建议：&lt;/p&gt;
+&lt;ol&gt;
+&lt;li&gt;&lt;strong&gt;启动“预验尸”会议（Pre-Mortem）：&lt;/strong&gt; 在项目启动会上，留出15分钟，问所有人一个问题：“假设现在是项目上线日，项目彻底失败了，大家觉得最可能的原因是什么？”把你听到的答案记下来，那就是你必须重点关注的风险清单。&lt;/li&gt;
+&lt;li&gt;&lt;strong&gt;建立“技术探针”机制：&lt;/strong&gt; 任何没用过的技术，别只看文档，本周内写出一段能跑通核心流程的脏代码（Spike Code）。&lt;/li&gt;
+&lt;li&gt;&lt;strong&gt;学会“带价谈判”：&lt;/strong&gt; 面对新增需求，别急着答应，先算出它的时间成本，把选择题抛回给需求方。&lt;/li&gt;
+&lt;/ol&gt;
+&lt;p&gt;项目管理说到底，就是&lt;strong&gt;管理不确定性&lt;/strong&gt;。既然我们改变不了意外的发生，那就提前把它从黑暗里拽出来，放在阳光下暴晒。&lt;/p&gt;
+</description>
+        </item>
+        
+    </channel>
+</rss>

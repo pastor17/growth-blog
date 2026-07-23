@@ -1,0 +1,178 @@
+<?xml version="1.0" encoding="utf-8" standalone="yes"?>
+<rss version="2.0" xmlns:atom="http://www.w3.org/2005/Atom">
+    <channel>
+        <title>知识沉淀：DevOps文档的极简模板 on SelfTechHub</title>
+        <link>https://blog.irudder.me/tags/%E7%9F%A5%E8%AF%86%E6%B2%89%E6%B7%80DevOps%E6%96%87%E6%A1%A3%E7%9A%84%E6%9E%81%E7%AE%80%E6%A8%A1%E6%9D%BF.html</link>
+        <description>Recent content in 知识沉淀：DevOps文档的极简模板 on SelfTechHub</description>
+        <generator>Hugo -- gohugo.io</generator>
+        <language>zh-cn</language>
+        <lastBuildDate>Wed, 06 Dec 2023 00:00:00 +0000</lastBuildDate><atom:link href="https://blog.irudder.me/tags/%E7%9F%A5%E8%AF%86%E6%B2%89%E6%B7%80DevOps%E6%96%87%E6%A1%A3%E7%9A%84%E6%9E%81%E7%AE%80%E6%A8%A1%E6%9D%BF/index.xml" rel="self" type="application/rss+xml" /><item>
+        <title>不做无效Wiki！这张DevOps极简模板，救了我的发际线</title>
+        <link>https://blog.irudder.me/tech/zhongxiaoxingtuanduidevopsluodifangan/zhishichendian_devopswendangdejijianmuban.html</link>
+        <pubDate>Wed, 06 Dec 2023 00:00:00 +0000</pubDate>
+        
+        <guid>https://blog.irudder.me/tech/zhongxiaoxingtuanduidevopsluodifangan/zhishichendian_devopswendangdejijianmuban.html</guid>
+        <description>&lt;p&gt;记得五年前刚升任技术负责人的时候，我陷入过一种疯狂的&amp;quot;文档焦虑&amp;quot;。&lt;/p&gt;
+&lt;p&gt;那时我坚信：&lt;strong&gt;团队混乱是因为文档不够多&lt;/strong&gt;。于是我逼着大家在Confluence上疯狂输出，架构图、流程图、详细到每个参数的部署手册……结果呢？新人入职第一周，对着那堆半年前更新的Wiki发呆，最后还是小心翼翼地跑来拍我肩膀：&amp;ldquo;哥，这个IP好像ping不通了。&amp;rdquo;&lt;/p&gt;
+&lt;p&gt;那一刻我才意识到，&lt;strong&gt;对于没有专职运维的中小团队，过期的&amp;quot;厚文档&amp;quot;比没有文档更可怕。它是一种虚假的安全感。&lt;/strong&gt;&lt;/p&gt;
+&lt;p&gt;这两年，我带着现在的团队把几十页的Wiki砍成了几个Markdown文件，反而事故率降了，新人上手快了。今天想和大家聊聊，如何用&amp;quot;极简主义&amp;quot;做DevOps知识沉淀，文末我会分享那个救了我发际线的通用模板。&lt;/p&gt;
+&lt;p&gt;&lt;img src=&#34;https://picsum.photos/800/450?random=1768442532007&#34;
+	
+	
+	
+	loading=&#34;lazy&#34;
+	
+		alt=&#34;配图&#34;
+	
+	
+&gt;&lt;/p&gt;
+&lt;h2 id=&#34;一-别做说明书要做检查清单&#34;&gt;一、 别做&amp;quot;说明书&amp;quot;，要做&amp;quot;检查清单&amp;quot;
+&lt;/h2&gt;&lt;p&gt;很多团队的部署文档写得像论文，从Linux内核参数讲到业务逻辑。但实际上，在半夜两点服务挂掉的时候，运维或者替补上场的开发人员根本不想看&amp;quot;为什么&amp;quot;，只想知道&amp;quot;怎么做&amp;quot;。&lt;/p&gt;
+&lt;p&gt;&lt;strong&gt;真实案例：&lt;/strong&gt;
+2021年双十一前夕，我们团队的小李负责紧急扩容。当时的文档里写了大段关于Nginx负载均衡原理的描述，关键的配置路径却夹杂在一段废话里。结果小李看岔了行，改错了配置文件，导致服务502了整整10分钟。&lt;/p&gt;
+&lt;p&gt;事后复盘，我们并没有责怪小李，而是反思了文档结构。&lt;/p&gt;
+&lt;p&gt;&lt;strong&gt;改进方法：&lt;/strong&gt;
+我们引入了航空业的&lt;strong&gt;Checklist（检查清单）&lt;/strong&gt; 理念。&lt;/p&gt;
+&lt;p&gt;在我们的代码仓库根目录下，必须有一个 &lt;code&gt;OPS_README.md&lt;/code&gt;。这个文件里不允许出现大段文字，只能有步骤。&lt;/p&gt;
+&lt;p&gt;&lt;img src=&#34;https://picsum.photos/800/450?random=1768442528433&#34;
+	
+	
+	
+	loading=&#34;lazy&#34;
+	
+		alt=&#34;配图&#34;
+	
+	
+&gt;&lt;/p&gt;
+&lt;blockquote&gt;
+&lt;p&gt;比如，不要写：&amp;ldquo;我们需要确保数据库连接正常，可以通过检查配置文件&amp;hellip;&amp;rdquo;&lt;/p&gt;
+&lt;p&gt;要写成：&lt;/p&gt;
+&lt;ul&gt;
+&lt;li&gt;&lt;input disabled=&#34;&#34; type=&#34;checkbox&#34;&gt; &lt;code&gt;cat /etc/config/db.json&lt;/code&gt; 确认 host 为 &lt;code&gt;192.168.1.10&lt;/code&gt;&lt;/li&gt;
+&lt;li&gt;&lt;input disabled=&#34;&#34; type=&#34;checkbox&#34;&gt; 执行 &lt;code&gt;npm run db:check&lt;/code&gt; 返回 &lt;code&gt;Success&lt;/code&gt;&lt;/li&gt;
+&lt;/ul&gt;
+&lt;/blockquote&gt;
+&lt;p&gt;这种傻瓜式的清单，能让一个完全不懂这块业务的实习生，在紧张环境下也能按部就班地完成操作。&lt;/p&gt;
+&lt;h2 id=&#34;二-只有代码库里的文档才是鲜活的&#34;&gt;二、 只有代码库里的文档，才是鲜活的
+&lt;/h2&gt;&lt;p&gt;不知道大家有没有这种经历：Wiki在Confluence上，代码在GitLab里，部署脚本在Jenkins里。三处分离，维护成本极高。&lt;/p&gt;
+&lt;p&gt;&lt;strong&gt;我的惨痛教训：&lt;/strong&gt;
+我曾经维护过一个支付服务，代码里的环境变量名改了，但Wiki没更新。结果两个月后，一位同事按照Wiki配置新环境，怎么跑都报错，查了一下午才发现是文档&amp;quot;骗&amp;quot;了他。&lt;/p&gt;
+&lt;p&gt;&lt;strong&gt;落地建议：Docs as Code（文档即代码）&lt;/strong&gt;&lt;/p&gt;
+&lt;p&gt;现在，我强制要求所有运维相关的文档，&lt;strong&gt;必须随代码提交&lt;/strong&gt;。&lt;/p&gt;
+&lt;p&gt;这意味着：&lt;/p&gt;
+&lt;ol&gt;
+&lt;li&gt;文档就是Markdown文件，放在代码仓库的 &lt;code&gt;/docs&lt;/code&gt; 或者根目录下。&lt;/li&gt;
+&lt;li&gt;代码改动如果涉及环境变更，必须在同一个Merge Request里修改文档。&lt;/li&gt;
+&lt;li&gt;&lt;strong&gt;文档不更新，代码不让合并。&lt;/strong&gt;&lt;/li&gt;
+&lt;/ol&gt;
+&lt;p&gt;这样做最大的好处是，你查看任何一个历史版本的代码时，都能看到&lt;strong&gt;当时那个版本&lt;/strong&gt;对应的正确文档，这对于回滚操作简直是救命稻草。&lt;/p&gt;
+&lt;h2 id=&#34;三-极简模板中小团队的救命三页纸&#34;&gt;三、 极简模板：中小团队的&amp;quot;救命三页纸&amp;quot;
+&lt;/h2&gt;&lt;p&gt;经过多次迭代，我总结出了一套适配中小团队（5-50人规模）的极简DevOps文档模板。你可以直接复制到你的项目中。&lt;/p&gt;
+&lt;p&gt;这套模板的核心逻辑是：&lt;strong&gt;假设操作者只有大专水平的Linux基础，且处于极度疲劳状态。&lt;/strong&gt;&lt;/p&gt;
+&lt;h3 id=&#34;模板文件deploymd-或-ops_manualmd&#34;&gt;模板文件：&lt;code&gt;DEPLOY.md&lt;/code&gt; 或 &lt;code&gt;OPS_MANUAL.md&lt;/code&gt;
+&lt;/h3&gt;&lt;div class=&#34;highlight&#34;&gt;&lt;pre tabindex=&#34;0&#34; style=&#34;color:#f8f8f2;background-color:#272822;-moz-tab-size:4;-o-tab-size:4;tab-size:4;&#34;&gt;&lt;code class=&#34;language-markdown&#34; data-lang=&#34;markdown&#34;&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;# [项目名称] 运维极简手册
+&lt;/span&gt;&lt;/span&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;&lt;span style=&#34;color:#66d9ef&#34;&gt;
+&lt;/span&gt;&lt;/span&gt;&lt;/span&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;&lt;span style=&#34;color:#66d9ef&#34;&gt;&amp;gt; &lt;/span&gt;&lt;span style=&#34;font-style:italic&#34;&gt;最后更新时间：2023-10-27 (随代码自动变动)
+&lt;/span&gt;&lt;/span&gt;&lt;/span&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;&lt;span style=&#34;font-style:italic&#34;&gt;&lt;/span&gt;&lt;span style=&#34;color:#66d9ef&#34;&gt;&amp;gt; &lt;/span&gt;&lt;span style=&#34;font-style:italic&#34;&gt;负责人：@张三 (Backup: @李四)
+&lt;/span&gt;&lt;/span&gt;&lt;/span&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;&lt;span style=&#34;font-style:italic&#34;&gt;&lt;/span&gt;
+&lt;/span&gt;&lt;/span&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;&lt;span style=&#34;color:#75715e&#34;&gt;## 1. 架构速览 (关键信息)
+&lt;/span&gt;&lt;/span&gt;&lt;/span&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;&lt;span style=&#34;color:#75715e&#34;&gt;&lt;/span&gt;&lt;span style=&#34;color:#66d9ef&#34;&gt;-&lt;/span&gt; **代码栈**: Java 17 + Spring Boot 3
+&lt;/span&gt;&lt;/span&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;&lt;span style=&#34;color:#66d9ef&#34;&gt;-&lt;/span&gt; **依赖服务**: 
+&lt;/span&gt;&lt;/span&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;  &lt;span style=&#34;color:#66d9ef&#34;&gt;-&lt;/span&gt; MySQL (192.168.1.X) - [读写分离]
+&lt;/span&gt;&lt;/span&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;  &lt;span style=&#34;color:#66d9ef&#34;&gt;-&lt;/span&gt; Redis (192.168.1.Y) - [仅缓存]
+&lt;/span&gt;&lt;/span&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;&lt;span style=&#34;color:#66d9ef&#34;&gt;-&lt;/span&gt; **关键端口**: 内部 8080 / 外部暴露 443
+&lt;/span&gt;&lt;/span&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;
+&lt;/span&gt;&lt;/span&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;&lt;span style=&#34;color:#75715e&#34;&gt;## 2. 环境配置 (Copy &amp;amp; Paste 就能用)
+&lt;/span&gt;&lt;/span&gt;&lt;/span&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;&lt;span style=&#34;color:#75715e&#34;&gt;&lt;/span&gt;不要口述参数，直接给出 &lt;span style=&#34;color:#e6db74&#34;&gt;`.env`&lt;/span&gt; 示例：
+&lt;/span&gt;&lt;/span&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;
+&lt;/span&gt;&lt;/span&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;&lt;span style=&#34;color:#75715e&#34;&gt;### Prod 环境
+&lt;/span&gt;&lt;/span&gt;&lt;/span&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;&lt;span style=&#34;color:#75715e&#34;&gt;&lt;/span&gt;```bash
+&lt;/span&gt;&lt;/span&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;export DB_HOST=192.168.1.10
+&lt;/span&gt;&lt;/span&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;export REDIS_HOST=192.168.1.20
+&lt;/span&gt;&lt;/span&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;# 必须配置，否则无法启动
+&lt;/span&gt;&lt;/span&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;export JWT_SECRET=****** 
+&lt;/span&gt;&lt;/span&gt;&lt;/code&gt;&lt;/pre&gt;&lt;/div&gt;&lt;h2 id=&#34;3-部署与重启-标准动作&#34;&gt;3. 部署与重启 (标准动作)
+&lt;/h2&gt;&lt;p&gt;&lt;strong&gt;常规部署&lt;/strong&gt;:&lt;/p&gt;
+&lt;div class=&#34;highlight&#34;&gt;&lt;pre tabindex=&#34;0&#34; style=&#34;color:#f8f8f2;background-color:#272822;-moz-tab-size:4;-o-tab-size:4;tab-size:4;&#34;&gt;&lt;code class=&#34;language-bash&#34; data-lang=&#34;bash&#34;&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;&lt;span style=&#34;color:#75715e&#34;&gt;# 1. 拉取代码&lt;/span&gt;
+&lt;/span&gt;&lt;/span&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;git pull origin main
+&lt;/span&gt;&lt;/span&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;&lt;span style=&#34;color:#75715e&#34;&gt;# 2. 编译&lt;/span&gt;
+&lt;/span&gt;&lt;/span&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;mvn clean package -DskipTests
+&lt;/span&gt;&lt;/span&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;&lt;span style=&#34;color:#75715e&#34;&gt;# 3. 重启 (使用 systemd)&lt;/span&gt;
+&lt;/span&gt;&lt;/span&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;sudo systemctl restart my-app
+&lt;/span&gt;&lt;/span&gt;&lt;/code&gt;&lt;/pre&gt;&lt;/div&gt;&lt;p&gt;&lt;strong&gt;紧急回滚 (救火专用)&lt;/strong&gt;:&lt;/p&gt;
+&lt;ul&gt;
+&lt;li&gt;&lt;input disabled=&#34;&#34; type=&#34;checkbox&#34;&gt; 确认上一版本镜像 Tag: &lt;code&gt;docker images | grep my-app&lt;/code&gt;&lt;/li&gt;
+&lt;li&gt;&lt;input disabled=&#34;&#34; type=&#34;checkbox&#34;&gt; 执行回滚: &lt;code&gt;./scripts/rollback.sh &amp;lt;tag_id&amp;gt;&lt;/code&gt;&lt;/li&gt;
+&lt;li&gt;&lt;input disabled=&#34;&#34; type=&#34;checkbox&#34;&gt; 验证: &lt;code&gt;curl http://localhost:8080/health&lt;/code&gt; 返回 &lt;code&gt;{&amp;quot;status&amp;quot;:&amp;quot;UP&amp;quot;}&lt;/code&gt;&lt;/li&gt;
+&lt;/ul&gt;
+&lt;h2 id=&#34;4-常见报错-踩坑记录&#34;&gt;4. 常见报错 (踩坑记录)
+&lt;/h2&gt;&lt;p&gt;&lt;em&gt;这里只记录真实发生过的故障，不要臆想。&lt;/em&gt;&lt;/p&gt;
+&lt;table&gt;
+  &lt;thead&gt;
+      &lt;tr&gt;
+          &lt;th style=&#34;text-align: left&#34;&gt;现象&lt;/th&gt;
+          &lt;th style=&#34;text-align: left&#34;&gt;报错关键字&lt;/th&gt;
+          &lt;th style=&#34;text-align: left&#34;&gt;解决方案&lt;/th&gt;
+      &lt;/tr&gt;
+  &lt;/thead&gt;
+  &lt;tbody&gt;
+      &lt;tr&gt;
+          &lt;td style=&#34;text-align: left&#34;&gt;启动失败&lt;/td&gt;
+          &lt;td style=&#34;text-align: left&#34;&gt;&lt;code&gt;Connection refused&lt;/code&gt;&lt;/td&gt;
+          &lt;td style=&#34;text-align: left&#34;&gt;检查 MySQL 是否挂了，或防火墙是否拦截 3306&lt;/td&gt;
+      &lt;/tr&gt;
+      &lt;tr&gt;
+          &lt;td style=&#34;text-align: left&#34;&gt;登录慢&lt;/td&gt;
+          &lt;td style=&#34;text-align: left&#34;&gt;&lt;code&gt;Redis timeout&lt;/code&gt;&lt;/td&gt;
+          &lt;td style=&#34;text-align: left&#34;&gt;可能是连接池满了，重启服务可暂时恢复，后续需排查慢查询&lt;/td&gt;
+      &lt;/tr&gt;
+  &lt;/tbody&gt;
+&lt;/table&gt;
+&lt;pre tabindex=&#34;0&#34;&gt;&lt;code&gt;
+**实操心得：**
+我有一个保持了两年的习惯：**每周五下午喝咖啡的时候，花15分钟扫一眼核心项目的这个文档。** 如果发现有&amp;#34;过时&amp;#34;的内容，立刻删掉。**文档的价值在于&amp;#34;准&amp;#34;，而不在于&amp;#34;多&amp;#34;。**
+
+## 四、 自动化是文档的终极形态
+
+写文档的最高境界，是**不需要文档**。
+
+如果一个部署动作需要写10行文档来描述，说明它太复杂了。我们应该写一个脚本，把这10步封装进去，然后文档里只写一行：
+
+&amp;gt; 执行 `./deploy.sh`
+
+**真实场景：**
+以前我们配置新服务器，文档里洋洋洒洒写了30步：安装Docker、配置镜像源、创建用户... 每个人配出来的环境都有细微差别。
+后来我花了一天时间写了一个简单的 `Ansible` Playbook（不用怕，Shell脚本也行）。现在新服务器上线，只需要跑一条命令。
+
+![配图](https://picsum.photos/800/450?random=1768442526227)
+
+当你把复杂的知识固化成脚本，你就完成了从&amp;#34;人治&amp;#34;到&amp;#34;法治&amp;#34;的跨越。这才是DevOps的精髓——**工具承载流程**。
+
+---
+
+## 总结与行动
+
+做技术负责人的这些年，我见过太多因为文档缺失导致的项目&amp;#34;烂尾&amp;#34;，也见过因为文档太繁琐而被束之高阁。
+
+对于我们这种资源有限的中小团队，**&amp;#34;活下来&amp;#34;和&amp;#34;跑得快&amp;#34;是第一要务。** 我们的文档不为KPI服务，只为那个在凌晨3点被叫醒处理故障的兄弟服务。
+
+**这也是一种技术温情。**
+
+**最后，做个小调查：**
+在遇到生产环境故障时，你更倾向于哪种解决方案？
+A. 查阅详细的Wiki知识库，寻找原理和解释。
+B. 打开代码库里的 `OPS.md`，照着Checklist直接敲命令。
+*(欢迎在评论区告诉我你的选择)*
+
+**给你的3个落地行动建议（明天就能用）：**
+
+1.  **做减法**：打开你们的Wiki，把超过6个月未更新且非核心的文档，全部标记为&amp;#34;已归档&amp;#34;或直接删除。
+2.  **建模板**：在你的核心项目根目录下创建一个 `OPS_README.md`，把上面的模板贴进去，填上最基本的信息。
+3.  **定规矩**：在下一次技术周会上宣布——&amp;#34;以后谁改了环境参数不更新这个文件，请大家喝奶茶。&amp;#34;
+
+愿你的团队，文档极简，服务稳定，大家都能准时下班。
+&lt;/code&gt;&lt;/pre&gt;</description>
+        </item>
+        
+    </channel>
+</rss>

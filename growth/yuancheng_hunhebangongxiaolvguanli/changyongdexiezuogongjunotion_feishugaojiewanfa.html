@@ -1,0 +1,455 @@
+<!DOCTYPE html>
+<html lang="zh-cn" dir="ltr">
+    <head><meta charset='utf-8'>
+<meta name='viewport' content='width=device-width, initial-scale=1'><meta name='description' content="那时候刚开始远程办公，我以为只要下载了协作软件，把电脑抱回家，一切就会自然运转。\n结果现实狠狠给了我一巴掌：微信群消息狂轰滥炸，飞书/钉钉的红点永远消不完，明明在电脑前坐了10个小时，关机时却想不起今天到底完成了哪件大事。最崩溃的一次，我在聊天记录里翻了半小时，只为了找一周前老板发的那个“最终版_v3_修改版.pdf”。\n你也经历过这种“虚假繁忙”吗？\n在这两年的远程办公实操中，我慢慢意识到：让我们疲惫的不是工作本身，而是混乱的信息流。\n今天我想分享几个不仅是“好用”，更是能“救命”的高阶玩法。这些设置不需要你会写代码，也不用买昂贵的会员，只要一点点思维上的转变，就能让工具从“监工”变成你的“私人助理”。\n沉浸式看板：把“找文件”的时间省下来撸猫\r很多新手（包括两年前的我）用Notion或飞书文档时，最大的误区是把它当成了一个**“大号网盘”**。所有的文档按文件夹一层层堆砌，用的时候像在原始森林里开荒。\n真正的长期主义玩法，是建立一个**“个人中控台”**。\n你的大脑是为了产生灵感而生的，不是为了像硬盘一样存储文件路径的。—— 《打造第二大脑》\n真实案例：\n我也曾是个“文件夹狂魔”。有一次项目紧急复盘，我需要同时调取产品部的需求文档、设计部的Figma链接和运营部的排期表。这些东西分散在三个不同的群聊和四个不同的文档文件夹里。那天下午，我花在切换窗口和搜索关键词上的时间，大概有40分钟。\n痛定思痛，我重构了我的Notion首页。\n具体配置方法：\n我不再按“部门”分类，而是按“状态”分类。我建立了一个Master Database（主数据库），把所有任务都丢进去，然后利用**Linked View（关联视图）**功能：\n“今天做什么”视图： 筛选条件设为 Date is Today 且 Status is In Progress。 “等待我处理”视图： 筛选条件设为 Assignee contains Me 且 Status is Reviewing。 这样设置后，我每天早上打开电脑，不需要去翻几十个文件夹，只需要看一眼首页。\n避坑提示： 千万不要一上来就抄网上那种花里胡哨的“人生管理系统”模板。越复杂的系统，维护成本越高，越容易放弃。从最简单的“待办-进行中-已完成”三列看板开始，这就足够解决80%的问题了。\n文档“静默会”：让无效会议原地消失\r远程办公最大的杀手就是：随时随地的语音通话和漫无边际的视频会。\n“在吗？拉个会碰一下。”这句话简直是我的噩梦。很多时候，大家在会上这扯一句那扯一句，半小时过去了，连背景信息都没对齐。\n真实案例：\n我们团队曾经每周一上午有长达2小时的例会，十几个人轮流汇报，大部分时间我都在神游（或者偷偷切屏看剧）。后来我们引入了飞书/Lark的**“飞阅会”**模式。\n现在的流程是这样的： 会议开始前15分钟，发起人把写满议题的文档发出来。会议开始后的前10分钟，全员闭麦、禁言，只做一件事：默读文档，并在有疑问的地方直接划线评论。\n10分钟后，主持人不讲废话，只针对文档里的评论进行解答。\n结果惊人： 原本2小时的会议，现在平均35分钟结束。而且因为是文字留痕，那些没参会的同事，事后看文档评论区，比听录音回放清晰一万倍。\n实操建议： 如果你是管理者，下次开会试试强行要求“不准说话，先读文档”。如果你是执行者，试着在别人拉你会时，温和地回一句：“由于信息量比较大，能不能辛苦您先写个文档大纲，我标注一下重点再沟通，这样效率更高？”\n这招大概率会让你显得既专业又负责。\n自动化小确幸：让机器人替你做“恶人”\r在团队协作里，最消耗情绪价值的事情是什么？是催进度。\n“亲，周报交了吗？”“那个设计图好了吗？”每次问这种问题，我都觉得自己像个只会复读的讨债鬼。\n其实，这种机械性的沟通，完全可以交给Notion的自动化（Automations）或者飞书的捷径/机器人。\n高阶玩法拆解：\n我在Notion的项目数据库里加了一个简单的自动化规则。\n场景： 当我在“任务状态”栏，把一个任务从“进行中”拖到“已完成”时。 动作： 系统会自动给下游的同事（比如测试人员）发送一条Slack/飞书通知：“XX任务已完成，请查收。”\n如果是用Notion管理个人进度，我还非常推荐使用**公式（Formula）**来给自己一点视觉上的正反馈。\n比如，做一个简单的进度条，看着进度条变满，那种多巴胺分泌的感觉是非常治愈的。\nnotion // Notion 极简进度条公式示例 if(prop(&ldquo;Done&rdquo;) / prop(&ldquo;Total&rdquo;) &gt;= 1, &ldquo;✅ 完成&rdquo;, slice(&quot;▓▓▓▓▓▓▓▓▓▓&quot;, 0, round(prop(&ldquo;Done&rdquo;) / prop(&ldquo;Total&rdquo;) * 10)) + slice(&quot;░░░░░░░░░░&quot;, 0, 10 - round(prop(&ldquo;Done&rdquo;) / prop(&ldquo;Total&rdquo;) * 10)) + &quot; &quot; + format(round(prop(&ldquo;Done&rdquo;) / prop(&ldquo;Total&rdquo;) * 100)) + &ldquo;%&rdquo;)\n">
+<title>告别伪勤奋！3个Notion/飞书配置，每天多睡1小时</title>
+
+<link rel='canonical' href='https://blog.irudder.me/growth/yuancheng_hunhebangongxiaolvguanli/changyongdexiezuogongjunotion_feishugaojiewanfa.html'>
+
+<link rel="stylesheet" href="/scss/style.min.b9e9128fec450ebccecc4ec9900157f32b85d0609bcd5ee3293968bcaa1235f2.css"><meta property='og:title' content="告别伪勤奋！3个Notion/飞书配置，每天多睡1小时">
+<meta property='og:description' content="那时候刚开始远程办公，我以为只要下载了协作软件，把电脑抱回家，一切就会自然运转。\n结果现实狠狠给了我一巴掌：微信群消息狂轰滥炸，飞书/钉钉的红点永远消不完，明明在电脑前坐了10个小时，关机时却想不起今天到底完成了哪件大事。最崩溃的一次，我在聊天记录里翻了半小时，只为了找一周前老板发的那个“最终版_v3_修改版.pdf”。\n你也经历过这种“虚假繁忙”吗？\n在这两年的远程办公实操中，我慢慢意识到：让我们疲惫的不是工作本身，而是混乱的信息流。\n今天我想分享几个不仅是“好用”，更是能“救命”的高阶玩法。这些设置不需要你会写代码，也不用买昂贵的会员，只要一点点思维上的转变，就能让工具从“监工”变成你的“私人助理”。\n沉浸式看板：把“找文件”的时间省下来撸猫\r很多新手（包括两年前的我）用Notion或飞书文档时，最大的误区是把它当成了一个**“大号网盘”**。所有的文档按文件夹一层层堆砌，用的时候像在原始森林里开荒。\n真正的长期主义玩法，是建立一个**“个人中控台”**。\n你的大脑是为了产生灵感而生的，不是为了像硬盘一样存储文件路径的。—— 《打造第二大脑》\n真实案例：\n我也曾是个“文件夹狂魔”。有一次项目紧急复盘，我需要同时调取产品部的需求文档、设计部的Figma链接和运营部的排期表。这些东西分散在三个不同的群聊和四个不同的文档文件夹里。那天下午，我花在切换窗口和搜索关键词上的时间，大概有40分钟。\n痛定思痛，我重构了我的Notion首页。\n具体配置方法：\n我不再按“部门”分类，而是按“状态”分类。我建立了一个Master Database（主数据库），把所有任务都丢进去，然后利用**Linked View（关联视图）**功能：\n“今天做什么”视图： 筛选条件设为 Date is Today 且 Status is In Progress。 “等待我处理”视图： 筛选条件设为 Assignee contains Me 且 Status is Reviewing。 这样设置后，我每天早上打开电脑，不需要去翻几十个文件夹，只需要看一眼首页。\n避坑提示： 千万不要一上来就抄网上那种花里胡哨的“人生管理系统”模板。越复杂的系统，维护成本越高，越容易放弃。从最简单的“待办-进行中-已完成”三列看板开始，这就足够解决80%的问题了。\n文档“静默会”：让无效会议原地消失\r远程办公最大的杀手就是：随时随地的语音通话和漫无边际的视频会。\n“在吗？拉个会碰一下。”这句话简直是我的噩梦。很多时候，大家在会上这扯一句那扯一句，半小时过去了，连背景信息都没对齐。\n真实案例：\n我们团队曾经每周一上午有长达2小时的例会，十几个人轮流汇报，大部分时间我都在神游（或者偷偷切屏看剧）。后来我们引入了飞书/Lark的**“飞阅会”**模式。\n现在的流程是这样的： 会议开始前15分钟，发起人把写满议题的文档发出来。会议开始后的前10分钟，全员闭麦、禁言，只做一件事：默读文档，并在有疑问的地方直接划线评论。\n10分钟后，主持人不讲废话，只针对文档里的评论进行解答。\n结果惊人： 原本2小时的会议，现在平均35分钟结束。而且因为是文字留痕，那些没参会的同事，事后看文档评论区，比听录音回放清晰一万倍。\n实操建议： 如果你是管理者，下次开会试试强行要求“不准说话，先读文档”。如果你是执行者，试着在别人拉你会时，温和地回一句：“由于信息量比较大，能不能辛苦您先写个文档大纲，我标注一下重点再沟通，这样效率更高？”\n这招大概率会让你显得既专业又负责。\n自动化小确幸：让机器人替你做“恶人”\r在团队协作里，最消耗情绪价值的事情是什么？是催进度。\n“亲，周报交了吗？”“那个设计图好了吗？”每次问这种问题，我都觉得自己像个只会复读的讨债鬼。\n其实，这种机械性的沟通，完全可以交给Notion的自动化（Automations）或者飞书的捷径/机器人。\n高阶玩法拆解：\n我在Notion的项目数据库里加了一个简单的自动化规则。\n场景： 当我在“任务状态”栏，把一个任务从“进行中”拖到“已完成”时。 动作： 系统会自动给下游的同事（比如测试人员）发送一条Slack/飞书通知：“XX任务已完成，请查收。”\n如果是用Notion管理个人进度，我还非常推荐使用**公式（Formula）**来给自己一点视觉上的正反馈。\n比如，做一个简单的进度条，看着进度条变满，那种多巴胺分泌的感觉是非常治愈的。\nnotion // Notion 极简进度条公式示例 if(prop(&ldquo;Done&rdquo;) / prop(&ldquo;Total&rdquo;) &gt;= 1, &ldquo;✅ 完成&rdquo;, slice(&quot;▓▓▓▓▓▓▓▓▓▓&quot;, 0, round(prop(&ldquo;Done&rdquo;) / prop(&ldquo;Total&rdquo;) * 10)) + slice(&quot;░░░░░░░░░░&quot;, 0, 10 - round(prop(&ldquo;Done&rdquo;) / prop(&ldquo;Total&rdquo;) * 10)) + &quot; &quot; + format(round(prop(&ldquo;Done&rdquo;) / prop(&ldquo;Total&rdquo;) * 100)) + &ldquo;%&rdquo;)\n">
+<meta property='og:url' content='https://blog.irudder.me/growth/yuancheng_hunhebangongxiaolvguanli/changyongdexiezuogongjunotion_feishugaojiewanfa.html'>
+<meta property='og:site_name' content='SelfTechHub'>
+<meta property='og:type' content='article'><meta property='article:section' content='Growth' /><meta property='article:tag' content='常用的协作工具（Notion/飞书）高阶玩法' /><meta property='article:published_time' content='2020-03-10T00:00:00&#43;00:00'/><meta property='article:modified_time' content='2020-03-10T00:00:00&#43;00:00'/>
+<meta name="twitter:title" content="告别伪勤奋！3个Notion/飞书配置，每天多睡1小时">
+<meta name="twitter:description" content="那时候刚开始远程办公，我以为只要下载了协作软件，把电脑抱回家，一切就会自然运转。\n结果现实狠狠给了我一巴掌：微信群消息狂轰滥炸，飞书/钉钉的红点永远消不完，明明在电脑前坐了10个小时，关机时却想不起今天到底完成了哪件大事。最崩溃的一次，我在聊天记录里翻了半小时，只为了找一周前老板发的那个“最终版_v3_修改版.pdf”。\n你也经历过这种“虚假繁忙”吗？\n在这两年的远程办公实操中，我慢慢意识到：让我们疲惫的不是工作本身，而是混乱的信息流。\n今天我想分享几个不仅是“好用”，更是能“救命”的高阶玩法。这些设置不需要你会写代码，也不用买昂贵的会员，只要一点点思维上的转变，就能让工具从“监工”变成你的“私人助理”。\n沉浸式看板：把“找文件”的时间省下来撸猫\r很多新手（包括两年前的我）用Notion或飞书文档时，最大的误区是把它当成了一个**“大号网盘”**。所有的文档按文件夹一层层堆砌，用的时候像在原始森林里开荒。\n真正的长期主义玩法，是建立一个**“个人中控台”**。\n你的大脑是为了产生灵感而生的，不是为了像硬盘一样存储文件路径的。—— 《打造第二大脑》\n真实案例：\n我也曾是个“文件夹狂魔”。有一次项目紧急复盘，我需要同时调取产品部的需求文档、设计部的Figma链接和运营部的排期表。这些东西分散在三个不同的群聊和四个不同的文档文件夹里。那天下午，我花在切换窗口和搜索关键词上的时间，大概有40分钟。\n痛定思痛，我重构了我的Notion首页。\n具体配置方法：\n我不再按“部门”分类，而是按“状态”分类。我建立了一个Master Database（主数据库），把所有任务都丢进去，然后利用**Linked View（关联视图）**功能：\n“今天做什么”视图： 筛选条件设为 Date is Today 且 Status is In Progress。 “等待我处理”视图： 筛选条件设为 Assignee contains Me 且 Status is Reviewing。 这样设置后，我每天早上打开电脑，不需要去翻几十个文件夹，只需要看一眼首页。\n避坑提示： 千万不要一上来就抄网上那种花里胡哨的“人生管理系统”模板。越复杂的系统，维护成本越高，越容易放弃。从最简单的“待办-进行中-已完成”三列看板开始，这就足够解决80%的问题了。\n文档“静默会”：让无效会议原地消失\r远程办公最大的杀手就是：随时随地的语音通话和漫无边际的视频会。\n“在吗？拉个会碰一下。”这句话简直是我的噩梦。很多时候，大家在会上这扯一句那扯一句，半小时过去了，连背景信息都没对齐。\n真实案例：\n我们团队曾经每周一上午有长达2小时的例会，十几个人轮流汇报，大部分时间我都在神游（或者偷偷切屏看剧）。后来我们引入了飞书/Lark的**“飞阅会”**模式。\n现在的流程是这样的： 会议开始前15分钟，发起人把写满议题的文档发出来。会议开始后的前10分钟，全员闭麦、禁言，只做一件事：默读文档，并在有疑问的地方直接划线评论。\n10分钟后，主持人不讲废话，只针对文档里的评论进行解答。\n结果惊人： 原本2小时的会议，现在平均35分钟结束。而且因为是文字留痕，那些没参会的同事，事后看文档评论区，比听录音回放清晰一万倍。\n实操建议： 如果你是管理者，下次开会试试强行要求“不准说话，先读文档”。如果你是执行者，试着在别人拉你会时，温和地回一句：“由于信息量比较大，能不能辛苦您先写个文档大纲，我标注一下重点再沟通，这样效率更高？”\n这招大概率会让你显得既专业又负责。\n自动化小确幸：让机器人替你做“恶人”\r在团队协作里，最消耗情绪价值的事情是什么？是催进度。\n“亲，周报交了吗？”“那个设计图好了吗？”每次问这种问题，我都觉得自己像个只会复读的讨债鬼。\n其实，这种机械性的沟通，完全可以交给Notion的自动化（Automations）或者飞书的捷径/机器人。\n高阶玩法拆解：\n我在Notion的项目数据库里加了一个简单的自动化规则。\n场景： 当我在“任务状态”栏，把一个任务从“进行中”拖到“已完成”时。 动作： 系统会自动给下游的同事（比如测试人员）发送一条Slack/飞书通知：“XX任务已完成，请查收。”\n如果是用Notion管理个人进度，我还非常推荐使用**公式（Formula）**来给自己一点视觉上的正反馈。\n比如，做一个简单的进度条，看着进度条变满，那种多巴胺分泌的感觉是非常治愈的。\nnotion // Notion 极简进度条公式示例 if(prop(&ldquo;Done&rdquo;) / prop(&ldquo;Total&rdquo;) &gt;= 1, &ldquo;✅ 完成&rdquo;, slice(&quot;▓▓▓▓▓▓▓▓▓▓&quot;, 0, round(prop(&ldquo;Done&rdquo;) / prop(&ldquo;Total&rdquo;) * 10)) + slice(&quot;░░░░░░░░░░&quot;, 0, 10 - round(prop(&ldquo;Done&rdquo;) / prop(&ldquo;Total&rdquo;) * 10)) + &quot; &quot; + format(round(prop(&ldquo;Done&rdquo;) / prop(&ldquo;Total&rdquo;) * 100)) + &ldquo;%&rdquo;)\n">
+    </head>
+    <body class="
+    article-page
+    ">
+    <script>
+        (function() {
+            const colorSchemeKey = 'StackColorScheme';
+            if(!localStorage.getItem(colorSchemeKey)){
+                localStorage.setItem(colorSchemeKey, "auto");
+            }
+        })();
+    </script><script>
+    (function() {
+        const colorSchemeKey = 'StackColorScheme';
+        const colorSchemeItem = localStorage.getItem(colorSchemeKey);
+        const supportDarkMode = window.matchMedia('(prefers-color-scheme: dark)').matches === true;
+
+        if (colorSchemeItem == 'dark' || colorSchemeItem === 'auto' && supportDarkMode) {
+            
+
+            document.documentElement.dataset.scheme = 'dark';
+        } else {
+            document.documentElement.dataset.scheme = 'light';
+        }
+    })();
+</script>
+<div class="container main-container flex on-phone--column compact"><aside class="sidebar left-sidebar sticky ">
+    <button class="hamburger hamburger--spin" type="button" id="toggle-menu" aria-label="切换菜单">
+        <span class="hamburger-box">
+            <span class="hamburger-inner"></span>
+        </span>
+    </button>
+
+    <header>
+        
+            
+            <figure class="site-avatar">
+                <a href="/">
+                
+                    
+                    
+                    
+                        
+                        <img src="/img/avatar_hu_8588ce14af1147e2.png" width="300"
+                            height="286" class="site-logo" loading="lazy" alt="Avatar">
+                    
+                
+                </a>
+                
+            </figure>
+            
+        
+        
+        <div class="site-meta">
+            <h1 class="site-name"><a href="/">SelfTechHub</a></h1>
+            <h2 class="site-description"></h2>
+        </div>
+    </header><ol class="menu" id="main-menu">
+        
+        
+        <li class="menu-bottom-section">
+            <ol class="menu">
+
+                
+                    <li id="dark-mode-toggle">
+                        <svg xmlns="http://www.w3.org/2000/svg" class="icon icon-tabler icon-tabler-toggle-left" width="24" height="24" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor" fill="none" stroke-linecap="round" stroke-linejoin="round">
+  <path stroke="none" d="M0 0h24v24H0z"/>
+  <circle cx="8" cy="12" r="2" />
+  <rect x="2" y="6" width="20" height="12" rx="6" />
+</svg>
+
+
+
+                        <svg xmlns="http://www.w3.org/2000/svg" class="icon icon-tabler icon-tabler-toggle-right" width="24" height="24" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor" fill="none" stroke-linecap="round" stroke-linejoin="round">
+  <path stroke="none" d="M0 0h24v24H0z"/>
+  <circle cx="16" cy="12" r="2" />
+  <rect x="2" y="6" width="20" height="12" rx="6" />
+</svg>
+
+
+
+                        <span>暗色模式</span>
+                    </li>
+                
+            </ol>
+        </li>
+    </ol>
+</aside>
+
+    
+
+            <main class="main full-width">
+    <article class="main-article">
+    <header class="article-header">
+
+    <div class="article-details">
+    
+    <header class="article-category">
+        
+            <a href="/categories/%E6%88%90%E9%95%BF.html" >
+                成长认知
+            </a>
+        
+    </header>
+    
+
+    <div class="article-title-wrapper">
+        <h2 class="article-title">
+            <a href="/growth/yuancheng_hunhebangongxiaolvguanli/changyongdexiezuogongjunotion_feishugaojiewanfa.html">告别伪勤奋！3个Notion/飞书配置，每天多睡1小时</a>
+        </h2>
+    
+        
+    </div>
+
+    
+    
+    
+    
+    <footer class="article-time">
+        
+            <div>
+                <svg xmlns="http://www.w3.org/2000/svg" class="icon icon-tabler icon-tabler-calendar-time" width="56" height="56" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor" fill="none" stroke-linecap="round" stroke-linejoin="round">
+  <path stroke="none" d="M0 0h24v24H0z"/>
+  <path d="M11.795 21h-6.795a2 2 0 0 1 -2 -2v-12a2 2 0 0 1 2 -2h12a2 2 0 0 1 2 2v4" />
+  <circle cx="18" cy="18" r="4" />
+  <path d="M15 3v4" />
+  <path d="M7 3v4" />
+  <path d="M3 11h16" />
+  <path d="M18 16.496v1.504l1 1" />
+</svg>
+                <time class="article-time--published" datetime='2020-03-10T00:00:00Z'>Mar 10, 2020</time>
+            </div>
+        
+
+        
+            <div>
+                <svg xmlns="http://www.w3.org/2000/svg" class="icon icon-tabler icon-tabler-clock" width="24" height="24" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor" fill="none" stroke-linecap="round" stroke-linejoin="round">
+  <path stroke="none" d="M0 0h24v24H0z"/>
+  <circle cx="12" cy="12" r="9" />
+  <polyline points="12 7 12 12 15 15" />
+</svg>
+
+
+
+                <time class="article-time--reading">
+                    阅读时长: 1 分钟
+                </time>
+            </div>
+        
+    </footer>
+    
+
+    
+</div>
+
+</header>
+
+    <section class="article-content">
+    
+    
+    <p>那时候刚开始远程办公，我以为只要下载了协作软件，把电脑抱回家，一切就会自然运转。</p>
+<p>结果现实狠狠给了我一巴掌：微信群消息狂轰滥炸，飞书/钉钉的红点永远消不完，明明在电脑前坐了10个小时，关机时却想不起今天到底完成了哪件大事。最崩溃的一次，我在聊天记录里翻了半小时，只为了找一周前老板发的那个“最终版_v3_修改版.pdf”。</p>
+<p>你也经历过这种“虚假繁忙”吗？</p>
+<p>在这两年的远程办公实操中，我慢慢意识到：<strong>让我们疲惫的不是工作本身，而是混乱的信息流。</strong></p>
+<p>今天我想分享几个不仅是“好用”，更是能“救命”的高阶玩法。这些设置不需要你会写代码，也不用买昂贵的会员，只要一点点思维上的转变，就能让工具从“监工”变成你的“私人助理”。</p>
+<h2 id="沉浸式看板把找文件的时间省下来撸猫">沉浸式看板：把“找文件”的时间省下来撸猫
+</h2><p>很多新手（包括两年前的我）用Notion或飞书文档时，最大的误区是把它当成了一个**“大号网盘”**。所有的文档按文件夹一层层堆砌，用的时候像在原始森林里开荒。</p>
+<p>真正的长期主义玩法，是建立一个**“个人中控台”**。</p>
+<blockquote>
+<p>你的大脑是为了产生灵感而生的，不是为了像硬盘一样存储文件路径的。—— 《打造第二大脑》</p>
+</blockquote>
+<p><img src="https://picsum.photos/800/450?random=1768379010937"
+	
+	
+	
+	loading="lazy"
+	
+		alt="配图"
+	
+	
+></p>
+<p><strong>真实案例：</strong></p>
+<p>我也曾是个“文件夹狂魔”。有一次项目紧急复盘，我需要同时调取产品部的需求文档、设计部的Figma链接和运营部的排期表。这些东西分散在三个不同的群聊和四个不同的文档文件夹里。那天下午，我花在切换窗口和搜索关键词上的时间，大概有40分钟。</p>
+<p>痛定思痛，我重构了我的Notion首页。</p>
+<p><strong>具体配置方法：</strong></p>
+<p>我不再按“部门”分类，而是按“状态”分类。我建立了一个Master Database（主数据库），把所有任务都丢进去，然后利用**Linked View（关联视图）**功能：</p>
+<ol>
+<li><strong>“今天做什么”视图：</strong> 筛选条件设为 <code>Date is Today</code> 且 <code>Status is In Progress</code>。</li>
+<li><strong>“等待我处理”视图：</strong> 筛选条件设为 <code>Assignee contains Me</code> 且 <code>Status is Reviewing</code>。</li>
+</ol>
+<p>这样设置后，我每天早上打开电脑，不需要去翻几十个文件夹，只需要看一眼首页。</p>
+<p><strong>避坑提示：</strong>
+千万不要一上来就抄网上那种花里胡哨的“人生管理系统”模板。越复杂的系统，维护成本越高，越容易放弃。从最简单的“待办-进行中-已完成”三列看板开始，这就足够解决80%的问题了。</p>
+<h2 id="文档静默会让无效会议原地消失">文档“静默会”：让无效会议原地消失
+</h2><p>远程办公最大的杀手就是：<strong>随时随地的语音通话和漫无边际的视频会。</strong></p>
+<p>“在吗？拉个会碰一下。”这句话简直是我的噩梦。很多时候，大家在会上这扯一句那扯一句，半小时过去了，连背景信息都没对齐。</p>
+<p><strong>真实案例：</strong></p>
+<p><img src="https://picsum.photos/800/450?random=1768379006479"
+	
+	
+	
+	loading="lazy"
+	
+		alt="配图"
+	
+	
+></p>
+<p>我们团队曾经每周一上午有长达2小时的例会，十几个人轮流汇报，大部分时间我都在神游（或者偷偷切屏看剧）。后来我们引入了飞书/Lark的**“飞阅会”**模式。</p>
+<p>现在的流程是这样的：
+会议开始前15分钟，发起人把写满议题的文档发出来。会议开始后的前10分钟，全员<strong>闭麦、禁言</strong>，只做一件事：<strong>默读文档，并在有疑问的地方直接划线评论。</strong></p>
+<p>10分钟后，主持人不讲废话，只针对文档里的评论进行解答。</p>
+<p><strong>结果惊人：</strong>
+原本2小时的会议，现在平均35分钟结束。而且因为是文字留痕，那些没参会的同事，事后看文档评论区，比听录音回放清晰一万倍。</p>
+<p><strong>实操建议：</strong>
+如果你是管理者，下次开会试试强行要求“不准说话，先读文档”。如果你是执行者，试着在别人拉你会时，温和地回一句：“由于信息量比较大，能不能辛苦您先写个文档大纲，我标注一下重点再沟通，这样效率更高？”</p>
+<p>这招大概率会让你显得既专业又负责。</p>
+<h2 id="自动化小确幸让机器人替你做恶人">自动化小确幸：让机器人替你做“恶人”
+</h2><p>在团队协作里，最消耗情绪价值的事情是什么？是<strong>催进度</strong>。</p>
+<p>“亲，周报交了吗？”“那个设计图好了吗？”每次问这种问题，我都觉得自己像个只会复读的讨债鬼。</p>
+<p>其实，这种机械性的沟通，完全可以交给Notion的自动化（Automations）或者飞书的捷径/机器人。</p>
+<p><strong>高阶玩法拆解：</strong></p>
+<p>我在Notion的项目数据库里加了一个简单的自动化规则。</p>
+<p><strong>场景：</strong> 当我在“任务状态”栏，把一个任务从“进行中”拖到“已完成”时。
+<strong>动作：</strong> 系统会自动给下游的同事（比如测试人员）发送一条Slack/飞书通知：“XX任务已完成，请查收。”</p>
+<p>如果是用Notion管理个人进度，我还非常推荐使用**公式（Formula）**来给自己一点视觉上的正反馈。</p>
+<p>比如，做一个简单的进度条，看着进度条变满，那种多巴胺分泌的感觉是非常治愈的。</p>
+<p>notion
+// Notion 极简进度条公式示例
+if(prop(&ldquo;Done&rdquo;) / prop(&ldquo;Total&rdquo;) &gt;= 1, &ldquo;✅ 完成&rdquo;,
+slice(&quot;▓▓▓▓▓▓▓▓▓▓&quot;, 0, round(prop(&ldquo;Done&rdquo;) / prop(&ldquo;Total&rdquo;) * 10)) +
+slice(&quot;░░░░░░░░░░&quot;, 0, 10 - round(prop(&ldquo;Done&rdquo;) / prop(&ldquo;Total&rdquo;) * 10)) +
+&quot; &quot; + format(round(prop(&ldquo;Done&rdquo;) / prop(&ldquo;Total&rdquo;) * 100)) + &ldquo;%&rdquo;)</p>
+<p><strong>个人习惯分享：</strong>
+我也设置了一个私人的自动化提醒。我把每周五下午4点设定为**“本周复盘时间”**。飞书机器人会准时给我发一段话：“本周辛苦了！在关闭电脑前，花15分钟整理一下桌面的截图，归档做完的任务吧。”</p>
+<p>这个小小的仪式感，这把椅子坐了两年，依然能让我从工作的紧绷状态，平滑过渡到周末的松弛模式。</p>
+<hr>
+<p><strong>写在最后的小思考：</strong></p>
+<p>读到这里，<strong>你有没有发现自己其实一直是在“被工具用”，而不是在“用工具”？</strong></p>
+<p>当我们因为一条消息提示就立刻中断当下的深度思考时，我们就已经输给了工具。</p>
+<p>远程办公的核心不是那台电脑，也不是那个App，而是<strong>对他人的信任</strong>和<strong>对自己的掌控</strong>。</p>
+<p>如果你想从明天开始改变，不妨先做这三件小事：</p>
+<ol>
+<li><strong>关闭非紧急消息通知</strong>：除了@你的消息，其他的群消息一律静音，每2小时集中查看一次。</li>
+<li><strong>建立一个“首页”</strong>：不管用什么软件，给自己搭一个能一眼看到所有核心任务的仪表盘。</li>
+<li><strong>尝试一次“书面沟通”</strong>：下次想拉语音时，逼自己先把想法写成不少于200字的文档发给对方。</li>
+</ol>
+<p>工具是冰冷的，但使用工具的方式可以是有温度的。希望这些方法，能帮你在这个混合办公的时代，找回属于自己的生活节奏。</p>
+
+</section>
+
+
+    <footer class="article-footer">
+    
+    <section class="article-tags">
+        
+            <a href="/tags/%E5%B8%B8%E7%94%A8%E7%9A%84%E5%8D%8F%E4%BD%9C%E5%B7%A5%E5%85%B7Notion/%E9%A3%9E%E4%B9%A6%E9%AB%98%E9%98%B6%E7%8E%A9%E6%B3%95.html">常用的协作工具（Notion/飞书）高阶玩法</a>
+        
+    </section>
+
+
+    </footer>
+
+
+    
+</article>
+
+    
+
+    
+
+     
+    
+        
+    <script
+    src="https://giscus.app/client.js"
+    data-repo="pastor17/bloggiscus"
+    data-repo-id="R_kgDOQ6H9qQ"
+    data-category=""
+    data-category-id="DIC_kwDOQ6H9qc4C0-T8"
+    data-mapping="pathname"
+    data-strict="0"
+    data-reactions-enabled="1"
+    data-emit-metadata="0"
+    data-input-position="bottom"
+    data-theme="light"
+    data-lang="zh-CN"
+    data-loading="lazy"
+    crossorigin="anonymous"
+    async
+></script>
+<script>
+    function setGiscusTheme(theme) {
+        let giscus = document.querySelector("iframe.giscus-frame");
+        if (giscus) {
+            giscus.contentWindow.postMessage(
+                {
+                    giscus: {
+                        setConfig: {
+                            theme: theme,
+                        },
+                    },
+                },
+                "https://giscus.app"
+            );
+        }
+    }
+
+    (function () {
+        addEventListener("message", (e) => {
+            if (event.origin !== "https://giscus.app") return;
+            handler();
+        });
+        window.addEventListener("onColorSchemeChange", handler);
+
+        function handler() {
+            if (document.documentElement.dataset.scheme === "light") {
+                setGiscusTheme('light');
+            } else {
+                setGiscusTheme('dark_dimmed');
+            }
+        }
+    })();
+</script>
+
+    
+
+    <footer class="site-footer">
+    <section class="copyright">
+        &copy; 
+        
+        2026 SelfTechHub
+    </section>
+    
+    <section class="powerby">
+        
+
+    </section>
+</footer>
+
+
+    
+<div class="pswp" tabindex="-1" role="dialog" aria-hidden="true">
+
+    
+    <div class="pswp__bg"></div>
+
+    
+    <div class="pswp__scroll-wrap">
+
+        
+        <div class="pswp__container">
+            <div class="pswp__item"></div>
+            <div class="pswp__item"></div>
+            <div class="pswp__item"></div>
+        </div>
+
+        
+        <div class="pswp__ui pswp__ui--hidden">
+
+            <div class="pswp__top-bar">
+
+                
+
+                <div class="pswp__counter"></div>
+
+                <button class="pswp__button pswp__button--close" title="Close (Esc)"></button>
+
+                <button class="pswp__button pswp__button--share" title="Share"></button>
+
+                <button class="pswp__button pswp__button--fs" title="Toggle fullscreen"></button>
+
+                <button class="pswp__button pswp__button--zoom" title="Zoom in/out"></button>
+
+                
+                
+                <div class="pswp__preloader">
+                    <div class="pswp__preloader__icn">
+                        <div class="pswp__preloader__cut">
+                            <div class="pswp__preloader__donut"></div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <div class="pswp__share-modal pswp__share-modal--hidden pswp__single-tap">
+                <div class="pswp__share-tooltip"></div>
+            </div>
+
+            <button class="pswp__button pswp__button--arrow--left" title="Previous (arrow left)">
+            </button>
+
+            <button class="pswp__button pswp__button--arrow--right" title="Next (arrow right)">
+            </button>
+
+            <div class="pswp__caption">
+                <div class="pswp__caption__center"></div>
+            </div>
+
+        </div>
+
+    </div>
+
+</div><script 
+                src="https://cdn.jsdelivr.net/npm/photoswipe@4.1.3/dist/photoswipe.min.js"integrity="sha256-ePwmChbbvXbsO02lbM3HoHbSHTHFAeChekF1xKJdleo="crossorigin="anonymous"
+                defer
+                >
+            </script><script 
+                src="https://cdn.jsdelivr.net/npm/photoswipe@4.1.3/dist/photoswipe-ui-default.min.js"integrity="sha256-UKkzOn/w1mBxRmLLGrSeyB4e1xbrp4xylgAWb3M42pU="crossorigin="anonymous"
+                defer
+                >
+            </script><link 
+                rel="stylesheet" 
+                href="https://cdn.jsdelivr.net/npm/photoswipe@4.1.3/dist/default-skin/default-skin.min.css"crossorigin="anonymous"
+            ><link 
+                rel="stylesheet" 
+                href="https://cdn.jsdelivr.net/npm/photoswipe@4.1.3/dist/photoswipe.min.css"crossorigin="anonymous"
+            >
+    
+
+            </main>
+        </div>
+        <script 
+                src="https://cdn.jsdelivr.net/npm/node-vibrant@3.1.6/dist/vibrant.min.js"integrity="sha256-awcR2jno4kI5X0zL8ex0vi2z&#43;KMkF24hUW8WePSA9HM="crossorigin="anonymous"
+                
+                >
+            </script><script type="text/javascript" src="/ts/main.c922af694cc257bf1ecc41c0dd7b0430f9114ec280ccf67cd2c6ad55f5316c4e.js" defer></script>
+<script>
+    (function () {
+        const customFont = document.createElement('link');
+        customFont.href = "https://fonts.googleapis.com/css2?family=Lato:wght@300;400;700&display=swap";
+
+        customFont.type = "text/css";
+        customFont.rel = "stylesheet";
+
+        document.head.appendChild(customFont);
+    }());
+</script>
+
+    </body>
+</html>

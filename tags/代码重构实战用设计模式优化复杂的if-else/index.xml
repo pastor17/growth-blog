@@ -1,0 +1,198 @@
+<?xml version="1.0" encoding="utf-8" standalone="yes"?>
+<rss version="2.0" xmlns:atom="http://www.w3.org/2005/Atom">
+    <channel>
+        <title>代码重构实战：用设计模式优化复杂的if-Else on SelfTechHub</title>
+        <link>https://blog.irudder.me/tags/%E4%BB%A3%E7%A0%81%E9%87%8D%E6%9E%84%E5%AE%9E%E6%88%98%E7%94%A8%E8%AE%BE%E8%AE%A1%E6%A8%A1%E5%BC%8F%E4%BC%98%E5%8C%96%E5%A4%8D%E6%9D%82%E7%9A%84if-else.html</link>
+        <description>Recent content in 代码重构实战：用设计模式优化复杂的if-Else on SelfTechHub</description>
+        <generator>Hugo -- gohugo.io</generator>
+        <language>zh-cn</language>
+        <lastBuildDate>Wed, 16 Feb 2022 00:00:00 +0000</lastBuildDate><atom:link href="https://blog.irudder.me/tags/%E4%BB%A3%E7%A0%81%E9%87%8D%E6%9E%84%E5%AE%9E%E6%88%98%E7%94%A8%E8%AE%BE%E8%AE%A1%E6%A8%A1%E5%BC%8F%E4%BC%98%E5%8C%96%E5%A4%8D%E6%9D%82%E7%9A%84if-else/index.xml" rel="self" type="application/rss+xml" /><item>
+        <title>告别3000行if-else：核心链路重构的3个实战心法</title>
+        <link>https://blog.irudder.me/tech/jiagouyouhuashizhananlijiexi/daimazhonggoushizhan_yongshejimoshiyouhuafuzadeif-else.html</link>
+        <pubDate>Wed, 16 Feb 2022 00:00:00 +0000</pubDate>
+        
+        <guid>https://blog.irudder.me/tech/jiagouyouhuashizhananlijiexi/daimazhonggoushizhan_yongshejimoshiyouhuafuzadeif-else.html</guid>
+        <description>&lt;p&gt;两年前的一个周五下午，我正准备进行代码Review，监控群突然炸了。核心交易系统的CPU水位飙升到90%，排查后发现，罪魁祸首竟是一段长达3000行的&lt;code&gt;PaymentService&lt;/code&gt;类。&lt;/p&gt;
+&lt;p&gt;那是典型的&amp;quot;面条代码&amp;quot;：为了支持不同渠道（支付宝、微信、银联）、不同商户类型、不同营销活动的组合，前人堆砌了数不清的&lt;code&gt;if-else&lt;/code&gt;嵌套。一位新来的同事只是想加一个小众渠道的立减逻辑，结果因为没看清第18层嵌套的逻辑，导致全渠道金额计算错误。&lt;/p&gt;
+&lt;p&gt;这不仅仅是代码丑陋的问题，&lt;strong&gt;这是架构的隐形债务&lt;/strong&gt;。对于架构师和高级开发来说，复杂的&lt;code&gt;if-else&lt;/code&gt;意味着高昂的认知成本、脆弱的扩展性和随时可能爆炸的线上雷。&lt;/p&gt;
+&lt;p&gt;很多教程只讲设计模式的UML图，却不讲&amp;quot;什么场景用什么&amp;quot;。今天，我想结合这几年拆解10+线上架构优化的经验，聊聊如何用设计模式真正驯服这些复杂的判断逻辑。&lt;/p&gt;
+&lt;h3 id=&#34;策略模式map消灭并列式业务判断&#34;&gt;策略模式+Map：消灭&amp;quot;并列式&amp;quot;业务判断
+&lt;/h3&gt;&lt;p&gt;在电商、支付、物流等领域，我们最常见的就是&amp;quot;根据类型A，执行逻辑B&amp;quot;的代码。&lt;/p&gt;
+&lt;p&gt;&lt;strong&gt;痛点场景：&lt;/strong&gt;
+2021年，我接手过一个营销发券系统。产品经理极富创意，每周都要搞新花样：满减券、折扣券、立减券、阶梯券&amp;hellip;此时的代码大概长这样：&lt;/p&gt;
+&lt;div class=&#34;highlight&#34;&gt;&lt;pre tabindex=&#34;0&#34; style=&#34;color:#f8f8f2;background-color:#272822;-moz-tab-size:4;-o-tab-size:4;tab-size:4;&#34;&gt;&lt;code class=&#34;language-java&#34; data-lang=&#34;java&#34;&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;&lt;span style=&#34;color:#66d9ef&#34;&gt;public&lt;/span&gt; &lt;span style=&#34;color:#66d9ef&#34;&gt;void&lt;/span&gt; &lt;span style=&#34;color:#a6e22e&#34;&gt;sendCoupon&lt;/span&gt;(User user, String type) {
+&lt;/span&gt;&lt;/span&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;    &lt;span style=&#34;color:#66d9ef&#34;&gt;if&lt;/span&gt; (&lt;span style=&#34;color:#e6db74&#34;&gt;&amp;#34;DISCOUNT&amp;#34;&lt;/span&gt;.&lt;span style=&#34;color:#a6e22e&#34;&gt;equals&lt;/span&gt;(type)) {
+&lt;/span&gt;&lt;/span&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;        &lt;span style=&#34;color:#75715e&#34;&gt;// 50行折扣券逻辑&lt;/span&gt;
+&lt;/span&gt;&lt;/span&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;    } &lt;span style=&#34;color:#66d9ef&#34;&gt;else&lt;/span&gt; &lt;span style=&#34;color:#66d9ef&#34;&gt;if&lt;/span&gt; (&lt;span style=&#34;color:#e6db74&#34;&gt;&amp;#34;CASH_OFF&amp;#34;&lt;/span&gt;.&lt;span style=&#34;color:#a6e22e&#34;&gt;equals&lt;/span&gt;(type)) {
+&lt;/span&gt;&lt;/span&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;        &lt;span style=&#34;color:#75715e&#34;&gt;// 80行立减券逻辑&lt;/span&gt;
+&lt;/span&gt;&lt;/span&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;    } &lt;span style=&#34;color:#66d9ef&#34;&gt;else&lt;/span&gt; &lt;span style=&#34;color:#66d9ef&#34;&gt;if&lt;/span&gt; (&lt;span style=&#34;color:#e6db74&#34;&gt;&amp;#34;LADDER&amp;#34;&lt;/span&gt;.&lt;span style=&#34;color:#a6e22e&#34;&gt;equals&lt;/span&gt;(type)) {
+&lt;/span&gt;&lt;/span&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;        &lt;span style=&#34;color:#75715e&#34;&gt;// 100行阶梯券逻辑&lt;/span&gt;
+&lt;/span&gt;&lt;/span&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;    } 
+&lt;/span&gt;&lt;/span&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;    &lt;span style=&#34;color:#75715e&#34;&gt;// ...还有十几个else&lt;/span&gt;
+&lt;/span&gt;&lt;/span&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;}
+&lt;/span&gt;&lt;/span&gt;&lt;/code&gt;&lt;/pre&gt;&lt;/div&gt;&lt;p&gt;每次上线新券种，都要修改主类，违反了&lt;strong&gt;开闭原则（OCP）&lt;/strong&gt;，且极易改坏旧逻辑。&lt;/p&gt;
+&lt;p&gt;&lt;strong&gt;重构方案：策略模式 + Spring Map注入&lt;/strong&gt;&lt;/p&gt;
+&lt;p&gt;我们不需要手写工厂类，利用Spring的特性，可以将Bean Name作为Key，服务实例作为Value自动注入。&lt;/p&gt;
+&lt;p&gt;&lt;img src=&#34;https://picsum.photos/800/450?random=1768457548081&#34;
+	
+	
+	
+	loading=&#34;lazy&#34;
+	
+		alt=&#34;配图&#34;
+	
+	
+&gt;&lt;/p&gt;
+&lt;ol&gt;
+&lt;li&gt;&lt;strong&gt;定义接口&lt;/strong&gt;：&lt;code&gt;CouponStrategy&lt;/code&gt;，包含&lt;code&gt;calculate()&lt;/code&gt;和&lt;code&gt;send()&lt;/code&gt;方法。&lt;/li&gt;
+&lt;li&gt;&lt;strong&gt;具体实现&lt;/strong&gt;：&lt;code&gt;DiscountStrategy&lt;/code&gt;、&lt;code&gt;CashOffStrategy&lt;/code&gt;分别实现接口，并标注&lt;code&gt;@Component(&amp;quot;DISCOUNT&amp;quot;)&lt;/code&gt;。&lt;/li&gt;
+&lt;li&gt;&lt;strong&gt;Map路由&lt;/strong&gt;：&lt;/li&gt;
+&lt;/ol&gt;
+&lt;div class=&#34;highlight&#34;&gt;&lt;pre tabindex=&#34;0&#34; style=&#34;color:#f8f8f2;background-color:#272822;-moz-tab-size:4;-o-tab-size:4;tab-size:4;&#34;&gt;&lt;code class=&#34;language-java&#34; data-lang=&#34;java&#34;&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;&lt;span style=&#34;color:#a6e22e&#34;&gt;@Service&lt;/span&gt;
+&lt;/span&gt;&lt;/span&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;&lt;span style=&#34;color:#66d9ef&#34;&gt;public&lt;/span&gt; &lt;span style=&#34;color:#66d9ef&#34;&gt;class&lt;/span&gt; &lt;span style=&#34;color:#a6e22e&#34;&gt;CouponService&lt;/span&gt; {
+&lt;/span&gt;&lt;/span&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;    &lt;span style=&#34;color:#75715e&#34;&gt;// Spring会自动将所有实现类注入到这个Map中&lt;/span&gt;
+&lt;/span&gt;&lt;/span&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;    &lt;span style=&#34;color:#a6e22e&#34;&gt;@Autowired&lt;/span&gt;
+&lt;/span&gt;&lt;/span&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;    &lt;span style=&#34;color:#66d9ef&#34;&gt;private&lt;/span&gt; Map&lt;span style=&#34;color:#f92672&#34;&gt;&amp;lt;&lt;/span&gt;String, CouponStrategy&lt;span style=&#34;color:#f92672&#34;&gt;&amp;gt;&lt;/span&gt; strategyMap;
+&lt;/span&gt;&lt;/span&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;
+&lt;/span&gt;&lt;/span&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;    &lt;span style=&#34;color:#66d9ef&#34;&gt;public&lt;/span&gt; &lt;span style=&#34;color:#66d9ef&#34;&gt;void&lt;/span&gt; &lt;span style=&#34;color:#a6e22e&#34;&gt;sendCoupon&lt;/span&gt;(User user, String type) {
+&lt;/span&gt;&lt;/span&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;        CouponStrategy strategy &lt;span style=&#34;color:#f92672&#34;&gt;=&lt;/span&gt; strategyMap.&lt;span style=&#34;color:#a6e22e&#34;&gt;get&lt;/span&gt;(type);
+&lt;/span&gt;&lt;/span&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;        &lt;span style=&#34;color:#66d9ef&#34;&gt;if&lt;/span&gt; (strategy &lt;span style=&#34;color:#f92672&#34;&gt;==&lt;/span&gt; &lt;span style=&#34;color:#66d9ef&#34;&gt;null&lt;/span&gt;) {
+&lt;/span&gt;&lt;/span&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;            &lt;span style=&#34;color:#66d9ef&#34;&gt;throw&lt;/span&gt; &lt;span style=&#34;color:#66d9ef&#34;&gt;new&lt;/span&gt; BusinessException(&lt;span style=&#34;color:#e6db74&#34;&gt;&amp;#34;未知券类型&amp;#34;&lt;/span&gt;);
+&lt;/span&gt;&lt;/span&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;        }
+&lt;/span&gt;&lt;/span&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;        strategy.&lt;span style=&#34;color:#a6e22e&#34;&gt;send&lt;/span&gt;(user);
+&lt;/span&gt;&lt;/span&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;    }
+&lt;/span&gt;&lt;/span&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;}
+&lt;/span&gt;&lt;/span&gt;&lt;/code&gt;&lt;/pre&gt;&lt;/div&gt;&lt;p&gt;&lt;strong&gt;实战结果：&lt;/strong&gt;
+重构后，新增一种券类型只需新增一个类，&lt;strong&gt;主流程代码零修改&lt;/strong&gt;。我们在双11大促期间，临时上线了3种新玩法，开发耗时从原来的2天缩短到4小时，且因为代码物理隔离，完全不担心影响核心链路。&lt;/p&gt;
+&lt;h3 id=&#34;责任链模式驯服漏斗式多重校验&#34;&gt;责任链模式：驯服&amp;quot;漏斗式&amp;quot;多重校验
+&lt;/h3&gt;&lt;p&gt;另一种让人头秃的场景是复杂的校验逻辑，像漏斗一样层层过滤。&lt;/p&gt;
+&lt;p&gt;&lt;strong&gt;痛点场景：&lt;/strong&gt;
+在一个信贷审批系统中，用户发起借款前需要经过：黑名单校验、地域限制校验、额度校验、风控评分校验、产品状态校验&amp;hellip;&lt;/p&gt;
+&lt;p&gt;原来的代码是这样的：&lt;/p&gt;
+&lt;div class=&#34;highlight&#34;&gt;&lt;pre tabindex=&#34;0&#34; style=&#34;color:#f8f8f2;background-color:#272822;-moz-tab-size:4;-o-tab-size:4;tab-size:4;&#34;&gt;&lt;code class=&#34;language-java&#34; data-lang=&#34;java&#34;&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;&lt;span style=&#34;color:#66d9ef&#34;&gt;if&lt;/span&gt; (checkBlacklist(user)) {
+&lt;/span&gt;&lt;/span&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;    &lt;span style=&#34;color:#66d9ef&#34;&gt;if&lt;/span&gt; (checkLocation(user)) {
+&lt;/span&gt;&lt;/span&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;        &lt;span style=&#34;color:#66d9ef&#34;&gt;if&lt;/span&gt; (checkQuota(user)) {
+&lt;/span&gt;&lt;/span&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;             &lt;span style=&#34;color:#75715e&#34;&gt;// 业务逻辑...&lt;/span&gt;
+&lt;/span&gt;&lt;/span&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;        } &lt;span style=&#34;color:#66d9ef&#34;&gt;else&lt;/span&gt; {
+&lt;/span&gt;&lt;/span&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;             &lt;span style=&#34;color:#66d9ef&#34;&gt;return&lt;/span&gt; &lt;span style=&#34;color:#e6db74&#34;&gt;&amp;#34;额度不足&amp;#34;&lt;/span&gt;;
+&lt;/span&gt;&lt;/span&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;        }
+&lt;/span&gt;&lt;/span&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;    } &lt;span style=&#34;color:#66d9ef&#34;&gt;else&lt;/span&gt; {
+&lt;/span&gt;&lt;/span&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;        &lt;span style=&#34;color:#66d9ef&#34;&gt;return&lt;/span&gt; &lt;span style=&#34;color:#e6db74&#34;&gt;&amp;#34;地区不支持&amp;#34;&lt;/span&gt;;
+&lt;/span&gt;&lt;/span&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;    }
+&lt;/span&gt;&lt;/span&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;} &lt;span style=&#34;color:#66d9ef&#34;&gt;else&lt;/span&gt; {
+&lt;/span&gt;&lt;/span&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;    &lt;span style=&#34;color:#66d9ef&#34;&gt;return&lt;/span&gt; &lt;span style=&#34;color:#e6db74&#34;&gt;&amp;#34;黑名单用户&amp;#34;&lt;/span&gt;;
+&lt;/span&gt;&lt;/span&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;}
+&lt;/span&gt;&lt;/span&gt;&lt;/code&gt;&lt;/pre&gt;&lt;/div&gt;&lt;p&gt;这种代码被称为&amp;quot;箭头型代码&amp;quot;，不仅难读，而且难以调整顺序。如果运营要求&amp;quot;先把地区校验提到黑名单校验之前&amp;quot;，开发人员可能要重构半天。&lt;/p&gt;
+&lt;p&gt;&lt;strong&gt;重构方案：责任链模式（Chain of Responsibility）&lt;/strong&gt;&lt;/p&gt;
+&lt;p&gt;我们要把每一个校验逻辑封装成一个独立的&amp;quot;处理器（Handler）&amp;quot;，然后像搭积木一样把它们串起来。&lt;/p&gt;
+&lt;ol&gt;
+&lt;li&gt;&lt;strong&gt;抽象基类&lt;/strong&gt;：定义&lt;code&gt;AbstractCheckHandler&lt;/code&gt;，包含&lt;code&gt;nextHandler&lt;/code&gt;引用和&lt;code&gt;check()&lt;/code&gt;方法。&lt;/li&gt;
+&lt;li&gt;&lt;strong&gt;链式组装&lt;/strong&gt;：可以通过数据库配置或Spring Order注解来定义链条的顺序。&lt;/li&gt;
+&lt;/ol&gt;
+&lt;div class=&#34;highlight&#34;&gt;&lt;pre tabindex=&#34;0&#34; style=&#34;color:#f8f8f2;background-color:#272822;-moz-tab-size:4;-o-tab-size:4;tab-size:4;&#34;&gt;&lt;code class=&#34;language-java&#34; data-lang=&#34;java&#34;&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;&lt;span style=&#34;color:#66d9ef&#34;&gt;public&lt;/span&gt; &lt;span style=&#34;color:#66d9ef&#34;&gt;abstract&lt;/span&gt; &lt;span style=&#34;color:#66d9ef&#34;&gt;class&lt;/span&gt; &lt;span style=&#34;color:#a6e22e&#34;&gt;AbstractCheckHandler&lt;/span&gt; {
+&lt;/span&gt;&lt;/span&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;    &lt;span style=&#34;color:#66d9ef&#34;&gt;protected&lt;/span&gt; AbstractCheckHandler next;
+&lt;/span&gt;&lt;/span&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;    
+&lt;/span&gt;&lt;/span&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;    &lt;span style=&#34;color:#66d9ef&#34;&gt;public&lt;/span&gt; &lt;span style=&#34;color:#66d9ef&#34;&gt;void&lt;/span&gt; &lt;span style=&#34;color:#a6e22e&#34;&gt;setNext&lt;/span&gt;(AbstractCheckHandler next) { &lt;span style=&#34;color:#66d9ef&#34;&gt;this&lt;/span&gt;.&lt;span style=&#34;color:#a6e22e&#34;&gt;next&lt;/span&gt; &lt;span style=&#34;color:#f92672&#34;&gt;=&lt;/span&gt; next; }
+&lt;/span&gt;&lt;/span&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;    
+&lt;/span&gt;&lt;/span&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;    &lt;span style=&#34;color:#66d9ef&#34;&gt;public&lt;/span&gt; Result &lt;span style=&#34;color:#a6e22e&#34;&gt;filter&lt;/span&gt;(User user) {
+&lt;/span&gt;&lt;/span&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;        &lt;span style=&#34;color:#66d9ef&#34;&gt;if&lt;/span&gt; (&lt;span style=&#34;color:#f92672&#34;&gt;!&lt;/span&gt;doCheck(user)) {
+&lt;/span&gt;&lt;/span&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;            &lt;span style=&#34;color:#66d9ef&#34;&gt;return&lt;/span&gt; fail();
+&lt;/span&gt;&lt;/span&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;        }
+&lt;/span&gt;&lt;/span&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;        &lt;span style=&#34;color:#66d9ef&#34;&gt;if&lt;/span&gt; (next &lt;span style=&#34;color:#f92672&#34;&gt;!=&lt;/span&gt; &lt;span style=&#34;color:#66d9ef&#34;&gt;null&lt;/span&gt;) {
+&lt;/span&gt;&lt;/span&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;            &lt;span style=&#34;color:#66d9ef&#34;&gt;return&lt;/span&gt; next.&lt;span style=&#34;color:#a6e22e&#34;&gt;filter&lt;/span&gt;(user);
+&lt;/span&gt;&lt;/span&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;        }
+&lt;/span&gt;&lt;/span&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;        &lt;span style=&#34;color:#66d9ef&#34;&gt;return&lt;/span&gt; success();
+&lt;/span&gt;&lt;/span&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;    }
+&lt;/span&gt;&lt;/span&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;    
+&lt;/span&gt;&lt;/span&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;    &lt;span style=&#34;color:#66d9ef&#34;&gt;protected&lt;/span&gt; &lt;span style=&#34;color:#66d9ef&#34;&gt;abstract&lt;/span&gt; &lt;span style=&#34;color:#66d9ef&#34;&gt;boolean&lt;/span&gt; &lt;span style=&#34;color:#a6e22e&#34;&gt;doCheck&lt;/span&gt;(User user);
+&lt;/span&gt;&lt;/span&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;}
+&lt;/span&gt;&lt;/span&gt;&lt;/code&gt;&lt;/pre&gt;&lt;/div&gt;&lt;p&gt;&lt;strong&gt;实战结果：&lt;/strong&gt;
+我们将7个硬编码的校验逻辑拆解为独立的Handler。最爽的是，我们将链条的组装逻辑放到了&lt;strong&gt;配置中心（Nacos）&lt;/strong&gt;。
+有一次，风控系统升级，需要临时下线&amp;quot;评分校验&amp;quot;，运维人员直接在配置中心把该Handler的开关关掉，整个过程&lt;strong&gt;无需重新部署代码&lt;/strong&gt;，真正实现了业务编排的灵活性。&lt;/p&gt;
+&lt;h3 id=&#34;状态模式治理流转式复杂状态&#34;&gt;状态模式：治理&amp;quot;流转式&amp;quot;复杂状态
+&lt;/h3&gt;&lt;p&gt;在订单系统、工单系统或工作流引擎中，实体状态的流转控制往往是Bug的高发区。&lt;/p&gt;
+&lt;p&gt;&lt;strong&gt;痛点场景：&lt;/strong&gt;
+一个电商订单，有新建、支付中、已支付、发货、完成、退款中等状态。每个状态下能做的操作不同，比如&amp;quot;已发货&amp;quot;状态不能直接&amp;quot;取消&amp;quot;，&amp;ldquo;退款中&amp;quot;不能&amp;quot;确认收货&amp;rdquo;。&lt;/p&gt;
+&lt;p&gt;如果用&lt;code&gt;if-else&lt;/code&gt;判断：&lt;/p&gt;
+&lt;div class=&#34;highlight&#34;&gt;&lt;pre tabindex=&#34;0&#34; style=&#34;color:#f8f8f2;background-color:#272822;-moz-tab-size:4;-o-tab-size:4;tab-size:4;&#34;&gt;&lt;code class=&#34;language-java&#34; data-lang=&#34;java&#34;&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;&lt;span style=&#34;color:#66d9ef&#34;&gt;public&lt;/span&gt; &lt;span style=&#34;color:#66d9ef&#34;&gt;void&lt;/span&gt; &lt;span style=&#34;color:#a6e22e&#34;&gt;cancelOrder&lt;/span&gt;(Order order) {
+&lt;/span&gt;&lt;/span&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;    &lt;span style=&#34;color:#66d9ef&#34;&gt;if&lt;/span&gt; (order.&lt;span style=&#34;color:#a6e22e&#34;&gt;getStatus&lt;/span&gt;() &lt;span style=&#34;color:#f92672&#34;&gt;==&lt;/span&gt; PAID) {
+&lt;/span&gt;&lt;/span&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;        &lt;span style=&#34;color:#75715e&#34;&gt;// 退款逻辑&lt;/span&gt;
+&lt;/span&gt;&lt;/span&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;    } &lt;span style=&#34;color:#66d9ef&#34;&gt;else&lt;/span&gt; &lt;span style=&#34;color:#66d9ef&#34;&gt;if&lt;/span&gt; (order.&lt;span style=&#34;color:#a6e22e&#34;&gt;getStatus&lt;/span&gt;() &lt;span style=&#34;color:#f92672&#34;&gt;==&lt;/span&gt; SHIPPED) {
+&lt;/span&gt;&lt;/span&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;        &lt;span style=&#34;color:#66d9ef&#34;&gt;throw&lt;/span&gt; &lt;span style=&#34;color:#66d9ef&#34;&gt;new&lt;/span&gt; RuntimeException(&lt;span style=&#34;color:#e6db74&#34;&gt;&amp;#34;已发货不能取消&amp;#34;&lt;/span&gt;);
+&lt;/span&gt;&lt;/span&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;    } &lt;span style=&#34;color:#66d9ef&#34;&gt;else&lt;/span&gt; &lt;span style=&#34;color:#66d9ef&#34;&gt;if&lt;/span&gt; (order.&lt;span style=&#34;color:#a6e22e&#34;&gt;getStatus&lt;/span&gt;() &lt;span style=&#34;color:#f92672&#34;&gt;==&lt;/span&gt; CREATED) {
+&lt;/span&gt;&lt;/span&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;        &lt;span style=&#34;color:#75715e&#34;&gt;// 直接关闭&lt;/span&gt;
+&lt;/span&gt;&lt;/span&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;    }
+&lt;/span&gt;&lt;/span&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;    &lt;span style=&#34;color:#75715e&#34;&gt;// ...&lt;/span&gt;
+&lt;/span&gt;&lt;/span&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;}
+&lt;/span&gt;&lt;/span&gt;&lt;/code&gt;&lt;/pre&gt;&lt;/div&gt;&lt;p&gt;当状态超过5个，操作超过10个，这个类就会膨胀成上帝类，任何一个状态流转的改动都需要小心翼翼地搜索所有&lt;code&gt;if&lt;/code&gt;。&lt;/p&gt;
+&lt;p&gt;&lt;strong&gt;重构方案：状态模式（State Pattern）&lt;/strong&gt;&lt;/p&gt;
+&lt;p&gt;将每个状态看作一个独立的类，把该状态下允许的行为封装进去。&lt;/p&gt;
+&lt;ol&gt;
+&lt;li&gt;&lt;strong&gt;状态接口&lt;/strong&gt;：&lt;code&gt;OrderState&lt;/code&gt;，定义&lt;code&gt;pay()&lt;/code&gt;、&lt;code&gt;ship()&lt;/code&gt;、&lt;code&gt;cancel()&lt;/code&gt;等行为。&lt;/li&gt;
+&lt;li&gt;&lt;strong&gt;具体状态类&lt;/strong&gt;：&lt;code&gt;PaidState&lt;/code&gt;、&lt;code&gt;ShippedState&lt;/code&gt;。在&lt;code&gt;ShippedState&lt;/code&gt;类的&lt;code&gt;cancel()&lt;/code&gt;方法中直接抛出异常，而在&lt;code&gt;PaidState&lt;/code&gt;中则执行退款逻辑。&lt;/li&gt;
+&lt;li&gt;&lt;strong&gt;上下文切换&lt;/strong&gt;：Context类负责持有当前状态，并委托操作。&lt;/li&gt;
+&lt;/ol&gt;
+&lt;p&gt;&lt;strong&gt;实战结果：&lt;/strong&gt;
+我们在重构物流中台的运单状态机时使用了此模式。当时业务方要求增加一个&amp;quot;异常挂起&amp;quot;状态，该状态下拦截所有操作。我们只新增了一个&lt;code&gt;SuspendedState&lt;/code&gt;类，重写了所有方法返回&amp;quot;禁止操作&amp;quot;提示，就完成了需求，&lt;strong&gt;完全没有触碰核心调度逻辑&lt;/strong&gt;，测试覆盖率达到了100%。&lt;/p&gt;
+&lt;h3 id=&#34;总结与落地工具&#34;&gt;总结与落地工具
+&lt;/h3&gt;&lt;p&gt;&lt;img src=&#34;https://picsum.photos/800/450?random=1768457549485&#34;
+	
+	
+	
+	loading=&#34;lazy&#34;
+	
+		alt=&#34;配图&#34;
+	
+	
+&gt;&lt;/p&gt;
+&lt;p&gt;重构不是为了炫技，而是为了&lt;strong&gt;降低熵增&lt;/strong&gt;。&lt;/p&gt;
+&lt;p&gt;什么时候该重构？我大概总结了一个简单的判断标准：&lt;/p&gt;
+&lt;ul&gt;
+&lt;li&gt;&lt;strong&gt;重复度&lt;/strong&gt;：当一段&lt;code&gt;if-else&lt;/code&gt;逻辑在3个以上的地方重复出现；&lt;/li&gt;
+&lt;li&gt;&lt;strong&gt;复杂度&lt;/strong&gt;：当嵌套层级超过3层；&lt;/li&gt;
+&lt;li&gt;&lt;strong&gt;易变度&lt;/strong&gt;：当这段逻辑在过去一个月内被修改了2次以上。&lt;/li&gt;
+&lt;/ul&gt;
+&lt;p&gt;最后，分享一个我团队内部使用的**&amp;ldquo;重构决策卡&amp;rdquo;**，你可以复制保存，下次遇到长代码时对照使用：&lt;/p&gt;
+&lt;table&gt;
+  &lt;thead&gt;
+      &lt;tr&gt;
+          &lt;th style=&#34;text-align: left&#34;&gt;场景特征&lt;/th&gt;
+          &lt;th style=&#34;text-align: left&#34;&gt;推荐模式&lt;/th&gt;
+          &lt;th style=&#34;text-align: left&#34;&gt;核心收益&lt;/th&gt;
+      &lt;/tr&gt;
+  &lt;/thead&gt;
+  &lt;tbody&gt;
+      &lt;tr&gt;
+          &lt;td style=&#34;text-align: left&#34;&gt;&lt;strong&gt;同级并列&lt;/strong&gt;：不同类型执行不同逻辑（如支付渠道、优惠券）&lt;/td&gt;
+          &lt;td style=&#34;text-align: left&#34;&gt;&lt;strong&gt;策略模式 + Map&lt;/strong&gt;&lt;/td&gt;
+          &lt;td style=&#34;text-align: left&#34;&gt;这里的else变成了新的Class，符合OCP原则，易扩展&lt;/td&gt;
+      &lt;/tr&gt;
+      &lt;tr&gt;
+          &lt;td style=&#34;text-align: left&#34;&gt;&lt;strong&gt;顺序过滤&lt;/strong&gt;：多重校验、黑白名单、规则引擎&lt;/td&gt;
+          &lt;td style=&#34;text-align: left&#34;&gt;&lt;strong&gt;责任链模式&lt;/strong&gt;&lt;/td&gt;
+          &lt;td style=&#34;text-align: left&#34;&gt;逻辑解耦，支持动态编排和热插拔&lt;/td&gt;
+      &lt;/tr&gt;
+      &lt;tr&gt;
+          &lt;td style=&#34;text-align: left&#34;&gt;&lt;strong&gt;状态流转&lt;/strong&gt;：基于当前状态判断能否执行操作（如订单、审批）&lt;/td&gt;
+          &lt;td style=&#34;text-align: left&#34;&gt;&lt;strong&gt;状态模式&lt;/strong&gt;&lt;/td&gt;
+          &lt;td style=&#34;text-align: left&#34;&gt;消除非法的状态流转，将复杂逻辑分散到各个状态类中&lt;/td&gt;
+      &lt;/tr&gt;
+      &lt;tr&gt;
+          &lt;td style=&#34;text-align: left&#34;&gt;&lt;strong&gt;结构相同细节不同&lt;/strong&gt;：主流程固定，子步骤有差异（如报表导出）&lt;/td&gt;
+          &lt;td style=&#34;text-align: left&#34;&gt;&lt;strong&gt;模板方法模式&lt;/strong&gt;&lt;/td&gt;
+          &lt;td style=&#34;text-align: left&#34;&gt;复用骨架代码，减少重复开发&lt;/td&gt;
+      &lt;/tr&gt;
+  &lt;/tbody&gt;
+&lt;/table&gt;
+&lt;p&gt;&lt;strong&gt;落地行动指南：&lt;/strong&gt;&lt;/p&gt;
+&lt;ol&gt;
+&lt;li&gt;&lt;strong&gt;不要全盘重写&lt;/strong&gt;：先挑一个痛点最明显的业务场景（比如改动最频繁的那个Service）。&lt;/li&gt;
+&lt;li&gt;&lt;strong&gt;先加测试&lt;/strong&gt;：在动代码前，必须给现有的&lt;code&gt;if-else&lt;/code&gt;逻辑加上单元测试，这是你的安全网。&lt;/li&gt;
+&lt;li&gt;&lt;strong&gt;小步快跑&lt;/strong&gt;：抽离一个分支 -&amp;gt; 验证 -&amp;gt; 再抽离下一个。不要试图一次性上线完美的架构。&lt;/li&gt;
+&lt;/ol&gt;
+&lt;p&gt;代码整洁度，某种程度上代表了团队的尊严。希望下次你打开IDE时，面对的不再是令人绝望的&lt;code&gt;if-else&lt;/code&gt;迷宫，而是清晰优雅的架构森林。&lt;/p&gt;
+</description>
+        </item>
+        
+    </channel>
+</rss>

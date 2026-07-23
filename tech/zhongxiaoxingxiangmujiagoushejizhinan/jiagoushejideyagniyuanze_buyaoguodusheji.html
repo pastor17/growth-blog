@@ -1,0 +1,468 @@
+<!DOCTYPE html>
+<html lang="zh-cn" dir="ltr">
+    <head><meta charset='utf-8'>
+<meta name='viewport' content='width=device-width, initial-scale=1'><meta name='description' content="2018年，我负责重构一家B轮电商公司的核心交易系统。当时团队斗志昂扬，我也急于证明技术实力，在设计文档里写满了&quot;高并发&quot;、&ldquo;解耦&rdquo;、&ldquo;未来支撑千万级用户&rdquo;。\n为了所谓的&quot;极致扩展性&quot;，我们在没有一个真实用户下单前，就引入了全套微服务、分布式事务（Seata）、以及一套极其复杂的规则引擎。\n结果呢？上线半年，日均订单量不到2000单。那套为&quot;千万级用户&quot;准备的架构，不仅每个月白白烧掉3万多的云服务器成本，更致命的是，每开发一个简单的&quot;满减活动&quot;，都需要跨越4个服务、修改3个代码库。团队疲于奔命，业务方怨声载道。\n这就是典型的**YAGNI（You Aren&rsquo;t Gonna Need It - 你不需要它）**违例。\n这几年做架构咨询，我发现不仅是我，80%的中小团队架构师都容易陷入&quot;简历驱动开发&quot;或&quot;防御性设计&quot;的误区。今天，我想结合这几次惨痛的教训，聊聊如何在架构设计中真正落地YAGNI原则。\n一、 别被&quot;微服务&quot;绑架，模块化单体才是真香\r很多技术负责人在项目初期，容易产生一种幻觉：不用微服务，架构就不够先进。\n在那个电商项目中，我们团队只有6个后端开发，却拆出了用户、商品、订单、支付、营销等12个微服务。\n真实痛点：\n排查困难： 一个简单的报错，我要在ELK里搜集4个服务的日志才能拼凑出真相。 基建拖累： 为了这套架构，我们不得不维护一套复杂的CI/CD流水线，每次全量部署需要40分钟。 数据一致性噩梦： 分布式事务带来的复杂度，远超业务本身的逻辑复杂度。 修正方案： 一年后，我们不得不进行&quot;架构降级&quot;。我并没有一步退回到大泥球（Big Ball of Mud），而是采用了模块化单体（Modular Monolith）。\n我们把12个服务合并回一个SpringBoot工程，但严格通过Maven Module进行物理隔离：\n// 错误示范：在单体里随意穿透 userService.getUserById(id); // 订单模块直接调用用户Service实现类 // 正确示范：模块化单体，通过明确的Public API交互 // Order Module -&gt; User Module API -&gt; User Module Implementation public interface UserApi { UserDTO getUserInfo(Long userId); } 结果： 合并后，部署时间缩短到5分钟，服务器成本下降了60%。更重要的是，因为都在一个进程内，方法调用代替了RPC网络调用，系统响应速度反而提升了。\n给架构师的建议： 只有当你的团队规模超过&quot;两个披萨&quot;（约10-12人），或者某个模块需要独立的扩缩容策略（如秒杀模块）时，再考虑拆分微服务。在此之前，定义好边界比物理拆分更重要。\n二、 警惕&quot;通用性&quot;陷阱，拒绝过度抽象\r我曾在代码评审中见过一位资深开发写的&quot;通用报表导出引擎&quot;。\n起因是业务方提了两个Excel导出需求。这位兄弟觉得：&ldquo;以后肯定还有几百个导出需求，不如写个通用的配置化引擎。&rdquo;\n他花了整整两周，设计了一套基于XML配置SQL、反射处理字段映射、甚至支持动态策略模式的框架。\n现实打脸： 接下来的两年里，业务方统共只提了5个导出需求，而且每个需求都有极其怪异的定制逻辑（比如：某些行要标红，某些列要合并），那个&quot;通用引擎&quot;根本配置不出来，最后还得硬编码。\n我的反思： 这便是为了&quot;可能存在&quot;的未来，牺牲了&quot;当下确定&quot;的效率。\n我现在遵循Rule of Three（事不过三原则）。在代码中，我允许适度的重复。\n">
+<title>为了&#34;未来扩展&#34;我白烧半年预算：架构YAGNI实战复盘</title>
+
+<link rel='canonical' href='https://blog.irudder.me/tech/zhongxiaoxingxiangmujiagoushejizhinan/jiagoushejideyagniyuanze_buyaoguodusheji.html'>
+
+<link rel="stylesheet" href="/scss/style.min.b9e9128fec450ebccecc4ec9900157f32b85d0609bcd5ee3293968bcaa1235f2.css"><meta property='og:title' content="为了\"未来扩展\"我白烧半年预算：架构YAGNI实战复盘">
+<meta property='og:description' content="2018年，我负责重构一家B轮电商公司的核心交易系统。当时团队斗志昂扬，我也急于证明技术实力，在设计文档里写满了&quot;高并发&quot;、&ldquo;解耦&rdquo;、&ldquo;未来支撑千万级用户&rdquo;。\n为了所谓的&quot;极致扩展性&quot;，我们在没有一个真实用户下单前，就引入了全套微服务、分布式事务（Seata）、以及一套极其复杂的规则引擎。\n结果呢？上线半年，日均订单量不到2000单。那套为&quot;千万级用户&quot;准备的架构，不仅每个月白白烧掉3万多的云服务器成本，更致命的是，每开发一个简单的&quot;满减活动&quot;，都需要跨越4个服务、修改3个代码库。团队疲于奔命，业务方怨声载道。\n这就是典型的**YAGNI（You Aren&rsquo;t Gonna Need It - 你不需要它）**违例。\n这几年做架构咨询，我发现不仅是我，80%的中小团队架构师都容易陷入&quot;简历驱动开发&quot;或&quot;防御性设计&quot;的误区。今天，我想结合这几次惨痛的教训，聊聊如何在架构设计中真正落地YAGNI原则。\n一、 别被&quot;微服务&quot;绑架，模块化单体才是真香\r很多技术负责人在项目初期，容易产生一种幻觉：不用微服务，架构就不够先进。\n在那个电商项目中，我们团队只有6个后端开发，却拆出了用户、商品、订单、支付、营销等12个微服务。\n真实痛点：\n排查困难： 一个简单的报错，我要在ELK里搜集4个服务的日志才能拼凑出真相。 基建拖累： 为了这套架构，我们不得不维护一套复杂的CI/CD流水线，每次全量部署需要40分钟。 数据一致性噩梦： 分布式事务带来的复杂度，远超业务本身的逻辑复杂度。 修正方案： 一年后，我们不得不进行&quot;架构降级&quot;。我并没有一步退回到大泥球（Big Ball of Mud），而是采用了模块化单体（Modular Monolith）。\n我们把12个服务合并回一个SpringBoot工程，但严格通过Maven Module进行物理隔离：\n// 错误示范：在单体里随意穿透 userService.getUserById(id); // 订单模块直接调用用户Service实现类 // 正确示范：模块化单体，通过明确的Public API交互 // Order Module -&gt; User Module API -&gt; User Module Implementation public interface UserApi { UserDTO getUserInfo(Long userId); } 结果： 合并后，部署时间缩短到5分钟，服务器成本下降了60%。更重要的是，因为都在一个进程内，方法调用代替了RPC网络调用，系统响应速度反而提升了。\n给架构师的建议： 只有当你的团队规模超过&quot;两个披萨&quot;（约10-12人），或者某个模块需要独立的扩缩容策略（如秒杀模块）时，再考虑拆分微服务。在此之前，定义好边界比物理拆分更重要。\n二、 警惕&quot;通用性&quot;陷阱，拒绝过度抽象\r我曾在代码评审中见过一位资深开发写的&quot;通用报表导出引擎&quot;。\n起因是业务方提了两个Excel导出需求。这位兄弟觉得：&ldquo;以后肯定还有几百个导出需求，不如写个通用的配置化引擎。&rdquo;\n他花了整整两周，设计了一套基于XML配置SQL、反射处理字段映射、甚至支持动态策略模式的框架。\n现实打脸： 接下来的两年里，业务方统共只提了5个导出需求，而且每个需求都有极其怪异的定制逻辑（比如：某些行要标红，某些列要合并），那个&quot;通用引擎&quot;根本配置不出来，最后还得硬编码。\n我的反思： 这便是为了&quot;可能存在&quot;的未来，牺牲了&quot;当下确定&quot;的效率。\n我现在遵循Rule of Three（事不过三原则）。在代码中，我允许适度的重复。\n">
+<meta property='og:url' content='https://blog.irudder.me/tech/zhongxiaoxingxiangmujiagoushejizhinan/jiagoushejideyagniyuanze_buyaoguodusheji.html'>
+<meta property='og:site_name' content='SelfTechHub'>
+<meta property='og:type' content='article'><meta property='article:section' content='Tech' /><meta property='article:tag' content='架构设计的YAGNI原则：不要过度设计' /><meta property='article:published_time' content='2020-10-13T00:00:00&#43;00:00'/><meta property='article:modified_time' content='2020-10-13T00:00:00&#43;00:00'/>
+<meta name="twitter:title" content="为了\"未来扩展\"我白烧半年预算：架构YAGNI实战复盘">
+<meta name="twitter:description" content="2018年，我负责重构一家B轮电商公司的核心交易系统。当时团队斗志昂扬，我也急于证明技术实力，在设计文档里写满了&quot;高并发&quot;、&ldquo;解耦&rdquo;、&ldquo;未来支撑千万级用户&rdquo;。\n为了所谓的&quot;极致扩展性&quot;，我们在没有一个真实用户下单前，就引入了全套微服务、分布式事务（Seata）、以及一套极其复杂的规则引擎。\n结果呢？上线半年，日均订单量不到2000单。那套为&quot;千万级用户&quot;准备的架构，不仅每个月白白烧掉3万多的云服务器成本，更致命的是，每开发一个简单的&quot;满减活动&quot;，都需要跨越4个服务、修改3个代码库。团队疲于奔命，业务方怨声载道。\n这就是典型的**YAGNI（You Aren&rsquo;t Gonna Need It - 你不需要它）**违例。\n这几年做架构咨询，我发现不仅是我，80%的中小团队架构师都容易陷入&quot;简历驱动开发&quot;或&quot;防御性设计&quot;的误区。今天，我想结合这几次惨痛的教训，聊聊如何在架构设计中真正落地YAGNI原则。\n一、 别被&quot;微服务&quot;绑架，模块化单体才是真香\r很多技术负责人在项目初期，容易产生一种幻觉：不用微服务，架构就不够先进。\n在那个电商项目中，我们团队只有6个后端开发，却拆出了用户、商品、订单、支付、营销等12个微服务。\n真实痛点：\n排查困难： 一个简单的报错，我要在ELK里搜集4个服务的日志才能拼凑出真相。 基建拖累： 为了这套架构，我们不得不维护一套复杂的CI/CD流水线，每次全量部署需要40分钟。 数据一致性噩梦： 分布式事务带来的复杂度，远超业务本身的逻辑复杂度。 修正方案： 一年后，我们不得不进行&quot;架构降级&quot;。我并没有一步退回到大泥球（Big Ball of Mud），而是采用了模块化单体（Modular Monolith）。\n我们把12个服务合并回一个SpringBoot工程，但严格通过Maven Module进行物理隔离：\n// 错误示范：在单体里随意穿透 userService.getUserById(id); // 订单模块直接调用用户Service实现类 // 正确示范：模块化单体，通过明确的Public API交互 // Order Module -&gt; User Module API -&gt; User Module Implementation public interface UserApi { UserDTO getUserInfo(Long userId); } 结果： 合并后，部署时间缩短到5分钟，服务器成本下降了60%。更重要的是，因为都在一个进程内，方法调用代替了RPC网络调用，系统响应速度反而提升了。\n给架构师的建议： 只有当你的团队规模超过&quot;两个披萨&quot;（约10-12人），或者某个模块需要独立的扩缩容策略（如秒杀模块）时，再考虑拆分微服务。在此之前，定义好边界比物理拆分更重要。\n二、 警惕&quot;通用性&quot;陷阱，拒绝过度抽象\r我曾在代码评审中见过一位资深开发写的&quot;通用报表导出引擎&quot;。\n起因是业务方提了两个Excel导出需求。这位兄弟觉得：&ldquo;以后肯定还有几百个导出需求，不如写个通用的配置化引擎。&rdquo;\n他花了整整两周，设计了一套基于XML配置SQL、反射处理字段映射、甚至支持动态策略模式的框架。\n现实打脸： 接下来的两年里，业务方统共只提了5个导出需求，而且每个需求都有极其怪异的定制逻辑（比如：某些行要标红，某些列要合并），那个&quot;通用引擎&quot;根本配置不出来，最后还得硬编码。\n我的反思： 这便是为了&quot;可能存在&quot;的未来，牺牲了&quot;当下确定&quot;的效率。\n我现在遵循Rule of Three（事不过三原则）。在代码中，我允许适度的重复。\n">
+    </head>
+    <body class="
+    article-page
+    ">
+    <script>
+        (function() {
+            const colorSchemeKey = 'StackColorScheme';
+            if(!localStorage.getItem(colorSchemeKey)){
+                localStorage.setItem(colorSchemeKey, "auto");
+            }
+        })();
+    </script><script>
+    (function() {
+        const colorSchemeKey = 'StackColorScheme';
+        const colorSchemeItem = localStorage.getItem(colorSchemeKey);
+        const supportDarkMode = window.matchMedia('(prefers-color-scheme: dark)').matches === true;
+
+        if (colorSchemeItem == 'dark' || colorSchemeItem === 'auto' && supportDarkMode) {
+            
+
+            document.documentElement.dataset.scheme = 'dark';
+        } else {
+            document.documentElement.dataset.scheme = 'light';
+        }
+    })();
+</script>
+<div class="container main-container flex on-phone--column compact"><aside class="sidebar left-sidebar sticky ">
+    <button class="hamburger hamburger--spin" type="button" id="toggle-menu" aria-label="切换菜单">
+        <span class="hamburger-box">
+            <span class="hamburger-inner"></span>
+        </span>
+    </button>
+
+    <header>
+        
+            
+            <figure class="site-avatar">
+                <a href="/">
+                
+                    
+                    
+                    
+                        
+                        <img src="/img/avatar_hu_8588ce14af1147e2.png" width="300"
+                            height="286" class="site-logo" loading="lazy" alt="Avatar">
+                    
+                
+                </a>
+                
+            </figure>
+            
+        
+        
+        <div class="site-meta">
+            <h1 class="site-name"><a href="/">SelfTechHub</a></h1>
+            <h2 class="site-description"></h2>
+        </div>
+    </header><ol class="menu" id="main-menu">
+        
+        
+        <li class="menu-bottom-section">
+            <ol class="menu">
+
+                
+                    <li id="dark-mode-toggle">
+                        <svg xmlns="http://www.w3.org/2000/svg" class="icon icon-tabler icon-tabler-toggle-left" width="24" height="24" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor" fill="none" stroke-linecap="round" stroke-linejoin="round">
+  <path stroke="none" d="M0 0h24v24H0z"/>
+  <circle cx="8" cy="12" r="2" />
+  <rect x="2" y="6" width="20" height="12" rx="6" />
+</svg>
+
+
+
+                        <svg xmlns="http://www.w3.org/2000/svg" class="icon icon-tabler icon-tabler-toggle-right" width="24" height="24" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor" fill="none" stroke-linecap="round" stroke-linejoin="round">
+  <path stroke="none" d="M0 0h24v24H0z"/>
+  <circle cx="16" cy="12" r="2" />
+  <rect x="2" y="6" width="20" height="12" rx="6" />
+</svg>
+
+
+
+                        <span>暗色模式</span>
+                    </li>
+                
+            </ol>
+        </li>
+    </ol>
+</aside>
+
+    
+
+            <main class="main full-width">
+    <article class="main-article">
+    <header class="article-header">
+
+    <div class="article-details">
+    
+    <header class="article-category">
+        
+            <a href="/categories/%E6%8A%80%E6%9C%AF.html" >
+                技术精进
+            </a>
+        
+    </header>
+    
+
+    <div class="article-title-wrapper">
+        <h2 class="article-title">
+            <a href="/tech/zhongxiaoxingxiangmujiagoushejizhinan/jiagoushejideyagniyuanze_buyaoguodusheji.html">为了&#34;未来扩展&#34;我白烧半年预算：架构YAGNI实战复盘</a>
+        </h2>
+    
+        
+    </div>
+
+    
+    
+    
+    
+    <footer class="article-time">
+        
+            <div>
+                <svg xmlns="http://www.w3.org/2000/svg" class="icon icon-tabler icon-tabler-calendar-time" width="56" height="56" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor" fill="none" stroke-linecap="round" stroke-linejoin="round">
+  <path stroke="none" d="M0 0h24v24H0z"/>
+  <path d="M11.795 21h-6.795a2 2 0 0 1 -2 -2v-12a2 2 0 0 1 2 -2h12a2 2 0 0 1 2 2v4" />
+  <circle cx="18" cy="18" r="4" />
+  <path d="M15 3v4" />
+  <path d="M7 3v4" />
+  <path d="M3 11h16" />
+  <path d="M18 16.496v1.504l1 1" />
+</svg>
+                <time class="article-time--published" datetime='2020-10-13T00:00:00Z'>Oct 13, 2020</time>
+            </div>
+        
+
+        
+            <div>
+                <svg xmlns="http://www.w3.org/2000/svg" class="icon icon-tabler icon-tabler-clock" width="24" height="24" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor" fill="none" stroke-linecap="round" stroke-linejoin="round">
+  <path stroke="none" d="M0 0h24v24H0z"/>
+  <circle cx="12" cy="12" r="9" />
+  <polyline points="12 7 12 12 15 15" />
+</svg>
+
+
+
+                <time class="article-time--reading">
+                    阅读时长: 1 分钟
+                </time>
+            </div>
+        
+    </footer>
+    
+
+    
+</div>
+
+</header>
+
+    <section class="article-content">
+    
+    
+    <p>2018年，我负责重构一家B轮电商公司的核心交易系统。当时团队斗志昂扬，我也急于证明技术实力，在设计文档里写满了&quot;高并发&quot;、&ldquo;解耦&rdquo;、&ldquo;未来支撑千万级用户&rdquo;。</p>
+<p>为了所谓的&quot;极致扩展性&quot;，我们在没有一个真实用户下单前，就引入了全套微服务、分布式事务（Seata）、以及一套极其复杂的规则引擎。</p>
+<p>结果呢？上线半年，日均订单量不到2000单。那套为&quot;千万级用户&quot;准备的架构，不仅每个月白白烧掉3万多的云服务器成本，更致命的是，每开发一个简单的&quot;满减活动&quot;，都需要跨越4个服务、修改3个代码库。团队疲于奔命，业务方怨声载道。</p>
+<p><img src="https://picsum.photos/800/450?random=1768456657498"
+	
+	
+	
+	loading="lazy"
+	
+		alt="配图"
+	
+	
+></p>
+<p>这就是典型的**YAGNI（You Aren&rsquo;t Gonna Need It - 你不需要它）**违例。</p>
+<p>这几年做架构咨询，我发现不仅是我，80%的中小团队架构师都容易陷入&quot;简历驱动开发&quot;或&quot;防御性设计&quot;的误区。今天，我想结合这几次惨痛的教训，聊聊如何在架构设计中真正落地YAGNI原则。</p>
+<h2 id="一-别被微服务绑架模块化单体才是真香">一、 别被&quot;微服务&quot;绑架，模块化单体才是真香
+</h2><p>很多技术负责人在项目初期，容易产生一种幻觉：不用微服务，架构就不够先进。</p>
+<p>在那个电商项目中，我们团队只有6个后端开发，却拆出了用户、商品、订单、支付、营销等12个微服务。</p>
+<p><strong>真实痛点：</strong></p>
+<ul>
+<li><strong>排查困难：</strong> 一个简单的报错，我要在ELK里搜集4个服务的日志才能拼凑出真相。</li>
+<li><strong>基建拖累：</strong> 为了这套架构，我们不得不维护一套复杂的CI/CD流水线，每次全量部署需要40分钟。</li>
+<li><strong>数据一致性噩梦：</strong> 分布式事务带来的复杂度，远超业务本身的逻辑复杂度。</li>
+</ul>
+<p><strong>修正方案：</strong>
+一年后，我们不得不进行&quot;架构降级&quot;。我并没有一步退回到大泥球（Big Ball of Mud），而是采用了<strong>模块化单体（Modular Monolith）</strong>。</p>
+<p>我们把12个服务合并回一个SpringBoot工程，但严格通过Maven Module进行物理隔离：</p>
+<div class="highlight"><pre tabindex="0" style="color:#f8f8f2;background-color:#272822;-moz-tab-size:4;-o-tab-size:4;tab-size:4;"><code class="language-java" data-lang="java"><span style="display:flex;"><span><span style="color:#75715e">// 错误示范：在单体里随意穿透</span>
+</span></span><span style="display:flex;"><span>userService.<span style="color:#a6e22e">getUserById</span>(id); <span style="color:#75715e">// 订单模块直接调用用户Service实现类</span>
+</span></span><span style="display:flex;"><span>
+</span></span><span style="display:flex;"><span><span style="color:#75715e">// 正确示范：模块化单体，通过明确的Public API交互</span>
+</span></span><span style="display:flex;"><span><span style="color:#75715e">// Order Module -&gt; User Module API -&gt; User Module Implementation</span>
+</span></span><span style="display:flex;"><span><span style="color:#66d9ef">public</span> <span style="color:#66d9ef">interface</span> <span style="color:#a6e22e">UserApi</span> {
+</span></span><span style="display:flex;"><span>    UserDTO <span style="color:#a6e22e">getUserInfo</span>(Long userId);
+</span></span><span style="display:flex;"><span>}
+</span></span></code></pre></div><p><strong>结果：</strong>
+合并后，部署时间缩短到5分钟，服务器成本下降了60%。更重要的是，因为都在一个进程内，方法调用代替了RPC网络调用，系统响应速度反而提升了。</p>
+<p><strong>给架构师的建议：</strong>
+只有当你的团队规模超过&quot;两个披萨&quot;（约10-12人），或者某个模块需要独立的扩缩容策略（如秒杀模块）时，再考虑拆分微服务。在此之前，<strong>定义好边界比物理拆分更重要。</strong></p>
+<h2 id="二-警惕通用性陷阱拒绝过度抽象">二、 警惕&quot;通用性&quot;陷阱，拒绝过度抽象
+</h2><p>我曾在代码评审中见过一位资深开发写的&quot;通用报表导出引擎&quot;。</p>
+<p>起因是业务方提了两个Excel导出需求。这位兄弟觉得：&ldquo;以后肯定还有几百个导出需求，不如写个通用的配置化引擎。&rdquo;</p>
+<p>他花了整整两周，设计了一套基于XML配置SQL、反射处理字段映射、甚至支持动态策略模式的框架。</p>
+<p><strong>现实打脸：</strong>
+接下来的两年里，业务方统共只提了5个导出需求，而且每个需求都有极其怪异的定制逻辑（比如：某些行要标红，某些列要合并），那个&quot;通用引擎&quot;根本配置不出来，最后还得硬编码。</p>
+<p><strong>我的反思：</strong>
+这便是为了&quot;可能存在&quot;的未来，牺牲了&quot;当下确定&quot;的效率。</p>
+<p>我现在遵循<strong>Rule of Three（事不过三原则）</strong>。在代码中，我允许适度的重复。</p>
+<ul>
+<li><strong>第一次：</strong> 直接硬编码实现功能，越快越好。</li>
+<li><strong>第二次：</strong> 复制粘贴代码，做少量修改。是的，你没看错，Ctrl+C/V在早期是最高效的解耦。</li>
+<li><strong>第三次：</strong> 当我也在写第三块类似逻辑时，我才会停下来，寻找共性，进行重构和抽象。</li>
+</ul>
+<blockquote>
+<p>&ldquo;过早的抽象是万恶之源。一段重复的代码容易修改，但一个错误的抽象很难被移除。&rdquo;</p>
+</blockquote>
+<p><strong>落地技巧：</strong>
+下次当你听到团队里有人说&quot;为了以后方便扩展，我加了一层&hellip;&ldquo;时，请让他停下来。除非他能拿出具体的、在这个迭代就会发生的扩展场景，否则请坚持<strong>简单直接</strong>的实现。</p>
+<h2 id="三-别让技术选型成为运维灾难">三、 别让&quot;技术选型&quot;成为运维灾难
+</h2><p>2020年，我接手过一个物联网（IoT）初创项目。前任架构师引入了Kafka、HBase、ClickHouse、Kubernetes全家桶。</p>
+<p>但他忽略了一个关键事实：公司并没有专门的运维团队，甚至连一个专职DBA都没有。</p>
+<p><strong>真实场景：</strong>
+某天深夜，线上系统突然崩了。原因是Zookeeper集群的一个节点磁盘满了，导致Kafka不可用，进而阻塞了整个业务流程。</p>
+<p>因为团队里没人精通ZK和Kafka的底层原理，大家围着屏幕查了4个小时Google，最后只能暴力重启服务器。那晚我们损失了约20%的客户数据。</p>
+<p>对于中小团队，<strong>&ldquo;可运维性&quot;远比&quot;性能上限&quot;重要</strong>。</p>
+<p><strong>修正方案：</strong>
+我们后来把Kafka换成了Redis List（对于当时的吞吐量完全够用），把HBase换成了MySQL（分表），虽然在理论性能上降级了，但系统的稳定性却大幅提升了。因为MySQL和Redis是每个开发都会用的组件，出了问题谁都能修。</p>
+<p><strong>架构决策卡：</strong>
+每当我需要引入新技术栈时，我会强迫自己填写一张&quot;引入理由卡&rdquo;：</p>
+<ol>
+<li><strong>必须要解决的问题是什么？</strong></li>
+<li><strong>现有的技术栈真的解决不了吗？</strong></li>
+<li><strong>如果这个组件半夜挂了，团队里有几个人能修？</strong></li>
+</ol>
+<p><img src="https://picsum.photos/800/450?random=1768456663559"
+	
+	
+	
+	loading="lazy"
+	
+		alt="配图"
+	
+	
+></p>
+<p>如果第3题的答案少于2人，无论这个技术多牛，我都不会通过。</p>
+<h2 id="写在最后">写在最后
+</h2><p>架构设计不是搭积木，而是一场关于资源的博弈。</p>
+<p>YAGNI原则的核心，不是让你写烂代码，而是让你保持<strong>专注</strong>。专注于解决当下的业务痛点，专注于让系统尽早交付价值，而不是为了感动自己去设计一座空中楼阁。</p>
+<p>作为架构师，我们要有承认&quot;我无法预测未来&quot;的勇气。</p>
+<p><strong>互动时刻：</strong>
+在你目前的系统中，有没有那种&quot;设计得很精妙，但从来没被用过&quot;的功能或代码？
+A. 有，而且很多，看着头疼。
+B. 没有，我们都是一把梭，全是硬编码（这可能是另一个极端）。</p>
+<p>欢迎在评论区告诉我你的现状。</p>
+<p><strong>行动建议：</strong></p>
+<ol>
+<li><strong>本周五下午进行一次&quot;代码扫除&rdquo;：</strong> 找出项目中那个最复杂的&quot;通用工具类&quot;或&quot;中间件&quot;，检查它的实际引用率。如果低于2处，标记为&quot;待移除&quot;。</li>
+<li><strong>建立&quot;技术黑名单&quot;：</strong> 明确规定在当前阶段，哪些&quot;高大上&quot;的技术栈（如K8s、Service Mesh）严禁引入，直到业务量达到特定阈值。</li>
+<li><strong>拥抱Copy-Paste：</strong> 在下一次Code Review中，不要急着批评重复代码，先问问：&ldquo;如果把它抽象出来，维护成本会变低还是变高？&rdquo;</li>
+</ol>
+
+</section>
+
+
+    <footer class="article-footer">
+    
+    <section class="article-tags">
+        
+            <a href="/tags/%E6%9E%B6%E6%9E%84%E8%AE%BE%E8%AE%A1%E7%9A%84YAGNI%E5%8E%9F%E5%88%99%E4%B8%8D%E8%A6%81%E8%BF%87%E5%BA%A6%E8%AE%BE%E8%AE%A1.html">架构设计的YAGNI原则：不要过度设计</a>
+        
+    </section>
+
+
+    </footer>
+
+
+    
+</article>
+
+    
+
+    
+
+     
+    
+        
+    <script
+    src="https://giscus.app/client.js"
+    data-repo="pastor17/bloggiscus"
+    data-repo-id="R_kgDOQ6H9qQ"
+    data-category=""
+    data-category-id="DIC_kwDOQ6H9qc4C0-T8"
+    data-mapping="pathname"
+    data-strict="0"
+    data-reactions-enabled="1"
+    data-emit-metadata="0"
+    data-input-position="bottom"
+    data-theme="light"
+    data-lang="zh-CN"
+    data-loading="lazy"
+    crossorigin="anonymous"
+    async
+></script>
+<script>
+    function setGiscusTheme(theme) {
+        let giscus = document.querySelector("iframe.giscus-frame");
+        if (giscus) {
+            giscus.contentWindow.postMessage(
+                {
+                    giscus: {
+                        setConfig: {
+                            theme: theme,
+                        },
+                    },
+                },
+                "https://giscus.app"
+            );
+        }
+    }
+
+    (function () {
+        addEventListener("message", (e) => {
+            if (event.origin !== "https://giscus.app") return;
+            handler();
+        });
+        window.addEventListener("onColorSchemeChange", handler);
+
+        function handler() {
+            if (document.documentElement.dataset.scheme === "light") {
+                setGiscusTheme('light');
+            } else {
+                setGiscusTheme('dark_dimmed');
+            }
+        }
+    })();
+</script>
+
+    
+
+    <footer class="site-footer">
+    <section class="copyright">
+        &copy; 
+        
+        2026 SelfTechHub
+    </section>
+    
+    <section class="powerby">
+        
+
+    </section>
+</footer>
+
+
+    
+<div class="pswp" tabindex="-1" role="dialog" aria-hidden="true">
+
+    
+    <div class="pswp__bg"></div>
+
+    
+    <div class="pswp__scroll-wrap">
+
+        
+        <div class="pswp__container">
+            <div class="pswp__item"></div>
+            <div class="pswp__item"></div>
+            <div class="pswp__item"></div>
+        </div>
+
+        
+        <div class="pswp__ui pswp__ui--hidden">
+
+            <div class="pswp__top-bar">
+
+                
+
+                <div class="pswp__counter"></div>
+
+                <button class="pswp__button pswp__button--close" title="Close (Esc)"></button>
+
+                <button class="pswp__button pswp__button--share" title="Share"></button>
+
+                <button class="pswp__button pswp__button--fs" title="Toggle fullscreen"></button>
+
+                <button class="pswp__button pswp__button--zoom" title="Zoom in/out"></button>
+
+                
+                
+                <div class="pswp__preloader">
+                    <div class="pswp__preloader__icn">
+                        <div class="pswp__preloader__cut">
+                            <div class="pswp__preloader__donut"></div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <div class="pswp__share-modal pswp__share-modal--hidden pswp__single-tap">
+                <div class="pswp__share-tooltip"></div>
+            </div>
+
+            <button class="pswp__button pswp__button--arrow--left" title="Previous (arrow left)">
+            </button>
+
+            <button class="pswp__button pswp__button--arrow--right" title="Next (arrow right)">
+            </button>
+
+            <div class="pswp__caption">
+                <div class="pswp__caption__center"></div>
+            </div>
+
+        </div>
+
+    </div>
+
+</div><script 
+                src="https://cdn.jsdelivr.net/npm/photoswipe@4.1.3/dist/photoswipe.min.js"integrity="sha256-ePwmChbbvXbsO02lbM3HoHbSHTHFAeChekF1xKJdleo="crossorigin="anonymous"
+                defer
+                >
+            </script><script 
+                src="https://cdn.jsdelivr.net/npm/photoswipe@4.1.3/dist/photoswipe-ui-default.min.js"integrity="sha256-UKkzOn/w1mBxRmLLGrSeyB4e1xbrp4xylgAWb3M42pU="crossorigin="anonymous"
+                defer
+                >
+            </script><link 
+                rel="stylesheet" 
+                href="https://cdn.jsdelivr.net/npm/photoswipe@4.1.3/dist/default-skin/default-skin.min.css"crossorigin="anonymous"
+            ><link 
+                rel="stylesheet" 
+                href="https://cdn.jsdelivr.net/npm/photoswipe@4.1.3/dist/photoswipe.min.css"crossorigin="anonymous"
+            >
+    
+
+            </main>
+        </div>
+        <script 
+                src="https://cdn.jsdelivr.net/npm/node-vibrant@3.1.6/dist/vibrant.min.js"integrity="sha256-awcR2jno4kI5X0zL8ex0vi2z&#43;KMkF24hUW8WePSA9HM="crossorigin="anonymous"
+                
+                >
+            </script><script type="text/javascript" src="/ts/main.c922af694cc257bf1ecc41c0dd7b0430f9114ec280ccf67cd2c6ad55f5316c4e.js" defer></script>
+<script>
+    (function () {
+        const customFont = document.createElement('link');
+        customFont.href = "https://fonts.googleapis.com/css2?family=Lato:wght@300;400;700&display=swap";
+
+        customFont.type = "text/css";
+        customFont.rel = "stylesheet";
+
+        document.head.appendChild(customFont);
+    }());
+</script>
+
+    </body>
+</html>

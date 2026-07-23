@@ -1,0 +1,471 @@
+<!DOCTYPE html>
+<html lang="zh-cn" dir="ltr">
+    <head><meta charset='utf-8'>
+<meta name='viewport' content='width=device-width, initial-scale=1'><meta name='description' content="我以前总天真地以为，大家都是成年人了，工作任务分配下去，大家自然知道该干嘛、该找谁汇报。直到2019年那次惨痛的“全员推送事故”，狠狠给了我一巴掌。\n当时我们要做一个活动上线通知，运营觉得技术会配置自动发送，技术觉得运营会手动操作后台。结果就是：活动上线了，用户端静悄悄，全公司大眼瞪小眼。\n事后复盘，两边都在扯皮，且听起来都有道理。那时候我才明白：团队里最可怕的不是坏人，而是模糊的“默认共识”。\n这几年带项目，踩过不少坑，也填过不少坑。我发现解决这种“谁该干啥、谁该背锅、谁该知情”的问题，最好用的工具还是 RACI 模型。别被这个洋名字吓到，今天咱们不聊枯燥的理论，我就聊聊怎么用它解决真实的协作痛点。\n一、 R和A不分：当所有人都在负责，就是没人负责\r这是我见过最典型的“大坑”。很多项目表里，负责人那一栏填满了名字：产品经理、后端组长、前端组长&hellip; 看起来阵容豪华，一旦出事，所有人都在互相指责。\n这里必须通过 RACI 厘清两个概念：\nR (Responsible 也就是“执行人”)：谁在干活？谁在写代码、画图、写文档？ A (Accountable 也就是“负责人”)：谁对结果有最终决定权？谁对失败负全责？ 真实案例： 两年前做个数据迁移项目，涉及到老数据清洗。当时的表格里，把开发小李（R）和产品经理 Sarah（A）都标成了“负责人”。\n结果出了个 Bug，部分VIP用户数据字段错位。 小李说：“我是按文档写的逻辑跑的脚本，文档没定义这个边界情况。” Sarah说：“脚本是你写的，上线前你不自测吗？”\n这事儿卡了两天，直到我介入强行定了规矩：R可以有很多个，但A（拍板的人）只能有一个。\n在这个案例里，Sarah 作为 A，她必须在脚本跑之前 Review 逻辑，如果她没发现文档漏洞，那就是她的责任，不能怪执行层的小李。\n我的避坑心得： 如果一个任务后面标了两个 A，那约等于没有 A。也就是俗话说的“一个和尚挑水喝，两个和尚没水喝”。\n二、 C和I混淆：“被通知”不等于“被尊重”\r跨部门协作里，还有一种常见的架是这么吵的：“改这个功能为什么不提前告诉我？”\n这就是搞混了 C (Consult 咨询) 和 I (Inform 通知)。\nC (咨询)：是在做决定之前，需要听取意见的人。比如双向沟通。 I (通知)：是决定做完之后，单向告知结果的人。 真实案例： 去年双十一前夕，我们的UI设计师觉得原来的结算按钮颜色太土，把“橙色”改成了“红色”。他把这事告诉了前端开发（这是I），觉得完事了。\n结果上线后，客服部门炸了。因为客服所有的帮助文档截图、给用户的指引话术里，写的都是“点击橙色按钮”。客服主管直接冲到产品组拍桌子。\n复盘来看，设计师犯了个大忌： 对于前端开发，这是个样式修改，只要 I（通知）到位就行； 但对于客服部门，这涉及到服务流程的变更，他们应该是 C（咨询对象）。如果在改版前问一句客服，他们可能会说：“改颜色可以，但要给我们留2天时间更新知识库。”\n从那以后，我在项目启动会上都会强制画一张表：\n| 任务节点 | 谁干活(R) | 谁拍板(A) | 问谁意见(C) | 邮件抄送谁(I) | |---------------|----------|----------|------------|--------------| | UI视觉改版 | 设计师 | 设计总监 | 客服/前端 | 全员 | 分清楚 C 和 I，能帮你省掉80%的“情绪型”撕逼。\n">
+<title>甩锅？撕逼？用好RACI，跨部门协作效率翻倍</title>
+
+<link rel='canonical' href='https://blog.irudder.me/tech/kuabumenxiezuogaopinwentijiejueqingdan/kuabumenxiezuoderaciyuanze_mingquezerenfengong.html'>
+
+<link rel="stylesheet" href="/scss/style.min.b9e9128fec450ebccecc4ec9900157f32b85d0609bcd5ee3293968bcaa1235f2.css"><meta property='og:title' content="甩锅？撕逼？用好RACI，跨部门协作效率翻倍">
+<meta property='og:description' content="我以前总天真地以为，大家都是成年人了，工作任务分配下去，大家自然知道该干嘛、该找谁汇报。直到2019年那次惨痛的“全员推送事故”，狠狠给了我一巴掌。\n当时我们要做一个活动上线通知，运营觉得技术会配置自动发送，技术觉得运营会手动操作后台。结果就是：活动上线了，用户端静悄悄，全公司大眼瞪小眼。\n事后复盘，两边都在扯皮，且听起来都有道理。那时候我才明白：团队里最可怕的不是坏人，而是模糊的“默认共识”。\n这几年带项目，踩过不少坑，也填过不少坑。我发现解决这种“谁该干啥、谁该背锅、谁该知情”的问题，最好用的工具还是 RACI 模型。别被这个洋名字吓到，今天咱们不聊枯燥的理论，我就聊聊怎么用它解决真实的协作痛点。\n一、 R和A不分：当所有人都在负责，就是没人负责\r这是我见过最典型的“大坑”。很多项目表里，负责人那一栏填满了名字：产品经理、后端组长、前端组长&hellip; 看起来阵容豪华，一旦出事，所有人都在互相指责。\n这里必须通过 RACI 厘清两个概念：\nR (Responsible 也就是“执行人”)：谁在干活？谁在写代码、画图、写文档？ A (Accountable 也就是“负责人”)：谁对结果有最终决定权？谁对失败负全责？ 真实案例： 两年前做个数据迁移项目，涉及到老数据清洗。当时的表格里，把开发小李（R）和产品经理 Sarah（A）都标成了“负责人”。\n结果出了个 Bug，部分VIP用户数据字段错位。 小李说：“我是按文档写的逻辑跑的脚本，文档没定义这个边界情况。” Sarah说：“脚本是你写的，上线前你不自测吗？”\n这事儿卡了两天，直到我介入强行定了规矩：R可以有很多个，但A（拍板的人）只能有一个。\n在这个案例里，Sarah 作为 A，她必须在脚本跑之前 Review 逻辑，如果她没发现文档漏洞，那就是她的责任，不能怪执行层的小李。\n我的避坑心得： 如果一个任务后面标了两个 A，那约等于没有 A。也就是俗话说的“一个和尚挑水喝，两个和尚没水喝”。\n二、 C和I混淆：“被通知”不等于“被尊重”\r跨部门协作里，还有一种常见的架是这么吵的：“改这个功能为什么不提前告诉我？”\n这就是搞混了 C (Consult 咨询) 和 I (Inform 通知)。\nC (咨询)：是在做决定之前，需要听取意见的人。比如双向沟通。 I (通知)：是决定做完之后，单向告知结果的人。 真实案例： 去年双十一前夕，我们的UI设计师觉得原来的结算按钮颜色太土，把“橙色”改成了“红色”。他把这事告诉了前端开发（这是I），觉得完事了。\n结果上线后，客服部门炸了。因为客服所有的帮助文档截图、给用户的指引话术里，写的都是“点击橙色按钮”。客服主管直接冲到产品组拍桌子。\n复盘来看，设计师犯了个大忌： 对于前端开发，这是个样式修改，只要 I（通知）到位就行； 但对于客服部门，这涉及到服务流程的变更，他们应该是 C（咨询对象）。如果在改版前问一句客服，他们可能会说：“改颜色可以，但要给我们留2天时间更新知识库。”\n从那以后，我在项目启动会上都会强制画一张表：\n| 任务节点 | 谁干活(R) | 谁拍板(A) | 问谁意见(C) | 邮件抄送谁(I) | |---------------|----------|----------|------------|--------------| | UI视觉改版 | 设计师 | 设计总监 | 客服/前端 | 全员 | 分清楚 C 和 I，能帮你省掉80%的“情绪型”撕逼。\n">
+<meta property='og:url' content='https://blog.irudder.me/tech/kuabumenxiezuogaopinwentijiejueqingdan/kuabumenxiezuoderaciyuanze_mingquezerenfengong.html'>
+<meta property='og:site_name' content='SelfTechHub'>
+<meta property='og:type' content='article'><meta property='article:section' content='Tech' /><meta property='article:tag' content='跨部门协作的RACI原则：明确责任分工' /><meta property='article:published_time' content='2024-11-05T00:00:00&#43;00:00'/><meta property='article:modified_time' content='2024-11-05T00:00:00&#43;00:00'/>
+<meta name="twitter:title" content="甩锅？撕逼？用好RACI，跨部门协作效率翻倍">
+<meta name="twitter:description" content="我以前总天真地以为，大家都是成年人了，工作任务分配下去，大家自然知道该干嘛、该找谁汇报。直到2019年那次惨痛的“全员推送事故”，狠狠给了我一巴掌。\n当时我们要做一个活动上线通知，运营觉得技术会配置自动发送，技术觉得运营会手动操作后台。结果就是：活动上线了，用户端静悄悄，全公司大眼瞪小眼。\n事后复盘，两边都在扯皮，且听起来都有道理。那时候我才明白：团队里最可怕的不是坏人，而是模糊的“默认共识”。\n这几年带项目，踩过不少坑，也填过不少坑。我发现解决这种“谁该干啥、谁该背锅、谁该知情”的问题，最好用的工具还是 RACI 模型。别被这个洋名字吓到，今天咱们不聊枯燥的理论，我就聊聊怎么用它解决真实的协作痛点。\n一、 R和A不分：当所有人都在负责，就是没人负责\r这是我见过最典型的“大坑”。很多项目表里，负责人那一栏填满了名字：产品经理、后端组长、前端组长&hellip; 看起来阵容豪华，一旦出事，所有人都在互相指责。\n这里必须通过 RACI 厘清两个概念：\nR (Responsible 也就是“执行人”)：谁在干活？谁在写代码、画图、写文档？ A (Accountable 也就是“负责人”)：谁对结果有最终决定权？谁对失败负全责？ 真实案例： 两年前做个数据迁移项目，涉及到老数据清洗。当时的表格里，把开发小李（R）和产品经理 Sarah（A）都标成了“负责人”。\n结果出了个 Bug，部分VIP用户数据字段错位。 小李说：“我是按文档写的逻辑跑的脚本，文档没定义这个边界情况。” Sarah说：“脚本是你写的，上线前你不自测吗？”\n这事儿卡了两天，直到我介入强行定了规矩：R可以有很多个，但A（拍板的人）只能有一个。\n在这个案例里，Sarah 作为 A，她必须在脚本跑之前 Review 逻辑，如果她没发现文档漏洞，那就是她的责任，不能怪执行层的小李。\n我的避坑心得： 如果一个任务后面标了两个 A，那约等于没有 A。也就是俗话说的“一个和尚挑水喝，两个和尚没水喝”。\n二、 C和I混淆：“被通知”不等于“被尊重”\r跨部门协作里，还有一种常见的架是这么吵的：“改这个功能为什么不提前告诉我？”\n这就是搞混了 C (Consult 咨询) 和 I (Inform 通知)。\nC (咨询)：是在做决定之前，需要听取意见的人。比如双向沟通。 I (通知)：是决定做完之后，单向告知结果的人。 真实案例： 去年双十一前夕，我们的UI设计师觉得原来的结算按钮颜色太土，把“橙色”改成了“红色”。他把这事告诉了前端开发（这是I），觉得完事了。\n结果上线后，客服部门炸了。因为客服所有的帮助文档截图、给用户的指引话术里，写的都是“点击橙色按钮”。客服主管直接冲到产品组拍桌子。\n复盘来看，设计师犯了个大忌： 对于前端开发，这是个样式修改，只要 I（通知）到位就行； 但对于客服部门，这涉及到服务流程的变更，他们应该是 C（咨询对象）。如果在改版前问一句客服，他们可能会说：“改颜色可以，但要给我们留2天时间更新知识库。”\n从那以后，我在项目启动会上都会强制画一张表：\n| 任务节点 | 谁干活(R) | 谁拍板(A) | 问谁意见(C) | 邮件抄送谁(I) | |---------------|----------|----------|------------|--------------| | UI视觉改版 | 设计师 | 设计总监 | 客服/前端 | 全员 | 分清楚 C 和 I，能帮你省掉80%的“情绪型”撕逼。\n">
+    </head>
+    <body class="
+    article-page
+    ">
+    <script>
+        (function() {
+            const colorSchemeKey = 'StackColorScheme';
+            if(!localStorage.getItem(colorSchemeKey)){
+                localStorage.setItem(colorSchemeKey, "auto");
+            }
+        })();
+    </script><script>
+    (function() {
+        const colorSchemeKey = 'StackColorScheme';
+        const colorSchemeItem = localStorage.getItem(colorSchemeKey);
+        const supportDarkMode = window.matchMedia('(prefers-color-scheme: dark)').matches === true;
+
+        if (colorSchemeItem == 'dark' || colorSchemeItem === 'auto' && supportDarkMode) {
+            
+
+            document.documentElement.dataset.scheme = 'dark';
+        } else {
+            document.documentElement.dataset.scheme = 'light';
+        }
+    })();
+</script>
+<div class="container main-container flex on-phone--column compact"><aside class="sidebar left-sidebar sticky ">
+    <button class="hamburger hamburger--spin" type="button" id="toggle-menu" aria-label="切换菜单">
+        <span class="hamburger-box">
+            <span class="hamburger-inner"></span>
+        </span>
+    </button>
+
+    <header>
+        
+            
+            <figure class="site-avatar">
+                <a href="/">
+                
+                    
+                    
+                    
+                        
+                        <img src="/img/avatar_hu_8588ce14af1147e2.png" width="300"
+                            height="286" class="site-logo" loading="lazy" alt="Avatar">
+                    
+                
+                </a>
+                
+            </figure>
+            
+        
+        
+        <div class="site-meta">
+            <h1 class="site-name"><a href="/">SelfTechHub</a></h1>
+            <h2 class="site-description"></h2>
+        </div>
+    </header><ol class="menu" id="main-menu">
+        
+        
+        <li class="menu-bottom-section">
+            <ol class="menu">
+
+                
+                    <li id="dark-mode-toggle">
+                        <svg xmlns="http://www.w3.org/2000/svg" class="icon icon-tabler icon-tabler-toggle-left" width="24" height="24" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor" fill="none" stroke-linecap="round" stroke-linejoin="round">
+  <path stroke="none" d="M0 0h24v24H0z"/>
+  <circle cx="8" cy="12" r="2" />
+  <rect x="2" y="6" width="20" height="12" rx="6" />
+</svg>
+
+
+
+                        <svg xmlns="http://www.w3.org/2000/svg" class="icon icon-tabler icon-tabler-toggle-right" width="24" height="24" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor" fill="none" stroke-linecap="round" stroke-linejoin="round">
+  <path stroke="none" d="M0 0h24v24H0z"/>
+  <circle cx="16" cy="12" r="2" />
+  <rect x="2" y="6" width="20" height="12" rx="6" />
+</svg>
+
+
+
+                        <span>暗色模式</span>
+                    </li>
+                
+            </ol>
+        </li>
+    </ol>
+</aside>
+
+    
+
+            <main class="main full-width">
+    <article class="main-article">
+    <header class="article-header">
+
+    <div class="article-details">
+    
+    <header class="article-category">
+        
+            <a href="/categories/%E6%8A%80%E6%9C%AF.html" >
+                技术精进
+            </a>
+        
+    </header>
+    
+
+    <div class="article-title-wrapper">
+        <h2 class="article-title">
+            <a href="/tech/kuabumenxiezuogaopinwentijiejueqingdan/kuabumenxiezuoderaciyuanze_mingquezerenfengong.html">甩锅？撕逼？用好RACI，跨部门协作效率翻倍</a>
+        </h2>
+    
+        
+    </div>
+
+    
+    
+    
+    
+    <footer class="article-time">
+        
+            <div>
+                <svg xmlns="http://www.w3.org/2000/svg" class="icon icon-tabler icon-tabler-calendar-time" width="56" height="56" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor" fill="none" stroke-linecap="round" stroke-linejoin="round">
+  <path stroke="none" d="M0 0h24v24H0z"/>
+  <path d="M11.795 21h-6.795a2 2 0 0 1 -2 -2v-12a2 2 0 0 1 2 -2h12a2 2 0 0 1 2 2v4" />
+  <circle cx="18" cy="18" r="4" />
+  <path d="M15 3v4" />
+  <path d="M7 3v4" />
+  <path d="M3 11h16" />
+  <path d="M18 16.496v1.504l1 1" />
+</svg>
+                <time class="article-time--published" datetime='2024-11-05T00:00:00Z'>Nov 05, 2024</time>
+            </div>
+        
+
+        
+            <div>
+                <svg xmlns="http://www.w3.org/2000/svg" class="icon icon-tabler icon-tabler-clock" width="24" height="24" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor" fill="none" stroke-linecap="round" stroke-linejoin="round">
+  <path stroke="none" d="M0 0h24v24H0z"/>
+  <circle cx="12" cy="12" r="9" />
+  <polyline points="12 7 12 12 15 15" />
+</svg>
+
+
+
+                <time class="article-time--reading">
+                    阅读时长: 1 分钟
+                </time>
+            </div>
+        
+    </footer>
+    
+
+    
+</div>
+
+</header>
+
+    <section class="article-content">
+    
+    
+    <p>我以前总天真地以为，大家都是成年人了，工作任务分配下去，大家自然知道该干嘛、该找谁汇报。直到2019年那次惨痛的“全员推送事故”，狠狠给了我一巴掌。</p>
+<p>当时我们要做一个活动上线通知，运营觉得技术会配置自动发送，技术觉得运营会手动操作后台。结果就是：<strong>活动上线了，用户端静悄悄，全公司大眼瞪小眼。</strong></p>
+<p>事后复盘，两边都在扯皮，且听起来都有道理。那时候我才明白：<strong>团队里最可怕的不是坏人，而是模糊的“默认共识”。</strong></p>
+<p>这几年带项目，踩过不少坑，也填过不少坑。我发现解决这种“谁该干啥、谁该背锅、谁该知情”的问题，最好用的工具还是 RACI 模型。别被这个洋名字吓到，今天咱们不聊枯燥的理论，我就聊聊怎么用它解决真实的协作痛点。</p>
+<p><img src="https://picsum.photos/800/450?random=1768451222558"
+	
+	
+	
+	loading="lazy"
+	
+		alt="配图"
+	
+	
+></p>
+<hr>
+<h2 id="一-r和a不分当所有人都在负责就是没人负责">一、 R和A不分：当所有人都在负责，就是没人负责
+</h2><p>这是我见过最典型的“大坑”。很多项目表里，负责人那一栏填满了名字：产品经理、后端组长、前端组长&hellip; 看起来阵容豪华，一旦出事，所有人都在互相指责。</p>
+<p><strong>这里必须通过 RACI 厘清两个概念：</strong></p>
+<ul>
+<li><strong>R (Responsible 也就是“执行人”)</strong>：谁在干活？谁在写代码、画图、写文档？</li>
+<li><strong>A (Accountable 也就是“负责人”)</strong>：谁对结果有最终决定权？谁对失败负全责？</li>
+</ul>
+<p><strong>真实案例：</strong>
+两年前做个数据迁移项目，涉及到老数据清洗。当时的表格里，把开发小李（R）和产品经理 Sarah（A）都标成了“负责人”。</p>
+<p>结果出了个 Bug，部分VIP用户数据字段错位。
+小李说：“我是按文档写的逻辑跑的脚本，文档没定义这个边界情况。”
+Sarah说：“脚本是你写的，上线前你不自测吗？”</p>
+<p>这事儿卡了两天，直到我介入强行定了规矩：<strong>R可以有很多个，但A（拍板的人）只能有一个。</strong></p>
+<p>在这个案例里，Sarah 作为 A，她必须在脚本跑之前 Review 逻辑，如果她没发现文档漏洞，那就是她的责任，不能怪执行层的小李。</p>
+<blockquote>
+<p><strong>我的避坑心得：</strong>
+如果一个任务后面标了两个 A，那约等于没有 A。也就是俗话说的“一个和尚挑水喝，两个和尚没水喝”。</p>
+</blockquote>
+<hr>
+<h2 id="二-c和i混淆被通知不等于被尊重">二、 C和I混淆：“被通知”不等于“被尊重”
+</h2><p><img src="https://picsum.photos/800/450?random=1768451226095"
+	
+	
+	
+	loading="lazy"
+	
+		alt="配图"
+	
+	
+></p>
+<p>跨部门协作里，还有一种常见的架是这么吵的：“改这个功能为什么不提前告诉我？”</p>
+<p>这就是搞混了 <strong>C (Consult 咨询)</strong> 和 <strong>I (Inform 通知)</strong>。</p>
+<ul>
+<li><strong>C (咨询)</strong>：是在做决定<strong>之前</strong>，需要听取意见的人。比如双向沟通。</li>
+<li><strong>I (通知)</strong>：是决定做完<strong>之后</strong>，单向告知结果的人。</li>
+</ul>
+<p><strong>真实案例：</strong>
+去年双十一前夕，我们的UI设计师觉得原来的结算按钮颜色太土，把“橙色”改成了“红色”。他把这事告诉了前端开发（这是I），觉得完事了。</p>
+<p>结果上线后，客服部门炸了。因为客服所有的帮助文档截图、给用户的指引话术里，写的都是“点击橙色按钮”。客服主管直接冲到产品组拍桌子。</p>
+<p><strong>复盘来看，设计师犯了个大忌：</strong>
+对于前端开发，这是个样式修改，只要 I（通知）到位就行；
+但对于客服部门，这涉及到服务流程的变更，他们应该是 C（咨询对象）。如果在改版前问一句客服，他们可能会说：“改颜色可以，但要给我们留2天时间更新知识库。”</p>
+<p>从那以后，我在项目启动会上都会强制画一张表：</p>
+<div class="highlight"><pre tabindex="0" style="color:#f8f8f2;background-color:#272822;-moz-tab-size:4;-o-tab-size:4;tab-size:4;"><code class="language-text" data-lang="text"><span style="display:flex;"><span>| 任务节点       | 谁干活(R) | 谁拍板(A) | 问谁意见(C) | 邮件抄送谁(I) |
+</span></span><span style="display:flex;"><span>|---------------|----------|----------|------------|--------------|
+</span></span><span style="display:flex;"><span>| UI视觉改版     | 设计师    | 设计总监  | 客服/前端   | 全员          |
+</span></span></code></pre></div><p>分清楚 C 和 I，能帮你省掉80%的“情绪型”撕逼。</p>
+<hr>
+<h2 id="三-拒绝raci膨胀别把大家都拉进会议室">三、 拒绝RACI膨胀：别把大家都拉进会议室
+</h2><p>很多朋友用了 RACI 后，发现效率反而低了。为啥？因为他把太严谨，把所有人都卷进来了。</p>
+<p>我以前也犯过这个毛病，为了显得“民主”和“严谨”，把一个API接口的变动，设置了5个 C（咨询对象）。结果就是，原本半小时能定下的技术方案，因为要等这5个人发表意见（有的还是跨时区的），硬生生拖了一周。</p>
+<p><img src="https://picsum.photos/800/450?random=1768451226673"
+	
+	
+	
+	loading="lazy"
+	
+		alt="配图"
+	
+	
+></p>
+<p><strong>这里有个反直觉的经验：RACI 是用来做减法的。</strong></p>
+<p>如果你发现一个任务的 C（咨询）这一栏超过了 3 个人，大概率是你的流程有问题。要么是职权划分不清，要么就是你在试图通过“拉人头”来分摊风险。</p>
+<p><strong>我个人的实操习惯：</strong>
+每周五下午，我会花15分钟梳理下周的重点项目。我会特别关注那些 C 角色过多的人。我会直接私聊问他：“这个改动，如果你不知道细节，会死人吗？”
+如果他说“不会”，那我立马把他从 C 降级为 I。</p>
+<p><strong>降级的好处显而易见：</strong></p>
+<ol>
+<li>他不用参加冗长的评审会了（他爽）。</li>
+<li>我们不用等他的反馈就能推进了（我也爽）。</li>
+</ol>
+<hr>
+<h2 id="结尾与行动建议">结尾与行动建议
+</h2><p>RACI 不是一张冷冰冰的表格，它本质上是一种**“把丑话说在前面”**的沟通契约。它不保证项目一定成功，但它能保证项目失败时，大家知道怎么死得明明白白，下次好改进。</p>
+<p>那么，回到你的实际工作中：
+<strong>你觉得 R、A、C、I 这四个角色里，哪一个在你的团队里最容易缺位或者错位？</strong></p>
+<ul>
+<li>A：没人敢拍板？</li>
+<li>C：改了东西不告诉相关方？</li>
+</ul>
+<p>欢迎在评论区告诉我你的痛点。</p>
+<p><strong>最后，给到3个明天上班就能用的落地建议：</strong></p>
+<ol>
+<li><strong>只对“模糊地带”用 RACI</strong>：别连“谁负责订盒饭”都搞个矩阵，那叫没事找事。只针对那些跨部门、容易扯皮的关键节点画表。</li>
+<li><strong>寻找唯一的 A</strong>：检查你手头项目的任务表，任何一行如果有两个 A，请立刻找这两个人开会，砍掉一个，或者拆分任务。</li>
+<li><strong>定期清洗 I 名单</strong>：不要把邮件抄送全公司。信息噪音也是一种协作阻碍，把那些根本不看邮件的人，从 I 里踢出去。</li>
+</ol>
+<p>协作不易，希望咱们都能少一点“我以为”，多一点“按规矩”。</p>
+
+</section>
+
+
+    <footer class="article-footer">
+    
+    <section class="article-tags">
+        
+            <a href="/tags/%E8%B7%A8%E9%83%A8%E9%97%A8%E5%8D%8F%E4%BD%9C%E7%9A%84RACI%E5%8E%9F%E5%88%99%E6%98%8E%E7%A1%AE%E8%B4%A3%E4%BB%BB%E5%88%86%E5%B7%A5.html">跨部门协作的RACI原则：明确责任分工</a>
+        
+    </section>
+
+
+    </footer>
+
+
+    
+</article>
+
+    
+
+    
+
+     
+    
+        
+    <script
+    src="https://giscus.app/client.js"
+    data-repo="pastor17/bloggiscus"
+    data-repo-id="R_kgDOQ6H9qQ"
+    data-category=""
+    data-category-id="DIC_kwDOQ6H9qc4C0-T8"
+    data-mapping="pathname"
+    data-strict="0"
+    data-reactions-enabled="1"
+    data-emit-metadata="0"
+    data-input-position="bottom"
+    data-theme="light"
+    data-lang="zh-CN"
+    data-loading="lazy"
+    crossorigin="anonymous"
+    async
+></script>
+<script>
+    function setGiscusTheme(theme) {
+        let giscus = document.querySelector("iframe.giscus-frame");
+        if (giscus) {
+            giscus.contentWindow.postMessage(
+                {
+                    giscus: {
+                        setConfig: {
+                            theme: theme,
+                        },
+                    },
+                },
+                "https://giscus.app"
+            );
+        }
+    }
+
+    (function () {
+        addEventListener("message", (e) => {
+            if (event.origin !== "https://giscus.app") return;
+            handler();
+        });
+        window.addEventListener("onColorSchemeChange", handler);
+
+        function handler() {
+            if (document.documentElement.dataset.scheme === "light") {
+                setGiscusTheme('light');
+            } else {
+                setGiscusTheme('dark_dimmed');
+            }
+        }
+    })();
+</script>
+
+    
+
+    <footer class="site-footer">
+    <section class="copyright">
+        &copy; 
+        
+        2026 SelfTechHub
+    </section>
+    
+    <section class="powerby">
+        
+
+    </section>
+</footer>
+
+
+    
+<div class="pswp" tabindex="-1" role="dialog" aria-hidden="true">
+
+    
+    <div class="pswp__bg"></div>
+
+    
+    <div class="pswp__scroll-wrap">
+
+        
+        <div class="pswp__container">
+            <div class="pswp__item"></div>
+            <div class="pswp__item"></div>
+            <div class="pswp__item"></div>
+        </div>
+
+        
+        <div class="pswp__ui pswp__ui--hidden">
+
+            <div class="pswp__top-bar">
+
+                
+
+                <div class="pswp__counter"></div>
+
+                <button class="pswp__button pswp__button--close" title="Close (Esc)"></button>
+
+                <button class="pswp__button pswp__button--share" title="Share"></button>
+
+                <button class="pswp__button pswp__button--fs" title="Toggle fullscreen"></button>
+
+                <button class="pswp__button pswp__button--zoom" title="Zoom in/out"></button>
+
+                
+                
+                <div class="pswp__preloader">
+                    <div class="pswp__preloader__icn">
+                        <div class="pswp__preloader__cut">
+                            <div class="pswp__preloader__donut"></div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <div class="pswp__share-modal pswp__share-modal--hidden pswp__single-tap">
+                <div class="pswp__share-tooltip"></div>
+            </div>
+
+            <button class="pswp__button pswp__button--arrow--left" title="Previous (arrow left)">
+            </button>
+
+            <button class="pswp__button pswp__button--arrow--right" title="Next (arrow right)">
+            </button>
+
+            <div class="pswp__caption">
+                <div class="pswp__caption__center"></div>
+            </div>
+
+        </div>
+
+    </div>
+
+</div><script 
+                src="https://cdn.jsdelivr.net/npm/photoswipe@4.1.3/dist/photoswipe.min.js"integrity="sha256-ePwmChbbvXbsO02lbM3HoHbSHTHFAeChekF1xKJdleo="crossorigin="anonymous"
+                defer
+                >
+            </script><script 
+                src="https://cdn.jsdelivr.net/npm/photoswipe@4.1.3/dist/photoswipe-ui-default.min.js"integrity="sha256-UKkzOn/w1mBxRmLLGrSeyB4e1xbrp4xylgAWb3M42pU="crossorigin="anonymous"
+                defer
+                >
+            </script><link 
+                rel="stylesheet" 
+                href="https://cdn.jsdelivr.net/npm/photoswipe@4.1.3/dist/default-skin/default-skin.min.css"crossorigin="anonymous"
+            ><link 
+                rel="stylesheet" 
+                href="https://cdn.jsdelivr.net/npm/photoswipe@4.1.3/dist/photoswipe.min.css"crossorigin="anonymous"
+            >
+    
+
+            </main>
+        </div>
+        <script 
+                src="https://cdn.jsdelivr.net/npm/node-vibrant@3.1.6/dist/vibrant.min.js"integrity="sha256-awcR2jno4kI5X0zL8ex0vi2z&#43;KMkF24hUW8WePSA9HM="crossorigin="anonymous"
+                
+                >
+            </script><script type="text/javascript" src="/ts/main.c922af694cc257bf1ecc41c0dd7b0430f9114ec280ccf67cd2c6ad55f5316c4e.js" defer></script>
+<script>
+    (function () {
+        const customFont = document.createElement('link');
+        customFont.href = "https://fonts.googleapis.com/css2?family=Lato:wght@300;400;700&display=swap";
+
+        customFont.type = "text/css";
+        customFont.rel = "stylesheet";
+
+        document.head.appendChild(customFont);
+    }());
+</script>
+
+    </body>
+</html>

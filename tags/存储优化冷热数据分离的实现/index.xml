@@ -1,0 +1,154 @@
+<?xml version="1.0" encoding="utf-8" standalone="yes"?>
+<rss version="2.0" xmlns:atom="http://www.w3.org/2005/Atom">
+    <channel>
+        <title>存储优化：冷热数据分离的实现 on SelfTechHub</title>
+        <link>https://blog.irudder.me/tags/%E5%AD%98%E5%82%A8%E4%BC%98%E5%8C%96%E5%86%B7%E7%83%AD%E6%95%B0%E6%8D%AE%E5%88%86%E7%A6%BB%E7%9A%84%E5%AE%9E%E7%8E%B0.html</link>
+        <description>Recent content in 存储优化：冷热数据分离的实现 on SelfTechHub</description>
+        <generator>Hugo -- gohugo.io</generator>
+        <language>zh-cn</language>
+        <lastBuildDate>Sat, 20 Jun 2020 00:00:00 +0000</lastBuildDate><atom:link href="https://blog.irudder.me/tags/%E5%AD%98%E5%82%A8%E4%BC%98%E5%8C%96%E5%86%B7%E7%83%AD%E6%95%B0%E6%8D%AE%E5%88%86%E7%A6%BB%E7%9A%84%E5%AE%9E%E7%8E%B0/index.xml" rel="self" type="application/rss+xml" /><item>
+        <title>数据库报警的那夜：我是如何把存储成本砍半的？</title>
+        <link>https://blog.irudder.me/tech/jiagouyouhuashizhananlijiexi/cunchuyouhua_lengreshujufenlideshixian.html</link>
+        <pubDate>Sat, 20 Jun 2020 00:00:00 +0000</pubDate>
+        
+        <guid>https://blog.irudder.me/tech/jiagouyouhuashizhananlijiexi/cunchuyouhua_lengreshujufenlideshixian.html</guid>
+        <description>&lt;p&gt;凌晨3点，手机屏幕上刺眼的Zabbix报警红光把我和运维老张从睡梦中拽了起来——主库磁盘使用率飙升至92%，慢查询日志像雪花一样堆满了屏幕。&lt;/p&gt;
+&lt;p&gt;那一刻，我除了机械地建议“先扩容吧”，心里涌上一股深深的无力感。我们总以为随着业务增长，加配置、换SSD是万能解药，直到预算审批被CTO打回，并在邮件里冷冷地问了一句：“为什么我们的存储成本比业务增速快了三倍？”&lt;/p&gt;
+&lt;p&gt;这句话像根刺，扎了我很久。&lt;/p&gt;
+&lt;p&gt;如果你也正对着日益膨胀的表空间发愁，或者看着云厂商的账单心惊肉跳，请相信，你不是一个人在战斗。这几年，我从“无脑扩容”到“精打细算”，踩过不少坑，也总结出了一些关于&lt;strong&gt;冷热数据分离&lt;/strong&gt;的实战心得。今天不讲大道理，只想和你聊聊，怎么让数据“瘦身”，也让我们这些技术人能睡个安稳觉。&lt;/p&gt;
+&lt;h2 id=&#34;01-别被总有一天会用到的念头绑架&#34;&gt;01. 别被“总有一天会用到”的念头绑架
+&lt;/h2&gt;&lt;p&gt;很多开发同学（包括当年的我）都有个“松鼠症”心态：数据进了数据库，就觉得它是神圣不可侵犯的，哪怕是三年前的日志，也觉得“万一哪天要查呢？”&lt;/p&gt;
+&lt;p&gt;&lt;img src=&#34;https://picsum.photos/800/450?random=1768531691302&#34;
+	
+	
+	
+	loading=&#34;lazy&#34;
+	
+		alt=&#34;配图&#34;
+	
+	
+&gt;&lt;/p&gt;
+&lt;p&gt;&lt;strong&gt;观点：存储优化的第一步，不是技术选型，而是和业务方的一场“断舍离”。&lt;/strong&gt;&lt;/p&gt;
+&lt;p&gt;2020年，我负责一个电商中台项目。订单表 &lt;code&gt;orders&lt;/code&gt; 在两年内膨胀到了8亿行，单表体积破了300GB。每次做DDL（数据库定义语言）操作都像是在走钢丝，查询性能更是断崖式下跌。&lt;/p&gt;
+&lt;p&gt;当时我们试图通过分库分表来解决，但那是“重症猛药”，开发周期太长。&lt;/p&gt;
+&lt;p&gt;后来，我拉着产品经理和运营做了一次数据盘点，我们发现了一个惊人的事实：&lt;strong&gt;95%的查询请求，都集中在最近3个月的订单上。&lt;/strong&gt; 超过半年的订单，除了财务对账和极少数用户回溯，几乎无人问津。&lt;/p&gt;
+&lt;p&gt;于是，我们制定了第一条“冷热边界”：&lt;/p&gt;
+&lt;ul&gt;
+&lt;li&gt;&lt;strong&gt;热数据&lt;/strong&gt;：最近3个月的订单，保留在高性能MySQL集群（SSD盘）。&lt;/li&gt;
+&lt;li&gt;&lt;strong&gt;冷数据&lt;/strong&gt;：3个月-1年前的订单，迁移到低成本的MySQL归档库（HDD盘）。&lt;/li&gt;
+&lt;li&gt;&lt;strong&gt;冰数据&lt;/strong&gt;：1年前的订单，直接转存到对象存储（OSS）或大数据平台（Hive），仅供离线分析。&lt;/li&gt;
+&lt;/ul&gt;
+&lt;p&gt;&lt;strong&gt;结果是立竿见影的&lt;/strong&gt;：主库数据量瞬间下降了80%，磁盘IOPS（每秒读写次数）降低了60%，那个让我们提心吊胆的报警群，终于安静了下来。&lt;/p&gt;
+&lt;h2 id=&#34;02-迁移就像搬家别搞暴力拆迁&#34;&gt;02. 迁移就像搬家，别搞“暴力拆迁”
+&lt;/h2&gt;&lt;p&gt;&lt;img src=&#34;https://picsum.photos/800/450?random=1768531695031&#34;
+	
+	
+	
+	loading=&#34;lazy&#34;
+	
+		alt=&#34;配图&#34;
+	
+	
+&gt;&lt;/p&gt;
+&lt;p&gt;定好了策略，怎么搬运数据是个精细活。我见过最惨的案例，是一个新来的小兄弟写了个脚本，在一个大事务里把冷数据 &lt;code&gt;INSERT&lt;/code&gt; 进归档表，然后直接 &lt;code&gt;DELETE&lt;/code&gt; 原表数据。&lt;/p&gt;
+&lt;p&gt;结果可想而知：主从延迟飙升，锁表导致线上交易卡顿，差点酿成P0级事故。&lt;/p&gt;
+&lt;p&gt;&lt;strong&gt;观点：数据迁移的核心是“温和”与“可逆”，永远给线上业务留呼吸口。&lt;/strong&gt;&lt;/p&gt;
+&lt;p&gt;我现在的习惯是，每周五下午抽出一点时间检查迁移任务的健康度，而这个任务本身，我是用这套逻辑实现的：&lt;/p&gt;
+&lt;ol&gt;
+&lt;li&gt;&lt;strong&gt;双写与校验（可选但推荐）&lt;/strong&gt;：如果业务极其敏感，可以在代码层做双写，但对于存量数据，我更推荐&lt;strong&gt;基于时间戳的滚动归档&lt;/strong&gt;。&lt;/li&gt;
+&lt;li&gt;&lt;strong&gt;分批次“蚂蚁搬家”&lt;/strong&gt;：千万不要一次性操作大量数据。&lt;/li&gt;
+&lt;li&gt;&lt;strong&gt;物理删除的滞后性&lt;/strong&gt;：别指望 &lt;code&gt;DELETE&lt;/code&gt; 后空间立马释放，特别是MySQL，你需要后续的 &lt;code&gt;OPTIMIZE TABLE&lt;/code&gt;（要在低峰期做！）。&lt;/li&gt;
+&lt;/ol&gt;
+&lt;p&gt;这是一个我常用的、比较温和的归档逻辑伪代码，供你参考：&lt;/p&gt;
+&lt;div class=&#34;highlight&#34;&gt;&lt;pre tabindex=&#34;0&#34; style=&#34;color:#f8f8f2;background-color:#272822;-moz-tab-size:4;-o-tab-size:4;tab-size:4;&#34;&gt;&lt;code class=&#34;language-python&#34; data-lang=&#34;python&#34;&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;&lt;span style=&#34;color:#66d9ef&#34;&gt;def&lt;/span&gt; &lt;span style=&#34;color:#a6e22e&#34;&gt;archive_cold_data&lt;/span&gt;(batch_size&lt;span style=&#34;color:#f92672&#34;&gt;=&lt;/span&gt;&lt;span style=&#34;color:#ae81ff&#34;&gt;1000&lt;/span&gt;):
+&lt;/span&gt;&lt;/span&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;    &lt;span style=&#34;color:#75715e&#34;&gt;# 每次只处理一小批，避免长事务&lt;/span&gt;
+&lt;/span&gt;&lt;/span&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;    &lt;span style=&#34;color:#66d9ef&#34;&gt;while&lt;/span&gt; &lt;span style=&#34;color:#66d9ef&#34;&gt;True&lt;/span&gt;:
+&lt;/span&gt;&lt;/span&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;        &lt;span style=&#34;color:#75715e&#34;&gt;# 1. 查出符合冷数据条件的ID列表（利用索引）&lt;/span&gt;
+&lt;/span&gt;&lt;/span&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;        cold_ids &lt;span style=&#34;color:#f92672&#34;&gt;=&lt;/span&gt; db&lt;span style=&#34;color:#f92672&#34;&gt;.&lt;/span&gt;query(&lt;span style=&#34;color:#e6db74&#34;&gt;&amp;#34;SELECT id FROM orders WHERE create_time &amp;lt; &amp;#39;2023-01-01&amp;#39; LIMIT &lt;/span&gt;&lt;span style=&#34;color:#e6db74&#34;&gt;%s&lt;/span&gt;&lt;span style=&#34;color:#e6db74&#34;&gt;&amp;#34;&lt;/span&gt;, batch_size)
+&lt;/span&gt;&lt;/span&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;        
+&lt;/span&gt;&lt;/span&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;        &lt;span style=&#34;color:#66d9ef&#34;&gt;if&lt;/span&gt; &lt;span style=&#34;color:#f92672&#34;&gt;not&lt;/span&gt; cold_ids:
+&lt;/span&gt;&lt;/span&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;            &lt;span style=&#34;color:#66d9ef&#34;&gt;break&lt;/span&gt;
+&lt;/span&gt;&lt;/span&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;            
+&lt;/span&gt;&lt;/span&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;        &lt;span style=&#34;color:#75715e&#34;&gt;# 2. 开启事务：写入归档库&lt;/span&gt;
+&lt;/span&gt;&lt;/span&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;        &lt;span style=&#34;color:#66d9ef&#34;&gt;try&lt;/span&gt;:
+&lt;/span&gt;&lt;/span&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;            archive_db&lt;span style=&#34;color:#f92672&#34;&gt;.&lt;/span&gt;insert(fetch_data(cold_ids))
+&lt;/span&gt;&lt;/span&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;            
+&lt;/span&gt;&lt;/span&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;            &lt;span style=&#34;color:#75715e&#34;&gt;# 3. 再次校验（防止在读取期间数据发生变更，虽少见但要求稳）&lt;/span&gt;
+&lt;/span&gt;&lt;/span&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;            verify_data_consistency(cold_ids)
+&lt;/span&gt;&lt;/span&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;            
+&lt;/span&gt;&lt;/span&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;            &lt;span style=&#34;color:#75715e&#34;&gt;# 4. 从主库删除&lt;/span&gt;
+&lt;/span&gt;&lt;/span&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;            source_db&lt;span style=&#34;color:#f92672&#34;&gt;.&lt;/span&gt;delete(cold_ids)
+&lt;/span&gt;&lt;/span&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;            
+&lt;/span&gt;&lt;/span&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;            &lt;span style=&#34;color:#75715e&#34;&gt;# 5. 提交事务&lt;/span&gt;
+&lt;/span&gt;&lt;/span&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;            commit()
+&lt;/span&gt;&lt;/span&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;            
+&lt;/span&gt;&lt;/span&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;            &lt;span style=&#34;color:#75715e&#34;&gt;# 6. *关键*：休息一下，给数据库喘息时间&lt;/span&gt;
+&lt;/span&gt;&lt;/span&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;            time&lt;span style=&#34;color:#f92672&#34;&gt;.&lt;/span&gt;sleep(&lt;span style=&#34;color:#ae81ff&#34;&gt;0.5&lt;/span&gt;) 
+&lt;/span&gt;&lt;/span&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;            
+&lt;/span&gt;&lt;/span&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;        &lt;span style=&#34;color:#66d9ef&#34;&gt;except&lt;/span&gt; &lt;span style=&#34;color:#a6e22e&#34;&gt;Exception&lt;/span&gt; &lt;span style=&#34;color:#66d9ef&#34;&gt;as&lt;/span&gt; e:
+&lt;/span&gt;&lt;/span&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;            rollback()
+&lt;/span&gt;&lt;/span&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;            log_error(e)
+&lt;/span&gt;&lt;/span&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;            &lt;span style=&#34;color:#75715e&#34;&gt;# 遇到错误要有报警，但不要死循环重试&lt;/span&gt;
+&lt;/span&gt;&lt;/span&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;            &lt;span style=&#34;color:#66d9ef&#34;&gt;break&lt;/span&gt;
+&lt;/span&gt;&lt;/span&gt;&lt;/code&gt;&lt;/pre&gt;&lt;/div&gt;&lt;p&gt;&lt;strong&gt;小贴士&lt;/strong&gt;：对于海量数据，利用 &lt;code&gt;pt-archiver&lt;/code&gt; 这类成熟工具往往比自己写脚本更稳妥，它自动处理了分批、休眠和重试，是我工具箱里的常备神器。&lt;/p&gt;
+&lt;h2 id=&#34;03-哪怕是冷数据也要能找得到家&#34;&gt;03. 哪怕是冷数据，也要能“找得到家”
+&lt;/h2&gt;&lt;p&gt;做了冷热分离，最怕的就是业务方跑来问：“我的数据去哪了？”如果你的回答是“在冷库里，你去提个工单我给你导出来”，那你离挨骂就不远了。&lt;/p&gt;
+&lt;p&gt;&lt;strong&gt;观点：架构的复杂性由技术人员承担，对用户必须透明。&lt;/strong&gt;&lt;/p&gt;
+&lt;p&gt;在之前的金融项目里，我们遇到过这个问题。客服经常需要查询一年前的交易记录来处理投诉。如果冷热数据完全割裂，客服系统的体验会非常糟糕。&lt;/p&gt;
+&lt;p&gt;我们当时的解决方案是做一个&lt;strong&gt;轻量级的数据路由层（Proxy）&lt;/strong&gt;：&lt;/p&gt;
+&lt;ol&gt;
+&lt;li&gt;&lt;strong&gt;统一入口&lt;/strong&gt;：业务代码依然查的是“订单服务”。&lt;/li&gt;
+&lt;li&gt;&lt;strong&gt;自动路由&lt;/strong&gt;：
+&lt;ul&gt;
+&lt;li&gt;如果查询条件带时间且在3个月内，直查热库。&lt;/li&gt;
+&lt;li&gt;如果查询条件带时间且是老数据，路由到归档库（或者ES）。&lt;/li&gt;
+&lt;li&gt;如果只按ID查（不知道时间），先查热库，查不到再查冷库（虽然多了一次IO，但这种情况占比不高）。&lt;/li&gt;
+&lt;/ul&gt;
+&lt;/li&gt;
+&lt;li&gt;&lt;strong&gt;降级体验&lt;/strong&gt;：明确告知用户，查询3个月前的数据可能会有1-2秒的延迟，通常用户对于“翻旧账”的等待容忍度是比较高的。&lt;/li&gt;
+&lt;/ol&gt;
+&lt;p&gt;后来，我们引入了Elasticsearch作为冷数据的索引层。虽然ES存储成本不低，但我们只存索引字段，具体详情还是去冷存储（如HBase或压缩后的MySQL归档）里拿。这种“索引在ES，详情在冷存”的组合拳，既保证了检索速度，又控制了成本。&lt;/p&gt;
+&lt;h2 id=&#34;结语给焦虑降温给架构减负&#34;&gt;结语：给焦虑降温，给架构减负
+&lt;/h2&gt;&lt;p&gt;回看这些年的架构演进，&lt;strong&gt;冷热分离&lt;/strong&gt;不仅仅是一个技术方案，更是一种&lt;strong&gt;资源管理的智慧&lt;/strong&gt;。它让我们明白，不是所有数据都生而平等，把好钢用在刀刃上，才是对公司成本负责，也是对我们自己的运维压力负责。&lt;/p&gt;
+&lt;p&gt;如果此刻你正面对着海量数据的压力，别慌。先去喝杯咖啡，拉出你的表结构和访问日志，按下面的步骤试试看。&lt;/p&gt;
+&lt;h3 id=&#34;给你的落地工具包&#34;&gt;给你的落地工具包
+&lt;/h3&gt;&lt;p&gt;最后，分享一个我常用的&lt;strong&gt;冷热数据定义模板&lt;/strong&gt;，你可以直接复制到你的技术方案文档里：&lt;/p&gt;
+&lt;blockquote&gt;
+&lt;p&gt;&lt;strong&gt;XX系统冷热数据分离策略表&lt;/strong&gt;&lt;/p&gt;
+&lt;ul&gt;
+&lt;li&gt;&lt;strong&gt;表名&lt;/strong&gt;：&lt;code&gt;t_order_record&lt;/code&gt;&lt;/li&gt;
+&lt;li&gt;&lt;strong&gt;热数据定义&lt;/strong&gt;：&lt;code&gt;create_time&lt;/code&gt; &amp;gt;= N-90天&lt;/li&gt;
+&lt;li&gt;&lt;strong&gt;触发归档条件&lt;/strong&gt;：每日凌晨 02:00 触发 Job&lt;/li&gt;
+&lt;li&gt;&lt;strong&gt;归档目标&lt;/strong&gt;：
+&lt;ul&gt;
+&lt;li&gt;Level 1 (热): MySQL Cluster A (SSD)&lt;/li&gt;
+&lt;li&gt;Level 2 (冷): MySQL Cluster B (HDD) / TiDB&lt;/li&gt;
+&lt;li&gt;Level 3 (冰): S3 + Hive External Table&lt;/li&gt;
+&lt;/ul&gt;
+&lt;/li&gt;
+&lt;li&gt;&lt;strong&gt;数据找回路径&lt;/strong&gt;：用户前端可查近1年，1年以上需申请离线报表。&lt;/li&gt;
+&lt;li&gt;&lt;strong&gt;预期收益&lt;/strong&gt;：释放主库空间 40%，备份时间缩短 1.5小时。&lt;/li&gt;
+&lt;/ul&gt;
+&lt;/blockquote&gt;
+&lt;h3 id=&#34;接下来你可以做的3件事&#34;&gt;接下来你可以做的3件事：
+&lt;/h3&gt;&lt;p&gt;&lt;img src=&#34;https://picsum.photos/800/450?random=1768531688997&#34;
+	
+	
+	
+	loading=&#34;lazy&#34;
+	
+		alt=&#34;配图&#34;
+	
+	
+&gt;&lt;/p&gt;
+&lt;ol&gt;
+&lt;li&gt;&lt;strong&gt;Top 3 大表分析&lt;/strong&gt;：哪怕只找出系统里最大的3张表，分析它们的访问频次，你大概率能找到优化的突破口。&lt;/li&gt;
+&lt;li&gt;&lt;strong&gt;加上时间戳&lt;/strong&gt;：如果你的表里还没有 &lt;code&gt;create_time&lt;/code&gt; 或 &lt;code&gt;update_time&lt;/code&gt; 索引，今晚发布窗口就加上吧，这是分离的基础。&lt;/li&gt;
+&lt;li&gt;&lt;strong&gt;模拟演练&lt;/strong&gt;：在测试环境模拟一次“归档+删除”流程，计算一下耗时，这能让你在面对老板询问时底气十足。&lt;/li&gt;
+&lt;/ol&gt;
+&lt;p&gt;愿你的数据库永远轻盈，报警群永远安静。加油！&lt;/p&gt;
+</description>
+        </item>
+        
+    </channel>
+</rss>

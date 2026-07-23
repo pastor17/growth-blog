@@ -1,0 +1,182 @@
+<?xml version="1.0" encoding="utf-8" standalone="yes"?>
+<rss version="2.0" xmlns:atom="http://www.w3.org/2005/Atom">
+    <channel>
+        <title>Redis缓存穿透/击穿/雪崩的解决方案代码演示 on SelfTechHub</title>
+        <link>https://blog.irudder.me/tags/Redis%E7%BC%93%E5%AD%98%E7%A9%BF%E9%80%8F/%E5%87%BB%E7%A9%BF/%E9%9B%AA%E5%B4%A9%E7%9A%84%E8%A7%A3%E5%86%B3%E6%96%B9%E6%A1%88%E4%BB%A3%E7%A0%81%E6%BC%94%E7%A4%BA.html</link>
+        <description>Recent content in Redis缓存穿透/击穿/雪崩的解决方案代码演示 on SelfTechHub</description>
+        <generator>Hugo -- gohugo.io</generator>
+        <language>zh-cn</language>
+        <lastBuildDate>Fri, 01 Aug 2025 00:00:00 +0000</lastBuildDate><atom:link href="https://blog.irudder.me/tags/Redis%E7%BC%93%E5%AD%98%E7%A9%BF%E9%80%8F/%E5%87%BB%E7%A9%BF/%E9%9B%AA%E5%B4%A9%E7%9A%84%E8%A7%A3%E5%86%B3%E6%96%B9%E6%A1%88%E4%BB%A3%E7%A0%81%E6%BC%94%E7%A4%BA/index.xml" rel="self" type="application/rss+xml" /><item>
+        <title>半夜3点报警：Redis崩溃后的72小时与3行救命代码</title>
+        <link>https://blog.irudder.me/tech/jiagouyouhuashizhananlijiexi/redishuancunchuantou_jichuan_xuebengdejiejuefangandaimayanshi.html</link>
+        <pubDate>Fri, 01 Aug 2025 00:00:00 +0000</pubDate>
+        
+        <guid>https://blog.irudder.me/tech/jiagouyouhuashizhananlijiexi/redishuancunchuantou_jichuan_xuebengdejiejuefangandaimayanshi.html</guid>
+        <description>&lt;p&gt;那是一个周五的凌晨，我正准备合上电脑享受周末，钉钉的报警群突然像疯了一样炸锅。&lt;/p&gt;
+&lt;p&gt;&lt;strong&gt;&amp;ldquo;DB CPU Util &amp;gt; 90%&amp;rdquo;&lt;/strong&gt;
+&lt;strong&gt;&amp;ldquo;Redis Connection Timeout&amp;rdquo;&lt;/strong&gt;&lt;/p&gt;
+&lt;p&gt;作为那家电商公司的技术顾问，我眼睁睁看着Grafana监控大屏上的曲线，从平滑的波浪线变成了垂直的峭壁。在那之后的72小时里，我们重构了整个缓存层。&lt;/p&gt;
+&lt;p&gt;很多开发同学在面试时能把缓存穿透、击穿、雪崩背得滚瓜烂熟，但在写代码时，往往只写一句 &lt;code&gt;redisTemplate.get(key)&lt;/code&gt; 就觉得万事大吉。&lt;strong&gt;真实的高并发战场，往往就是死在这些&amp;quot;以为没问题&amp;quot;的细节里。&lt;/strong&gt;&lt;/p&gt;
+&lt;p&gt;今天不讲教科书理论，直接复盘那次事故中，我们是如何用代码填上这三个深坑的。&lt;/p&gt;
+&lt;h2 id=&#34;一缓存穿透当黑客盯上了不存在的id&#34;&gt;一、缓存穿透：当黑客盯上了不存在的ID
+&lt;/h2&gt;&lt;p&gt;在那次事故中，第一波攻击来自一个竞品的爬虫。他们写了一个脚本，疯狂请求ID为 &lt;code&gt;-1&lt;/code&gt; 到 &lt;code&gt;-999999&lt;/code&gt; 的商品详情。&lt;/p&gt;
+&lt;p&gt;Redis里显然没有这些负数ID的缓存，于是流量像洪水一样全部打到了MySQL。数据库连接池瞬间被占满，正常的商品查询也进不来了。这就是典型的&lt;strong&gt;缓存穿透&lt;/strong&gt;——请求直通数据库，缓存成了摆设。&lt;/p&gt;
+&lt;p&gt;当时团队里的新人小张提议：“把这些不存在的key也存进Redis，值设为null不就行了？”&lt;/p&gt;
+&lt;p&gt;我摇摇头。对方如果随机生成一亿个不重复的UUID来请求呢？你的Redis内存瞬间就会被这些垃圾数据撑爆。&lt;/p&gt;
+&lt;p&gt;&lt;strong&gt;我们最终上线的方案是：布隆过滤器（Bloom Filter）。&lt;/strong&gt;&lt;/p&gt;
+&lt;p&gt;你可以把它理解为一个内存占用极小的&amp;quot;黑名单/白名单&amp;quot;机制。在请求到达Redis之前，先问问布隆过滤器：“这个ID可能存在吗？”如果它说不存在，直接返回，连Redis都不用查。&lt;/p&gt;
+&lt;p&gt;这是一个基于Redisson的落地代码示例，比手写Bitmap稳健得多：&lt;/p&gt;
+&lt;p&gt;&lt;img src=&#34;https://picsum.photos/800/450?random=1768531929627&#34;
+	
+	
+	
+	loading=&#34;lazy&#34;
+	
+		alt=&#34;配图&#34;
+	
+	
+&gt;&lt;/p&gt;
+&lt;div class=&#34;highlight&#34;&gt;&lt;pre tabindex=&#34;0&#34; style=&#34;color:#f8f8f2;background-color:#272822;-moz-tab-size:4;-o-tab-size:4;tab-size:4;&#34;&gt;&lt;code class=&#34;language-java&#34; data-lang=&#34;java&#34;&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;&lt;span style=&#34;color:#75715e&#34;&gt;// 初始化布隆过滤器，预计插入100万元素，误判率0.01&lt;/span&gt;
+&lt;/span&gt;&lt;/span&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;RBloomFilter&lt;span style=&#34;color:#f92672&#34;&gt;&amp;lt;&lt;/span&gt;String&lt;span style=&#34;color:#f92672&#34;&gt;&amp;gt;&lt;/span&gt; bloomFilter &lt;span style=&#34;color:#f92672&#34;&gt;=&lt;/span&gt; redisson.&lt;span style=&#34;color:#a6e22e&#34;&gt;getBloomFilter&lt;/span&gt;(&lt;span style=&#34;color:#e6db74&#34;&gt;&amp;#34;productIdList&amp;#34;&lt;/span&gt;);
+&lt;/span&gt;&lt;/span&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;bloomFilter.&lt;span style=&#34;color:#a6e22e&#34;&gt;tryInit&lt;/span&gt;(1000000L, 0.&lt;span style=&#34;color:#a6e22e&#34;&gt;01&lt;/span&gt;);
+&lt;/span&gt;&lt;/span&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;
+&lt;/span&gt;&lt;/span&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;&lt;span style=&#34;color:#75715e&#34;&gt;// 业务代码逻辑&lt;/span&gt;
+&lt;/span&gt;&lt;/span&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;&lt;span style=&#34;color:#66d9ef&#34;&gt;public&lt;/span&gt; Product &lt;span style=&#34;color:#a6e22e&#34;&gt;getProductDetail&lt;/span&gt;(String productId) {
+&lt;/span&gt;&lt;/span&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;    &lt;span style=&#34;color:#75715e&#34;&gt;// 1. 先过布隆过滤器（第一道防线）&lt;/span&gt;
+&lt;/span&gt;&lt;/span&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;    &lt;span style=&#34;color:#75715e&#34;&gt;// 注意：布隆过滤器说不存在，那一定不存在；说存在，可能不存在（误判）&lt;/span&gt;
+&lt;/span&gt;&lt;/span&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;    &lt;span style=&#34;color:#66d9ef&#34;&gt;if&lt;/span&gt; (&lt;span style=&#34;color:#f92672&#34;&gt;!&lt;/span&gt;bloomFilter.&lt;span style=&#34;color:#a6e22e&#34;&gt;contains&lt;/span&gt;(productId)) {
+&lt;/span&gt;&lt;/span&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;        &lt;span style=&#34;color:#66d9ef&#34;&gt;return&lt;/span&gt; &lt;span style=&#34;color:#66d9ef&#34;&gt;null&lt;/span&gt;; &lt;span style=&#34;color:#75715e&#34;&gt;// 直接拦截，DB安全了&lt;/span&gt;
+&lt;/span&gt;&lt;/span&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;    }
+&lt;/span&gt;&lt;/span&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;
+&lt;/span&gt;&lt;/span&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;    &lt;span style=&#34;color:#75715e&#34;&gt;// 2. 查询Redis&lt;/span&gt;
+&lt;/span&gt;&lt;/span&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;    Product cacheProduct &lt;span style=&#34;color:#f92672&#34;&gt;=&lt;/span&gt; redisTemplate.&lt;span style=&#34;color:#a6e22e&#34;&gt;opsForValue&lt;/span&gt;().&lt;span style=&#34;color:#a6e22e&#34;&gt;get&lt;/span&gt;(&lt;span style=&#34;color:#e6db74&#34;&gt;&amp;#34;prod:&amp;#34;&lt;/span&gt; &lt;span style=&#34;color:#f92672&#34;&gt;+&lt;/span&gt; productId);
+&lt;/span&gt;&lt;/span&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;    &lt;span style=&#34;color:#66d9ef&#34;&gt;if&lt;/span&gt; (cacheProduct &lt;span style=&#34;color:#f92672&#34;&gt;!=&lt;/span&gt; &lt;span style=&#34;color:#66d9ef&#34;&gt;null&lt;/span&gt;) {
+&lt;/span&gt;&lt;/span&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;        &lt;span style=&#34;color:#66d9ef&#34;&gt;return&lt;/span&gt; cacheProduct;
+&lt;/span&gt;&lt;/span&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;    }
+&lt;/span&gt;&lt;/span&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;
+&lt;/span&gt;&lt;/span&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;    &lt;span style=&#34;color:#75715e&#34;&gt;// 3. 查询DB&lt;/span&gt;
+&lt;/span&gt;&lt;/span&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;    Product dbProduct &lt;span style=&#34;color:#f92672&#34;&gt;=&lt;/span&gt; productMapper.&lt;span style=&#34;color:#a6e22e&#34;&gt;selectById&lt;/span&gt;(productId);
+&lt;/span&gt;&lt;/span&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;    
+&lt;/span&gt;&lt;/span&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;    &lt;span style=&#34;color:#75715e&#34;&gt;// 4. 回写缓存（如果DB也没有，这里可以配合缓存空对象策略，但设置极短TTL）&lt;/span&gt;
+&lt;/span&gt;&lt;/span&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;    &lt;span style=&#34;color:#66d9ef&#34;&gt;if&lt;/span&gt; (dbProduct &lt;span style=&#34;color:#f92672&#34;&gt;!=&lt;/span&gt; &lt;span style=&#34;color:#66d9ef&#34;&gt;null&lt;/span&gt;) {
+&lt;/span&gt;&lt;/span&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;        redisTemplate.&lt;span style=&#34;color:#a6e22e&#34;&gt;opsForValue&lt;/span&gt;().&lt;span style=&#34;color:#a6e22e&#34;&gt;set&lt;/span&gt;(&lt;span style=&#34;color:#e6db74&#34;&gt;&amp;#34;prod:&amp;#34;&lt;/span&gt; &lt;span style=&#34;color:#f92672&#34;&gt;+&lt;/span&gt; productId, dbProduct, 1, TimeUnit.&lt;span style=&#34;color:#a6e22e&#34;&gt;HOURS&lt;/span&gt;);
+&lt;/span&gt;&lt;/span&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;    } &lt;span style=&#34;color:#66d9ef&#34;&gt;else&lt;/span&gt; {
+&lt;/span&gt;&lt;/span&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;        &lt;span style=&#34;color:#75715e&#34;&gt;//以此应对布隆过滤器的误判情况&lt;/span&gt;
+&lt;/span&gt;&lt;/span&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;        redisTemplate.&lt;span style=&#34;color:#a6e22e&#34;&gt;opsForValue&lt;/span&gt;().&lt;span style=&#34;color:#a6e22e&#34;&gt;set&lt;/span&gt;(&lt;span style=&#34;color:#e6db74&#34;&gt;&amp;#34;prod:&amp;#34;&lt;/span&gt; &lt;span style=&#34;color:#f92672&#34;&gt;+&lt;/span&gt; productId, &lt;span style=&#34;color:#e6db74&#34;&gt;&amp;#34;EMPTY&amp;#34;&lt;/span&gt;, 5, TimeUnit.&lt;span style=&#34;color:#a6e22e&#34;&gt;MINUTES&lt;/span&gt;);
+&lt;/span&gt;&lt;/span&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;    }
+&lt;/span&gt;&lt;/span&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;    
+&lt;/span&gt;&lt;/span&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;    &lt;span style=&#34;color:#66d9ef&#34;&gt;return&lt;/span&gt; dbProduct;
+&lt;/span&gt;&lt;/span&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;}
+&lt;/span&gt;&lt;/span&gt;&lt;/code&gt;&lt;/pre&gt;&lt;/div&gt;&lt;p&gt;&lt;strong&gt;实战复盘：&lt;/strong&gt; 上线布隆过滤器后，那波爬虫流量的99%在进入Redis前就被拦截了，数据库CPU瞬间回落到10%以下。&lt;/p&gt;
+&lt;h2 id=&#34;二缓存击穿热点key失效的瞬时暴击&#34;&gt;二、缓存击穿：热点Key失效的&amp;quot;瞬时暴击&amp;quot;
+&lt;/h2&gt;&lt;p&gt;穿透的问题刚解决，第二天上午10点，秒杀活动开始了。&lt;/p&gt;
+&lt;p&gt;一款爆款显卡，缓存在10:05分准时过期。就在这一秒，数千个并发请求同时发现缓存没了，同时涌入数据库去查这个显卡的信息。&lt;/p&gt;
+&lt;p&gt;数据库刚刚喘口气，又被瞬间打趴。这就是&lt;strong&gt;缓存击穿&lt;/strong&gt;——针对某个&lt;strong&gt;热点Key&lt;/strong&gt;，在过期的瞬间，大并发击穿缓存。&lt;/p&gt;
+&lt;p&gt;我也曾见过很多&amp;quot;老司机&amp;quot;使用&lt;code&gt;synchronized&lt;/code&gt;关键字来解决。但在微服务集群部署下，本地锁锁住的只是当前这台机器的线程，几十台机器加起来，依然有几十个并发打到数据库。&lt;/p&gt;
+&lt;p&gt;&lt;strong&gt;硬核解法：分布式互斥锁（Mutex Lock）。&lt;/strong&gt;&lt;/p&gt;
+&lt;p&gt;逻辑很简单：谁拿到了锁，谁去查DB并回写缓存；没拿到的，在门口等着（自旋）。&lt;/p&gt;
+&lt;div class=&#34;highlight&#34;&gt;&lt;pre tabindex=&#34;0&#34; style=&#34;color:#f8f8f2;background-color:#272822;-moz-tab-size:4;-o-tab-size:4;tab-size:4;&#34;&gt;&lt;code class=&#34;language-java&#34; data-lang=&#34;java&#34;&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;&lt;span style=&#34;color:#66d9ef&#34;&gt;public&lt;/span&gt; Product &lt;span style=&#34;color:#a6e22e&#34;&gt;getHotProduct&lt;/span&gt;(String productId) {
+&lt;/span&gt;&lt;/span&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;    String cacheKey &lt;span style=&#34;color:#f92672&#34;&gt;=&lt;/span&gt; &lt;span style=&#34;color:#e6db74&#34;&gt;&amp;#34;prod:&amp;#34;&lt;/span&gt; &lt;span style=&#34;color:#f92672&#34;&gt;+&lt;/span&gt; productId;
+&lt;/span&gt;&lt;/span&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;    
+&lt;/span&gt;&lt;/span&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;    &lt;span style=&#34;color:#75715e&#34;&gt;// 1. 查缓存&lt;/span&gt;
+&lt;/span&gt;&lt;/span&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;    Product product &lt;span style=&#34;color:#f92672&#34;&gt;=&lt;/span&gt; (Product) redisTemplate.&lt;span style=&#34;color:#a6e22e&#34;&gt;opsForValue&lt;/span&gt;().&lt;span style=&#34;color:#a6e22e&#34;&gt;get&lt;/span&gt;(cacheKey);
+&lt;/span&gt;&lt;/span&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;    &lt;span style=&#34;color:#66d9ef&#34;&gt;if&lt;/span&gt; (product &lt;span style=&#34;color:#f92672&#34;&gt;!=&lt;/span&gt; &lt;span style=&#34;color:#66d9ef&#34;&gt;null&lt;/span&gt;) {
+&lt;/span&gt;&lt;/span&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;        &lt;span style=&#34;color:#66d9ef&#34;&gt;return&lt;/span&gt; product;
+&lt;/span&gt;&lt;/span&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;    }
+&lt;/span&gt;&lt;/span&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;
+&lt;/span&gt;&lt;/span&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;    &lt;span style=&#34;color:#75715e&#34;&gt;// 2. 缓存未命中，尝试获取分布式锁&lt;/span&gt;
+&lt;/span&gt;&lt;/span&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;    String lockKey &lt;span style=&#34;color:#f92672&#34;&gt;=&lt;/span&gt; &lt;span style=&#34;color:#e6db74&#34;&gt;&amp;#34;lock:prod:&amp;#34;&lt;/span&gt; &lt;span style=&#34;color:#f92672&#34;&gt;+&lt;/span&gt; productId;
+&lt;/span&gt;&lt;/span&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;    &lt;span style=&#34;color:#75715e&#34;&gt;// 使用setIfAbsent (SETNX) 原子操作&lt;/span&gt;
+&lt;/span&gt;&lt;/span&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;    Boolean isLocked &lt;span style=&#34;color:#f92672&#34;&gt;=&lt;/span&gt; redisTemplate.&lt;span style=&#34;color:#a6e22e&#34;&gt;opsForValue&lt;/span&gt;().&lt;span style=&#34;color:#a6e22e&#34;&gt;setIfAbsent&lt;/span&gt;(lockKey, &lt;span style=&#34;color:#e6db74&#34;&gt;&amp;#34;1&amp;#34;&lt;/span&gt;, 10, TimeUnit.&lt;span style=&#34;color:#a6e22e&#34;&gt;SECONDS&lt;/span&gt;);
+&lt;/span&gt;&lt;/span&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;
+&lt;/span&gt;&lt;/span&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;    &lt;span style=&#34;color:#66d9ef&#34;&gt;if&lt;/span&gt; (isLocked) {
+&lt;/span&gt;&lt;/span&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;        &lt;span style=&#34;color:#66d9ef&#34;&gt;try&lt;/span&gt; {
+&lt;/span&gt;&lt;/span&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;            &lt;span style=&#34;color:#75715e&#34;&gt;// 3. 获取锁成功，再次检查缓存（双重检查锁 DCL）&lt;/span&gt;
+&lt;/span&gt;&lt;/span&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;            &lt;span style=&#34;color:#75715e&#34;&gt;// 防止在获取锁的过程中，已经有别的线程重建了缓存&lt;/span&gt;
+&lt;/span&gt;&lt;/span&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;            product &lt;span style=&#34;color:#f92672&#34;&gt;=&lt;/span&gt; (Product) redisTemplate.&lt;span style=&#34;color:#a6e22e&#34;&gt;opsForValue&lt;/span&gt;().&lt;span style=&#34;color:#a6e22e&#34;&gt;get&lt;/span&gt;(cacheKey);
+&lt;/span&gt;&lt;/span&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;            &lt;span style=&#34;color:#66d9ef&#34;&gt;if&lt;/span&gt; (product &lt;span style=&#34;color:#f92672&#34;&gt;!=&lt;/span&gt; &lt;span style=&#34;color:#66d9ef&#34;&gt;null&lt;/span&gt;) {
+&lt;/span&gt;&lt;/span&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;                &lt;span style=&#34;color:#66d9ef&#34;&gt;return&lt;/span&gt; product;
+&lt;/span&gt;&lt;/span&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;            }
+&lt;/span&gt;&lt;/span&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;
+&lt;/span&gt;&lt;/span&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;            &lt;span style=&#34;color:#75715e&#34;&gt;// 4. 真正查询DB&lt;/span&gt;
+&lt;/span&gt;&lt;/span&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;            product &lt;span style=&#34;color:#f92672&#34;&gt;=&lt;/span&gt; productMapper.&lt;span style=&#34;color:#a6e22e&#34;&gt;selectById&lt;/span&gt;(productId);
+&lt;/span&gt;&lt;/span&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;            
+&lt;/span&gt;&lt;/span&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;            &lt;span style=&#34;color:#75715e&#34;&gt;// 5. 重建缓存&lt;/span&gt;
+&lt;/span&gt;&lt;/span&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;            redisTemplate.&lt;span style=&#34;color:#a6e22e&#34;&gt;opsForValue&lt;/span&gt;().&lt;span style=&#34;color:#a6e22e&#34;&gt;set&lt;/span&gt;(cacheKey, product, 1, TimeUnit.&lt;span style=&#34;color:#a6e22e&#34;&gt;HOURS&lt;/span&gt;);
+&lt;/span&gt;&lt;/span&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;        } &lt;span style=&#34;color:#66d9ef&#34;&gt;finally&lt;/span&gt; {
+&lt;/span&gt;&lt;/span&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;            &lt;span style=&#34;color:#75715e&#34;&gt;// 6. 释放锁&lt;/span&gt;
+&lt;/span&gt;&lt;/span&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;            redisTemplate.&lt;span style=&#34;color:#a6e22e&#34;&gt;delete&lt;/span&gt;(lockKey);
+&lt;/span&gt;&lt;/span&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;        }
+&lt;/span&gt;&lt;/span&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;    } &lt;span style=&#34;color:#66d9ef&#34;&gt;else&lt;/span&gt; {
+&lt;/span&gt;&lt;/span&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;        &lt;span style=&#34;color:#75715e&#34;&gt;// 7. 获取锁失败，休眠一会再重试（自旋）&lt;/span&gt;
+&lt;/span&gt;&lt;/span&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;        &lt;span style=&#34;color:#66d9ef&#34;&gt;try&lt;/span&gt; {
+&lt;/span&gt;&lt;/span&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;            Thread.&lt;span style=&#34;color:#a6e22e&#34;&gt;sleep&lt;/span&gt;(50);
+&lt;/span&gt;&lt;/span&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;        } &lt;span style=&#34;color:#66d9ef&#34;&gt;catch&lt;/span&gt; (InterruptedException e) {
+&lt;/span&gt;&lt;/span&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;            e.&lt;span style=&#34;color:#a6e22e&#34;&gt;printStackTrace&lt;/span&gt;();
+&lt;/span&gt;&lt;/span&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;        }
+&lt;/span&gt;&lt;/span&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;        &lt;span style=&#34;color:#66d9ef&#34;&gt;return&lt;/span&gt; getHotProduct(productId);
+&lt;/span&gt;&lt;/span&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;    }
+&lt;/span&gt;&lt;/span&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;    
+&lt;/span&gt;&lt;/span&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;    &lt;span style=&#34;color:#66d9ef&#34;&gt;return&lt;/span&gt; product;
+&lt;/span&gt;&lt;/span&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;}
+&lt;/span&gt;&lt;/span&gt;&lt;/code&gt;&lt;/pre&gt;&lt;/div&gt;&lt;p&gt;&lt;img src=&#34;https://picsum.photos/800/450?random=1768531932344&#34;
+	
+	
+	
+	loading=&#34;lazy&#34;
+	
+		alt=&#34;配图&#34;
+	
+	
+&gt;&lt;/p&gt;
+&lt;p&gt;这段代码看似简单，但有三个细节救了命：&lt;/p&gt;
+&lt;ol&gt;
+&lt;li&gt;&lt;strong&gt;锁要加过期时间&lt;/strong&gt;：防止拿到锁的服务挂了，导致死锁。&lt;/li&gt;
+&lt;li&gt;&lt;strong&gt;双重检查（Double Check）&lt;/strong&gt;：拿到锁后必须再查一次Redis，否则会重复查库。&lt;/li&gt;
+&lt;li&gt;&lt;strong&gt;自旋机制&lt;/strong&gt;：没抢到锁的线程不能直接报错，要等一会再试。&lt;/li&gt;
+&lt;/ol&gt;
+&lt;h2 id=&#34;三缓存雪崩定时任务引发的多米诺骨牌&#34;&gt;三、缓存雪崩：定时任务引发的&amp;quot;多米诺骨牌&amp;quot;
+&lt;/h2&gt;&lt;p&gt;最后也是最壮观的一次崩溃，发生在凌晨3点。&lt;/p&gt;
+&lt;p&gt;为了保证数据一致性，当时的业务逻辑是：每天凌晨2点半，由批处理任务把所有商品的缓存全部刷新一遍，过期时间统一设为12小时。&lt;/p&gt;
+&lt;p&gt;结果到了下午2点半（14:30），所有缓存&lt;strong&gt;集体同时失效&lt;/strong&gt;。这时候正是下午的流量高峰，Redis瞬间变空，所有流量全部砸向数据库。数据库直接宕机，重启都起不来，因为一起动就被流量打死。&lt;/p&gt;
+&lt;p&gt;这就是&lt;strong&gt;缓存雪崩&lt;/strong&gt;——大量Key同时过期。&lt;/p&gt;
+&lt;p&gt;解决这个问题，不需要复杂的分布式锁，只需要一个简单的数学技巧：&lt;strong&gt;随机值&lt;/strong&gt;。&lt;/p&gt;
+&lt;p&gt;我们在重构代码时，给每个Key的过期时间加了一个随机的抖动因子。&lt;/p&gt;
+&lt;div class=&#34;highlight&#34;&gt;&lt;pre tabindex=&#34;0&#34; style=&#34;color:#f8f8f2;background-color:#272822;-moz-tab-size:4;-o-tab-size:4;tab-size:4;&#34;&gt;&lt;code class=&#34;language-java&#34; data-lang=&#34;java&#34;&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;&lt;span style=&#34;color:#75715e&#34;&gt;// 原始逻辑：固定12小时&lt;/span&gt;
+&lt;/span&gt;&lt;/span&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;&lt;span style=&#34;color:#75715e&#34;&gt;// long expireTime = 12 * 60 * 60; &lt;/span&gt;
+&lt;/span&gt;&lt;/span&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;
+&lt;/span&gt;&lt;/span&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;&lt;span style=&#34;color:#75715e&#34;&gt;// 优化后逻辑：12小时 + 随机0-60分钟&lt;/span&gt;
+&lt;/span&gt;&lt;/span&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;&lt;span style=&#34;color:#66d9ef&#34;&gt;public&lt;/span&gt; &lt;span style=&#34;color:#66d9ef&#34;&gt;void&lt;/span&gt; &lt;span style=&#34;color:#a6e22e&#34;&gt;refreshCache&lt;/span&gt;(String key, Object value) {
+&lt;/span&gt;&lt;/span&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;    &lt;span style=&#34;color:#66d9ef&#34;&gt;long&lt;/span&gt; baseTime &lt;span style=&#34;color:#f92672&#34;&gt;=&lt;/span&gt; 12 &lt;span style=&#34;color:#f92672&#34;&gt;*&lt;/span&gt; 60 &lt;span style=&#34;color:#f92672&#34;&gt;*&lt;/span&gt; 60;
+&lt;/span&gt;&lt;/span&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;    &lt;span style=&#34;color:#75715e&#34;&gt;// 生成一个随机数，比如 0 到 3600秒&lt;/span&gt;
+&lt;/span&gt;&lt;/span&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;    &lt;span style=&#34;color:#66d9ef&#34;&gt;long&lt;/span&gt; randomDelta &lt;span style=&#34;color:#f92672&#34;&gt;=&lt;/span&gt; &lt;span style=&#34;color:#66d9ef&#34;&gt;new&lt;/span&gt; Random().&lt;span style=&#34;color:#a6e22e&#34;&gt;nextInt&lt;/span&gt;(3600);
+&lt;/span&gt;&lt;/span&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;    
+&lt;/span&gt;&lt;/span&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;    &lt;span style=&#34;color:#66d9ef&#34;&gt;long&lt;/span&gt; finalExpire &lt;span style=&#34;color:#f92672&#34;&gt;=&lt;/span&gt; baseTime &lt;span style=&#34;color:#f92672&#34;&gt;+&lt;/span&gt; randomDelta;
+&lt;/span&gt;&lt;/span&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;    
+&lt;/span&gt;&lt;/span&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;    redisTemplate.&lt;span style=&#34;color:#a6e22e&#34;&gt;opsForValue&lt;/span&gt;().&lt;span style=&#34;color:#a6e22e&#34;&gt;set&lt;/span&gt;(key, value, finalExpire, TimeUnit.&lt;span style=&#34;color:#a6e22e&#34;&gt;SECONDS&lt;/span&gt;);
+&lt;/span&gt;&lt;/span&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;}
+&lt;/span&gt;&lt;/span&gt;&lt;/code&gt;&lt;/pre&gt;&lt;/div&gt;&lt;p&gt;除了随机TTL，我还强烈建议在运维层面做隔离：&lt;/p&gt;
+&lt;ul&gt;
+&lt;li&gt;&lt;strong&gt;启用Sentinel或Cluster集群&lt;/strong&gt;：防止Redis单点故障导致的雪崩。&lt;/li&gt;
+&lt;li&gt;&lt;strong&gt;开启限流降级&lt;/strong&gt;：如果数据库真的扛不住了，Hystrix或Sentinel（阿里的那个组件）直接熔断，返回默认值或者&amp;quot;系统繁忙&amp;quot;，保住数据库这条命。&lt;/li&gt;
+&lt;/ul&gt;
+&lt;h2 id=&#34;这种代码值得写在简历里&#34;&gt;这种代码，值得写在简历里
+&lt;/h2&gt;&lt;p&gt;经历了那次72小时的救援，我深刻体会到：&lt;strong&gt;架构的稳定性，往往不取决于你用了多牛的框架，而在于你对边缘情况（Edge Case）的处理。&lt;/strong&gt;&lt;/p&gt;
+&lt;p&gt;很多人觉得为了那1%的极端情况，写这么复杂的锁逻辑不值得。但当系统用户量突破十万、百万量级时，正是这1%的疏忽，会毁掉整个系统的99%。&lt;/p&gt;
+&lt;p&gt;针对以上三种场景，我的落地建议如下：&lt;/p&gt;
+&lt;ol&gt;
+&lt;li&gt;&lt;strong&gt;排查现有代码&lt;/strong&gt;：全局搜索 &lt;code&gt;set&lt;/code&gt; 操作，检查是否有固定的过期时间，加上随机数。&lt;/li&gt;
+&lt;li&gt;&lt;strong&gt;引入保护层&lt;/strong&gt;：对于核心高并发接口（如商品详情、库存查询），不要裸奔，务必加上互斥锁机制。&lt;/li&gt;
+&lt;li&gt;&lt;strong&gt;数据预热&lt;/strong&gt;：对于已知的热点数据（如大促商品），提前手动加载到缓存，不要等用户来触发。&lt;/li&gt;
+&lt;/ol&gt;
+&lt;p&gt;最后，我想做一个小调查：
+&lt;strong&gt;在你的生产环境中，遇到过最棘手的缓存问题是哪一种？&lt;/strong&gt;
+A. 莫名其妙的缓存穿透（被爬虫搞死）
+B. 热点Key失效导致的瞬间卡顿
+C. 还没遇到过，但我现在开始慌了&lt;/p&gt;
+&lt;p&gt;欢迎在评论区告诉我你的经历，或者转发给那个这周五要上线代码的同事。&lt;/p&gt;
+</description>
+        </item>
+        
+    </channel>
+</rss>

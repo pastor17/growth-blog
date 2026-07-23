@@ -1,0 +1,633 @@
+<!DOCTYPE html>
+<html lang="zh-cn" dir="ltr">
+    <head><meta charset='utf-8'>
+<meta name='viewport' content='width=device-width, initial-scale=1'><meta name='description' content="第8章 Prompt工程与基础Skill搭建\r本章导读\n第7章讲了技术原理与工具选型。本章落到FDE最高频的实操——Prompt工程与Skill搭建。这是FDE&quot;动手能力&quot;的核心体现。本章先讲高阶Prompt技巧，再讲Skill设计方法，最后用三个通用Skill实战（信息整理、文案生成、数据分类）带读者走完从设计到迭代的全流程。读完本章，你应当能独立设计并搭建基础AI Skill。\n§8.1 从Prompt到Skill\r先厘清两个概念的关系。\nPrompt是给大模型的一次性指令。Skill是封装好的、可复用的AI能力模块——它内部包含Prompt，但还包含触发条件、输入输出规范、异常处理等。\n打个比方：Prompt是菜谱，Skill是&quot;一道菜&quot;——菜谱是核心，但一道菜还包括备料、火候、装盘、出错补救。FDE的工作不是写Prompt，而是搭Skill。\n理解这个区别，就理解了本章的结构：先讲Prompt（菜谱），再讲Skill（完整的菜）。\n§8.2 高阶Prompt技巧\r第7章讲了Prompt五要素（角色、任务、约束、格式、Few-Shot）。本节讲四个高阶技巧。\n8.2.1 角色设定的进阶用法\r基础角色设定是&quot;你是一位客服&quot;。进阶用法是给角色具体的经验与风格。\n对比：\n基础：&ldquo;你是一位客服主管。&rdquo; 进阶：&ldquo;你是一位有10年经验的零售行业客服主管，风格专业、共情、不卑不亢，擅长把复杂政策用客户听得懂的话解释。&rdquo; 进阶设定让模型&quot;代入&quot;更具体，输出更稳定。但注意：角色设定要真实，不要编造不可能的经验（&ldquo;你是同时精通法律、医学、金融的专家&quot;会让模型胡编）。\n8.2.2 任务拆解（Chain of Thought）\r复杂任务一次性让模型做，效果差。拆解成多步，每步专注一件事，效果好得多。\n示例（写客户跟进邮件）：\n不拆解：&ldquo;根据客户信息写一封跟进邮件。&quot;（输出泛泛） 拆解： 分析客户偏好（基于历史互动）。 确定邮件核心卖点（匹配偏好）。 写邮件草稿。 检查语气与合规。 输出最终邮件。 拆解后每步聚焦，整体质量显著提升。这种&quot;让模型显式展示思考过程&quot;的方法叫Chain of Thought（CoT）。\n方法论框8-1：任务拆解的判断标准 出现以下任一情况，就该拆解：\n任务包含多个子目标。 输出质量不稳定。 需要中间判断（如先分析再生成）。 单步输出过长导致信息丢失。 8.2.3 约束条件的精细化\r约束不是&quot;不超过200字&quot;这么简单。精细化约束能大幅提升可控性。\n常见约束维度：\n长度：字数/句数/段数。 格式：JSON/表格/Markdown/特定模板。 语气：正式/亲切/专业/活泼。 禁区：不承诺什么、不提什么话题、不用什么词。 必须包含：必须出现的要素（如签名、免责声明）。 风格参考：给一段范例文本，要求&quot;模仿此风格&rdquo;。 约束越细，输出越可控。但注意约束之间不能冲突（&ldquo;不超过100字&quot;与&quot;必须包含5个要点各30字&quot;冲突）。\n8.2.4 Few-Shot的用法\rFew-Shot是给模型几个输入输出范例，让它学习模式。适合需要特定格式的任务。\n用法要点：\n示例要典型，覆盖主要模式。 示例数量2-5个为宜，太少学不会、太多浪费Token。 示例的输入输出格式要与你期望的完全一致。 负例（不该这么输出的例子）有时比正例更有效。 示例（客户情绪分类）：\n输入：这破产品用不了，退款！\r输出：愤怒\r输入：麻烦问下怎么退款？\r输出：咨询\r输入：用了三天还不错，但有几点建议。\r输出：中性+建议 给3个Few-Shot，模型就能稳定按这个分类逻辑输出。\n">
+<title>第8章 Prompt工程与基础Skill搭建</title>
+
+<link rel='canonical' href='https://blog.irudder.me/ai/ped/Chapter08-Prompt-Engineering-and-Basic-Skill-Building.html'>
+
+<link rel="stylesheet" href="/scss/style.min.b9e9128fec450ebccecc4ec9900157f32b85d0609bcd5ee3293968bcaa1235f2.css"><meta property='og:title' content="第8章 Prompt工程与基础Skill搭建">
+<meta property='og:description' content="第8章 Prompt工程与基础Skill搭建\r本章导读\n第7章讲了技术原理与工具选型。本章落到FDE最高频的实操——Prompt工程与Skill搭建。这是FDE&quot;动手能力&quot;的核心体现。本章先讲高阶Prompt技巧，再讲Skill设计方法，最后用三个通用Skill实战（信息整理、文案生成、数据分类）带读者走完从设计到迭代的全流程。读完本章，你应当能独立设计并搭建基础AI Skill。\n§8.1 从Prompt到Skill\r先厘清两个概念的关系。\nPrompt是给大模型的一次性指令。Skill是封装好的、可复用的AI能力模块——它内部包含Prompt，但还包含触发条件、输入输出规范、异常处理等。\n打个比方：Prompt是菜谱，Skill是&quot;一道菜&quot;——菜谱是核心，但一道菜还包括备料、火候、装盘、出错补救。FDE的工作不是写Prompt，而是搭Skill。\n理解这个区别，就理解了本章的结构：先讲Prompt（菜谱），再讲Skill（完整的菜）。\n§8.2 高阶Prompt技巧\r第7章讲了Prompt五要素（角色、任务、约束、格式、Few-Shot）。本节讲四个高阶技巧。\n8.2.1 角色设定的进阶用法\r基础角色设定是&quot;你是一位客服&quot;。进阶用法是给角色具体的经验与风格。\n对比：\n基础：&ldquo;你是一位客服主管。&rdquo; 进阶：&ldquo;你是一位有10年经验的零售行业客服主管，风格专业、共情、不卑不亢，擅长把复杂政策用客户听得懂的话解释。&rdquo; 进阶设定让模型&quot;代入&quot;更具体，输出更稳定。但注意：角色设定要真实，不要编造不可能的经验（&ldquo;你是同时精通法律、医学、金融的专家&quot;会让模型胡编）。\n8.2.2 任务拆解（Chain of Thought）\r复杂任务一次性让模型做，效果差。拆解成多步，每步专注一件事，效果好得多。\n示例（写客户跟进邮件）：\n不拆解：&ldquo;根据客户信息写一封跟进邮件。&quot;（输出泛泛） 拆解： 分析客户偏好（基于历史互动）。 确定邮件核心卖点（匹配偏好）。 写邮件草稿。 检查语气与合规。 输出最终邮件。 拆解后每步聚焦，整体质量显著提升。这种&quot;让模型显式展示思考过程&quot;的方法叫Chain of Thought（CoT）。\n方法论框8-1：任务拆解的判断标准 出现以下任一情况，就该拆解：\n任务包含多个子目标。 输出质量不稳定。 需要中间判断（如先分析再生成）。 单步输出过长导致信息丢失。 8.2.3 约束条件的精细化\r约束不是&quot;不超过200字&quot;这么简单。精细化约束能大幅提升可控性。\n常见约束维度：\n长度：字数/句数/段数。 格式：JSON/表格/Markdown/特定模板。 语气：正式/亲切/专业/活泼。 禁区：不承诺什么、不提什么话题、不用什么词。 必须包含：必须出现的要素（如签名、免责声明）。 风格参考：给一段范例文本，要求&quot;模仿此风格&rdquo;。 约束越细，输出越可控。但注意约束之间不能冲突（&ldquo;不超过100字&quot;与&quot;必须包含5个要点各30字&quot;冲突）。\n8.2.4 Few-Shot的用法\rFew-Shot是给模型几个输入输出范例，让它学习模式。适合需要特定格式的任务。\n用法要点：\n示例要典型，覆盖主要模式。 示例数量2-5个为宜，太少学不会、太多浪费Token。 示例的输入输出格式要与你期望的完全一致。 负例（不该这么输出的例子）有时比正例更有效。 示例（客户情绪分类）：\n输入：这破产品用不了，退款！\r输出：愤怒\r输入：麻烦问下怎么退款？\r输出：咨询\r输入：用了三天还不错，但有几点建议。\r输出：中性+建议 给3个Few-Shot，模型就能稳定按这个分类逻辑输出。\n">
+<meta property='og:url' content='https://blog.irudder.me/ai/ped/Chapter08-Prompt-Engineering-and-Basic-Skill-Building.html'>
+<meta property='og:site_name' content='SelfTechHub'>
+<meta property='og:type' content='article'><meta property='article:section' content='Ai' /><meta property='article:tag' content='Prompt Engineering' /><meta property='article:tag' content='Skill Building' /><meta property='article:tag' content='Few-Shot' /><meta property='article:tag' content='Chain of Thought' /><meta property='article:published_time' content='2026-02-19T00:00:00&#43;00:00'/><meta property='article:modified_time' content='2026-02-19T00:00:00&#43;00:00'/>
+<meta name="twitter:title" content="第8章 Prompt工程与基础Skill搭建">
+<meta name="twitter:description" content="第8章 Prompt工程与基础Skill搭建\r本章导读\n第7章讲了技术原理与工具选型。本章落到FDE最高频的实操——Prompt工程与Skill搭建。这是FDE&quot;动手能力&quot;的核心体现。本章先讲高阶Prompt技巧，再讲Skill设计方法，最后用三个通用Skill实战（信息整理、文案生成、数据分类）带读者走完从设计到迭代的全流程。读完本章，你应当能独立设计并搭建基础AI Skill。\n§8.1 从Prompt到Skill\r先厘清两个概念的关系。\nPrompt是给大模型的一次性指令。Skill是封装好的、可复用的AI能力模块——它内部包含Prompt，但还包含触发条件、输入输出规范、异常处理等。\n打个比方：Prompt是菜谱，Skill是&quot;一道菜&quot;——菜谱是核心，但一道菜还包括备料、火候、装盘、出错补救。FDE的工作不是写Prompt，而是搭Skill。\n理解这个区别，就理解了本章的结构：先讲Prompt（菜谱），再讲Skill（完整的菜）。\n§8.2 高阶Prompt技巧\r第7章讲了Prompt五要素（角色、任务、约束、格式、Few-Shot）。本节讲四个高阶技巧。\n8.2.1 角色设定的进阶用法\r基础角色设定是&quot;你是一位客服&quot;。进阶用法是给角色具体的经验与风格。\n对比：\n基础：&ldquo;你是一位客服主管。&rdquo; 进阶：&ldquo;你是一位有10年经验的零售行业客服主管，风格专业、共情、不卑不亢，擅长把复杂政策用客户听得懂的话解释。&rdquo; 进阶设定让模型&quot;代入&quot;更具体，输出更稳定。但注意：角色设定要真实，不要编造不可能的经验（&ldquo;你是同时精通法律、医学、金融的专家&quot;会让模型胡编）。\n8.2.2 任务拆解（Chain of Thought）\r复杂任务一次性让模型做，效果差。拆解成多步，每步专注一件事，效果好得多。\n示例（写客户跟进邮件）：\n不拆解：&ldquo;根据客户信息写一封跟进邮件。&quot;（输出泛泛） 拆解： 分析客户偏好（基于历史互动）。 确定邮件核心卖点（匹配偏好）。 写邮件草稿。 检查语气与合规。 输出最终邮件。 拆解后每步聚焦，整体质量显著提升。这种&quot;让模型显式展示思考过程&quot;的方法叫Chain of Thought（CoT）。\n方法论框8-1：任务拆解的判断标准 出现以下任一情况，就该拆解：\n任务包含多个子目标。 输出质量不稳定。 需要中间判断（如先分析再生成）。 单步输出过长导致信息丢失。 8.2.3 约束条件的精细化\r约束不是&quot;不超过200字&quot;这么简单。精细化约束能大幅提升可控性。\n常见约束维度：\n长度：字数/句数/段数。 格式：JSON/表格/Markdown/特定模板。 语气：正式/亲切/专业/活泼。 禁区：不承诺什么、不提什么话题、不用什么词。 必须包含：必须出现的要素（如签名、免责声明）。 风格参考：给一段范例文本，要求&quot;模仿此风格&rdquo;。 约束越细，输出越可控。但注意约束之间不能冲突（&ldquo;不超过100字&quot;与&quot;必须包含5个要点各30字&quot;冲突）。\n8.2.4 Few-Shot的用法\rFew-Shot是给模型几个输入输出范例，让它学习模式。适合需要特定格式的任务。\n用法要点：\n示例要典型，覆盖主要模式。 示例数量2-5个为宜，太少学不会、太多浪费Token。 示例的输入输出格式要与你期望的完全一致。 负例（不该这么输出的例子）有时比正例更有效。 示例（客户情绪分类）：\n输入：这破产品用不了，退款！\r输出：愤怒\r输入：麻烦问下怎么退款？\r输出：咨询\r输入：用了三天还不错，但有几点建议。\r输出：中性+建议 给3个Few-Shot，模型就能稳定按这个分类逻辑输出。\n">
+    </head>
+    <body class="
+    article-page
+    ">
+    <script>
+        (function() {
+            const colorSchemeKey = 'StackColorScheme';
+            if(!localStorage.getItem(colorSchemeKey)){
+                localStorage.setItem(colorSchemeKey, "auto");
+            }
+        })();
+    </script><script>
+    (function() {
+        const colorSchemeKey = 'StackColorScheme';
+        const colorSchemeItem = localStorage.getItem(colorSchemeKey);
+        const supportDarkMode = window.matchMedia('(prefers-color-scheme: dark)').matches === true;
+
+        if (colorSchemeItem == 'dark' || colorSchemeItem === 'auto' && supportDarkMode) {
+            
+
+            document.documentElement.dataset.scheme = 'dark';
+        } else {
+            document.documentElement.dataset.scheme = 'light';
+        }
+    })();
+</script>
+<div class="container main-container flex on-phone--column compact"><aside class="sidebar left-sidebar sticky ">
+    <button class="hamburger hamburger--spin" type="button" id="toggle-menu" aria-label="切换菜单">
+        <span class="hamburger-box">
+            <span class="hamburger-inner"></span>
+        </span>
+    </button>
+
+    <header>
+        
+            
+            <figure class="site-avatar">
+                <a href="/">
+                
+                    
+                    
+                    
+                        
+                        <img src="/img/avatar_hu_8588ce14af1147e2.png" width="300"
+                            height="286" class="site-logo" loading="lazy" alt="Avatar">
+                    
+                
+                </a>
+                
+            </figure>
+            
+        
+        
+        <div class="site-meta">
+            <h1 class="site-name"><a href="/">SelfTechHub</a></h1>
+            <h2 class="site-description"></h2>
+        </div>
+    </header><ol class="menu" id="main-menu">
+        
+        
+        <li class="menu-bottom-section">
+            <ol class="menu">
+
+                
+                    <li id="dark-mode-toggle">
+                        <svg xmlns="http://www.w3.org/2000/svg" class="icon icon-tabler icon-tabler-toggle-left" width="24" height="24" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor" fill="none" stroke-linecap="round" stroke-linejoin="round">
+  <path stroke="none" d="M0 0h24v24H0z"/>
+  <circle cx="8" cy="12" r="2" />
+  <rect x="2" y="6" width="20" height="12" rx="6" />
+</svg>
+
+
+
+                        <svg xmlns="http://www.w3.org/2000/svg" class="icon icon-tabler icon-tabler-toggle-right" width="24" height="24" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor" fill="none" stroke-linecap="round" stroke-linejoin="round">
+  <path stroke="none" d="M0 0h24v24H0z"/>
+  <circle cx="16" cy="12" r="2" />
+  <rect x="2" y="6" width="20" height="12" rx="6" />
+</svg>
+
+
+
+                        <span>暗色模式</span>
+                    </li>
+                
+            </ol>
+        </li>
+    </ol>
+</aside>
+
+    
+
+            <main class="main full-width">
+    <article class="main-article">
+    <header class="article-header">
+
+    <div class="article-details">
+    
+    <header class="article-category">
+        
+            <a href="/categories/ai.html" >
+                AI探索
+            </a>
+        
+    </header>
+    
+
+    <div class="article-title-wrapper">
+        <h2 class="article-title">
+            <a href="/ai/ped/Chapter08-Prompt-Engineering-and-Basic-Skill-Building.html">第8章 Prompt工程与基础Skill搭建</a>
+        </h2>
+    
+        
+    </div>
+
+    
+    
+    
+    
+    <footer class="article-time">
+        
+            <div>
+                <svg xmlns="http://www.w3.org/2000/svg" class="icon icon-tabler icon-tabler-calendar-time" width="56" height="56" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor" fill="none" stroke-linecap="round" stroke-linejoin="round">
+  <path stroke="none" d="M0 0h24v24H0z"/>
+  <path d="M11.795 21h-6.795a2 2 0 0 1 -2 -2v-12a2 2 0 0 1 2 -2h12a2 2 0 0 1 2 2v4" />
+  <circle cx="18" cy="18" r="4" />
+  <path d="M15 3v4" />
+  <path d="M7 3v4" />
+  <path d="M3 11h16" />
+  <path d="M18 16.496v1.504l1 1" />
+</svg>
+                <time class="article-time--published" datetime='2026-02-19T00:00:00Z'>Feb 19, 2026</time>
+            </div>
+        
+
+        
+            <div>
+                <svg xmlns="http://www.w3.org/2000/svg" class="icon icon-tabler icon-tabler-clock" width="24" height="24" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor" fill="none" stroke-linecap="round" stroke-linejoin="round">
+  <path stroke="none" d="M0 0h24v24H0z"/>
+  <circle cx="12" cy="12" r="9" />
+  <polyline points="12 7 12 12 15 15" />
+</svg>
+
+
+
+                <time class="article-time--reading">
+                    阅读时长: 1 分钟
+                </time>
+            </div>
+        
+    </footer>
+    
+
+    
+</div>
+
+</header>
+
+    <section class="article-content">
+    
+    
+    <h1 id="第8章-prompt工程与基础skill搭建">第8章 Prompt工程与基础Skill搭建
+</h1><blockquote>
+<p><strong>本章导读</strong></p>
+<p>第7章讲了技术原理与工具选型。本章落到FDE最高频的实操——Prompt工程与Skill搭建。这是FDE&quot;动手能力&quot;的核心体现。本章先讲高阶Prompt技巧，再讲Skill设计方法，最后用三个通用Skill实战（信息整理、文案生成、数据分类）带读者走完从设计到迭代的全流程。读完本章，你应当能独立设计并搭建基础AI Skill。</p>
+</blockquote>
+<hr>
+<h2 id="81-从prompt到skill">§8.1 从Prompt到Skill
+</h2><p>先厘清两个概念的关系。</p>
+<p><strong>Prompt</strong>是给大模型的一次性指令。<strong>Skill</strong>是封装好的、可复用的AI能力模块——它内部包含Prompt，但还包含触发条件、输入输出规范、异常处理等。</p>
+<p>打个比方：Prompt是菜谱，Skill是&quot;一道菜&quot;——菜谱是核心，但一道菜还包括备料、火候、装盘、出错补救。FDE的工作不是写Prompt，而是搭Skill。</p>
+<p>理解这个区别，就理解了本章的结构：先讲Prompt（菜谱），再讲Skill（完整的菜）。</p>
+<hr>
+<h2 id="82-高阶prompt技巧">§8.2 高阶Prompt技巧
+</h2><p>第7章讲了Prompt五要素（角色、任务、约束、格式、Few-Shot）。本节讲四个高阶技巧。</p>
+<h3 id="821-角色设定的进阶用法">8.2.1 角色设定的进阶用法
+</h3><p>基础角色设定是&quot;你是一位客服&quot;。进阶用法是<strong>给角色具体的经验与风格</strong>。</p>
+<p>对比：</p>
+<ul>
+<li>基础：&ldquo;你是一位客服主管。&rdquo;</li>
+<li>进阶：&ldquo;你是一位有10年经验的零售行业客服主管，风格专业、共情、不卑不亢，擅长把复杂政策用客户听得懂的话解释。&rdquo;</li>
+</ul>
+<p>进阶设定让模型&quot;代入&quot;更具体，输出更稳定。但注意：角色设定要真实，不要编造不可能的经验（&ldquo;你是同时精通法律、医学、金融的专家&quot;会让模型胡编）。</p>
+<h3 id="822-任务拆解chain-of-thought">8.2.2 任务拆解（Chain of Thought）
+</h3><p>复杂任务一次性让模型做，效果差。拆解成多步，每步专注一件事，效果好得多。</p>
+<p>示例（写客户跟进邮件）：</p>
+<ul>
+<li>不拆解：&ldquo;根据客户信息写一封跟进邮件。&quot;（输出泛泛）</li>
+<li>拆解：
+<ol>
+<li>分析客户偏好（基于历史互动）。</li>
+<li>确定邮件核心卖点（匹配偏好）。</li>
+<li>写邮件草稿。</li>
+<li>检查语气与合规。</li>
+<li>输出最终邮件。</li>
+</ol>
+</li>
+</ul>
+<p>拆解后每步聚焦，整体质量显著提升。这种&quot;让模型显式展示思考过程&quot;的方法叫Chain of Thought（CoT）。</p>
+<blockquote>
+<p><strong>方法论框8-1：任务拆解的判断标准</strong>
+出现以下任一情况，就该拆解：</p>
+<ul>
+<li>任务包含多个子目标。</li>
+<li>输出质量不稳定。</li>
+<li>需要中间判断（如先分析再生成）。</li>
+<li>单步输出过长导致信息丢失。</li>
+</ul>
+</blockquote>
+<h3 id="823-约束条件的精细化">8.2.3 约束条件的精细化
+</h3><p>约束不是&quot;不超过200字&quot;这么简单。精细化约束能大幅提升可控性。</p>
+<p>常见约束维度：</p>
+<ul>
+<li><strong>长度</strong>：字数/句数/段数。</li>
+<li><strong>格式</strong>：JSON/表格/Markdown/特定模板。</li>
+<li><strong>语气</strong>：正式/亲切/专业/活泼。</li>
+<li><strong>禁区</strong>：不承诺什么、不提什么话题、不用什么词。</li>
+<li><strong>必须包含</strong>：必须出现的要素（如签名、免责声明）。</li>
+<li><strong>风格参考</strong>：给一段范例文本，要求&quot;模仿此风格&rdquo;。</li>
+</ul>
+<p>约束越细，输出越可控。但注意约束之间不能冲突（&ldquo;不超过100字&quot;与&quot;必须包含5个要点各30字&quot;冲突）。</p>
+<h3 id="824-few-shot的用法">8.2.4 Few-Shot的用法
+</h3><p>Few-Shot是给模型几个输入输出范例，让它学习模式。适合需要特定格式的任务。</p>
+<p><strong>用法要点</strong>：</p>
+<ul>
+<li>示例要典型，覆盖主要模式。</li>
+<li>示例数量2-5个为宜，太少学不会、太多浪费Token。</li>
+<li>示例的输入输出格式要与你期望的完全一致。</li>
+<li>负例（不该这么输出的例子）有时比正例更有效。</li>
+</ul>
+<p>示例（客户情绪分类）：</p>
+<pre tabindex="0"><code>输入：这破产品用不了，退款！
+输出：愤怒
+
+输入：麻烦问下怎么退款？
+输出：咨询
+
+输入：用了三天还不错，但有几点建议。
+输出：中性+建议
+</code></pre><p>给3个Few-Shot，模型就能稳定按这个分类逻辑输出。</p>
+<hr>
+<h2 id="83-skill设计方法">§8.3 Skill设计方法
+</h2><p>Prompt写好，下一步封装成Skill。一个完整的Skill包含五个部分。</p>
+<blockquote>
+<p><strong>图8-1：Skill的五大组成部分</strong>
+（建议呈现：五模块图。触发条件→输入规范→核心Prompt→输出规范→异常处理。）</p>
+</blockquote>
+<h3 id="831-触发条件">8.3.1 触发条件
+</h3><p>什么时候调用这个Skill？触发条件要明确，避免误触发或漏触发。</p>
+<p>示例：</p>
+<ul>
+<li>&ldquo;当用户输入包含&rsquo;退款&rsquo;&lsquo;退货&rsquo;&lsquo;售后&rsquo;关键词时触发。&rdquo;</li>
+<li>&ldquo;当上游分类节点输出为&rsquo;投诉&rsquo;时触发。&rdquo;</li>
+</ul>
+<p>触发条件可以是关键词、分类结果、人工配置。复杂场景可用多重条件组合。</p>
+<h3 id="832-输入规范">8.3.2 输入规范
+</h3><p>Skill需要什么输入？要明确输入字段、类型、来源。</p>
+<p>示例：</p>
+<ul>
+<li>输入字段：客户问题（文本）、客户ID（字符串）、历史互动（列表）。</li>
+<li>来源：上游节点输出 / 用户输入 / 数据库查询。</li>
+</ul>
+<p>输入规范不清，Skill就接不稳。</p>
+<h3 id="833-核心prompt">8.3.3 核心Prompt
+</h3><p>Skill的核心。用§8.2的方法设计，包含角色、任务、约束、格式、Few-Shot。</p>
+<h3 id="834-输出规范">8.3.4 输出规范
+</h3><p>Skill输出什么？格式、字段、对接下游的方式。</p>
+<p>示例：</p>
+<ul>
+<li>输出格式：JSON。</li>
+<li>字段：reply（回复文本）、confidence（置信度0-1）、need_escalation（是否需转人工）。</li>
+<li>下游对接：reply返回用户，need_escalation为true时触发转人工流程。</li>
+</ul>
+<h3 id="835-异常处理">8.3.5 异常处理
+</h3><p>Skill失败时怎么办？这是新手最易忽略、却最影响稳定性的部分。</p>
+<p>常见异常与处理：</p>
+<ul>
+<li><strong>模型超时</strong>：重试2次，仍失败则降级（用预设回复）。</li>
+<li><strong>输入缺失</strong>：返回&quot;信息不足，请补充XX&rdquo;，不强行生成。</li>
+<li><strong>输出格式错</strong>：用解析器校验，格式错则重试或降级。</li>
+<li><strong>置信度低</strong>：低于阈值转人工，不直接给用户。</li>
+</ul>
+<blockquote>
+<p><strong>方法论框8-2：Skill设计自检五问</strong></p>
+<ol>
+<li>触发条件明确吗？（不会误触发或漏触发）</li>
+<li>输入规范清晰吗？（字段、类型、来源）</li>
+<li>核心Prompt五要素齐全吗？</li>
+<li>输出规范可对接下游吗？（格式、字段）</li>
+<li>异常处理有降级方案吗？（超时、缺失、格式错、低置信度）
+五问全清，Skill才算设计完成。</li>
+</ol>
+</blockquote>
+<hr>
+<h2 id="84-实战一信息整理skill">§8.4 实战一：信息整理Skill
+</h2><p><strong>场景</strong>：把会议录音转写文本，整理成结构化纪要。</p>
+<p><strong>设计</strong>：</p>
+<ul>
+<li>触发条件：用户上传会议转写文本并选择&quot;生成纪要&rdquo;。</li>
+<li>输入：会议转写文本（文本）。</li>
+<li>核心Prompt：
+<ul>
+<li>角色：&ldquo;你是一位专业的会议纪要助理。&rdquo;</li>
+<li>任务：&ldquo;请把以下会议转写整理为结构化纪要。&rdquo;</li>
+<li>约束：&ldquo;保留关键决策与待办，去除寒暄与重复；待办需含负责人与截止时间。&rdquo;</li>
+<li>格式：Markdown，含&quot;会议主题/参会人/关键讨论/决策/待办&quot;五部分。</li>
+</ul>
+</li>
+<li>输出：结构化纪要（Markdown）。</li>
+<li>异常处理：转写过短（&lt;500字）提示&quot;内容过少，请确认转写完整&quot;；无明确待办时标注&quot;本次会议无明确待办&quot;。</li>
+</ul>
+<p><strong>迭代要点</strong>：初版常出现&quot;待办无负责人&quot;，需在Prompt加约束&quot;待办必须含负责人，无法识别时标注&rsquo;待指定&rsquo;&quot;。</p>
+<hr>
+<h2 id="85-实战二文案生成skill">§8.5 实战二：文案生成Skill
+</h2><p><strong>场景</strong>：根据产品信息与目标客户画像，生成个性化营销文案。</p>
+<p><strong>设计</strong>：</p>
+<ul>
+<li>触发条件：上游传入产品信息+客户画像。</li>
+<li>输入：产品信息（结构化）、客户画像（结构化）、渠道（邮件/短信/朋友圈）。</li>
+<li>核心Prompt：
+<ul>
+<li>角色：&ldquo;你是一位资深B2B营销文案撰写人。&rdquo;</li>
+<li>任务：&ldquo;根据产品与客户画像，生成适合指定渠道的营销文案。&rdquo;</li>
+<li>约束：&ldquo;突出产品与客户痛点的匹配；不夸大不承诺具体效果；邮件300字内、短信80字内、朋友圈150字内。&rdquo;</li>
+<li>Few-Shot：给2-3个优秀文案范例。</li>
+</ul>
+</li>
+<li>输出：文案文本 + 卖点匹配说明。</li>
+<li>异常处理：客户画像字段缺失时降级为通用文案；输出超长时自动截断并提示。</li>
+</ul>
+<p><strong>迭代要点</strong>：初版易出现&quot;通用化套话&quot;，需在Prompt加&quot;必须引用客户画像中至少2个具体信息&quot;。</p>
+<hr>
+<h2 id="86-实战三数据分类skill">§8.6 实战三：数据分类Skill
+</h2><p><strong>场景</strong>：把客服工单自动分类到预设类别。</p>
+<p><strong>设计</strong>：</p>
+<ul>
+<li>触发条件：新工单进入系统。</li>
+<li>输入：工单文本（文本）。</li>
+<li>核心Prompt：
+<ul>
+<li>角色：&ldquo;你是一位客服工单分类专家。&rdquo;</li>
+<li>任务：&ldquo;把以下工单分类到最匹配的类别。&rdquo;</li>
+<li>约束：&ldquo;只从给定类别中选择，不允许自创；无法判断时输出&rsquo;其他&rsquo;。&rdquo;</li>
+<li>Few-Shot：每类给2个范例。</li>
+<li>输出格式：JSON，含category（类别）、confidence（置信度）、reason（分类理由）。</li>
+</ul>
+</li>
+<li>输出：结构化分类结果。</li>
+<li>异常处理：置信度&lt;0.7转人工复核；格式错重试1次。</li>
+</ul>
+<p><strong>迭代要点</strong>：初版常出现&quot;边界类别混淆&quot;（如&quot;产品质量&quot;与&quot;售后投诉&quot;），需在Few-Shot里加边界案例。</p>
+<hr>
+<h2 id="87-skill的测试与迭代">§8.7 Skill的测试与迭代
+</h2><p>Skill搭完不等于能用，必须测试与迭代。</p>
+<h3 id="测试方法">测试方法
+</h3><p><strong>测试集构建</strong>：准备20-50条真实样本，覆盖正常、边界、异常三类情况。</p>
+<p><strong>测试维度</strong>：</p>
+<ul>
+<li><strong>准确性</strong>：输出是否符合预期。</li>
+<li><strong>稳定性</strong>：同输入多次运行，输出是否一致。</li>
+<li><strong>健壮性</strong>：异常输入（缺失、超长、格式错）是否优雅处理。</li>
+<li><strong>成本</strong>：Token消耗是否在预算内。</li>
+</ul>
+<h3 id="迭代方法">迭代方法
+</h3><blockquote>
+<p><strong>方法论框8-3：Skill迭代四步法</strong></p>
+<ol>
+<li><strong>找问题</strong>：测试集里哪些样本输出不达标？</li>
+<li><strong>析原因</strong>：是Prompt问题、Few-Shot不够、还是约束不清？</li>
+<li><strong>改一处</strong>：每次只改一处，避免变量混淆。</li>
+<li><strong>回归测</strong>：改完用全测试集回归，确认改进且未引入新问题。</li>
+</ol>
+</blockquote>
+<p>迭代是Skill质量提升的核心环节，没有一次成功的Skill，只有不断迭代的Skill。</p>
+<hr>
+<h2 id="本章小结">本章小结
+</h2><ol>
+<li><strong>Prompt与Skill</strong>：Prompt是菜谱，Skill是完整的菜；FDE搭Skill不只是写Prompt。</li>
+<li><strong>高阶Prompt</strong>：角色进阶、任务拆解（CoT）、约束精细化、Few-Shot四技巧。</li>
+<li><strong>Skill五部分</strong>：触发条件、输入规范、核心Prompt、输出规范、异常处理。</li>
+<li><strong>三个实战</strong>：信息整理、文案生成、数据分类，覆盖三类典型场景。</li>
+<li><strong>测试迭代</strong>：测试集+四维度+迭代四步法，Skill靠打磨不靠一次成功。</li>
+</ol>
+<hr>
+<h2 id="思考题">思考题
+</h2><ol>
+<li>用§8.2的高阶技巧，为一个你工作中的任务写一个Prompt，对比基础版与进阶版的输出差异。</li>
+<li>用§8.3的五部分，设计一个Skill（场景自选），填完自检五问。</li>
+<li>用零代码平台搭建你设计的Skill，准备20条测试样本，跑一轮测试并记录问题。</li>
+<li>用迭代四步法，针对测试发现的一个问题，做一轮迭代并回归测。</li>
+</ol>
+<hr>
+<h2 id="延伸阅读">延伸阅读
+</h2><ul>
+<li>本书第9章讲工作流自动化，是把Skill嵌入业务流程的下一步。</li>
+<li>第13章讲可复用Skill体系，是Skill从单个到体系的进阶。</li>
+<li>各大模型官方Prompt指南（用于刷新最佳实践）。</li>
+</ul>
+
+</section>
+
+
+    <footer class="article-footer">
+    
+    <section class="article-tags">
+        
+            <a href="/tags/Prompt-Engineering.html">Prompt Engineering</a>
+        
+            <a href="/tags/Skill-Building.html">Skill Building</a>
+        
+            <a href="/tags/Few-Shot.html">Few-Shot</a>
+        
+            <a href="/tags/Chain-of-Thought.html">Chain of Thought</a>
+        
+    </section>
+
+
+    </footer>
+
+
+    
+</article>
+
+    
+
+    
+
+<aside class="related-content--wrapper">
+    <h2 class="section-title">相关文章</h2>
+    <div class="related-content">
+        <div class="flex article-list--tile">
+            
+                
+<article class="">
+    <a href="/ai/ped/Chapter07-AI-Tech-Fundamentals-and-Tool-Selection.html">
+        
+        
+
+        <div class="article-details">
+            <h2 class="article-title">第7章 AI技术基础与工具选型</h2>
+        </div>
+    </a>
+</article>
+
+            
+        </div>
+    </div>
+</aside>
+
+     
+    
+        
+    <script
+    src="https://giscus.app/client.js"
+    data-repo="pastor17/bloggiscus"
+    data-repo-id="R_kgDOQ6H9qQ"
+    data-category=""
+    data-category-id="DIC_kwDOQ6H9qc4C0-T8"
+    data-mapping="pathname"
+    data-strict="0"
+    data-reactions-enabled="1"
+    data-emit-metadata="0"
+    data-input-position="bottom"
+    data-theme="light"
+    data-lang="zh-CN"
+    data-loading="lazy"
+    crossorigin="anonymous"
+    async
+></script>
+<script>
+    function setGiscusTheme(theme) {
+        let giscus = document.querySelector("iframe.giscus-frame");
+        if (giscus) {
+            giscus.contentWindow.postMessage(
+                {
+                    giscus: {
+                        setConfig: {
+                            theme: theme,
+                        },
+                    },
+                },
+                "https://giscus.app"
+            );
+        }
+    }
+
+    (function () {
+        addEventListener("message", (e) => {
+            if (event.origin !== "https://giscus.app") return;
+            handler();
+        });
+        window.addEventListener("onColorSchemeChange", handler);
+
+        function handler() {
+            if (document.documentElement.dataset.scheme === "light") {
+                setGiscusTheme('light');
+            } else {
+                setGiscusTheme('dark_dimmed');
+            }
+        }
+    })();
+</script>
+
+    
+
+    <footer class="site-footer">
+    <section class="copyright">
+        &copy; 
+        
+        2026 SelfTechHub
+    </section>
+    
+    <section class="powerby">
+        
+
+    </section>
+</footer>
+
+
+    
+<div class="pswp" tabindex="-1" role="dialog" aria-hidden="true">
+
+    
+    <div class="pswp__bg"></div>
+
+    
+    <div class="pswp__scroll-wrap">
+
+        
+        <div class="pswp__container">
+            <div class="pswp__item"></div>
+            <div class="pswp__item"></div>
+            <div class="pswp__item"></div>
+        </div>
+
+        
+        <div class="pswp__ui pswp__ui--hidden">
+
+            <div class="pswp__top-bar">
+
+                
+
+                <div class="pswp__counter"></div>
+
+                <button class="pswp__button pswp__button--close" title="Close (Esc)"></button>
+
+                <button class="pswp__button pswp__button--share" title="Share"></button>
+
+                <button class="pswp__button pswp__button--fs" title="Toggle fullscreen"></button>
+
+                <button class="pswp__button pswp__button--zoom" title="Zoom in/out"></button>
+
+                
+                
+                <div class="pswp__preloader">
+                    <div class="pswp__preloader__icn">
+                        <div class="pswp__preloader__cut">
+                            <div class="pswp__preloader__donut"></div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <div class="pswp__share-modal pswp__share-modal--hidden pswp__single-tap">
+                <div class="pswp__share-tooltip"></div>
+            </div>
+
+            <button class="pswp__button pswp__button--arrow--left" title="Previous (arrow left)">
+            </button>
+
+            <button class="pswp__button pswp__button--arrow--right" title="Next (arrow right)">
+            </button>
+
+            <div class="pswp__caption">
+                <div class="pswp__caption__center"></div>
+            </div>
+
+        </div>
+
+    </div>
+
+</div><script 
+                src="https://cdn.jsdelivr.net/npm/photoswipe@4.1.3/dist/photoswipe.min.js"integrity="sha256-ePwmChbbvXbsO02lbM3HoHbSHTHFAeChekF1xKJdleo="crossorigin="anonymous"
+                defer
+                >
+            </script><script 
+                src="https://cdn.jsdelivr.net/npm/photoswipe@4.1.3/dist/photoswipe-ui-default.min.js"integrity="sha256-UKkzOn/w1mBxRmLLGrSeyB4e1xbrp4xylgAWb3M42pU="crossorigin="anonymous"
+                defer
+                >
+            </script><link 
+                rel="stylesheet" 
+                href="https://cdn.jsdelivr.net/npm/photoswipe@4.1.3/dist/default-skin/default-skin.min.css"crossorigin="anonymous"
+            ><link 
+                rel="stylesheet" 
+                href="https://cdn.jsdelivr.net/npm/photoswipe@4.1.3/dist/photoswipe.min.css"crossorigin="anonymous"
+            >
+    
+
+            </main>
+        </div>
+        <script 
+                src="https://cdn.jsdelivr.net/npm/node-vibrant@3.1.6/dist/vibrant.min.js"integrity="sha256-awcR2jno4kI5X0zL8ex0vi2z&#43;KMkF24hUW8WePSA9HM="crossorigin="anonymous"
+                
+                >
+            </script><script type="text/javascript" src="/ts/main.c922af694cc257bf1ecc41c0dd7b0430f9114ec280ccf67cd2c6ad55f5316c4e.js" defer></script>
+<script>
+    (function () {
+        const customFont = document.createElement('link');
+        customFont.href = "https://fonts.googleapis.com/css2?family=Lato:wght@300;400;700&display=swap";
+
+        customFont.type = "text/css";
+        customFont.rel = "stylesheet";
+
+        document.head.appendChild(customFont);
+    }());
+</script>
+
+    </body>
+</html>

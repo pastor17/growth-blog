@@ -1,0 +1,384 @@
+<?xml version="1.0" encoding="utf-8" standalone="yes"?>
+<rss version="2.0" xmlns:atom="http://www.w3.org/2005/Atom">
+    <channel>
+        <title>Chunking on SelfTechHub</title>
+        <link>https://blog.irudder.me/tags/Chunking.html</link>
+        <description>Recent content in Chunking on SelfTechHub</description>
+        <generator>Hugo -- gohugo.io</generator>
+        <language>zh-cn</language>
+        <lastBuildDate>Mon, 15 Jun 2026 00:00:00 +0000</lastBuildDate><atom:link href="https://blog.irudder.me/tags/Chunking/index.xml" rel="self" type="application/rss+xml" /><item>
+        <title>第9章：RAG 检索优化全攻略——从召回率到答案质量</title>
+        <link>https://blog.irudder.me/ai/knowledge-series/09-RAG-Retrieval-Optimization-Guide.html</link>
+        <pubDate>Mon, 15 Jun 2026 00:00:00 +0000</pubDate>
+        
+        <guid>https://blog.irudder.me/ai/knowledge-series/09-RAG-Retrieval-Optimization-Guide.html</guid>
+        <description>&lt;h1 id=&#34;第9章rag-检索优化全攻略从召回率到答案质量&#34;&gt;第9章：RAG 检索优化全攻略——从召回率到答案质量
+&lt;/h1&gt;&lt;blockquote&gt;
+&lt;p&gt;系列导读：检索是 RAG 的命脉，召回的内容质量决定了 LLM 回答的天花板。本章系统讲解检索优化的四维框架。&lt;/p&gt;
+&lt;/blockquote&gt;
+&lt;hr&gt;
+&lt;h2 id=&#34;一为什么要系统优化检索&#34;&gt;一、为什么要系统优化检索？
+&lt;/h2&gt;&lt;p&gt;先看三个现实问题：&lt;/p&gt;
+&lt;ol&gt;
+&lt;li&gt;用户问&amp;quot;退款政策&amp;quot;，召回的第一步是&amp;quot;配送说明&amp;quot;，第二步才是&amp;quot;退款政策&amp;quot;——漏召回&lt;/li&gt;
+&lt;li&gt;用户问&amp;quot;这个功能怎么用？&amp;quot;，召回的 10 个 chunk 里有 3 个完全无关——召回噪音大&lt;/li&gt;
+&lt;li&gt;用户问了一个涉及两个不同知识点的复合问题，检索只找到了其中一个——覆盖不全&lt;/li&gt;
+&lt;/ol&gt;
+&lt;p&gt;这三个问题对应的分别是：&lt;/p&gt;
+&lt;ul&gt;
+&lt;li&gt;召回精度的优化&lt;/li&gt;
+&lt;li&gt;召回噪音的优化&lt;/li&gt;
+&lt;li&gt;多路召回的优化&lt;/li&gt;
+&lt;/ul&gt;
+&lt;h2 id=&#34;二四层检索优化框架&#34;&gt;二、四层检索优化框架
+&lt;/h2&gt;&lt;h3 id=&#34;第一层索引层知识怎么存&#34;&gt;第一层：索引层——知识怎么存
+&lt;/h3&gt;&lt;p&gt;&lt;strong&gt;切割策略优化&lt;/strong&gt;：&lt;/p&gt;
+&lt;ul&gt;
+&lt;li&gt;第7章讲过的四种策略按需选择和组合&lt;/li&gt;
+&lt;li&gt;父子结构不过分零碎也不过分庞大&lt;/li&gt;
+&lt;/ul&gt;
+&lt;p&gt;&lt;strong&gt;metadata 索引&lt;/strong&gt;：&lt;/p&gt;
+&lt;ul&gt;
+&lt;li&gt;为每个 chunk 打上分类标签、文档类型、版本号、创建时间&lt;/li&gt;
+&lt;li&gt;检索时做前置过滤，缩小搜索范围&lt;/li&gt;
+&lt;/ul&gt;
+&lt;p&gt;&lt;strong&gt;向量索引参数调优&lt;/strong&gt;：&lt;/p&gt;
+&lt;ul&gt;
+&lt;li&gt;HNSW 的 ef_construction：构建时越精细，搜索越准，但构建越慢&lt;/li&gt;
+&lt;li&gt;HNSW 的 ef_search：搜索时额外探索更多候选，提高召回率但增加延迟&lt;/li&gt;
+&lt;/ul&gt;
+&lt;h3 id=&#34;第二层查询层问题怎么转换&#34;&gt;第二层：查询层——问题怎么转换
+&lt;/h3&gt;&lt;p&gt;&lt;strong&gt;Query Rewrite 四大方法&lt;/strong&gt;（详见第6章总结）：&lt;/p&gt;
+&lt;table&gt;
+  &lt;thead&gt;
+      &lt;tr&gt;
+          &lt;th&gt;方法&lt;/th&gt;
+          &lt;th&gt;核心思想&lt;/th&gt;
+          &lt;th&gt;解决的问题&lt;/th&gt;
+      &lt;/tr&gt;
+  &lt;/thead&gt;
+  &lt;tbody&gt;
+      &lt;tr&gt;
+          &lt;td&gt;直接改写&lt;/td&gt;
+          &lt;td&gt;口语 → 书面语&lt;/td&gt;
+          &lt;td&gt;用户提问随意&lt;/td&gt;
+      &lt;/tr&gt;
+      &lt;tr&gt;
+          &lt;td&gt;查询扩展&lt;/td&gt;
+          &lt;td&gt;加相关关键词&lt;/td&gt;
+          &lt;td&gt;术语不匹配&lt;/td&gt;
+      &lt;/tr&gt;
+      &lt;tr&gt;
+          &lt;td&gt;HyDE&lt;/td&gt;
+          &lt;td&gt;LLM 假设答案 → 用答案向量检索&lt;/td&gt;
+          &lt;td&gt;用户问题表述匮乏&lt;/td&gt;
+      &lt;/tr&gt;
+      &lt;tr&gt;
+          &lt;td&gt;Step-back&lt;/td&gt;
+          &lt;td&gt;抽象具体问题&lt;/td&gt;
+          &lt;td&gt;需要更广泛背景&lt;/td&gt;
+      &lt;/tr&gt;
+  &lt;/tbody&gt;
+&lt;/table&gt;
+&lt;p&gt;&lt;strong&gt;应用场景举例&lt;/strong&gt;：&lt;/p&gt;
+&lt;ul&gt;
+&lt;li&gt;用户问&amp;quot;这东西坏了咋整&amp;quot;→ 直接改写成&amp;quot;产品故障排查指南&amp;quot;&lt;/li&gt;
+&lt;li&gt;用户问&amp;quot;张三是谁&amp;quot;→ 扩展&amp;quot;张三 | 人物 | 简介 | 生平&amp;quot;&lt;/li&gt;
+&lt;li&gt;用户只有一个缩写词&amp;quot;OKR&amp;quot;→ Step-back 到&amp;quot;目标管理体系&amp;quot;&lt;/li&gt;
+&lt;/ul&gt;
+&lt;h3 id=&#34;第三层召回层从哪些路径找&#34;&gt;第三层：召回层——从哪些路径找
+&lt;/h3&gt;&lt;p&gt;&lt;strong&gt;多路召回&lt;/strong&gt;：不走单一检索路径，而是从多个角度同时找，然后把结果合并：&lt;/p&gt;
+&lt;div class=&#34;highlight&#34;&gt;&lt;pre tabindex=&#34;0&#34; style=&#34;color:#f8f8f2;background-color:#272822;-moz-tab-size:4;-o-tab-size:4;tab-size:4;&#34;&gt;&lt;code class=&#34;language-text&#34; data-lang=&#34;text&#34;&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;┌─ 向量检索（语义匹配） → Top-K1 结果
+&lt;/span&gt;&lt;/span&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;├─ BM25/全文检索（关键词匹配） → Top-K2 结果
+&lt;/span&gt;&lt;/span&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;├─ 结构化查询（metadata过滤 + 精确匹配） → Top-K3 结果
+&lt;/span&gt;&lt;/span&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;└─ 混合融合 → 去重 → 合并排序 → 进入 Rerank
+&lt;/span&gt;&lt;/span&gt;&lt;/code&gt;&lt;/pre&gt;&lt;/div&gt;&lt;p&gt;&lt;strong&gt;每种召回方法有不同的优势&lt;/strong&gt;：&lt;/p&gt;
+&lt;ul&gt;
+&lt;li&gt;&lt;strong&gt;向量检索&lt;/strong&gt;：语义相近但用词不同的内容&lt;/li&gt;
+&lt;li&gt;&lt;strong&gt;BM25&lt;/strong&gt;：精确的关键词匹配、术语命中&lt;/li&gt;
+&lt;li&gt;&lt;strong&gt;Structured Query&lt;/strong&gt;：条件查找（某版本、某产品的文档）&lt;/li&gt;
+&lt;/ul&gt;
+&lt;p&gt;&lt;strong&gt;融合策略&lt;/strong&gt;：&lt;/p&gt;
+&lt;ul&gt;
+&lt;li&gt;&lt;strong&gt;加权融合&lt;/strong&gt;：weight_vector × score_vector + weight_bm25 × score_bm25&lt;/li&gt;
+&lt;li&gt;&lt;strong&gt;RRF（Reciprocal Rank Fusion）&lt;/strong&gt;：不关心绝对分数，只关心排名位置&lt;/li&gt;
+&lt;/ul&gt;
+&lt;h3 id=&#34;第四层重排序层哪些给-llm&#34;&gt;第四层：重排序层——哪些给 LLM
+&lt;/h3&gt;&lt;p&gt;粗招召回的结果数量通常远超过 LLM context 能容纳的。Rerank 的作用：&lt;/p&gt;
+&lt;blockquote&gt;
+&lt;p&gt;用更精确的模型重新打分，选最相关的 Top-N 传给 LLM&lt;/p&gt;
+&lt;/blockquote&gt;
+&lt;p&gt;&lt;strong&gt;常见 Rerank 方案&lt;/strong&gt;：&lt;/p&gt;
+&lt;ol&gt;
+&lt;li&gt;&lt;strong&gt;Cross-Encoder Reranker&lt;/strong&gt;：问题和每个 chunk 拼接一起送进模型，输出一个相关性分数。比双塔（bi-encoder）更准但计算更慢&lt;/li&gt;
+&lt;li&gt;&lt;strong&gt;LLM-as-Judge&lt;/strong&gt;：让 LLM 对每个召回 chunk 打分（慢但效果最好，适合少量结果）&lt;/li&gt;
+&lt;li&gt;&lt;strong&gt;规则过滤&lt;/strong&gt;：按 metadata 排除明显不相关的&lt;/li&gt;
+&lt;/ol&gt;
+&lt;h2 id=&#34;三系统性优化流程&#34;&gt;三、系统性优化流程
+&lt;/h2&gt;&lt;p&gt;不要东一榔头西一棒槌，按以下流程来：&lt;/p&gt;
+&lt;pre tabindex=&#34;0&#34;&gt;&lt;code&gt;步骤1：建立评估基准
+  └─ 标注 50-100 组&amp;#34;问题/期望答案&amp;#34;，称为 golden set
+
+步骤2：跑基线
+  └─ 用最简单的 chunking + 默认模型 + 向量检索，测召回率和答案质量
+
+步骤3：逐层优化
+  └─ 先看召回层：调整 chunking、换 Embedding 模型、加多路召回
+  └─ 再看查询层：加 Query Rewrite，看是否能召回原本漏掉的内容
+  └─ 最后看重排序层：加 Reranker，提高精度、降低噪音
+
+步骤4：回归验证
+  └─ 每次改动后跑 full golden set，确保没有 regression
+&lt;/code&gt;&lt;/pre&gt;&lt;h2 id=&#34;四常见检索-bad-case-速查表&#34;&gt;四、常见检索 bad case 速查表
+&lt;/h2&gt;&lt;table&gt;
+  &lt;thead&gt;
+      &lt;tr&gt;
+          &lt;th&gt;现象&lt;/th&gt;
+          &lt;th&gt;根因&lt;/th&gt;
+          &lt;th&gt;解法&lt;/th&gt;
+      &lt;/tr&gt;
+  &lt;/thead&gt;
+  &lt;tbody&gt;
+      &lt;tr&gt;
+          &lt;td&gt;问题措辞不同就检索不到&lt;/td&gt;
+          &lt;td&gt;Embedding 语义映射不够&lt;/td&gt;
+          &lt;td&gt;换模型 / 加 Query Rewrite&lt;/td&gt;
+      &lt;/tr&gt;
+      &lt;tr&gt;
+          &lt;td&gt;专有名词搜不到&lt;/td&gt;
+          &lt;td&gt;语义匹配 + 精确匹配不足&lt;/td&gt;
+          &lt;td&gt;加 BM25 / 结构化索引&lt;/td&gt;
+      &lt;/tr&gt;
+      &lt;tr&gt;
+          &lt;td&gt;召回很多无关内容&lt;/td&gt;
+          &lt;td&gt;粗排粒度太粗&lt;/td&gt;
+          &lt;td&gt;加 Reranker / 缩小 Top-K&lt;/td&gt;
+      &lt;/tr&gt;
+      &lt;tr&gt;
+          &lt;td&gt;需要跨文档关联才能回答&lt;/td&gt;
+          &lt;td&gt;单路召回覆盖不全&lt;/td&gt;
+          &lt;td&gt;多路召回 + 多跳检索&lt;/td&gt;
+      &lt;/tr&gt;
+      &lt;tr&gt;
+          &lt;td&gt;召回内容正确但太碎片化&lt;/td&gt;
+          &lt;td&gt;Chunk 太小&lt;/td&gt;
+          &lt;td&gt;父子结构 / 增大 chunk&lt;/td&gt;
+      &lt;/tr&gt;
+  &lt;/tbody&gt;
+&lt;/table&gt;
+&lt;h2 id=&#34;五本章小结&#34;&gt;五、本章小结
+&lt;/h2&gt;&lt;ul&gt;
+&lt;li&gt;检索优化的目标：不漏（召回率）、不杂（精确度）、够用（覆盖度）&lt;/li&gt;
+&lt;li&gt;四层框架：索引层 → 查询层 → 召回层 → 重排序层&lt;/li&gt;
+&lt;li&gt;黄金法则：先建评估基准（golden set），再逐层优化，每次改动都跑回归&lt;/li&gt;
+&lt;li&gt;RAG 系统的上限在检索层，搜索做得越好，LLM 回答的天花板越高&lt;/li&gt;
+&lt;/ul&gt;
+&lt;h2 id=&#34;思考题&#34;&gt;思考题
+&lt;/h2&gt;&lt;ol&gt;
+&lt;li&gt;多路召回中，向量检索和 BM25 的分数范围不同，直接加权融合可能不公平。你除了 RRF 之外还有什么融合策略？&lt;/li&gt;
+&lt;li&gt;如果你的 golden set 只有 20 条，怎么防止过拟合评估集？&lt;/li&gt;
+&lt;/ol&gt;
+</description>
+        </item>
+        <item>
+        <title>第7章：文档切割——Chunking 的策略与最佳实践</title>
+        <link>https://blog.irudder.me/ai/knowledge-series/07-Chunking-Strategies-and-Best-Practices.html</link>
+        <pubDate>Fri, 12 Jun 2026 00:00:00 +0000</pubDate>
+        
+        <guid>https://blog.irudder.me/ai/knowledge-series/07-Chunking-Strategies-and-Best-Practices.html</guid>
+        <description>&lt;h1 id=&#34;第7章文档切割chunking-的策略与最佳实践&#34;&gt;第7章：文档切割——Chunking 的策略与最佳实践
+&lt;/h1&gt;&lt;blockquote&gt;
+&lt;p&gt;系列导读：本章是 RAG 的进阶篇。很多人以为 chunking 就是「切成 500 token」，但实际上它是影响检索质量最关键的工程决策之一。不好的 chunking 策略会让检索系统形同虚设——合适的内容检索不到，不合适的内容塞给 LLM，最终答案质量大打折扣。&lt;/p&gt;
+&lt;/blockquote&gt;
+&lt;h2 id=&#34;一为什么-chunking-决定-rag-生死&#34;&gt;一、为什么 chunking 决定 RAG 生死？
+&lt;/h2&gt;&lt;p&gt;RAG 系统里有一个核心事实：&lt;/p&gt;
+&lt;blockquote&gt;
+&lt;p&gt;LLM 最终回答的质量，取决于你放进 prompt 里的参考资料质量。&lt;/p&gt;
+&lt;/blockquote&gt;
+&lt;p&gt;参考资料哪来的？从向量库里检索来的。
+向量库里存的是 chunk，chunk 是切割出来的。&lt;/p&gt;
+&lt;p&gt;如果 chunk 把一段重要信息中间切断了，或者把两段无关内容塞进了一个 chunk，检索出来的就是垃圾。垃圾进，垃圾出。你放再贵的 Embedding 模型、再牛的 LLM，都救不回一块切烂的 chunk。&lt;/p&gt;
+&lt;h2 id=&#34;二chunking-的四大基础策略&#34;&gt;二、Chunking 的四大基础策略
+&lt;/h2&gt;&lt;h3 id=&#34;策略1固定大小--重叠fixed-size-with-overlap&#34;&gt;策略1：固定大小 + 重叠（Fixed Size with Overlap）
+&lt;/h3&gt;&lt;pre tabindex=&#34;0&#34;&gt;&lt;code&gt;    原文：今天天气很好，小明去公园散步。他在湖边看到一只白鹭...
+          |-------chunk1-------|--------chunk2-------|
+          今天天气很好，小明去   明去公园散步。他在湖边
+          (size=12, overlap=4)   看到一只白鹭在水面上
+                                 (size=12, overlap=4)
+&lt;/code&gt;&lt;/pre&gt;&lt;p&gt;&lt;strong&gt;适用场景&lt;/strong&gt;：通用文本，写起来最快，作为基线方案再用别的方法优化。
+&lt;strong&gt;参数建议&lt;/strong&gt;：每 chunk 500-1000 token 是常见起点；重叠 10-20% 防止信息在切分处丢失。
+&lt;strong&gt;问题&lt;/strong&gt;：机械切分会切断语义边界。一个句子被拦腰截断，LLM 收到 chunk 后理解困难。&lt;/p&gt;
+&lt;p&gt;&lt;strong&gt;优点&lt;/strong&gt;：实现极其简单，不需要解析文档结构，可移植性好。几乎所有初级 RAG 教程都用这个方案。&lt;/p&gt;
+&lt;h3 id=&#34;策略2按语义边界切割semantic-chunking&#34;&gt;策略2：按语义边界切割（Semantic Chunking）
+&lt;/h3&gt;&lt;p&gt;观察文档结构，在天然边界处切：&lt;/p&gt;
+&lt;ul&gt;
+&lt;li&gt;Markdown/HTML 的标题、段落&lt;/li&gt;
+&lt;li&gt;文档的章节层次&lt;/li&gt;
+&lt;li&gt;知识库的主题切换&lt;/li&gt;
+&lt;/ul&gt;
+&lt;pre tabindex=&#34;0&#34;&gt;&lt;code&gt;    【原文】
+    # 第一章 Java 基础
+    第一节 变量和数据类型
+    变量是程序中...
+
+    第二节 控制流
+    if 语句用于...
+
+    ### 切分点：标题边界
+    chunk1 = &amp;#34;第一节 变量和数据类型\n变量是程序中...&amp;#34;
+    chunk2 = &amp;#34;第二节 控制流\nif 语句用于...&amp;#34;
+&lt;/code&gt;&lt;/pre&gt;&lt;p&gt;&lt;strong&gt;适用场景&lt;/strong&gt;：结构化的知识库、技术文档、产品手册。
+&lt;strong&gt;优势&lt;/strong&gt;：语意完整，检索命中后 LLM 能有完整上下文。
+&lt;strong&gt;挑战&lt;/strong&gt;：不同文档格式解析不一致，需要自定义切分逻辑。比如 PDF 就没有天然的分段标记，需要先解析出文本结构再决定切割点。&lt;/p&gt;
+&lt;h3 id=&#34;策略3按代码逻辑切割&#34;&gt;策略3：按代码逻辑切割
+&lt;/h3&gt;&lt;p&gt;代码不是普通文本。函数、类、接口这些天然边界就是最合理的 chunk 粒度：&lt;/p&gt;
+&lt;div class=&#34;highlight&#34;&gt;&lt;pre tabindex=&#34;0&#34; style=&#34;color:#f8f8f2;background-color:#272822;-moz-tab-size:4;-o-tab-size:4;tab-size:4;&#34;&gt;&lt;code class=&#34;language-python&#34; data-lang=&#34;python&#34;&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;    &lt;span style=&#34;color:#66d9ef&#34;&gt;def&lt;/span&gt; &lt;span style=&#34;color:#a6e22e&#34;&gt;calculate_discount&lt;/span&gt;(price, user_type):
+&lt;/span&gt;&lt;/span&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;        &lt;span style=&#34;color:#e6db74&#34;&gt;&amp;#34;&amp;#34;&amp;#34;根据用户类型计算折扣&amp;#34;&amp;#34;&amp;#34;&lt;/span&gt;
+&lt;/span&gt;&lt;/span&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;        &lt;span style=&#34;color:#66d9ef&#34;&gt;if&lt;/span&gt; user_type &lt;span style=&#34;color:#f92672&#34;&gt;==&lt;/span&gt; &lt;span style=&#34;color:#e6db74&#34;&gt;&amp;#34;vip&amp;#34;&lt;/span&gt;:
+&lt;/span&gt;&lt;/span&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;            &lt;span style=&#34;color:#66d9ef&#34;&gt;return&lt;/span&gt; price &lt;span style=&#34;color:#f92672&#34;&gt;*&lt;/span&gt; &lt;span style=&#34;color:#ae81ff&#34;&gt;0.8&lt;/span&gt;
+&lt;/span&gt;&lt;/span&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;        &lt;span style=&#34;color:#66d9ef&#34;&gt;return&lt;/span&gt; price
+&lt;/span&gt;&lt;/span&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;
+&lt;/span&gt;&lt;/span&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;    &lt;span style=&#34;color:#66d9ef&#34;&gt;class&lt;/span&gt; &lt;span style=&#34;color:#a6e22e&#34;&gt;PaymentHandler&lt;/span&gt;:
+&lt;/span&gt;&lt;/span&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;        &lt;span style=&#34;color:#e6db74&#34;&gt;&amp;#34;&amp;#34;&amp;#34;支付处理器&amp;#34;&amp;#34;&amp;#34;&lt;/span&gt;
+&lt;/span&gt;&lt;/span&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;        &lt;span style=&#34;color:#66d9ef&#34;&gt;def&lt;/span&gt; &lt;span style=&#34;color:#a6e22e&#34;&gt;process&lt;/span&gt;(self, order_id):
+&lt;/span&gt;&lt;/span&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;            &lt;span style=&#34;color:#f92672&#34;&gt;...&lt;/span&gt;
+&lt;/span&gt;&lt;/span&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;
+&lt;/span&gt;&lt;/span&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;    chunk1 &lt;span style=&#34;color:#f92672&#34;&gt;=&lt;/span&gt; &lt;span style=&#34;color:#e6db74&#34;&gt;&amp;#34;def calculate_discount(...)&amp;#34;&lt;/span&gt;  &lt;span style=&#34;color:#75715e&#34;&gt;# 函数级&lt;/span&gt;
+&lt;/span&gt;&lt;/span&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;    chunk2 &lt;span style=&#34;color:#f92672&#34;&gt;=&lt;/span&gt; &lt;span style=&#34;color:#e6db74&#34;&gt;&amp;#34;class PaymentHandler&amp;#34;&lt;/span&gt;           &lt;span style=&#34;color:#75715e&#34;&gt;# 类级&lt;/span&gt;
+&lt;/span&gt;&lt;/span&gt;&lt;/code&gt;&lt;/pre&gt;&lt;/div&gt;&lt;p&gt;&lt;strong&gt;适用场景&lt;/strong&gt;：代码仓库的 RAG 问答。
+&lt;strong&gt;优势&lt;/strong&gt;：每个 chunk 保留了一个逻辑单元（一个函数/类），检索命中后 LLM 可以完整理解这个单元的实现。&lt;/p&gt;
+&lt;h3 id=&#34;策略4父子切割parent-child-chunking生产级推荐&#34;&gt;策略4：父子切割（Parent-Child Chunking）【生产级推荐】
+&lt;/h3&gt;&lt;p&gt;RAG 系统里有一个经典矛盾：&lt;/p&gt;
+&lt;ul&gt;
+&lt;li&gt;chunk 越小，检索匹配越精准（粒度细）&lt;/li&gt;
+&lt;li&gt;chunk 越大，LLM 阅读时上下文越完整（信息多）&lt;/li&gt;
+&lt;/ul&gt;
+&lt;p&gt;&lt;strong&gt;父子切割的解决思路&lt;/strong&gt;：&lt;/p&gt;
+&lt;ul&gt;
+&lt;li&gt;用小块做检索（精准匹配）&lt;/li&gt;
+&lt;li&gt;匹配命中后，返回这个 chunk 对应的大块（完整上下文）&lt;/li&gt;
+&lt;/ul&gt;
+&lt;pre tabindex=&#34;0&#34;&gt;&lt;code&gt;    父 chunk（大块）:
+      第3章 Python 数据类型
+      3.1 列表操作：列表是 Python 中最常用的数据类型之一...
+      [包含完整的章节内容]
+
+    子 chunk（小块）:
+      列表 append 方法使用说明
+      append(x) 在列表末尾添加元素...
+
+    检索 &amp;#34;append 怎么用&amp;#34; → 命中子 chunk → 返回父 chunk 到 LLM
+&lt;/code&gt;&lt;/pre&gt;&lt;p&gt;&lt;strong&gt;适用场景&lt;/strong&gt;：几乎所有生产级 RAG 都在用或应该用这个策略。
+&lt;strong&gt;实现要点&lt;/strong&gt;：子 chunk 需要存储指向父 chunk 的引用 ID；检索时先查子 chunk，命中后取回对应的父 chunk 全文。&lt;/p&gt;
+&lt;h2 id=&#34;三chunk-的-metadata-设计&#34;&gt;三、Chunk 的 Metadata 设计
+&lt;/h2&gt;&lt;p&gt;每个 chunk 存储时，除了 text 和 vector，还需要丰富的 metadata：&lt;/p&gt;
+&lt;div class=&#34;highlight&#34;&gt;&lt;pre tabindex=&#34;0&#34; style=&#34;color:#f8f8f2;background-color:#272822;-moz-tab-size:4;-o-tab-size:4;tab-size:4;&#34;&gt;&lt;code class=&#34;language-json&#34; data-lang=&#34;json&#34;&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;    {
+&lt;/span&gt;&lt;/span&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;      &lt;span style=&#34;color:#f92672&#34;&gt;&amp;#34;text&amp;#34;&lt;/span&gt;: &lt;span style=&#34;color:#e6db74&#34;&gt;&amp;#34;列表 append 方法使用说明...&amp;#34;&lt;/span&gt;,
+&lt;/span&gt;&lt;/span&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;      &lt;span style=&#34;color:#f92672&#34;&gt;&amp;#34;vector&amp;#34;&lt;/span&gt;: [&lt;span style=&#34;color:#ae81ff&#34;&gt;0.1&lt;/span&gt;, &lt;span style=&#34;color:#ae81ff&#34;&gt;0.02&lt;/span&gt;, &lt;span style=&#34;color:#960050;background-color:#1e0010&#34;&gt;...&lt;/span&gt;],
+&lt;/span&gt;&lt;/span&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;      &lt;span style=&#34;color:#f92672&#34;&gt;&amp;#34;metadata&amp;#34;&lt;/span&gt;: {
+&lt;/span&gt;&lt;/span&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;        &lt;span style=&#34;color:#f92672&#34;&gt;&amp;#34;source_file&amp;#34;&lt;/span&gt;: &lt;span style=&#34;color:#e6db74&#34;&gt;&amp;#34;python_guide.md&amp;#34;&lt;/span&gt;,
+&lt;/span&gt;&lt;/span&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;        &lt;span style=&#34;color:#f92672&#34;&gt;&amp;#34;chapter&amp;#34;&lt;/span&gt;: &lt;span style=&#34;color:#e6db74&#34;&gt;&amp;#34;3.1&amp;#34;&lt;/span&gt;,
+&lt;/span&gt;&lt;/span&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;        &lt;span style=&#34;color:#f92672&#34;&gt;&amp;#34;tags&amp;#34;&lt;/span&gt;: [&lt;span style=&#34;color:#e6db74&#34;&gt;&amp;#34;data_structure&amp;#34;&lt;/span&gt;, &lt;span style=&#34;color:#e6db74&#34;&gt;&amp;#34;list&amp;#34;&lt;/span&gt;],
+&lt;/span&gt;&lt;/span&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;        &lt;span style=&#34;color:#f92672&#34;&gt;&amp;#34;doc_type&amp;#34;&lt;/span&gt;: &lt;span style=&#34;color:#e6db74&#34;&gt;&amp;#34;api_reference&amp;#34;&lt;/span&gt;,
+&lt;/span&gt;&lt;/span&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;        &lt;span style=&#34;color:#f92672&#34;&gt;&amp;#34;page_number&amp;#34;&lt;/span&gt;: &lt;span style=&#34;color:#ae81ff&#34;&gt;42&lt;/span&gt;,
+&lt;/span&gt;&lt;/span&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;        &lt;span style=&#34;color:#f92672&#34;&gt;&amp;#34;created_at&amp;#34;&lt;/span&gt;: &lt;span style=&#34;color:#e6db74&#34;&gt;&amp;#34;2026-01-15&amp;#34;&lt;/span&gt;,
+&lt;/span&gt;&lt;/span&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;        &lt;span style=&#34;color:#f92672&#34;&gt;&amp;#34;parent_id&amp;#34;&lt;/span&gt;: &lt;span style=&#34;color:#e6db74&#34;&gt;&amp;#34;chunk_3_1_parent&amp;#34;&lt;/span&gt;   &lt;span style=&#34;color:#75715e&#34;&gt;// 父子切割时使用
+&lt;/span&gt;&lt;/span&gt;&lt;/span&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;&lt;span style=&#34;color:#75715e&#34;&gt;&lt;/span&gt;      }
+&lt;/span&gt;&lt;/span&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;    }
+&lt;/span&gt;&lt;/span&gt;&lt;/code&gt;&lt;/pre&gt;&lt;/div&gt;&lt;p&gt;&lt;strong&gt;Metadata 的作用&lt;/strong&gt;：&lt;/p&gt;
+&lt;ul&gt;
+&lt;li&gt;过滤：只检索某个文件类型或某个分类，缩小搜索范围&lt;/li&gt;
+&lt;li&gt;溯源：LLM 生成的答案可以标注来源出处&lt;/li&gt;
+&lt;li&gt;去重：避免同一来源的 chunk 全部进答案&lt;/li&gt;
+&lt;li&gt;父子关联：维系父子切割的关系映射&lt;/li&gt;
+&lt;/ul&gt;
+&lt;h2 id=&#34;四切分粒度的黄金法则&#34;&gt;四、切分粒度的黄金法则
+&lt;/h2&gt;&lt;p&gt;没有绝对的「最优粒度」，取决于你的检索目标：&lt;/p&gt;
+&lt;table&gt;
+  &lt;thead&gt;
+      &lt;tr&gt;
+          &lt;th&gt;检索目标&lt;/th&gt;
+          &lt;th&gt;推荐粒度&lt;/th&gt;
+          &lt;th&gt;原因&lt;/th&gt;
+      &lt;/tr&gt;
+  &lt;/thead&gt;
+  &lt;tbody&gt;
+      &lt;tr&gt;
+          &lt;td&gt;回答事实性问题&lt;/td&gt;
+          &lt;td&gt;句子/段落级&lt;/td&gt;
+          &lt;td&gt;需要精确匹配术语&lt;/td&gt;
+      &lt;/tr&gt;
+      &lt;tr&gt;
+          &lt;td&gt;回答解释性问题&lt;/td&gt;
+          &lt;td&gt;段落/章节级&lt;/td&gt;
+          &lt;td&gt;需要完整上下文才能理解&lt;/td&gt;
+      &lt;/tr&gt;
+      &lt;tr&gt;
+          &lt;td&gt;代码问答&lt;/td&gt;
+          &lt;td&gt;函数/类级&lt;/td&gt;
+          &lt;td&gt;保留逻辑单元，问答精准到函数&lt;/td&gt;
+      &lt;/tr&gt;
+      &lt;tr&gt;
+          &lt;td&gt;支持多跳推理&lt;/td&gt;
+          &lt;td&gt;父子结构&lt;/td&gt;
+          &lt;td&gt;小块检索精准，大块总结完整&lt;/td&gt;
+      &lt;/tr&gt;
+  &lt;/tbody&gt;
+&lt;/table&gt;
+&lt;p&gt;&lt;strong&gt;经验法则&lt;/strong&gt;：先按合理的中等粒度（500-1000 token）做基线，然后通过检索日志分析「有没有该命中没命中」「命中的是否相关」，再逐步调优。不要盲目追求小粒度——检索精度提升了，但 LLM 理解难度可能增加了。&lt;/p&gt;
+&lt;h2 id=&#34;五常见-bad-case-及解决&#34;&gt;五、常见 bad case 及解决
+&lt;/h2&gt;&lt;table&gt;
+  &lt;thead&gt;
+      &lt;tr&gt;
+          &lt;th&gt;问题&lt;/th&gt;
+          &lt;th&gt;表现&lt;/th&gt;
+          &lt;th&gt;解决&lt;/th&gt;
+      &lt;/tr&gt;
+  &lt;/thead&gt;
+  &lt;tbody&gt;
+      &lt;tr&gt;
+          &lt;td&gt;语义被切断&lt;/td&gt;
+          &lt;td&gt;切在句子中间，LLM 收到后理解出错&lt;/td&gt;
+          &lt;td&gt;以语义边界为切分优先&lt;/td&gt;
+      &lt;/tr&gt;
+      &lt;tr&gt;
+          &lt;td&gt;信息密度不均匀&lt;/td&gt;
+          &lt;td&gt;有些 chunk 太空泛，有些太密集&lt;/td&gt;
+          &lt;td&gt;混合策略，或过滤短 chunk&lt;/td&gt;
+      &lt;/tr&gt;
+      &lt;tr&gt;
+          &lt;td&gt;多语言混合&lt;/td&gt;
+          &lt;td&gt;中英混杂切分点不准确&lt;/td&gt;
+          &lt;td&gt;按 tokenizer 的 token 计数而非字符数&lt;/td&gt;
+      &lt;/tr&gt;
+      &lt;tr&gt;
+          &lt;td&gt;过细噪音多&lt;/td&gt;
+          &lt;td&gt;切太小导致检索到很多无关碎片&lt;/td&gt;
+          &lt;td&gt;加最低长度阈值或使用父子结构&lt;/td&gt;
+      &lt;/tr&gt;
+      &lt;tr&gt;
+          &lt;td&gt;过粗精度低&lt;/td&gt;
+          &lt;td&gt;切太大细节信息被「平均掉」&lt;/td&gt;
+          &lt;td&gt;减小 chunk 大小或加摘要&lt;/td&gt;
+      &lt;/tr&gt;
+  &lt;/tbody&gt;
+&lt;/table&gt;
+&lt;p&gt;PDF 文档的 chunking 特别难：解析出来的文本往往丧失段落结构，表格和代码块混在一起。对于这类文档，通常需要先做一次结构解析（用 PDF 解析器提取段落、表格、列表信息），然后再做语义 chunking。&lt;/p&gt;
+&lt;h2 id=&#34;六本章小结&#34;&gt;六、本章小结
+&lt;/h2&gt;&lt;ul&gt;
+&lt;li&gt;Chunking 是 RAG 系统里最关键也最被低估的工程决策&lt;/li&gt;
+&lt;li&gt;四大策略：固定大小（基线）、语义边界（结构化文档）、代码逻辑（代码库）、父子结构（兼顾精度+完整上下文）&lt;/li&gt;
+&lt;li&gt;Metadata 设计能让你在检索时做精准过滤、溯源和去重&lt;/li&gt;
+&lt;li&gt;没有统一的「最好粒度」，先跑基线、有数据再优化，比一把梭效果更稳定&lt;/li&gt;
+&lt;li&gt;生产级推荐：父子切割（小块检索 + 大块返回），解决精度与完整性的天然矛盾&lt;/li&gt;
+&lt;/ul&gt;
+&lt;h2 id=&#34;思考题&#34;&gt;思考题
+&lt;/h2&gt;&lt;ol&gt;
+&lt;li&gt;父子切割虽然好用，但实现上需要做父-子映射关系管理。你怎么设计这个映射系统，让它既高效又容错？&lt;/li&gt;
+&lt;li&gt;对于 PDF 解析出来的文本（排版丢失、表格混乱），你有什么 chunking 策略？&lt;/li&gt;
+&lt;/ol&gt;
+</description>
+        </item>
+        
+    </channel>
+</rss>

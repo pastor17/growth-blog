@@ -1,0 +1,134 @@
+<?xml version="1.0" encoding="utf-8" standalone="yes"?>
+<rss version="2.0" xmlns:atom="http://www.w3.org/2005/Atom">
+    <channel>
+        <title>DevOps自动化测试：集成单元测试 on SelfTechHub</title>
+        <link>https://blog.irudder.me/tags/DevOps%E8%87%AA%E5%8A%A8%E5%8C%96%E6%B5%8B%E8%AF%95%E9%9B%86%E6%88%90%E5%8D%95%E5%85%83%E6%B5%8B%E8%AF%95.html</link>
+        <description>Recent content in DevOps自动化测试：集成单元测试 on SelfTechHub</description>
+        <generator>Hugo -- gohugo.io</generator>
+        <language>zh-cn</language>
+        <lastBuildDate>Thu, 10 Jul 2025 00:00:00 +0000</lastBuildDate><atom:link href="https://blog.irudder.me/tags/DevOps%E8%87%AA%E5%8A%A8%E5%8C%96%E6%B5%8B%E8%AF%95%E9%9B%86%E6%88%90%E5%8D%95%E5%85%83%E6%B5%8B%E8%AF%95/index.xml" rel="self" type="application/rss+xml" /><item>
+        <title>搞垮生产环境只需一次回车？CI集成单测保命指南</title>
+        <link>https://blog.irudder.me/tech/devopsjichugongjurumenyushicao/devopszidonghuaceshi_jichengdanyuanceshi.html</link>
+        <pubDate>Thu, 10 Jul 2025 00:00:00 +0000</pubDate>
+        
+        <guid>https://blog.irudder.me/tech/devopsjichugongjurumenyushicao/devopszidonghuaceshi_jichengdanyuanceshi.html</guid>
+        <description>&lt;p&gt;记得刚带团队那会儿，我们有个不成文的规定：&lt;strong&gt;“周五下午四点后，禁止发布代码。”&lt;/strong&gt;&lt;/p&gt;
+&lt;p&gt;这个规矩的由来非常惨痛。2019年的一个周五，我们的一位后端兄弟修复了一个不起眼的拼写错误，顺手提交了代码。大家都觉得“改个文案能出什么事”，于是直接触发了自动化部署。结果，那个提交意外删掉了一行核心校验逻辑，导致那个周末产生的几百个订单金额全是负数。&lt;/p&gt;
+&lt;p&gt;那时候我才意识到：&lt;strong&gt;在DevOps的流水线里，如果你只有“自动部署”而没有“自动测试”，那你搭建的不是高速公路，而是一条通往悬崖的过山车轨道。&lt;/strong&gt;&lt;/p&gt;
+&lt;p&gt;很多中小团队做DevOps，往往只做了一半——Jenkins跑通了，Docker镜像打好了，代码也能推上去了，但唯独缺了最重要的“刹车片”：&lt;strong&gt;集成单元测试&lt;/strong&gt;。&lt;/p&gt;
+&lt;p&gt;今天不谈枯燥的理论，我就结合这几年的踩坑经验，聊聊怎么以最低成本，把单元测试“无痛”塞进你的DevOps流程里。&lt;/p&gt;
+&lt;h2 id=&#34;既然没时间写测试那就只测最值钱的代码&#34;&gt;既然“没时间写测试”，那就只测最值钱的代码
+&lt;/h2&gt;&lt;p&gt;“业务还在快速迭代，哪有时间写单测？”这是我听过最多的抱怨。说实话，我也讨厌写测试代码，枯燥且没有成就感。&lt;/p&gt;
+&lt;p&gt;但我们要搞清楚一个误区：&lt;strong&gt;集成单测，不是让你为了追求覆盖率去给Getter/Setter写测试，而是为了保护核心资产。&lt;/strong&gt;&lt;/p&gt;
+&lt;p&gt;我曾接手过一个电商小项目，团队只有4个人。起初大家都在裸奔，直到有一次促销活动，因为优惠券叠加逻辑出错，公司亏了2万多。事后复盘，老板脸都绿了。&lt;/p&gt;
+&lt;p&gt;从那天起，我强制推行了一个策略：&lt;strong&gt;核心逻辑必须覆盖，边缘功能可以放过。&lt;/strong&gt;&lt;/p&gt;
+&lt;p&gt;我们把系统里的“金额计算”、“库存扣减”、“权限校验”这三块代码划为“高危区”。对于这部分代码，无论多忙，提交前必须有对应的单元测试。&lt;/p&gt;
+&lt;p&gt;&lt;strong&gt;怎么落地？&lt;/strong&gt;&lt;/p&gt;
+&lt;p&gt;别一上来就追求全覆盖。你可以尝试这个“二八原则”策略：&lt;/p&gt;
+&lt;ol&gt;
+&lt;li&gt;&lt;strong&gt;识别核心类：&lt;/strong&gt; 找出那20%决定业务生死的代码。&lt;/li&gt;
+&lt;li&gt;&lt;strong&gt;补全测试：&lt;/strong&gt; 为这20%的代码编写测试用例。&lt;/li&gt;
+&lt;li&gt;&lt;strong&gt;忽略琐碎：&lt;/strong&gt; 像界面展示、简单的CRUD操作，初期完全可以不写单测，靠人工点点就行。&lt;/li&gt;
+&lt;/ol&gt;
+&lt;p&gt;当你发现每次重构代码，只要跑一遍测试就能确信“钱没算错”时，那种安全感是会上瘾的。&lt;/p&gt;
+&lt;h2 id=&#34;别让测试跑在开发者的本地电脑上&#34;&gt;别让测试跑在开发者的“本地电脑”上
+&lt;/h2&gt;&lt;p&gt;很多新手团队会犯这样一个错：虽然写了测试，但全靠开发者自觉在本地跑。&lt;/p&gt;
+&lt;p&gt;这时候经典的“扯皮现场”就来了：“我本地跑是绿的啊，怎么上去就挂了？”原因千奇百怪：JDK版本不一致、本地数据库有脏数据、环境变量没配对……&lt;/p&gt;
+&lt;p&gt;&lt;strong&gt;DevOps的核心价值之一，就是提供一个“无尘车间”。&lt;/strong&gt;&lt;/p&gt;
+&lt;p&gt;我们团队的做法是，把单元测试作为CI（持续集成）流水线里的一道&lt;strong&gt;硬性关卡&lt;/strong&gt;。不管你本地跑没跑，代码只要推送到GitLab，Jenkins（或者GitLab CI）就会在一个干净的容器环境里重新跑一遍。&lt;/p&gt;
+&lt;p&gt;这里分享一个我用了很久的真实场景。我们在Jenkins Pipeline里设置了一个&lt;code&gt;Stage&lt;/code&gt;，位置就在“编译”之后，“打包”之前。&lt;/p&gt;
+&lt;p&gt;逻辑很简单：&lt;strong&gt;测试不通过，构建直接红灯，谁也别想打包上线。&lt;/strong&gt;&lt;/p&gt;
+&lt;p&gt;这就好比给代码库装了一个安检门。刚开始实施时，不仅新人，连老油条（包括我）都经常被卡住。有一次我改了公共库的一个工具类，导致隔壁小组的服务挂了3个测试用例。如果不是流水线拦着，那个Bug就直接滑到生产环境去了。&lt;/p&gt;
+&lt;p&gt;下面是一段简化版的Jenkins流水线代码，你可以直接参考：&lt;/p&gt;
+&lt;div class=&#34;highlight&#34;&gt;&lt;pre tabindex=&#34;0&#34; style=&#34;color:#f8f8f2;background-color:#272822;-moz-tab-size:4;-o-tab-size:4;tab-size:4;&#34;&gt;&lt;code class=&#34;language-groovy&#34; data-lang=&#34;groovy&#34;&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;pipeline &lt;span style=&#34;color:#f92672&#34;&gt;{&lt;/span&gt;
+&lt;/span&gt;&lt;/span&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;    agent any
+&lt;/span&gt;&lt;/span&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;    stages &lt;span style=&#34;color:#f92672&#34;&gt;{&lt;/span&gt;
+&lt;/span&gt;&lt;/span&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;        stage&lt;span style=&#34;color:#f92672&#34;&gt;(&lt;/span&gt;&lt;span style=&#34;color:#e6db74&#34;&gt;&amp;#39;Checkout&amp;#39;&lt;/span&gt;&lt;span style=&#34;color:#f92672&#34;&gt;)&lt;/span&gt; &lt;span style=&#34;color:#f92672&#34;&gt;{&lt;/span&gt;
+&lt;/span&gt;&lt;/span&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;            steps &lt;span style=&#34;color:#f92672&#34;&gt;{&lt;/span&gt;
+&lt;/span&gt;&lt;/span&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;                &lt;span style=&#34;color:#75715e&#34;&gt;// 拉取代码
+&lt;/span&gt;&lt;/span&gt;&lt;/span&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;&lt;span style=&#34;color:#75715e&#34;&gt;&lt;/span&gt;                git branch: &lt;span style=&#34;color:#e6db74&#34;&gt;&amp;#39;main&amp;#39;&lt;/span&gt;&lt;span style=&#34;color:#f92672&#34;&gt;,&lt;/span&gt; url: &lt;span style=&#34;color:#e6db74&#34;&gt;&amp;#39;https://github.com/your-repo/app.git&amp;#39;&lt;/span&gt;
+&lt;/span&gt;&lt;/span&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;            &lt;span style=&#34;color:#f92672&#34;&gt;}&lt;/span&gt;
+&lt;/span&gt;&lt;/span&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;        &lt;span style=&#34;color:#f92672&#34;&gt;}&lt;/span&gt;
+&lt;/span&gt;&lt;/span&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;        stage&lt;span style=&#34;color:#f92672&#34;&gt;(&lt;/span&gt;&lt;span style=&#34;color:#e6db74&#34;&gt;&amp;#39;Build &amp;amp; Test&amp;#39;&lt;/span&gt;&lt;span style=&#34;color:#f92672&#34;&gt;)&lt;/span&gt; &lt;span style=&#34;color:#f92672&#34;&gt;{&lt;/span&gt;
+&lt;/span&gt;&lt;/span&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;            steps &lt;span style=&#34;color:#f92672&#34;&gt;{&lt;/span&gt;
+&lt;/span&gt;&lt;/span&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;                script &lt;span style=&#34;color:#f92672&#34;&gt;{&lt;/span&gt;
+&lt;/span&gt;&lt;/span&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;                    &lt;span style=&#34;color:#66d9ef&#34;&gt;try&lt;/span&gt; &lt;span style=&#34;color:#f92672&#34;&gt;{&lt;/span&gt;
+&lt;/span&gt;&lt;/span&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;                        &lt;span style=&#34;color:#75715e&#34;&gt;// 关键点：执行测试，如果测试失败，命令会返回非0值，Pipeline自动停止
+&lt;/span&gt;&lt;/span&gt;&lt;/span&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;&lt;span style=&#34;color:#75715e&#34;&gt;&lt;/span&gt;                        &lt;span style=&#34;color:#75715e&#34;&gt;// Maven项目示例：
+&lt;/span&gt;&lt;/span&gt;&lt;/span&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;&lt;span style=&#34;color:#75715e&#34;&gt;&lt;/span&gt;                        sh &lt;span style=&#34;color:#e6db74&#34;&gt;&amp;#39;mvn clean test&amp;#39;&lt;/span&gt; 
+&lt;/span&gt;&lt;/span&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;                        
+&lt;/span&gt;&lt;/span&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;                        &lt;span style=&#34;color:#75715e&#34;&gt;// Python项目示例：
+&lt;/span&gt;&lt;/span&gt;&lt;/span&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;&lt;span style=&#34;color:#75715e&#34;&gt;&lt;/span&gt;                        &lt;span style=&#34;color:#75715e&#34;&gt;// sh &amp;#39;pytest tests/&amp;#39;
+&lt;/span&gt;&lt;/span&gt;&lt;/span&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;&lt;span style=&#34;color:#75715e&#34;&gt;&lt;/span&gt;                    &lt;span style=&#34;color:#f92672&#34;&gt;}&lt;/span&gt; &lt;span style=&#34;color:#66d9ef&#34;&gt;catch&lt;/span&gt; &lt;span style=&#34;color:#f92672&#34;&gt;(&lt;/span&gt;Exception e&lt;span style=&#34;color:#f92672&#34;&gt;)&lt;/span&gt; &lt;span style=&#34;color:#f92672&#34;&gt;{&lt;/span&gt;
+&lt;/span&gt;&lt;/span&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;                        &lt;span style=&#34;color:#75715e&#34;&gt;// 如果测试挂了，发钉钉/企业微信通知骂人（开玩笑，是提醒）
+&lt;/span&gt;&lt;/span&gt;&lt;/span&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;&lt;span style=&#34;color:#75715e&#34;&gt;&lt;/span&gt;                        sh &lt;span style=&#34;color:#e6db74&#34;&gt;&amp;#39;echo &amp;#34;单元测试失败，请检查代码！&amp;#34;&amp;#39;&lt;/span&gt;
+&lt;/span&gt;&lt;/span&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;                        currentBuild&lt;span style=&#34;color:#f92672&#34;&gt;.&lt;/span&gt;&lt;span style=&#34;color:#a6e22e&#34;&gt;result&lt;/span&gt; &lt;span style=&#34;color:#f92672&#34;&gt;=&lt;/span&gt; &lt;span style=&#34;color:#e6db74&#34;&gt;&amp;#39;FAILURE&amp;#39;&lt;/span&gt;
+&lt;/span&gt;&lt;/span&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;                        &lt;span style=&#34;color:#66d9ef&#34;&gt;throw&lt;/span&gt; e
+&lt;/span&gt;&lt;/span&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;                    &lt;span style=&#34;color:#f92672&#34;&gt;}&lt;/span&gt;
+&lt;/span&gt;&lt;/span&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;                &lt;span style=&#34;color:#f92672&#34;&gt;}&lt;/span&gt;
+&lt;/span&gt;&lt;/span&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;            &lt;span style=&#34;color:#f92672&#34;&gt;}&lt;/span&gt;
+&lt;/span&gt;&lt;/span&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;        &lt;span style=&#34;color:#f92672&#34;&gt;}&lt;/span&gt;
+&lt;/span&gt;&lt;/span&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;        stage&lt;span style=&#34;color:#f92672&#34;&gt;(&lt;/span&gt;&lt;span style=&#34;color:#e6db74&#34;&gt;&amp;#39;Deploy&amp;#39;&lt;/span&gt;&lt;span style=&#34;color:#f92672&#34;&gt;)&lt;/span&gt; &lt;span style=&#34;color:#f92672&#34;&gt;{&lt;/span&gt;
+&lt;/span&gt;&lt;/span&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;            steps &lt;span style=&#34;color:#f92672&#34;&gt;{&lt;/span&gt;
+&lt;/span&gt;&lt;/span&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;                &lt;span style=&#34;color:#75715e&#34;&gt;// 测试通过后，才执行打包部署
+&lt;/span&gt;&lt;/span&gt;&lt;/span&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;&lt;span style=&#34;color:#75715e&#34;&gt;&lt;/span&gt;                sh &lt;span style=&#34;color:#e6db74&#34;&gt;&amp;#39;echo &amp;#34;测试通过，开始部署...&amp;#34;&amp;#39;&lt;/span&gt;
+&lt;/span&gt;&lt;/span&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;            &lt;span style=&#34;color:#f92672&#34;&gt;}&lt;/span&gt;
+&lt;/span&gt;&lt;/span&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;        &lt;span style=&#34;color:#f92672&#34;&gt;}&lt;/span&gt;
+&lt;/span&gt;&lt;/span&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;    &lt;span style=&#34;color:#f92672&#34;&gt;}&lt;/span&gt;
+&lt;/span&gt;&lt;/span&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;&lt;span style=&#34;color:#f92672&#34;&gt;}&lt;/span&gt;
+&lt;/span&gt;&lt;/span&gt;&lt;/code&gt;&lt;/pre&gt;&lt;/div&gt;&lt;p&gt;把这段逻辑加进去，你就有了一个7x24小时不知疲倦的测试员。&lt;/p&gt;
+&lt;h2 id=&#34;看到的才是真实的把报告怼到脸上&#34;&gt;看到的才是真实的：把报告“怼”到脸上
+&lt;/h2&gt;&lt;p&gt;&lt;img src=&#34;https://picsum.photos/800/450?random=1768389106411&#34;
+	
+	
+	
+	loading=&#34;lazy&#34;
+	
+		alt=&#34;配图&#34;
+	
+	
+&gt;&lt;/p&gt;
+&lt;p&gt;测试跑完了，结果呢？&lt;/p&gt;
+&lt;p&gt;如果你只是在控制台输出一堆 &lt;code&gt;Pass/Fail&lt;/code&gt; 的日志，没人会去看的。人性就是懒惰的，除非你把结果做成可视化的图表，最好还能直接怼到脸上。&lt;/p&gt;
+&lt;p&gt;我们团队在引入&lt;strong&gt;SonarQube&lt;/strong&gt;之前，代码质量全靠吼。引入后，我们在CI流程里加了一步：&lt;strong&gt;生成测试报告和覆盖率分析&lt;/strong&gt;。&lt;/p&gt;
+&lt;p&gt;这带来了一个意想不到的“社交压力”效应。&lt;/p&gt;
+&lt;p&gt;GitLab上每次Merge Request（合并请求），都会自动带上SonarQube的扫描结果。如果你的代码让整体测试覆盖率下降了，或者引入了新的Bug（比如空指针风险），合并按钮就会变灰，且醒目地写着“Quality Gate Failed”。&lt;/p&gt;
+&lt;p&gt;有次一个新来的实习生小张，为了赶进度提交了一堆没测试的代码，导致覆盖率跌破了我们设定的40%警戒线。第二天早会，大屏幕上的趋势图直接掉了一个坑。不用我批评，小张自己就脸红了，当天晚上主动加班把测试补齐了。&lt;/p&gt;
+&lt;p&gt;&lt;strong&gt;给运维和Team Leader的建议：&lt;/strong&gt;&lt;/p&gt;
+&lt;p&gt;不要指望大家自觉看日志。利用工具（如JaCoCo、Allure、SonarQube）生成HTML报告，并利用Jenkins插件在构建页面直接展示。&lt;/p&gt;
+&lt;p&gt;哪怕只展示一个简单的&lt;strong&gt;饼图&lt;/strong&gt;（成功 vs 失败），也比一万行日志管用。&lt;/p&gt;
+&lt;hr&gt;
+&lt;h2 id=&#34;拿来即用的行动清单&#34;&gt;拿来即用的行动清单
+&lt;/h2&gt;&lt;p&gt;DevOps不是什么高大上的玄学，它就是把我们容易犯错的手工流程自动化。集成单元测试，是你睡个安稳觉的开始。&lt;/p&gt;
+&lt;p&gt;如果你想从今天开始改变，建议按以下3步走：&lt;/p&gt;
+&lt;ol&gt;
+&lt;li&gt;&lt;strong&gt;“破窗”行动：&lt;/strong&gt; 别试图给老项目补全所有测试。&lt;strong&gt;只要求新代码必须有测试&lt;/strong&gt;。你可以配置CI工具，仅检测“增量代码”的覆盖率。&lt;/li&gt;
+&lt;li&gt;&lt;strong&gt;一个脚本：&lt;/strong&gt; 复制上面的Jenkinsfile片段，修改成你项目的构建命令（&lt;code&gt;npm test&lt;/code&gt;, &lt;code&gt;go test&lt;/code&gt;, &lt;code&gt;mvn test&lt;/code&gt;），加到你的流水线里。哪怕现在全是报错也没关系，先让它跑起来。&lt;/li&gt;
+&lt;li&gt;&lt;strong&gt;视觉反馈：&lt;/strong&gt; 配置邮件或IM机器人（钉钉/飞书/企业微信），一旦构建因测试失败，立即通知到具体提交人。&lt;/li&gt;
+&lt;/ol&gt;
+&lt;p&gt;&lt;strong&gt;分享一个我常用的&lt;code&gt;Makefile&lt;/code&gt;模板（适用于简单项目）：&lt;/strong&gt;&lt;/p&gt;
+&lt;p&gt;把这个文件放在项目根目录，无论是在本地还是CI环境，只需运行 &lt;code&gt;make ci&lt;/code&gt; 就能保证流程一致性。&lt;/p&gt;
+&lt;div class=&#34;highlight&#34;&gt;&lt;pre tabindex=&#34;0&#34; style=&#34;color:#f8f8f2;background-color:#272822;-moz-tab-size:4;-o-tab-size:4;tab-size:4;&#34;&gt;&lt;code class=&#34;language-makefile&#34; data-lang=&#34;makefile&#34;&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;&lt;span style=&#34;color:#a6e22e&#34;&gt;.PHONY&lt;/span&gt;&lt;span style=&#34;color:#f92672&#34;&gt;:&lt;/span&gt; test build deploy
+&lt;/span&gt;&lt;/span&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;
+&lt;/span&gt;&lt;/span&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;&lt;span style=&#34;color:#75715e&#34;&gt;# 运行单元测试
+&lt;/span&gt;&lt;/span&gt;&lt;/span&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;&lt;span style=&#34;color:#75715e&#34;&gt;&lt;/span&gt;&lt;span style=&#34;color:#a6e22e&#34;&gt;test&lt;/span&gt;&lt;span style=&#34;color:#f92672&#34;&gt;:&lt;/span&gt;
+&lt;/span&gt;&lt;/span&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;	@echo &lt;span style=&#34;color:#e6db74&#34;&gt;&amp;#34;正在运行单元测试...&amp;#34;&lt;/span&gt;
+&lt;/span&gt;&lt;/span&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;	&lt;span style=&#34;color:#75715e&#34;&gt;# 替换为你实际的测试命令&lt;/span&gt;
+&lt;/span&gt;&lt;/span&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;	go test ./... -v 
+&lt;/span&gt;&lt;/span&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;
+&lt;/span&gt;&lt;/span&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;&lt;span style=&#34;color:#a6e22e&#34;&gt;![配图](https&lt;/span&gt;&lt;span style=&#34;color:#f92672&#34;&gt;:&lt;/span&gt;//picsum.photos/800/450?random=1768389106254)
+&lt;/span&gt;&lt;/span&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;
+&lt;/span&gt;&lt;/span&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;&lt;span style=&#34;color:#75715e&#34;&gt;# 构建应用（依赖测试通过）
+&lt;/span&gt;&lt;/span&gt;&lt;/span&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;&lt;span style=&#34;color:#75715e&#34;&gt;&lt;/span&gt;&lt;span style=&#34;color:#a6e22e&#34;&gt;build&lt;/span&gt;&lt;span style=&#34;color:#f92672&#34;&gt;:&lt;/span&gt; test
+&lt;/span&gt;&lt;/span&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;	@echo &lt;span style=&#34;color:#e6db74&#34;&gt;&amp;#34;测试通过，开始构建...&amp;#34;&lt;/span&gt;
+&lt;/span&gt;&lt;/span&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;	go build -o app main.go
+&lt;/span&gt;&lt;/span&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;
+&lt;/span&gt;&lt;/span&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;&lt;span style=&#34;color:#75715e&#34;&gt;# 模拟CI流程
+&lt;/span&gt;&lt;/span&gt;&lt;/span&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;&lt;span style=&#34;color:#75715e&#34;&gt;&lt;/span&gt;&lt;span style=&#34;color:#a6e22e&#34;&gt;ci&lt;/span&gt;&lt;span style=&#34;color:#f92672&#34;&gt;:&lt;/span&gt; build
+&lt;/span&gt;&lt;/span&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;	@echo &lt;span style=&#34;color:#e6db74&#34;&gt;&amp;#34;CI流程执行完毕，准备发布！&amp;#34;&lt;/span&gt;
+&lt;/span&gt;&lt;/span&gt;&lt;/code&gt;&lt;/pre&gt;&lt;/div&gt;&lt;p&gt;&lt;strong&gt;记住，DevOps自动化的目的不是为了“快”，而是为了“稳”。&lt;/strong&gt; 哪怕流水线慢了5分钟，但这5分钟能拦住一次生产事故，那它就是你今年最划算的一笔投资。&lt;/p&gt;
+</description>
+        </item>
+        
+    </channel>
+</rss>

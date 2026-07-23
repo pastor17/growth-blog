@@ -1,0 +1,457 @@
+<!DOCTYPE html>
+<html lang="zh-cn" dir="ltr">
+    <head><meta charset='utf-8'>
+<meta name='viewport' content='width=device-width, initial-scale=1'><meta name='description' content="还记得你第一次在终端里看到 CONFLICT (content): Merge conflict in... 这行字时的心情吗？\n我印象很深。那是刚入行不久的一个周五下午，离下班还有半小时，我满心欢喜地敲下 git merge，准备合并完代码去过周末。结果，屏幕上弹出的一大片红色报错和代码里莫名其妙出现的 &lt;&lt;&lt;&lt;&lt;&lt;&lt; HEAD，瞬间让我手心冒汗。\n那一刻，我感觉自己像是闯了大祸，甚至不敢告诉坐在旁边的导师，生怕被认为是技术太菜。\n后来我才明白，代码冲突不是你的错，它只是团队协作的“副作用”。甚至可以说，有冲突说明团队是活跃的，大家都在努力产出。\n今天，我想和你聊聊如何在面对冲突时，从慌乱的“救火队员”变成从容的“指挥官”。我们不谈枯燥的指令列表，只谈我在实战中踩过坑后总结出的心法。\n拒绝“暴力解决”，学会给冲突按暂停键\r很多新人在遇到冲突时，第一反应是恐慌，然后试图凭直觉快速删除那些“乱码”，结果往往是误删了同事刚写的关键逻辑，导致生产环境故障。\n我也曾犯过这样的错。几年前在一个电商项目里，因为着急上线，我在解决 config.yaml 冲突时，不小心删掉了同事配置的缓存开关。结果上线后数据库压力激增，不得不紧急回滚。\n那天复盘时，技术总监并没有骂我，而是告诉我一个让我受用至今的原则：看不懂的冲突，先别动；解决不了的冲突，先撤退。\n当你面对复杂的冲突感到大脑一片空白时，请记住这个“后悔药”指令：\ngit merge --abort 这行命令会让一切回到合并前的状态，就像什么都没发生过一样。\n深呼吸，喝口水，然后重新开始。 这次，不要试图一次性解决所有文件的冲突。我们可以用 git status 查看冲突列表，一个文件一个文件地攻克。\n当你意识到自己随时可以按下“撤销键”，那种焦虑感就会消失大半。心态稳了，解决问题的思路自然就清晰了。\n读懂“外星语”，像外科手术一样精准修复\r很多人看到冲突标记就头晕，觉得那是某种只有资深架构师才能看懂的“外星语”。其实，它只是Git在向你提问：“嘿，这两个版本都改了这里，我该听谁的？”\n让我们拆解一个真实的场景。假设你和同事小王都在修改 user_service.py。\n代码里出现了这样的标记：\n&lt;&lt;&lt;&lt;&lt;&lt;&lt; HEAD def calculate_discount(price): return price * 0.9 # 我修改的：全场9折 ======= def calculate_discount(price): if price &gt; 100: return price - 20 # 小王修改的：满100减20 &gt;&gt;&gt;&gt;&gt;&gt;&gt; feature/new-discount-policy &lt;&lt;&lt;&lt;&lt;&lt;&lt; HEAD 到 ======= 中间的内容，是你当前分支（你的代码）。 ======= 到 &gt;&gt;&gt;&gt;&gt;&gt;&gt; 中间的内容，是你要合并进来的分支（同事的代码）。 很多新手会陷入“二选一”的误区：要么保留我的，要么保留他的。\n但在真实业务中，往往需要“第三种选择”。比如在这个案例中，直接选谁的都会出问题。正确的做法可能并不是删除某一段，而是将两者的逻辑结合：\ndef calculate_discount(price): # 结合两人的逻辑：满100减20，然后再打9折？或者互斥？ # 这里需要找小王沟通业务逻辑，而不是闷头改代码 if price &gt; 100: return (price - 20) * 0.9 return price * 0.9 实战建议： 我强烈建议你不要只用记事本或纯命令行修冲突。去配置一个可视化的 Diff 工具（比如 VS Code 自带的合并编辑器，或者 Beyond Compare）。\n">
+<title>看到Merge Conflict就手抖？3招化解代码冲突焦虑</title>
+
+<link rel='canonical' href='https://blog.irudder.me/tech/devopsjichugongjurumenyushicao/gitchangyongcaozuo_jiejuechongtudeshizhanjiqiao.html'>
+
+<link rel="stylesheet" href="/scss/style.min.b9e9128fec450ebccecc4ec9900157f32b85d0609bcd5ee3293968bcaa1235f2.css"><meta property='og:title' content="看到Merge Conflict就手抖？3招化解代码冲突焦虑">
+<meta property='og:description' content="还记得你第一次在终端里看到 CONFLICT (content): Merge conflict in... 这行字时的心情吗？\n我印象很深。那是刚入行不久的一个周五下午，离下班还有半小时，我满心欢喜地敲下 git merge，准备合并完代码去过周末。结果，屏幕上弹出的一大片红色报错和代码里莫名其妙出现的 &lt;&lt;&lt;&lt;&lt;&lt;&lt; HEAD，瞬间让我手心冒汗。\n那一刻，我感觉自己像是闯了大祸，甚至不敢告诉坐在旁边的导师，生怕被认为是技术太菜。\n后来我才明白，代码冲突不是你的错，它只是团队协作的“副作用”。甚至可以说，有冲突说明团队是活跃的，大家都在努力产出。\n今天，我想和你聊聊如何在面对冲突时，从慌乱的“救火队员”变成从容的“指挥官”。我们不谈枯燥的指令列表，只谈我在实战中踩过坑后总结出的心法。\n拒绝“暴力解决”，学会给冲突按暂停键\r很多新人在遇到冲突时，第一反应是恐慌，然后试图凭直觉快速删除那些“乱码”，结果往往是误删了同事刚写的关键逻辑，导致生产环境故障。\n我也曾犯过这样的错。几年前在一个电商项目里，因为着急上线，我在解决 config.yaml 冲突时，不小心删掉了同事配置的缓存开关。结果上线后数据库压力激增，不得不紧急回滚。\n那天复盘时，技术总监并没有骂我，而是告诉我一个让我受用至今的原则：看不懂的冲突，先别动；解决不了的冲突，先撤退。\n当你面对复杂的冲突感到大脑一片空白时，请记住这个“后悔药”指令：\ngit merge --abort 这行命令会让一切回到合并前的状态，就像什么都没发生过一样。\n深呼吸，喝口水，然后重新开始。 这次，不要试图一次性解决所有文件的冲突。我们可以用 git status 查看冲突列表，一个文件一个文件地攻克。\n当你意识到自己随时可以按下“撤销键”，那种焦虑感就会消失大半。心态稳了，解决问题的思路自然就清晰了。\n读懂“外星语”，像外科手术一样精准修复\r很多人看到冲突标记就头晕，觉得那是某种只有资深架构师才能看懂的“外星语”。其实，它只是Git在向你提问：“嘿，这两个版本都改了这里，我该听谁的？”\n让我们拆解一个真实的场景。假设你和同事小王都在修改 user_service.py。\n代码里出现了这样的标记：\n&lt;&lt;&lt;&lt;&lt;&lt;&lt; HEAD def calculate_discount(price): return price * 0.9 # 我修改的：全场9折 ======= def calculate_discount(price): if price &gt; 100: return price - 20 # 小王修改的：满100减20 &gt;&gt;&gt;&gt;&gt;&gt;&gt; feature/new-discount-policy &lt;&lt;&lt;&lt;&lt;&lt;&lt; HEAD 到 ======= 中间的内容，是你当前分支（你的代码）。 ======= 到 &gt;&gt;&gt;&gt;&gt;&gt;&gt; 中间的内容，是你要合并进来的分支（同事的代码）。 很多新手会陷入“二选一”的误区：要么保留我的，要么保留他的。\n但在真实业务中，往往需要“第三种选择”。比如在这个案例中，直接选谁的都会出问题。正确的做法可能并不是删除某一段，而是将两者的逻辑结合：\ndef calculate_discount(price): # 结合两人的逻辑：满100减20，然后再打9折？或者互斥？ # 这里需要找小王沟通业务逻辑，而不是闷头改代码 if price &gt; 100: return (price - 20) * 0.9 return price * 0.9 实战建议： 我强烈建议你不要只用记事本或纯命令行修冲突。去配置一个可视化的 Diff 工具（比如 VS Code 自带的合并编辑器，或者 Beyond Compare）。\n">
+<meta property='og:url' content='https://blog.irudder.me/tech/devopsjichugongjurumenyushicao/gitchangyongcaozuo_jiejuechongtudeshizhanjiqiao.html'>
+<meta property='og:site_name' content='SelfTechHub'>
+<meta property='og:type' content='article'><meta property='article:section' content='Tech' /><meta property='article:tag' content='Git常用操作：解决冲突的实战技巧' /><meta property='article:published_time' content='2021-05-11T00:00:00&#43;00:00'/><meta property='article:modified_time' content='2021-05-11T00:00:00&#43;00:00'/>
+<meta name="twitter:title" content="看到Merge Conflict就手抖？3招化解代码冲突焦虑">
+<meta name="twitter:description" content="还记得你第一次在终端里看到 CONFLICT (content): Merge conflict in... 这行字时的心情吗？\n我印象很深。那是刚入行不久的一个周五下午，离下班还有半小时，我满心欢喜地敲下 git merge，准备合并完代码去过周末。结果，屏幕上弹出的一大片红色报错和代码里莫名其妙出现的 &lt;&lt;&lt;&lt;&lt;&lt;&lt; HEAD，瞬间让我手心冒汗。\n那一刻，我感觉自己像是闯了大祸，甚至不敢告诉坐在旁边的导师，生怕被认为是技术太菜。\n后来我才明白，代码冲突不是你的错，它只是团队协作的“副作用”。甚至可以说，有冲突说明团队是活跃的，大家都在努力产出。\n今天，我想和你聊聊如何在面对冲突时，从慌乱的“救火队员”变成从容的“指挥官”。我们不谈枯燥的指令列表，只谈我在实战中踩过坑后总结出的心法。\n拒绝“暴力解决”，学会给冲突按暂停键\r很多新人在遇到冲突时，第一反应是恐慌，然后试图凭直觉快速删除那些“乱码”，结果往往是误删了同事刚写的关键逻辑，导致生产环境故障。\n我也曾犯过这样的错。几年前在一个电商项目里，因为着急上线，我在解决 config.yaml 冲突时，不小心删掉了同事配置的缓存开关。结果上线后数据库压力激增，不得不紧急回滚。\n那天复盘时，技术总监并没有骂我，而是告诉我一个让我受用至今的原则：看不懂的冲突，先别动；解决不了的冲突，先撤退。\n当你面对复杂的冲突感到大脑一片空白时，请记住这个“后悔药”指令：\ngit merge --abort 这行命令会让一切回到合并前的状态，就像什么都没发生过一样。\n深呼吸，喝口水，然后重新开始。 这次，不要试图一次性解决所有文件的冲突。我们可以用 git status 查看冲突列表，一个文件一个文件地攻克。\n当你意识到自己随时可以按下“撤销键”，那种焦虑感就会消失大半。心态稳了，解决问题的思路自然就清晰了。\n读懂“外星语”，像外科手术一样精准修复\r很多人看到冲突标记就头晕，觉得那是某种只有资深架构师才能看懂的“外星语”。其实，它只是Git在向你提问：“嘿，这两个版本都改了这里，我该听谁的？”\n让我们拆解一个真实的场景。假设你和同事小王都在修改 user_service.py。\n代码里出现了这样的标记：\n&lt;&lt;&lt;&lt;&lt;&lt;&lt; HEAD def calculate_discount(price): return price * 0.9 # 我修改的：全场9折 ======= def calculate_discount(price): if price &gt; 100: return price - 20 # 小王修改的：满100减20 &gt;&gt;&gt;&gt;&gt;&gt;&gt; feature/new-discount-policy &lt;&lt;&lt;&lt;&lt;&lt;&lt; HEAD 到 ======= 中间的内容，是你当前分支（你的代码）。 ======= 到 &gt;&gt;&gt;&gt;&gt;&gt;&gt; 中间的内容，是你要合并进来的分支（同事的代码）。 很多新手会陷入“二选一”的误区：要么保留我的，要么保留他的。\n但在真实业务中，往往需要“第三种选择”。比如在这个案例中，直接选谁的都会出问题。正确的做法可能并不是删除某一段，而是将两者的逻辑结合：\ndef calculate_discount(price): # 结合两人的逻辑：满100减20，然后再打9折？或者互斥？ # 这里需要找小王沟通业务逻辑，而不是闷头改代码 if price &gt; 100: return (price - 20) * 0.9 return price * 0.9 实战建议： 我强烈建议你不要只用记事本或纯命令行修冲突。去配置一个可视化的 Diff 工具（比如 VS Code 自带的合并编辑器，或者 Beyond Compare）。\n">
+    </head>
+    <body class="
+    article-page
+    ">
+    <script>
+        (function() {
+            const colorSchemeKey = 'StackColorScheme';
+            if(!localStorage.getItem(colorSchemeKey)){
+                localStorage.setItem(colorSchemeKey, "auto");
+            }
+        })();
+    </script><script>
+    (function() {
+        const colorSchemeKey = 'StackColorScheme';
+        const colorSchemeItem = localStorage.getItem(colorSchemeKey);
+        const supportDarkMode = window.matchMedia('(prefers-color-scheme: dark)').matches === true;
+
+        if (colorSchemeItem == 'dark' || colorSchemeItem === 'auto' && supportDarkMode) {
+            
+
+            document.documentElement.dataset.scheme = 'dark';
+        } else {
+            document.documentElement.dataset.scheme = 'light';
+        }
+    })();
+</script>
+<div class="container main-container flex on-phone--column compact"><aside class="sidebar left-sidebar sticky ">
+    <button class="hamburger hamburger--spin" type="button" id="toggle-menu" aria-label="切换菜单">
+        <span class="hamburger-box">
+            <span class="hamburger-inner"></span>
+        </span>
+    </button>
+
+    <header>
+        
+            
+            <figure class="site-avatar">
+                <a href="/">
+                
+                    
+                    
+                    
+                        
+                        <img src="/img/avatar_hu_8588ce14af1147e2.png" width="300"
+                            height="286" class="site-logo" loading="lazy" alt="Avatar">
+                    
+                
+                </a>
+                
+            </figure>
+            
+        
+        
+        <div class="site-meta">
+            <h1 class="site-name"><a href="/">SelfTechHub</a></h1>
+            <h2 class="site-description"></h2>
+        </div>
+    </header><ol class="menu" id="main-menu">
+        
+        
+        <li class="menu-bottom-section">
+            <ol class="menu">
+
+                
+                    <li id="dark-mode-toggle">
+                        <svg xmlns="http://www.w3.org/2000/svg" class="icon icon-tabler icon-tabler-toggle-left" width="24" height="24" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor" fill="none" stroke-linecap="round" stroke-linejoin="round">
+  <path stroke="none" d="M0 0h24v24H0z"/>
+  <circle cx="8" cy="12" r="2" />
+  <rect x="2" y="6" width="20" height="12" rx="6" />
+</svg>
+
+
+
+                        <svg xmlns="http://www.w3.org/2000/svg" class="icon icon-tabler icon-tabler-toggle-right" width="24" height="24" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor" fill="none" stroke-linecap="round" stroke-linejoin="round">
+  <path stroke="none" d="M0 0h24v24H0z"/>
+  <circle cx="16" cy="12" r="2" />
+  <rect x="2" y="6" width="20" height="12" rx="6" />
+</svg>
+
+
+
+                        <span>暗色模式</span>
+                    </li>
+                
+            </ol>
+        </li>
+    </ol>
+</aside>
+
+    
+
+            <main class="main full-width">
+    <article class="main-article">
+    <header class="article-header">
+
+    <div class="article-details">
+    
+    <header class="article-category">
+        
+            <a href="/categories/%E6%8A%80%E6%9C%AF.html" >
+                技术精进
+            </a>
+        
+    </header>
+    
+
+    <div class="article-title-wrapper">
+        <h2 class="article-title">
+            <a href="/tech/devopsjichugongjurumenyushicao/gitchangyongcaozuo_jiejuechongtudeshizhanjiqiao.html">看到Merge Conflict就手抖？3招化解代码冲突焦虑</a>
+        </h2>
+    
+        
+    </div>
+
+    
+    
+    
+    
+    <footer class="article-time">
+        
+            <div>
+                <svg xmlns="http://www.w3.org/2000/svg" class="icon icon-tabler icon-tabler-calendar-time" width="56" height="56" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor" fill="none" stroke-linecap="round" stroke-linejoin="round">
+  <path stroke="none" d="M0 0h24v24H0z"/>
+  <path d="M11.795 21h-6.795a2 2 0 0 1 -2 -2v-12a2 2 0 0 1 2 -2h12a2 2 0 0 1 2 2v4" />
+  <circle cx="18" cy="18" r="4" />
+  <path d="M15 3v4" />
+  <path d="M7 3v4" />
+  <path d="M3 11h16" />
+  <path d="M18 16.496v1.504l1 1" />
+</svg>
+                <time class="article-time--published" datetime='2021-05-11T00:00:00Z'>May 11, 2021</time>
+            </div>
+        
+
+        
+            <div>
+                <svg xmlns="http://www.w3.org/2000/svg" class="icon icon-tabler icon-tabler-clock" width="24" height="24" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor" fill="none" stroke-linecap="round" stroke-linejoin="round">
+  <path stroke="none" d="M0 0h24v24H0z"/>
+  <circle cx="12" cy="12" r="9" />
+  <polyline points="12 7 12 12 15 15" />
+</svg>
+
+
+
+                <time class="article-time--reading">
+                    阅读时长: 1 分钟
+                </time>
+            </div>
+        
+    </footer>
+    
+
+    
+</div>
+
+</header>
+
+    <section class="article-content">
+    
+    
+    <p>还记得你第一次在终端里看到 <code>CONFLICT (content): Merge conflict in...</code> 这行字时的心情吗？</p>
+<p>我印象很深。那是刚入行不久的一个周五下午，离下班还有半小时，我满心欢喜地敲下 <code>git merge</code>，准备合并完代码去过周末。结果，屏幕上弹出的一大片红色报错和代码里莫名其妙出现的 <code>&lt;&lt;&lt;&lt;&lt;&lt;&lt; HEAD</code>，瞬间让我手心冒汗。</p>
+<p>那一刻，我感觉自己像是闯了大祸，甚至不敢告诉坐在旁边的导师，生怕被认为是技术太菜。</p>
+<p><img src="https://picsum.photos/800/450?random=1768388055338"
+	
+	
+	
+	loading="lazy"
+	
+		alt="配图"
+	
+	
+></p>
+<p>后来我才明白，<strong>代码冲突不是你的错，它只是团队协作的“副作用”</strong>。甚至可以说，有冲突说明团队是活跃的，大家都在努力产出。</p>
+<p>今天，我想和你聊聊如何在面对冲突时，从慌乱的“救火队员”变成从容的“指挥官”。我们不谈枯燥的指令列表，只谈我在实战中踩过坑后总结出的心法。</p>
+<h2 id="拒绝暴力解决学会给冲突按暂停键">拒绝“暴力解决”，学会给冲突按暂停键
+</h2><p>很多新人在遇到冲突时，第一反应是恐慌，然后试图凭直觉快速删除那些“乱码”，结果往往是误删了同事刚写的关键逻辑，导致生产环境故障。</p>
+<p>我也曾犯过这样的错。几年前在一个电商项目里，因为着急上线，我在解决 <code>config.yaml</code> 冲突时，不小心删掉了同事配置的缓存开关。结果上线后数据库压力激增，不得不紧急回滚。</p>
+<p>那天复盘时，技术总监并没有骂我，而是告诉我一个让我受用至今的原则：<strong>看不懂的冲突，先别动；解决不了的冲突，先撤退。</strong></p>
+<p>当你面对复杂的冲突感到大脑一片空白时，请记住这个“后悔药”指令：</p>
+<div class="highlight"><pre tabindex="0" style="color:#f8f8f2;background-color:#272822;-moz-tab-size:4;-o-tab-size:4;tab-size:4;"><code class="language-bash" data-lang="bash"><span style="display:flex;"><span>git merge --abort
+</span></span></code></pre></div><p>这行命令会让一切回到合并前的状态，就像什么都没发生过一样。</p>
+<p><strong>深呼吸，喝口水，然后重新开始。</strong> 这次，不要试图一次性解决所有文件的冲突。我们可以用 <code>git status</code> 查看冲突列表，一个文件一个文件地攻克。</p>
+<p>当你意识到自己随时可以按下“撤销键”，那种焦虑感就会消失大半。心态稳了，解决问题的思路自然就清晰了。</p>
+<h2 id="读懂外星语像外科手术一样精准修复">读懂“外星语”，像外科手术一样精准修复
+</h2><p>很多人看到冲突标记就头晕，觉得那是某种只有资深架构师才能看懂的“外星语”。其实，它只是Git在向你提问：“嘿，这两个版本都改了这里，我该听谁的？”</p>
+<p>让我们拆解一个真实的场景。假设你和同事小王都在修改 <code>user_service.py</code>。</p>
+<p>代码里出现了这样的标记：</p>
+<div class="highlight"><pre tabindex="0" style="color:#f8f8f2;background-color:#272822;-moz-tab-size:4;-o-tab-size:4;tab-size:4;"><code class="language-python" data-lang="python"><span style="display:flex;"><span><span style="color:#f92672">&lt;&lt;&lt;&lt;&lt;&lt;&lt;</span> HEAD
+</span></span><span style="display:flex;"><span><span style="color:#66d9ef">def</span> <span style="color:#a6e22e">calculate_discount</span>(price):
+</span></span><span style="display:flex;"><span>    <span style="color:#66d9ef">return</span> price <span style="color:#f92672">*</span> <span style="color:#ae81ff">0.9</span>  <span style="color:#75715e"># 我修改的：全场9折</span>
+</span></span><span style="display:flex;"><span><span style="color:#f92672">=======</span>
+</span></span><span style="display:flex;"><span><span style="color:#66d9ef">def</span> <span style="color:#a6e22e">calculate_discount</span>(price):
+</span></span><span style="display:flex;"><span>    <span style="color:#66d9ef">if</span> price <span style="color:#f92672">&gt;</span> <span style="color:#ae81ff">100</span>:
+</span></span><span style="display:flex;"><span>        <span style="color:#66d9ef">return</span> price <span style="color:#f92672">-</span> <span style="color:#ae81ff">20</span>  <span style="color:#75715e"># 小王修改的：满100减20</span>
+</span></span><span style="display:flex;"><span><span style="color:#f92672">&gt;&gt;&gt;&gt;&gt;&gt;&gt;</span> feature<span style="color:#f92672">/</span>new<span style="color:#f92672">-</span>discount<span style="color:#f92672">-</span>policy
+</span></span></code></pre></div><ul>
+<li><code>&lt;&lt;&lt;&lt;&lt;&lt;&lt; HEAD</code> 到 <code>=======</code> 中间的内容，是你当前分支（你的代码）。</li>
+<li><code>=======</code> 到 <code>&gt;&gt;&gt;&gt;&gt;&gt;&gt;</code> 中间的内容，是你要合并进来的分支（同事的代码）。</li>
+</ul>
+<p><img src="https://picsum.photos/800/450?random=1768388057442"
+	
+	
+	
+	loading="lazy"
+	
+		alt="配图"
+	
+	
+></p>
+<p>很多新手会陷入“二选一”的误区：要么保留我的，要么保留他的。</p>
+<p>但在真实业务中，<strong>往往需要“第三种选择”</strong>。比如在这个案例中，直接选谁的都会出问题。正确的做法可能并不是删除某一段，而是将两者的逻辑结合：</p>
+<div class="highlight"><pre tabindex="0" style="color:#f8f8f2;background-color:#272822;-moz-tab-size:4;-o-tab-size:4;tab-size:4;"><code class="language-python" data-lang="python"><span style="display:flex;"><span><span style="color:#66d9ef">def</span> <span style="color:#a6e22e">calculate_discount</span>(price):
+</span></span><span style="display:flex;"><span>    <span style="color:#75715e"># 结合两人的逻辑：满100减20，然后再打9折？或者互斥？</span>
+</span></span><span style="display:flex;"><span>    <span style="color:#75715e"># 这里需要找小王沟通业务逻辑，而不是闷头改代码</span>
+</span></span><span style="display:flex;"><span>    <span style="color:#66d9ef">if</span> price <span style="color:#f92672">&gt;</span> <span style="color:#ae81ff">100</span>:
+</span></span><span style="display:flex;"><span>        <span style="color:#66d9ef">return</span> (price <span style="color:#f92672">-</span> <span style="color:#ae81ff">20</span>) <span style="color:#f92672">*</span> <span style="color:#ae81ff">0.9</span>
+</span></span><span style="display:flex;"><span>    <span style="color:#66d9ef">return</span> price <span style="color:#f92672">*</span> <span style="color:#ae81ff">0.9</span>
+</span></span></code></pre></div><p><strong>实战建议：</strong>
+我强烈建议你不要只用记事本或纯命令行修冲突。去配置一个可视化的 Diff 工具（比如 VS Code 自带的合并编辑器，或者 Beyond Compare）。</p>
+<p>我个人习惯在 VS Code 里，点击那个小小的“Accept Both Changes”（保留双方更改），然后再在这个基础上进行重构。这能最大限度地避免遗漏逻辑。</p>
+<h2 id="哪怕很麻烦也请爱上-rebase变基">哪怕很麻烦，也请爱上 Rebase（变基）
+</h2><p>这大概是很多初中级开发者的噩梦。<code>git merge</code> 产生的分支线像乱麻一样的地铁图，而 <code>git rebase</code> 能让提交记录像一条笔直的高速公路。</p>
+<p>如果你不想在最后上线前被几十个冲突文件“教做人”，那么<strong>勤快地同步代码</strong>就是唯一的解药。</p>
+<p>我曾经带过一个项目，有个小伙伴习惯憋大招，两周才拉取一次主干代码。结果合并那天，他对着几百个冲突发呆了一整天。从那以后，我强制团队推行**“早晨咖啡原则”**：</p>
+<p>每天早上到了工位，泡好咖啡后的第一件事，不是写代码，而是执行：</p>
+<div class="highlight"><pre tabindex="0" style="color:#f8f8f2;background-color:#272822;-moz-tab-size:4;-o-tab-size:4;tab-size:4;"><code class="language-bash" data-lang="bash"><span style="display:flex;"><span><span style="color:#75715e"># 切换到主分支更新</span>
+</span></span><span style="display:flex;"><span>git checkout main
+</span></span><span style="display:flex;"><span>git pull
+</span></span><span style="display:flex;"><span>
+</span></span><span style="display:flex;"><span><span style="color:#75715e"># 切回开发分支，把主分支的最新改动&#34;垫&#34;在你的修改之下</span>
+</span></span><span style="display:flex;"><span>git checkout feature/my-feature
+</span></span><span style="display:flex;"><span>git rebase main
+</span></span></code></pre></div><p>这样做的好处是，每天处理一两个小冲突，就像打扫房间一样轻松；而不是累积一个月后，面对一个无法收拾的垃圾场。</p>
+<p><strong>注意：</strong> 如果你的分支已经推送到远程并且只有你一个人在用，rebase 后需要 <code>git push --force</code>。虽然带个 <code>force</code> 看起来很吓人，但只要你确认这是你的私有分支，它就是安全的。</p>
+<h2 id="所有的技术问题归根结底是沟通问题">所有的技术问题，归根结底是沟通问题
+</h2><p>写了这么多年代码，我发现最难解决的冲突从来不在代码行里，而在人的脑子里。</p>
+<p>当你盯着屏幕上的冲突发愁，不知道该留哪行代码时，<strong>站起来，走到同事旁边（或者打个语音电话），直接问他：“嘿，这里我们好像撞车了，你的逻辑是什么？”</strong></p>
+<p>这一句简单的询问，比你独自钻研两小时都有用。</p>
+<p>我也希望你如果在团队中负责 Review 代码，当你看到新人因为冲突而焦头烂额时，不要嘲笑，也不要只是扔给他一个文档。坐下来，陪他解一次冲突，告诉他：“没关系，我们一起来看。”</p>
+<p>那种被理解和支持的感觉，能治愈所有的技术焦虑。</p>
+<hr>
+<p><strong>最后，给你3个明天就能用得上的小建议：</strong></p>
+<ol>
+<li><strong>配置别名</strong>：给 <code>git merge --abort</code> 配置一个短别名（如 <code>git ma</code>），心理暗示自己“随时可撤退”。</li>
+<li><strong>小步快跑</strong>：不要等功能完全做完再提交，把大功能拆成小 Commit，每次 Rebase 的痛苦会呈指数级下降。</li>
+<li><strong>开启辅助</strong>：在 IDE（如 IntelliJ 或 VS Code）中安装 GitLens 或类似插件，能让你看清每一行代码是谁在什么时候写的，这在解冲突时是神技。</li>
+</ol>
+<p>你在解决代码冲突时遇到过什么“奇葩”经历？或者有什么独门的解冲突神器？欢迎在评论区和我聊聊。</p>
+
+</section>
+
+
+    <footer class="article-footer">
+    
+    <section class="article-tags">
+        
+            <a href="/tags/Git%E5%B8%B8%E7%94%A8%E6%93%8D%E4%BD%9C%E8%A7%A3%E5%86%B3%E5%86%B2%E7%AA%81%E7%9A%84%E5%AE%9E%E6%88%98%E6%8A%80%E5%B7%A7.html">Git常用操作：解决冲突的实战技巧</a>
+        
+    </section>
+
+
+    </footer>
+
+
+    
+</article>
+
+    
+
+    
+
+     
+    
+        
+    <script
+    src="https://giscus.app/client.js"
+    data-repo="pastor17/bloggiscus"
+    data-repo-id="R_kgDOQ6H9qQ"
+    data-category=""
+    data-category-id="DIC_kwDOQ6H9qc4C0-T8"
+    data-mapping="pathname"
+    data-strict="0"
+    data-reactions-enabled="1"
+    data-emit-metadata="0"
+    data-input-position="bottom"
+    data-theme="light"
+    data-lang="zh-CN"
+    data-loading="lazy"
+    crossorigin="anonymous"
+    async
+></script>
+<script>
+    function setGiscusTheme(theme) {
+        let giscus = document.querySelector("iframe.giscus-frame");
+        if (giscus) {
+            giscus.contentWindow.postMessage(
+                {
+                    giscus: {
+                        setConfig: {
+                            theme: theme,
+                        },
+                    },
+                },
+                "https://giscus.app"
+            );
+        }
+    }
+
+    (function () {
+        addEventListener("message", (e) => {
+            if (event.origin !== "https://giscus.app") return;
+            handler();
+        });
+        window.addEventListener("onColorSchemeChange", handler);
+
+        function handler() {
+            if (document.documentElement.dataset.scheme === "light") {
+                setGiscusTheme('light');
+            } else {
+                setGiscusTheme('dark_dimmed');
+            }
+        }
+    })();
+</script>
+
+    
+
+    <footer class="site-footer">
+    <section class="copyright">
+        &copy; 
+        
+        2026 SelfTechHub
+    </section>
+    
+    <section class="powerby">
+        
+
+    </section>
+</footer>
+
+
+    
+<div class="pswp" tabindex="-1" role="dialog" aria-hidden="true">
+
+    
+    <div class="pswp__bg"></div>
+
+    
+    <div class="pswp__scroll-wrap">
+
+        
+        <div class="pswp__container">
+            <div class="pswp__item"></div>
+            <div class="pswp__item"></div>
+            <div class="pswp__item"></div>
+        </div>
+
+        
+        <div class="pswp__ui pswp__ui--hidden">
+
+            <div class="pswp__top-bar">
+
+                
+
+                <div class="pswp__counter"></div>
+
+                <button class="pswp__button pswp__button--close" title="Close (Esc)"></button>
+
+                <button class="pswp__button pswp__button--share" title="Share"></button>
+
+                <button class="pswp__button pswp__button--fs" title="Toggle fullscreen"></button>
+
+                <button class="pswp__button pswp__button--zoom" title="Zoom in/out"></button>
+
+                
+                
+                <div class="pswp__preloader">
+                    <div class="pswp__preloader__icn">
+                        <div class="pswp__preloader__cut">
+                            <div class="pswp__preloader__donut"></div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <div class="pswp__share-modal pswp__share-modal--hidden pswp__single-tap">
+                <div class="pswp__share-tooltip"></div>
+            </div>
+
+            <button class="pswp__button pswp__button--arrow--left" title="Previous (arrow left)">
+            </button>
+
+            <button class="pswp__button pswp__button--arrow--right" title="Next (arrow right)">
+            </button>
+
+            <div class="pswp__caption">
+                <div class="pswp__caption__center"></div>
+            </div>
+
+        </div>
+
+    </div>
+
+</div><script 
+                src="https://cdn.jsdelivr.net/npm/photoswipe@4.1.3/dist/photoswipe.min.js"integrity="sha256-ePwmChbbvXbsO02lbM3HoHbSHTHFAeChekF1xKJdleo="crossorigin="anonymous"
+                defer
+                >
+            </script><script 
+                src="https://cdn.jsdelivr.net/npm/photoswipe@4.1.3/dist/photoswipe-ui-default.min.js"integrity="sha256-UKkzOn/w1mBxRmLLGrSeyB4e1xbrp4xylgAWb3M42pU="crossorigin="anonymous"
+                defer
+                >
+            </script><link 
+                rel="stylesheet" 
+                href="https://cdn.jsdelivr.net/npm/photoswipe@4.1.3/dist/default-skin/default-skin.min.css"crossorigin="anonymous"
+            ><link 
+                rel="stylesheet" 
+                href="https://cdn.jsdelivr.net/npm/photoswipe@4.1.3/dist/photoswipe.min.css"crossorigin="anonymous"
+            >
+    
+
+            </main>
+        </div>
+        <script 
+                src="https://cdn.jsdelivr.net/npm/node-vibrant@3.1.6/dist/vibrant.min.js"integrity="sha256-awcR2jno4kI5X0zL8ex0vi2z&#43;KMkF24hUW8WePSA9HM="crossorigin="anonymous"
+                
+                >
+            </script><script type="text/javascript" src="/ts/main.c922af694cc257bf1ecc41c0dd7b0430f9114ec280ccf67cd2c6ad55f5316c4e.js" defer></script>
+<script>
+    (function () {
+        const customFont = document.createElement('link');
+        customFont.href = "https://fonts.googleapis.com/css2?family=Lato:wght@300;400;700&display=swap";
+
+        customFont.type = "text/css";
+        customFont.rel = "stylesheet";
+
+        document.head.appendChild(customFont);
+    }());
+</script>
+
+    </body>
+</html>

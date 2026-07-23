@@ -1,0 +1,107 @@
+<?xml version="1.0" encoding="utf-8" standalone="yes"?>
+<rss version="2.0" xmlns:atom="http://www.w3.org/2005/Atom">
+    <channel>
+        <title>一键部署：Shell脚本简化发布流程 on SelfTechHub</title>
+        <link>https://blog.irudder.me/tags/%E4%B8%80%E9%94%AE%E9%83%A8%E7%BD%B2Shell%E8%84%9A%E6%9C%AC%E7%AE%80%E5%8C%96%E5%8F%91%E5%B8%83%E6%B5%81%E7%A8%8B.html</link>
+        <description>Recent content in 一键部署：Shell脚本简化发布流程 on SelfTechHub</description>
+        <generator>Hugo -- gohugo.io</generator>
+        <language>zh-cn</language>
+        <lastBuildDate>Fri, 23 Jun 2023 00:00:00 +0000</lastBuildDate><atom:link href="https://blog.irudder.me/tags/%E4%B8%80%E9%94%AE%E9%83%A8%E7%BD%B2Shell%E8%84%9A%E6%9C%AC%E7%AE%80%E5%8C%96%E5%8F%91%E5%B8%83%E6%B5%81%E7%A8%8B/index.xml" rel="self" type="application/rss+xml" /><item>
+        <title>告别凌晨3点上线：一个Shell脚本如何拯救了我的发际线</title>
+        <link>https://blog.irudder.me/tech/zhongxiaoxingtuanduidevopsluodifangan/yijianbushu_shelljiaobenjianhuafabuliucheng.html</link>
+        <pubDate>Fri, 23 Jun 2023 00:00:00 +0000</pubDate>
+        
+        <guid>https://blog.irudder.me/tech/zhongxiaoxingtuanduidevopsluodifangan/yijianbushu_shelljiaobenjianhuafabuliucheng.html</guid>
+        <description>&lt;p&gt;我还记得2019年的那个冬天，那是我们团队最黑暗的一段日子。&lt;/p&gt;
+&lt;p&gt;那时候，我是个刚升职的技术主管，手下带着4个开发兄弟。为了赶业务进度，我们几乎每周都要发两个版本。那时候的发布流程全靠&amp;quot;人肉&amp;quot;：本地打包 Jar 包，用 FTP 传到服务器，手动杀进程，再手动启动，盯着滚动的日志祈祷不要报错。&lt;/p&gt;
+&lt;p&gt;有一次凌晨3点，眼皮打架的我，在生产环境误删了一个配置文件。虽然只花了15分钟恢复，但这15分钟里，我的心跳大概有一百八。也就是在那个吃着已经凉透的泡面的深夜，我突然意识到：&lt;strong&gt;我们要对抗的不是复杂的业务逻辑，而是对&amp;quot;人肉操作&amp;quot;的盲目自信。&lt;/strong&gt;&lt;/p&gt;
+&lt;p&gt;如果你也正身处在一个没有专职运维、资源有限的中小团队，每天在写代码和修服务器之间反复横跳，那么这篇文章就是写给你的。我想和你聊聊，我是如何用最土、但也最管用的 Shell 脚本，把团队从发布的焦虑中解救出来的。&lt;/p&gt;
+&lt;h2 id=&#34;承认吧高级工具有时是甜蜜陷阱&#34;&gt;承认吧，&amp;ldquo;高级工具&amp;quot;有时是甜蜜陷阱
+&lt;/h2&gt;&lt;p&gt;刚开始想做自动化部署时，我也陷入过&amp;quot;工具崇拜&amp;quot;的怪圈。&lt;/p&gt;
+&lt;p&gt;我看遍了网上的 DevOps 教程，试图在只有几台服务器的环境里搭建一套完整的 Jenkins + Docker + K8s。结果呢？我和团队花了整整两周时间去折腾环境，陷入了无尽的配置地狱。&lt;/p&gt;
+&lt;blockquote&gt;
+&lt;p&gt;你的团队规模和业务复杂度，决定了你的工具选择。&lt;/p&gt;
+&lt;/blockquote&gt;
+&lt;p&gt;对于只有几台机器、且业务架构相对简单的中小团队来说，&lt;strong&gt;有时候一把瑞士军刀（Shell）比重型机械（K8s）更趁手。&lt;/strong&gt;&lt;/p&gt;
+&lt;p&gt;我做了一个大胆的决定：砍掉所有重型工具，回归最原始的 Shell 脚本。我们的目标很简单——&lt;strong&gt;让任何人（哪怕是新来的实习生）都能在3分钟内，安全地完成一次发布。&lt;/strong&gt;&lt;/p&gt;
+&lt;h2 id=&#34;哪怕是最笨的脚本也比聪明的人脑可靠&#34;&gt;哪怕是最笨的脚本，也比聪明的人脑可靠
+&lt;/h2&gt;&lt;p&gt;为了落地这个想法，我花了一个周末，写了一个名为 &lt;code&gt;deploy.sh&lt;/code&gt; 的脚本。它不通过什么高大上的平台触发，就静静地躺在服务器的 &lt;code&gt;/opt/scripts&lt;/code&gt; 目录下。&lt;/p&gt;
+&lt;p&gt;这个脚本没有什么高深的语法，逻辑非常线性，全是笨功夫：&lt;/p&gt;
+&lt;ol&gt;
+&lt;li&gt;&lt;strong&gt;备份（Backup）：&lt;/strong&gt; 永远给自己留条后路。&lt;/li&gt;
+&lt;li&gt;&lt;strong&gt;停止（Stop）：&lt;/strong&gt; 优雅关闭，而不是直接 &lt;code&gt;kill -9&lt;/code&gt;。&lt;/li&gt;
+&lt;li&gt;&lt;strong&gt;部署（Deploy）：&lt;/strong&gt; 移动文件，建立软链接。&lt;/li&gt;
+&lt;li&gt;&lt;strong&gt;启动（Start）：&lt;/strong&gt; 启动服务。&lt;/li&gt;
+&lt;li&gt;&lt;strong&gt;体检（Health Check）：&lt;/strong&gt; 最关键的一步，脚本替你确认服务是否活过来了。&lt;/li&gt;
+&lt;/ol&gt;
+&lt;p&gt;这其中，最让我和团队受益的，是那个简单的&amp;quot;健康检查&amp;quot;函数。以前我们发布完，得瞪大眼睛盯着日志看半天，生怕漏掉一个 &lt;code&gt;Exception&lt;/code&gt;。现在，脚本替我们做这件事。&lt;/p&gt;
+&lt;p&gt;这里分享一段我用了3年的核心逻辑（去敏版），它很简单，但无数次救了我的命：&lt;/p&gt;
+&lt;div class=&#34;highlight&#34;&gt;&lt;pre tabindex=&#34;0&#34; style=&#34;color:#f8f8f2;background-color:#272822;-moz-tab-size:4;-o-tab-size:4;tab-size:4;&#34;&gt;&lt;code class=&#34;language-bash&#34; data-lang=&#34;bash&#34;&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;&lt;span style=&#34;color:#75715e&#34;&gt;# 健康检查函数示例&lt;/span&gt;
+&lt;/span&gt;&lt;/span&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;check_health&lt;span style=&#34;color:#f92672&#34;&gt;()&lt;/span&gt; &lt;span style=&#34;color:#f92672&#34;&gt;{&lt;/span&gt;
+&lt;/span&gt;&lt;/span&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;    echo &lt;span style=&#34;color:#e6db74&#34;&gt;&amp;#34;正在检查服务状态...&amp;#34;&lt;/span&gt;
+&lt;/span&gt;&lt;/span&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;    &lt;span style=&#34;color:#66d9ef&#34;&gt;for&lt;/span&gt; i in &lt;span style=&#34;color:#f92672&#34;&gt;{&lt;/span&gt;1..10&lt;span style=&#34;color:#f92672&#34;&gt;}&lt;/span&gt;; &lt;span style=&#34;color:#66d9ef&#34;&gt;do&lt;/span&gt;
+&lt;/span&gt;&lt;/span&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;        &lt;span style=&#34;color:#75715e&#34;&gt;# 请求应用的健康检查接口&lt;/span&gt;
+&lt;/span&gt;&lt;/span&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;        http_code&lt;span style=&#34;color:#f92672&#34;&gt;=&lt;/span&gt;&lt;span style=&#34;color:#66d9ef&#34;&gt;$(&lt;/span&gt;curl -s -o /dev/null -w &lt;span style=&#34;color:#e6db74&#34;&gt;&amp;#34;%{http_code}&amp;#34;&lt;/span&gt; http://localhost:8080/actuator/health&lt;span style=&#34;color:#66d9ef&#34;&gt;)&lt;/span&gt;
+&lt;/span&gt;&lt;/span&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;        
+&lt;/span&gt;&lt;/span&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;        &lt;span style=&#34;color:#66d9ef&#34;&gt;if&lt;/span&gt; &lt;span style=&#34;color:#f92672&#34;&gt;[&lt;/span&gt; &lt;span style=&#34;color:#e6db74&#34;&gt;&amp;#34;&lt;/span&gt;$http_code&lt;span style=&#34;color:#e6db74&#34;&gt;&amp;#34;&lt;/span&gt; &lt;span style=&#34;color:#f92672&#34;&gt;==&lt;/span&gt; &lt;span style=&#34;color:#e6db74&#34;&gt;&amp;#34;200&amp;#34;&lt;/span&gt; &lt;span style=&#34;color:#f92672&#34;&gt;]&lt;/span&gt;; &lt;span style=&#34;color:#66d9ef&#34;&gt;then&lt;/span&gt;
+&lt;/span&gt;&lt;/span&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;            echo -e &lt;span style=&#34;color:#e6db74&#34;&gt;&amp;#34;\033[32m[SUCCESS] 服务启动成功！HTTP 状态码: &lt;/span&gt;$http_code&lt;span style=&#34;color:#e6db74&#34;&gt; \033[0m&amp;#34;&lt;/span&gt;
+&lt;/span&gt;&lt;/span&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;            &lt;span style=&#34;color:#66d9ef&#34;&gt;return&lt;/span&gt; &lt;span style=&#34;color:#ae81ff&#34;&gt;0&lt;/span&gt;
+&lt;/span&gt;&lt;/span&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;        &lt;span style=&#34;color:#66d9ef&#34;&gt;fi&lt;/span&gt;
+&lt;/span&gt;&lt;/span&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;        
+&lt;/span&gt;&lt;/span&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;        echo &lt;span style=&#34;color:#e6db74&#34;&gt;&amp;#34;等待服务启动中... (&lt;/span&gt;$i&lt;span style=&#34;color:#e6db74&#34;&gt;/10)&amp;#34;&lt;/span&gt;
+&lt;/span&gt;&lt;/span&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;        sleep &lt;span style=&#34;color:#ae81ff&#34;&gt;5&lt;/span&gt;
+&lt;/span&gt;&lt;/span&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;    &lt;span style=&#34;color:#66d9ef&#34;&gt;done&lt;/span&gt;
+&lt;/span&gt;&lt;/span&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;    
+&lt;/span&gt;&lt;/span&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;    echo -e &lt;span style=&#34;color:#e6db74&#34;&gt;&amp;#34;\033[31m[ERROR] 服务启动超时或失败，请立即检查日志！\033[0m&amp;#34;&lt;/span&gt;
+&lt;/span&gt;&lt;/span&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;    &lt;span style=&#34;color:#75715e&#34;&gt;# 这里甚至可以加上发送钉钉/企微报警的逻辑&lt;/span&gt;
+&lt;/span&gt;&lt;/span&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;    &lt;span style=&#34;color:#66d9ef&#34;&gt;return&lt;/span&gt; &lt;span style=&#34;color:#ae81ff&#34;&gt;1&lt;/span&gt;
+&lt;/span&gt;&lt;/span&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;&lt;span style=&#34;color:#f92672&#34;&gt;}&lt;/span&gt;
+&lt;/span&gt;&lt;/span&gt;&lt;/code&gt;&lt;/pre&gt;&lt;/div&gt;&lt;p&gt;当屏幕上出现那行绿色的 &lt;code&gt;[SUCCESS]&lt;/code&gt; 时，那种多巴胺分泌的快乐，比写出一段精妙的代码还要强烈。因为它意味着：&lt;strong&gt;今晚可以按时回家了。&lt;/strong&gt;&lt;/p&gt;
+&lt;h2 id=&#34;脚本之外建立不焦虑的发布文化&#34;&gt;脚本之外：建立&amp;quot;不焦虑&amp;quot;的发布文化
+&lt;/h2&gt;&lt;p&gt;有了脚本只是第一步，更重要的是改变习惯。&lt;/p&gt;
+&lt;p&gt;&lt;img src=&#34;https://picsum.photos/800/450?random=1768389806188&#34;
+	
+	
+	
+	loading=&#34;lazy&#34;
+	
+		alt=&#34;配图&#34;
+	
+	
+&gt;&lt;/p&gt;
+&lt;p&gt;起初，团队里的老开发老李很抵触，他觉得：&amp;ldquo;我手动搞了两年也没出大事，敲个脚本命令反而觉得心里没底，不知道它在后台干了啥。&amp;rdquo;&lt;/p&gt;
+&lt;p&gt;这很正常，&lt;strong&gt;恐惧源于不可控。&lt;/strong&gt;&lt;/p&gt;
+&lt;p&gt;为了消除这种顾虑，我做了一件小事：&lt;strong&gt;把脚本代码纳入版本管理，并邀请大家一起 Review。&lt;/strong&gt;&lt;/p&gt;
+&lt;p&gt;我们在周五下午的例会（我习惯在这个时候买点奶茶，大家心态比较放松）上，逐行讲解脚本的逻辑。当大家看到脚本里把 &lt;code&gt;cp&lt;/code&gt;（复制）改成了 &lt;code&gt;rsync&lt;/code&gt;（同步），把粗暴的 &lt;code&gt;kill&lt;/code&gt; 变成了循环检测 pid 消失时，信任感建立起来了。&lt;/p&gt;
+&lt;p&gt;后来，老李成了这个脚本的维护主力。有一次，他在脚本里增加了一个&amp;quot;回滚&amp;quot;功能——只需要加一个 &lt;code&gt;-r&lt;/code&gt; 参数，就能在一分钟内把服务切回上一个备份版本。&lt;/p&gt;
+&lt;p&gt;那次改动后的一个月，线上出现了一个严重的空指针异常。当时正好我在高铁上，信号极差。老李在群里淡定地回了一句：&amp;ldquo;别慌，我执行了回滚。&amp;rdquo;&lt;/p&gt;
+&lt;p&gt;&lt;img src=&#34;https://picsum.photos/800/450?random=1768389803575&#34;
+	
+	
+	
+	loading=&#34;lazy&#34;
+	
+		alt=&#34;配图&#34;
+	
+	
+&gt;&lt;/p&gt;
+&lt;p&gt;那一刻，我知道，我们终于从&amp;quot;发布焦虑症&amp;quot;中毕业了。我们不再依赖某个人的&amp;quot;高超手速&amp;rdquo;，而是依赖一套固化的、可重复的逻辑。&lt;/p&gt;
+&lt;h2 id=&#34;给你的落地建议&#34;&gt;给你的落地建议
+&lt;/h2&gt;&lt;p&gt;如果你也想开始这段旅程，不需要等到下个季度，也不需要申请什么大笔预算。我也&lt;strong&gt;不建议&lt;/strong&gt;你一上来就去追求所谓完美的 DevOps 流程。&lt;/p&gt;
+&lt;p&gt;你可以从这三个具体的动作开始：&lt;/p&gt;
+&lt;ol&gt;
+&lt;li&gt;&lt;strong&gt;标准化路径：&lt;/strong&gt; 无论你有几台服务器，请确保应用包、日志、配置文件的路径是完全一致的。这是自动化的基石。&lt;/li&gt;
+&lt;li&gt;&lt;strong&gt;写出你的第一个备份函数：&lt;/strong&gt; 哪怕现在的发布还是手动的，先写一个脚本专门用来做&amp;quot;发布前备份&amp;quot;。这是你建立信心的第一步。&lt;/li&gt;
+&lt;li&gt;&lt;strong&gt;把&amp;quot;检查&amp;quot;交给机器：&lt;/strong&gt; 别再用肉眼看日志来判断服务是否启动了，写一个简单的 &lt;code&gt;curl&lt;/code&gt; 脚本来探测接口，它比你疲惫的双眼更诚实。&lt;/li&gt;
+&lt;/ol&gt;
+&lt;p&gt;回头看这几年，那个几百行的 Shell 脚本虽然简陋，甚至有点&amp;quot;土&amp;quot;，但它却是我们团队最宝贵的资产之一。它不仅是一个工具，更是一种承诺——&lt;strong&gt;它承诺我们在追求技术效率的同时，也能拥有属于自己的生活。&lt;/strong&gt;&lt;/p&gt;
+&lt;p&gt;技术是为了让人活得更有尊严，而不是更累，不是吗？&lt;/p&gt;
+&lt;hr&gt;
+&lt;p&gt;&lt;strong&gt;最后，想问问大家：&lt;/strong&gt;&lt;/p&gt;
+&lt;p&gt;在你经历过的发布流程中，发生过什么让你&amp;quot;心跳停止&amp;quot;的事故？或者你有什么独门的&amp;quot;偷懒&amp;quot;小技巧？&lt;/p&gt;
+&lt;p&gt;欢迎在评论区聊聊，哪怕只是吐槽一下，也是一种治愈。&lt;/p&gt;
+</description>
+        </item>
+        
+    </channel>
+</rss>

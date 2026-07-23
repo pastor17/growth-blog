@@ -1,0 +1,131 @@
+<?xml version="1.0" encoding="utf-8" standalone="yes"?>
+<rss version="2.0" xmlns:atom="http://www.w3.org/2005/Atom">
+    <channel>
+        <title>故障响应流程：5分钟定位问题的方法 on SelfTechHub</title>
+        <link>https://blog.irudder.me/tags/%E6%95%85%E9%9A%9C%E5%93%8D%E5%BA%94%E6%B5%81%E7%A8%8B5%E5%88%86%E9%92%9F%E5%AE%9A%E4%BD%8D%E9%97%AE%E9%A2%98%E7%9A%84%E6%96%B9%E6%B3%95.html</link>
+        <description>Recent content in 故障响应流程：5分钟定位问题的方法 on SelfTechHub</description>
+        <generator>Hugo -- gohugo.io</generator>
+        <language>zh-cn</language>
+        <lastBuildDate>Sun, 14 Jun 2020 00:00:00 +0000</lastBuildDate><atom:link href="https://blog.irudder.me/tags/%E6%95%85%E9%9A%9C%E5%93%8D%E5%BA%94%E6%B5%81%E7%A8%8B5%E5%88%86%E9%92%9F%E5%AE%9A%E4%BD%8D%E9%97%AE%E9%A2%98%E7%9A%84%E6%96%B9%E6%B3%95/index.xml" rel="self" type="application/rss+xml" /><item>
+        <title>半夜群炸锅？中小团队5分钟故障定位的“急救包”</title>
+        <link>https://blog.irudder.me/tech/zhongxiaoxingtuanduidevopsluodifangan/guzhangxiangyingliucheng_5fenzhongdingweiwentidefangfa.html</link>
+        <pubDate>Sun, 14 Jun 2020 00:00:00 +0000</pubDate>
+        
+        <guid>https://blog.irudder.me/tech/zhongxiaoxingtuanduidevopsluodifangan/guzhangxiangyingliucheng_5fenzhongdingweiwentidefangfa.html</guid>
+        <description>&lt;p&gt;还记得那是两年前的一个周五凌晨3点，手机疯狂震动，运维报警群里的消息像瀑布一样刷屏：“API响应超时”、“数据库连接数飙升”、“502 Bad Gateway”……&lt;/p&gt;
+&lt;p&gt;那一刻，我整个人是懵的。脑子里只有一团浆糊，心跳快得像在打鼓。作为技术负责人，我知道全团队都在等我发号施令，但我当时的第一反应竟然是：“完了，我是不是要背锅了？”&lt;/p&gt;
+&lt;p&gt;这种无助感，我相信很多中小团队的兄弟都经历过。我们没有大厂那样完善的SRE体系，没有专门的运维值班，甚至连像样的监控大屏都没有。往往是&lt;strong&gt;故障发生了，我们还在凭直觉猜&lt;/strong&gt;。&lt;/p&gt;
+&lt;p&gt;这两年，我带着团队从这种“草台班子”模式里一点点爬出来，踩过无数坑。今天不想聊高大上的理论，只想把自己那套用来保命的“5分钟急救法”分享给你。这不仅是技术流程，更是缓解焦虑的良药。&lt;/p&gt;
+&lt;h2 id=&#34;一-先止血再找病因别做完美主义者&#34;&gt;一、 先止血，再找病因（别做完美主义者）
+&lt;/h2&gt;&lt;p&gt;很多技术人的本能反应是：看到报错 -&amp;gt; 立刻查日志 -&amp;gt; 试图复现 -&amp;gt; 寻找代码Bug。&lt;/p&gt;
+&lt;p&gt;&lt;strong&gt;这在大流量故障下，是大忌。&lt;/strong&gt;&lt;/p&gt;
+&lt;blockquote&gt;
+&lt;p&gt;如果病人大动脉出血，医生是先缝合伤口，还是先去化验血液成分？&lt;/p&gt;
+&lt;/blockquote&gt;
+&lt;p&gt;&lt;strong&gt;真实案例：&lt;/strong&gt;
+去年双十一前夕，我们的促销服务突然CPU 100%，订单全部卡死。当时负责后端的小张，满头大汗地盯着代码，试图找出是哪个循环写死锁了。时间一分一秒过去，客户投诉电话打爆了客服中心。&lt;/p&gt;
+&lt;p&gt;我看情况不对，直接下令：“别查了，回滚上一版镜像，立刻！”
+小张当时很抗拒：“再给我两分钟，我马上找到Bug了！”
+但我坚持回滚。3分钟后，服务恢复，虽然新功能暂时不可用，但核心交易保住了。&lt;/p&gt;
+&lt;p&gt;&lt;strong&gt;我的实操建议：&lt;/strong&gt;
+在故障发生的“黄金5分钟”里，你的核心目标&lt;strong&gt;不是修复Bug，而是恢复服务&lt;/strong&gt;。&lt;/p&gt;
+&lt;ol&gt;
+&lt;li&gt;&lt;strong&gt;重启大法好&lt;/strong&gt;：对于内存泄漏或瞬时高并发导致的假死，重启通常能换来喘息时间。&lt;/li&gt;
+&lt;li&gt;&lt;strong&gt;一键回滚&lt;/strong&gt;：如果故障发生在上线后，别犹豫，无脑回滚。&lt;/li&gt;
+&lt;li&gt;&lt;strong&gt;降级熔断&lt;/strong&gt;：如果是非核心业务（比如评论区、推荐流）拖垮了系统，直接切断，保核心支付链路。&lt;/li&gt;
+&lt;/ol&gt;
+&lt;p&gt;记住，&lt;strong&gt;活下来，才有资格查Bug。&lt;/strong&gt;&lt;/p&gt;
+&lt;h2 id=&#34;二-拒绝日志迷宫用traceid串联世界&#34;&gt;二、 拒绝“日志迷宫”，用TraceID串联世界
+&lt;/h2&gt;&lt;p&gt;不知道你们有没有这种经历：用户反馈“下单失败”，你登录服务器，面对几个G的&lt;code&gt;catalina.out&lt;/code&gt;或者&lt;code&gt;error.log&lt;/code&gt;，用&lt;code&gt;grep&lt;/code&gt;搜来搜去，就像在垃圾堆里找一根针。&lt;/p&gt;
+&lt;p&gt;&lt;img src=&#34;https://picsum.photos/800/450?random=1768390282213&#34;
+	
+	
+	
+	loading=&#34;lazy&#34;
+	
+		alt=&#34;配图&#34;
+	
+	
+&gt;&lt;/p&gt;
+&lt;p&gt;如果是微服务架构，那就更绝望了，请求在A服务报错，根源可能在C服务的数据库调用上。&lt;/p&gt;
+&lt;p&gt;&lt;strong&gt;真实案例：&lt;/strong&gt;
+我们团队曾因为一个跨系统的空指针异常，排查了整整4个小时。开发A说“我发出的请求没问题”，开发B说“我收到的参数是空的”。大家互相甩锅，因为日志是割裂的，谁也拿不出证据。&lt;/p&gt;
+&lt;p&gt;那次复盘后，我强制推行了一个极低成本的改造：&lt;strong&gt;全链路TraceID&lt;/strong&gt;。&lt;/p&gt;
+&lt;p&gt;&lt;strong&gt;落地方法：&lt;/strong&gt;
+不需要昂贵的APM工具（像SkyWalking对小团队可能偏重），只需要在网关层生成一个唯一的UUID，然后通过HTTP Header透传到所有下游服务。&lt;/p&gt;
+&lt;p&gt;在日志输出时，强制带上这个ID。&lt;/p&gt;
+&lt;div class=&#34;highlight&#34;&gt;&lt;pre tabindex=&#34;0&#34; style=&#34;color:#f8f8f2;background-color:#272822;-moz-tab-size:4;-o-tab-size:4;tab-size:4;&#34;&gt;&lt;code class=&#34;language-java&#34; data-lang=&#34;java&#34;&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;&lt;span style=&#34;color:#75715e&#34;&gt;// 简单的Logback配置示例&lt;/span&gt;
+&lt;/span&gt;&lt;/span&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;String traceId &lt;span style=&#34;color:#f92672&#34;&gt;=&lt;/span&gt; MDC.&lt;span style=&#34;color:#a6e22e&#34;&gt;get&lt;/span&gt;(&lt;span style=&#34;color:#e6db74&#34;&gt;&amp;#34;TRACE_ID&amp;#34;&lt;/span&gt;);
+&lt;/span&gt;&lt;/span&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;log.&lt;span style=&#34;color:#a6e22e&#34;&gt;error&lt;/span&gt;(&lt;span style=&#34;color:#e6db74&#34;&gt;&amp;#34;订单创建失败, traceId: {}, error: {}&amp;#34;&lt;/span&gt;, traceId, e.&lt;span style=&#34;color:#a6e22e&#34;&gt;getMessage&lt;/span&gt;());
+&lt;/span&gt;&lt;/span&gt;&lt;/code&gt;&lt;/pre&gt;&lt;/div&gt;&lt;p&gt;现在，当报警群里出现异常，我只需要复制那个TraceID，在日志系统（哪怕只是简单的ELK或者Loki）里一搜，整个请求的生命周期一目了然：&lt;/p&gt;
+&lt;ul&gt;
+&lt;li&gt;10:00:01 进入网关&lt;/li&gt;
+&lt;li&gt;10:00:02 调用用户服务（成功）&lt;/li&gt;
+&lt;li&gt;10:00:03 调用库存服务（&lt;strong&gt;失败，超时&lt;/strong&gt;）&lt;/li&gt;
+&lt;/ul&gt;
+&lt;p&gt;这一个简单的动作，把我们的平均排查时间从1小时压缩到了5-10分钟。它消除的不仅是Bug，更是团队之间的推诿和猜疑。&lt;/p&gt;
+&lt;h2 id=&#34;三-别只盯着代码看看资源水位&#34;&gt;三、 别只盯着代码，看看“资源水位”
+&lt;/h2&gt;&lt;p&gt;很多时候，代码没有变，但系统挂了。这时候开发人员容易陷入自我怀疑：“我这行代码跑了三年都没事，怎么今天炸了？”&lt;/p&gt;
+&lt;p&gt;&lt;strong&gt;真实案例：&lt;/strong&gt;
+大概半年前，我们的消息队列消费者突然停止工作，不消费消息，日志里也没有任何报错，就是单纯的“静止”。
+团队里的主力开发排查了一下午代码逻辑，甚至怀疑JDK有Bug。&lt;/p&gt;
+&lt;p&gt;后来我上去敲了一个&lt;code&gt;df -h&lt;/code&gt;，发现磁盘满了。
+原因竟然是一个被遗忘的临时日志文件把磁盘写爆了，导致应用无法写入新日志，线程被阻塞挂起。&lt;/p&gt;
+&lt;p&gt;还有一次，API响应极慢，查了半天SQL没问题，最后发现是那台虚拟机的“邻居”在挖矿，抢占了物理机的CPU资源（Steal Time飙高）。&lt;/p&gt;
+&lt;p&gt;&lt;strong&gt;我的避坑指南：&lt;/strong&gt;
+当日志看不出问题时，请默念&lt;strong&gt;USE方法论&lt;/strong&gt;（对于资源）：&lt;/p&gt;
+&lt;ul&gt;
+&lt;li&gt;&lt;strong&gt;Utilization（利用率）&lt;/strong&gt;：CPU、内存、磁盘是不是满了？&lt;/li&gt;
+&lt;li&gt;&lt;strong&gt;Saturation（饱和度）&lt;/strong&gt;：等待队列是不是长了？（比如磁盘I/O排队）&lt;/li&gt;
+&lt;li&gt;&lt;strong&gt;Errors（错误）&lt;/strong&gt;：网卡是不是有丢包？&lt;/li&gt;
+&lt;/ul&gt;
+&lt;p&gt;我个人的习惯是，在排查代码逻辑前，先花1分钟扫一眼监控面板（Prometheus+Grafana是中小团队的神器）。如果连监控都没有，至少学会用&lt;code&gt;top&lt;/code&gt;、&lt;code&gt;free -m&lt;/code&gt;、&lt;code&gt;iostat&lt;/code&gt;这三个命令。&lt;/p&gt;
+&lt;p&gt;&lt;strong&gt;数据不会撒谎，代码会。&lt;/strong&gt;&lt;/p&gt;
+&lt;h2 id=&#34;结尾&#34;&gt;结尾
+&lt;/h2&gt;&lt;p&gt;故障响应其实是一场心理战。作为技术负责人或骨干，你的镇定就是团队的定海神针。&lt;/p&gt;
+&lt;p&gt;我桌面上贴着一张便签，写着我在故障时的行动准则，用了两年了，分享给你们：&lt;/p&gt;
+&lt;ol&gt;
+&lt;li&gt;&lt;strong&gt;深呼吸&lt;/strong&gt;，别让恐慌占据大脑。&lt;/li&gt;
+&lt;li&gt;&lt;strong&gt;先通报&lt;/strong&gt;，告诉老板和客服“我们正在处理”，争取时间。&lt;/li&gt;
+&lt;li&gt;&lt;strong&gt;看监控&lt;/strong&gt;，确认是单点故障还是雪崩。&lt;/li&gt;
+&lt;li&gt;&lt;strong&gt;止损&lt;/strong&gt;，能重启绝不DEBUG，能回滚绝不硬修。&lt;/li&gt;
+&lt;/ol&gt;
+&lt;p&gt;&lt;img src=&#34;https://picsum.photos/800/450?random=1768390282591&#34;
+	
+	
+	
+	loading=&#34;lazy&#34;
+	
+		alt=&#34;配图&#34;
+	
+	
+&gt;&lt;/p&gt;
+&lt;p&gt;&lt;strong&gt;最后，我想做一个小调查：&lt;/strong&gt;
+当线上出现重大Bug，但回滚会导致这1小时内的新增数据丢失（比如新注册用户），你会怎么选？&lt;/p&gt;
+&lt;ul&gt;
+&lt;li&gt;A：立刻回滚，数据丢了再想办法修补（保服务可用性）。&lt;/li&gt;
+&lt;li&gt;B：硬着头皮在线修复，哪怕多停机半小时（保数据完整性）。&lt;/li&gt;
+&lt;/ul&gt;
+&lt;p&gt;&lt;img src=&#34;https://picsum.photos/800/450?random=1768390287854&#34;
+	
+	
+	
+	loading=&#34;lazy&#34;
+	
+		alt=&#34;配图&#34;
+	
+	
+&gt;&lt;/p&gt;
+&lt;p&gt;欢迎在评论区留下你的选择和理由，我们一起探讨。&lt;/p&gt;
+&lt;hr&gt;
+&lt;p&gt;&lt;strong&gt;给中小团队的3个落地行动步骤：&lt;/strong&gt;&lt;/p&gt;
+&lt;ol&gt;
+&lt;li&gt;&lt;strong&gt;明天上班第一件事&lt;/strong&gt;：检查你的日志配置，是否加上了Request ID / Trace ID？如果没有，下个迭代务必加上。&lt;/li&gt;
+&lt;li&gt;&lt;strong&gt;准备一个“核按钮”&lt;/strong&gt;：写一个简单的Shell脚本或Jenkins Job，能让你在手机上点一下就回滚到上一个版本。&lt;/li&gt;
+&lt;li&gt;&lt;strong&gt;建立“死因记录”&lt;/strong&gt;：不要让故障白白发生。哪怕只是在Wiki上记一笔“时间+原因+解决方案”，半年后这不仅是知识库，更是你晋升的资本。&lt;/li&gt;
+&lt;/ol&gt;
+</description>
+        </item>
+        
+    </channel>
+</rss>

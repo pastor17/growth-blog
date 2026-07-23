@@ -1,0 +1,112 @@
+<?xml version="1.0" encoding="utf-8" standalone="yes"?>
+<rss version="2.0" xmlns:atom="http://www.w3.org/2005/Atom">
+    <channel>
+        <title>需求变更管理：控制范围蔓延的技巧 on SelfTechHub</title>
+        <link>https://blog.irudder.me/tags/%E9%9C%80%E6%B1%82%E5%8F%98%E6%9B%B4%E7%AE%A1%E7%90%86%E6%8E%A7%E5%88%B6%E8%8C%83%E5%9B%B4%E8%94%93%E5%BB%B6%E7%9A%84%E6%8A%80%E5%B7%A7.html</link>
+        <description>Recent content in 需求变更管理：控制范围蔓延的技巧 on SelfTechHub</description>
+        <generator>Hugo -- gohugo.io</generator>
+        <language>zh-cn</language>
+        <lastBuildDate>Sat, 03 Dec 2022 00:00:00 +0000</lastBuildDate><atom:link href="https://blog.irudder.me/tags/%E9%9C%80%E6%B1%82%E5%8F%98%E6%9B%B4%E7%AE%A1%E7%90%86%E6%8E%A7%E5%88%B6%E8%8C%83%E5%9B%B4%E8%94%93%E5%BB%B6%E7%9A%84%E6%8A%80%E5%B7%A7/index.xml" rel="self" type="application/rss+xml" /><item>
+        <title>做了5年PM，我终于学会对着需求变更说“不”</title>
+        <link>https://blog.irudder.me/tech/danxiangmuquanliuchengchaijie10fenzhongkedu/xuqiubiangengguanli_kongzhifanweimanyandejiqiao.html</link>
+        <pubDate>Sat, 03 Dec 2022 00:00:00 +0000</pubDate>
+        
+        <guid>https://blog.irudder.me/tech/danxiangmuquanliuchengchaijie10fenzhongkedu/xuqiubiangengguanli_kongzhifanweimanyandejiqiao.html</guid>
+        <description>&lt;p&gt;你是否有过这样的时刻：周五下午四点半，阳光刚好洒在键盘上，你正准备提交最后一行代码去过周末。突然，钉钉响了。&lt;/p&gt;
+&lt;p&gt;产品经理（或者那个总是笑眯眯的老板）走过来说：“咱们那个登录页，能不能加个微信扫码？很简单的，我看别的APP都有，只要半天就能搞定吧？”&lt;/p&gt;
+&lt;p&gt;你的胃里是不是突然一阵抽搐？&lt;/p&gt;
+&lt;p&gt;我懂这种感觉。在做项目的头两年，我几乎是个“Yes Man”。为了显得专业、为了不发生冲突，我吞下了所有的“小调整”。结果是：团队连续通宵、上线Bug频出、而在复盘会上，大家只会指责“为什么延期了”，却没人记得那些被随意塞进来的“顺手一改”。&lt;/p&gt;
+&lt;p&gt;其实，&lt;strong&gt;控制范围蔓延（Scope Creep）不是在对抗客户，而是在保护我们对他人的承诺，更是保护我们自己内心的秩序。&lt;/strong&gt;&lt;/p&gt;
+&lt;p&gt;今天，我想和你聊聊，如何在面对无休止的需求变更时，温柔而坚定地划出那条底线。&lt;/p&gt;
+&lt;h2 id=&#34;拒绝隐形杀手重新定义顺手改改&#34;&gt;拒绝“隐形杀手”：重新定义“顺手改改”
+&lt;/h2&gt;&lt;p&gt;很多时候，压垮骆驼的不是最后一根稻草，而是无数根被称为“顺手改改”的稻草。我们往往低估了沟通成本，而高估了自己的抗压能力。&lt;/p&gt;
+&lt;p&gt;&lt;strong&gt;真实案例：那个被“字体颜色”拖垮的项目&lt;/strong&gt;&lt;/p&gt;
+&lt;p&gt;2021年冬天，我负责一个企业内部报销系统的SaaS项目。当时已进入UAT（用户验收测试）阶段。客户方的财务总监突然提出：“这个审批按钮的红色太刺眼，能不能改成温和的蓝色？还有，字体稍微大一号。”&lt;/p&gt;
+&lt;p&gt;听起来是几行CSS的事，对吧？当时我也这么想，于是直接答应了，甚至没走变更流程。&lt;/p&gt;
+&lt;p&gt;结果是灾难性的。改了颜色后，总监觉得在这个蓝色背景下，原有的白色文字看不清，要改文字颜色；改了文字颜色，又觉得图标风格不搭，要换图标库；图标变大了，导致移动端布局错位，整个审批流在iPhone上无法点击。&lt;/p&gt;
+&lt;p&gt;为了修复这个“顺手改改”，前端小哥熬了两个通宵，重构了三页样式。&lt;/p&gt;
+&lt;p&gt;&lt;strong&gt;底层逻辑拆解：&lt;/strong&gt;&lt;/p&gt;
+&lt;p&gt;需求变更存在**“冰山效应”**。客户看到的只是水面上的“改个颜色”，水面下是UI适配、代码逻辑、测试回归、甚至文档更新。&lt;/p&gt;
+&lt;p&gt;&lt;strong&gt;我的应对技巧：可视化代价&lt;/strong&gt;&lt;/p&gt;
+&lt;p&gt;从那以后，我在工位旁贴了一张便利贴：&lt;strong&gt;“所有变更，必有代价。”&lt;/strong&gt;&lt;/p&gt;
+&lt;p&gt;现在，当有人提出“小修改”时，我不会直接说“不行”，而是打开白板，画出这个修改的&lt;strong&gt;依赖路径&lt;/strong&gt;。&lt;/p&gt;
+&lt;blockquote&gt;
+&lt;p&gt;“张总，改按钮颜色没问题。但根据现在的架构，这会触发移动端适配的重测（需4小时）和UI规范的全局替换（需2小时）。为了保证周五上线不崩，我们需要把‘报表导出’功能推迟到下周二。您看这样交换可以吗？”&lt;/p&gt;
+&lt;/blockquote&gt;
+&lt;p&gt;让对方看到冰山下的体积，大概率，他们会收回那个不那么重要的“顺手改改”。&lt;/p&gt;
+&lt;p&gt;&lt;img src=&#34;https://picsum.photos/800/450?random=1768531108797&#34;
+	
+	
+	
+	loading=&#34;lazy&#34;
+	
+		alt=&#34;配图&#34;
+	
+	
+&gt;&lt;/p&gt;
+&lt;h2 id=&#34;建立缓冲区给焦虑的情绪找个出口&#34;&gt;建立“缓冲区”：给焦虑的情绪找个出口
+&lt;/h2&gt;&lt;p&gt;&lt;img src=&#34;https://picsum.photos/800/450?random=1768531107803&#34;
+	
+	
+	
+	loading=&#34;lazy&#34;
+	
+		alt=&#34;配图&#34;
+	
+	
+&gt;&lt;/p&gt;
+&lt;p&gt;很多时候，客户或老板拼命加需求，不是因为他们真的需要那个功能，而是因为他们&lt;strong&gt;焦虑&lt;/strong&gt;。他们担心产品不够好，担心竞争对手有而我们没有。如果你直接拒绝，就是在对抗他们的焦虑，冲突在所难免。&lt;/p&gt;
+&lt;p&gt;&lt;strong&gt;真实案例：想做“大而全”的创业者&lt;/strong&gt;&lt;/p&gt;
+&lt;p&gt;去年接手了一个教育类小程序。创始人非常焦虑，每看到竞品更新一个功能，就要求我们马上加上。两周内，需求池从“背单词”变成了“背单词+视频课+商城+社交”。&lt;/p&gt;
+&lt;p&gt;团队士气低落，后端开发甚至直接跟我说：“这项目没法做了，想提离职。”&lt;/p&gt;
+&lt;p&gt;我意识到，这时候讲技术难点没用，得治“心病”。&lt;/p&gt;
+&lt;p&gt;&lt;strong&gt;我的应对技巧：设置“功能冷冻柜”（The Parking Lot）&lt;/strong&gt;&lt;/p&gt;
+&lt;p&gt;我专门建立了一个名为**“二期愿望清单（V2.0 Wishlist）”**的文档，并把它设置在项目看板最显眼的位置。&lt;/p&gt;
+&lt;p&gt;每当创始人提出新想法，我都会表现得比他还兴奋：&lt;/p&gt;
+&lt;blockquote&gt;
+&lt;p&gt;“这个点子太棒了！如果加上社交功能，留存率肯定高。但是，为了让第一批用户下周就能用上背单词的核心功能，我们先把这个伟大的想法放进V2.0的‘冷冻柜’里保鲜。等核心版一上线，我们马上评估这个，好吗？”&lt;/p&gt;
+&lt;/blockquote&gt;
+&lt;p&gt;&lt;img src=&#34;https://picsum.photos/800/450?random=1768531108131&#34;
+	
+	
+	
+	loading=&#34;lazy&#34;
+	
+		alt=&#34;配图&#34;
+	
+	
+&gt;&lt;/p&gt;
+&lt;p&gt;&lt;strong&gt;这招的核心在于“接纳”而非“拒绝”。&lt;/strong&gt;&lt;/p&gt;
+&lt;p&gt;你没有否定他的创意，你只是在帮他&lt;strong&gt;排期&lt;/strong&gt;。那个项目最终按时上线了核心版，而那个“冷冻柜”里的20个功能，最后老板自己划掉了15个——因为冷静下来后，他发现那些根本不重要。&lt;/p&gt;
+&lt;h2 id=&#34;走出讨好型陷阱用规则代替人情&#34;&gt;走出“讨好型”陷阱：用规则代替人情
+&lt;/h2&gt;&lt;p&gt;对于中小团队的PM或开发者来说，最难的往往不是技术，而是“面子”。大家都是熟人，或者为了维护客户关系，总觉得“谈钱伤感情，谈流程太僵硬”。&lt;/p&gt;
+&lt;p&gt;但我这两年最大的感悟是：&lt;strong&gt;好的流程，才是对人情最大的保护。&lt;/strong&gt;&lt;/p&gt;
+&lt;p&gt;&lt;strong&gt;真实案例：没有签字的惨痛教训&lt;/strong&gt;&lt;/p&gt;
+&lt;p&gt;曾经有个老客户，也是朋友，微信上跟我说加个统计字段。我想着关系这么铁，就没签变更单。结果上线后数据逻辑不对，造成了损失。对方反问：“我当时没说要改成这样啊，你们怎么理解的？”&lt;/p&gt;
+&lt;p&gt;那一刻，所有的私交都变成了尴尬。&lt;/p&gt;
+&lt;p&gt;&lt;strong&gt;我的应对技巧：仪式感的力量&lt;/strong&gt;&lt;/p&gt;
+&lt;p&gt;现在，哪怕是再小的团队，我都会坚持执行一个**“轻量级变更流程”**。不需要复杂的文档，哪怕只是一个飞书文档的确认回复。&lt;/p&gt;
+&lt;p&gt;我会在每周五下午的例会上，专门留出10分钟回顾本周的“额外工作”。&lt;/p&gt;
+&lt;div class=&#34;highlight&#34;&gt;&lt;pre tabindex=&#34;0&#34; style=&#34;color:#f8f8f2;background-color:#272822;-moz-tab-size:4;-o-tab-size:4;tab-size:4;&#34;&gt;&lt;code class=&#34;language-text&#34; data-lang=&#34;text&#34;&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;变更确认模板（示例）：
+&lt;/span&gt;&lt;/span&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;1. 变更内容：增加微信一键登录
+&lt;/span&gt;&lt;/span&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;2. 发起人：市场部李经理
+&lt;/span&gt;&lt;/span&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;3. 预计耗时：1.5 人/天
+&lt;/span&gt;&lt;/span&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;4. 影响范围：原定“个人中心”优化将被延后至下个Sprint
+&lt;/span&gt;&lt;/span&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;5. 决策：是否执行？（请李经理确认）
+&lt;/span&gt;&lt;/span&gt;&lt;/code&gt;&lt;/pre&gt;&lt;/div&gt;&lt;p&gt;当你要把这个链接发给对方确认时，90%的随意性变更都会消失。因为这代表了&lt;strong&gt;责任的转移&lt;/strong&gt;。&lt;/p&gt;
+&lt;p&gt;这个动作不是冷漠，而是一种职业的边界感。它在告诉你和对方：&lt;strong&gt;我们的劳动是有价值的，我们的时间是值得被尊重的。&lt;/strong&gt;&lt;/p&gt;
+&lt;h2 id=&#34;结尾把控制权还给自己&#34;&gt;结尾：把控制权还给自己
+&lt;/h2&gt;&lt;p&gt;需求变更就像海浪，永远不会停止。我们无法阻挡海浪，但我们可以学会冲浪。&lt;/p&gt;
+&lt;p&gt;在这个充满不确定性的行业里，保护好团队的精力，保护好自己的热情，比完成一个完美的功能更重要。&lt;strong&gt;你不必成为一个总是说“YES”的超人，做一个有原则、有节奏的普通人，反而能走得更远。&lt;/strong&gt;&lt;/p&gt;
+&lt;p&gt;&lt;strong&gt;最后，我想邀请你做三个小小的改变（亲测有效）：&lt;/strong&gt;&lt;/p&gt;
+&lt;ol&gt;
+&lt;li&gt;&lt;strong&gt;实行“24小时冷静期”：&lt;/strong&gt; 收到非紧急的变更需求，不要立刻回复。告诉对方：“我记录下来了，我们团队评估一下影响，明天上午给您答复。” 给双方一点降温的时间。&lt;/li&gt;
+&lt;li&gt;&lt;strong&gt;建立“牺牲清单”：&lt;/strong&gt; 每次答应加东西时，必须划掉同样工作量的一件旧东西。坚持“One in, One out”原则。&lt;/li&gt;
+&lt;li&gt;&lt;strong&gt;记录你的“拒绝胜利”：&lt;/strong&gt; 下次成功挡掉一个不合理需求时，给自己买杯奶茶庆祝一下。这不仅是省了加班，更是你职业自信的积累。&lt;/li&gt;
+&lt;/ol&gt;
+&lt;p&gt;&lt;strong&gt;你在项目中遇到过最离谱的“顺手改改”是什么？又是怎么解决的？&lt;/strong&gt; 欢迎在评论区吐吐槽，有时候，说出来就是一种治愈。&lt;/p&gt;
+</description>
+        </item>
+        
+    </channel>
+</rss>

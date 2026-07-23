@@ -1,0 +1,126 @@
+<?xml version="1.0" encoding="utf-8" standalone="yes"?>
+<rss version="2.0" xmlns:atom="http://www.w3.org/2005/Atom">
+    <channel>
+        <title>Hallucination on SelfTechHub</title>
+        <link>https://blog.irudder.me/tags/Hallucination.html</link>
+        <description>Recent content in Hallucination on SelfTechHub</description>
+        <generator>Hugo -- gohugo.io</generator>
+        <language>zh-cn</language>
+        <lastBuildDate>Fri, 29 May 2026 00:00:00 +0000</lastBuildDate><atom:link href="https://blog.irudder.me/tags/Hallucination/index.xml" rel="self" type="application/rss+xml" /><item>
+        <title>第3章：大模型幻觉——它为什么胡说八道？如何让它老实？</title>
+        <link>https://blog.irudder.me/ai/knowledge-series/03-Hallucination-and-Controllability.html</link>
+        <pubDate>Fri, 29 May 2026 00:00:00 +0000</pubDate>
+        
+        <guid>https://blog.irudder.me/ai/knowledge-series/03-Hallucination-and-Controllability.html</guid>
+        <description>&lt;h1 id=&#34;第3章大模型幻觉它为什么胡说八道如何让它老实&#34;&gt;第3章：大模型幻觉——它为什么胡说八道？如何让它老实？
+&lt;/h1&gt;&lt;blockquote&gt;
+&lt;p&gt;系列导读：从本章开始，我们从「原理认知」转向「工程控制」。理解幻觉的成因，是构建可靠 AI 系统的第一步。&lt;/p&gt;
+&lt;/blockquote&gt;
+&lt;h2 id=&#34;一什么是幻觉&#34;&gt;一、什么是幻觉？
+&lt;/h2&gt;&lt;p&gt;当你问 GPT-4：「鲁迅和周树人是什么关系？」&lt;/p&gt;
+&lt;p&gt;它可能回答：「鲁迅和周树人是两位不同的现代作家。」——这是不折不扣的【事实性幻觉】。&lt;/p&gt;
+&lt;p&gt;幻觉的精确定义是：模型生成了听起来合理、语法正确、但实际上不符合事实的内容。&lt;/p&gt;
+&lt;p&gt;它不是 bug，是 LLM 概率生成机制的【固有特性】。&lt;/p&gt;
+&lt;p&gt;要理解幻觉，先得承认一个事实：LLM 不是数据库，它是概率续写器。你给它一个问题，它做的不是「查询正确答案」，而是「猜测下一个最可能发生的内容」。这个区分是解决幻觉问题的认知基础。&lt;/p&gt;
+&lt;h2 id=&#34;二幻觉的三大根源&#34;&gt;二、幻觉的三大根源
+&lt;/h2&gt;&lt;h3 id=&#34;第一层训练数据&#34;&gt;第一层：训练数据
+&lt;/h3&gt;&lt;p&gt;互联网语料本身就有错误、矛盾、过时信息。模型把它们全部「学进去」当作事实。比如：&lt;/p&gt;
+&lt;ul&gt;
+&lt;li&gt;某个错误知识在网上流传甚广 → 模型学得深&lt;/li&gt;
+&lt;li&gt;互相矛盾的信息并存（比如不同国家对同一历史事件的描述不同）→ 模型学到两种说法轮流出现&lt;/li&gt;
+&lt;li&gt;训练截止日期之后的事件 → 模型一无所知，面对这类问题只能靠概率推断&lt;/li&gt;
+&lt;/ul&gt;
+&lt;p&gt;训练数据的问题还包括「重复偏见」——如果某个错误信息出现了很多次（比如某个谣言被广泛传播），模型会认为它更可信。这是训练机制本身的副作用：语料出现频率高 → 权重被放大。&lt;/p&gt;
+&lt;h3 id=&#34;第二层生成机制最本质&#34;&gt;第二层：生成机制（最本质）
+&lt;/h3&gt;&lt;p&gt;LLM 的工作方式是：给定前面的文本，按概率分布选下一个词。&lt;/p&gt;
+&lt;p&gt;问题在于：概率最高 ≠ 事实正确。&lt;/p&gt;
+&lt;p&gt;你问「鲁迅是谁的笔名」→ 正确答案「周树人」在概率分布中排名第一，模型答对。
+你问一个模型从未见过的问题 → 概率分布中排名第一的，可能是一个【编造出来的、看起来最合理的答案】。&lt;/p&gt;
+&lt;p&gt;模型的训练目标是「生成看起来最连贯、最像人话的文本」，不是「输出真实信息」。当它不知道怎么答的时候，它会「编造一个最合理的答案」，因为这是它的本职工作。&lt;/p&gt;
+&lt;p&gt;把 Temperature 调到0也不能消除幻觉——概率最高的那条路径本身可能就是错的。Temperature 控制的是随机性，不是「知不知道」。模型不知道的时候，即使不随机，也会沿着最像真的那条路径走到一个错误答案。&lt;/p&gt;
+&lt;h3 id=&#34;第三层对齐训练alignment&#34;&gt;第三层：对齐训练（Alignment）
+&lt;/h3&gt;&lt;p&gt;这是最容易被忽略的一层。SFT（监督微调）和 RLHF（基于人类反馈的强化学习）有一个隐藏的副作用：训练数据中的偏好是「自信地给出答案」比「诚实地说我不知道」得分更高。&lt;/p&gt;
+&lt;p&gt;标注者通常更喜欢完整、自信的答案，而不是简短、不确定的回答。模型被这个奖励信号训练成了【不会拒绝回答】的角色。即使它不知道答案，也会尝试输出一大段说服力强但不保证正确的话，而不是说「抱歉，我不确定」。&lt;/p&gt;
+&lt;h2 id=&#34;三幻觉的三类形态&#34;&gt;三、幻觉的三类形态
+&lt;/h2&gt;&lt;table&gt;
+  &lt;thead&gt;
+      &lt;tr&gt;
+          &lt;th&gt;类型&lt;/th&gt;
+          &lt;th&gt;描述&lt;/th&gt;
+          &lt;th&gt;例子&lt;/th&gt;
+      &lt;/tr&gt;
+  &lt;/thead&gt;
+  &lt;tbody&gt;
+      &lt;tr&gt;
+          &lt;td&gt;事实性幻觉&lt;/td&gt;
+          &lt;td&gt;编造不存在的事实&lt;/td&gt;
+          &lt;td&gt;「张爱玲获得过诺贝尔文学奖」&lt;/td&gt;
+      &lt;/tr&gt;
+      &lt;tr&gt;
+          &lt;td&gt;推理性幻觉&lt;/td&gt;
+          &lt;td&gt;逻辑链条断裂或自相矛盾&lt;/td&gt;
+          &lt;td&gt;「A&amp;gt;B，B&amp;gt;C，所以C&amp;gt;A」&lt;/td&gt;
+      &lt;/tr&gt;
+      &lt;tr&gt;
+          &lt;td&gt;上下文不一致&lt;/td&gt;
+          &lt;td&gt;违背用户给出的明确条件&lt;/td&gt;
+          &lt;td&gt;用户说「主角名叫李明」，模型后面说「张明的经历」&lt;/td&gt;
+      &lt;/tr&gt;
+  &lt;/tbody&gt;
+&lt;/table&gt;
+&lt;p&gt;事实性幻觉最容易被发现——只要跟真实数据一对就知道。推理性幻觉更隐蔽，因为模型可能每一步看起来都有道理，但整体链条是断裂的。上下文不一致是在长对话里最恼人的——模型忘了你前面说过什么。&lt;/p&gt;
+&lt;h2 id=&#34;四如何缓解幻觉三层组合拳&#34;&gt;四、如何缓解幻觉？三层组合拳
+&lt;/h2&gt;&lt;h3 id=&#34;训练层治本&#34;&gt;训练层（治本）
+&lt;/h3&gt;&lt;ul&gt;
+&lt;li&gt;拒答能力训练：在 SFT 数据里专门加入「不知道就说不知道」的样本，让模型学会在必要时拒绝回答&lt;/li&gt;
+&lt;li&gt;校准（Calibration）：让模型学会输出概率分数，表示对答案的信心度。用户可以根据置信度决定是否采信&lt;/li&gt;
+&lt;li&gt;幻觉检测预训练：用外部知识库自动标注训练数据中的错误内容，在预训练阶段过滤低质来源&lt;/li&gt;
+&lt;/ul&gt;
+&lt;h3 id=&#34;推理层治标&#34;&gt;推理层（治标）
+&lt;/h3&gt;&lt;ul&gt;
+&lt;li&gt;分步推理（CoT）：让模型先分析再结论，错误推理更容易暴露&lt;/li&gt;
+&lt;li&gt;低 Temperature + Top-P 采样：减少随机偏差，让输出更稳定&lt;/li&gt;
+&lt;li&gt;Self-Consistency：对同一问题采样多次，投票取众数。错误答案不一定能稳定重复&lt;/li&gt;
+&lt;li&gt;约束解码：限制输出只能在特定词汇表内（如只能输出数字 1/2/3），防止创造性胡编&lt;/li&gt;
+&lt;/ul&gt;
+&lt;h3 id=&#34;系统层工程首选&#34;&gt;系统层（工程首选）
+&lt;/h3&gt;&lt;ul&gt;
+&lt;li&gt;RAG（检索增强生成）：让模型「看着资料答」而不是「凭记忆答」——这是工业界最主流的解法&lt;/li&gt;
+&lt;li&gt;答案后处理核查：用外部工具（如搜索引擎、数据库查询）验证关键事实&lt;/li&gt;
+&lt;li&gt;强制带引用来源：要求模型在回答时标注信息来源，既方便追溯也方便人工核验&lt;/li&gt;
+&lt;li&gt;知识蒸馏 + 事实编辑：在已有大模型基础上，用少量事实数据做局部参数修正&lt;/li&gt;
+&lt;/ul&gt;
+&lt;h2 id=&#34;五致命认知误区&#34;&gt;五、致命认知误区
+&lt;/h2&gt;&lt;p&gt;&lt;strong&gt;误区1：「幻觉是数据问题，数据干净了就行了」&lt;/strong&gt;
+→ 不完全是。即使训练数据100%正确，模型在没见过的问题上仍会依赖概率推断。LLM 的概率生成机制本身就是幻觉的土壤。&lt;/p&gt;
+&lt;p&gt;&lt;strong&gt;误区2：「用 RAG 就能消除幻觉」&lt;/strong&gt;
+→ RAG 只是把幻觉风险从「编造知识」转移到「编造引用」和「断章取义」。如果检索回来的内容本身就错了，或者模型把引用张冠李戴了，结果还是幻觉。RAG 降低幻觉率，但不是灵丹妙药。&lt;/p&gt;
+&lt;p&gt;&lt;strong&gt;误区3：「越大越好的模型越不会幻觉」&lt;/strong&gt;
+→ 规模增大确实能减少常识性幻觉（见过更多），但在小众知识领域幻觉反而可能更严重。大模型更「自信」，它对自己的错误回答也更有把握，更不容易说「我不知道」。&lt;/p&gt;
+&lt;h2 id=&#34;六工程启示如何跟一个会撒谎的系统打交道&#34;&gt;六、工程启示：如何跟一个会撒谎的系统打交道？
+&lt;/h2&gt;&lt;p&gt;核心原则：系统级别的不信任校验机制。&lt;/p&gt;
+&lt;ol&gt;
+&lt;li&gt;关键信息强制引用来源——回答必须带出处，出处可人工核验&lt;/li&gt;
+&lt;li&gt;置信度透出——让用户知道模型对答案的不确定性，高置信采信、低置信核实&lt;/li&gt;
+&lt;li&gt;关键领域人机配合——医疗、法律、金融等场景，模型只提供初步信息，最终判断由人类做&lt;/li&gt;
+&lt;li&gt;设计可验证的交互——不是让模型直接给结论，而是让它推荐检索关键词，由用户确认后再查&lt;/li&gt;
+&lt;/ol&gt;
+&lt;p&gt;一句话总结：幻觉不可消灭，只能工程化收敛到「可接受风险」。&lt;/p&gt;
+&lt;h2 id=&#34;七本章小结&#34;&gt;七、本章小结
+&lt;/h2&gt;&lt;ul&gt;
+&lt;li&gt;幻觉是 LLM 概率生成机制的固有副产品，不是 bug&lt;/li&gt;
+&lt;li&gt;根源分三层：训练数据污染、生成机制缺陷（概率最优≠事实）、对齐奖励鼓励「自信回答」&lt;/li&gt;
+&lt;li&gt;三类幻觉：事实性、推理性、上下文不一致&lt;/li&gt;
+&lt;li&gt;缓解需训练层+推理层+系统层三层组合拳，缺一不可&lt;/li&gt;
+&lt;li&gt;最低成本的工程方案：RAG + 强制引用来源 + 置信度透出&lt;/li&gt;
+&lt;/ul&gt;
+&lt;h2 id=&#34;思考题&#34;&gt;思考题
+&lt;/h2&gt;&lt;ol&gt;
+&lt;li&gt;如果模型知道自己不知道某件事，它应该怎么做最优？是「编造一个最接近的答案」还是「直接说不知道」？这取决于什么场景？&lt;/li&gt;
+&lt;li&gt;为什么 LLM 在数学问题上也可能幻觉？代码领域幻觉和事实幻觉有什么不同？&lt;/li&gt;
+&lt;/ol&gt;
+</description>
+        </item>
+        
+    </channel>
+</rss>

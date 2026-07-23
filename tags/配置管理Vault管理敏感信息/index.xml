@@ -1,0 +1,133 @@
+<?xml version="1.0" encoding="utf-8" standalone="yes"?>
+<rss version="2.0" xmlns:atom="http://www.w3.org/2005/Atom">
+    <channel>
+        <title>配置管理：Vault管理敏感信息 on SelfTechHub</title>
+        <link>https://blog.irudder.me/tags/%E9%85%8D%E7%BD%AE%E7%AE%A1%E7%90%86Vault%E7%AE%A1%E7%90%86%E6%95%8F%E6%84%9F%E4%BF%A1%E6%81%AF.html</link>
+        <description>Recent content in 配置管理：Vault管理敏感信息 on SelfTechHub</description>
+        <generator>Hugo -- gohugo.io</generator>
+        <language>zh-cn</language>
+        <lastBuildDate>Wed, 12 Jan 2022 00:00:00 +0000</lastBuildDate><atom:link href="https://blog.irudder.me/tags/%E9%85%8D%E7%BD%AE%E7%AE%A1%E7%90%86Vault%E7%AE%A1%E7%90%86%E6%95%8F%E6%84%9F%E4%BF%A1%E6%81%AF/index.xml" rel="self" type="application/rss+xml" /><item>
+        <title>还在代码里硬编码密码？深夜炸雷的教训与Vault自救指南</title>
+        <link>https://blog.irudder.me/tech/devopsjichugongjurumenyushicao/peizhiguanli_vaultguanliminganxinxi.html</link>
+        <pubDate>Wed, 12 Jan 2022 00:00:00 +0000</pubDate>
+        
+        <guid>https://blog.irudder.me/tech/devopsjichugongjurumenyushicao/peizhiguanli_vaultguanliminganxinxi.html</guid>
+        <description>&lt;p&gt;如果你是一个开发者或者刚刚接手运维工作的“背锅侠”，你大概率经历过这样的惊魂时刻：&lt;/p&gt;
+&lt;p&gt;&lt;img src=&#34;https://picsum.photos/800/450?random=1768388501970&#34;
+	
+	
+	
+	loading=&#34;lazy&#34;
+	
+		alt=&#34;配图&#34;
+	
+	
+&gt;&lt;/p&gt;
+&lt;p&gt;或者是某位同事不小心把包含 &lt;code&gt;AWS_SECRET_KEY&lt;/code&gt; 的配置文件推到了公开的 GitHub 仓库；或者是数据库密码改了，但只有你的服务挂了，因为你把密码硬编码在了代码的第 302 行；又或者是离职三个月的前端外包小哥，居然还能连上你们的测试服数据库。&lt;/p&gt;
+&lt;p&gt;我曾以为把密码写在环境变量里、或者用 Kubernetes 的 Secret 就万事大吉了。直到两年前的一个凌晨三点，我被报警电话叫醒，因为一个泄露的密钥，我们的云服务账单在两小时内被刷爆了五千美金。&lt;/p&gt;
+&lt;p&gt;那一刻的无力感让我明白：&lt;strong&gt;管理敏感信息（Secrets），不是一个技术问题，而是一个关于“睡个好觉”的生存问题。&lt;/strong&gt;&lt;/p&gt;
+&lt;p&gt;今天不讲大道理，我们聊聊怎么用 HashiCorp Vault 这个工具，把悬在头顶的这把达摩克利斯之剑摘下来。&lt;/p&gt;
+&lt;h2 id=&#34;告别裸奔为什么-base64-不是加密&#34;&gt;告别“裸奔”：为什么 Base64 不是加密
+&lt;/h2&gt;&lt;p&gt;很多中小团队的技术负责人，在初期都会为了“快”而选择妥协。&lt;/p&gt;
+&lt;p&gt;最典型的场景是：大家把数据库连接串写在 &lt;code&gt;config.yaml&lt;/code&gt; 里，或者在 Kubernetes 里创建一个 Secret。但这里有个巨大的误区——&lt;strong&gt;Kubernetes 的 Secret 默认只是 Base64 编码，那不是加密，那是“裸奔”。&lt;/strong&gt; 任何人只要能拿到那个 yaml 文件，用一行命令就能还原出密码。&lt;/p&gt;
+&lt;p&gt;&lt;strong&gt;真实案例：&lt;/strong&gt;
+2021年，我曾协助一家电商初创团队做安全审计。他们的运维负责人“阿强”非常自信，说所有密码都走了 K8s Secret。结果我只用了 5 分钟，通过一个拥有“读取所有命名空间”权限的 CI/CD 机器人账号，把他们生产环境的 MySQL 根密码拿了出来。&lt;/p&gt;
+&lt;p&gt;阿强当时的脸色，比我在半夜看到的服务器报错日志还白。&lt;/p&gt;
+&lt;p&gt;&lt;strong&gt;我们需要的不是一个“存放”密码的地方，而是一个能“管理”密码生命周期的保险箱。&lt;/strong&gt;&lt;/p&gt;
+&lt;p&gt;这就引入了 Vault 的核心逻辑：&lt;strong&gt;集中存储、严格鉴权、甚至“用完即焚”。&lt;/strong&gt;&lt;/p&gt;
+&lt;p&gt;如果你还在纠结要不要上 Vault，请自查一下：&lt;/p&gt;
+&lt;ol&gt;
+&lt;li&gt;如果有员工离职，你需要手动修改几个系统的密码？&lt;/li&gt;
+&lt;li&gt;如果不看代码，你能确切知道哪些服务用了同一个数据库账号吗？&lt;/li&gt;
+&lt;/ol&gt;
+&lt;p&gt;如果答案让你心里没底，那就往下看。&lt;/p&gt;
+&lt;h2 id=&#34;治愈焦虑从静态密码到动态凭据&#34;&gt;治愈焦虑：从“静态密码”到“动态凭据”
+&lt;/h2&gt;&lt;p&gt;Vault 最让我感到“治愈”的功能，不是它加密有多强（虽然确实很强），而是&lt;strong&gt;Dynamic Secrets（动态凭据）&lt;/strong&gt;。&lt;/p&gt;
+&lt;p&gt;这是什么概念？&lt;/p&gt;
+&lt;p&gt;&lt;img src=&#34;https://picsum.photos/800/450?random=1768388501794&#34;
+	
+	
+	
+	loading=&#34;lazy&#34;
+	
+		alt=&#34;配图&#34;
+	
+	
+&gt;&lt;/p&gt;
+&lt;p&gt;传统的做法是：我（运维）创建一个数据库账号 &lt;code&gt;root/123456&lt;/code&gt;，然后把这个账号分发给 10 个微服务。这个密码万年不变，一旦泄露，全得重来。&lt;/p&gt;
+&lt;p&gt;Vault 的做法是：服务 A 启动时，找 Vault 说：“我是服务 A，我要连数据库。” Vault 确认身份后，&lt;strong&gt;临时&lt;/strong&gt;在数据库里创建一个账号 &lt;code&gt;user_temp_8s7d&lt;/code&gt;，给它 1 小时的有效期，然后把密码给服务 A。&lt;/p&gt;
+&lt;p&gt;&lt;strong&gt;一小时后，这个账号自动销毁。&lt;/strong&gt;&lt;/p&gt;
+&lt;p&gt;&lt;strong&gt;实操复盘：&lt;/strong&gt;
+去年，我们团队的一个老项目需要重构。以前这个项目的数据库密码是写死在 Docker 镜像里的，每次改密码都要重新打镜像、发版，极其痛苦。&lt;/p&gt;
+&lt;p&gt;后来我们接入了 Vault。那天下午，我坐在工位上看着监控日志：&lt;/p&gt;
+&lt;ul&gt;
+&lt;li&gt;14:00，服务启动，从 Vault 申请到了一个有效期 30 分钟的临时凭据。&lt;/li&gt;
+&lt;li&gt;14:30，旧凭据失效，服务无感刷新，获取了新凭据。&lt;/li&gt;
+&lt;/ul&gt;
+&lt;p&gt;整个过程，没有任何人工干预。即使黑客截获了那个密码，等他准备动手时，密码已经失效了。那种“即使门没锁，小偷进来发现桌子上全是废纸”的安全感，真的太棒了。&lt;/p&gt;
+&lt;p&gt;为了实现这个，你其实只需要简单的配置（以 Postgres 为例）：&lt;/p&gt;
+&lt;div class=&#34;highlight&#34;&gt;&lt;pre tabindex=&#34;0&#34; style=&#34;color:#f8f8f2;background-color:#272822;-moz-tab-size:4;-o-tab-size:4;tab-size:4;&#34;&gt;&lt;code class=&#34;language-hcl&#34; data-lang=&#34;hcl&#34;&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;&lt;span style=&#34;color:#75715e&#34;&gt;# 在 Vault 中配置数据库角色
+&lt;/span&gt;&lt;/span&gt;&lt;/span&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;&lt;span style=&#34;color:#75715e&#34;&gt;&lt;/span&gt;&lt;span style=&#34;color:#66d9ef&#34;&gt;resource&lt;/span&gt; &lt;span style=&#34;color:#e6db74&#34;&gt;&amp;#34;vault_database_secret_backend_role&amp;#34; &amp;#34;role&amp;#34;&lt;/span&gt; {
+&lt;/span&gt;&lt;/span&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;  backend             &lt;span style=&#34;color:#f92672&#34;&gt;=&lt;/span&gt; &lt;span style=&#34;color:#66d9ef&#34;&gt;vault_database_secret_backend_connection&lt;/span&gt;.&lt;span style=&#34;color:#66d9ef&#34;&gt;postgres&lt;/span&gt;.&lt;span style=&#34;color:#66d9ef&#34;&gt;backend&lt;/span&gt;
+&lt;/span&gt;&lt;/span&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;  name                &lt;span style=&#34;color:#f92672&#34;&gt;=&lt;/span&gt; &lt;span style=&#34;color:#e6db74&#34;&gt;&amp;#34;my-role&amp;#34;&lt;/span&gt;
+&lt;/span&gt;&lt;/span&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;  db_name             &lt;span style=&#34;color:#f92672&#34;&gt;=&lt;/span&gt; &lt;span style=&#34;color:#66d9ef&#34;&gt;vault_database_secret_backend_connection&lt;/span&gt;.&lt;span style=&#34;color:#66d9ef&#34;&gt;postgres&lt;/span&gt;.&lt;span style=&#34;color:#66d9ef&#34;&gt;name&lt;/span&gt;&lt;span style=&#34;color:#75715e&#34;&gt;
+&lt;/span&gt;&lt;/span&gt;&lt;/span&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;&lt;span style=&#34;color:#75715e&#34;&gt;  # 关键点：动态创建用户的 SQL 模板
+&lt;/span&gt;&lt;/span&gt;&lt;/span&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;&lt;span style=&#34;color:#75715e&#34;&gt;&lt;/span&gt;  creation_statements &lt;span style=&#34;color:#f92672&#34;&gt;=&lt;/span&gt; [ &lt;span style=&#34;color:#e6db74&#34;&gt;&amp;#34;CREATE ROLE \&amp;#34;\&amp;#34; WITH LOGIN PASSWORD &amp;#39;&amp;#39; VALID UNTIL &amp;#39;&amp;#39;;&amp;#34;, &amp;#34;GRANT SELECT ON ALL TABLES IN SCHEMA public TO \&amp;#34;\&amp;#34;;&amp;#34;&lt;/span&gt; ]
+&lt;/span&gt;&lt;/span&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;  default_ttl         &lt;span style=&#34;color:#f92672&#34;&gt;=&lt;/span&gt; &lt;span style=&#34;color:#ae81ff&#34;&gt;3600&lt;/span&gt;
+&lt;/span&gt;&lt;/span&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;  max_ttl             &lt;span style=&#34;color:#f92672&#34;&gt;=&lt;/span&gt; &lt;span style=&#34;color:#ae81ff&#34;&gt;86400&lt;/span&gt;
+&lt;/span&gt;&lt;/span&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;}
+&lt;/span&gt;&lt;/span&gt;&lt;/code&gt;&lt;/pre&gt;&lt;/div&gt;&lt;h2 id=&#34;落地指南别被架构图吓跑从小处入手&#34;&gt;落地指南：别被架构图吓跑，从小处入手
+&lt;/h2&gt;&lt;p&gt;很多新手被 Vault 劝退，是因为看到那复杂的 HA（高可用）架构图。但我亲测，对于中小团队，&lt;strong&gt;不要一上来就搞集群模式&lt;/strong&gt;。&lt;/p&gt;
+&lt;p&gt;&lt;strong&gt;我的建议是：先跑通流程，再考虑高可用。&lt;/strong&gt;&lt;/p&gt;
+&lt;p&gt;我在自己做 Side Project 的时候，通常采用 &lt;strong&gt;Vault Agent Sidecar&lt;/strong&gt; 模式注入到 Kubernetes 中。这种方式对开发人员最友好——他们甚至不需要改一行代码，不需要引入 Vault 的 SDK。&lt;/p&gt;
+&lt;p&gt;&lt;strong&gt;它是怎么工作的？&lt;/strong&gt;&lt;/p&gt;
+&lt;ol&gt;
+&lt;li&gt;在你的 Deployment yaml 里加个注解（Annotation）。&lt;/li&gt;
+&lt;li&gt;Pod 启动时，Vault 会塞一个“小帮手”容器进去。&lt;/li&gt;
+&lt;li&gt;这个“小帮手”负责把从 Vault 取到的密码，写成一个本地文件，比如 &lt;code&gt;/vault/secrets/config.json&lt;/code&gt;。&lt;/li&gt;
+&lt;li&gt;你的应用程序就像读取普通文件一样读取它。&lt;/li&gt;
+&lt;/ol&gt;
+&lt;p&gt;&lt;strong&gt;真实场景：&lt;/strong&gt;
+我有位做后端开发的朋友小李，特别抗拒改代码接 SDK。我让他试了这个 Sidecar 模式。&lt;/p&gt;
+&lt;p&gt;那天中午吃饭，他跟我说：“这东西有点意思，我代码里原本读的是 &lt;code&gt;.env&lt;/code&gt; 文件，现在我只要把 Vault 生成的文件路径指过去，代码一行没动，密码管理却变成了企业级标准。”&lt;/p&gt;
+&lt;p&gt;这种“非侵入式”的改造，是推行新技术的最佳姿势。&lt;/p&gt;
+&lt;h2 id=&#34;写在最后给自己的安全感充值&#34;&gt;写在最后：给自己的安全感充值
+&lt;/h2&gt;&lt;p&gt;技术工具的本质，是减少我们的认知负担。&lt;/p&gt;
+&lt;p&gt;配置管理不应该成为你加班的理由，也不应该成为深夜惊醒的噩梦。Vault 看起来门槛略高，但它解决的是根本性的信任问题。&lt;/p&gt;
+&lt;p&gt;&lt;strong&gt;分享一个我常用的 Vault Policy 模板&lt;/strong&gt;，这是权限控制的基础，复制保存，起步时一定用得上：&lt;/p&gt;
+&lt;div class=&#34;highlight&#34;&gt;&lt;pre tabindex=&#34;0&#34; style=&#34;color:#f8f8f2;background-color:#272822;-moz-tab-size:4;-o-tab-size:4;tab-size:4;&#34;&gt;&lt;code class=&#34;language-hcl&#34; data-lang=&#34;hcl&#34;&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;&lt;span style=&#34;color:#75715e&#34;&gt;# 允许应用读取特定的密钥路径
+&lt;/span&gt;&lt;/span&gt;&lt;/span&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;&lt;span style=&#34;color:#75715e&#34;&gt;&lt;/span&gt;&lt;span style=&#34;color:#66d9ef&#34;&gt;path&lt;/span&gt; &lt;span style=&#34;color:#e6db74&#34;&gt;&amp;#34;secret/data/my-app/*&amp;#34;&lt;/span&gt; {
+&lt;/span&gt;&lt;/span&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;  capabilities &lt;span style=&#34;color:#f92672&#34;&gt;=&lt;/span&gt; [&lt;span style=&#34;color:#e6db74&#34;&gt;&amp;#34;read&amp;#34;&lt;/span&gt;]
+&lt;/span&gt;&lt;/span&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;}&lt;span style=&#34;color:#75715e&#34;&gt;
+&lt;/span&gt;&lt;/span&gt;&lt;/span&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;&lt;span style=&#34;color:#75715e&#34;&gt;
+&lt;/span&gt;&lt;/span&gt;&lt;/span&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;&lt;span style=&#34;color:#75715e&#34;&gt;# 严禁应用删除或列出所有密钥（最小权限原则）
+&lt;/span&gt;&lt;/span&gt;&lt;/span&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;&lt;span style=&#34;color:#75715e&#34;&gt;&lt;/span&gt;&lt;span style=&#34;color:#66d9ef&#34;&gt;path&lt;/span&gt; &lt;span style=&#34;color:#e6db74&#34;&gt;&amp;#34;secret/metadata/*&amp;#34;&lt;/span&gt; {
+&lt;/span&gt;&lt;/span&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;  capabilities &lt;span style=&#34;color:#f92672&#34;&gt;=&lt;/span&gt; [&lt;span style=&#34;color:#e6db74&#34;&gt;&amp;#34;list&amp;#34;&lt;/span&gt;]
+&lt;/span&gt;&lt;/span&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;}&lt;span style=&#34;color:#75715e&#34;&gt;
+&lt;/span&gt;&lt;/span&gt;&lt;/span&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;&lt;span style=&#34;color:#75715e&#34;&gt;
+&lt;/span&gt;&lt;/span&gt;&lt;/span&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;&lt;span style=&#34;color:#75715e&#34;&gt;# 允许应用续期自己的 Token
+&lt;/span&gt;&lt;/span&gt;&lt;/span&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;&lt;span style=&#34;color:#75715e&#34;&gt;&lt;/span&gt;&lt;span style=&#34;color:#66d9ef&#34;&gt;path&lt;/span&gt; &lt;span style=&#34;color:#e6db74&#34;&gt;&amp;#34;auth/token/renew-self&amp;#34;&lt;/span&gt; {
+&lt;/span&gt;&lt;/span&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;  capabilities &lt;span style=&#34;color:#f92672&#34;&gt;=&lt;/span&gt; [&lt;span style=&#34;color:#e6db74&#34;&gt;&amp;#34;update&amp;#34;&lt;/span&gt;]
+&lt;/span&gt;&lt;/span&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;}
+&lt;/span&gt;&lt;/span&gt;&lt;/code&gt;&lt;/pre&gt;&lt;/div&gt;&lt;p&gt;&lt;strong&gt;如果你想在明天就开始改变，不妨尝试这 3 个具体行动：&lt;/strong&gt;&lt;/p&gt;
+&lt;p&gt;&lt;img src=&#34;https://picsum.photos/800/450?random=1768388493561&#34;
+	
+	
+	
+	loading=&#34;lazy&#34;
+	
+		alt=&#34;配图&#34;
+	
+	
+&gt;&lt;/p&gt;
+&lt;ol&gt;
+&lt;li&gt;&lt;strong&gt;全局搜索&lt;/strong&gt;：立刻在你的代码仓库里搜索 &lt;code&gt;password&lt;/code&gt;、&lt;code&gt;secret&lt;/code&gt;、&lt;code&gt;key&lt;/code&gt; 等关键词，把搜出来的硬编码全部记录下来（相信我，结果会吓你一跳）。&lt;/li&gt;
+&lt;li&gt;&lt;strong&gt;本地体验&lt;/strong&gt;：不要急着上生产，在本地 Docker 跑一个 &lt;code&gt;vault server -dev&lt;/code&gt;，体验一下 &lt;code&gt;vault kv put&lt;/code&gt; 和 &lt;code&gt;vault kv get&lt;/code&gt; 的手感。&lt;/li&gt;
+&lt;li&gt;&lt;strong&gt;单点突破&lt;/strong&gt;：挑选一个&lt;strong&gt;非核心、低风险&lt;/strong&gt;的内部服务（比如每天跑一次的报表任务），尝试把它的数据库连接改成通过 Vault 获取。&lt;/li&gt;
+&lt;/ol&gt;
+&lt;p&gt;安全感不是别人给的，是自己配置出来的。希望今晚，大家都能睡个安稳觉。&lt;/p&gt;
+</description>
+        </item>
+        
+    </channel>
+</rss>

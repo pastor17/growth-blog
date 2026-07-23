@@ -1,0 +1,141 @@
+<?xml version="1.0" encoding="utf-8" standalone="yes"?>
+<rss version="2.0" xmlns:atom="http://www.w3.org/2005/Atom">
+    <channel>
+        <title>CI/CD流水线的故障排查：常见问题解决 on SelfTechHub</title>
+        <link>https://blog.irudder.me/tags/CI/CD%E6%B5%81%E6%B0%B4%E7%BA%BF%E7%9A%84%E6%95%85%E9%9A%9C%E6%8E%92%E6%9F%A5%E5%B8%B8%E8%A7%81%E9%97%AE%E9%A2%98%E8%A7%A3%E5%86%B3.html</link>
+        <description>Recent content in CI/CD流水线的故障排查：常见问题解决 on SelfTechHub</description>
+        <generator>Hugo -- gohugo.io</generator>
+        <language>zh-cn</language>
+        <lastBuildDate>Mon, 28 Jun 2021 00:00:00 +0000</lastBuildDate><atom:link href="https://blog.irudder.me/tags/CI/CD%E6%B5%81%E6%B0%B4%E7%BA%BF%E7%9A%84%E6%95%85%E9%9A%9C%E6%8E%92%E6%9F%A5%E5%B8%B8%E8%A7%81%E9%97%AE%E9%A2%98%E8%A7%A3%E5%86%B3/index.xml" rel="self" type="application/rss+xml" /><item>
+        <title>CI/CD总在凌晨挂？3个实战策略拯救你的发际线</title>
+        <link>https://blog.irudder.me/tech/danxiangmuquanliuchengchaijie10fenzhongkedu/ci_cdliushuixiandeguzhangpaicha_changjianwentijiejue.html</link>
+        <pubDate>Mon, 28 Jun 2021 00:00:00 +0000</pubDate>
+        
+        <guid>https://blog.irudder.me/tech/danxiangmuquanliuchengchaijie10fenzhongkedu/ci_cdliushuixiandeguzhangpaicha_changjianwentijiejue.html</guid>
+        <description>&lt;p&gt;在这个行业摸爬滚打多年，我发现一个有趣的现象：&lt;strong&gt;越是强调&amp;quot;敏捷&amp;quot;的中小团队，CI/CD流水线反而越容易成为瓶颈。&lt;/strong&gt;&lt;/p&gt;
+&lt;p&gt;很多人应该都有过这样的经历：周五下午五点，代码合并，满心欢喜准备发布后去过周末。结果流水线红灯一亮，报错信息像天书一样晦涩，本地运行明明一切正常，CI环境里就是跑不通。于是，美好的周末变成了&amp;quot;CI Debug大会&amp;quot;。&lt;/p&gt;
+&lt;p&gt;我曾以为只要搭好Jenkins或GitLab CI，写好脚本就万事大吉。直到我不止一次目睹因为流水线配置漂移导致的生产事故，才明白：&lt;strong&gt;CI/CD不仅是工具，更是团队工程素养的照妖镜。&lt;/strong&gt;&lt;/p&gt;
+&lt;p&gt;今天不谈大厂那些高大上的理论，只聊聊中小团队最容易踩的坑，以及我亲测有效的硬核解法。&lt;/p&gt;
+&lt;h2 id=&#34;一-幽灵报错与环境漂移别再信在我电脑上是好的&#34;&gt;一、 &amp;ldquo;幽灵报错&amp;quot;与环境漂移：别再信&amp;quot;在我电脑上是好的&amp;rdquo;
+&lt;/h2&gt;&lt;p&gt;这是我见过最杀开发者心态的问题。本地测试全绿，推送到流水线就挂，重跑一次可能又过了。&lt;/p&gt;
+&lt;p&gt;&lt;strong&gt;真实案例：&lt;/strong&gt;
+2022年，我协助过一个电商初创团队。他们的后端开发小王每次提交代码都提心吊胆。有次大促前夕，流水线构建失败，报错提示某个Python依赖包找不到。小王发誓本地环境没问题。排查了整整4个小时，最后发现是CI服务器上的&lt;code&gt;pip&lt;/code&gt;版本比本地低了大版本，导致依赖解析逻辑不同。&lt;/p&gt;
+&lt;p&gt;更糟糕的是，之前的运维为了图省事，直接在CI服务器上手动装包，导致环境已经是个&amp;quot;脏&amp;quot;环境，谁也不敢重置。&lt;/p&gt;
+&lt;p&gt;&lt;strong&gt;底层逻辑拆解：&lt;/strong&gt;
+中小团队常犯的错误是把CI Runner当宠物养，而不是当牲口用。环境不隔离，依赖全靠全局安装，时间久了，&lt;strong&gt;环境漂移（Environment Drift）&lt;/strong&gt; 是必然的。&lt;/p&gt;
+&lt;p&gt;&lt;strong&gt;硬核解决方案：&lt;/strong&gt;&lt;/p&gt;
+&lt;ol&gt;
+&lt;li&gt;&lt;strong&gt;容器化一切构建环境：&lt;/strong&gt; 不要依赖物理机的环境。&lt;/li&gt;
+&lt;li&gt;&lt;strong&gt;版本锁定（Pinning）：&lt;/strong&gt; 所有的依赖文件（package-lock.json, requirements.txt, go.sum）必须进版本控制，且必须锁定精确版本号。&lt;/li&gt;
+&lt;/ol&gt;
+&lt;p&gt;我建议在你的 &lt;code&gt;.gitlab-ci.yml&lt;/code&gt; 或 Jenkinsfile 中，直接使用特定的Docker镜像作为构建环境，而不是依赖宿主机：&lt;/p&gt;
+&lt;div class=&#34;highlight&#34;&gt;&lt;pre tabindex=&#34;0&#34; style=&#34;color:#f8f8f2;background-color:#272822;-moz-tab-size:4;-o-tab-size:4;tab-size:4;&#34;&gt;&lt;code class=&#34;language-yaml&#34; data-lang=&#34;yaml&#34;&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;&lt;span style=&#34;color:#75715e&#34;&gt;# 错误示范：依赖宿主机环境&lt;/span&gt;
+&lt;/span&gt;&lt;/span&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;&lt;span style=&#34;color:#75715e&#34;&gt;# script:&lt;/span&gt;
+&lt;/span&gt;&lt;/span&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;&lt;span style=&#34;color:#75715e&#34;&gt;#   - npm install&lt;/span&gt;
+&lt;/span&gt;&lt;/span&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;&lt;span style=&#34;color:#75715e&#34;&gt;#   - npm run build&lt;/span&gt;
+&lt;/span&gt;&lt;/span&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;
+&lt;/span&gt;&lt;/span&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;&lt;span style=&#34;color:#75715e&#34;&gt;# 正确示范：指定干净的Docker镜像，所见即所得&lt;/span&gt;
+&lt;/span&gt;&lt;/span&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;&lt;span style=&#34;color:#f92672&#34;&gt;image&lt;/span&gt;: &lt;span style=&#34;color:#ae81ff&#34;&gt;node:16.14.0-alpine&lt;/span&gt;
+&lt;/span&gt;&lt;/span&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;&lt;span style=&#34;color:#f92672&#34;&gt;script&lt;/span&gt;:
+&lt;/span&gt;&lt;/span&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;  - &lt;span style=&#34;color:#ae81ff&#34;&gt;npm ci&lt;/span&gt; &lt;span style=&#34;color:#75715e&#34;&gt;# 使用 ci 也就是 clean install，严格依照 lock 文件&lt;/span&gt;
+&lt;/span&gt;&lt;/span&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;  - &lt;span style=&#34;color:#ae81ff&#34;&gt;npm run build&lt;/span&gt;
+&lt;/span&gt;&lt;/span&gt;&lt;/code&gt;&lt;/pre&gt;&lt;/div&gt;&lt;p&gt;&lt;strong&gt;实施效果：&lt;/strong&gt; 那个电商团队后来强制推行了Docker化构建，&amp;ldquo;幽灵报错&amp;quot;率下降了90%，上线前的焦虑感基本消失。&lt;/p&gt;
+&lt;h2 id=&#34;二-流水线成了慢吞吞的巨兽时间就是生命&#34;&gt;二、 流水线成了&amp;quot;慢吞吞的巨兽&amp;rdquo;：时间就是生命
+&lt;/h2&gt;&lt;p&gt;如果你的流水线跑一次需要30分钟以上，那我敢打赌，你的团队不仅士气低落，而且代码质量堪忧。因为反馈周期太长，没人愿意为了改一行代码去等半小时的构建。&lt;/p&gt;
+&lt;p&gt;&lt;img src=&#34;https://picsum.photos/800/450?random=1768531195671&#34;
+	
+	
+	
+	loading=&#34;lazy&#34;
+	
+		alt=&#34;配图&#34;
+	
+	
+&gt;&lt;/p&gt;
+&lt;p&gt;&lt;strong&gt;真实案例：&lt;/strong&gt;
+某SaaS项目组，每次后端提交都要跑全量单元测试和集成测试。随着业务增长，测试用例从500个膨胀到5000个，构建时间从5分钟变成了45分钟。&lt;/p&gt;
+&lt;p&gt;项目经理老张找我抱怨：&amp;ldquo;兄弟们现在都不爱提交代码了，攒一堆才提，由于冲突太多，合并代码又得花半天。&amp;rdquo;&lt;/p&gt;
+&lt;p&gt;&lt;strong&gt;底层逻辑拆解：&lt;/strong&gt;
+这是典型的&lt;strong&gt;单线程思维&lt;/strong&gt;。很多团队的流水线是串行的：下载代码 -&amp;gt; 装依赖 -&amp;gt; 静态检查 -&amp;gt; 单元测试 -&amp;gt; 构建镜像 -&amp;gt; 部署。任何一个环节慢，整体就慢。且忽略了缓存的重要性。&lt;/p&gt;
+&lt;p&gt;&lt;strong&gt;硬核解决方案：&lt;/strong&gt;&lt;/p&gt;
+&lt;ol&gt;
+&lt;li&gt;&lt;strong&gt;激进的缓存策略：&lt;/strong&gt; 依赖包（node_modules, .m2, .cache）如果不变，坚决不重新下载。&lt;/li&gt;
+&lt;li&gt;&lt;strong&gt;并行与分层（Parallelism &amp;amp; Layering）：&lt;/strong&gt; 静态检查（Lint）和单元测试可以同时跑。&lt;/li&gt;
+&lt;/ol&gt;
+&lt;p&gt;&lt;strong&gt;具体操作：&lt;/strong&gt;
+我通常会把依赖安装和构建过程分离，利用Docker的分层缓存机制。&lt;/p&gt;
+&lt;div class=&#34;highlight&#34;&gt;&lt;pre tabindex=&#34;0&#34; style=&#34;color:#f8f8f2;background-color:#272822;-moz-tab-size:4;-o-tab-size:4;tab-size:4;&#34;&gt;&lt;code class=&#34;language-dockerfile&#34; data-lang=&#34;dockerfile&#34;&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;&lt;span style=&#34;color:#75715e&#34;&gt;# Dockerfile 优化技巧&lt;/span&gt;&lt;span style=&#34;color:#960050;background-color:#1e0010&#34;&gt;
+&lt;/span&gt;&lt;/span&gt;&lt;/span&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;&lt;span style=&#34;color:#960050;background-color:#1e0010&#34;&gt;&lt;/span&gt;&lt;span style=&#34;color:#75715e&#34;&gt;# 1. 先拷贝依赖描述文件&lt;/span&gt;&lt;span style=&#34;color:#960050;background-color:#1e0010&#34;&gt;
+&lt;/span&gt;&lt;/span&gt;&lt;/span&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;&lt;span style=&#34;color:#960050;background-color:#1e0010&#34;&gt;&lt;/span&gt;&lt;span style=&#34;color:#66d9ef&#34;&gt;COPY&lt;/span&gt; package.json package-lock.json ./&lt;span style=&#34;color:#960050;background-color:#1e0010&#34;&gt;
+&lt;/span&gt;&lt;/span&gt;&lt;/span&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;&lt;span style=&#34;color:#960050;background-color:#1e0010&#34;&gt;&lt;/span&gt;&lt;span style=&#34;color:#75715e&#34;&gt;# 2. 安装依赖（这一层如果文件没变，会被Docker缓存，瞬间完成）&lt;/span&gt;&lt;span style=&#34;color:#960050;background-color:#1e0010&#34;&gt;
+&lt;/span&gt;&lt;/span&gt;&lt;/span&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;&lt;span style=&#34;color:#960050;background-color:#1e0010&#34;&gt;&lt;/span&gt;&lt;span style=&#34;color:#66d9ef&#34;&gt;RUN&lt;/span&gt; npm ci&lt;span style=&#34;color:#960050;background-color:#1e0010&#34;&gt;
+&lt;/span&gt;&lt;/span&gt;&lt;/span&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;&lt;span style=&#34;color:#960050;background-color:#1e0010&#34;&gt;&lt;/span&gt;&lt;span style=&#34;color:#75715e&#34;&gt;# 3. 最后才拷贝源代码&lt;/span&gt;&lt;span style=&#34;color:#960050;background-color:#1e0010&#34;&gt;
+&lt;/span&gt;&lt;/span&gt;&lt;/span&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;&lt;span style=&#34;color:#960050;background-color:#1e0010&#34;&gt;&lt;/span&gt;&lt;span style=&#34;color:#66d9ef&#34;&gt;COPY&lt;/span&gt; . .&lt;span style=&#34;color:#960050;background-color:#1e0010&#34;&gt;
+&lt;/span&gt;&lt;/span&gt;&lt;/span&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;&lt;span style=&#34;color:#960050;background-color:#1e0010&#34;&gt;&lt;/span&gt;&lt;span style=&#34;color:#66d9ef&#34;&gt;RUN&lt;/span&gt; npm run build&lt;span style=&#34;color:#960050;background-color:#1e0010&#34;&gt;
+&lt;/span&gt;&lt;/span&gt;&lt;/span&gt;&lt;/code&gt;&lt;/pre&gt;&lt;/div&gt;&lt;p&gt;对于那个SaaS团队，我们做了两件事：开启GitLab CI的构建缓存，并将测试任务拆分成4个Job并行执行。&lt;strong&gt;结果：构建时间从45分钟压缩到了12分钟。&lt;/strong&gt; 团队的代码提交频率直接翻倍。&lt;/p&gt;
+&lt;h2 id=&#34;三-yaml工程师的困局脚本甚至比代码还难维护&#34;&gt;三、 &amp;ldquo;YAML工程师&amp;quot;的困局：脚本甚至比代码还难维护
+&lt;/h2&gt;&lt;p&gt;当项目变多，你会发现每个仓库里都有一坨几十行甚至上百行的CI配置文件。运维人员变成了&amp;quot;YAML配置工程师&amp;rdquo;，每天忙着复制粘贴。&lt;/p&gt;
+&lt;p&gt;&lt;strong&gt;真实案例：&lt;/strong&gt;
+某金融科技公司，有12个微服务模块。有一天需要统一加一个安全扫描的步骤。运维小李不得不打开12个仓库，手动修改每一个Jenkinsfile。结果手滑，导致其中3个服务的生产部署逻辑被误删，差点酿成大祸。&lt;/p&gt;
+&lt;p&gt;&lt;strong&gt;底层逻辑拆解：&lt;/strong&gt;
+这是&lt;strong&gt;违反DRY（Don&amp;rsquo;t Repeat Yourself）原则&lt;/strong&gt;的典型表现。CI/CD配置也是代码，也需要模块化和复用。&lt;/p&gt;
+&lt;p&gt;&lt;strong&gt;硬核解决方案：&lt;/strong&gt;
+&lt;strong&gt;构建模板库（Templates/Shared Libraries）。&lt;/strong&gt;&lt;/p&gt;
+&lt;p&gt;无论是Jenkins的Shared Library，还是GitLab CI的 &lt;code&gt;include&lt;/code&gt; 功能，GitHub Actions的 &lt;code&gt;Composite Action&lt;/code&gt;，都能让你把通用的逻辑抽离出来。&lt;/p&gt;
+&lt;p&gt;我给团队定下的规矩是：&lt;strong&gt;业务仓库里的CI配置不能超过20行。&lt;/strong&gt; 所有的核心逻辑（构建镜像、推送到仓库、部署到K8s）全部封装在公共模板里。&lt;/p&gt;
+&lt;p&gt;&lt;strong&gt;改进方案参考：&lt;/strong&gt;&lt;/p&gt;
+&lt;div class=&#34;highlight&#34;&gt;&lt;pre tabindex=&#34;0&#34; style=&#34;color:#f8f8f2;background-color:#272822;-moz-tab-size:4;-o-tab-size:4;tab-size:4;&#34;&gt;&lt;code class=&#34;language-yaml&#34; data-lang=&#34;yaml&#34;&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;&lt;span style=&#34;color:#75715e&#34;&gt;# 业务项目的 .gitlab-ci.yml 变得极简&lt;/span&gt;
+&lt;/span&gt;&lt;/span&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;&lt;span style=&#34;color:#f92672&#34;&gt;include&lt;/span&gt;:
+&lt;/span&gt;&lt;/span&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;  - &lt;span style=&#34;color:#f92672&#34;&gt;project&lt;/span&gt;: &lt;span style=&#34;color:#e6db74&#34;&gt;&amp;#39;devops/ci-templates&amp;#39;&lt;/span&gt;
+&lt;/span&gt;&lt;/span&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;    &lt;span style=&#34;color:#f92672&#34;&gt;file&lt;/span&gt;: &lt;span style=&#34;color:#e6db74&#34;&gt;&amp;#39;/templates/java-microservice.yml&amp;#39;&lt;/span&gt;
+&lt;/span&gt;&lt;/span&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;
+&lt;/span&gt;&lt;/span&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;&lt;span style=&#34;color:#f92672&#34;&gt;variables&lt;/span&gt;:
+&lt;/span&gt;&lt;/span&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;  &lt;span style=&#34;color:#f92672&#34;&gt;SERVICE_NAME&lt;/span&gt;: &lt;span style=&#34;color:#e6db74&#34;&gt;&amp;#34;user-center&amp;#34;&lt;/span&gt;
+&lt;/span&gt;&lt;/span&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;  &lt;span style=&#34;color:#f92672&#34;&gt;JAVA_VERSION&lt;/span&gt;: &lt;span style=&#34;color:#e6db74&#34;&gt;&amp;#34;17&amp;#34;&lt;/span&gt;
+&lt;/span&gt;&lt;/span&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;
+&lt;/span&gt;&lt;/span&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;&lt;span style=&#34;color:#75715e&#34;&gt;# 只需要定义变量，逻辑全在模板里&lt;/span&gt;
+&lt;/span&gt;&lt;/span&gt;&lt;/code&gt;&lt;/pre&gt;&lt;/div&gt;&lt;p&gt;这样，当我要加安全扫描时，只需要改一次模板库，所有引用的12个微服务自动生效。&lt;/p&gt;
+&lt;h2 id=&#34;结尾选择权在你&#34;&gt;结尾：选择权在你
+&lt;/h2&gt;&lt;p&gt;&lt;img src=&#34;https://picsum.photos/800/450?random=1768531193687&#34;
+	
+	
+	
+	loading=&#34;lazy&#34;
+	
+		alt=&#34;配图&#34;
+	
+	
+&gt;&lt;/p&gt;
+&lt;p&gt;回顾这三个坑，其实并不深奥，但往往被忙碌的业务迭代所掩盖。&lt;/p&gt;
+&lt;ol&gt;
+&lt;li&gt;&lt;strong&gt;环境隔离&lt;/strong&gt;解决的是&amp;quot;稳定性&amp;quot;；&lt;/li&gt;
+&lt;li&gt;&lt;strong&gt;缓存与并行&lt;/strong&gt;解决的是&amp;quot;效率&amp;quot;；&lt;/li&gt;
+&lt;li&gt;&lt;strong&gt;模板化&lt;/strong&gt;解决的是&amp;quot;可维护性&amp;quot;。&lt;/li&gt;
+&lt;/ol&gt;
+&lt;p&gt;&lt;strong&gt;这里我想发起一个小投票：&lt;/strong&gt;
+如果资源有限，必须在**&amp;ldquo;构建速度&amp;rdquo;&lt;strong&gt;和&lt;/strong&gt;&amp;ldquo;测试覆盖全度&amp;rdquo;**之间二选一，你更倾向于哪种妥协方案？
+A. 哪怕跑1小时，也要全量测完，安全第一。
+B. 必须10分钟内出结果，只跑核心测试，剩下的交给金丝雀发布去验证。&lt;/p&gt;
+&lt;p&gt;评论区告诉我你的选择。&lt;/p&gt;
+&lt;p&gt;&lt;strong&gt;给读者的3个落地行动步骤：&lt;/strong&gt;&lt;/p&gt;
+&lt;p&gt;&lt;img src=&#34;https://picsum.photos/800/450?random=1768531191529&#34;
+	
+	
+	
+	loading=&#34;lazy&#34;
+	
+		alt=&#34;配图&#34;
+	
+	
+&gt;&lt;/p&gt;
+&lt;ol&gt;
+&lt;li&gt;&lt;strong&gt;本周五下午：&lt;/strong&gt; 检查你的CI构建日志，找出耗时最长的那个步骤（通常是依赖安装或测试），尝试加上缓存或并行配置。&lt;/li&gt;
+&lt;li&gt;&lt;strong&gt;下周一早会：&lt;/strong&gt; 统计过去一个月流水线失败的原因。如果是&amp;quot;环境问题&amp;quot;占比超过30%，请立即着手容器化构建环境。&lt;/li&gt;
+&lt;li&gt;&lt;strong&gt;长期习惯：&lt;/strong&gt; 哪怕是只有3个人的小团队，也请把通用的构建脚本抽离到一个单独的Git仓库中维护，这会是你未来扩展的最重要基石。&lt;/li&gt;
+&lt;/ol&gt;
+&lt;p&gt;CI/CD是为了解放双手，而不是制造焦虑。希望你的流水线，永远常绿。&lt;/p&gt;
+</description>
+        </item>
+        
+    </channel>
+</rss>

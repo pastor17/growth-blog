@@ -1,0 +1,466 @@
+<!DOCTYPE html>
+<html lang="zh-cn" dir="ltr">
+    <head><meta charset='utf-8'>
+<meta name='viewport' content='width=device-width, initial-scale=1'><meta name='description' content="不知你是否也有过这样的经历：\n刚接手一个项目，被告知要进行“架构评审”。那一瞬间，脑海里浮现的是严肃的会议室、满屏复杂的UML图，还有大佬们像审讯犯人一样，对着你的设计方案狂轰滥炸。\n“这里为什么要用MQ？” “并发量上来怎么扛？” “你这个设计扩展性太差了！”\n我曾以为，这就是架构评审的常态。直到几年前，我带的一个5人小团队因为过度追求这种“正规化”评审，导致项目还没开发，大家就先被文档累垮了。\n其实，对于中小团队而言，架构评审不该是一场“批斗会”，而应是一场**“避坑指南”**。今天想和大家聊聊，如何用最轻量的方式，把架构评审做得既温暖又有价值。\n告别“大厂病”，从扔掉30页文档开始\r很多刚做架构或者Tech Lead的朋友，容易陷入一个误区：觉得文档写得越厚，设计就越严谨。\n2019年，我负责一个电商促销活动的小程序后端。当时为了显得“专业”，我让团队里的骨干大刘写了一份长达30页的架构设计文档。包含了详细的类图、时序图，甚至连数据库字段的备注都写得清清楚楚。\n结果呢？\n评审会上，大家盯着密密麻麻的文档昏昏欲睡。没人能看完所有细节，只能就着排版和变量命名这种细枝末节提意见。\n项目上线前一天，需求变更，大刘看着那份这一周都没怎么更新的30页文档，心态崩了——代码改起来容易，文档同步更新太难了。最终，文档成了废纸，新来的同事看文档接手代码，直接被误导踩坑。\n从那以后，我给团队定了个规矩：评审文档不得超过3页A4纸。\n我们不再追求大而全，而是聚焦**“核心路径”和“边界问题”**。对于小团队，你只需要讲清楚三件事：\n数据怎么流转？（画一张草图） 哪里最容易挂？（比如数据库瓶颈、第三方接口超时） 万一挂了怎么办？（兜底方案） 避坑建议： 不要一开始就画精美的Visio或ProcessOn。试着拿一张白纸，如果你不能在5分钟内把核心架构画出来并讲清楚，说明设计本身就太复杂了。\n“白板对话”：把审讯变成协同\r消除了文档焦虑，接下来要解决的是“心理焦虑”。\n很多开发人员害怕评审，是因为怕被公开处刑。一旦气氛变成“找茬”，大家就会本能地防御，为了维护面子而争论，而不是为了解决问题。\n我有个习惯，每周五下午的Technical Review，我们不投屏PPT，而是大家围在一块白板前。\n记得有一次，团队里的小张设计了一个积分系统。他在白板上画这套逻辑时，手有点抖，显然是怕我想以前那样挑刺。\n我没有问“为什么不&hellip;”，而是拿起笔，在他的数据库图标旁画了个问号，温和地问：“小张，假如发积分的时候，这个用户恰好在退款，这里的数据一致性我们怎么处理比较稳妥？”\n“怎么处理比较稳妥”，这句话把“你错了”变成了“我们一起想办法”。\n小张愣了一下，放松下来，拿起笔在旁边画了个事务补偿的逻辑：“要不加个本地消息表？”\n你看，当评审变成**“针对白板上的涂鸦”而不是“针对人”**时，创意的火花才会被点燃。那次评审只用了20分钟，我们就在白板上解决了三个潜在的并发Bug。\n实操技巧：\n架构评审的核心是**“纠偏”，而不是“打分”**。\n试着在评审中使用**“橡胶鸭调试法”**的变种：让主讲人对着白板，像给非技术人员讲故事一样，把数据流走一遍。很多逻辑漏洞，讲着讲着自己就发现了。\n留痕不留量：一张ADR胜过千言万语\r轻量级评审不代表不记录。但我们不记流水账，只记决策。\n你是否遇到过这种情况：接手一段两年前的代码，看着奇怪的逻辑骂娘，完全想不通当时为什么这么写？\n这就是缺失了ADR（Architecture Decision Record，架构决策记录）。\n在我的团队里，每次白板讨论完，不需要整理精美的会议纪要，只需要主讲人在代码仓库里提交一个简单的Markdown文件。\n这就是我用了两年的模板，非常简单：\n# ADR-005: 选用Redis做秒杀库存扣减 **状态**: 已采纳 **日期**: 2023-10-27 **参与者**: 大刘, 小张, 我 **背景**: 我们需要处理双十一期间每秒约2000次的库存扣减请求，MySQL直接Update扛不住。 **决策**: 1. 使用Redis的Lua脚本进行库存预扣减。 2. 异步同步数据到MySQL。 **后果**: - 好处：性能提升10倍以上。 - 风险：Redis宕机可能导致短暂的数据不一致。 - 应对：Redis配置AOF每秒刷盘，接受极小概率的库存偏差。 看到了吗？包含了背景、决策、以及最重要的——我们接受了什么风险。\n">
+<title>拒绝PPT！小团队架构评审，一张白板就够了</title>
+
+<link rel='canonical' href='https://blog.irudder.me/tech/zhongxiaoxingxiangmujiagoushejizhinan/jiagoupingshen_xiaotuanduideqingliangjiliucheng.html'>
+
+<link rel="stylesheet" href="/scss/style.min.b9e9128fec450ebccecc4ec9900157f32b85d0609bcd5ee3293968bcaa1235f2.css"><meta property='og:title' content="拒绝PPT！小团队架构评审，一张白板就够了">
+<meta property='og:description' content="不知你是否也有过这样的经历：\n刚接手一个项目，被告知要进行“架构评审”。那一瞬间，脑海里浮现的是严肃的会议室、满屏复杂的UML图，还有大佬们像审讯犯人一样，对着你的设计方案狂轰滥炸。\n“这里为什么要用MQ？” “并发量上来怎么扛？” “你这个设计扩展性太差了！”\n我曾以为，这就是架构评审的常态。直到几年前，我带的一个5人小团队因为过度追求这种“正规化”评审，导致项目还没开发，大家就先被文档累垮了。\n其实，对于中小团队而言，架构评审不该是一场“批斗会”，而应是一场**“避坑指南”**。今天想和大家聊聊，如何用最轻量的方式，把架构评审做得既温暖又有价值。\n告别“大厂病”，从扔掉30页文档开始\r很多刚做架构或者Tech Lead的朋友，容易陷入一个误区：觉得文档写得越厚，设计就越严谨。\n2019年，我负责一个电商促销活动的小程序后端。当时为了显得“专业”，我让团队里的骨干大刘写了一份长达30页的架构设计文档。包含了详细的类图、时序图，甚至连数据库字段的备注都写得清清楚楚。\n结果呢？\n评审会上，大家盯着密密麻麻的文档昏昏欲睡。没人能看完所有细节，只能就着排版和变量命名这种细枝末节提意见。\n项目上线前一天，需求变更，大刘看着那份这一周都没怎么更新的30页文档，心态崩了——代码改起来容易，文档同步更新太难了。最终，文档成了废纸，新来的同事看文档接手代码，直接被误导踩坑。\n从那以后，我给团队定了个规矩：评审文档不得超过3页A4纸。\n我们不再追求大而全，而是聚焦**“核心路径”和“边界问题”**。对于小团队，你只需要讲清楚三件事：\n数据怎么流转？（画一张草图） 哪里最容易挂？（比如数据库瓶颈、第三方接口超时） 万一挂了怎么办？（兜底方案） 避坑建议： 不要一开始就画精美的Visio或ProcessOn。试着拿一张白纸，如果你不能在5分钟内把核心架构画出来并讲清楚，说明设计本身就太复杂了。\n“白板对话”：把审讯变成协同\r消除了文档焦虑，接下来要解决的是“心理焦虑”。\n很多开发人员害怕评审，是因为怕被公开处刑。一旦气氛变成“找茬”，大家就会本能地防御，为了维护面子而争论，而不是为了解决问题。\n我有个习惯，每周五下午的Technical Review，我们不投屏PPT，而是大家围在一块白板前。\n记得有一次，团队里的小张设计了一个积分系统。他在白板上画这套逻辑时，手有点抖，显然是怕我想以前那样挑刺。\n我没有问“为什么不&hellip;”，而是拿起笔，在他的数据库图标旁画了个问号，温和地问：“小张，假如发积分的时候，这个用户恰好在退款，这里的数据一致性我们怎么处理比较稳妥？”\n“怎么处理比较稳妥”，这句话把“你错了”变成了“我们一起想办法”。\n小张愣了一下，放松下来，拿起笔在旁边画了个事务补偿的逻辑：“要不加个本地消息表？”\n你看，当评审变成**“针对白板上的涂鸦”而不是“针对人”**时，创意的火花才会被点燃。那次评审只用了20分钟，我们就在白板上解决了三个潜在的并发Bug。\n实操技巧：\n架构评审的核心是**“纠偏”，而不是“打分”**。\n试着在评审中使用**“橡胶鸭调试法”**的变种：让主讲人对着白板，像给非技术人员讲故事一样，把数据流走一遍。很多逻辑漏洞，讲着讲着自己就发现了。\n留痕不留量：一张ADR胜过千言万语\r轻量级评审不代表不记录。但我们不记流水账，只记决策。\n你是否遇到过这种情况：接手一段两年前的代码，看着奇怪的逻辑骂娘，完全想不通当时为什么这么写？\n这就是缺失了ADR（Architecture Decision Record，架构决策记录）。\n在我的团队里，每次白板讨论完，不需要整理精美的会议纪要，只需要主讲人在代码仓库里提交一个简单的Markdown文件。\n这就是我用了两年的模板，非常简单：\n# ADR-005: 选用Redis做秒杀库存扣减 **状态**: 已采纳 **日期**: 2023-10-27 **参与者**: 大刘, 小张, 我 **背景**: 我们需要处理双十一期间每秒约2000次的库存扣减请求，MySQL直接Update扛不住。 **决策**: 1. 使用Redis的Lua脚本进行库存预扣减。 2. 异步同步数据到MySQL。 **后果**: - 好处：性能提升10倍以上。 - 风险：Redis宕机可能导致短暂的数据不一致。 - 应对：Redis配置AOF每秒刷盘，接受极小概率的库存偏差。 看到了吗？包含了背景、决策、以及最重要的——我们接受了什么风险。\n">
+<meta property='og:url' content='https://blog.irudder.me/tech/zhongxiaoxingxiangmujiagoushejizhinan/jiagoupingshen_xiaotuanduideqingliangjiliucheng.html'>
+<meta property='og:site_name' content='SelfTechHub'>
+<meta property='og:type' content='article'><meta property='article:section' content='Tech' /><meta property='article:tag' content='架构评审：小团队的轻量级流程' /><meta property='article:published_time' content='2021-11-10T00:00:00&#43;00:00'/><meta property='article:modified_time' content='2021-11-10T00:00:00&#43;00:00'/>
+<meta name="twitter:title" content="拒绝PPT！小团队架构评审，一张白板就够了">
+<meta name="twitter:description" content="不知你是否也有过这样的经历：\n刚接手一个项目，被告知要进行“架构评审”。那一瞬间，脑海里浮现的是严肃的会议室、满屏复杂的UML图，还有大佬们像审讯犯人一样，对着你的设计方案狂轰滥炸。\n“这里为什么要用MQ？” “并发量上来怎么扛？” “你这个设计扩展性太差了！”\n我曾以为，这就是架构评审的常态。直到几年前，我带的一个5人小团队因为过度追求这种“正规化”评审，导致项目还没开发，大家就先被文档累垮了。\n其实，对于中小团队而言，架构评审不该是一场“批斗会”，而应是一场**“避坑指南”**。今天想和大家聊聊，如何用最轻量的方式，把架构评审做得既温暖又有价值。\n告别“大厂病”，从扔掉30页文档开始\r很多刚做架构或者Tech Lead的朋友，容易陷入一个误区：觉得文档写得越厚，设计就越严谨。\n2019年，我负责一个电商促销活动的小程序后端。当时为了显得“专业”，我让团队里的骨干大刘写了一份长达30页的架构设计文档。包含了详细的类图、时序图，甚至连数据库字段的备注都写得清清楚楚。\n结果呢？\n评审会上，大家盯着密密麻麻的文档昏昏欲睡。没人能看完所有细节，只能就着排版和变量命名这种细枝末节提意见。\n项目上线前一天，需求变更，大刘看着那份这一周都没怎么更新的30页文档，心态崩了——代码改起来容易，文档同步更新太难了。最终，文档成了废纸，新来的同事看文档接手代码，直接被误导踩坑。\n从那以后，我给团队定了个规矩：评审文档不得超过3页A4纸。\n我们不再追求大而全，而是聚焦**“核心路径”和“边界问题”**。对于小团队，你只需要讲清楚三件事：\n数据怎么流转？（画一张草图） 哪里最容易挂？（比如数据库瓶颈、第三方接口超时） 万一挂了怎么办？（兜底方案） 避坑建议： 不要一开始就画精美的Visio或ProcessOn。试着拿一张白纸，如果你不能在5分钟内把核心架构画出来并讲清楚，说明设计本身就太复杂了。\n“白板对话”：把审讯变成协同\r消除了文档焦虑，接下来要解决的是“心理焦虑”。\n很多开发人员害怕评审，是因为怕被公开处刑。一旦气氛变成“找茬”，大家就会本能地防御，为了维护面子而争论，而不是为了解决问题。\n我有个习惯，每周五下午的Technical Review，我们不投屏PPT，而是大家围在一块白板前。\n记得有一次，团队里的小张设计了一个积分系统。他在白板上画这套逻辑时，手有点抖，显然是怕我想以前那样挑刺。\n我没有问“为什么不&hellip;”，而是拿起笔，在他的数据库图标旁画了个问号，温和地问：“小张，假如发积分的时候，这个用户恰好在退款，这里的数据一致性我们怎么处理比较稳妥？”\n“怎么处理比较稳妥”，这句话把“你错了”变成了“我们一起想办法”。\n小张愣了一下，放松下来，拿起笔在旁边画了个事务补偿的逻辑：“要不加个本地消息表？”\n你看，当评审变成**“针对白板上的涂鸦”而不是“针对人”**时，创意的火花才会被点燃。那次评审只用了20分钟，我们就在白板上解决了三个潜在的并发Bug。\n实操技巧：\n架构评审的核心是**“纠偏”，而不是“打分”**。\n试着在评审中使用**“橡胶鸭调试法”**的变种：让主讲人对着白板，像给非技术人员讲故事一样，把数据流走一遍。很多逻辑漏洞，讲着讲着自己就发现了。\n留痕不留量：一张ADR胜过千言万语\r轻量级评审不代表不记录。但我们不记流水账，只记决策。\n你是否遇到过这种情况：接手一段两年前的代码，看着奇怪的逻辑骂娘，完全想不通当时为什么这么写？\n这就是缺失了ADR（Architecture Decision Record，架构决策记录）。\n在我的团队里，每次白板讨论完，不需要整理精美的会议纪要，只需要主讲人在代码仓库里提交一个简单的Markdown文件。\n这就是我用了两年的模板，非常简单：\n# ADR-005: 选用Redis做秒杀库存扣减 **状态**: 已采纳 **日期**: 2023-10-27 **参与者**: 大刘, 小张, 我 **背景**: 我们需要处理双十一期间每秒约2000次的库存扣减请求，MySQL直接Update扛不住。 **决策**: 1. 使用Redis的Lua脚本进行库存预扣减。 2. 异步同步数据到MySQL。 **后果**: - 好处：性能提升10倍以上。 - 风险：Redis宕机可能导致短暂的数据不一致。 - 应对：Redis配置AOF每秒刷盘，接受极小概率的库存偏差。 看到了吗？包含了背景、决策、以及最重要的——我们接受了什么风险。\n">
+    </head>
+    <body class="
+    article-page
+    ">
+    <script>
+        (function() {
+            const colorSchemeKey = 'StackColorScheme';
+            if(!localStorage.getItem(colorSchemeKey)){
+                localStorage.setItem(colorSchemeKey, "auto");
+            }
+        })();
+    </script><script>
+    (function() {
+        const colorSchemeKey = 'StackColorScheme';
+        const colorSchemeItem = localStorage.getItem(colorSchemeKey);
+        const supportDarkMode = window.matchMedia('(prefers-color-scheme: dark)').matches === true;
+
+        if (colorSchemeItem == 'dark' || colorSchemeItem === 'auto' && supportDarkMode) {
+            
+
+            document.documentElement.dataset.scheme = 'dark';
+        } else {
+            document.documentElement.dataset.scheme = 'light';
+        }
+    })();
+</script>
+<div class="container main-container flex on-phone--column compact"><aside class="sidebar left-sidebar sticky ">
+    <button class="hamburger hamburger--spin" type="button" id="toggle-menu" aria-label="切换菜单">
+        <span class="hamburger-box">
+            <span class="hamburger-inner"></span>
+        </span>
+    </button>
+
+    <header>
+        
+            
+            <figure class="site-avatar">
+                <a href="/">
+                
+                    
+                    
+                    
+                        
+                        <img src="/img/avatar_hu_8588ce14af1147e2.png" width="300"
+                            height="286" class="site-logo" loading="lazy" alt="Avatar">
+                    
+                
+                </a>
+                
+            </figure>
+            
+        
+        
+        <div class="site-meta">
+            <h1 class="site-name"><a href="/">SelfTechHub</a></h1>
+            <h2 class="site-description"></h2>
+        </div>
+    </header><ol class="menu" id="main-menu">
+        
+        
+        <li class="menu-bottom-section">
+            <ol class="menu">
+
+                
+                    <li id="dark-mode-toggle">
+                        <svg xmlns="http://www.w3.org/2000/svg" class="icon icon-tabler icon-tabler-toggle-left" width="24" height="24" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor" fill="none" stroke-linecap="round" stroke-linejoin="round">
+  <path stroke="none" d="M0 0h24v24H0z"/>
+  <circle cx="8" cy="12" r="2" />
+  <rect x="2" y="6" width="20" height="12" rx="6" />
+</svg>
+
+
+
+                        <svg xmlns="http://www.w3.org/2000/svg" class="icon icon-tabler icon-tabler-toggle-right" width="24" height="24" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor" fill="none" stroke-linecap="round" stroke-linejoin="round">
+  <path stroke="none" d="M0 0h24v24H0z"/>
+  <circle cx="16" cy="12" r="2" />
+  <rect x="2" y="6" width="20" height="12" rx="6" />
+</svg>
+
+
+
+                        <span>暗色模式</span>
+                    </li>
+                
+            </ol>
+        </li>
+    </ol>
+</aside>
+
+    
+
+            <main class="main full-width">
+    <article class="main-article">
+    <header class="article-header">
+
+    <div class="article-details">
+    
+    <header class="article-category">
+        
+            <a href="/categories/%E6%8A%80%E6%9C%AF.html" >
+                技术精进
+            </a>
+        
+    </header>
+    
+
+    <div class="article-title-wrapper">
+        <h2 class="article-title">
+            <a href="/tech/zhongxiaoxingxiangmujiagoushejizhinan/jiagoupingshen_xiaotuanduideqingliangjiliucheng.html">拒绝PPT！小团队架构评审，一张白板就够了</a>
+        </h2>
+    
+        
+    </div>
+
+    
+    
+    
+    
+    <footer class="article-time">
+        
+            <div>
+                <svg xmlns="http://www.w3.org/2000/svg" class="icon icon-tabler icon-tabler-calendar-time" width="56" height="56" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor" fill="none" stroke-linecap="round" stroke-linejoin="round">
+  <path stroke="none" d="M0 0h24v24H0z"/>
+  <path d="M11.795 21h-6.795a2 2 0 0 1 -2 -2v-12a2 2 0 0 1 2 -2h12a2 2 0 0 1 2 2v4" />
+  <circle cx="18" cy="18" r="4" />
+  <path d="M15 3v4" />
+  <path d="M7 3v4" />
+  <path d="M3 11h16" />
+  <path d="M18 16.496v1.504l1 1" />
+</svg>
+                <time class="article-time--published" datetime='2021-11-10T00:00:00Z'>Nov 10, 2021</time>
+            </div>
+        
+
+        
+            <div>
+                <svg xmlns="http://www.w3.org/2000/svg" class="icon icon-tabler icon-tabler-clock" width="24" height="24" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor" fill="none" stroke-linecap="round" stroke-linejoin="round">
+  <path stroke="none" d="M0 0h24v24H0z"/>
+  <circle cx="12" cy="12" r="9" />
+  <polyline points="12 7 12 12 15 15" />
+</svg>
+
+
+
+                <time class="article-time--reading">
+                    阅读时长: 1 分钟
+                </time>
+            </div>
+        
+    </footer>
+    
+
+    
+</div>
+
+</header>
+
+    <section class="article-content">
+    
+    
+    <p>不知你是否也有过这样的经历：</p>
+<p>刚接手一个项目，被告知要进行“架构评审”。那一瞬间，脑海里浮现的是严肃的会议室、满屏复杂的UML图，还有大佬们像审讯犯人一样，对着你的设计方案狂轰滥炸。</p>
+<p><strong>“这里为什么要用MQ？”</strong>
+<strong>“并发量上来怎么扛？”</strong>
+<strong>“你这个设计扩展性太差了！”</strong></p>
+<p>我曾以为，这就是架构评审的常态。直到几年前，我带的一个5人小团队因为过度追求这种“正规化”评审，导致项目还没开发，大家就先被文档累垮了。</p>
+<p>其实，对于中小团队而言，架构评审不该是一场“批斗会”，而应是一场**“避坑指南”**。今天想和大家聊聊，如何用最轻量的方式，把架构评审做得既温暖又有价值。</p>
+<p><img src="https://picsum.photos/800/450?random=1768456851345"
+	
+	
+	
+	loading="lazy"
+	
+		alt="配图"
+	
+	
+></p>
+<h2 id="告别大厂病从扔掉30页文档开始">告别“大厂病”，从扔掉30页文档开始
+</h2><p>很多刚做架构或者Tech Lead的朋友，容易陷入一个误区：觉得文档写得越厚，设计就越严谨。</p>
+<p>2019年，我负责一个电商促销活动的小程序后端。当时为了显得“专业”，我让团队里的骨干大刘写了一份长达30页的架构设计文档。包含了详细的类图、时序图，甚至连数据库字段的备注都写得清清楚楚。</p>
+<p><strong>结果呢？</strong></p>
+<p>评审会上，大家盯着密密麻麻的文档昏昏欲睡。没人能看完所有细节，只能就着排版和变量命名这种细枝末节提意见。</p>
+<p>项目上线前一天，需求变更，大刘看着那份这一周都没怎么更新的30页文档，心态崩了——代码改起来容易，文档同步更新太难了。最终，文档成了废纸，新来的同事看文档接手代码，直接被误导踩坑。</p>
+<p>从那以后，我给团队定了个规矩：<strong>评审文档不得超过3页A4纸。</strong></p>
+<p><img src="https://picsum.photos/800/450?random=1768456856091"
+	
+	
+	
+	loading="lazy"
+	
+		alt="配图"
+	
+	
+></p>
+<p>我们不再追求大而全，而是聚焦**“核心路径”<strong>和</strong>“边界问题”**。对于小团队，你只需要讲清楚三件事：</p>
+<ol>
+<li><strong>数据怎么流转？</strong>（画一张草图）</li>
+<li><strong>哪里最容易挂？</strong>（比如数据库瓶颈、第三方接口超时）</li>
+<li><strong>万一挂了怎么办？</strong>（兜底方案）</li>
+</ol>
+<p><strong>避坑建议：</strong>
+不要一开始就画精美的Visio或ProcessOn。试着拿一张白纸，如果你不能在5分钟内把核心架构画出来并讲清楚，说明设计本身就太复杂了。</p>
+<h2 id="白板对话把审讯变成协同">“白板对话”：把审讯变成协同
+</h2><p>消除了文档焦虑，接下来要解决的是“心理焦虑”。</p>
+<p>很多开发人员害怕评审，是因为怕被公开处刑。一旦气氛变成“找茬”，大家就会本能地防御，为了维护面子而争论，而不是为了解决问题。</p>
+<p>我有个习惯，每周五下午的Technical Review，我们不投屏PPT，而是大家围在一块白板前。</p>
+<p>记得有一次，团队里的小张设计了一个积分系统。他在白板上画这套逻辑时，手有点抖，显然是怕我想以前那样挑刺。</p>
+<p>我没有问“为什么不&hellip;”，而是拿起笔，在他的数据库图标旁画了个问号，温和地问：“小张，假如发积分的时候，这个用户恰好在退款，这里的数据一致性我们怎么处理比较稳妥？”</p>
+<p><strong>“怎么处理比较稳妥”</strong>，这句话把“你错了”变成了“我们一起想办法”。</p>
+<p>小张愣了一下，放松下来，拿起笔在旁边画了个事务补偿的逻辑：“要不加个本地消息表？”</p>
+<p>你看，当评审变成**“针对白板上的涂鸦”<strong>而不是</strong>“针对人”**时，创意的火花才会被点燃。那次评审只用了20分钟，我们就在白板上解决了三个潜在的并发Bug。</p>
+<p><strong>实操技巧：</strong></p>
+<blockquote>
+<p>架构评审的核心是**“纠偏”<strong>，而不是</strong>“打分”**。</p>
+</blockquote>
+<p>试着在评审中使用**“橡胶鸭调试法”**的变种：让主讲人对着白板，像给非技术人员讲故事一样，把数据流走一遍。很多逻辑漏洞，讲着讲着自己就发现了。</p>
+<h2 id="留痕不留量一张adr胜过千言万语">留痕不留量：一张ADR胜过千言万语
+</h2><p>轻量级评审不代表不记录。但我们不记流水账，只记<strong>决策</strong>。</p>
+<p>你是否遇到过这种情况：接手一段两年前的代码，看着奇怪的逻辑骂娘，完全想不通当时为什么这么写？</p>
+<p>这就是缺失了<strong>ADR（Architecture Decision Record，架构决策记录）</strong>。</p>
+<p>在我的团队里，每次白板讨论完，不需要整理精美的会议纪要，只需要主讲人在代码仓库里提交一个简单的Markdown文件。</p>
+<p>这就是我用了两年的模板，非常简单：</p>
+<div class="highlight"><pre tabindex="0" style="color:#f8f8f2;background-color:#272822;-moz-tab-size:4;-o-tab-size:4;tab-size:4;"><code class="language-markdown" data-lang="markdown"><span style="display:flex;"><span># ADR-005: 选用Redis做秒杀库存扣减
+</span></span><span style="display:flex;"><span>
+</span></span><span style="display:flex;"><span><span style="font-weight:bold">**状态**</span>: 已采纳
+</span></span><span style="display:flex;"><span><span style="font-weight:bold">**日期**</span>: 2023-10-27
+</span></span><span style="display:flex;"><span><span style="font-weight:bold">**参与者**</span>: 大刘, 小张, 我
+</span></span><span style="display:flex;"><span>
+</span></span><span style="display:flex;"><span><span style="font-weight:bold">**背景**</span>:
+</span></span><span style="display:flex;"><span>我们需要处理双十一期间每秒约2000次的库存扣减请求，MySQL直接Update扛不住。
+</span></span><span style="display:flex;"><span>
+</span></span><span style="display:flex;"><span><span style="font-weight:bold">**决策**</span>:
+</span></span><span style="display:flex;"><span><span style="color:#66d9ef">1.</span> 使用Redis的Lua脚本进行库存预扣减。
+</span></span><span style="display:flex;"><span><span style="color:#66d9ef">2.</span> 异步同步数据到MySQL。
+</span></span><span style="display:flex;"><span>
+</span></span><span style="display:flex;"><span><span style="font-weight:bold">**后果**</span>:
+</span></span><span style="display:flex;"><span><span style="color:#66d9ef">-</span> 好处：性能提升10倍以上。
+</span></span><span style="display:flex;"><span><span style="color:#66d9ef">-</span> 风险：Redis宕机可能导致短暂的数据不一致。
+</span></span><span style="display:flex;"><span><span style="color:#66d9ef">-</span> 应对：Redis配置AOF每秒刷盘，接受极小概率的库存偏差。
+</span></span></code></pre></div><p>看到了吗？<strong>包含了背景、决策、以及最重要的——我们接受了什么风险。</strong></p>
+<p>这比任何复杂的图表都管用。半年后，当新人问“为什么这里不像其他模块一样直接查库？”给他看这张ADR，他不仅懂了技术，还懂了当时的业务权衡。</p>
+<h2 id="写在最后">写在最后
+</h2><p>架构评审的本质，不是为了证明谁更牛，而是为了让团队在面对未知的代码海洋时，多一份<strong>安全感</strong>。</p>
+<p>对于小团队来说，<strong>流程是服务于人的，而不是人服务于流程。</strong></p>
+<p>当你把30页文档变成3页备忘录，把PPT演讲变成白板涂鸦，把冗长的会议纪要变成短小精悍的ADR，你会发现，大家开始愿意聊架构了，系统的坑也真的变少了。</p>
+<p><strong>这里有个小调查，想听听你的看法：</strong></p>
+<blockquote>
+<p>如果你是团队Leader，面对一个急需上线的紧急项目，你会怎么做架构评审？</p>
+<p>A. 哪怕通宵也要把详细文档写好再评审，安全第一。
+B. 拉大家在白板前快速过一遍核心逻辑，记录要点后直接开干。</p>
+</blockquote>
+<p>欢迎在评论区告诉我你的选择。</p>
+<p><strong>给你的3个落地行动建议：</strong></p>
+<ol>
+<li><strong>本周尝试：</strong> 下一次技术讨论，禁止使用PPT，强制大家站起来围着白板（或手写板）沟通。</li>
+<li><strong>做减法：</strong> 检查现有的设计文档模板，删掉那些从来没人看的章节，只保留“背景、核心设计、风险点”。</li>
+<li><strong>建立习惯：</strong> 在项目根目录建一个<code>/doc/adr</code>文件夹，从今天起，每一个重大的技术选择，都花5分钟写一个简短的ADR。</li>
+</ol>
+
+</section>
+
+
+    <footer class="article-footer">
+    
+    <section class="article-tags">
+        
+            <a href="/tags/%E6%9E%B6%E6%9E%84%E8%AF%84%E5%AE%A1%E5%B0%8F%E5%9B%A2%E9%98%9F%E7%9A%84%E8%BD%BB%E9%87%8F%E7%BA%A7%E6%B5%81%E7%A8%8B.html">架构评审：小团队的轻量级流程</a>
+        
+    </section>
+
+
+    </footer>
+
+
+    
+</article>
+
+    
+
+    
+
+     
+    
+        
+    <script
+    src="https://giscus.app/client.js"
+    data-repo="pastor17/bloggiscus"
+    data-repo-id="R_kgDOQ6H9qQ"
+    data-category=""
+    data-category-id="DIC_kwDOQ6H9qc4C0-T8"
+    data-mapping="pathname"
+    data-strict="0"
+    data-reactions-enabled="1"
+    data-emit-metadata="0"
+    data-input-position="bottom"
+    data-theme="light"
+    data-lang="zh-CN"
+    data-loading="lazy"
+    crossorigin="anonymous"
+    async
+></script>
+<script>
+    function setGiscusTheme(theme) {
+        let giscus = document.querySelector("iframe.giscus-frame");
+        if (giscus) {
+            giscus.contentWindow.postMessage(
+                {
+                    giscus: {
+                        setConfig: {
+                            theme: theme,
+                        },
+                    },
+                },
+                "https://giscus.app"
+            );
+        }
+    }
+
+    (function () {
+        addEventListener("message", (e) => {
+            if (event.origin !== "https://giscus.app") return;
+            handler();
+        });
+        window.addEventListener("onColorSchemeChange", handler);
+
+        function handler() {
+            if (document.documentElement.dataset.scheme === "light") {
+                setGiscusTheme('light');
+            } else {
+                setGiscusTheme('dark_dimmed');
+            }
+        }
+    })();
+</script>
+
+    
+
+    <footer class="site-footer">
+    <section class="copyright">
+        &copy; 
+        
+        2026 SelfTechHub
+    </section>
+    
+    <section class="powerby">
+        
+
+    </section>
+</footer>
+
+
+    
+<div class="pswp" tabindex="-1" role="dialog" aria-hidden="true">
+
+    
+    <div class="pswp__bg"></div>
+
+    
+    <div class="pswp__scroll-wrap">
+
+        
+        <div class="pswp__container">
+            <div class="pswp__item"></div>
+            <div class="pswp__item"></div>
+            <div class="pswp__item"></div>
+        </div>
+
+        
+        <div class="pswp__ui pswp__ui--hidden">
+
+            <div class="pswp__top-bar">
+
+                
+
+                <div class="pswp__counter"></div>
+
+                <button class="pswp__button pswp__button--close" title="Close (Esc)"></button>
+
+                <button class="pswp__button pswp__button--share" title="Share"></button>
+
+                <button class="pswp__button pswp__button--fs" title="Toggle fullscreen"></button>
+
+                <button class="pswp__button pswp__button--zoom" title="Zoom in/out"></button>
+
+                
+                
+                <div class="pswp__preloader">
+                    <div class="pswp__preloader__icn">
+                        <div class="pswp__preloader__cut">
+                            <div class="pswp__preloader__donut"></div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <div class="pswp__share-modal pswp__share-modal--hidden pswp__single-tap">
+                <div class="pswp__share-tooltip"></div>
+            </div>
+
+            <button class="pswp__button pswp__button--arrow--left" title="Previous (arrow left)">
+            </button>
+
+            <button class="pswp__button pswp__button--arrow--right" title="Next (arrow right)">
+            </button>
+
+            <div class="pswp__caption">
+                <div class="pswp__caption__center"></div>
+            </div>
+
+        </div>
+
+    </div>
+
+</div><script 
+                src="https://cdn.jsdelivr.net/npm/photoswipe@4.1.3/dist/photoswipe.min.js"integrity="sha256-ePwmChbbvXbsO02lbM3HoHbSHTHFAeChekF1xKJdleo="crossorigin="anonymous"
+                defer
+                >
+            </script><script 
+                src="https://cdn.jsdelivr.net/npm/photoswipe@4.1.3/dist/photoswipe-ui-default.min.js"integrity="sha256-UKkzOn/w1mBxRmLLGrSeyB4e1xbrp4xylgAWb3M42pU="crossorigin="anonymous"
+                defer
+                >
+            </script><link 
+                rel="stylesheet" 
+                href="https://cdn.jsdelivr.net/npm/photoswipe@4.1.3/dist/default-skin/default-skin.min.css"crossorigin="anonymous"
+            ><link 
+                rel="stylesheet" 
+                href="https://cdn.jsdelivr.net/npm/photoswipe@4.1.3/dist/photoswipe.min.css"crossorigin="anonymous"
+            >
+    
+
+            </main>
+        </div>
+        <script 
+                src="https://cdn.jsdelivr.net/npm/node-vibrant@3.1.6/dist/vibrant.min.js"integrity="sha256-awcR2jno4kI5X0zL8ex0vi2z&#43;KMkF24hUW8WePSA9HM="crossorigin="anonymous"
+                
+                >
+            </script><script type="text/javascript" src="/ts/main.c922af694cc257bf1ecc41c0dd7b0430f9114ec280ccf67cd2c6ad55f5316c4e.js" defer></script>
+<script>
+    (function () {
+        const customFont = document.createElement('link');
+        customFont.href = "https://fonts.googleapis.com/css2?family=Lato:wght@300;400;700&display=swap";
+
+        customFont.type = "text/css";
+        customFont.rel = "stylesheet";
+
+        document.head.appendChild(customFont);
+    }());
+</script>
+
+    </body>
+</html>

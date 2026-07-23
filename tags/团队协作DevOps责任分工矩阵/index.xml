@@ -1,0 +1,175 @@
+<?xml version="1.0" encoding="utf-8" standalone="yes"?>
+<rss version="2.0" xmlns:atom="http://www.w3.org/2005/Atom">
+    <channel>
+        <title>团队协作：DevOps责任分工矩阵 on SelfTechHub</title>
+        <link>https://blog.irudder.me/tags/%E5%9B%A2%E9%98%9F%E5%8D%8F%E4%BD%9CDevOps%E8%B4%A3%E4%BB%BB%E5%88%86%E5%B7%A5%E7%9F%A9%E9%98%B5.html</link>
+        <description>Recent content in 团队协作：DevOps责任分工矩阵 on SelfTechHub</description>
+        <generator>Hugo -- gohugo.io</generator>
+        <language>zh-cn</language>
+        <lastBuildDate>Mon, 19 Jul 2021 00:00:00 +0000</lastBuildDate><atom:link href="https://blog.irudder.me/tags/%E5%9B%A2%E9%98%9F%E5%8D%8F%E4%BD%9CDevOps%E8%B4%A3%E4%BB%BB%E5%88%86%E5%B7%A5%E7%9F%A9%E9%98%B5/index.xml" rel="self" type="application/rss+xml" /><item>
+        <title>别把DevOps做成“全员背锅”：中小团队的分工矩阵避坑指南</title>
+        <link>https://blog.irudder.me/tech/zhongxiaoxingtuanduidevopsluodifangan/tuanduixiezuo_devopszerenfengongjuzhen.html</link>
+        <pubDate>Mon, 19 Jul 2021 00:00:00 +0000</pubDate>
+        
+        <guid>https://blog.irudder.me/tech/zhongxiaoxingtuanduidevopsluodifangan/tuanduixiezuo_devopszerenfengongjuzhen.html</guid>
+        <description>&lt;p&gt;很多技术管理者都有过这样的至暗时刻：凌晨3点，生产环境报警，CTO在群里吼了一嗓子“谁改了配置？”，结果一片死寂。开发说“我只推了代码，环境不是我动的”，兼职运维的后端组长说“我就升了个依赖库，本地是好的”。&lt;/p&gt;
+&lt;p&gt;最后大家围着那个名为&lt;code&gt;config_final_v2.yaml&lt;/code&gt;的文件面面相觑，就像一群对着坠毁飞机发呆的机械师。&lt;/p&gt;
+&lt;p&gt;过去两年，我以技术顾问身份接触了不下20个中小团队。我发现一个反常识的现象：&lt;strong&gt;推行DevOps最失败的，往往不是没钱上工具的团队，而是那些盲目崇拜大厂“You build it, you run it”理念，却没理清责任边界的团队。&lt;/strong&gt;&lt;/p&gt;
+&lt;p&gt;在没有专职SRE（站点可靠性工程师）的中小团队，如果不画好责任矩阵，DevOps最终会变成“NoOps”，或者更糟糕的——&lt;strong&gt;全员背锅（EveryoneOps）&lt;/strong&gt;。&lt;/p&gt;
+&lt;h2 id=&#34;误区一把全栈当成全能的灾难现场&#34;&gt;误区一：把“全栈”当成“全能”的灾难现场
+&lt;/h2&gt;&lt;p&gt;很多初创团队为了追求敏捷，给所有开发人员开放了服务器的Root权限，美其名曰“打破部门墙”。&lt;/p&gt;
+&lt;p&gt;&lt;strong&gt;真实案例：&lt;/strong&gt;
+2022年，我服务的一家A轮金融科技公司（团队规模15人），主程小张为了排查一个线上性能问题，直接SSH到生产环境服务器。他本想清空日志文件释放空间，结果手抖敲错了一个字符，删掉了关键的Docker Volume挂载目录。&lt;/p&gt;
+&lt;p&gt;由于权限过于扁平，没有任何审批流和审计机制，系统宕机了4个小时。&lt;/p&gt;
+&lt;p&gt;&lt;strong&gt;底层逻辑拆解：&lt;/strong&gt;
+中小团队最大的痛点是**“人少事多”**。让开发做运维，初衷是减少沟通成本。但开发人员的思维模式是“Feature Driven”（功能驱动），关注的是代码逻辑；而运维思维是“Stability Driven”（稳定性驱动），关注的是系统状态。强行让开发承担底层运维责任，就像让前锋去守门，既不仅浪费了进攻火力，还容易漏球。&lt;/p&gt;
+&lt;p&gt;&lt;strong&gt;硬核解决方案：切分“应用层”与“基建层”&lt;/strong&gt;&lt;/p&gt;
+&lt;p&gt;不要搞一刀切的“全权负责”，试着建立如下的&lt;strong&gt;RACI责任矩阵&lt;/strong&gt;（谁负责、谁批准、咨询谁、通知谁）：&lt;/p&gt;
+&lt;table&gt;
+  &lt;thead&gt;
+      &lt;tr&gt;
+          &lt;th style=&#34;text-align: left&#34;&gt;任务类型&lt;/th&gt;
+          &lt;th style=&#34;text-align: left&#34;&gt;开发人员 (Dev)&lt;/th&gt;
+          &lt;th style=&#34;text-align: left&#34;&gt;技术负责人/架构师 (Ops角色)&lt;/th&gt;
+          &lt;th style=&#34;text-align: left&#34;&gt;说明&lt;/th&gt;
+      &lt;/tr&gt;
+  &lt;/thead&gt;
+  &lt;tbody&gt;
+      &lt;tr&gt;
+          &lt;td style=&#34;text-align: left&#34;&gt;&lt;strong&gt;业务代码编写&lt;/strong&gt;&lt;/td&gt;
+          &lt;td style=&#34;text-align: left&#34;&gt;&lt;strong&gt;R (负责)&lt;/strong&gt;&lt;/td&gt;
+          &lt;td style=&#34;text-align: left&#34;&gt;I (知悉)&lt;/td&gt;
+          &lt;td style=&#34;text-align: left&#34;&gt;也就是写Bug（笑）&lt;/td&gt;
+      &lt;/tr&gt;
+      &lt;tr&gt;
+          &lt;td style=&#34;text-align: left&#34;&gt;&lt;strong&gt;CI/CD流水线配置&lt;/strong&gt;&lt;/td&gt;
+          &lt;td style=&#34;text-align: left&#34;&gt;C (咨询)&lt;/td&gt;
+          &lt;td style=&#34;text-align: left&#34;&gt;&lt;strong&gt;R/A (负责/批准)&lt;/strong&gt;&lt;/td&gt;
+          &lt;td style=&#34;text-align: left&#34;&gt;基建层，不要让初级开发乱动&lt;/td&gt;
+      &lt;/tr&gt;
+      &lt;tr&gt;
+          &lt;td style=&#34;text-align: left&#34;&gt;&lt;strong&gt;应用配置 (Env Vars)&lt;/strong&gt;&lt;/td&gt;
+          &lt;td style=&#34;text-align: left&#34;&gt;&lt;strong&gt;R (负责)&lt;/strong&gt;&lt;/td&gt;
+          &lt;td style=&#34;text-align: left&#34;&gt;C (咨询)&lt;/td&gt;
+          &lt;td style=&#34;text-align: left&#34;&gt;业务相关的开关&lt;/td&gt;
+      &lt;/tr&gt;
+      &lt;tr&gt;
+          &lt;td style=&#34;text-align: left&#34;&gt;&lt;strong&gt;基础设施 (K8s/DB)&lt;/strong&gt;&lt;/td&gt;
+          &lt;td style=&#34;text-align: left&#34;&gt;I (知悉)&lt;/td&gt;
+          &lt;td style=&#34;text-align: left&#34;&gt;&lt;strong&gt;R/A (负责/批准)&lt;/strong&gt;&lt;/td&gt;
+          &lt;td style=&#34;text-align: left&#34;&gt;&lt;strong&gt;红线：开发无权直连生产DB/Shell&lt;/strong&gt;&lt;/td&gt;
+      &lt;/tr&gt;
+  &lt;/tbody&gt;
+&lt;/table&gt;
+&lt;p&gt;&lt;strong&gt;落地建议：&lt;/strong&gt;
+收回所有Root权限，只保留“只读”账号。如果开发需要看日志，请搭建ELK或Loki，而不是让他们登录服务器去&lt;code&gt;tail -f&lt;/code&gt;。&lt;/p&gt;
+&lt;h2 id=&#34;二二警惕影子运维吞噬你的核心战力&#34;&gt;二二：警惕“影子运维”吞噬你的核心战力
+&lt;/h2&gt;&lt;p&gt;你团队里是不是有这样一个人？他名义上是“高级Java开发”，但实际上每天有60%的时间在搞Jenkins、修Nginx配置、给实习生配VPN。&lt;/p&gt;
+&lt;p&gt;我把这种现象称为**“影子运维”**。&lt;/p&gt;
+&lt;p&gt;&lt;strong&gt;真实案例：&lt;/strong&gt;
+某电商SaaS团队的技术总监老李找到我，说团队效率越来越低。我看了一下他们的提交记录，团队核心架构师大刘，最近两个月几乎没有提交任何业务代码，全在折腾自动化部署脚本。&lt;/p&gt;
+&lt;p&gt;&lt;img src=&#34;https://picsum.photos/800/450?random=1768390135520&#34;
+	
+	
+	
+	loading=&#34;lazy&#34;
+	
+		alt=&#34;配图&#34;
+	
+	
+&gt;&lt;/p&gt;
+&lt;p&gt;大刘跟我吐槽：“我也想写代码，但我不去修那个破脚本，发布就得挂，别人又不会修。”&lt;/p&gt;
+&lt;p&gt;&lt;strong&gt;结果：&lt;/strong&gt; 整个团队最贵的生产力被低价值的重复劳动锁死了。&lt;/p&gt;
+&lt;p&gt;&lt;strong&gt;硬核解决方案：轮值制度 + 黄金镜像&lt;/strong&gt;&lt;/p&gt;
+&lt;p&gt;如果你雇不起专职运维，就必须把“运维工作”显性化，而不是让它成为某个老实人的“暗亏”。&lt;/p&gt;
+&lt;ol&gt;
+&lt;li&gt;&lt;strong&gt;建立“运维值日生”制度（Sheriff Rotation）：&lt;/strong&gt;
+设立一个轮值角色，每周由一名资深开发担任。这周他&lt;strong&gt;不接任何业务需求&lt;/strong&gt;，专门负责处理报警、修修补补、优化工具。
+&lt;ul&gt;
+&lt;li&gt;&lt;em&gt;好处：&lt;/em&gt; 每个人都能体会到“乱写代码带来的运维痛苦”，从而倒逼代码质量提升；同时释放了核心人员的长期压力。&lt;/li&gt;
+&lt;/ul&gt;
+&lt;/li&gt;
+&lt;/ol&gt;
+&lt;p&gt;&lt;img src=&#34;https://picsum.photos/800/450?random=1768390136972&#34;
+	
+	
+	
+	loading=&#34;lazy&#34;
+	
+		alt=&#34;配图&#34;
+	
+	
+&gt;&lt;/p&gt;
+&lt;ol start=&#34;2&#34;&gt;
+&lt;li&gt;&lt;strong&gt;固化“黄金路径”（Golden Path）：&lt;/strong&gt;
+不要每次起新项目都重新写Dockerfile。由架构师维护一套标准的“黄金镜像”和脚手架。&lt;/li&gt;
+&lt;/ol&gt;
+&lt;div class=&#34;highlight&#34;&gt;&lt;pre tabindex=&#34;0&#34; style=&#34;color:#f8f8f2;background-color:#272822;-moz-tab-size:4;-o-tab-size:4;tab-size:4;&#34;&gt;&lt;code class=&#34;language-dockerfile&#34; data-lang=&#34;dockerfile&#34;&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;&lt;span style=&#34;color:#75715e&#34;&gt;# 这是一个标准化基础镜像示例&lt;/span&gt;&lt;span style=&#34;color:#960050;background-color:#1e0010&#34;&gt;
+&lt;/span&gt;&lt;/span&gt;&lt;/span&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;&lt;span style=&#34;color:#960050;background-color:#1e0010&#34;&gt;&lt;/span&gt;&lt;span style=&#34;color:#75715e&#34;&gt;# 开发人员不需要关心底层Linux依赖，只需要把Jar包放进去&lt;/span&gt;&lt;span style=&#34;color:#960050;background-color:#1e0010&#34;&gt;
+&lt;/span&gt;&lt;/span&gt;&lt;/span&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;&lt;span style=&#34;color:#960050;background-color:#1e0010&#34;&gt;&lt;/span&gt;&lt;span style=&#34;color:#66d9ef&#34;&gt;FROM&lt;/span&gt; &lt;span style=&#34;color:#e6db74&#34;&gt;my-company-registry/java-base:v2.0&lt;/span&gt; &lt;span style=&#34;color:#960050;background-color:#1e0010&#34;&gt;
+&lt;/span&gt;&lt;/span&gt;&lt;/span&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;&lt;span style=&#34;color:#960050;background-color:#1e0010&#34;&gt;
+&lt;/span&gt;&lt;/span&gt;&lt;/span&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;&lt;span style=&#34;color:#960050;background-color:#1e0010&#34;&gt;&lt;/span&gt;&lt;span style=&#34;color:#66d9ef&#34;&gt;COPY&lt;/span&gt; target/app.jar /app/app.jar&lt;span style=&#34;color:#960050;background-color:#1e0010&#34;&gt;
+&lt;/span&gt;&lt;/span&gt;&lt;/span&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;&lt;span style=&#34;color:#960050;background-color:#1e0010&#34;&gt;&lt;/span&gt;&lt;span style=&#34;color:#75715e&#34;&gt;# 强制标准启动命令，禁止开发随意魔改JVM参数&lt;/span&gt;&lt;span style=&#34;color:#960050;background-color:#1e0010&#34;&gt;
+&lt;/span&gt;&lt;/span&gt;&lt;/span&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;&lt;span style=&#34;color:#960050;background-color:#1e0010&#34;&gt;&lt;/span&gt;&lt;span style=&#34;color:#66d9ef&#34;&gt;ENTRYPOINT&lt;/span&gt; [&lt;span style=&#34;color:#e6db74&#34;&gt;&amp;#34;/scripts/run_standard_app.sh&amp;#34;&lt;/span&gt;] &lt;span style=&#34;color:#960050;background-color:#1e0010&#34;&gt;
+&lt;/span&gt;&lt;/span&gt;&lt;/span&gt;&lt;/code&gt;&lt;/pre&gt;&lt;/div&gt;&lt;blockquote&gt;
+&lt;p&gt;&lt;strong&gt;行业观点：&lt;/strong&gt; Google的SRE理念里有一条很重要——&lt;strong&gt;消除琐事（Toil）&lt;/strong&gt;。如果你的核心骨干在做大量可以通过脚本自动化的琐事，那就是管理上的失职。&lt;/p&gt;
+&lt;/blockquote&gt;
+&lt;h2 id=&#34;三-别让工具成为协作的墙&#34;&gt;三、 别让工具成为协作的墙
+&lt;/h2&gt;&lt;p&gt;很多团队引入了K8s、Prometheus、ArgoCD等一大堆高大上的工具，结果开发人员根本不会用，每次发布还是得喊：“那个谁，帮我点一下发布”。&lt;/p&gt;
+&lt;p&gt;&lt;strong&gt;真实痛点：&lt;/strong&gt;
+工具链太复杂，认知门槛过高，导致DevOps流程断裂。&lt;/p&gt;
+&lt;p&gt;&lt;strong&gt;个人经验分享：&lt;/strong&gt;
+我曾经在一个项目中强推Kubernetes，要求所有开发必须自己编写Helm Chart。结果两周后，开发集体“起义”，因为他们光是理解&lt;code&gt;Ingress&lt;/code&gt;和&lt;code&gt;Service&lt;/code&gt;的区别就花了一整天。&lt;/p&gt;
+&lt;p&gt;&lt;strong&gt;修正方法：&lt;/strong&gt;
+后来我调整了策略，在GitLab CI里做了一层封装。开发只需要在仓库根目录写一个极简的&lt;code&gt;.gitlab-ci.yml&lt;/code&gt;，引用我写好的通用模板。&lt;/p&gt;
+&lt;p&gt;&lt;strong&gt;硬核解决方案：封装复杂度，只暴露业务接口&lt;/strong&gt;&lt;/p&gt;
+&lt;p&gt;对于中小团队，&lt;strong&gt;“好用”比“先进”重要一万倍&lt;/strong&gt;。&lt;/p&gt;
+&lt;ol&gt;
+&lt;li&gt;
+&lt;p&gt;&lt;strong&gt;配置文件降维：&lt;/strong&gt;
+不要让开发直接面对几百行的K8s YAML。给他们一个简化版的JSON或YAML配置，只填他们关心的：端口号、镜像版本、内存限制。&lt;/p&gt;
+&lt;/li&gt;
+&lt;li&gt;
+&lt;p&gt;&lt;strong&gt;ChatOps尝试：&lt;/strong&gt;
+如果你们用飞书或钉钉，试着接一个简单的机器人。&lt;/p&gt;
+&lt;ul&gt;
+&lt;li&gt;&lt;em&gt;场景：&lt;/em&gt; 开发在群里@机器人 &lt;code&gt;/deploy backend v1.2.0&lt;/code&gt;。&lt;/li&gt;
+&lt;li&gt;&lt;em&gt;效果：&lt;/em&gt; 这种即时反馈感，能极大地提升开发参与运维的积极性，而且所有操作留痕。&lt;/li&gt;
+&lt;/ul&gt;
+&lt;/li&gt;
+&lt;/ol&gt;
+&lt;h2 id=&#34;结语&#34;&gt;结语
+&lt;/h2&gt;&lt;p&gt;DevOps的本质不是“开发干运维的活”，而是**“开发考虑到运维的痛，运维理解开发的难”**。&lt;/p&gt;
+&lt;p&gt;对于中小团队，不要迷信大厂的完美架构。最适合你们的DevOps分工，就是让最贵的人去解决最难的业务问题，让机器去解决重复的运维问题，让规则去防御新手的无心之失。&lt;/p&gt;
+&lt;p&gt;我有个保持了3年的习惯：&lt;strong&gt;每周五下午4点后严禁部署生产环境&lt;/strong&gt;。这看似不敏捷，但这留给了团队安心过周末的权利。毕竟，只有休息好的人，才能写出不崩溃的代码。&lt;/p&gt;
+&lt;p&gt;&lt;strong&gt;最后，做个小调查：&lt;/strong&gt;&lt;/p&gt;
+&lt;p&gt;如果生产环境半夜宕机，你现在的团队通常是谁爬起来修？&lt;/p&gt;
+&lt;ul&gt;
+&lt;li&gt;&lt;strong&gt;A.&lt;/strong&gt; 专门的运维/SRE（如果你们有的话）&lt;/li&gt;
+&lt;li&gt;&lt;strong&gt;B.&lt;/strong&gt; 写这段代码的倒霉开发&lt;/li&gt;
+&lt;li&gt;&lt;strong&gt;C.&lt;/strong&gt; 永远是那个技术负责人/CTO&lt;/li&gt;
+&lt;li&gt;&lt;strong&gt;D.&lt;/strong&gt; 没人修，等第二天早上客户投诉&lt;/li&gt;
+&lt;/ul&gt;
+&lt;p&gt;&lt;strong&gt;评论区告诉我你的答案（我猜C最多）。&lt;/strong&gt;&lt;/p&gt;
+&lt;hr&gt;
+&lt;p&gt;&lt;img src=&#34;https://picsum.photos/800/450?random=1768390142073&#34;
+	
+	
+	
+	loading=&#34;lazy&#34;
+	
+		alt=&#34;配图&#34;
+	
+	
+&gt;&lt;/p&gt;
+&lt;p&gt;&lt;strong&gt;给中小团队Lead的3个落地行动步骤：&lt;/strong&gt;&lt;/p&gt;
+&lt;ol&gt;
+&lt;li&gt;&lt;strong&gt;盘点权限：&lt;/strong&gt; 明天上班第一件事，检查谁有生产环境的写权限，砍掉80%的人，只留2-3个“紧急联系人”。&lt;/li&gt;
+&lt;li&gt;&lt;strong&gt;定义标准：&lt;/strong&gt; 花半天时间，写一份&lt;code&gt;Dockerfile&lt;/code&gt;标准模板和CI流水线模板，强制所有新项目复用。&lt;/li&gt;
+&lt;li&gt;&lt;strong&gt;设立值班：&lt;/strong&gt; 从下周开始，指定一名资深开发进行为期一周的“运维值班”，并公开宣布该周他不接业务需求。&lt;/li&gt;
+&lt;/ol&gt;
+</description>
+        </item>
+        
+    </channel>
+</rss>

@@ -1,0 +1,163 @@
+<?xml version="1.0" encoding="utf-8" standalone="yes"?>
+<rss version="2.0" xmlns:atom="http://www.w3.org/2005/Atom">
+    <channel>
+        <title>前端组件化拆解思路 on SelfTechHub</title>
+        <link>https://blog.irudder.me/tags/%E5%89%8D%E7%AB%AF%E7%BB%84%E4%BB%B6%E5%8C%96%E6%8B%86%E8%A7%A3%E6%80%9D%E8%B7%AF.html</link>
+        <description>Recent content in 前端组件化拆解思路 on SelfTechHub</description>
+        <generator>Hugo -- gohugo.io</generator>
+        <language>zh-cn</language>
+        <lastBuildDate>Sun, 16 Feb 2025 00:00:00 +0000</lastBuildDate><atom:link href="https://blog.irudder.me/tags/%E5%89%8D%E7%AB%AF%E7%BB%84%E4%BB%B6%E5%8C%96%E6%8B%86%E8%A7%A3%E6%80%9D%E8%B7%AF/index.xml" rel="self" type="application/rss+xml" /><item>
+        <title>重构火葬场？3个原则，把前端组件拆解效率提50%</title>
+        <link>https://blog.irudder.me/tech/danxiangmuquanliuchengchaijie10fenzhongkedu/qianduanzujianhuachaijiesilu.html</link>
+        <pubDate>Sun, 16 Feb 2025 00:00:00 +0000</pubDate>
+        
+        <guid>https://blog.irudder.me/tech/danxiangmuquanliuchengchaijie10fenzhongkedu/qianduanzujianhuachaijiesilu.html</guid>
+        <description>&lt;p&gt;两年前接手过一个后台管理系统，那简直是一场灾难。&lt;/p&gt;
+&lt;p&gt;当时有个需求很简单：把所有页面的“导出Excel”按钮颜色从蓝色改成绿色。结果，团队里的两个小伙伴整整改了一天半。为什么？因为这个按钮在40多个页面里是直接复制粘贴的代码，而且有的页面写死在HTML里，有的封装了一半，有的甚至跟具体的业务接口绑死在一起。&lt;/p&gt;
+&lt;p&gt;那时我才深刻意识到：&lt;strong&gt;很多中小团队所谓的“组件化”，其实只是“把代码挪个位置”而已。&lt;/strong&gt;&lt;/p&gt;
+&lt;p&gt;如果你觉得组件化就是为了“复用”，那你大概率还在踩坑。对于中小团队，组件化的核心价值只有两个：&lt;strong&gt;降低认知负荷&lt;/strong&gt;和&lt;strong&gt;隔离变更风险&lt;/strong&gt;。&lt;/p&gt;
+&lt;p&gt;今天分享我在一线“填坑”多年总结的拆解思路，不整虚头巴脑的理论，只聊怎么落地。&lt;/p&gt;
+&lt;h2 id=&#34;一-警惕上帝组件别把配置项当万能药&#34;&gt;一、 警惕“上帝组件”：别把配置项当万能药
+&lt;/h2&gt;&lt;p&gt;这是新手最容易犯的错，也是我每周五代码Review时“杀”得最狠的一类代码。&lt;/p&gt;
+&lt;p&gt;&lt;strong&gt;观点：&lt;/strong&gt; 组件的灵活性不是靠无限增加 Props（属性）来实现的，而是靠组合。&lt;/p&gt;
+&lt;p&gt;&lt;strong&gt;真实案例：&lt;/strong&gt;
+去年我们组招了个挺机灵的小伙子，叫小张。他为了体现“封装能力”，搞了一个通用的 &lt;code&gt;ListTable&lt;/code&gt; 组件。起初挺好用，只需传个数据数组进去。&lt;/p&gt;
+&lt;p&gt;两周后，噩梦开始了：&lt;/p&gt;
+&lt;ul&gt;
+&lt;li&gt;需求A：有的列要加红，小张加了 &lt;code&gt;renderRed&lt;/code&gt; 属性；&lt;/li&gt;
+&lt;li&gt;需求B：表头要支持点击排序，小张加了 &lt;code&gt;sortable&lt;/code&gt; 和 &lt;code&gt;onSort&lt;/code&gt;；&lt;/li&gt;
+&lt;li&gt;需求C：第一列要加复选框，但有时候是单选，他又加了 &lt;code&gt;selectionType&lt;/code&gt;&amp;hellip;&lt;/li&gt;
+&lt;/ul&gt;
+&lt;p&gt;三个月后，这个 &lt;code&gt;ListTable&lt;/code&gt; 变成了拥有 &lt;strong&gt;30多个 Props、内部充满 &lt;code&gt;if-else&lt;/code&gt; 判断的“上帝组件”&lt;/strong&gt;。任何人都没法维护，因为改一个属性，可能会炸掉其他五个页面的展示。&lt;/p&gt;
+&lt;p&gt;&lt;strong&gt;硬核解法：控制反转（Inversion of Control）&lt;/strong&gt;&lt;/p&gt;
+&lt;p&gt;别试图在组件内部预判所有场景。把“怎么展示”的权利交还给调用者。&lt;/p&gt;
+&lt;blockquote&gt;
+&lt;p&gt;&lt;strong&gt;思考题：&lt;/strong&gt; 你的项目里有没有那种超过200行代码、Props 超过10个的基础组件？如果有，它就是那个随时会爆的雷。&lt;/p&gt;
+&lt;/blockquote&gt;
+&lt;p&gt;&lt;strong&gt;代码对比：&lt;/strong&gt;&lt;/p&gt;
+&lt;p&gt;❌ &lt;strong&gt;错误的上帝模式：&lt;/strong&gt;&lt;/p&gt;
+&lt;div class=&#34;highlight&#34;&gt;&lt;pre tabindex=&#34;0&#34; style=&#34;color:#f8f8f2;background-color:#272822;-moz-tab-size:4;-o-tab-size:4;tab-size:4;&#34;&gt;&lt;code class=&#34;language-javascript&#34; data-lang=&#34;javascript&#34;&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;&lt;span style=&#34;color:#75715e&#34;&gt;// 这种组件写出来就是为了折磨队友的
+&lt;/span&gt;&lt;/span&gt;&lt;/span&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;&lt;span style=&#34;color:#75715e&#34;&gt;&lt;/span&gt;&lt;span style=&#34;color:#f92672&#34;&gt;&amp;lt;&lt;/span&gt;&lt;span style=&#34;color:#a6e22e&#34;&gt;ListTable&lt;/span&gt;
+&lt;/span&gt;&lt;/span&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;  &lt;span style=&#34;color:#a6e22e&#34;&gt;data&lt;/span&gt;&lt;span style=&#34;color:#f92672&#34;&gt;=&lt;/span&gt;{&lt;span style=&#34;color:#a6e22e&#34;&gt;list&lt;/span&gt;}
+&lt;/span&gt;&lt;/span&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;  &lt;span style=&#34;color:#a6e22e&#34;&gt;showCheckbox&lt;/span&gt;&lt;span style=&#34;color:#f92672&#34;&gt;=&lt;/span&gt;{&lt;span style=&#34;color:#66d9ef&#34;&gt;true&lt;/span&gt;}
+&lt;/span&gt;&lt;/span&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;  &lt;span style=&#34;color:#a6e22e&#34;&gt;checkboxType&lt;/span&gt;&lt;span style=&#34;color:#f92672&#34;&gt;=&lt;/span&gt;&lt;span style=&#34;color:#e6db74&#34;&gt;&amp;#34;radio&amp;#34;&lt;/span&gt;
+&lt;/span&gt;&lt;/span&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;  &lt;span style=&#34;color:#a6e22e&#34;&gt;enableSort&lt;/span&gt;&lt;span style=&#34;color:#f92672&#34;&gt;=&lt;/span&gt;{&lt;span style=&#34;color:#66d9ef&#34;&gt;true&lt;/span&gt;}
+&lt;/span&gt;&lt;/span&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;  &lt;span style=&#34;color:#a6e22e&#34;&gt;headerColor&lt;/span&gt;&lt;span style=&#34;color:#f92672&#34;&gt;=&lt;/span&gt;&lt;span style=&#34;color:#e6db74&#34;&gt;&amp;#34;blue&amp;#34;&lt;/span&gt;
+&lt;/span&gt;&lt;/span&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;  &lt;span style=&#34;color:#75715e&#34;&gt;// ...后面还有20个属性
+&lt;/span&gt;&lt;/span&gt;&lt;/span&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;&lt;span style=&#34;color:#75715e&#34;&gt;&lt;/span&gt;&lt;span style=&#34;color:#960050;background-color:#1e0010&#34;&gt;/&amp;gt;&lt;/span&gt;
+&lt;/span&gt;&lt;/span&gt;&lt;/code&gt;&lt;/pre&gt;&lt;/div&gt;&lt;p&gt;✅ &lt;strong&gt;推荐的组合模式（Slot/Children）：&lt;/strong&gt;&lt;/p&gt;
+&lt;div class=&#34;highlight&#34;&gt;&lt;pre tabindex=&#34;0&#34; style=&#34;color:#f8f8f2;background-color:#272822;-moz-tab-size:4;-o-tab-size:4;tab-size:4;&#34;&gt;&lt;code class=&#34;language-javascript&#34; data-lang=&#34;javascript&#34;&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;&lt;span style=&#34;color:#75715e&#34;&gt;// 基础组件只管布局和样式，内容由外部决定
+&lt;/span&gt;&lt;/span&gt;&lt;/span&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;&lt;span style=&#34;color:#75715e&#34;&gt;&lt;/span&gt;&lt;span style=&#34;color:#f92672&#34;&gt;&amp;lt;&lt;/span&gt;&lt;span style=&#34;color:#a6e22e&#34;&gt;Table&lt;/span&gt;&lt;span style=&#34;color:#f92672&#34;&gt;&amp;gt;&lt;/span&gt;
+&lt;/span&gt;&lt;/span&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;  &lt;span style=&#34;color:#f92672&#34;&gt;&amp;lt;&lt;/span&gt;&lt;span style=&#34;color:#a6e22e&#34;&gt;TableHead&lt;/span&gt;&lt;span style=&#34;color:#f92672&#34;&gt;&amp;gt;&lt;/span&gt;
+&lt;/span&gt;&lt;/span&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;    &lt;span style=&#34;color:#f92672&#34;&gt;&amp;lt;&lt;/span&gt;&lt;span style=&#34;color:#a6e22e&#34;&gt;Checkbox&lt;/span&gt; &lt;span style=&#34;color:#f92672&#34;&gt;/&amp;gt;&lt;/span&gt;
+&lt;/span&gt;&lt;/span&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;    &lt;span style=&#34;color:#f92672&#34;&gt;&amp;lt;&lt;/span&gt;&lt;span style=&#34;color:#a6e22e&#34;&gt;SortIcon&lt;/span&gt; &lt;span style=&#34;color:#f92672&#34;&gt;/&amp;gt;&lt;/span&gt;
+&lt;/span&gt;&lt;/span&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;  &lt;span style=&#34;color:#f92672&#34;&gt;&amp;lt;&lt;/span&gt;&lt;span style=&#34;color:#960050;background-color:#1e0010&#34;&gt;/TableHead&amp;gt;&lt;/span&gt;
+&lt;/span&gt;&lt;/span&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;  &lt;span style=&#34;color:#f92672&#34;&gt;&amp;lt;&lt;/span&gt;&lt;span style=&#34;color:#a6e22e&#34;&gt;TableBody&lt;/span&gt;&lt;span style=&#34;color:#f92672&#34;&gt;&amp;gt;&lt;/span&gt;
+&lt;/span&gt;&lt;/span&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;    {&lt;span style=&#34;color:#a6e22e&#34;&gt;list&lt;/span&gt;.&lt;span style=&#34;color:#a6e22e&#34;&gt;map&lt;/span&gt;(&lt;span style=&#34;color:#a6e22e&#34;&gt;item&lt;/span&gt; =&amp;gt; (
+&lt;/span&gt;&lt;/span&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;       &lt;span style=&#34;color:#f92672&#34;&gt;&amp;lt;&lt;/span&gt;&lt;span style=&#34;color:#a6e22e&#34;&gt;Row&lt;/span&gt;&lt;span style=&#34;color:#f92672&#34;&gt;&amp;gt;&lt;/span&gt;
+&lt;/span&gt;&lt;/span&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;         &lt;span style=&#34;color:#f92672&#34;&gt;&amp;lt;&lt;/span&gt;&lt;span style=&#34;color:#a6e22e&#34;&gt;Cell&lt;/span&gt;&lt;span style=&#34;color:#f92672&#34;&gt;&amp;gt;&lt;/span&gt;{&lt;span style=&#34;color:#a6e22e&#34;&gt;item&lt;/span&gt;.&lt;span style=&#34;color:#a6e22e&#34;&gt;name&lt;/span&gt;}&lt;span style=&#34;color:#f92672&#34;&gt;&amp;lt;&lt;/span&gt;&lt;span style=&#34;color:#960050;background-color:#1e0010&#34;&gt;/Cell&amp;gt;&lt;/span&gt;
+&lt;/span&gt;&lt;/span&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;         {&lt;span style=&#34;color:#75715e&#34;&gt;/* 特殊逻辑直接在这里写，不用侵入组件内部 */&lt;/span&gt;}
+&lt;/span&gt;&lt;/span&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;         &lt;span style=&#34;color:#f92672&#34;&gt;&amp;lt;&lt;/span&gt;&lt;span style=&#34;color:#a6e22e&#34;&gt;Cell&lt;/span&gt; &lt;span style=&#34;color:#a6e22e&#34;&gt;style&lt;/span&gt;=&amp;gt;
+&lt;/span&gt;&lt;/span&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;            {&lt;span style=&#34;color:#a6e22e&#34;&gt;item&lt;/span&gt;.&lt;span style=&#34;color:#a6e22e&#34;&gt;status&lt;/span&gt;}
+&lt;/span&gt;&lt;/span&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;         &lt;span style=&#34;color:#f92672&#34;&gt;&amp;lt;&lt;/span&gt;&lt;span style=&#34;color:#960050;background-color:#1e0010&#34;&gt;/Cell&amp;gt;&lt;/span&gt;
+&lt;/span&gt;&lt;/span&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;       &lt;span style=&#34;color:#f92672&#34;&gt;&amp;lt;&lt;/span&gt;&lt;span style=&#34;color:#960050;background-color:#1e0010&#34;&gt;/Row&amp;gt;&lt;/span&gt;
+&lt;/span&gt;&lt;/span&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;    ))}
+&lt;/span&gt;&lt;/span&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;  &lt;span style=&#34;color:#f92672&#34;&gt;&amp;lt;&lt;/span&gt;&lt;span style=&#34;color:#960050;background-color:#1e0010&#34;&gt;/TableBody&amp;gt;&lt;/span&gt;
+&lt;/span&gt;&lt;/span&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;&lt;span style=&#34;color:#f92672&#34;&gt;&amp;lt;&lt;/span&gt;&lt;span style=&#34;color:#960050;background-color:#1e0010&#34;&gt;/Table&amp;gt;&lt;/span&gt;
+&lt;/span&gt;&lt;/span&gt;&lt;/code&gt;&lt;/pre&gt;&lt;/div&gt;&lt;p&gt;当你发现一个组件需要传 &lt;code&gt;styleObject&lt;/code&gt; 或者 &lt;code&gt;className&lt;/code&gt; 进去覆盖默认样式时，通常说明拆解粒度不够，或者封装得太死了。&lt;/p&gt;
+&lt;h2 id=&#34;二-拒绝业务入侵让ui组件变哑巴&#34;&gt;二、 拒绝“业务入侵”：让UI组件变“哑巴”
+&lt;/h2&gt;&lt;p&gt;这是造成项目难以维护的头号杀手。很多项目经理抱怨：“为什么换个接口，前端要改两天？”多半是因为业务逻辑渗透到了UI组件里。&lt;/p&gt;
+&lt;p&gt;&lt;strong&gt;观点：&lt;/strong&gt; UI组件应该是“哑巴”，只负责“画图”和“喊话”（触发事件），绝对不能知道数据是从哪里来的。&lt;/p&gt;
+&lt;p&gt;&lt;strong&gt;真实案例：&lt;/strong&gt;
+我们曾经有个“用户卡片”组件。最开始是在CRM系统里用的，代码里直接引入了 &lt;code&gt;fetchUserDetail(id)&lt;/code&gt; 这个API请求。&lt;/p&gt;
+&lt;p&gt;后来做营销活动页，产品经理想复用这个卡片样式，展示中奖用户信息。结果发现复用不了——因为营销活动的数据结构跟CRM完全不一样，而且不需要调那个API。&lt;/p&gt;
+&lt;p&gt;结果就是：前端不得不Ctrl+C、Ctrl+V，复制了一份代码改名叫 &lt;code&gt;WinnerCard&lt;/code&gt;。随着版本迭代，两份代码样式逐渐不一致，UI走查天天报Bug。&lt;/p&gt;
+&lt;p&gt;&lt;strong&gt;硬核解法：容器组件 vs 展示组件&lt;/strong&gt;&lt;/p&gt;
+&lt;p&gt;这个方法我用了3年，百试百灵。强制要求团队把组件分为两类：&lt;/p&gt;
+&lt;ol&gt;
+&lt;li&gt;
+&lt;p&gt;&lt;strong&gt;展示组件（Dumb Component）：&lt;/strong&gt;&lt;/p&gt;
+&lt;ul&gt;
+&lt;li&gt;&lt;strong&gt;只收数据（Props），不调接口。&lt;/strong&gt;&lt;/li&gt;
+&lt;li&gt;不知道业务逻辑，只负责长得好看。&lt;/li&gt;
+&lt;li&gt;放在 &lt;code&gt;components/ui&lt;/code&gt; 目录下。&lt;/li&gt;
+&lt;/ul&gt;
+&lt;/li&gt;
+&lt;li&gt;
+&lt;p&gt;&lt;strong&gt;容器组件（Smart Component）：&lt;/strong&gt;&lt;/p&gt;
+&lt;ul&gt;
+&lt;li&gt;&lt;strong&gt;负责调接口、处理数据转换。&lt;/strong&gt;&lt;/li&gt;
+&lt;li&gt;把处理好的纯数据传给展示组件。&lt;/li&gt;
+&lt;li&gt;放在 &lt;code&gt;components/features&lt;/code&gt; 或 &lt;code&gt;pages&lt;/code&gt; 目录下。&lt;/li&gt;
+&lt;/ul&gt;
+&lt;/li&gt;
+&lt;/ol&gt;
+&lt;p&gt;&lt;img src=&#34;https://picsum.photos/800/450?random=1768448999982&#34;
+	
+	
+	
+	loading=&#34;lazy&#34;
+	
+		alt=&#34;配图&#34;
+	
+	
+&gt;&lt;/p&gt;
+&lt;p&gt;&lt;strong&gt;实操步骤：&lt;/strong&gt;
+当你写代码时，如果发现在一个通用按钮里引入了 &lt;code&gt;store&lt;/code&gt; 或者 &lt;code&gt;axios&lt;/code&gt;，请立刻停手。你应该在外面包一层，把点击事件抛出来。&lt;/p&gt;
+&lt;blockquote&gt;
+&lt;p&gt;“展示组件就像个没头脑的画师，容器组件才是那个操心的管家。”&lt;/p&gt;
+&lt;/blockquote&gt;
+&lt;h2 id=&#34;三-别做预言家遵循三次法则&#34;&gt;三、 别做“预言家”：遵循“三次法则”
+&lt;/h2&gt;&lt;p&gt;很多有追求的开发人员（包括曾经的我）都有洁癖，写第一遍代码时就想把它封装得完美无缺，支持未来可能出现的各种需求。&lt;/p&gt;
+&lt;p&gt;&lt;img src=&#34;https://picsum.photos/800/450?random=1768449002596&#34;
+	
+	
+	
+	loading=&#34;lazy&#34;
+	
+		alt=&#34;配图&#34;
+	
+	
+&gt;&lt;/p&gt;
+&lt;p&gt;&lt;strong&gt;观点：&lt;/strong&gt; 过早优化是万恶之源。在重复出现第三次之前，允许复制粘贴。&lt;/p&gt;
+&lt;p&gt;&lt;strong&gt;真实案例：&lt;/strong&gt;
+去年做个活动页，有个倒计时功能。有个兄弟觉得以后肯定常用，于是花了半天时间封装了一个巨牛逼的 &lt;code&gt;CountDown&lt;/code&gt;：支持毫秒级、支持服务器时间校准、支持自定义格式化字符串、支持倒计时结束回调&amp;hellip;&lt;/p&gt;
+&lt;p&gt;结果呢？那个活动上线3天就下线了。那个巨复杂的倒计时组件再也没人用过，还留在那占体积。反而是后来另一个活动需要简单的“天:时:分”，大家嫌那个组件太重，又重写了一个。&lt;/p&gt;
+&lt;p&gt;&lt;strong&gt;硬核解法：Rule of Three（三次法则）&lt;/strong&gt;&lt;/p&gt;
+&lt;ol&gt;
+&lt;li&gt;&lt;strong&gt;第一次：&lt;/strong&gt; 只管写业务，代码直接写在页面文件里，怎么快怎么来。&lt;/li&gt;
+&lt;li&gt;&lt;strong&gt;第二次：&lt;/strong&gt; 当遇到相似场景，允许复制粘贴（Copy-Paste），稍微改改。&lt;/li&gt;
+&lt;li&gt;&lt;strong&gt;第三次：&lt;/strong&gt; 当你发现自己在复制第三次时，这时候你已经非常清楚共性是什么、差异是什么了。&lt;strong&gt;此刻，才是重构和提取组件的最佳时机。&lt;/strong&gt;&lt;/li&gt;
+&lt;/ol&gt;
+&lt;p&gt;&lt;img src=&#34;https://picsum.photos/800/450?random=1768449002620&#34;
+	
+	
+	
+	loading=&#34;lazy&#34;
+	
+		alt=&#34;配图&#34;
+	
+	
+&gt;&lt;/p&gt;
+&lt;p&gt;不要为了“可能”的需求去写代码，只为“当前”的痛点去封装。&lt;/p&gt;
+&lt;h2 id=&#34;总结与行动&#34;&gt;总结与行动
+&lt;/h2&gt;&lt;p&gt;组件化拆解不是为了炫技，而是为了&lt;strong&gt;让队友少骂你两句&lt;/strong&gt;，为了&lt;strong&gt;下班能准时走&lt;/strong&gt;。&lt;/p&gt;
+&lt;p&gt;回顾一下核心思路：&lt;/p&gt;
+&lt;ol&gt;
+&lt;li&gt;&lt;strong&gt;别搞上帝组件&lt;/strong&gt;：用组合替代配置，属性越少越好。&lt;/li&gt;
+&lt;li&gt;&lt;strong&gt;别让业务入侵&lt;/strong&gt;：UI归UI，数据归数据，把API请求从UI组件里踢出去。&lt;/li&gt;
+&lt;li&gt;&lt;strong&gt;别做预言家&lt;/strong&gt;：忍住封装的冲动，直到代码重复了三次。&lt;/li&gt;
+&lt;/ol&gt;
+&lt;p&gt;&lt;strong&gt;给你的落地建议（Action Plan）：&lt;/strong&gt;&lt;/p&gt;
+&lt;ol&gt;
+&lt;li&gt;&lt;strong&gt;本周自查：&lt;/strong&gt; 打开你的项目，找到那个Props最多的组件，尝试用“组合模式”重写一个简单的Demo，对比一下灵活性。&lt;/li&gt;
+&lt;li&gt;&lt;strong&gt;清理逻辑：&lt;/strong&gt; 检查公共组件库，凡是里面包含 &lt;code&gt;axios&lt;/code&gt;、&lt;code&gt;fetch&lt;/code&gt; 或者特定业务状态判断的，标记出来，下次迭代计划拆分。&lt;/li&gt;
+&lt;li&gt;&lt;strong&gt;制定红线：&lt;/strong&gt; 在团队里定个死规矩——通用UI组件禁止包含任何业务接口调用。&lt;/li&gt;
+&lt;/ol&gt;
+&lt;p&gt;&lt;strong&gt;最后想问问你：&lt;/strong&gt;
+在你现在的项目里，修改一个通用的顶部导航栏，需要改动几个文件？如果超过1个，或许你该试试上面的方法了。&lt;/p&gt;
+</description>
+        </item>
+        
+    </channel>
+</rss>

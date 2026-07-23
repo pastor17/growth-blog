@@ -1,0 +1,458 @@
+<!DOCTYPE html>
+<html lang="zh-cn" dir="ltr">
+    <head><meta charset='utf-8'>
+<meta name='viewport' content='width=device-width, initial-scale=1'><meta name='description' content="我曾天真地以为，只要给JVM分配足够大的Heap（堆内存），就能掩盖代码里那些并不优雅的逻辑。直到那个周二凌晨3点，生产环境的报警电话像电钻一样钻进我的耳朵，打破了我的幻想。\n那是一次典型的“慢性死亡”：一个核心服务在运行了14天后，16GB的堆内存被吃得只剩几百兆，Full GC（全量垃圾回收）从每小时一次飙升到每分钟一次，CPU直接打满，整个系统陷入瘫痪。\n重启服务当然能暂时止血，但如果你和我一样，经历过那种“不知道下一次炸雷是几小时后”的焦虑，你就会明白：掌握Dump文件分析，不是为了炫技，而是为了能睡个安稳觉。\n今天，我想复盘那次排查过程，聊聊如何从Dump文件中揪出那些藏在深处的内存“幽灵”。\n警惕：监控面板上的“完美曲线”\r很多开发同学在收到OOM（内存溢出）报警时的第一反应是：“不可能啊，我看监控，堆内存是缓慢增长的，没有什么突刺。”\n我们当时遇到的正是这种情况。那个负责报表导出的服务，在上线初期，Old Gen（老年代）的使用率像一条平滑的斜线，每天增长约5%，非常规律。运维同事甚至开玩笑说：“这内存泄露得还挺有节奏感。”\n观点：线性的内存增长往往比突发性暴涨更可怕，因为它意味着存在程序逻辑上的永久性泄漏。\n我们当时犯的一个错误是，过度依赖APM（应用性能监控）工具上的图表，而忽略了GC日志中的关键信息。直到我拉出GC日志，才发现虽然每次Full GC后内存会有所回落，但“回落的底线”在不断抬高。\n“如果Full GC后的存活对象大小（Live Data Size）在不断增加，不要怀疑，这就是内存泄漏。”\n这个判断标准，后来成为了我们团队设定报警阈值的铁律。\n实战：Dump文件不仅要拿，还要拿得“巧”\r确定了内存泄漏，下一步就是获取现场证据——Heap Dump文件。\n这里有个大坑。当时一位年轻的运维为了保留完整现场，直接对那个已经摇摇欲坠的16G进程执行了标准的 jmap -dump 命令。结果，整个JVM进程挂起（STW，Stop The World）了将近40秒，导致上游服务大量超时，引发了二次雪崩。\n经验教训：在生产环境，尤其是高负载服务上，获取Dump文件必须小心翼翼。\n我现在的做法通常是：\n摘除流量：先将该节点从负载均衡中下线； 只存活对象：使用 live 选项，只dump存活的对象，能显著减小文件体积。 # 生产环境推荐操作 # format=b 表示二进制格式，file指定文件名 jmap -dump:live,format=b,file=heap_dump_20231024.hprof &lt;pid&gt; 拿到这个5GB左右的Dump文件后（虽然堆是16G，但压缩和去除非存活对象后会小很多），真正的侦探工作才刚开始。顺便提一句，为了分析这种大文件，我特意申请了一台64G内存的独立工作站，因为在笔记本上跑MAT（Memory Analyzer Tool）简直是折磨。\n真相：MAT分析核心——顺藤摸瓜找“真凶”\r打开MAT，加载文件，很多人会被复杂的饼图和术语劝退。其实，你只需要关注两个核心概念：Shallow Heap（浅堆） 和 Retained Heap（深堆）。\nShallow Heap：对象本身占用的内存（通常很小）。 Retained Heap：对象及其引用的所有对象加起来占用的内存（这才是我们要找的大鱼）。 在那个报表服务的案例中，我直接打开了 Dominator Tree（支配树） 视图。这个视图非常直观，它会按 Retained Heap 对对象进行排序。\n排名第一的，赫然是一个 ConcurrentHashMap，占用了近4GB的内存。\n点击展开这个Map，发现里面塞满了 byte[] 数组。再看引用链（Path to GC Roots），发现这个Map被一个名为 ExportTaskCache 的静态类引用。\n">
+<title>凌晨3点报警：一次16G堆内存泄漏的排查实录</title>
+
+<link rel='canonical' href='https://blog.irudder.me/tech/jiagouyouhuashizhananlijiexi/jvmneicunxieloupaicha_dumpwenjianfenxirumen.html'>
+
+<link rel="stylesheet" href="/scss/style.min.b9e9128fec450ebccecc4ec9900157f32b85d0609bcd5ee3293968bcaa1235f2.css"><meta property='og:title' content="凌晨3点报警：一次16G堆内存泄漏的排查实录">
+<meta property='og:description' content="我曾天真地以为，只要给JVM分配足够大的Heap（堆内存），就能掩盖代码里那些并不优雅的逻辑。直到那个周二凌晨3点，生产环境的报警电话像电钻一样钻进我的耳朵，打破了我的幻想。\n那是一次典型的“慢性死亡”：一个核心服务在运行了14天后，16GB的堆内存被吃得只剩几百兆，Full GC（全量垃圾回收）从每小时一次飙升到每分钟一次，CPU直接打满，整个系统陷入瘫痪。\n重启服务当然能暂时止血，但如果你和我一样，经历过那种“不知道下一次炸雷是几小时后”的焦虑，你就会明白：掌握Dump文件分析，不是为了炫技，而是为了能睡个安稳觉。\n今天，我想复盘那次排查过程，聊聊如何从Dump文件中揪出那些藏在深处的内存“幽灵”。\n警惕：监控面板上的“完美曲线”\r很多开发同学在收到OOM（内存溢出）报警时的第一反应是：“不可能啊，我看监控，堆内存是缓慢增长的，没有什么突刺。”\n我们当时遇到的正是这种情况。那个负责报表导出的服务，在上线初期，Old Gen（老年代）的使用率像一条平滑的斜线，每天增长约5%，非常规律。运维同事甚至开玩笑说：“这内存泄露得还挺有节奏感。”\n观点：线性的内存增长往往比突发性暴涨更可怕，因为它意味着存在程序逻辑上的永久性泄漏。\n我们当时犯的一个错误是，过度依赖APM（应用性能监控）工具上的图表，而忽略了GC日志中的关键信息。直到我拉出GC日志，才发现虽然每次Full GC后内存会有所回落，但“回落的底线”在不断抬高。\n“如果Full GC后的存活对象大小（Live Data Size）在不断增加，不要怀疑，这就是内存泄漏。”\n这个判断标准，后来成为了我们团队设定报警阈值的铁律。\n实战：Dump文件不仅要拿，还要拿得“巧”\r确定了内存泄漏，下一步就是获取现场证据——Heap Dump文件。\n这里有个大坑。当时一位年轻的运维为了保留完整现场，直接对那个已经摇摇欲坠的16G进程执行了标准的 jmap -dump 命令。结果，整个JVM进程挂起（STW，Stop The World）了将近40秒，导致上游服务大量超时，引发了二次雪崩。\n经验教训：在生产环境，尤其是高负载服务上，获取Dump文件必须小心翼翼。\n我现在的做法通常是：\n摘除流量：先将该节点从负载均衡中下线； 只存活对象：使用 live 选项，只dump存活的对象，能显著减小文件体积。 # 生产环境推荐操作 # format=b 表示二进制格式，file指定文件名 jmap -dump:live,format=b,file=heap_dump_20231024.hprof &lt;pid&gt; 拿到这个5GB左右的Dump文件后（虽然堆是16G，但压缩和去除非存活对象后会小很多），真正的侦探工作才刚开始。顺便提一句，为了分析这种大文件，我特意申请了一台64G内存的独立工作站，因为在笔记本上跑MAT（Memory Analyzer Tool）简直是折磨。\n真相：MAT分析核心——顺藤摸瓜找“真凶”\r打开MAT，加载文件，很多人会被复杂的饼图和术语劝退。其实，你只需要关注两个核心概念：Shallow Heap（浅堆） 和 Retained Heap（深堆）。\nShallow Heap：对象本身占用的内存（通常很小）。 Retained Heap：对象及其引用的所有对象加起来占用的内存（这才是我们要找的大鱼）。 在那个报表服务的案例中，我直接打开了 Dominator Tree（支配树） 视图。这个视图非常直观，它会按 Retained Heap 对对象进行排序。\n排名第一的，赫然是一个 ConcurrentHashMap，占用了近4GB的内存。\n点击展开这个Map，发现里面塞满了 byte[] 数组。再看引用链（Path to GC Roots），发现这个Map被一个名为 ExportTaskCache 的静态类引用。\n">
+<meta property='og:url' content='https://blog.irudder.me/tech/jiagouyouhuashizhananlijiexi/jvmneicunxieloupaicha_dumpwenjianfenxirumen.html'>
+<meta property='og:site_name' content='SelfTechHub'>
+<meta property='og:type' content='article'><meta property='article:section' content='Tech' /><meta property='article:tag' content='JVM内存泄漏排查：Dump文件分析入门' /><meta property='article:published_time' content='2025-06-07T00:00:00&#43;00:00'/><meta property='article:modified_time' content='2025-06-07T00:00:00&#43;00:00'/>
+<meta name="twitter:title" content="凌晨3点报警：一次16G堆内存泄漏的排查实录">
+<meta name="twitter:description" content="我曾天真地以为，只要给JVM分配足够大的Heap（堆内存），就能掩盖代码里那些并不优雅的逻辑。直到那个周二凌晨3点，生产环境的报警电话像电钻一样钻进我的耳朵，打破了我的幻想。\n那是一次典型的“慢性死亡”：一个核心服务在运行了14天后，16GB的堆内存被吃得只剩几百兆，Full GC（全量垃圾回收）从每小时一次飙升到每分钟一次，CPU直接打满，整个系统陷入瘫痪。\n重启服务当然能暂时止血，但如果你和我一样，经历过那种“不知道下一次炸雷是几小时后”的焦虑，你就会明白：掌握Dump文件分析，不是为了炫技，而是为了能睡个安稳觉。\n今天，我想复盘那次排查过程，聊聊如何从Dump文件中揪出那些藏在深处的内存“幽灵”。\n警惕：监控面板上的“完美曲线”\r很多开发同学在收到OOM（内存溢出）报警时的第一反应是：“不可能啊，我看监控，堆内存是缓慢增长的，没有什么突刺。”\n我们当时遇到的正是这种情况。那个负责报表导出的服务，在上线初期，Old Gen（老年代）的使用率像一条平滑的斜线，每天增长约5%，非常规律。运维同事甚至开玩笑说：“这内存泄露得还挺有节奏感。”\n观点：线性的内存增长往往比突发性暴涨更可怕，因为它意味着存在程序逻辑上的永久性泄漏。\n我们当时犯的一个错误是，过度依赖APM（应用性能监控）工具上的图表，而忽略了GC日志中的关键信息。直到我拉出GC日志，才发现虽然每次Full GC后内存会有所回落，但“回落的底线”在不断抬高。\n“如果Full GC后的存活对象大小（Live Data Size）在不断增加，不要怀疑，这就是内存泄漏。”\n这个判断标准，后来成为了我们团队设定报警阈值的铁律。\n实战：Dump文件不仅要拿，还要拿得“巧”\r确定了内存泄漏，下一步就是获取现场证据——Heap Dump文件。\n这里有个大坑。当时一位年轻的运维为了保留完整现场，直接对那个已经摇摇欲坠的16G进程执行了标准的 jmap -dump 命令。结果，整个JVM进程挂起（STW，Stop The World）了将近40秒，导致上游服务大量超时，引发了二次雪崩。\n经验教训：在生产环境，尤其是高负载服务上，获取Dump文件必须小心翼翼。\n我现在的做法通常是：\n摘除流量：先将该节点从负载均衡中下线； 只存活对象：使用 live 选项，只dump存活的对象，能显著减小文件体积。 # 生产环境推荐操作 # format=b 表示二进制格式，file指定文件名 jmap -dump:live,format=b,file=heap_dump_20231024.hprof &lt;pid&gt; 拿到这个5GB左右的Dump文件后（虽然堆是16G，但压缩和去除非存活对象后会小很多），真正的侦探工作才刚开始。顺便提一句，为了分析这种大文件，我特意申请了一台64G内存的独立工作站，因为在笔记本上跑MAT（Memory Analyzer Tool）简直是折磨。\n真相：MAT分析核心——顺藤摸瓜找“真凶”\r打开MAT，加载文件，很多人会被复杂的饼图和术语劝退。其实，你只需要关注两个核心概念：Shallow Heap（浅堆） 和 Retained Heap（深堆）。\nShallow Heap：对象本身占用的内存（通常很小）。 Retained Heap：对象及其引用的所有对象加起来占用的内存（这才是我们要找的大鱼）。 在那个报表服务的案例中，我直接打开了 Dominator Tree（支配树） 视图。这个视图非常直观，它会按 Retained Heap 对对象进行排序。\n排名第一的，赫然是一个 ConcurrentHashMap，占用了近4GB的内存。\n点击展开这个Map，发现里面塞满了 byte[] 数组。再看引用链（Path to GC Roots），发现这个Map被一个名为 ExportTaskCache 的静态类引用。\n">
+    </head>
+    <body class="
+    article-page
+    ">
+    <script>
+        (function() {
+            const colorSchemeKey = 'StackColorScheme';
+            if(!localStorage.getItem(colorSchemeKey)){
+                localStorage.setItem(colorSchemeKey, "auto");
+            }
+        })();
+    </script><script>
+    (function() {
+        const colorSchemeKey = 'StackColorScheme';
+        const colorSchemeItem = localStorage.getItem(colorSchemeKey);
+        const supportDarkMode = window.matchMedia('(prefers-color-scheme: dark)').matches === true;
+
+        if (colorSchemeItem == 'dark' || colorSchemeItem === 'auto' && supportDarkMode) {
+            
+
+            document.documentElement.dataset.scheme = 'dark';
+        } else {
+            document.documentElement.dataset.scheme = 'light';
+        }
+    })();
+</script>
+<div class="container main-container flex on-phone--column compact"><aside class="sidebar left-sidebar sticky ">
+    <button class="hamburger hamburger--spin" type="button" id="toggle-menu" aria-label="切换菜单">
+        <span class="hamburger-box">
+            <span class="hamburger-inner"></span>
+        </span>
+    </button>
+
+    <header>
+        
+            
+            <figure class="site-avatar">
+                <a href="/">
+                
+                    
+                    
+                    
+                        
+                        <img src="/img/avatar_hu_8588ce14af1147e2.png" width="300"
+                            height="286" class="site-logo" loading="lazy" alt="Avatar">
+                    
+                
+                </a>
+                
+            </figure>
+            
+        
+        
+        <div class="site-meta">
+            <h1 class="site-name"><a href="/">SelfTechHub</a></h1>
+            <h2 class="site-description"></h2>
+        </div>
+    </header><ol class="menu" id="main-menu">
+        
+        
+        <li class="menu-bottom-section">
+            <ol class="menu">
+
+                
+                    <li id="dark-mode-toggle">
+                        <svg xmlns="http://www.w3.org/2000/svg" class="icon icon-tabler icon-tabler-toggle-left" width="24" height="24" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor" fill="none" stroke-linecap="round" stroke-linejoin="round">
+  <path stroke="none" d="M0 0h24v24H0z"/>
+  <circle cx="8" cy="12" r="2" />
+  <rect x="2" y="6" width="20" height="12" rx="6" />
+</svg>
+
+
+
+                        <svg xmlns="http://www.w3.org/2000/svg" class="icon icon-tabler icon-tabler-toggle-right" width="24" height="24" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor" fill="none" stroke-linecap="round" stroke-linejoin="round">
+  <path stroke="none" d="M0 0h24v24H0z"/>
+  <circle cx="16" cy="12" r="2" />
+  <rect x="2" y="6" width="20" height="12" rx="6" />
+</svg>
+
+
+
+                        <span>暗色模式</span>
+                    </li>
+                
+            </ol>
+        </li>
+    </ol>
+</aside>
+
+    
+
+            <main class="main full-width">
+    <article class="main-article">
+    <header class="article-header">
+
+    <div class="article-details">
+    
+    <header class="article-category">
+        
+            <a href="/categories/%E6%8A%80%E6%9C%AF.html" >
+                技术精进
+            </a>
+        
+    </header>
+    
+
+    <div class="article-title-wrapper">
+        <h2 class="article-title">
+            <a href="/tech/jiagouyouhuashizhananlijiexi/jvmneicunxieloupaicha_dumpwenjianfenxirumen.html">凌晨3点报警：一次16G堆内存泄漏的排查实录</a>
+        </h2>
+    
+        
+    </div>
+
+    
+    
+    
+    
+    <footer class="article-time">
+        
+            <div>
+                <svg xmlns="http://www.w3.org/2000/svg" class="icon icon-tabler icon-tabler-calendar-time" width="56" height="56" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor" fill="none" stroke-linecap="round" stroke-linejoin="round">
+  <path stroke="none" d="M0 0h24v24H0z"/>
+  <path d="M11.795 21h-6.795a2 2 0 0 1 -2 -2v-12a2 2 0 0 1 2 -2h12a2 2 0 0 1 2 2v4" />
+  <circle cx="18" cy="18" r="4" />
+  <path d="M15 3v4" />
+  <path d="M7 3v4" />
+  <path d="M3 11h16" />
+  <path d="M18 16.496v1.504l1 1" />
+</svg>
+                <time class="article-time--published" datetime='2025-06-07T00:00:00Z'>Jun 07, 2025</time>
+            </div>
+        
+
+        
+            <div>
+                <svg xmlns="http://www.w3.org/2000/svg" class="icon icon-tabler icon-tabler-clock" width="24" height="24" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor" fill="none" stroke-linecap="round" stroke-linejoin="round">
+  <path stroke="none" d="M0 0h24v24H0z"/>
+  <circle cx="12" cy="12" r="9" />
+  <polyline points="12 7 12 12 15 15" />
+</svg>
+
+
+
+                <time class="article-time--reading">
+                    阅读时长: 1 分钟
+                </time>
+            </div>
+        
+    </footer>
+    
+
+    
+</div>
+
+</header>
+
+    <section class="article-content">
+    
+    
+    <p>我曾天真地以为，只要给JVM分配足够大的Heap（堆内存），就能掩盖代码里那些并不优雅的逻辑。直到那个周二凌晨3点，生产环境的报警电话像电钻一样钻进我的耳朵，打破了我的幻想。</p>
+<p>那是一次典型的“慢性死亡”：一个核心服务在运行了14天后，16GB的堆内存被吃得只剩几百兆，Full GC（全量垃圾回收）从每小时一次飙升到每分钟一次，CPU直接打满，整个系统陷入瘫痪。</p>
+<p>重启服务当然能暂时止血，但如果你和我一样，经历过那种“不知道下一次炸雷是几小时后”的焦虑，你就会明白：<strong>掌握Dump文件分析，不是为了炫技，而是为了能睡个安稳觉。</strong></p>
+<p>今天，我想复盘那次排查过程，聊聊如何从Dump文件中揪出那些藏在深处的内存“幽灵”。</p>
+<h2 id="警惕监控面板上的完美曲线">警惕：监控面板上的“完美曲线”
+</h2><p>很多开发同学在收到OOM（内存溢出）报警时的第一反应是：“不可能啊，我看监控，堆内存是缓慢增长的，没有什么突刺。”</p>
+<p>我们当时遇到的正是这种情况。那个负责报表导出的服务，在上线初期，Old Gen（老年代）的使用率像一条平滑的斜线，每天增长约5%，非常规律。运维同事甚至开玩笑说：“这内存泄露得还挺有节奏感。”</p>
+<p><strong>观点：线性的内存增长往往比突发性暴涨更可怕，因为它意味着存在程序逻辑上的永久性泄漏。</strong></p>
+<p>我们当时犯的一个错误是，过度依赖APM（应用性能监控）工具上的图表，而忽略了GC日志中的关键信息。直到我拉出GC日志，才发现虽然每次Full GC后内存会有所回落，但“回落的底线”在不断抬高。</p>
+<blockquote>
+<p>“如果Full GC后的存活对象大小（Live Data Size）在不断增加，不要怀疑，这就是内存泄漏。”</p>
+</blockquote>
+<p>这个判断标准，后来成为了我们团队设定报警阈值的铁律。</p>
+<p><img src="https://picsum.photos/800/450?random=1768457353329"
+	
+	
+	
+	loading="lazy"
+	
+		alt="配图"
+	
+	
+></p>
+<h2 id="实战dump文件不仅要拿还要拿得巧">实战：Dump文件不仅要拿，还要拿得“巧”
+</h2><p>确定了内存泄漏，下一步就是获取现场证据——Heap Dump文件。</p>
+<p>这里有个大坑。当时一位年轻的运维为了保留完整现场，直接对那个已经摇摇欲坠的16G进程执行了标准的 <code>jmap -dump</code> 命令。结果，整个JVM进程挂起（STW，Stop The World）了将近40秒，导致上游服务大量超时，引发了二次雪崩。</p>
+<p><strong>经验教训：在生产环境，尤其是高负载服务上，获取Dump文件必须小心翼翼。</strong></p>
+<p>我现在的做法通常是：</p>
+<ol>
+<li><strong>摘除流量</strong>：先将该节点从负载均衡中下线；</li>
+<li><strong>只存活对象</strong>：使用 <code>live</code> 选项，只dump存活的对象，能显著减小文件体积。</li>
+</ol>
+<div class="highlight"><pre tabindex="0" style="color:#f8f8f2;background-color:#272822;-moz-tab-size:4;-o-tab-size:4;tab-size:4;"><code class="language-bash" data-lang="bash"><span style="display:flex;"><span><span style="color:#75715e"># 生产环境推荐操作</span>
+</span></span><span style="display:flex;"><span><span style="color:#75715e"># format=b 表示二进制格式，file指定文件名</span>
+</span></span><span style="display:flex;"><span>jmap -dump:live,format<span style="color:#f92672">=</span>b,file<span style="color:#f92672">=</span>heap_dump_20231024.hprof &lt;pid&gt;
+</span></span></code></pre></div><p>拿到这个5GB左右的Dump文件后（虽然堆是16G，但压缩和去除非存活对象后会小很多），真正的侦探工作才刚开始。顺便提一句，为了分析这种大文件，我特意申请了一台64G内存的独立工作站，因为在笔记本上跑MAT（Memory Analyzer Tool）简直是折磨。</p>
+<h2 id="真相mat分析核心顺藤摸瓜找真凶">真相：MAT分析核心——顺藤摸瓜找“真凶”
+</h2><p>打开MAT，加载文件，很多人会被复杂的饼图和术语劝退。其实，你只需要关注两个核心概念：<strong>Shallow Heap（浅堆）</strong> 和 <strong>Retained Heap（深堆）</strong>。</p>
+<ul>
+<li><strong>Shallow Heap</strong>：对象本身占用的内存（通常很小）。</li>
+<li><strong>Retained Heap</strong>：对象及其引用的所有对象加起来占用的内存（这才是我们要找的大鱼）。</li>
+</ul>
+<p>在那个报表服务的案例中，我直接打开了 <strong>Dominator Tree（支配树）</strong> 视图。这个视图非常直观，它会按 Retained Heap 对对象进行排序。</p>
+<p>排名第一的，赫然是一个 <code>ConcurrentHashMap</code>，占用了近4GB的内存。</p>
+<p>点击展开这个Map，发现里面塞满了 <code>byte[]</code> 数组。再看引用链（Path to GC Roots），发现这个Map被一个名为 <code>ExportTaskCache</code> 的静态类引用。</p>
+<p><strong>案情还原：</strong>
+一位离职的同事为了优化报表下载体验，写了一个“临时缓存”功能。当用户生成报表时，由于文件生成较慢，他将生成的二进制流（byte数组）暂时存入这个静态Map，等待用户下载。</p>
+<p>然而，他只写了“存”，却忘了写“删”。</p>
+<div class="highlight"><pre tabindex="0" style="color:#f8f8f2;background-color:#272822;-moz-tab-size:4;-o-tab-size:4;tab-size:4;"><code class="language-java" data-lang="java"><span style="display:flex;"><span><span style="color:#75715e">// 伪代码还原案发现场</span>
+</span></span><span style="display:flex;"><span><span style="color:#66d9ef">public</span> <span style="color:#66d9ef">class</span> <span style="color:#a6e22e">ExportTaskCache</span> {
+</span></span><span style="display:flex;"><span>    <span style="color:#75715e">// 静态Map，生命周期与JVM进程一致</span>
+</span></span><span style="display:flex;"><span>    <span style="color:#66d9ef">private</span> <span style="color:#66d9ef">static</span> <span style="color:#66d9ef">final</span> Map<span style="color:#f92672">&lt;</span>String, <span style="color:#66d9ef">byte</span><span style="color:#f92672">[]&gt;</span> fileCache <span style="color:#f92672">=</span> <span style="color:#66d9ef">new</span> ConcurrentHashMap<span style="color:#f92672">&lt;&gt;</span>();
+</span></span><span style="display:flex;"><span>
+</span></span><span style="display:flex;"><span>    <span style="color:#66d9ef">public</span> <span style="color:#66d9ef">static</span> <span style="color:#66d9ef">void</span> <span style="color:#a6e22e">cacheFile</span>(String taskId, <span style="color:#66d9ef">byte</span><span style="color:#f92672">[]</span> data) {
+</span></span><span style="display:flex;"><span>        fileCache.<span style="color:#a6e22e">put</span>(taskId, data);
+</span></span><span style="display:flex;"><span>        <span style="color:#75715e">// 致命缺陷：缺少过期清理机制</span>
+</span></span><span style="display:flex;"><span>        <span style="color:#75715e">// 哪怕用户下载完了，这个byte[]依然在内存里</span>
+</span></span><span style="display:flex;"><span>    }
+</span></span><span style="display:flex;"><span>}
+</span></span></code></pre></div><p>随着用户不断生成报表，这个Map就像一个只进不出的貔貅，慢慢吞噬了所有的堆内存。虽然每个报表只有几MB，但在高并发加持下，两周时间足以填满16G。</p>
+<p>找到原因后，修复方案就简单了：引入 Guava Cache 或 Caffeine，设置写入后10分钟自动过期驱逐。</p>
+<p><strong>结果：</strong> 重新上线后，Old Gen 的使用率稳定在 30% 左右，那条可怕的斜线终于变平了。</p>
+<h2 id="总结与落地">总结与落地
+</h2><p>内存泄漏排查看起来高深，其实本质就是：<strong>发现异常 -&gt; 保留现场 -&gt; 分析引用链 -&gt; 定位代码</strong>。</p>
+<p>我不建议大家等到出了问题再去现学MAT的使用，这就像不建议在火灾现场学习如何使用灭火器一样。</p>
+<p><img src="https://picsum.photos/800/450?random=1768457351666"
+	
+	
+	
+	loading="lazy"
+	
+		alt="配图"
+	
+	
+></p>
+<p>最后，如果你想避免半夜被报警电话叫醒，我强烈建议你立刻落地以下 3 个动作：</p>
+<ol>
+<li><strong>防御性配置</strong>：在你的启动脚本中，务必加上这两个参数。这能保证在OOM发生的瞬间，JVM自动为你保留最后一张“遗照”，而不是留下一地鸡毛。
+<div class="highlight"><pre tabindex="0" style="color:#f8f8f2;background-color:#272822;-moz-tab-size:4;-o-tab-size:4;tab-size:4;"><code class="language-bash" data-lang="bash"><span style="display:flex;"><span>-XX:+HeapDumpOnOutOfMemoryError 
+</span></span><span style="display:flex;"><span>-XX:HeapDumpPath<span style="color:#f92672">=</span>/data/logs/dump/
+</span></span></code></pre></div></li>
+<li><strong>定期巡检</strong>：每周五下午（这是我的个人习惯），花15分钟扫一眼核心服务的Old Gen增长趋势。如果发现有服务重启后内存“回不去”了，建个Ticket排查一下。</li>
+<li><strong>代码审查</strong>：看到 <code>static</code> 关键字修饰的 <code>Map</code>、<code>List</code> 时，脑子里的警铃要响一声。问一句：这东西什么时候删？有没有上限？</li>
+</ol>
+<p><strong>互动时间：</strong></p>
+<p>在日常排查中，你更倾向于使用哪种工具？
+A. VisualVM / JConsole（轻量级，实时看）
+B. Eclipse MAT（重武器，离线深度分析）
+C. Arthas（命令行神器，线上直接诊断）</p>
+<p>欢迎在评论区告诉我你的选择和理由。如果你有被内存泄漏“坑”过的经历，也欢迎分享，让我们一起避坑。</p>
+
+</section>
+
+
+    <footer class="article-footer">
+    
+    <section class="article-tags">
+        
+            <a href="/tags/JVM%E5%86%85%E5%AD%98%E6%B3%84%E6%BC%8F%E6%8E%92%E6%9F%A5Dump%E6%96%87%E4%BB%B6%E5%88%86%E6%9E%90%E5%85%A5%E9%97%A8.html">JVM内存泄漏排查：Dump文件分析入门</a>
+        
+    </section>
+
+
+    </footer>
+
+
+    
+</article>
+
+    
+
+    
+
+     
+    
+        
+    <script
+    src="https://giscus.app/client.js"
+    data-repo="pastor17/bloggiscus"
+    data-repo-id="R_kgDOQ6H9qQ"
+    data-category=""
+    data-category-id="DIC_kwDOQ6H9qc4C0-T8"
+    data-mapping="pathname"
+    data-strict="0"
+    data-reactions-enabled="1"
+    data-emit-metadata="0"
+    data-input-position="bottom"
+    data-theme="light"
+    data-lang="zh-CN"
+    data-loading="lazy"
+    crossorigin="anonymous"
+    async
+></script>
+<script>
+    function setGiscusTheme(theme) {
+        let giscus = document.querySelector("iframe.giscus-frame");
+        if (giscus) {
+            giscus.contentWindow.postMessage(
+                {
+                    giscus: {
+                        setConfig: {
+                            theme: theme,
+                        },
+                    },
+                },
+                "https://giscus.app"
+            );
+        }
+    }
+
+    (function () {
+        addEventListener("message", (e) => {
+            if (event.origin !== "https://giscus.app") return;
+            handler();
+        });
+        window.addEventListener("onColorSchemeChange", handler);
+
+        function handler() {
+            if (document.documentElement.dataset.scheme === "light") {
+                setGiscusTheme('light');
+            } else {
+                setGiscusTheme('dark_dimmed');
+            }
+        }
+    })();
+</script>
+
+    
+
+    <footer class="site-footer">
+    <section class="copyright">
+        &copy; 
+        
+        2026 SelfTechHub
+    </section>
+    
+    <section class="powerby">
+        
+
+    </section>
+</footer>
+
+
+    
+<div class="pswp" tabindex="-1" role="dialog" aria-hidden="true">
+
+    
+    <div class="pswp__bg"></div>
+
+    
+    <div class="pswp__scroll-wrap">
+
+        
+        <div class="pswp__container">
+            <div class="pswp__item"></div>
+            <div class="pswp__item"></div>
+            <div class="pswp__item"></div>
+        </div>
+
+        
+        <div class="pswp__ui pswp__ui--hidden">
+
+            <div class="pswp__top-bar">
+
+                
+
+                <div class="pswp__counter"></div>
+
+                <button class="pswp__button pswp__button--close" title="Close (Esc)"></button>
+
+                <button class="pswp__button pswp__button--share" title="Share"></button>
+
+                <button class="pswp__button pswp__button--fs" title="Toggle fullscreen"></button>
+
+                <button class="pswp__button pswp__button--zoom" title="Zoom in/out"></button>
+
+                
+                
+                <div class="pswp__preloader">
+                    <div class="pswp__preloader__icn">
+                        <div class="pswp__preloader__cut">
+                            <div class="pswp__preloader__donut"></div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <div class="pswp__share-modal pswp__share-modal--hidden pswp__single-tap">
+                <div class="pswp__share-tooltip"></div>
+            </div>
+
+            <button class="pswp__button pswp__button--arrow--left" title="Previous (arrow left)">
+            </button>
+
+            <button class="pswp__button pswp__button--arrow--right" title="Next (arrow right)">
+            </button>
+
+            <div class="pswp__caption">
+                <div class="pswp__caption__center"></div>
+            </div>
+
+        </div>
+
+    </div>
+
+</div><script 
+                src="https://cdn.jsdelivr.net/npm/photoswipe@4.1.3/dist/photoswipe.min.js"integrity="sha256-ePwmChbbvXbsO02lbM3HoHbSHTHFAeChekF1xKJdleo="crossorigin="anonymous"
+                defer
+                >
+            </script><script 
+                src="https://cdn.jsdelivr.net/npm/photoswipe@4.1.3/dist/photoswipe-ui-default.min.js"integrity="sha256-UKkzOn/w1mBxRmLLGrSeyB4e1xbrp4xylgAWb3M42pU="crossorigin="anonymous"
+                defer
+                >
+            </script><link 
+                rel="stylesheet" 
+                href="https://cdn.jsdelivr.net/npm/photoswipe@4.1.3/dist/default-skin/default-skin.min.css"crossorigin="anonymous"
+            ><link 
+                rel="stylesheet" 
+                href="https://cdn.jsdelivr.net/npm/photoswipe@4.1.3/dist/photoswipe.min.css"crossorigin="anonymous"
+            >
+    
+
+            </main>
+        </div>
+        <script 
+                src="https://cdn.jsdelivr.net/npm/node-vibrant@3.1.6/dist/vibrant.min.js"integrity="sha256-awcR2jno4kI5X0zL8ex0vi2z&#43;KMkF24hUW8WePSA9HM="crossorigin="anonymous"
+                
+                >
+            </script><script type="text/javascript" src="/ts/main.c922af694cc257bf1ecc41c0dd7b0430f9114ec280ccf67cd2c6ad55f5316c4e.js" defer></script>
+<script>
+    (function () {
+        const customFont = document.createElement('link');
+        customFont.href = "https://fonts.googleapis.com/css2?family=Lato:wght@300;400;700&display=swap";
+
+        customFont.type = "text/css";
+        customFont.rel = "stylesheet";
+
+        document.head.appendChild(customFont);
+    }());
+</script>
+
+    </body>
+</html>

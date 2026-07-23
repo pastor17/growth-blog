@@ -1,0 +1,109 @@
+<?xml version="1.0" encoding="utf-8" standalone="yes"?>
+<rss version="2.0" xmlns:atom="http://www.w3.org/2005/Atom">
+    <channel>
+        <title>产品经理改需求怎么办？技术侧的应对 on SelfTechHub</title>
+        <link>https://blog.irudder.me/tags/%E4%BA%A7%E5%93%81%E7%BB%8F%E7%90%86%E6%94%B9%E9%9C%80%E6%B1%82%E6%80%8E%E4%B9%88%E5%8A%9E%E6%8A%80%E6%9C%AF%E4%BE%A7%E7%9A%84%E5%BA%94%E5%AF%B9.html</link>
+        <description>Recent content in 产品经理改需求怎么办？技术侧的应对 on SelfTechHub</description>
+        <generator>Hugo -- gohugo.io</generator>
+        <language>zh-cn</language>
+        <lastBuildDate>Thu, 03 Mar 2022 00:00:00 +0000</lastBuildDate><atom:link href="https://blog.irudder.me/tags/%E4%BA%A7%E5%93%81%E7%BB%8F%E7%90%86%E6%94%B9%E9%9C%80%E6%B1%82%E6%80%8E%E4%B9%88%E5%8A%9E%E6%8A%80%E6%9C%AF%E4%BE%A7%E7%9A%84%E5%BA%94%E5%AF%B9/index.xml" rel="self" type="application/rss+xml" /><item>
+        <title>产品经理又改需求？别直接怼，用这3招让改动“明码标价”</title>
+        <link>https://blog.irudder.me/tech/kuabumenxiezuogaopinwentijiejueqingdan/chanpinjingligaixuqiuzenmebanjishucedeyingdui.html</link>
+        <pubDate>Thu, 03 Mar 2022 00:00:00 +0000</pubDate>
+        
+        <guid>https://blog.irudder.me/tech/kuabumenxiezuogaopinwentijiejueqingdan/chanpinjingligaixuqiuzenmebanjishucedeyingdui.html</guid>
+        <description>&lt;p&gt;&lt;img src=&#34;https://picsum.photos/800/450?random=1768450250062&#34;
+	
+	
+	
+	loading=&#34;lazy&#34;
+	
+		alt=&#34;配图&#34;
+	
+	
+&gt;&lt;/p&gt;
+&lt;p&gt;这场景你一定不陌生：周五下午4点50分，你的产品经理（PM）抱着电脑满脸堆笑地滑到你工位旁，开口就是那句经典的：“哥，有个小改动，非常简单，加个字段就行，不用动逻辑。”&lt;/p&gt;
+&lt;p&gt;三年前，遇到这种情况我的第一反应是血压飙升，心里甚至已经把“这版本上不了了”演练了一遍，然后就是一场充满情绪的口水战。结果往往是：架吵了，需求还得改，加班还没人记好，甚至被贴上“技术难沟通”的标签。&lt;/p&gt;
+&lt;p&gt;直到我在几个核心项目上接连踩坑，我才意识到：&lt;strong&gt;对抗不是目的，让改动成本显性化才是解药。&lt;/strong&gt;&lt;/p&gt;
+&lt;p&gt;今天咱们不聊虚的沟通技巧，直接复盘我是怎么通过“技术侧的防守反击”，把无休止的需求变更变成可控的协作流程的。&lt;/p&gt;
+&lt;h2 id=&#34;01-拒绝一句话需求把隐性成本翻译成人天&#34;&gt;01. 拒绝“一句话需求”，把隐性成本翻译成“人天”
+&lt;/h2&gt;&lt;p&gt;很多时候PM觉得改动简单，是因为他们只看到了UI层的一点变化，而作为技术人员，我们往往吃亏在**“信息不对称”**。&lt;/p&gt;
+&lt;p&gt;大概是去年双11前夕，我们做一个营销活动页。原本定好的逻辑是“按销量排序”，结果上线前两天，PM跑来说要改成“按距离排序”，理由是竞品上了这个功能。&lt;/p&gt;
+&lt;p&gt;当时那个实习生小弟直接就想答应，被我拦住了。在PM眼里，这就是把列表里的数据换个顺序。但在技术眼里呢？&lt;/p&gt;
+&lt;p&gt;&lt;img src=&#34;https://picsum.photos/800/450?random=1768450254231&#34;
+	
+	
+	
+	loading=&#34;lazy&#34;
+	
+		alt=&#34;配图&#34;
+	
+	
+&gt;&lt;/p&gt;
+&lt;blockquote&gt;
+&lt;p&gt;原方案：Redis ZSet 缓存直接取，QPS 2000 没压力。
+新方案：涉及地理位置计算（GeoHash），原有的缓存架构完全失效，必须查库或者重构缓存结构，还得考虑数据库压力。&lt;/p&gt;
+&lt;/blockquote&gt;
+&lt;p&gt;我不跟他说技术难点，因为他听不懂也不想听。我直接拉着他算了一笔账：&lt;/p&gt;
+&lt;ol&gt;
+&lt;li&gt;&lt;strong&gt;改动耗时&lt;/strong&gt;：后端重写查询逻辑（4小时）+ 前端联调（1小时）+ 测试回归（3小时）= 1人天。&lt;/li&gt;
+&lt;li&gt;&lt;strong&gt;风险量化&lt;/strong&gt;：因为缓存失效，如果并发量超过500，数据库可能会挂，导致整个活动页白屏。&lt;/li&gt;
+&lt;/ol&gt;
+&lt;p&gt;&lt;strong&gt;结果：&lt;/strong&gt; 听到“活动页可能白屏”和“需要1人天”（意味着要延期上线），PM立马冷静了。最后方案折中：这一版不上，下一版迭代再加。&lt;/p&gt;
+&lt;p&gt;&lt;strong&gt;划重点：&lt;/strong&gt; 别说“这个很难做”，要说“&lt;strong&gt;做这个需要消耗X小时，并带来Y风险&lt;/strong&gt;”。用数据代替情绪，对方才能听懂你的“拒绝”。&lt;/p&gt;
+&lt;h2 id=&#34;02-玩转零和游戏想加需求拿旧的来换&#34;&gt;02. 玩转“零和游戏”：想加需求？拿旧的来换
+&lt;/h2&gt;&lt;p&gt;需求池就像一个购物车，预算（开发时间）是固定的。很多技术leader最大的坑就是做“老好人”，一直在往购物车里塞东西，却从来不让PM拿东西出来，最后就是团队集体通宵，质量还烂得一塌糊涂。&lt;/p&gt;
+&lt;p&gt;我现在用这招特别顺手，叫**“需求置换原则”**。&lt;/p&gt;
+&lt;p&gt;有个SaaS后台项目，本来已经进入Code Freeze（代码封板）阶段了。业务方突然要把“导出Excel”的数据量限制从1000条改成50000条。&lt;/p&gt;
+&lt;p&gt;这看起来是个参数修改，但实际上涉及到内存溢出的风险，需要改成异步任务队列处理。&lt;/p&gt;
+&lt;p&gt;我没拒绝，而是把Jira看板打开，指着代办列表说：“这周咱们剩下的人力只有10个小时，做这个导出优化大概需要6小时。你看列表里这三个功能（一个报表优化、两个UI调整），你愿意把哪个砍掉或者挪到下周？”&lt;/p&gt;
+&lt;p&gt;&lt;strong&gt;这一招的核心在于把“我和你的矛盾”转化成了“需求A和需求B的矛盾”。&lt;/strong&gt;&lt;/p&gt;
+&lt;p&gt;这时候PM就不再是跟我博弈，而是在跟他自己的需求做取舍。绝大多数情况下，他们会发现那个“突发奇想”的需求，其实并没有原计划里的功能重要。&lt;/p&gt;
+&lt;h2 id=&#34;03-建立冷静期机制拒绝口头承诺&#34;&gt;03. 建立“冷静期”机制：拒绝口头承诺
+&lt;/h2&gt;&lt;p&gt;我以前踩过最大的坑，就是为了赶进度，接了PM的“口头需求”。&lt;/p&gt;
+&lt;p&gt;“你就先改了，我回头补文档。”这句鬼话谁信谁倒霉。我有一次就是信了这句话，改了一个支付状态流转的逻辑。结果上线后导致一小部分用户订单状态卡死。复盘的时候，因为没有文档记录，也是口说无凭，这口黑锅结结实实地扣在了技术部头上。&lt;/p&gt;
+&lt;p&gt;从那之后，我在团队里立了个死规矩：&lt;strong&gt;不接任何即时通讯软件（微信/飞书）里的截图需求，更不接口头需求。&lt;/strong&gt;&lt;/p&gt;
+&lt;p&gt;如果你非要改，可以，走流程：&lt;/p&gt;
+&lt;ol&gt;
+&lt;li&gt;提Jira/TAPD单子；&lt;/li&gt;
+&lt;li&gt;必须有具体的改动描述和预期结果；&lt;/li&gt;
+&lt;li&gt;如果涉及排期变动，必须发邮件抄送双方Leader。&lt;/li&gt;
+&lt;/ol&gt;
+&lt;p&gt;这看起来很官僚？不，这是保命符。&lt;/p&gt;
+&lt;p&gt;有个很有意思的现象：&lt;strong&gt;一旦你要求PM把需求写成正式文档并抄送领导，50%的“伪需求”会在这个过程中消失。&lt;/strong&gt; 因为很多需求只是他们脑子一热的想法，一旦需要付出“写文档”和“承担责任”的成本，他们自己就先放弃了。&lt;/p&gt;
+&lt;h2 id=&#34;写在最后&#34;&gt;写在最后
+&lt;/h2&gt;&lt;p&gt;技术和产品本身就是相爱相杀的关系。作为技术人员，我们不能只做一个执行者，更要做**“技术资源的守门员”**。&lt;/p&gt;
+&lt;p&gt;这一行干久了你会发现，靠吼是解决不了问题的，靠逻辑和流程才可以。&lt;/p&gt;
+&lt;p&gt;最后，分享一个我用了两年的**《需求变更评估模板》**，下次PM再来改需求，直接把这个发给他填，保准能过滤掉大部分无效改动：&lt;/p&gt;
+&lt;div class=&#34;highlight&#34;&gt;&lt;pre tabindex=&#34;0&#34; style=&#34;color:#f8f8f2;background-color:#272822;-moz-tab-size:4;-o-tab-size:4;tab-size:4;&#34;&gt;&lt;code class=&#34;language-markdown&#34; data-lang=&#34;markdown&#34;&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;&lt;span style=&#34;color:#75715e&#34;&gt;### 需求变更申请单（轻量版）
+&lt;/span&gt;&lt;/span&gt;&lt;/span&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;&lt;span style=&#34;color:#75715e&#34;&gt;&lt;/span&gt;
+&lt;/span&gt;&lt;/span&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;&lt;span style=&#34;color:#66d9ef&#34;&gt;1.&lt;/span&gt; &lt;span style=&#34;font-weight:bold&#34;&gt;**变更背景**&lt;/span&gt;：
+&lt;/span&gt;&lt;/span&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;   &lt;span style=&#34;color:#66d9ef&#34;&gt;- [ ]&lt;/span&gt; 线上严重Bug修复
+&lt;/span&gt;&lt;/span&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;   &lt;span style=&#34;color:#66d9ef&#34;&gt;- [ ]&lt;/span&gt; 业务方强行插入（需附业务价值数据）
+&lt;/span&gt;&lt;/span&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;   &lt;span style=&#34;color:#66d9ef&#34;&gt;- [ ]&lt;/span&gt; 体验优化（非紧急）
+&lt;/span&gt;&lt;/span&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;
+&lt;/span&gt;&lt;/span&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;&lt;span style=&#34;color:#66d9ef&#34;&gt;2.&lt;/span&gt; &lt;span style=&#34;font-weight:bold&#34;&gt;**变更内容**&lt;/span&gt;：
+&lt;/span&gt;&lt;/span&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;   &lt;span style=&#34;color:#66d9ef&#34;&gt;-&lt;/span&gt; 原逻辑：XXXXXXXX
+&lt;/span&gt;&lt;/span&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;   &lt;span style=&#34;color:#66d9ef&#34;&gt;-&lt;/span&gt; 新逻辑：XXXXXXXX
+&lt;/span&gt;&lt;/span&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;
+&lt;/span&gt;&lt;/span&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;&lt;span style=&#34;color:#66d9ef&#34;&gt;3.&lt;/span&gt; &lt;span style=&#34;font-weight:bold&#34;&gt;**技术侧评估（开发填写）**&lt;/span&gt;：
+&lt;/span&gt;&lt;/span&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;   &lt;span style=&#34;color:#66d9ef&#34;&gt;-&lt;/span&gt; 预计耗时：__ 小时
+&lt;/span&gt;&lt;/span&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;   &lt;span style=&#34;color:#66d9ef&#34;&gt;-&lt;/span&gt; 影响范围：[ ]仅UI [ ]接口逻辑 [ ]数据库结构 [ ]缓存策略
+&lt;/span&gt;&lt;/span&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;   &lt;span style=&#34;color:#66d9ef&#34;&gt;-&lt;/span&gt; 连带风险：________（如：可能影响XX功能的稳定性）
+&lt;/span&gt;&lt;/span&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;
+&lt;/span&gt;&lt;/span&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;&lt;span style=&#34;color:#66d9ef&#34;&gt;4.&lt;/span&gt; &lt;span style=&#34;font-weight:bold&#34;&gt;**置换方案（PM填写）**&lt;/span&gt;：
+&lt;/span&gt;&lt;/span&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;   &lt;span style=&#34;color:#66d9ef&#34;&gt;-&lt;/span&gt; 为了加入此需求，我同意将需求 [ID:XXXX] 延后至下个版本。
+&lt;/span&gt;&lt;/span&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;
+&lt;/span&gt;&lt;/span&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;&lt;span style=&#34;color:#66d9ef&#34;&gt;5.&lt;/span&gt; &lt;span style=&#34;font-weight:bold&#34;&gt;**最终确认**&lt;/span&gt;：
+&lt;/span&gt;&lt;/span&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;   &lt;span style=&#34;color:#66d9ef&#34;&gt;-&lt;/span&gt; PM签字/确认：
+&lt;/span&gt;&lt;/span&gt;&lt;/code&gt;&lt;/pre&gt;&lt;/div&gt;&lt;p&gt;&lt;strong&gt;建议你明天就尝试一下这个行动步骤：&lt;/strong&gt;&lt;/p&gt;
+&lt;ol&gt;
+&lt;li&gt;当PM提出改动时，停顿3秒，不要说“不”，先问“为什么现在要改？”&lt;/li&gt;
+&lt;li&gt;在脑子里（或纸上）快速盘算技术成本，转化成小时数报给他。&lt;/li&gt;
+&lt;li&gt;如果他坚持要改，温和但坚定地让他做一道“选择题”：在这个版本里，我们要牺牲掉哪个旧功能？&lt;/li&gt;
+&lt;/ol&gt;
+</description>
+        </item>
+        
+    </channel>
+</rss>

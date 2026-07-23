@@ -1,0 +1,114 @@
+<?xml version="1.0" encoding="utf-8" standalone="yes"?>
+<rss version="2.0" xmlns:atom="http://www.w3.org/2005/Atom">
+    <channel>
+        <title>线上问题应急响应：10分钟定位问题 on SelfTechHub</title>
+        <link>https://blog.irudder.me/tags/%E7%BA%BF%E4%B8%8A%E9%97%AE%E9%A2%98%E5%BA%94%E6%80%A5%E5%93%8D%E5%BA%9410%E5%88%86%E9%92%9F%E5%AE%9A%E4%BD%8D%E9%97%AE%E9%A2%98.html</link>
+        <description>Recent content in 线上问题应急响应：10分钟定位问题 on SelfTechHub</description>
+        <generator>Hugo -- gohugo.io</generator>
+        <language>zh-cn</language>
+        <lastBuildDate>Wed, 11 Nov 2020 00:00:00 +0000</lastBuildDate><atom:link href="https://blog.irudder.me/tags/%E7%BA%BF%E4%B8%8A%E9%97%AE%E9%A2%98%E5%BA%94%E6%80%A5%E5%93%8D%E5%BA%9410%E5%88%86%E9%92%9F%E5%AE%9A%E4%BD%8D%E9%97%AE%E9%A2%98/index.xml" rel="self" type="application/rss+xml" /><item>
+        <title>凌晨3点的警报：如何在10分钟内定位线上故障？</title>
+        <link>https://blog.irudder.me/tech/danxiangmuquanliuchengchaijie10fenzhongkedu/xianshangwentiyingjixiangying_10fenzhongdingweiwenti.html</link>
+        <pubDate>Wed, 11 Nov 2020 00:00:00 +0000</pubDate>
+        
+        <guid>https://blog.irudder.me/tech/danxiangmuquanliuchengchaijie10fenzhongkedu/xianshangwentiyingjixiangying_10fenzhongdingweiwenti.html</guid>
+        <description>&lt;p&gt;还能清晰记得三年前那个周五的深夜，手机在床头疯狂震动。运维群里的报警像瀑布一样刷屏：“订单服务响应超时”、“数据库连接池满”。&lt;/p&gt;
+&lt;p&gt;当时我的第一反应是打开电脑，连上VPN，然后在十几台服务器的日志里疯狂 grep &lt;code&gt;ERROR&lt;/code&gt; 关键字。我和团队里的两个骨干像无头苍蝇一样，在海量的日志里翻找了近一个小时，试图拼凑出问题全貌。最后发现，只是因为上线了一个不起眼的营销活动配置，导致SQL走了全表扫描。&lt;/p&gt;
+&lt;p&gt;那次事故导致核心业务中断了45分钟。&lt;/p&gt;
+&lt;p&gt;也是从那天起，我意识到：&lt;strong&gt;中小团队最缺的不是高大上的监控大屏，而是一套“无脑”执行的故障定位SOP（标准作业程序）。&lt;/strong&gt;&lt;/p&gt;
+&lt;p&gt;经过这几年的摸索和填坑，我把平均定位时间从小时级压缩到了10分钟以内。这里面的核心逻辑，其实就是以此告别“猜”，转向“看”。&lt;/p&gt;
+&lt;h2 id=&#34;告别大海捞针给日志装上gps&#34;&gt;告别“大海捞针”，给日志装上GPS
+&lt;/h2&gt;&lt;p&gt;很多中小团队的开发习惯是：出问题了 -&amp;gt; 登录服务器 -&amp;gt; &lt;code&gt;tail -f&lt;/code&gt; 或 &lt;code&gt;grep&lt;/code&gt; 日志。&lt;/p&gt;
+&lt;p&gt;如果你的系统只有单体应用，这没问题。但在微服务或者稍微复杂一点的分布式场景下，一个用户请求可能横跨网关、业务服务、数据库、缓存等多个节点。单纯看报错日志，你根本不知道这个错误是哪个用户触发的，也不知道它的上游是谁。&lt;/p&gt;
+&lt;blockquote&gt;
+&lt;p&gt;“在没有上下文的情况下看日志，就是在玩拼图游戏，而且拼图碎片还混在垃圾堆里。”&lt;/p&gt;
+&lt;/blockquote&gt;
+&lt;p&gt;&lt;img src=&#34;https://picsum.photos/800/450?random=1768449551892&#34;
+	
+	
+	
+	loading=&#34;lazy&#34;
+	
+		alt=&#34;配图&#34;
+	
+	
+&gt;&lt;/p&gt;
+&lt;p&gt;&lt;strong&gt;真实案例：&lt;/strong&gt;
+去年双11大促演练，支付服务突然报警，成功率跌到90%。新人小李在日志里看到了一堆 &lt;code&gt;NullPointerException&lt;/code&gt;，但他无法判断是哪个商户、哪笔交易触发的，只能对着代码干瞪眼。&lt;/p&gt;
+&lt;p&gt;我们后来强制推行了 &lt;strong&gt;全链路 TraceID&lt;/strong&gt;。&lt;/p&gt;
+&lt;p&gt;这不需要复杂的APM工具（如SkyWalking），哪怕只是简单地在 Logback/Log4j 的配置里利用 MDC (Mapped Diagnostic Context) 注入一个唯一的 RequestID，效果也是立竿见影的。&lt;/p&gt;
+&lt;p&gt;&lt;strong&gt;改进后的场景：&lt;/strong&gt;
+再次遇到类似报警，我们直接复制报警信息里的 &lt;code&gt;TraceID&lt;/code&gt;，在日志平台（哪怕是ELK或者简单的日志文件）一搜，这条请求从 进网关 -&amp;gt; 调A服务 -&amp;gt; 调B服务 -&amp;gt; 报错 的完整生命周期一目了然。&lt;/p&gt;
+&lt;div class=&#34;highlight&#34;&gt;&lt;pre tabindex=&#34;0&#34; style=&#34;color:#f8f8f2;background-color:#272822;-moz-tab-size:4;-o-tab-size:4;tab-size:4;&#34;&gt;&lt;code class=&#34;language-java&#34; data-lang=&#34;java&#34;&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;&lt;span style=&#34;color:#75715e&#34;&gt;// 在拦截器入口生成TraceID&lt;/span&gt;
+&lt;/span&gt;&lt;/span&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;MDC.&lt;span style=&#34;color:#a6e22e&#34;&gt;put&lt;/span&gt;(&lt;span style=&#34;color:#e6db74&#34;&gt;&amp;#34;traceId&amp;#34;&lt;/span&gt;, UUID.&lt;span style=&#34;color:#a6e22e&#34;&gt;randomUUID&lt;/span&gt;().&lt;span style=&#34;color:#a6e22e&#34;&gt;toString&lt;/span&gt;());
+&lt;/span&gt;&lt;/span&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;
+&lt;/span&gt;&lt;/span&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;&lt;span style=&#34;color:#75715e&#34;&gt;// 日志配置模式&lt;/span&gt;
+&lt;/span&gt;&lt;/span&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;&lt;span style=&#34;color:#75715e&#34;&gt;// [%date] [%thread] [%X{traceId}] %msg%n&lt;/span&gt;
+&lt;/span&gt;&lt;/span&gt;&lt;/code&gt;&lt;/pre&gt;&lt;/div&gt;&lt;p&gt;&lt;strong&gt;只这一个小动作，将我们的问题定位效率提升了至少60%。&lt;/strong&gt; 以前是猜“哪里空指针了”，现在是看“这笔ID为X的请求在第3步参数校验时空指针了”。&lt;/p&gt;
+&lt;h2 id=&#34;哪怕只改了一行配置也是变更&#34;&gt;哪怕只改了一行配置，也是“变更”
+&lt;/h2&gt;&lt;p&gt;&lt;strong&gt;你有没有遇到过这种情况？&lt;/strong&gt; 此时此刻系统崩了，大家面面相觑，每个人都信誓旦旦地说：“我什么代码都没动！”&lt;/p&gt;
+&lt;p&gt;这通常是最大的谎言。&lt;/p&gt;
+&lt;p&gt;根据 Google SRE 的经验，&lt;strong&gt;70% 的生产事故是由变更引起的。&lt;/strong&gt; 对于中小团队，这个“变更”不仅仅指发版上线，更包括：&lt;/p&gt;
+&lt;ul&gt;
+&lt;li&gt;DBA 临时加的一个索引；&lt;/li&gt;
+&lt;li&gt;运营在后台配的一个活动规则；&lt;/li&gt;
+&lt;li&gt;开发为了调试，临时改的一个配置中心参数；&lt;/li&gt;
+&lt;li&gt;甚至是云厂商的一次网络抖动（环境变更）。&lt;/li&gt;
+&lt;/ul&gt;
+&lt;p&gt;&lt;strong&gt;真实案例：&lt;/strong&gt;
+某次下午茶时间，用户反馈无法登录。代码没动，服务器负载正常，数据库正常。排查了20分钟毫无头绪。&lt;/p&gt;
+&lt;p&gt;最后发现，是某位开发同学为了测试，把测试环境的鉴权服务地址配到了生产环境的配置中心里，虽然他马上改回去了，但服务端的本地缓存没刷新。&lt;/p&gt;
+&lt;p&gt;&lt;strong&gt;我的应对策略：建立“变更时间轴”。&lt;/strong&gt;&lt;/p&gt;
+&lt;p&gt;这不是什么高科技系统。我们团队维护了一个简单的钉钉/飞书群机器人，或者是共享文档。任何对线上的操作（发版、改配置、执行SQL、重启），必须先在群里发一条消息。&lt;/p&gt;
+&lt;p&gt;当故障发生时，我们SOP的第一步不是看日志，而是 &lt;strong&gt;看最近30分钟内，谁动了什么？&lt;/strong&gt;&lt;/p&gt;
+&lt;ul&gt;
+&lt;li&gt;如果是发版后崩了 -&amp;gt; &lt;strong&gt;立刻回滚，别犹豫&lt;/strong&gt;。&lt;/li&gt;
+&lt;li&gt;如果是改配置后崩了 -&amp;gt; &lt;strong&gt;立刻还原&lt;/strong&gt;。&lt;/li&gt;
+&lt;li&gt;如果是执行SQL后崩了 -&amp;gt; &lt;strong&gt;Kill 慢查询&lt;/strong&gt;。&lt;/li&gt;
+&lt;/ul&gt;
+&lt;p&gt;在“恢复业务”面前，查明真相的优先级必须往后排。&lt;strong&gt;10分钟内定位的目标，首先是“定位到止损动作”，而不是“定位到代码Bug”。&lt;/strong&gt;&lt;/p&gt;
+&lt;h2 id=&#34;别做独行侠让信息流动起来&#34;&gt;别做“独行侠”，让信息流动起来
+&lt;/h2&gt;&lt;p&gt;技术人员有个通病：遇到问题喜欢闷头死磕，觉得“我能搞定”。&lt;/p&gt;
+&lt;p&gt;这是大忌。&lt;/p&gt;
+&lt;p&gt;在故障处理中，&lt;strong&gt;信息同步比技术排查更重要。&lt;/strong&gt; 我见过太多次，A同学在查数据库，B同学也在查数据库，而焦急的项目经理在旁边不停地问“好了没？好了没？”，导致由于压力过大，A同学手抖敲错了命令。&lt;/p&gt;
+&lt;p&gt;&lt;img src=&#34;https://picsum.photos/800/450?random=1768449551316&#34;
+	
+	
+	
+	loading=&#34;lazy&#34;
+	
+		alt=&#34;配图&#34;
+	
+	
+&gt;&lt;/p&gt;
+&lt;p&gt;我现在的习惯是，只要判定为线上故障（影响超过5分钟），立刻拉起一个语音会议或应急群，并指定一个 &lt;strong&gt;“故障指挥官（IC）”&lt;/strong&gt;。&lt;/p&gt;
+&lt;p&gt;这个角色通常是我或者资深Tech Lead，我不负责敲键盘查Bug，我只做三件事：&lt;/p&gt;
+&lt;ol&gt;
+&lt;li&gt;&lt;strong&gt;汇聚信息&lt;/strong&gt;：每隔5-10分钟，询问各路排查人员的进度（A你在看日志吗？B你在看数据库吗？）。&lt;/li&gt;
+&lt;li&gt;&lt;strong&gt;同步外部&lt;/strong&gt;：负责告知老板、客服和PM当前的状况（“正在定位”，“已定位，预计10分钟恢复”），屏蔽干扰，让开发安心修路。&lt;/li&gt;
+&lt;li&gt;&lt;strong&gt;决策止损&lt;/strong&gt;：当开发陷入“我要修复这个Bug”的执念时，强制喊停，下令回滚或重启。&lt;/li&gt;
+&lt;/ol&gt;
+&lt;p&gt;&lt;strong&gt;真实案例：&lt;/strong&gt;
+一次Redis集群雪崩。两个主力开发试图通过优化代码逻辑来减少缓存穿透，搞了20分钟没稳住。指挥官直接下令：“别改代码了，直接开启限流降级，把非核心业务切断，先保住主流程。” 结果1分钟内系统水位恢复正常。&lt;/p&gt;
+&lt;p&gt;如果当时没人跳出来做这个“恶人”，系统可能要挂一整晚。&lt;/p&gt;
+&lt;hr&gt;
+&lt;h2 id=&#34;你的团队准备好迎接下一次报警了吗&#34;&gt;你的团队准备好迎接下一次报警了吗？
+&lt;/h2&gt;&lt;p&gt;写到这里，我想请你回想一下上一次线上故障的场景：&lt;/p&gt;
+&lt;blockquote&gt;
+&lt;p&gt;你们是像训练有素的特种部队一样迅速展开、各司其职？
+还是像热锅上的蚂蚁，大家在群里互相询问“咋回事？谁改了啥？日志在哪？”&lt;/p&gt;
+&lt;/blockquote&gt;
+&lt;p&gt;如果你发现自己中招了，这并不可怕。可怕的是我们习惯了这种混乱，并把它当成了工作的常态。&lt;/p&gt;
+&lt;p&gt;要实现“10分钟定位”，靠的不是神一样的技术大神，而是笨拙但有效的纪律。&lt;/p&gt;
+&lt;p&gt;&lt;strong&gt;最后，给你3个明天上班就能落地的行动建议：&lt;/strong&gt;&lt;/p&gt;
+&lt;ol&gt;
+&lt;li&gt;&lt;strong&gt;给日志加料&lt;/strong&gt;：不管你的项目多小，这周内把 TraceID 加进去。这是成本最低、收益最高的基建。&lt;/li&gt;
+&lt;li&gt;&lt;strong&gt;建立变更群&lt;/strong&gt;：拉一个群，规定“任何线上改动，必须先在群里留痕”。不用审批流那么重，只要留痕即可。&lt;/li&gt;
+&lt;li&gt;&lt;strong&gt;打印一张SOP&lt;/strong&gt;：写一份哪怕只有半页纸的故障处理流程贴在工位旁。第一行用大号红字写上：&lt;strong&gt;先止损（回滚/重启/降级），再查因！&lt;/strong&gt;&lt;/li&gt;
+&lt;/ol&gt;
+&lt;p&gt;希望下一次警报响起时，你能从容地合上电脑，说一句：“搞定了，只是个小插曲。”&lt;/p&gt;
+</description>
+        </item>
+        
+    </channel>
+</rss>

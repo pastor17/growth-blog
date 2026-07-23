@@ -1,0 +1,147 @@
+<?xml version="1.0" encoding="utf-8" standalone="yes"?>
+<rss version="2.0" xmlns:atom="http://www.w3.org/2005/Atom">
+    <channel>
+        <title>网络优化：CDN缓存策略调整案例 on SelfTechHub</title>
+        <link>https://blog.irudder.me/tags/%E7%BD%91%E7%BB%9C%E4%BC%98%E5%8C%96CDN%E7%BC%93%E5%AD%98%E7%AD%96%E7%95%A5%E8%B0%83%E6%95%B4%E6%A1%88%E4%BE%8B.html</link>
+        <description>Recent content in 网络优化：CDN缓存策略调整案例 on SelfTechHub</description>
+        <generator>Hugo -- gohugo.io</generator>
+        <language>zh-cn</language>
+        <lastBuildDate>Mon, 18 Sep 2023 00:00:00 +0000</lastBuildDate><atom:link href="https://blog.irudder.me/tags/%E7%BD%91%E7%BB%9C%E4%BC%98%E5%8C%96CDN%E7%BC%93%E5%AD%98%E7%AD%96%E7%95%A5%E8%B0%83%E6%95%B4%E6%A1%88%E4%BE%8B/index.xml" rel="self" type="application/rss+xml" /><item>
+        <title>CDN配置错了？3个真实案例帮我省下40%带宽</title>
+        <link>https://blog.irudder.me/tech/jiagouyouhuashizhananlijiexi/wangluoyouhua_cdnhuancuncelvetiaozhenganli.html</link>
+        <pubDate>Mon, 18 Sep 2023 00:00:00 +0000</pubDate>
+        
+        <guid>https://blog.irudder.me/tech/jiagouyouhuashizhananlijiexi/wangluoyouhua_cdnhuancuncelvetiaozhenganli.html</guid>
+        <description>&lt;blockquote&gt;
+&lt;p&gt;“为什么我们买了最贵的CDN套餐，源站数据库的CPU还是在报警？”&lt;/p&gt;
+&lt;/blockquote&gt;
+&lt;p&gt;这是我职业生涯早期最常问自己的一个问题。那时候我天真地以为，CDN（内容分发网络）就是一个“傻瓜式”开关，只要把域名的CNAME指过去，网站就能自动起飞。&lt;/p&gt;
+&lt;p&gt;&lt;img src=&#34;https://picsum.photos/800/450?random=1768457983261&#34;
+	
+	
+	
+	loading=&#34;lazy&#34;
+	
+		alt=&#34;配图&#34;
+	
+	
+&gt;&lt;/p&gt;
+&lt;p&gt;直到2020年的一次大促活动，我们的服务器在流量峰值时崩了。排查后发现，虽然CDN显示流量很大，但**回源率（请求穿透CDN直达源站的比例）**竟然高达35%。这意味着，CDN基本没拦住多少请求，钱白花了，服务器还挂了。&lt;/p&gt;
+&lt;p&gt;那次事故后的复盘会议，我喝了整整三杯冰美式才冷静下来。从那以后，我养成了一个习惯：每接手一个新系统，第一件事就是体检它的缓存策略。&lt;/p&gt;
+&lt;p&gt;今天我想分享3个真实的“血泪”案例，希望能帮你避开那些看似不起眼、实则致命的CDN配置大坑。&lt;/p&gt;
+&lt;h2 id=&#34;忽略参数的代价这行代码让缓存彻底失效&#34;&gt;忽略参数的代价：这行代码让缓存彻底失效
+&lt;/h2&gt;&lt;p&gt;&lt;strong&gt;观点&lt;/strong&gt;：对于静态资源，如果不处理URL后缀参数，CDN会把它当作“新文件”反复回源。&lt;/p&gt;
+&lt;p&gt;&lt;strong&gt;真实案例&lt;/strong&gt;：
+那是2021年的一个电商项目。运营团队为了追踪各个渠道的推广效果，给首页所有的Banner图片链接都加上了追踪参数，比如 &lt;code&gt;banner.jpg?channel=tiktok&lt;/code&gt; 或者 &lt;code&gt;banner.jpg?utm_source=email&lt;/code&gt;。&lt;/p&gt;
+&lt;p&gt;&lt;strong&gt;发生了什么？&lt;/strong&gt;
+本来这张 &lt;code&gt;banner.jpg&lt;/code&gt; 只需要被CDN缓存一次，之后几十万用户访问都应该直接从CDN边缘节点读取。
+但因为CDN默认配置是**“带参数缓存”**，在CDN眼里，&lt;code&gt;banner.jpg?v=1&lt;/code&gt; 和 &lt;code&gt;banner.jpg?v=2&lt;/code&gt; 是完全不同的两个文件。&lt;/p&gt;
+&lt;p&gt;结果就是，每次有一个新的参数组合（甚至只是时间戳不同），CDN就会认为自己“没有这个文件”，转头向源站服务器请求。那天下午，我们的源站带宽瞬间打满，因为所有所谓的“缓存”都变成了透传。&lt;/p&gt;
+&lt;p&gt;&lt;img src=&#34;https://picsum.photos/800/450?random=1768457984106&#34;
+	
+	
+	
+	loading=&#34;lazy&#34;
+	
+		alt=&#34;配图&#34;
+	
+	
+&gt;&lt;/p&gt;
+&lt;p&gt;&lt;strong&gt;避坑方案&lt;/strong&gt;：
+针对图片、CSS、JS等静态资源，必须在CDN后台开启**“忽略参数缓存”**（或称“去问号缓存”）。&lt;/p&gt;
+&lt;p&gt;这就好比你去奶茶店点单，不管你说“我要一杯珍珠奶茶，我是小红推荐来的”还是“我要一杯珍珠奶茶，我是小明推荐来的”，店员（CDN）都只应该给你那杯标准的珍珠奶茶，而不是因为推荐人不同就重新去后厨（源站）现做。&lt;/p&gt;
+&lt;p&gt;&lt;strong&gt;配置示例&lt;/strong&gt;：&lt;/p&gt;
+&lt;p&gt;大多数云厂商控制台都有图形化开关，但如果你用Nginx做前置代理，逻辑大概是这样的：&lt;/p&gt;
+&lt;div class=&#34;highlight&#34;&gt;&lt;pre tabindex=&#34;0&#34; style=&#34;color:#f8f8f2;background-color:#272822;-moz-tab-size:4;-o-tab-size:4;tab-size:4;&#34;&gt;&lt;code class=&#34;language-nginx&#34; data-lang=&#34;nginx&#34;&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;&lt;span style=&#34;color:#75715e&#34;&gt;# 这是一个反面教材，不要让Vary Header或者参数影响静态文件
+&lt;/span&gt;&lt;/span&gt;&lt;/span&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;&lt;span style=&#34;color:#75715e&#34;&gt;&lt;/span&gt;&lt;span style=&#34;color:#66d9ef&#34;&gt;location&lt;/span&gt; ~&lt;span style=&#34;color:#e6db74&#34;&gt;*&lt;/span&gt; &lt;span style=&#34;color:#e6db74&#34;&gt;\.(jpg|jpeg|png|gif|css|js)&lt;/span&gt;$ {
+&lt;/span&gt;&lt;/span&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;    &lt;span style=&#34;color:#75715e&#34;&gt;# 确保你的CDN厂商配置了&amp;#34;Ignore Query String&amp;#34;
+&lt;/span&gt;&lt;/span&gt;&lt;/span&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;&lt;span style=&#34;color:#75715e&#34;&gt;&lt;/span&gt;    &lt;span style=&#34;color:#75715e&#34;&gt;# 或者在源站强行设置缓存时间
+&lt;/span&gt;&lt;/span&gt;&lt;/span&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;&lt;span style=&#34;color:#75715e&#34;&gt;&lt;/span&gt;    &lt;span style=&#34;color:#f92672&#34;&gt;expires&lt;/span&gt; &lt;span style=&#34;color:#e6db74&#34;&gt;30d&lt;/span&gt;;
+&lt;/span&gt;&lt;/span&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;    &lt;span style=&#34;color:#f92672&#34;&gt;add_header&lt;/span&gt; &lt;span style=&#34;color:#e6db74&#34;&gt;Cache-Control&lt;/span&gt; &lt;span style=&#34;color:#e6db74&#34;&gt;&amp;#34;public,&lt;/span&gt; &lt;span style=&#34;color:#e6db74&#34;&gt;no-transform&amp;#34;&lt;/span&gt;;
+&lt;/span&gt;&lt;/span&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;}
+&lt;/span&gt;&lt;/span&gt;&lt;/code&gt;&lt;/pre&gt;&lt;/div&gt;&lt;h2 id=&#34;隐形的杀手vary-header-导致的缓存碎片&#34;&gt;隐形的杀手：Vary Header 导致的缓存碎片
+&lt;/h2&gt;&lt;p&gt;&lt;strong&gt;观点&lt;/strong&gt;：HTTP响应头里的 &lt;code&gt;Vary&lt;/code&gt; 字段如果不加控制，会把一份缓存分裂成成千上万份，导致命中率雪崩。&lt;/p&gt;
+&lt;p&gt;&lt;strong&gt;真实案例&lt;/strong&gt;：
+这是一个新闻资讯类的API优化案例。我们的架构师为了适配移动端和PC端，在后端代码里加了一个逻辑：根据请求头里的 &lt;code&gt;User-Agent&lt;/code&gt; 返回不同的JSON结构，并且顺手加上了 &lt;code&gt;Vary: User-Agent&lt;/code&gt; 响应头。&lt;/p&gt;
+&lt;p&gt;&lt;strong&gt;发生了什么？&lt;/strong&gt;
+&lt;code&gt;Vary&lt;/code&gt; 告诉CDN：“虽然URL一样，但如果User-Agent不一样，你要存不同的副本哦。”
+问题在于，现代浏览器的 User-Agent 极其复杂，包含版本号、系统版本等信息（例如 Chrome 90.0.1 和 Chrome 90.0.2 就是不同的）。&lt;/p&gt;
+&lt;p&gt;结果，CDN节点上本来应该只有一份的 &lt;code&gt;news_list.json&lt;/code&gt;，变成了几千份不同的缓存副本。用户的请求极难命中已有的副本（因为版本号稍有不同），&lt;strong&gt;缓存命中率直接跌到了5%以下&lt;/strong&gt;。&lt;/p&gt;
+&lt;p&gt;&lt;strong&gt;避坑方案&lt;/strong&gt;：
+千万不要轻易对公共资源设置 &lt;code&gt;Vary: User-Agent&lt;/code&gt;。&lt;/p&gt;
+&lt;p&gt;如果必须根据设备类型返回不同内容，建议：&lt;/p&gt;
+&lt;ol&gt;
+&lt;li&gt;&lt;strong&gt;拆分URL&lt;/strong&gt;：使用 &lt;code&gt;m.example.com&lt;/code&gt; 和 &lt;code&gt;www.example.com&lt;/code&gt;。&lt;/li&gt;
+&lt;li&gt;&lt;strong&gt;CDN层标准化&lt;/strong&gt;：在CDN边缘节点通过脚本（如EdgeScript）把复杂的User-Agent归一化为简单的 &lt;code&gt;mobile&lt;/code&gt; 或 &lt;code&gt;desktop&lt;/code&gt; 两个值，然后再回源。&lt;/li&gt;
+&lt;/ol&gt;
+&lt;blockquote&gt;
+&lt;p&gt;&lt;strong&gt;经验之谈&lt;/strong&gt;：我通常建议开发团队，除非万不得已，否则直接在CDN配置中**剥离（Strip）**掉源站返回的 &lt;code&gt;Vary&lt;/code&gt; 头，或者仅保留 &lt;code&gt;Vary: Accept-Encoding&lt;/code&gt;（用于区分Gzip/Brotli压缩）。&lt;/p&gt;
+&lt;/blockquote&gt;
+&lt;h2 id=&#34;被忽视的404恶意扫描击穿防线&#34;&gt;被忽视的404：恶意扫描击穿防线
+&lt;/h2&gt;&lt;p&gt;&lt;strong&gt;观点&lt;/strong&gt;：错误响应（404/500）如果不缓存，也会成为攻击者的后门。&lt;/p&gt;
+&lt;p&gt;&lt;strong&gt;真实案例&lt;/strong&gt;：
+这个案例发生在一个周五的傍晚（似乎故障总选在周五）。监控报警显示数据库连接数激增，但正常业务流量并没有涨。
+排查日志发现，有大量的爬虫在扫描我们网站并不存在的路径，比如 &lt;code&gt;/admin/login.php&lt;/code&gt;，&lt;code&gt;/backup.zip&lt;/code&gt; 等。&lt;/p&gt;
+&lt;p&gt;&lt;strong&gt;发生了什么？&lt;/strong&gt;
+因为这些文件确实不存在，源站返回了 404 Not Found。
+但是！我们默认的CDN策略&lt;strong&gt;是不缓存404状态码的&lt;/strong&gt;。
+这意味着，爬虫每秒发起1000次扫描，这就实打实变成了1000次对数据库或文件系统的IO查询。这就是典型的**“缓存穿透”**。&lt;/p&gt;
+&lt;p&gt;&lt;strong&gt;避坑方案&lt;/strong&gt;：
+&lt;strong&gt;对错误状态码设置短时间的缓存&lt;/strong&gt;。&lt;/p&gt;
+&lt;p&gt;我们当时的紧急处理方案是：在CDN上配置，针对 404 状态码，缓存 60秒 到 300秒。
+这样，当爬虫第一次请求一个不存在的文件时，源站返回404，CDN把它记下来。接下来的几分钟内，无论爬虫怎么扫，CDN都会直接挡回去说“没有”，源站就在后面安稳地休息。&lt;/p&gt;
+&lt;p&gt;&lt;strong&gt;落地配置建议&lt;/strong&gt;：&lt;/p&gt;
+&lt;table&gt;
+  &lt;thead&gt;
+      &lt;tr&gt;
+          &lt;th style=&#34;text-align: left&#34;&gt;状态码&lt;/th&gt;
+          &lt;th style=&#34;text-align: left&#34;&gt;建议缓存时间&lt;/th&gt;
+          &lt;th style=&#34;text-align: left&#34;&gt;原因&lt;/th&gt;
+      &lt;/tr&gt;
+  &lt;/thead&gt;
+  &lt;tbody&gt;
+      &lt;tr&gt;
+          &lt;td style=&#34;text-align: left&#34;&gt;200 (成功)&lt;/td&gt;
+          &lt;td style=&#34;text-align: left&#34;&gt;视业务而定 (1小时-30天)&lt;/td&gt;
+          &lt;td style=&#34;text-align: left&#34;&gt;正常业务数据&lt;/td&gt;
+      &lt;/tr&gt;
+      &lt;tr&gt;
+          &lt;td style=&#34;text-align: left&#34;&gt;301/302 (重定向)&lt;/td&gt;
+          &lt;td style=&#34;text-align: left&#34;&gt;10分钟 - 24小时&lt;/td&gt;
+          &lt;td style=&#34;text-align: left&#34;&gt;避免反复重定向请求源站&lt;/td&gt;
+      &lt;/tr&gt;
+      &lt;tr&gt;
+          &lt;td style=&#34;text-align: left&#34;&gt;&lt;strong&gt;404 (未找到)&lt;/strong&gt;&lt;/td&gt;
+          &lt;td style=&#34;text-align: left&#34;&gt;&lt;strong&gt;1分钟 - 5分钟&lt;/strong&gt;&lt;/td&gt;
+          &lt;td style=&#34;text-align: left&#34;&gt;&lt;strong&gt;防止恶意扫描穿透&lt;/strong&gt;&lt;/td&gt;
+      &lt;/tr&gt;
+      &lt;tr&gt;
+          &lt;td style=&#34;text-align: left&#34;&gt;500/502 (错误)&lt;/td&gt;
+          &lt;td style=&#34;text-align: left&#34;&gt;0秒 (不缓存)&lt;/td&gt;
+          &lt;td style=&#34;text-align: left&#34;&gt;错误通常需要立即恢复，不要缓存&lt;/td&gt;
+      &lt;/tr&gt;
+  &lt;/tbody&gt;
+&lt;/table&gt;
+&lt;h2 id=&#34;结语&#34;&gt;结语
+&lt;/h2&gt;&lt;p&gt;CDN 绝不是“买了就快”的银弹。它更像是一辆高性能跑车，如果不调教好悬挂和轮胎（配置策略），跑起来可能比拖拉机还颠。&lt;/p&gt;
+&lt;p&gt;回顾这三个案例，其实核心逻辑就一条：&lt;strong&gt;尽可能把一切算力消耗留在边缘，让源站只处理必须处理的动态逻辑。&lt;/strong&gt;&lt;/p&gt;
+&lt;p&gt;这几年，每当我接手优化任务，这套组合拳屡试不爽：&lt;/p&gt;
+&lt;ol&gt;
+&lt;li&gt;&lt;strong&gt;查参数&lt;/strong&gt;：静态资源是否开启了“忽略参数”？&lt;/li&gt;
+&lt;li&gt;&lt;strong&gt;看头信息&lt;/strong&gt;：Response Header 里有没有奇怪的 &lt;code&gt;Vary&lt;/code&gt; 或 &lt;code&gt;Cache-Control: private&lt;/code&gt;？&lt;/li&gt;
+&lt;li&gt;&lt;strong&gt;防穿透&lt;/strong&gt;：404和301状态码是否配置了缓存时间？&lt;/li&gt;
+&lt;/ol&gt;
+&lt;p&gt;&lt;strong&gt;最后，留一个问题给各位同行：&lt;/strong&gt;
+你在排查网络性能问题时，遇到过最离谱的配置是什么？是配错了HTTPS证书，还是缓存时间设置成了0？欢迎在评论区聊聊你的“踩坑”经历。&lt;/p&gt;
+&lt;hr&gt;
+&lt;p&gt;&lt;strong&gt;给新手的3个落地行动步骤：&lt;/strong&gt;&lt;/p&gt;
+&lt;ol&gt;
+&lt;li&gt;&lt;strong&gt;打开浏览器开发者工具 (F12)&lt;/strong&gt;：选中 Network 标签，刷新你的网站资源，查看 Response Headers 中的 &lt;code&gt;X-Cache&lt;/code&gt; 字段。如果是 &lt;code&gt;MISS&lt;/code&gt; 或 &lt;code&gt;TCP_MISS&lt;/code&gt;，说明没命中缓存，需要警惕了。&lt;/li&gt;
+&lt;li&gt;&lt;strong&gt;检查CDN控制台&lt;/strong&gt;：重点查看“缓存过期时间”配置，确保图片、CSS等静态文件至少缓存 7天以上，并开启“忽略URL参数”。&lt;/li&gt;
+&lt;li&gt;&lt;strong&gt;灰度测试&lt;/strong&gt;：在修改任何缓存策略前，先在一个非核心的域名或路径上测试，观察10分钟日志，确认没有异常（如页面排版错乱）后再全量发布。&lt;/li&gt;
+&lt;/ol&gt;
+</description>
+        </item>
+        
+    </channel>
+</rss>

@@ -1,0 +1,485 @@
+<!DOCTYPE html>
+<html lang="zh-cn" dir="ltr">
+    <head><meta charset='utf-8'>
+<meta name='viewport' content='width=device-width, initial-scale=1'><meta name='description' content="刚接手运维工作那会儿，我犯过一个极其&quot;经典&quot;的错误：觉得监控覆盖率越高越好，于是把网上抄来的Prometheus规则一股脑全配上了。\n结果就是，我的手机成了24小时震动的按摩棒。凌晨3点被&quot;CPU使用率超过80%&ldquo;的告警惊醒，爬起来一看，只是个定时备份任务在跑，两分钟后就自动恢复了。这种&quot;狼来了&quot;的故事发生几次后，我和团队对告警彻底麻木了，直到真正发生线上故障时，那条关键的报错信息淹没在了几百条无效告警里，导致我们晚了半小时才介入处理。\n那时候我才明白：写告警规则不是填空题，而是一门关于&quot;信噪比&quot;的艺术。\n很多兄弟在落地Prometheus时，往往只关注&quot;能不能抓到指标&rdquo;，却忽略了&quot;这玩意儿到底该不该报&quot;。今天咱们不聊虚的，我想结合这几年踩过的坑，聊聊怎么写出既精准又&quot;不扰民&quot;的高质量Prometheus规则。\n一、 别让&quot;抖动&quot;骗了你：引入时间窗口与趋势预测\r新手写规则最喜欢&quot;直来直去&quot;。比如监控磁盘，看到剩下10%就马上报警。这听起来没毛病，但在实际生产环境里，这种瞬时值的判断非常容易误报。\n真实案例： 我们有个日志处理服务，每隔几小时会有一次短暂的数据写入洪峰，磁盘I/O和使用率会瞬间飙高，但很快就会被清理脚本释放。刚开始我们设置了node_filesystem_free_bytes &lt; 10%就告警，结果运维群每天都要炸几次锅，大家查了一圈发现&quot;没事啊&quot;，久而久之就没人看了。\n避坑方法论： 告警的本质是呼叫人工介入。如果它能自己恢复，就不应该半夜叫醒你。我们需要引入持续时间（Duration）和趋势预测（Prediction）。\n加个&quot;for&quot;缓冲： 只有当问题持续一段时间（比如5分钟）还没恢复，才算真问题。 看未来趋势： 与其盯着现在的剩余空间，不如算算&quot;按照当前写入速度，多久之后会写满&quot;。 优化后的规则示例：\ngroups: - name: disk_alerts rules: # 只有当磁盘将在4小时内填满，且当前剩余空间确实小于10%时，才告警 # predict_linear 是个神技，利用过去1小时的数据预测未来 - alert: DiskWillFillIn4Hours expr: predict_linear(node_filesystem_free_bytes[1h], 4 * 3600) &lt; 0 and node_filesystem_free_bytes / node_filesystem_size_bytes &lt; 0.1 for: 10m # 持续10分钟满足条件才触发 labels: severity: warning annotations: summary: &#34;磁盘将在4小时内耗尽&#34; description: &#34; 的磁盘写入过快，预计4小时后写满，请检查日志量。&#34; 自从换了这个规则，那个日志服务的无效告警直接归零。只有当清理脚本挂了，或者业务量暴增导致真要写满时，我们才会收到通知。这时候，每个人都知道：这条告警必须处理，不能滑过去。\n二、 告别&quot;资源焦虑&quot;：从RED方法论切入业务视角\r很多团队的Prometheus规则里，90%都是CPU、内存、磁盘这些基础资源监控。\n但我问你一个扎心的问题：如果CPU跑到了95%，但用户访问完全正常，这算故障吗？ 反过来说，如果CPU只有10%，但用户下单全报500错误，这算故障吗？\n显然后者才是我们要死磕的。过分关注底层资源，很容易陷入&quot;资源焦虑&quot;。作为开发和运维人员，我们的关注点应该从&quot;机器活得好不好&quot;转移到&quot;服务干得行不行&quot;。\n真实案例： 有次大促，我们盯着仪表盘看CPU负载，一切平稳。结果客服炸了，说用户反馈无法支付。查了半天才发现，是下游支付网关的一个连接池配置错了，导致请求大量超时。因为等待超时不消耗CPU，所以资源监控全是绿的，但业务其实已经挂了。\n落地框架：RED方法论 Weaveworks 提出的 RED 方法论非常适合微服务监控。我们在写规则时，优先覆盖这三个维度：\nR (Rate)：请求速率（每秒多少请求？） E (Errors)：错误率（有多少失败了？） D (Duration)：响应时间（处理要多久？） 实操代码：\n">
+<title>告警响不停？3招教你写出&#34;不扰民&#34;的Prometheus规则</title>
+
+<link rel='canonical' href='https://blog.irudder.me/tech/devopsjichugongjurumenyushicao/jiankonggaojing_zidingyiprometheusguize.html'>
+
+<link rel="stylesheet" href="/scss/style.min.b9e9128fec450ebccecc4ec9900157f32b85d0609bcd5ee3293968bcaa1235f2.css"><meta property='og:title' content="告警响不停？3招教你写出\"不扰民\"的Prometheus规则">
+<meta property='og:description' content="刚接手运维工作那会儿，我犯过一个极其&quot;经典&quot;的错误：觉得监控覆盖率越高越好，于是把网上抄来的Prometheus规则一股脑全配上了。\n结果就是，我的手机成了24小时震动的按摩棒。凌晨3点被&quot;CPU使用率超过80%&ldquo;的告警惊醒，爬起来一看，只是个定时备份任务在跑，两分钟后就自动恢复了。这种&quot;狼来了&quot;的故事发生几次后，我和团队对告警彻底麻木了，直到真正发生线上故障时，那条关键的报错信息淹没在了几百条无效告警里，导致我们晚了半小时才介入处理。\n那时候我才明白：写告警规则不是填空题，而是一门关于&quot;信噪比&quot;的艺术。\n很多兄弟在落地Prometheus时，往往只关注&quot;能不能抓到指标&rdquo;，却忽略了&quot;这玩意儿到底该不该报&quot;。今天咱们不聊虚的，我想结合这几年踩过的坑，聊聊怎么写出既精准又&quot;不扰民&quot;的高质量Prometheus规则。\n一、 别让&quot;抖动&quot;骗了你：引入时间窗口与趋势预测\r新手写规则最喜欢&quot;直来直去&quot;。比如监控磁盘，看到剩下10%就马上报警。这听起来没毛病，但在实际生产环境里，这种瞬时值的判断非常容易误报。\n真实案例： 我们有个日志处理服务，每隔几小时会有一次短暂的数据写入洪峰，磁盘I/O和使用率会瞬间飙高，但很快就会被清理脚本释放。刚开始我们设置了node_filesystem_free_bytes &lt; 10%就告警，结果运维群每天都要炸几次锅，大家查了一圈发现&quot;没事啊&quot;，久而久之就没人看了。\n避坑方法论： 告警的本质是呼叫人工介入。如果它能自己恢复，就不应该半夜叫醒你。我们需要引入持续时间（Duration）和趋势预测（Prediction）。\n加个&quot;for&quot;缓冲： 只有当问题持续一段时间（比如5分钟）还没恢复，才算真问题。 看未来趋势： 与其盯着现在的剩余空间，不如算算&quot;按照当前写入速度，多久之后会写满&quot;。 优化后的规则示例：\ngroups: - name: disk_alerts rules: # 只有当磁盘将在4小时内填满，且当前剩余空间确实小于10%时，才告警 # predict_linear 是个神技，利用过去1小时的数据预测未来 - alert: DiskWillFillIn4Hours expr: predict_linear(node_filesystem_free_bytes[1h], 4 * 3600) &lt; 0 and node_filesystem_free_bytes / node_filesystem_size_bytes &lt; 0.1 for: 10m # 持续10分钟满足条件才触发 labels: severity: warning annotations: summary: &#34;磁盘将在4小时内耗尽&#34; description: &#34; 的磁盘写入过快，预计4小时后写满，请检查日志量。&#34; 自从换了这个规则，那个日志服务的无效告警直接归零。只有当清理脚本挂了，或者业务量暴增导致真要写满时，我们才会收到通知。这时候，每个人都知道：这条告警必须处理，不能滑过去。\n二、 告别&quot;资源焦虑&quot;：从RED方法论切入业务视角\r很多团队的Prometheus规则里，90%都是CPU、内存、磁盘这些基础资源监控。\n但我问你一个扎心的问题：如果CPU跑到了95%，但用户访问完全正常，这算故障吗？ 反过来说，如果CPU只有10%，但用户下单全报500错误，这算故障吗？\n显然后者才是我们要死磕的。过分关注底层资源，很容易陷入&quot;资源焦虑&quot;。作为开发和运维人员，我们的关注点应该从&quot;机器活得好不好&quot;转移到&quot;服务干得行不行&quot;。\n真实案例： 有次大促，我们盯着仪表盘看CPU负载，一切平稳。结果客服炸了，说用户反馈无法支付。查了半天才发现，是下游支付网关的一个连接池配置错了，导致请求大量超时。因为等待超时不消耗CPU，所以资源监控全是绿的，但业务其实已经挂了。\n落地框架：RED方法论 Weaveworks 提出的 RED 方法论非常适合微服务监控。我们在写规则时，优先覆盖这三个维度：\nR (Rate)：请求速率（每秒多少请求？） E (Errors)：错误率（有多少失败了？） D (Duration)：响应时间（处理要多久？） 实操代码：\n">
+<meta property='og:url' content='https://blog.irudder.me/tech/devopsjichugongjurumenyushicao/jiankonggaojing_zidingyiprometheusguize.html'>
+<meta property='og:site_name' content='SelfTechHub'>
+<meta property='og:type' content='article'><meta property='article:section' content='Tech' /><meta property='article:tag' content='监控告警：自定义Prometheus规则' /><meta property='article:published_time' content='2024-06-18T00:00:00&#43;00:00'/><meta property='article:modified_time' content='2024-06-18T00:00:00&#43;00:00'/>
+<meta name="twitter:title" content="告警响不停？3招教你写出\"不扰民\"的Prometheus规则">
+<meta name="twitter:description" content="刚接手运维工作那会儿，我犯过一个极其&quot;经典&quot;的错误：觉得监控覆盖率越高越好，于是把网上抄来的Prometheus规则一股脑全配上了。\n结果就是，我的手机成了24小时震动的按摩棒。凌晨3点被&quot;CPU使用率超过80%&ldquo;的告警惊醒，爬起来一看，只是个定时备份任务在跑，两分钟后就自动恢复了。这种&quot;狼来了&quot;的故事发生几次后，我和团队对告警彻底麻木了，直到真正发生线上故障时，那条关键的报错信息淹没在了几百条无效告警里，导致我们晚了半小时才介入处理。\n那时候我才明白：写告警规则不是填空题，而是一门关于&quot;信噪比&quot;的艺术。\n很多兄弟在落地Prometheus时，往往只关注&quot;能不能抓到指标&rdquo;，却忽略了&quot;这玩意儿到底该不该报&quot;。今天咱们不聊虚的，我想结合这几年踩过的坑，聊聊怎么写出既精准又&quot;不扰民&quot;的高质量Prometheus规则。\n一、 别让&quot;抖动&quot;骗了你：引入时间窗口与趋势预测\r新手写规则最喜欢&quot;直来直去&quot;。比如监控磁盘，看到剩下10%就马上报警。这听起来没毛病，但在实际生产环境里，这种瞬时值的判断非常容易误报。\n真实案例： 我们有个日志处理服务，每隔几小时会有一次短暂的数据写入洪峰，磁盘I/O和使用率会瞬间飙高，但很快就会被清理脚本释放。刚开始我们设置了node_filesystem_free_bytes &lt; 10%就告警，结果运维群每天都要炸几次锅，大家查了一圈发现&quot;没事啊&quot;，久而久之就没人看了。\n避坑方法论： 告警的本质是呼叫人工介入。如果它能自己恢复，就不应该半夜叫醒你。我们需要引入持续时间（Duration）和趋势预测（Prediction）。\n加个&quot;for&quot;缓冲： 只有当问题持续一段时间（比如5分钟）还没恢复，才算真问题。 看未来趋势： 与其盯着现在的剩余空间，不如算算&quot;按照当前写入速度，多久之后会写满&quot;。 优化后的规则示例：\ngroups: - name: disk_alerts rules: # 只有当磁盘将在4小时内填满，且当前剩余空间确实小于10%时，才告警 # predict_linear 是个神技，利用过去1小时的数据预测未来 - alert: DiskWillFillIn4Hours expr: predict_linear(node_filesystem_free_bytes[1h], 4 * 3600) &lt; 0 and node_filesystem_free_bytes / node_filesystem_size_bytes &lt; 0.1 for: 10m # 持续10分钟满足条件才触发 labels: severity: warning annotations: summary: &#34;磁盘将在4小时内耗尽&#34; description: &#34; 的磁盘写入过快，预计4小时后写满，请检查日志量。&#34; 自从换了这个规则，那个日志服务的无效告警直接归零。只有当清理脚本挂了，或者业务量暴增导致真要写满时，我们才会收到通知。这时候，每个人都知道：这条告警必须处理，不能滑过去。\n二、 告别&quot;资源焦虑&quot;：从RED方法论切入业务视角\r很多团队的Prometheus规则里，90%都是CPU、内存、磁盘这些基础资源监控。\n但我问你一个扎心的问题：如果CPU跑到了95%，但用户访问完全正常，这算故障吗？ 反过来说，如果CPU只有10%，但用户下单全报500错误，这算故障吗？\n显然后者才是我们要死磕的。过分关注底层资源，很容易陷入&quot;资源焦虑&quot;。作为开发和运维人员，我们的关注点应该从&quot;机器活得好不好&quot;转移到&quot;服务干得行不行&quot;。\n真实案例： 有次大促，我们盯着仪表盘看CPU负载，一切平稳。结果客服炸了，说用户反馈无法支付。查了半天才发现，是下游支付网关的一个连接池配置错了，导致请求大量超时。因为等待超时不消耗CPU，所以资源监控全是绿的，但业务其实已经挂了。\n落地框架：RED方法论 Weaveworks 提出的 RED 方法论非常适合微服务监控。我们在写规则时，优先覆盖这三个维度：\nR (Rate)：请求速率（每秒多少请求？） E (Errors)：错误率（有多少失败了？） D (Duration)：响应时间（处理要多久？） 实操代码：\n">
+    </head>
+    <body class="
+    article-page
+    ">
+    <script>
+        (function() {
+            const colorSchemeKey = 'StackColorScheme';
+            if(!localStorage.getItem(colorSchemeKey)){
+                localStorage.setItem(colorSchemeKey, "auto");
+            }
+        })();
+    </script><script>
+    (function() {
+        const colorSchemeKey = 'StackColorScheme';
+        const colorSchemeItem = localStorage.getItem(colorSchemeKey);
+        const supportDarkMode = window.matchMedia('(prefers-color-scheme: dark)').matches === true;
+
+        if (colorSchemeItem == 'dark' || colorSchemeItem === 'auto' && supportDarkMode) {
+            
+
+            document.documentElement.dataset.scheme = 'dark';
+        } else {
+            document.documentElement.dataset.scheme = 'light';
+        }
+    })();
+</script>
+<div class="container main-container flex on-phone--column compact"><aside class="sidebar left-sidebar sticky ">
+    <button class="hamburger hamburger--spin" type="button" id="toggle-menu" aria-label="切换菜单">
+        <span class="hamburger-box">
+            <span class="hamburger-inner"></span>
+        </span>
+    </button>
+
+    <header>
+        
+            
+            <figure class="site-avatar">
+                <a href="/">
+                
+                    
+                    
+                    
+                        
+                        <img src="/img/avatar_hu_8588ce14af1147e2.png" width="300"
+                            height="286" class="site-logo" loading="lazy" alt="Avatar">
+                    
+                
+                </a>
+                
+            </figure>
+            
+        
+        
+        <div class="site-meta">
+            <h1 class="site-name"><a href="/">SelfTechHub</a></h1>
+            <h2 class="site-description"></h2>
+        </div>
+    </header><ol class="menu" id="main-menu">
+        
+        
+        <li class="menu-bottom-section">
+            <ol class="menu">
+
+                
+                    <li id="dark-mode-toggle">
+                        <svg xmlns="http://www.w3.org/2000/svg" class="icon icon-tabler icon-tabler-toggle-left" width="24" height="24" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor" fill="none" stroke-linecap="round" stroke-linejoin="round">
+  <path stroke="none" d="M0 0h24v24H0z"/>
+  <circle cx="8" cy="12" r="2" />
+  <rect x="2" y="6" width="20" height="12" rx="6" />
+</svg>
+
+
+
+                        <svg xmlns="http://www.w3.org/2000/svg" class="icon icon-tabler icon-tabler-toggle-right" width="24" height="24" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor" fill="none" stroke-linecap="round" stroke-linejoin="round">
+  <path stroke="none" d="M0 0h24v24H0z"/>
+  <circle cx="16" cy="12" r="2" />
+  <rect x="2" y="6" width="20" height="12" rx="6" />
+</svg>
+
+
+
+                        <span>暗色模式</span>
+                    </li>
+                
+            </ol>
+        </li>
+    </ol>
+</aside>
+
+    
+
+            <main class="main full-width">
+    <article class="main-article">
+    <header class="article-header">
+
+    <div class="article-details">
+    
+    <header class="article-category">
+        
+            <a href="/categories/%E6%8A%80%E6%9C%AF.html" >
+                技术精进
+            </a>
+        
+    </header>
+    
+
+    <div class="article-title-wrapper">
+        <h2 class="article-title">
+            <a href="/tech/devopsjichugongjurumenyushicao/jiankonggaojing_zidingyiprometheusguize.html">告警响不停？3招教你写出&#34;不扰民&#34;的Prometheus规则</a>
+        </h2>
+    
+        
+    </div>
+
+    
+    
+    
+    
+    <footer class="article-time">
+        
+            <div>
+                <svg xmlns="http://www.w3.org/2000/svg" class="icon icon-tabler icon-tabler-calendar-time" width="56" height="56" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor" fill="none" stroke-linecap="round" stroke-linejoin="round">
+  <path stroke="none" d="M0 0h24v24H0z"/>
+  <path d="M11.795 21h-6.795a2 2 0 0 1 -2 -2v-12a2 2 0 0 1 2 -2h12a2 2 0 0 1 2 2v4" />
+  <circle cx="18" cy="18" r="4" />
+  <path d="M15 3v4" />
+  <path d="M7 3v4" />
+  <path d="M3 11h16" />
+  <path d="M18 16.496v1.504l1 1" />
+</svg>
+                <time class="article-time--published" datetime='2024-06-18T00:00:00Z'>Jun 18, 2024</time>
+            </div>
+        
+
+        
+            <div>
+                <svg xmlns="http://www.w3.org/2000/svg" class="icon icon-tabler icon-tabler-clock" width="24" height="24" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor" fill="none" stroke-linecap="round" stroke-linejoin="round">
+  <path stroke="none" d="M0 0h24v24H0z"/>
+  <circle cx="12" cy="12" r="9" />
+  <polyline points="12 7 12 12 15 15" />
+</svg>
+
+
+
+                <time class="article-time--reading">
+                    阅读时长: 1 分钟
+                </time>
+            </div>
+        
+    </footer>
+    
+
+    
+</div>
+
+</header>
+
+    <section class="article-content">
+    
+    
+    <p>刚接手运维工作那会儿，我犯过一个极其&quot;经典&quot;的错误：觉得监控覆盖率越高越好，于是把网上抄来的Prometheus规则一股脑全配上了。</p>
+<p>结果就是，我的手机成了24小时震动的按摩棒。凌晨3点被&quot;CPU使用率超过80%&ldquo;的告警惊醒，爬起来一看，只是个定时备份任务在跑，两分钟后就自动恢复了。这种&quot;狼来了&quot;的故事发生几次后，我和团队对告警彻底麻木了，直到真正发生线上故障时，那条关键的报错信息淹没在了几百条无效告警里，导致我们晚了半小时才介入处理。</p>
+<p>那时候我才明白：<strong>写告警规则不是填空题，而是一门关于&quot;信噪比&quot;的艺术。</strong></p>
+<p>很多兄弟在落地Prometheus时，往往只关注&quot;能不能抓到指标&rdquo;，却忽略了&quot;这玩意儿到底该不该报&quot;。今天咱们不聊虚的，我想结合这几年踩过的坑，聊聊怎么写出既精准又&quot;不扰民&quot;的高质量Prometheus规则。</p>
+<h2 id="一-别让抖动骗了你引入时间窗口与趋势预测">一、 别让&quot;抖动&quot;骗了你：引入时间窗口与趋势预测
+</h2><p>新手写规则最喜欢&quot;直来直去&quot;。比如监控磁盘，看到剩下10%就马上报警。这听起来没毛病，但在实际生产环境里，这种瞬时值的判断非常容易误报。</p>
+<p><strong>真实案例：</strong>
+我们有个日志处理服务，每隔几小时会有一次短暂的数据写入洪峰，磁盘I/O和使用率会瞬间飙高，但很快就会被清理脚本释放。刚开始我们设置了<code>node_filesystem_free_bytes &lt; 10%</code>就告警，结果运维群每天都要炸几次锅，大家查了一圈发现&quot;没事啊&quot;，久而久之就没人看了。</p>
+<p><img src="https://picsum.photos/800/450?random=1768388366841"
+	
+	
+	
+	loading="lazy"
+	
+		alt="配图"
+	
+	
+></p>
+<p><strong>避坑方法论：</strong>
+告警的本质是呼叫人工介入。如果它能自己恢复，就不应该半夜叫醒你。我们需要引入<strong>持续时间（Duration）<strong>和</strong>趋势预测（Prediction）</strong>。</p>
+<ol>
+<li><strong>加个&quot;for&quot;缓冲：</strong> 只有当问题持续一段时间（比如5分钟）还没恢复，才算真问题。</li>
+<li><strong>看未来趋势：</strong> 与其盯着现在的剩余空间，不如算算&quot;按照当前写入速度，多久之后会写满&quot;。</li>
+</ol>
+<p><strong>优化后的规则示例：</strong></p>
+<div class="highlight"><pre tabindex="0" style="color:#f8f8f2;background-color:#272822;-moz-tab-size:4;-o-tab-size:4;tab-size:4;"><code class="language-yaml" data-lang="yaml"><span style="display:flex;"><span><span style="color:#f92672">groups</span>:
+</span></span><span style="display:flex;"><span>- <span style="color:#f92672">name</span>: <span style="color:#ae81ff">disk_alerts</span>
+</span></span><span style="display:flex;"><span>  <span style="color:#f92672">rules</span>:
+</span></span><span style="display:flex;"><span>  <span style="color:#75715e"># 只有当磁盘将在4小时内填满，且当前剩余空间确实小于10%时，才告警</span>
+</span></span><span style="display:flex;"><span>  <span style="color:#75715e"># predict_linear 是个神技，利用过去1小时的数据预测未来</span>
+</span></span><span style="display:flex;"><span>  - <span style="color:#f92672">alert</span>: <span style="color:#ae81ff">DiskWillFillIn4Hours</span>
+</span></span><span style="display:flex;"><span>    <span style="color:#f92672">expr</span>: <span style="color:#ae81ff">predict_linear(node_filesystem_free_bytes[1h], 4 * 3600) &lt; 0 and node_filesystem_free_bytes / node_filesystem_size_bytes &lt; 0.1</span>
+</span></span><span style="display:flex;"><span>    <span style="color:#f92672">for</span>: <span style="color:#ae81ff">10m </span> <span style="color:#75715e"># 持续10分钟满足条件才触发</span>
+</span></span><span style="display:flex;"><span>    <span style="color:#f92672">labels</span>:
+</span></span><span style="display:flex;"><span>      <span style="color:#f92672">severity</span>: <span style="color:#ae81ff">warning</span>
+</span></span><span style="display:flex;"><span>    <span style="color:#f92672">annotations</span>:
+</span></span><span style="display:flex;"><span>      <span style="color:#f92672">summary</span>: <span style="color:#e6db74">&#34;磁盘将在4小时内耗尽&#34;</span>
+</span></span><span style="display:flex;"><span>      <span style="color:#f92672">description</span>: <span style="color:#e6db74">&#34; 的磁盘写入过快，预计4小时后写满，请检查日志量。&#34;</span>
+</span></span></code></pre></div><p>自从换了这个规则，那个日志服务的无效告警直接归零。只有当清理脚本挂了，或者业务量暴增导致真要写满时，我们才会收到通知。这时候，每个人都知道：<strong>这条告警必须处理，不能滑过去。</strong></p>
+<h2 id="二-告别资源焦虑从red方法论切入业务视角">二、 告别&quot;资源焦虑&quot;：从RED方法论切入业务视角
+</h2><p>很多团队的Prometheus规则里，90%都是CPU、内存、磁盘这些基础资源监控。</p>
+<p>但我问你一个扎心的问题：<strong>如果CPU跑到了95%，但用户访问完全正常，这算故障吗？</strong>
+反过来说，<strong>如果CPU只有10%，但用户下单全报500错误，这算故障吗？</strong></p>
+<p>显然后者才是我们要死磕的。过分关注底层资源，很容易陷入&quot;资源焦虑&quot;。作为开发和运维人员，我们的关注点应该从&quot;机器活得好不好&quot;转移到&quot;服务干得行不行&quot;。</p>
+<p><strong>真实案例：</strong>
+有次大促，我们盯着仪表盘看CPU负载，一切平稳。结果客服炸了，说用户反馈无法支付。查了半天才发现，是下游支付网关的一个连接池配置错了，导致请求大量超时。因为等待超时不消耗CPU，所以资源监控全是绿的，但业务其实已经挂了。</p>
+<p><strong>落地框架：RED方法论</strong>
+Weaveworks 提出的 RED 方法论非常适合微服务监控。我们在写规则时，优先覆盖这三个维度：</p>
+<ul>
+<li><strong>R (Rate)</strong>：请求速率（每秒多少请求？）</li>
+<li><strong>E (Errors)</strong>：错误率（有多少失败了？）</li>
+<li><strong>D (Duration)</strong>：响应时间（处理要多久？）</li>
+</ul>
+<p><strong>实操代码：</strong></p>
+<p>比起盯着CPU，我强烈建议你先配好这条关于&quot;错误率&quot;的黄金规则：</p>
+<div class="highlight"><pre tabindex="0" style="color:#f8f8f2;background-color:#272822;-moz-tab-size:4;-o-tab-size:4;tab-size:4;"><code class="language-yaml" data-lang="yaml"><span style="display:flex;"><span><span style="color:#f92672">groups</span>:
+</span></span><span style="display:flex;"><span>- <span style="color:#f92672">name</span>: <span style="color:#ae81ff">service_level_alerts</span>
+</span></span><span style="display:flex;"><span>  <span style="color:#f92672">rules</span>:
+</span></span><span style="display:flex;"><span>  <span style="color:#75715e"># 5分钟内，如果错误率超过1%，立马告警</span>
+</span></span><span style="display:flex;"><span>  <span style="color:#75715e"># sum(rate(...)) 是处理微服务聚合的标准姿势</span>
+</span></span><span style="display:flex;"><span>  - <span style="color:#f92672">alert</span>: <span style="color:#ae81ff">HighErrorRate</span>
+</span></span><span style="display:flex;"><span>    <span style="color:#f92672">expr</span>: |<span style="color:#e6db74">
+</span></span></span><span style="display:flex;"><span><span style="color:#e6db74">      sum(rate(http_requests_total{status=~&#34;5..&#34;}[5m])) 
+</span></span></span><span style="display:flex;"><span><span style="color:#e6db74">      / 
+</span></span></span><span style="display:flex;"><span><span style="color:#e6db74">      sum(rate(http_requests_total[5m])) &gt; 0.01</span>
+</span></span><span style="display:flex;"><span>    <span style="color:#f92672">for</span>: <span style="color:#ae81ff">2m</span>
+</span></span><span style="display:flex;"><span>    <span style="color:#f92672">labels</span>:
+</span></span><span style="display:flex;"><span>      <span style="color:#f92672">severity</span>: <span style="color:#ae81ff">critical</span>
+</span></span><span style="display:flex;"><span>    <span style="color:#f92672">annotations</span>:
+</span></span><span style="display:flex;"><span>      <span style="color:#f92672">summary</span>: <span style="color:#e6db74">&#34;服务  错误率飙升&#34;</span>
+</span></span><span style="display:flex;"><span>      <span style="color:#f92672">description</span>: <span style="color:#e6db74">&#34;当前错误率已超过1%，请立即检查日志！&#34;</span>
+</span></span></code></pre></div><p>这不仅能让你在业务受损的第一时间感知，还能帮你过滤掉那些&quot;虽然CPU高但服务很健康&quot;的无效焦虑。我现在的习惯是：<strong>凡是不能直接映射到用户体验的资源告警，等级全部设为 Warning，只有 RED 指标异常才设为 Critical 并触发电话通知。</strong></p>
+<h2 id="三-巧用中间层recording-rules-拯救你的prometheus">三、 巧用&quot;中间层&quot;：Recording Rules 拯救你的Prometheus
+</h2><p>随着规则越写越多，你可能会发现Prometheus的查询变慢了，甚至有时候评估规则本身就让Prometheus OOM（内存溢出）了。</p>
+<p>这通常是因为你在Alert规则里写了太多复杂的实时计算。比如，你要算全公司几千个实例过去7天的SLA（服务等级协议），如果在告警规则里直接跑这个查询，Prometheus大概率会原地去世。</p>
+<p><strong>踩坑经历：</strong>
+我们曾试图在一个规则里计算&quot;过去24小时API的P99响应时间&quot;，结果每到整点评估规则时，Prometheus就出现短暂的卡顿，数据断点频发。</p>
+<p><strong>解决方法：预计算（Recording Rules）</strong>
+这就像编程里的&quot;缓存&quot;或者是数据库里的&quot;物化视图&quot;。先把复杂的查询算好，存成一个新的指标，告警的时候直接查这个新指标。</p>
+<p><strong>优化步骤：</strong></p>
+<ol>
+<li><strong>定义中间指标：</strong> 先把复杂的聚合算出来。</li>
+</ol>
+<div class="highlight"><pre tabindex="0" style="color:#f8f8f2;background-color:#272822;-moz-tab-size:4;-o-tab-size:4;tab-size:4;"><code class="language-yaml" data-lang="yaml"><span style="display:flex;"><span><span style="color:#f92672">groups</span>:
+</span></span><span style="display:flex;"><span>- <span style="color:#f92672">name</span>: <span style="color:#ae81ff">recording_rules</span>
+</span></span><span style="display:flex;"><span>  <span style="color:#f92672">rules</span>:
+</span></span><span style="display:flex;"><span>  <span style="color:#75715e"># 每分钟预计算一次，存成 job:http_inprogress_requests:sum</span>
+</span></span><span style="display:flex;"><span>  - <span style="color:#f92672">record</span>: <span style="color:#ae81ff">job:http_inprogress_requests:sum</span>
+</span></span><span style="display:flex;"><span>    <span style="color:#f92672">expr</span>: <span style="color:#ae81ff">sum by (job) (http_inprogress_requests)</span>
+</span></span></code></pre></div><p><img src="https://picsum.photos/800/450?random=1768388366148"
+	
+	
+	
+	loading="lazy"
+	
+		alt="配图"
+	
+	
+></p>
+<ol start="2">
+<li><strong>基于中间指标告警：</strong></li>
+</ol>
+<div class="highlight"><pre tabindex="0" style="color:#f8f8f2;background-color:#272822;-moz-tab-size:4;-o-tab-size:4;tab-size:4;"><code class="language-yaml" data-lang="yaml"><span style="display:flex;"><span>- <span style="color:#f92672">alert</span>: <span style="color:#ae81ff">HighRequestLoad</span>
+</span></span><span style="display:flex;"><span>  <span style="color:#75715e"># 告警查询瞬间完成，不再消耗大量算力</span>
+</span></span><span style="display:flex;"><span>  <span style="color:#f92672">expr</span>: <span style="color:#ae81ff">job:http_inprogress_requests:sum &gt; 1000</span>
+</span></span><span style="display:flex;"><span>  <span style="color:#f92672">for</span>: <span style="color:#ae81ff">1m</span>
+</span></span></code></pre></div><p>我个人的经验是，<strong>只要你的PromQL里出现了3层以上的聚合操作（sum套rate再套predict），就应该考虑把它拆解成Recording Rules。</strong> 这不仅能救你的Prometheus一命，还能让你的告警规则看起来清爽得多，后期维护也容易。</p>
+<h2 id="结尾与行动建议">结尾与行动建议
+</h2><p>做监控这么多年，我最大的感悟是：<strong>最好的告警，是你收到它时，手心会出汗，而不是翻个白眼把它划掉。</strong></p>
+<p>自定义Prometheus规则不仅仅是写几行YAML配置，它倒逼着我们去理解业务的真实形态、理解系统的瓶颈所在。</p>
+<p>如果你觉得现在的告警太吵，不妨在这个周五下午（我通常选这个时间做复盘），试着做这3个动作：</p>
+<ol>
+<li><strong>做一次&quot;告警大扫除&quot;：</strong> 导出过去一周触发次数最多的Top 3告警，问问自己：这几条告警如果没发，系统会挂吗？如果不会，删了它或者调低等级。</li>
+<li><strong>落地一条RED规则：</strong> 挑一个核心服务，给它加上基于错误率（Errors）的告警，替代掉单纯的CPU告警。</li>
+<li><strong>加上<code>for</code>参数：</strong> 检查所有现有的规则，凡是没有加<code>for</code>持续时间的，全部加上至少1分钟的缓冲。</li>
+</ol>
+<p><strong>你在配置Prometheus规则时，遇到过最离谱的误报是什么？或者你有什么独门的&quot;降噪&quot;技巧？</strong> 欢迎在评论区聊聊，咱们一起把监控做得更&quot;丝滑&quot;。</p>
+
+</section>
+
+
+    <footer class="article-footer">
+    
+    <section class="article-tags">
+        
+            <a href="/tags/%E7%9B%91%E6%8E%A7%E5%91%8A%E8%AD%A6%E8%87%AA%E5%AE%9A%E4%B9%89Prometheus%E8%A7%84%E5%88%99.html">监控告警：自定义Prometheus规则</a>
+        
+    </section>
+
+
+    </footer>
+
+
+    
+</article>
+
+    
+
+    
+
+     
+    
+        
+    <script
+    src="https://giscus.app/client.js"
+    data-repo="pastor17/bloggiscus"
+    data-repo-id="R_kgDOQ6H9qQ"
+    data-category=""
+    data-category-id="DIC_kwDOQ6H9qc4C0-T8"
+    data-mapping="pathname"
+    data-strict="0"
+    data-reactions-enabled="1"
+    data-emit-metadata="0"
+    data-input-position="bottom"
+    data-theme="light"
+    data-lang="zh-CN"
+    data-loading="lazy"
+    crossorigin="anonymous"
+    async
+></script>
+<script>
+    function setGiscusTheme(theme) {
+        let giscus = document.querySelector("iframe.giscus-frame");
+        if (giscus) {
+            giscus.contentWindow.postMessage(
+                {
+                    giscus: {
+                        setConfig: {
+                            theme: theme,
+                        },
+                    },
+                },
+                "https://giscus.app"
+            );
+        }
+    }
+
+    (function () {
+        addEventListener("message", (e) => {
+            if (event.origin !== "https://giscus.app") return;
+            handler();
+        });
+        window.addEventListener("onColorSchemeChange", handler);
+
+        function handler() {
+            if (document.documentElement.dataset.scheme === "light") {
+                setGiscusTheme('light');
+            } else {
+                setGiscusTheme('dark_dimmed');
+            }
+        }
+    })();
+</script>
+
+    
+
+    <footer class="site-footer">
+    <section class="copyright">
+        &copy; 
+        
+        2026 SelfTechHub
+    </section>
+    
+    <section class="powerby">
+        
+
+    </section>
+</footer>
+
+
+    
+<div class="pswp" tabindex="-1" role="dialog" aria-hidden="true">
+
+    
+    <div class="pswp__bg"></div>
+
+    
+    <div class="pswp__scroll-wrap">
+
+        
+        <div class="pswp__container">
+            <div class="pswp__item"></div>
+            <div class="pswp__item"></div>
+            <div class="pswp__item"></div>
+        </div>
+
+        
+        <div class="pswp__ui pswp__ui--hidden">
+
+            <div class="pswp__top-bar">
+
+                
+
+                <div class="pswp__counter"></div>
+
+                <button class="pswp__button pswp__button--close" title="Close (Esc)"></button>
+
+                <button class="pswp__button pswp__button--share" title="Share"></button>
+
+                <button class="pswp__button pswp__button--fs" title="Toggle fullscreen"></button>
+
+                <button class="pswp__button pswp__button--zoom" title="Zoom in/out"></button>
+
+                
+                
+                <div class="pswp__preloader">
+                    <div class="pswp__preloader__icn">
+                        <div class="pswp__preloader__cut">
+                            <div class="pswp__preloader__donut"></div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <div class="pswp__share-modal pswp__share-modal--hidden pswp__single-tap">
+                <div class="pswp__share-tooltip"></div>
+            </div>
+
+            <button class="pswp__button pswp__button--arrow--left" title="Previous (arrow left)">
+            </button>
+
+            <button class="pswp__button pswp__button--arrow--right" title="Next (arrow right)">
+            </button>
+
+            <div class="pswp__caption">
+                <div class="pswp__caption__center"></div>
+            </div>
+
+        </div>
+
+    </div>
+
+</div><script 
+                src="https://cdn.jsdelivr.net/npm/photoswipe@4.1.3/dist/photoswipe.min.js"integrity="sha256-ePwmChbbvXbsO02lbM3HoHbSHTHFAeChekF1xKJdleo="crossorigin="anonymous"
+                defer
+                >
+            </script><script 
+                src="https://cdn.jsdelivr.net/npm/photoswipe@4.1.3/dist/photoswipe-ui-default.min.js"integrity="sha256-UKkzOn/w1mBxRmLLGrSeyB4e1xbrp4xylgAWb3M42pU="crossorigin="anonymous"
+                defer
+                >
+            </script><link 
+                rel="stylesheet" 
+                href="https://cdn.jsdelivr.net/npm/photoswipe@4.1.3/dist/default-skin/default-skin.min.css"crossorigin="anonymous"
+            ><link 
+                rel="stylesheet" 
+                href="https://cdn.jsdelivr.net/npm/photoswipe@4.1.3/dist/photoswipe.min.css"crossorigin="anonymous"
+            >
+    
+
+            </main>
+        </div>
+        <script 
+                src="https://cdn.jsdelivr.net/npm/node-vibrant@3.1.6/dist/vibrant.min.js"integrity="sha256-awcR2jno4kI5X0zL8ex0vi2z&#43;KMkF24hUW8WePSA9HM="crossorigin="anonymous"
+                
+                >
+            </script><script type="text/javascript" src="/ts/main.c922af694cc257bf1ecc41c0dd7b0430f9114ec280ccf67cd2c6ad55f5316c4e.js" defer></script>
+<script>
+    (function () {
+        const customFont = document.createElement('link');
+        customFont.href = "https://fonts.googleapis.com/css2?family=Lato:wght@300;400;700&display=swap";
+
+        customFont.type = "text/css";
+        customFont.rel = "stylesheet";
+
+        document.head.appendChild(customFont);
+    }());
+</script>
+
+    </body>
+</html>

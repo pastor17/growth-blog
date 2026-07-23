@@ -1,0 +1,131 @@
+<?xml version="1.0" encoding="utf-8" standalone="yes"?>
+<rss version="2.0" xmlns:atom="http://www.w3.org/2005/Atom">
+    <channel>
+        <title>数据库索引优化：实战案例与避坑 on SelfTechHub</title>
+        <link>https://blog.irudder.me/tags/%E6%95%B0%E6%8D%AE%E5%BA%93%E7%B4%A2%E5%BC%95%E4%BC%98%E5%8C%96%E5%AE%9E%E6%88%98%E6%A1%88%E4%BE%8B%E4%B8%8E%E9%81%BF%E5%9D%91.html</link>
+        <description>Recent content in 数据库索引优化：实战案例与避坑 on SelfTechHub</description>
+        <generator>Hugo -- gohugo.io</generator>
+        <language>zh-cn</language>
+        <lastBuildDate>Fri, 26 Sep 2025 00:00:00 +0000</lastBuildDate><atom:link href="https://blog.irudder.me/tags/%E6%95%B0%E6%8D%AE%E5%BA%93%E7%B4%A2%E5%BC%95%E4%BC%98%E5%8C%96%E5%AE%9E%E6%88%98%E6%A1%88%E4%BE%8B%E4%B8%8E%E9%81%BF%E5%9D%91/index.xml" rel="self" type="application/rss+xml" /><item>
+        <title>半夜报警？这3个索引“负优化”案例让我长记性了</title>
+        <link>https://blog.irudder.me/tech/jiagouyouhuashizhananlijiexi/shujukusuoyinyouhua_shizhananliyubikeng.html</link>
+        <pubDate>Fri, 26 Sep 2025 00:00:00 +0000</pubDate>
+        
+        <guid>https://blog.irudder.me/tech/jiagouyouhuashizhananlijiexi/shujukusuoyinyouhua_shizhananliyubikeng.html</guid>
+        <description>&lt;p&gt;不知道大家有没有这种经历：明明给表加了索引，查询速度不仅没起飞，数据库的CPU反而先爆表了，甚至连写入都开始阻塞。&lt;/p&gt;
+&lt;p&gt;我以前总觉得，“慢查询”最好的解药就是加索引。只要业务方喊慢，我就去 &lt;code&gt;ADD INDEX&lt;/code&gt;。直到三年前那次双11大促前的压测，我亲手搞挂了一个核心服务的数据库，才彻底明白：&lt;strong&gt;索引这把双刃剑，很多时候是拿反了的。&lt;/strong&gt;&lt;/p&gt;
+&lt;p&gt;今天咱们不聊那些枯燥的B+树原理，我想复盘这几年在一线实战中踩过的3个典型“坑”。这些都是真金白银砸出来的教训，希望能帮大家避开半夜两点的报警电话。&lt;/p&gt;
+&lt;h2 id=&#34;一-为了快我把所有字段都加了索引&#34;&gt;一、 “为了快，我把所有字段都加了索引”
+&lt;/h2&gt;&lt;p&gt;&lt;img src=&#34;https://picsum.photos/800/450?random=1768458454016&#34;
+	
+	
+	
+	loading=&#34;lazy&#34;
+	
+		alt=&#34;配图&#34;
+	
+	
+&gt;&lt;/p&gt;
+&lt;p&gt;这大概是很多新手（包括当年的我）最容易犯的错。&lt;/p&gt;
+&lt;p&gt;&lt;strong&gt;【真实场景】&lt;/strong&gt;
+当时我们在做一个用户行为日志表，数据量增长很快，每天大概新增500万条。业务方需求很多，今天想按 &lt;code&gt;user_id&lt;/code&gt; 查，明天想按 &lt;code&gt;event_type&lt;/code&gt; 查，后天又要按 &lt;code&gt;device_id&lt;/code&gt; 统计。&lt;/p&gt;
+&lt;p&gt;为了省事，也为了“未雨绸缪”，我一股脑给这几个高频字段全加了单列索引。心想：这下总没问题了吧？&lt;/p&gt;
+&lt;p&gt;&lt;strong&gt;【踩坑结果】&lt;/strong&gt;
+上线运行了一周，问题来了。虽然查询没问题，但&lt;strong&gt;写入性能（Insert TPS）直线下降&lt;/strong&gt;。原本每秒能抗3000次写入，现在到了1500次就开始报错超时。DBA直接把监控图甩我脸上：磁盘IO几乎被打满，Buffer Pool全是脏页。&lt;/p&gt;
+&lt;p&gt;&lt;strong&gt;【复盘与改进】&lt;/strong&gt;
+这就是典型的“索引过度”。每一条 &lt;code&gt;INSERT&lt;/code&gt; 语句，数据库不仅要写主键数据，还要维护那5、6棵额外的B+树。对于写多读少的日志型业务，这简直是灾难。&lt;/p&gt;
+&lt;p&gt;我后来做了两件事来救火：&lt;/p&gt;
+&lt;ol&gt;
+&lt;li&gt;&lt;strong&gt;砍掉单列索引&lt;/strong&gt;：只保留了 &lt;code&gt;user_id&lt;/code&gt;，其他非核心字段的索引全部删掉。&lt;/li&gt;
+&lt;li&gt;&lt;strong&gt;建立联合索引&lt;/strong&gt;：根据最长用的查询模式，建了一个 &lt;code&gt;(user_id, event_time)&lt;/code&gt; 的联合索引，覆盖了80%的查询场景。&lt;/li&gt;
+&lt;/ol&gt;
+&lt;p&gt;&lt;strong&gt;【避坑指南】&lt;/strong&gt;&lt;/p&gt;
+&lt;blockquote&gt;
+&lt;p&gt;如果你的表是“写多读少”（比如日志、流水表），单表索引数量建议控制在3个以内。别为了那1%的查询需求，牺牲99%的写入性能。&lt;/p&gt;
+&lt;/blockquote&gt;
+&lt;h2 id=&#34;二-联合索引的顺序陷阱并不只是为了好看&#34;&gt;二、 联合索引的“顺序”陷阱：并不只是为了好看
+&lt;/h2&gt;&lt;p&gt;既然单列索引不好用，那我就用联合索引呗？这里面的坑更隐蔽。&lt;/p&gt;
+&lt;p&gt;&lt;strong&gt;【真实场景】&lt;/strong&gt;
+有个订单表 &lt;code&gt;orders&lt;/code&gt;，业务代码里有一个最高频的查询：查找某个店铺、在某个时间段内、特定状态的订单。&lt;/p&gt;
+&lt;p&gt;代码大概是这样的：&lt;/p&gt;
+&lt;div class=&#34;highlight&#34;&gt;&lt;pre tabindex=&#34;0&#34; style=&#34;color:#f8f8f2;background-color:#272822;-moz-tab-size:4;-o-tab-size:4;tab-size:4;&#34;&gt;&lt;code class=&#34;language-sql&#34; data-lang=&#34;sql&#34;&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;&lt;span style=&#34;color:#66d9ef&#34;&gt;SELECT&lt;/span&gt; &lt;span style=&#34;color:#f92672&#34;&gt;*&lt;/span&gt; &lt;span style=&#34;color:#66d9ef&#34;&gt;FROM&lt;/span&gt; orders 
+&lt;/span&gt;&lt;/span&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;&lt;span style=&#34;color:#66d9ef&#34;&gt;WHERE&lt;/span&gt; shop_id &lt;span style=&#34;color:#f92672&#34;&gt;=&lt;/span&gt; &lt;span style=&#34;color:#ae81ff&#34;&gt;10086&lt;/span&gt; 
+&lt;/span&gt;&lt;/span&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;&lt;span style=&#34;color:#66d9ef&#34;&gt;AND&lt;/span&gt; create_time &lt;span style=&#34;color:#f92672&#34;&gt;&amp;gt;&lt;/span&gt; &lt;span style=&#34;color:#e6db74&#34;&gt;&amp;#39;2023-10-01 00:00:00&amp;#39;&lt;/span&gt; 
+&lt;/span&gt;&lt;/span&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;&lt;span style=&#34;color:#66d9ef&#34;&gt;AND&lt;/span&gt; status &lt;span style=&#34;color:#f92672&#34;&gt;=&lt;/span&gt; &lt;span style=&#34;color:#e6db74&#34;&gt;&amp;#39;PAID&amp;#39;&lt;/span&gt;;
+&lt;/span&gt;&lt;/span&gt;&lt;/code&gt;&lt;/pre&gt;&lt;/div&gt;&lt;p&gt;&lt;img src=&#34;https://picsum.photos/800/450?random=1768458460139&#34;
+	
+	
+	
+	loading=&#34;lazy&#34;
+	
+		alt=&#34;配图&#34;
+	
+	
+&gt;&lt;/p&gt;
+&lt;p&gt;我当时自信满满地建了个索引：&lt;code&gt;idx_shop_time_status (shop_id, create_time, status)&lt;/code&gt;。
+我觉得这三个字段都覆盖了，肯定也是完美的。&lt;/p&gt;
+&lt;p&gt;&lt;strong&gt;【踩坑结果】&lt;/strong&gt;
+查询确实比没索引快，但依然有几百毫秒的延迟。用 &lt;code&gt;EXPLAIN&lt;/code&gt; 一看，&lt;code&gt;key_len&lt;/code&gt; 的长度不对，只有前两个字段生效了，&lt;code&gt;status&lt;/code&gt; 字段压根没用上索引！&lt;/p&gt;
+&lt;p&gt;&lt;strong&gt;【复盘与改进】&lt;/strong&gt;
+这里触碰了MySQL联合索引的一个硬核规则：&lt;strong&gt;范围查询（Range）会阻断最左前缀的匹配&lt;/strong&gt;。&lt;/p&gt;
+&lt;p&gt;在我的索引 &lt;code&gt;(shop_id, create_time, status)&lt;/code&gt; 中：&lt;/p&gt;
+&lt;ol&gt;
+&lt;li&gt;&lt;code&gt;shop_id&lt;/code&gt; 是等值匹配，没问题。&lt;/li&gt;
+&lt;li&gt;&lt;code&gt;create_time&lt;/code&gt; 是范围查询（&lt;code&gt;&amp;gt;&lt;/code&gt;），索引在这里虽然生效了，但&lt;strong&gt;索引的匹配就到此为止了&lt;/strong&gt;。&lt;/li&gt;
+&lt;li&gt;后面的 &lt;code&gt;status&lt;/code&gt; 字段，数据库只能回表后一个个过滤，或者在索引树上硬扫，无法利用索引的快速定位能力。&lt;/li&gt;
+&lt;/ol&gt;
+&lt;p&gt;&lt;strong&gt;【修正方案】&lt;/strong&gt;
+调整索引顺序，把涉及范围查询的字段放到最后：
+&lt;strong&gt;修改为：&lt;code&gt;idx_shop_status_time (shop_id, status, create_time)&lt;/code&gt;&lt;/strong&gt;&lt;/p&gt;
+&lt;p&gt;再次执行 &lt;code&gt;EXPLAIN&lt;/code&gt;，类型从 &lt;code&gt;range&lt;/code&gt; 变成了 &lt;code&gt;ref&lt;/code&gt;（或者更高效的利用），查询时间直接降到了几十毫秒。&lt;/p&gt;
+&lt;p&gt;&lt;strong&gt;【避坑指南】&lt;/strong&gt;
+记住这个口诀：&lt;strong&gt;“等值在前，范围在后”&lt;/strong&gt;。在设计联合索引时，把 &lt;code&gt;WHERE&lt;/code&gt; 条件里用 &lt;code&gt;=&lt;/code&gt; 的字段尽量往左边放，用 &lt;code&gt;&amp;gt;&lt;/code&gt;、&lt;code&gt;&amp;lt;&lt;/code&gt;、&lt;code&gt;BETWEEN&lt;/code&gt; 的字段往右边放。&lt;/p&gt;
+&lt;h2 id=&#34;三-隐式转换代码里一个微小的疏忽搞挂了数据库&#34;&gt;三、 隐式转换：代码里一个微小的疏忽，搞挂了数据库
+&lt;/h2&gt;&lt;p&gt;这个坑是最冤的，因为它看起来完全不是数据库的问题，而是代码写得不严谨。&lt;/p&gt;
+&lt;p&gt;&lt;strong&gt;【真实场景】&lt;/strong&gt;
+这是一个用户搜索接口，根据手机号查找用户信息。
+表结构：&lt;/p&gt;
+&lt;div class=&#34;highlight&#34;&gt;&lt;pre tabindex=&#34;0&#34; style=&#34;color:#f8f8f2;background-color:#272822;-moz-tab-size:4;-o-tab-size:4;tab-size:4;&#34;&gt;&lt;code class=&#34;language-sql&#34; data-lang=&#34;sql&#34;&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;&lt;span style=&#34;color:#66d9ef&#34;&gt;CREATE&lt;/span&gt; &lt;span style=&#34;color:#66d9ef&#34;&gt;TABLE&lt;/span&gt; users (
+&lt;/span&gt;&lt;/span&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;  id int &lt;span style=&#34;color:#66d9ef&#34;&gt;PRIMARY&lt;/span&gt; &lt;span style=&#34;color:#66d9ef&#34;&gt;KEY&lt;/span&gt;,
+&lt;/span&gt;&lt;/span&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;  phone varchar(&lt;span style=&#34;color:#ae81ff&#34;&gt;20&lt;/span&gt;), &lt;span style=&#34;color:#75715e&#34;&gt;-- 注意这里是 varchar
+&lt;/span&gt;&lt;/span&gt;&lt;/span&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;&lt;span style=&#34;color:#75715e&#34;&gt;&lt;/span&gt;  name varchar(&lt;span style=&#34;color:#ae81ff&#34;&gt;50&lt;/span&gt;),
+&lt;/span&gt;&lt;/span&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;  &lt;span style=&#34;color:#66d9ef&#34;&gt;KEY&lt;/span&gt; idx_phone (phone)
+&lt;/span&gt;&lt;/span&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;);
+&lt;/span&gt;&lt;/span&gt;&lt;/code&gt;&lt;/pre&gt;&lt;/div&gt;&lt;p&gt;索引有了，SQL看起来也很简单：&lt;code&gt;SELECT * FROM users WHERE phone = 13800138000;&lt;/code&gt;&lt;/p&gt;
+&lt;p&gt;某天下午，运营做活动群发短信，用户蜂拥而至查状态，数据库CPU瞬间飙到100%，整个应用直接卡死。&lt;/p&gt;
+&lt;p&gt;&lt;strong&gt;【踩坑结果】&lt;/strong&gt;
+排查慢日志发现，这条简单的SQL扫描行数（Rows_examined）竟然是全表行数！
+原因在于：&lt;strong&gt;开发人员在Java代码里，把手机号当作 &lt;code&gt;Long&lt;/code&gt; 类型传给了数据库，而数据库里存的是 &lt;code&gt;Varchar&lt;/code&gt;。&lt;/strong&gt;&lt;/p&gt;
+&lt;p&gt;&lt;strong&gt;【复盘与改进】&lt;/strong&gt;
+当字段类型是字符串，而查询条件是数字时，MySQL会做&lt;strong&gt;隐式类型转换&lt;/strong&gt;。它会把表中每一行的 &lt;code&gt;phone&lt;/code&gt; 字段转换成数字，再去和输入值比较。
+这就相当于每一行都执行了一次函数操作：&lt;code&gt;CAST(phone AS signed)&lt;/code&gt;。&lt;strong&gt;在索引字段上做函数操作，索引直接失效，退化为全表扫描。&lt;/strong&gt;&lt;/p&gt;
+&lt;p&gt;&lt;img src=&#34;https://picsum.photos/800/450?random=1768458459019&#34;
+	
+	
+	
+	loading=&#34;lazy&#34;
+	
+		alt=&#34;配图&#34;
+	
+	
+&gt;&lt;/p&gt;
+&lt;p&gt;&lt;strong&gt;【修正方案】&lt;/strong&gt;
+不需要改数据库，只需要改代码（或者SQL）：&lt;/p&gt;
+&lt;div class=&#34;highlight&#34;&gt;&lt;pre tabindex=&#34;0&#34; style=&#34;color:#f8f8f2;background-color:#272822;-moz-tab-size:4;-o-tab-size:4;tab-size:4;&#34;&gt;&lt;code class=&#34;language-sql&#34; data-lang=&#34;sql&#34;&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;&lt;span style=&#34;color:#75715e&#34;&gt;-- 加上引号，告诉MySQL这是个字符串
+&lt;/span&gt;&lt;/span&gt;&lt;/span&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;&lt;span style=&#34;color:#75715e&#34;&gt;&lt;/span&gt;&lt;span style=&#34;color:#66d9ef&#34;&gt;SELECT&lt;/span&gt; &lt;span style=&#34;color:#f92672&#34;&gt;*&lt;/span&gt; &lt;span style=&#34;color:#66d9ef&#34;&gt;FROM&lt;/span&gt; users &lt;span style=&#34;color:#66d9ef&#34;&gt;WHERE&lt;/span&gt; phone &lt;span style=&#34;color:#f92672&#34;&gt;=&lt;/span&gt; &lt;span style=&#34;color:#e6db74&#34;&gt;&amp;#39;13800138000&amp;#39;&lt;/span&gt;; 
+&lt;/span&gt;&lt;/span&gt;&lt;/code&gt;&lt;/pre&gt;&lt;/div&gt;&lt;p&gt;改完上线，CPU立马降到了5%以下。从那以后，我在Code Review时，对涉及数据库字段类型的代码看得格外仔细。&lt;/p&gt;
+&lt;h2 id=&#34;总结与落地&#34;&gt;总结与落地
+&lt;/h2&gt;&lt;p&gt;数据库索引优化，真不是背几个面试题就能搞定的。它需要你对业务场景有极深的理解，以及对执行计划（Explain）的敬畏。&lt;/p&gt;
+&lt;p&gt;如果你想立刻改善手头项目的数据库性能，我有3个建议，明天上班就能做：&lt;/p&gt;
+&lt;ol&gt;
+&lt;li&gt;&lt;strong&gt;开启慢查询日志&lt;/strong&gt;：设置阈值（比如1秒），跑一天，把抓到的Top 10慢SQL拉出来分析。这是最直接的线索。&lt;/li&gt;
+&lt;li&gt;&lt;strong&gt;检查“隐式转换”&lt;/strong&gt;：搜索代码库，看看有没有用数字去查字符串字段的情况，尤其是在老旧系统中，这非常常见。&lt;/li&gt;
+&lt;li&gt;&lt;strong&gt;清理无效索引&lt;/strong&gt;：用 &lt;code&gt;sys.schema_unused_indexes&lt;/code&gt; (MySQL 5.7+) 看看哪些索引从来没被用过。它们在默默吃你的磁盘空间和写入性能，删了它们就是做减法优化。&lt;/li&gt;
+&lt;/ol&gt;
+&lt;p&gt;&lt;strong&gt;最后想问问大家：&lt;/strong&gt;
+你在生产环境中遇到过最离谱的“慢查询”是什么原因造成的？是没建索引，还是更奇葩的理由？欢迎在评论区分享你的“踩坑”故事，咱们一起避雷。&lt;/p&gt;
+</description>
+        </item>
+        
+    </channel>
+</rss>

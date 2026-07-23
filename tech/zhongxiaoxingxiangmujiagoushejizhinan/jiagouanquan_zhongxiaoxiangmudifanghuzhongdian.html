@@ -1,0 +1,466 @@
+<!DOCTYPE html>
+<html lang="zh-cn" dir="ltr">
+    <head><meta charset='utf-8'>
+<meta name='viewport' content='width=device-width, initial-scale=1'><meta name='description' content="2018年的一个深夜，我盯着服务器监控大屏，心率飙到了120。\n当时我负责的一个电商SaaS项目（典型的中小团队，5个后端，1个运维），因为一次大促活动被黑产盯上了。对方没用什么高深的0-day漏洞，仅仅是用脚本遍历了我们的订单ID，就扒走了三万多条用户敏感数据。\n我也曾天真地以为，安全是大厂才需要考虑的“富贵病”，中小项目只要业务跑得通、功能上线快就是王道。直到那次事故，不仅赔了客户一大笔钱，核心开发团队还因此背了处分，士气低落了整整半年。\n也就是从那时起，我开始反思：在资源有限、没有专职安全团队的情况下，中小项目到底该怎么做架构防御？\n如果你也正身处几十人的研发团队，既不想过度设计拖慢开发节奏，又不想每天提心吊胆，那么这篇复盘或许能帮你避开我踩过的坑。\n越权访问：90%的数据泄露源头\r很多中小团队的架构师把精力全花在了防SQL注入和XSS上，却忽略了逻辑漏洞中最致命的“越权访问”（IDOR）。\n我曾在接手一个旧项目时，发现了一个惊人的逻辑：前端请求里只要把 userId=1001 改成 userId=1002，就能直接查看别人的收货地址。开发同学的理由是：“前端已经做了隐藏，正常用户点不到那里。”\n千万别相信“正常用户”。\n在2020年的一次代码审计中，我们发现某模块的API完全信任前端传来的参数。攻击者不需要任何技术门槛，只需要一个抓包工具。\n我的避坑方案：\n不要在URL或请求体中直接暴露自增ID。一旦你使用了 order/1001，黑客就知道下一个是 1002。\n更重要的是，在架构层面强制进行所有权的“双重校验”。 我现在要求团队所有涉及资源操作的接口，必须在Middleware（中间件）层做如下校验：\n// 错误示范：直接信任前端传来的ID const targetUserId = req.body.userId; const data = await db.find({ userId: targetUserId }); // 正确示范：从经过验证的Session/Token中获取当前用户 const currentUserId = req.user.id; // 从JWT或Session解析 const resourceId = req.params.id; // 必须校验资源归属权 const resource = await db.find({ id: resourceId }); if (resource.ownerId !== currentUserId) { throw new Error(&#39;403 Forbidden: 你无权操作此资源&#39;); } 把这个逻辑下沉到Service层或DAO层的基类中，让开发人员“无感”地遵守安全规范，比开十次安全培训会都管用。\n依赖地狱：你引入的代码比你写的代码危险\r中小项目为了求快，通常是“拿来主义”。npm install一敲，maven一引，功能就有了。\n但你有没有想过，你引入的一个用来格式化日期的不到100行代码的小库，背后可能依赖了深层嵌套的几十个包？\n2021年Log4j2漏洞爆发的那个周末，应该是所有Java架构师的噩梦。但我印象更深的是另一次“小事故”。我们的前端项目引入了一个很冷门的图表库，结果这个库的维护者账号被盗，发了一个带挖矿脚本的新版本。我们的CI/CD流水线没有任何检查，直接把这个版本推到了生产环境，导致用户CPU飙升。\n对于中小团队，供应链安全是性价比最高的防护手段。\n我现在每周五下午Review代码时，都会雷打不动地检查 package.json 或 pom.xml 的变动。\n建议落地的低成本动作：\n锁定版本：在生产环境，必须使用 package-lock.json 或固定的Maven版本号，严禁出现 ^1.0.0 这种模糊版本，除非你做好了随时炸雷的准备。 引入自动化扫描：不要指望人眼去看。GitHub自带的 Dependabot，或者免费版的 Snyk，完全够用了。配置到你的CI流程里，如果有高危漏洞依赖，直接阻断构建。 这一点不需要你花一分钱，只需要改变一下配置习惯，就能拦住30%的潜在风险。\n接口滥用：别让你的API成为提款机\r中小项目最容易被薅羊毛。\n我有过一次惨痛教训：当时我们要上线一个“短信验证码登录”功能。开发同学为了省事，只在前端做了“60秒倒计时”的按钮置灰。\n">
+<title>没钱没人？中小项目死守这3条安全红线</title>
+
+<link rel='canonical' href='https://blog.irudder.me/tech/zhongxiaoxingxiangmujiagoushejizhinan/jiagouanquan_zhongxiaoxiangmudifanghuzhongdian.html'>
+
+<link rel="stylesheet" href="/scss/style.min.b9e9128fec450ebccecc4ec9900157f32b85d0609bcd5ee3293968bcaa1235f2.css"><meta property='og:title' content="没钱没人？中小项目死守这3条安全红线">
+<meta property='og:description' content="2018年的一个深夜，我盯着服务器监控大屏，心率飙到了120。\n当时我负责的一个电商SaaS项目（典型的中小团队，5个后端，1个运维），因为一次大促活动被黑产盯上了。对方没用什么高深的0-day漏洞，仅仅是用脚本遍历了我们的订单ID，就扒走了三万多条用户敏感数据。\n我也曾天真地以为，安全是大厂才需要考虑的“富贵病”，中小项目只要业务跑得通、功能上线快就是王道。直到那次事故，不仅赔了客户一大笔钱，核心开发团队还因此背了处分，士气低落了整整半年。\n也就是从那时起，我开始反思：在资源有限、没有专职安全团队的情况下，中小项目到底该怎么做架构防御？\n如果你也正身处几十人的研发团队，既不想过度设计拖慢开发节奏，又不想每天提心吊胆，那么这篇复盘或许能帮你避开我踩过的坑。\n越权访问：90%的数据泄露源头\r很多中小团队的架构师把精力全花在了防SQL注入和XSS上，却忽略了逻辑漏洞中最致命的“越权访问”（IDOR）。\n我曾在接手一个旧项目时，发现了一个惊人的逻辑：前端请求里只要把 userId=1001 改成 userId=1002，就能直接查看别人的收货地址。开发同学的理由是：“前端已经做了隐藏，正常用户点不到那里。”\n千万别相信“正常用户”。\n在2020年的一次代码审计中，我们发现某模块的API完全信任前端传来的参数。攻击者不需要任何技术门槛，只需要一个抓包工具。\n我的避坑方案：\n不要在URL或请求体中直接暴露自增ID。一旦你使用了 order/1001，黑客就知道下一个是 1002。\n更重要的是，在架构层面强制进行所有权的“双重校验”。 我现在要求团队所有涉及资源操作的接口，必须在Middleware（中间件）层做如下校验：\n// 错误示范：直接信任前端传来的ID const targetUserId = req.body.userId; const data = await db.find({ userId: targetUserId }); // 正确示范：从经过验证的Session/Token中获取当前用户 const currentUserId = req.user.id; // 从JWT或Session解析 const resourceId = req.params.id; // 必须校验资源归属权 const resource = await db.find({ id: resourceId }); if (resource.ownerId !== currentUserId) { throw new Error(&#39;403 Forbidden: 你无权操作此资源&#39;); } 把这个逻辑下沉到Service层或DAO层的基类中，让开发人员“无感”地遵守安全规范，比开十次安全培训会都管用。\n依赖地狱：你引入的代码比你写的代码危险\r中小项目为了求快，通常是“拿来主义”。npm install一敲，maven一引，功能就有了。\n但你有没有想过，你引入的一个用来格式化日期的不到100行代码的小库，背后可能依赖了深层嵌套的几十个包？\n2021年Log4j2漏洞爆发的那个周末，应该是所有Java架构师的噩梦。但我印象更深的是另一次“小事故”。我们的前端项目引入了一个很冷门的图表库，结果这个库的维护者账号被盗，发了一个带挖矿脚本的新版本。我们的CI/CD流水线没有任何检查，直接把这个版本推到了生产环境，导致用户CPU飙升。\n对于中小团队，供应链安全是性价比最高的防护手段。\n我现在每周五下午Review代码时，都会雷打不动地检查 package.json 或 pom.xml 的变动。\n建议落地的低成本动作：\n锁定版本：在生产环境，必须使用 package-lock.json 或固定的Maven版本号，严禁出现 ^1.0.0 这种模糊版本，除非你做好了随时炸雷的准备。 引入自动化扫描：不要指望人眼去看。GitHub自带的 Dependabot，或者免费版的 Snyk，完全够用了。配置到你的CI流程里，如果有高危漏洞依赖，直接阻断构建。 这一点不需要你花一分钱，只需要改变一下配置习惯，就能拦住30%的潜在风险。\n接口滥用：别让你的API成为提款机\r中小项目最容易被薅羊毛。\n我有过一次惨痛教训：当时我们要上线一个“短信验证码登录”功能。开发同学为了省事，只在前端做了“60秒倒计时”的按钮置灰。\n">
+<meta property='og:url' content='https://blog.irudder.me/tech/zhongxiaoxingxiangmujiagoushejizhinan/jiagouanquan_zhongxiaoxiangmudifanghuzhongdian.html'>
+<meta property='og:site_name' content='SelfTechHub'>
+<meta property='og:type' content='article'><meta property='article:section' content='Tech' /><meta property='article:tag' content='架构安全：中小项目的防护重点' /><meta property='article:published_time' content='2023-11-09T00:00:00&#43;00:00'/><meta property='article:modified_time' content='2023-11-09T00:00:00&#43;00:00'/>
+<meta name="twitter:title" content="没钱没人？中小项目死守这3条安全红线">
+<meta name="twitter:description" content="2018年的一个深夜，我盯着服务器监控大屏，心率飙到了120。\n当时我负责的一个电商SaaS项目（典型的中小团队，5个后端，1个运维），因为一次大促活动被黑产盯上了。对方没用什么高深的0-day漏洞，仅仅是用脚本遍历了我们的订单ID，就扒走了三万多条用户敏感数据。\n我也曾天真地以为，安全是大厂才需要考虑的“富贵病”，中小项目只要业务跑得通、功能上线快就是王道。直到那次事故，不仅赔了客户一大笔钱，核心开发团队还因此背了处分，士气低落了整整半年。\n也就是从那时起，我开始反思：在资源有限、没有专职安全团队的情况下，中小项目到底该怎么做架构防御？\n如果你也正身处几十人的研发团队，既不想过度设计拖慢开发节奏，又不想每天提心吊胆，那么这篇复盘或许能帮你避开我踩过的坑。\n越权访问：90%的数据泄露源头\r很多中小团队的架构师把精力全花在了防SQL注入和XSS上，却忽略了逻辑漏洞中最致命的“越权访问”（IDOR）。\n我曾在接手一个旧项目时，发现了一个惊人的逻辑：前端请求里只要把 userId=1001 改成 userId=1002，就能直接查看别人的收货地址。开发同学的理由是：“前端已经做了隐藏，正常用户点不到那里。”\n千万别相信“正常用户”。\n在2020年的一次代码审计中，我们发现某模块的API完全信任前端传来的参数。攻击者不需要任何技术门槛，只需要一个抓包工具。\n我的避坑方案：\n不要在URL或请求体中直接暴露自增ID。一旦你使用了 order/1001，黑客就知道下一个是 1002。\n更重要的是，在架构层面强制进行所有权的“双重校验”。 我现在要求团队所有涉及资源操作的接口，必须在Middleware（中间件）层做如下校验：\n// 错误示范：直接信任前端传来的ID const targetUserId = req.body.userId; const data = await db.find({ userId: targetUserId }); // 正确示范：从经过验证的Session/Token中获取当前用户 const currentUserId = req.user.id; // 从JWT或Session解析 const resourceId = req.params.id; // 必须校验资源归属权 const resource = await db.find({ id: resourceId }); if (resource.ownerId !== currentUserId) { throw new Error(&#39;403 Forbidden: 你无权操作此资源&#39;); } 把这个逻辑下沉到Service层或DAO层的基类中，让开发人员“无感”地遵守安全规范，比开十次安全培训会都管用。\n依赖地狱：你引入的代码比你写的代码危险\r中小项目为了求快，通常是“拿来主义”。npm install一敲，maven一引，功能就有了。\n但你有没有想过，你引入的一个用来格式化日期的不到100行代码的小库，背后可能依赖了深层嵌套的几十个包？\n2021年Log4j2漏洞爆发的那个周末，应该是所有Java架构师的噩梦。但我印象更深的是另一次“小事故”。我们的前端项目引入了一个很冷门的图表库，结果这个库的维护者账号被盗，发了一个带挖矿脚本的新版本。我们的CI/CD流水线没有任何检查，直接把这个版本推到了生产环境，导致用户CPU飙升。\n对于中小团队，供应链安全是性价比最高的防护手段。\n我现在每周五下午Review代码时，都会雷打不动地检查 package.json 或 pom.xml 的变动。\n建议落地的低成本动作：\n锁定版本：在生产环境，必须使用 package-lock.json 或固定的Maven版本号，严禁出现 ^1.0.0 这种模糊版本，除非你做好了随时炸雷的准备。 引入自动化扫描：不要指望人眼去看。GitHub自带的 Dependabot，或者免费版的 Snyk，完全够用了。配置到你的CI流程里，如果有高危漏洞依赖，直接阻断构建。 这一点不需要你花一分钱，只需要改变一下配置习惯，就能拦住30%的潜在风险。\n接口滥用：别让你的API成为提款机\r中小项目最容易被薅羊毛。\n我有过一次惨痛教训：当时我们要上线一个“短信验证码登录”功能。开发同学为了省事，只在前端做了“60秒倒计时”的按钮置灰。\n">
+    </head>
+    <body class="
+    article-page
+    ">
+    <script>
+        (function() {
+            const colorSchemeKey = 'StackColorScheme';
+            if(!localStorage.getItem(colorSchemeKey)){
+                localStorage.setItem(colorSchemeKey, "auto");
+            }
+        })();
+    </script><script>
+    (function() {
+        const colorSchemeKey = 'StackColorScheme';
+        const colorSchemeItem = localStorage.getItem(colorSchemeKey);
+        const supportDarkMode = window.matchMedia('(prefers-color-scheme: dark)').matches === true;
+
+        if (colorSchemeItem == 'dark' || colorSchemeItem === 'auto' && supportDarkMode) {
+            
+
+            document.documentElement.dataset.scheme = 'dark';
+        } else {
+            document.documentElement.dataset.scheme = 'light';
+        }
+    })();
+</script>
+<div class="container main-container flex on-phone--column compact"><aside class="sidebar left-sidebar sticky ">
+    <button class="hamburger hamburger--spin" type="button" id="toggle-menu" aria-label="切换菜单">
+        <span class="hamburger-box">
+            <span class="hamburger-inner"></span>
+        </span>
+    </button>
+
+    <header>
+        
+            
+            <figure class="site-avatar">
+                <a href="/">
+                
+                    
+                    
+                    
+                        
+                        <img src="/img/avatar_hu_8588ce14af1147e2.png" width="300"
+                            height="286" class="site-logo" loading="lazy" alt="Avatar">
+                    
+                
+                </a>
+                
+            </figure>
+            
+        
+        
+        <div class="site-meta">
+            <h1 class="site-name"><a href="/">SelfTechHub</a></h1>
+            <h2 class="site-description"></h2>
+        </div>
+    </header><ol class="menu" id="main-menu">
+        
+        
+        <li class="menu-bottom-section">
+            <ol class="menu">
+
+                
+                    <li id="dark-mode-toggle">
+                        <svg xmlns="http://www.w3.org/2000/svg" class="icon icon-tabler icon-tabler-toggle-left" width="24" height="24" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor" fill="none" stroke-linecap="round" stroke-linejoin="round">
+  <path stroke="none" d="M0 0h24v24H0z"/>
+  <circle cx="8" cy="12" r="2" />
+  <rect x="2" y="6" width="20" height="12" rx="6" />
+</svg>
+
+
+
+                        <svg xmlns="http://www.w3.org/2000/svg" class="icon icon-tabler icon-tabler-toggle-right" width="24" height="24" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor" fill="none" stroke-linecap="round" stroke-linejoin="round">
+  <path stroke="none" d="M0 0h24v24H0z"/>
+  <circle cx="16" cy="12" r="2" />
+  <rect x="2" y="6" width="20" height="12" rx="6" />
+</svg>
+
+
+
+                        <span>暗色模式</span>
+                    </li>
+                
+            </ol>
+        </li>
+    </ol>
+</aside>
+
+    
+
+            <main class="main full-width">
+    <article class="main-article">
+    <header class="article-header">
+
+    <div class="article-details">
+    
+    <header class="article-category">
+        
+            <a href="/categories/%E6%8A%80%E6%9C%AF.html" >
+                技术精进
+            </a>
+        
+    </header>
+    
+
+    <div class="article-title-wrapper">
+        <h2 class="article-title">
+            <a href="/tech/zhongxiaoxingxiangmujiagoushejizhinan/jiagouanquan_zhongxiaoxiangmudifanghuzhongdian.html">没钱没人？中小项目死守这3条安全红线</a>
+        </h2>
+    
+        
+    </div>
+
+    
+    
+    
+    
+    <footer class="article-time">
+        
+            <div>
+                <svg xmlns="http://www.w3.org/2000/svg" class="icon icon-tabler icon-tabler-calendar-time" width="56" height="56" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor" fill="none" stroke-linecap="round" stroke-linejoin="round">
+  <path stroke="none" d="M0 0h24v24H0z"/>
+  <path d="M11.795 21h-6.795a2 2 0 0 1 -2 -2v-12a2 2 0 0 1 2 -2h12a2 2 0 0 1 2 2v4" />
+  <circle cx="18" cy="18" r="4" />
+  <path d="M15 3v4" />
+  <path d="M7 3v4" />
+  <path d="M3 11h16" />
+  <path d="M18 16.496v1.504l1 1" />
+</svg>
+                <time class="article-time--published" datetime='2023-11-09T00:00:00Z'>Nov 09, 2023</time>
+            </div>
+        
+
+        
+            <div>
+                <svg xmlns="http://www.w3.org/2000/svg" class="icon icon-tabler icon-tabler-clock" width="24" height="24" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor" fill="none" stroke-linecap="round" stroke-linejoin="round">
+  <path stroke="none" d="M0 0h24v24H0z"/>
+  <circle cx="12" cy="12" r="9" />
+  <polyline points="12 7 12 12 15 15" />
+</svg>
+
+
+
+                <time class="article-time--reading">
+                    阅读时长: 1 分钟
+                </time>
+            </div>
+        
+    </footer>
+    
+
+    
+</div>
+
+</header>
+
+    <section class="article-content">
+    
+    
+    <p>2018年的一个深夜，我盯着服务器监控大屏，心率飙到了120。</p>
+<p>当时我负责的一个电商SaaS项目（典型的中小团队，5个后端，1个运维），因为一次大促活动被黑产盯上了。对方没用什么高深的0-day漏洞，仅仅是用脚本遍历了我们的订单ID，就扒走了三万多条用户敏感数据。</p>
+<p>我也曾天真地以为，安全是大厂才需要考虑的“富贵病”，中小项目只要业务跑得通、功能上线快就是王道。直到那次事故，不仅赔了客户一大笔钱，核心开发团队还因此背了处分，士气低落了整整半年。</p>
+<p>也就是从那时起，我开始反思：<strong>在资源有限、没有专职安全团队的情况下，中小项目到底该怎么做架构防御？</strong></p>
+<p>如果你也正身处几十人的研发团队，既不想过度设计拖慢开发节奏，又不想每天提心吊胆，那么这篇复盘或许能帮你避开我踩过的坑。</p>
+<h2 id="越权访问90的数据泄露源头">越权访问：90%的数据泄露源头
+</h2><p>很多中小团队的架构师把精力全花在了防SQL注入和XSS上，却忽略了逻辑漏洞中最致命的“越权访问”（IDOR）。</p>
+<p>我曾在接手一个旧项目时，发现了一个惊人的逻辑：前端请求里只要把 <code>userId=1001</code> 改成 <code>userId=1002</code>，就能直接查看别人的收货地址。开发同学的理由是：“前端已经做了隐藏，正常用户点不到那里。”</p>
+<p><strong>千万别相信“正常用户”。</strong></p>
+<p>在2020年的一次代码审计中，我们发现某模块的API完全信任前端传来的参数。攻击者不需要任何技术门槛，只需要一个抓包工具。</p>
+<p><strong>我的避坑方案：</strong></p>
+<p>不要在URL或请求体中直接暴露自增ID。一旦你使用了 <code>order/1001</code>，黑客就知道下一个是 <code>1002</code>。</p>
+<p>更重要的是，<strong>在架构层面强制进行所有权的“双重校验”。</strong> 我现在要求团队所有涉及资源操作的接口，必须在Middleware（中间件）层做如下校验：</p>
+<div class="highlight"><pre tabindex="0" style="color:#f8f8f2;background-color:#272822;-moz-tab-size:4;-o-tab-size:4;tab-size:4;"><code class="language-javascript" data-lang="javascript"><span style="display:flex;"><span><span style="color:#75715e">// 错误示范：直接信任前端传来的ID
+</span></span></span><span style="display:flex;"><span><span style="color:#75715e"></span><span style="color:#66d9ef">const</span> <span style="color:#a6e22e">targetUserId</span> <span style="color:#f92672">=</span> <span style="color:#a6e22e">req</span>.<span style="color:#a6e22e">body</span>.<span style="color:#a6e22e">userId</span>; 
+</span></span><span style="display:flex;"><span><span style="color:#66d9ef">const</span> <span style="color:#a6e22e">data</span> <span style="color:#f92672">=</span> <span style="color:#66d9ef">await</span> <span style="color:#a6e22e">db</span>.<span style="color:#a6e22e">find</span>({ <span style="color:#a6e22e">userId</span><span style="color:#f92672">:</span> <span style="color:#a6e22e">targetUserId</span> });
+</span></span><span style="display:flex;"><span>
+</span></span><span style="display:flex;"><span><span style="color:#75715e">// 正确示范：从经过验证的Session/Token中获取当前用户
+</span></span></span><span style="display:flex;"><span><span style="color:#75715e"></span><span style="color:#66d9ef">const</span> <span style="color:#a6e22e">currentUserId</span> <span style="color:#f92672">=</span> <span style="color:#a6e22e">req</span>.<span style="color:#a6e22e">user</span>.<span style="color:#a6e22e">id</span>; <span style="color:#75715e">// 从JWT或Session解析
+</span></span></span><span style="display:flex;"><span><span style="color:#75715e"></span><span style="color:#66d9ef">const</span> <span style="color:#a6e22e">resourceId</span> <span style="color:#f92672">=</span> <span style="color:#a6e22e">req</span>.<span style="color:#a6e22e">params</span>.<span style="color:#a6e22e">id</span>;
+</span></span><span style="display:flex;"><span>
+</span></span><span style="display:flex;"><span><span style="color:#75715e">// 必须校验资源归属权
+</span></span></span><span style="display:flex;"><span><span style="color:#75715e"></span><span style="color:#66d9ef">const</span> <span style="color:#a6e22e">resource</span> <span style="color:#f92672">=</span> <span style="color:#66d9ef">await</span> <span style="color:#a6e22e">db</span>.<span style="color:#a6e22e">find</span>({ <span style="color:#a6e22e">id</span><span style="color:#f92672">:</span> <span style="color:#a6e22e">resourceId</span> });
+</span></span><span style="display:flex;"><span><span style="color:#66d9ef">if</span> (<span style="color:#a6e22e">resource</span>.<span style="color:#a6e22e">ownerId</span> <span style="color:#f92672">!==</span> <span style="color:#a6e22e">currentUserId</span>) {
+</span></span><span style="display:flex;"><span>  <span style="color:#66d9ef">throw</span> <span style="color:#66d9ef">new</span> Error(<span style="color:#e6db74">&#39;403 Forbidden: 你无权操作此资源&#39;</span>);
+</span></span><span style="display:flex;"><span>}
+</span></span></code></pre></div><p>把这个逻辑下沉到Service层或DAO层的基类中，让开发人员“无感”地遵守安全规范，比开十次安全培训会都管用。</p>
+<p><img src="https://picsum.photos/800/450?random=1768456743919"
+	
+	
+	
+	loading="lazy"
+	
+		alt="配图"
+	
+	
+></p>
+<h2 id="依赖地狱你引入的代码比你写的代码危险">依赖地狱：你引入的代码比你写的代码危险
+</h2><p>中小项目为了求快，通常是“拿来主义”。npm install一敲，maven一引，功能就有了。</p>
+<p>但你有没有想过，你引入的一个用来格式化日期的不到100行代码的小库，背后可能依赖了深层嵌套的几十个包？</p>
+<p><img src="https://picsum.photos/800/450?random=1768456743992"
+	
+	
+	
+	loading="lazy"
+	
+		alt="配图"
+	
+	
+></p>
+<p>2021年Log4j2漏洞爆发的那个周末，应该是所有Java架构师的噩梦。但我印象更深的是另一次“小事故”。我们的前端项目引入了一个很冷门的图表库，结果这个库的维护者账号被盗，发了一个带挖矿脚本的新版本。我们的CI/CD流水线没有任何检查，直接把这个版本推到了生产环境，导致用户CPU飙升。</p>
+<p><strong>对于中小团队，供应链安全是性价比最高的防护手段。</strong></p>
+<p>我现在每周五下午Review代码时，都会雷打不动地检查 <code>package.json</code> 或 <code>pom.xml</code> 的变动。</p>
+<p><strong>建议落地的低成本动作：</strong></p>
+<ol>
+<li><strong>锁定版本</strong>：在生产环境，必须使用 <code>package-lock.json</code> 或固定的Maven版本号，严禁出现 <code>^1.0.0</code> 这种模糊版本，除非你做好了随时炸雷的准备。</li>
+<li><strong>引入自动化扫描</strong>：不要指望人眼去看。GitHub自带的 Dependabot，或者免费版的 Snyk，完全够用了。配置到你的CI流程里，如果有高危漏洞依赖，直接阻断构建。</li>
+</ol>
+<blockquote>
+<p>这一点不需要你花一分钱，只需要改变一下配置习惯，就能拦住30%的潜在风险。</p>
+</blockquote>
+<h2 id="接口滥用别让你的api成为提款机">接口滥用：别让你的API成为提款机
+</h2><p>中小项目最容易被薅羊毛。</p>
+<p>我有过一次惨痛教训：当时我们要上线一个“短信验证码登录”功能。开发同学为了省事，只在前端做了“60秒倒计时”的按钮置灰。</p>
+<p>结果上线第二天，短信服务商打来电话预警，说我们的账户余额欠费了。原来有人写了个脚本，绕过前端直接调后端API，一晚上刷了我们几千块钱的短信费。这还是小事，如果对方是用来做短信轰炸，我们的IP可能直接被运营商拉黑。</p>
+<p><strong>很多架构师觉得上WAF（Web应用防火墙）太贵，配置太麻烦。其实很多时候，我们要防的不是顶级黑客，而是无聊的脚本小子。</strong></p>
+<p>对于中小项目，我在网关层（Nginx或Spring Cloud Gateway）会强制实施两层限流策略：</p>
+<ol>
+<li><strong>IP级限流</strong>：针对非核心业务接口，单个IP每分钟请求超过50次直接429。</li>
+<li><strong>业务级风控</strong>：对于短信、邮件、抽奖等“这就全是钱”的接口，必须加上图形验证码（现在很多免费的滑动验证）或者Token令牌桶。</li>
+</ol>
+<p>这是我在Nginx层常用的一个极简配置，成本为零，效果立竿见影：</p>
+<div class="highlight"><pre tabindex="0" style="color:#f8f8f2;background-color:#272822;-moz-tab-size:4;-o-tab-size:4;tab-size:4;"><code class="language-nginx" data-lang="nginx"><span style="display:flex;"><span><span style="color:#75715e"># 定义限流区域，以IP为key，开辟10m内存存储状态，限制每秒1次请求
+</span></span></span><span style="display:flex;"><span><span style="color:#75715e"></span><span style="color:#66d9ef">limit_req_zone</span> $binary_remote_addr <span style="color:#e6db74">zone=one:10m</span> <span style="color:#e6db74">rate=1r/s</span>;
+</span></span><span style="display:flex;"><span>
+</span></span><span style="display:flex;"><span><span style="color:#66d9ef">server</span> {
+</span></span><span style="display:flex;"><span>    <span style="color:#f92672">location</span> <span style="color:#e6db74">/api/send-sms</span> {
+</span></span><span style="display:flex;"><span>        <span style="color:#75715e"># 应用限流，允许突发5个请求，超过则排队或拒绝
+</span></span></span><span style="display:flex;"><span><span style="color:#75715e"></span>        <span style="color:#f92672">limit_req</span> <span style="color:#e6db74">zone=one</span> <span style="color:#e6db74">burst=5</span> <span style="color:#e6db74">nodelay</span>;
+</span></span><span style="display:flex;"><span>        
+</span></span><span style="display:flex;"><span>        <span style="color:#f92672">proxy_pass</span> <span style="color:#e6db74">http://backend</span>;
+</span></span><span style="display:flex;"><span>    }
+</span></span><span style="display:flex;"><span>}
+</span></span></code></pre></div><h2 id="写在最后">写在最后
+</h2><p>架构安全从来不是买一个昂贵的防火墙就能高枕无忧的，特别是对于我们这些预算有限的中小团队。它更多时候考验的是架构师的<strong>底线思维</strong>和<strong>代码洁癖</strong>。</p>
+<p>回顾这几年的架构生涯，我发现那些真正搞垮项目的，往往不是什么惊天动地的黑客攻击，而是那些被我们以“赶进度”为由忽略的越权漏洞、随意升级的依赖包，以及裸奔的高频接口。</p>
+<p>最后，我想做一个小调查：
+<strong>如果目前你的项目人力极度紧缺，只能先做一件事来提升安全，你会选择？</strong>
+A. 全面排查代码中的越权逻辑
+B. 在CI流水线中加入依赖漏洞扫描
+C. 给所有敏感接口加上限流和监控</p>
+<p>欢迎在评论区告诉我你的选择。</p>
+<p><strong>给你的3个落地行动建议：</strong></p>
+<ol>
+<li><strong>明天就做</strong>：去检查你的代码库，把所有涉及“查询/修改/删除”的接口，看看是不是只依赖了前端传来的ID。</li>
+<li><strong>下周落地</strong>：在你的Git仓库里开启免费的漏洞扫描提醒（如Dependabot），并修复所有High级别的警告。</li>
+<li><strong>长期坚持</strong>：将“安全检查”加入到Code Review的Checklist中，不通过不合并。</li>
+</ol>
+
+</section>
+
+
+    <footer class="article-footer">
+    
+    <section class="article-tags">
+        
+            <a href="/tags/%E6%9E%B6%E6%9E%84%E5%AE%89%E5%85%A8%E4%B8%AD%E5%B0%8F%E9%A1%B9%E7%9B%AE%E7%9A%84%E9%98%B2%E6%8A%A4%E9%87%8D%E7%82%B9.html">架构安全：中小项目的防护重点</a>
+        
+    </section>
+
+
+    </footer>
+
+
+    
+</article>
+
+    
+
+    
+
+     
+    
+        
+    <script
+    src="https://giscus.app/client.js"
+    data-repo="pastor17/bloggiscus"
+    data-repo-id="R_kgDOQ6H9qQ"
+    data-category=""
+    data-category-id="DIC_kwDOQ6H9qc4C0-T8"
+    data-mapping="pathname"
+    data-strict="0"
+    data-reactions-enabled="1"
+    data-emit-metadata="0"
+    data-input-position="bottom"
+    data-theme="light"
+    data-lang="zh-CN"
+    data-loading="lazy"
+    crossorigin="anonymous"
+    async
+></script>
+<script>
+    function setGiscusTheme(theme) {
+        let giscus = document.querySelector("iframe.giscus-frame");
+        if (giscus) {
+            giscus.contentWindow.postMessage(
+                {
+                    giscus: {
+                        setConfig: {
+                            theme: theme,
+                        },
+                    },
+                },
+                "https://giscus.app"
+            );
+        }
+    }
+
+    (function () {
+        addEventListener("message", (e) => {
+            if (event.origin !== "https://giscus.app") return;
+            handler();
+        });
+        window.addEventListener("onColorSchemeChange", handler);
+
+        function handler() {
+            if (document.documentElement.dataset.scheme === "light") {
+                setGiscusTheme('light');
+            } else {
+                setGiscusTheme('dark_dimmed');
+            }
+        }
+    })();
+</script>
+
+    
+
+    <footer class="site-footer">
+    <section class="copyright">
+        &copy; 
+        
+        2026 SelfTechHub
+    </section>
+    
+    <section class="powerby">
+        
+
+    </section>
+</footer>
+
+
+    
+<div class="pswp" tabindex="-1" role="dialog" aria-hidden="true">
+
+    
+    <div class="pswp__bg"></div>
+
+    
+    <div class="pswp__scroll-wrap">
+
+        
+        <div class="pswp__container">
+            <div class="pswp__item"></div>
+            <div class="pswp__item"></div>
+            <div class="pswp__item"></div>
+        </div>
+
+        
+        <div class="pswp__ui pswp__ui--hidden">
+
+            <div class="pswp__top-bar">
+
+                
+
+                <div class="pswp__counter"></div>
+
+                <button class="pswp__button pswp__button--close" title="Close (Esc)"></button>
+
+                <button class="pswp__button pswp__button--share" title="Share"></button>
+
+                <button class="pswp__button pswp__button--fs" title="Toggle fullscreen"></button>
+
+                <button class="pswp__button pswp__button--zoom" title="Zoom in/out"></button>
+
+                
+                
+                <div class="pswp__preloader">
+                    <div class="pswp__preloader__icn">
+                        <div class="pswp__preloader__cut">
+                            <div class="pswp__preloader__donut"></div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <div class="pswp__share-modal pswp__share-modal--hidden pswp__single-tap">
+                <div class="pswp__share-tooltip"></div>
+            </div>
+
+            <button class="pswp__button pswp__button--arrow--left" title="Previous (arrow left)">
+            </button>
+
+            <button class="pswp__button pswp__button--arrow--right" title="Next (arrow right)">
+            </button>
+
+            <div class="pswp__caption">
+                <div class="pswp__caption__center"></div>
+            </div>
+
+        </div>
+
+    </div>
+
+</div><script 
+                src="https://cdn.jsdelivr.net/npm/photoswipe@4.1.3/dist/photoswipe.min.js"integrity="sha256-ePwmChbbvXbsO02lbM3HoHbSHTHFAeChekF1xKJdleo="crossorigin="anonymous"
+                defer
+                >
+            </script><script 
+                src="https://cdn.jsdelivr.net/npm/photoswipe@4.1.3/dist/photoswipe-ui-default.min.js"integrity="sha256-UKkzOn/w1mBxRmLLGrSeyB4e1xbrp4xylgAWb3M42pU="crossorigin="anonymous"
+                defer
+                >
+            </script><link 
+                rel="stylesheet" 
+                href="https://cdn.jsdelivr.net/npm/photoswipe@4.1.3/dist/default-skin/default-skin.min.css"crossorigin="anonymous"
+            ><link 
+                rel="stylesheet" 
+                href="https://cdn.jsdelivr.net/npm/photoswipe@4.1.3/dist/photoswipe.min.css"crossorigin="anonymous"
+            >
+    
+
+            </main>
+        </div>
+        <script 
+                src="https://cdn.jsdelivr.net/npm/node-vibrant@3.1.6/dist/vibrant.min.js"integrity="sha256-awcR2jno4kI5X0zL8ex0vi2z&#43;KMkF24hUW8WePSA9HM="crossorigin="anonymous"
+                
+                >
+            </script><script type="text/javascript" src="/ts/main.c922af694cc257bf1ecc41c0dd7b0430f9114ec280ccf67cd2c6ad55f5316c4e.js" defer></script>
+<script>
+    (function () {
+        const customFont = document.createElement('link');
+        customFont.href = "https://fonts.googleapis.com/css2?family=Lato:wght@300;400;700&display=swap";
+
+        customFont.type = "text/css";
+        customFont.rel = "stylesheet";
+
+        document.head.appendChild(customFont);
+    }());
+</script>
+
+    </body>
+</html>

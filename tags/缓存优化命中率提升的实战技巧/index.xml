@@ -1,0 +1,128 @@
+<?xml version="1.0" encoding="utf-8" standalone="yes"?>
+<rss version="2.0" xmlns:atom="http://www.w3.org/2005/Atom">
+    <channel>
+        <title>缓存优化：命中率提升的实战技巧 on SelfTechHub</title>
+        <link>https://blog.irudder.me/tags/%E7%BC%93%E5%AD%98%E4%BC%98%E5%8C%96%E5%91%BD%E4%B8%AD%E7%8E%87%E6%8F%90%E5%8D%87%E7%9A%84%E5%AE%9E%E6%88%98%E6%8A%80%E5%B7%A7.html</link>
+        <description>Recent content in 缓存优化：命中率提升的实战技巧 on SelfTechHub</description>
+        <generator>Hugo -- gohugo.io</generator>
+        <language>zh-cn</language>
+        <lastBuildDate>Thu, 15 Sep 2022 00:00:00 +0000</lastBuildDate><atom:link href="https://blog.irudder.me/tags/%E7%BC%93%E5%AD%98%E4%BC%98%E5%8C%96%E5%91%BD%E4%B8%AD%E7%8E%87%E6%8F%90%E5%8D%87%E7%9A%84%E5%AE%9E%E6%88%98%E6%8A%80%E5%B7%A7/index.xml" rel="self" type="application/rss+xml" /><item>
+        <title>缓存命中率跌破30%？这3个“反常识”救了我</title>
+        <link>https://blog.irudder.me/tech/jiagouyouhuashizhananlijiexi/huancunyouhua_mingzhonglvtishengdeshizhanjiqiao.html</link>
+        <pubDate>Thu, 15 Sep 2022 00:00:00 +0000</pubDate>
+        
+        <guid>https://blog.irudder.me/tech/jiagouyouhuashizhananlijiexi/huancunyouhua_mingzhonglvtishengdeshizhanjiqiao.html</guid>
+        <description>&lt;p&gt;我看过太多由于盲目堆砌缓存导致的线上事故。&lt;/p&gt;
+&lt;p&gt;很多时候，我们盯着监控大盘上 &lt;code&gt;99%&lt;/code&gt; 的缓存命中率沾沾自喜，却忽略了应用端的 Latency（延迟）正在悄悄攀升，直到数据库连接池被瞬间打爆。&lt;/p&gt;
+&lt;p&gt;去年双11备战期间，我负责的一个核心营销系统就遭遇了这种“幽灵拥堵”。明明 Redis 命中率很高，但系统吞吐量死活上不去。排查了整整两个通宵，我才发现：&lt;strong&gt;有时候，教科书式的缓存策略，反而是生产环境的毒药。&lt;/strong&gt;&lt;/p&gt;
+&lt;p&gt;今天不谈由简入繁的理论，我想分享那次事故中，我通过反思踩坑经历总结出的3个“实战级”优化技巧。&lt;/p&gt;
+&lt;h2 id=&#34;一-放弃大而全拥抱碎片化&#34;&gt;一、 放弃“大而全”，拥抱“碎片化”
+&lt;/h2&gt;&lt;p&gt;&lt;img src=&#34;https://picsum.photos/800/450?random=1768458656188&#34;
+	
+	
+	
+	loading=&#34;lazy&#34;
+	
+		alt=&#34;配图&#34;
+	
+	
+&gt;&lt;/p&gt;
+&lt;p&gt;很多开发同学（包括两年前的我）在写代码时习惯图省事：要用用户信息？直接把整个 &lt;code&gt;User&lt;/code&gt; 对象序列化成 JSON 塞进 Redis。&lt;/p&gt;
+&lt;blockquote&gt;
+&lt;p&gt;“反正内存便宜，一次取出来下次直接用，省得反复查库。”&lt;/p&gt;
+&lt;/blockquote&gt;
+&lt;p&gt;这听起来没毛病，但当并发量上来后，这就是一颗定时炸弹。&lt;/p&gt;
+&lt;p&gt;&lt;strong&gt;真实案例：&lt;/strong&gt;
+当时我们的营销系统频繁调用 &lt;code&gt;getUserInfo&lt;/code&gt;。原本只需要用户的 &lt;code&gt;vip_level&lt;/code&gt; 来判断有没有领券资格，但缓存里存的是包含 50 多个字段的完整 User 对象，甚至还嵌套了最近 10 条收货地址。&lt;/p&gt;
+&lt;p&gt;&lt;strong&gt;后果：&lt;/strong&gt;&lt;/p&gt;
+&lt;ol&gt;
+&lt;li&gt;&lt;strong&gt;网络带宽被打满：&lt;/strong&gt; 单个 Value 达到了 15KB，QPS 一旦过万，Redis 网卡流量瞬间飙升到几百兆，直接阻塞了其他命令的执行。&lt;/li&gt;
+&lt;li&gt;&lt;strong&gt;序列化开销巨大：&lt;/strong&gt; 应用服务器 CPU 飙高，大部分时间都在做 JSON 的序列化和反序列化。&lt;/li&gt;
+&lt;/ol&gt;
+&lt;p&gt;&lt;strong&gt;硬核解法：&lt;/strong&gt;
+我们连夜对高频 Key 做了&lt;strong&gt;Hash 结构拆分&lt;/strong&gt;。&lt;/p&gt;
+&lt;p&gt;&lt;img src=&#34;https://picsum.photos/800/450?random=1768458650246&#34;
+	
+	
+	
+	loading=&#34;lazy&#34;
+	
+		alt=&#34;配图&#34;
+	
+	
+&gt;&lt;/p&gt;
+&lt;p&gt;不要把所有鸡蛋装在一个篮子里。我们将 &lt;code&gt;User:1001&lt;/code&gt; 从 String 类型改为 Hash 类型，将 &lt;code&gt;vip_level&lt;/code&gt;、&lt;code&gt;nickname&lt;/code&gt;、&lt;code&gt;avatar&lt;/code&gt; 独立存储。&lt;/p&gt;
+&lt;div class=&#34;highlight&#34;&gt;&lt;pre tabindex=&#34;0&#34; style=&#34;color:#f8f8f2;background-color:#272822;-moz-tab-size:4;-o-tab-size:4;tab-size:4;&#34;&gt;&lt;code class=&#34;language-java&#34; data-lang=&#34;java&#34;&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;&lt;span style=&#34;color:#75715e&#34;&gt;// ❌ 错误示范：取整个大对象&lt;/span&gt;
+&lt;/span&gt;&lt;/span&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;User user &lt;span style=&#34;color:#f92672&#34;&gt;=&lt;/span&gt; redisTemplate.&lt;span style=&#34;color:#a6e22e&#34;&gt;opsForValue&lt;/span&gt;().&lt;span style=&#34;color:#a6e22e&#34;&gt;get&lt;/span&gt;(&lt;span style=&#34;color:#e6db74&#34;&gt;&amp;#34;user:1001&amp;#34;&lt;/span&gt;);
+&lt;/span&gt;&lt;/span&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;
+&lt;/span&gt;&lt;/span&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;&lt;span style=&#34;color:#75715e&#34;&gt;// ✅ 优化后：按需取字段（Lua脚本或HMGET）&lt;/span&gt;
+&lt;/span&gt;&lt;/span&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;&lt;span style=&#34;color:#75715e&#34;&gt;// 仅获取VIP等级，网络传输量减少99%&lt;/span&gt;
+&lt;/span&gt;&lt;/span&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;Object vipLevel &lt;span style=&#34;color:#f92672&#34;&gt;=&lt;/span&gt; redisTemplate.&lt;span style=&#34;color:#a6e22e&#34;&gt;opsForHash&lt;/span&gt;().&lt;span style=&#34;color:#a6e22e&#34;&gt;get&lt;/span&gt;(&lt;span style=&#34;color:#e6db74&#34;&gt;&amp;#34;user:1001&amp;#34;&lt;/span&gt;, &lt;span style=&#34;color:#e6db74&#34;&gt;&amp;#34;vip_level&amp;#34;&lt;/span&gt;);
+&lt;/span&gt;&lt;/span&gt;&lt;/code&gt;&lt;/pre&gt;&lt;/div&gt;&lt;p&gt;&lt;strong&gt;结果：&lt;/strong&gt;
+改版上线后，Redis 出口流量下降了 &lt;strong&gt;85%&lt;/strong&gt;，应用端 CPU 负载降低了 &lt;strong&gt;30%&lt;/strong&gt;。&lt;/p&gt;
+&lt;p&gt;&lt;strong&gt;思考题：&lt;/strong&gt; 你的 Redis 里有没有超过 10KB 的“巨型” Value？它们真的每次都需要全量读取吗？&lt;/p&gt;
+&lt;h2 id=&#34;二-警惕整点强迫症给-ttl-加点噪音&#34;&gt;二、 警惕“整点强迫症”，给 TTL 加点“噪音”
+&lt;/h2&gt;&lt;p&gt;在做缓存预热或设置过期时间时，人类有一种天然的“整点强迫症”。&lt;/p&gt;
+&lt;blockquote&gt;
+&lt;p&gt;“这个配置缓存 1 小时过期吧。”
+“这个活动数据晚上 12 点准时刷新。”&lt;/p&gt;
+&lt;/blockquote&gt;
+&lt;p&gt;&lt;strong&gt;真实案例：&lt;/strong&gt;
+我们的商品详情页缓存，原本逻辑是：用户访问时若无缓存，则回源数据库并写入 Redis，有效期设定为固定的 3600 秒。&lt;/p&gt;
+&lt;p&gt;某天上午 10:00，流量洪峰到来，大量热点商品缓存生成。到了 11:00，这批 Key 集体失效。就在这一秒，数万个请求同时穿透 Redis 直击数据库（这就是典型的&lt;strong&gt;缓存雪崩&lt;/strong&gt;）。数据库 CPU 瞬间飙到 100%，DBA 在群里直接炸锅。&lt;/p&gt;
+&lt;p&gt;&lt;strong&gt;硬核解法：&lt;/strong&gt;
+不要相信绝对的时间。我们在设置过期时间时，强制引入了&lt;strong&gt;随机抖动（Jitter）&lt;/strong&gt;。&lt;/p&gt;
+&lt;p&gt;我现在的习惯是，写个工具类，所有涉及 TTL 的地方都必须走这个方法：&lt;/p&gt;
+&lt;p&gt;&lt;img src=&#34;https://picsum.photos/800/450?random=1768458658638&#34;
+	
+	
+	
+	loading=&#34;lazy&#34;
+	
+		alt=&#34;配图&#34;
+	
+	
+&gt;&lt;/p&gt;
+&lt;div class=&#34;highlight&#34;&gt;&lt;pre tabindex=&#34;0&#34; style=&#34;color:#f8f8f2;background-color:#272822;-moz-tab-size:4;-o-tab-size:4;tab-size:4;&#34;&gt;&lt;code class=&#34;language-java&#34; data-lang=&#34;java&#34;&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;&lt;span style=&#34;color:#66d9ef&#34;&gt;public&lt;/span&gt; &lt;span style=&#34;color:#66d9ef&#34;&gt;long&lt;/span&gt; &lt;span style=&#34;color:#a6e22e&#34;&gt;getRandomizedTTL&lt;/span&gt;(&lt;span style=&#34;color:#66d9ef&#34;&gt;long&lt;/span&gt; baseSeconds) {
+&lt;/span&gt;&lt;/span&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;    &lt;span style=&#34;color:#75715e&#34;&gt;// 在基础时间上增加 0-10% 的随机浮动&lt;/span&gt;
+&lt;/span&gt;&lt;/span&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;    &lt;span style=&#34;color:#75715e&#34;&gt;// 例如：原本3600秒 -&amp;gt; 变成 3600 ~ 3960 秒之间&lt;/span&gt;
+&lt;/span&gt;&lt;/span&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;    &lt;span style=&#34;color:#66d9ef&#34;&gt;return&lt;/span&gt; baseSeconds &lt;span style=&#34;color:#f92672&#34;&gt;+&lt;/span&gt; ThreadLocalRandom.&lt;span style=&#34;color:#a6e22e&#34;&gt;current&lt;/span&gt;().&lt;span style=&#34;color:#a6e22e&#34;&gt;nextLong&lt;/span&gt;((&lt;span style=&#34;color:#66d9ef&#34;&gt;long&lt;/span&gt;)(baseSeconds &lt;span style=&#34;color:#f92672&#34;&gt;*&lt;/span&gt; 0.&lt;span style=&#34;color:#a6e22e&#34;&gt;1&lt;/span&gt;));
+&lt;/span&gt;&lt;/span&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;}
+&lt;/span&gt;&lt;/span&gt;&lt;/code&gt;&lt;/pre&gt;&lt;/div&gt;&lt;p&gt;&lt;strong&gt;结果：&lt;/strong&gt;
+通过这个简单的改动，原本像峭壁一样的过期曲线被拉平了。数据库的 QPS 峰值从 8000 降到了 1500，稳得像条直线。&lt;/p&gt;
+&lt;h2 id=&#34;三-本地缓存不是备胎是特种兵&#34;&gt;三、 本地缓存不是“备胎”，是“特种兵”
+&lt;/h2&gt;&lt;p&gt;大家通常的架构是 &lt;code&gt;App -&amp;gt; Redis -&amp;gt; DB&lt;/code&gt;。觉得有了 Redis 就万事大吉了。&lt;/p&gt;
+&lt;p&gt;但对于&lt;strong&gt;极热点数据&lt;/strong&gt;（比如大促期间的全局配置开关、秒杀活动的商品库存状态），Redis 的网络 IO 依然是瓶颈。你无法承受哪怕 1ms 的网络延迟。&lt;/p&gt;
+&lt;p&gt;&lt;strong&gt;真实案例：&lt;/strong&gt;
+某个周五下午，我们在推一个全站弹窗活动。配置开关存在 Redis 里，所有接口都要读这个 Key。结果因为 Redis 某个分片稍微抖动了一下（主从切换），导致全站接口超时，引发了连锁反应。&lt;/p&gt;
+&lt;p&gt;&lt;strong&gt;硬核解法：&lt;/strong&gt;
+我们引入了 &lt;strong&gt;Caffeine&lt;/strong&gt; 做进程内缓存（L1 Cache），Redis 做分布式缓存（L2 Cache）。&lt;/p&gt;
+&lt;p&gt;对于这种“读多写少、一致性要求没那么高（允许几秒延迟）”的数据，直接缓存在 JVM 堆内存里。&lt;/p&gt;
+&lt;div class=&#34;highlight&#34;&gt;&lt;pre tabindex=&#34;0&#34; style=&#34;color:#f8f8f2;background-color:#272822;-moz-tab-size:4;-o-tab-size:4;tab-size:4;&#34;&gt;&lt;code class=&#34;language-java&#34; data-lang=&#34;java&#34;&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;&lt;span style=&#34;color:#75715e&#34;&gt;// 示例：使用 Caffeine 构建本地缓存&lt;/span&gt;
+&lt;/span&gt;&lt;/span&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;Cache&lt;span style=&#34;color:#f92672&#34;&gt;&amp;lt;&lt;/span&gt;String, String&lt;span style=&#34;color:#f92672&#34;&gt;&amp;gt;&lt;/span&gt; localCache &lt;span style=&#34;color:#f92672&#34;&gt;=&lt;/span&gt; Caffeine.&lt;span style=&#34;color:#a6e22e&#34;&gt;newBuilder&lt;/span&gt;()
+&lt;/span&gt;&lt;/span&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;    .&lt;span style=&#34;color:#a6e22e&#34;&gt;expireAfterWrite&lt;/span&gt;(10, TimeUnit.&lt;span style=&#34;color:#a6e22e&#34;&gt;SECONDS&lt;/span&gt;) &lt;span style=&#34;color:#75715e&#34;&gt;// 极短的过期时间，保证最终一致性&lt;/span&gt;
+&lt;/span&gt;&lt;/span&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;    .&lt;span style=&#34;color:#a6e22e&#34;&gt;maximumSize&lt;/span&gt;(1000)
+&lt;/span&gt;&lt;/span&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;    .&lt;span style=&#34;color:#a6e22e&#34;&gt;build&lt;/span&gt;();
+&lt;/span&gt;&lt;/span&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;
+&lt;/span&gt;&lt;/span&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;String config &lt;span style=&#34;color:#f92672&#34;&gt;=&lt;/span&gt; localCache.&lt;span style=&#34;color:#a6e22e&#34;&gt;get&lt;/span&gt;(key, k &lt;span style=&#34;color:#f92672&#34;&gt;-&amp;gt;&lt;/span&gt; {
+&lt;/span&gt;&lt;/span&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;    &lt;span style=&#34;color:#75715e&#34;&gt;// 本地没有，才去查 Redis&lt;/span&gt;
+&lt;/span&gt;&lt;/span&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;    &lt;span style=&#34;color:#66d9ef&#34;&gt;return&lt;/span&gt; redisTemplate.&lt;span style=&#34;color:#a6e22e&#34;&gt;opsForValue&lt;/span&gt;().&lt;span style=&#34;color:#a6e22e&#34;&gt;get&lt;/span&gt;(k);
+&lt;/span&gt;&lt;/span&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;});
+&lt;/span&gt;&lt;/span&gt;&lt;/code&gt;&lt;/pre&gt;&lt;/div&gt;&lt;p&gt;我曾极力反对在业务代码里到处引入本地缓存，因为数据一致性极难维护。但对于&lt;strong&gt;配置类、字典类&lt;/strong&gt;数据，这是提升吞吐量的核武器。&lt;/p&gt;
+&lt;p&gt;&lt;strong&gt;结果：&lt;/strong&gt;
+单机 QPS 提升了 &lt;strong&gt;3倍&lt;/strong&gt;，Redis 的 QPS 却几乎降到了零。最重要的是，即使 Redis 挂了，应用还能靠本地缓存撑 10 秒，足够报警系统把电话打到我手机上了。&lt;/p&gt;
+&lt;h2 id=&#34;结语与行动&#34;&gt;结语与行动
+&lt;/h2&gt;&lt;p&gt;做技术久了，你会发现&lt;strong&gt;所谓的“高性能”，往往就是对细节的极致抠门。&lt;/strong&gt;&lt;/p&gt;
+&lt;p&gt;在这个云原生时代，我们太容易获取资源，也太容易滥用资源。缓存不是银弹，它更像是一个放大镜——设计得好，它能放大你的系统能力；设计得不好，它就是放大你的系统缺陷。&lt;/p&gt;
+&lt;p&gt;&lt;strong&gt;最后，给你 3 个明天上班就能落地的行动建议：&lt;/strong&gt;&lt;/p&gt;
+&lt;ol&gt;
+&lt;li&gt;&lt;strong&gt;大 Key 扫描：&lt;/strong&gt; 利用午休时间，用 &lt;code&gt;redis-cli --bigkeys&lt;/code&gt; 命令扫一下你的生产环境（记得选从库，别把主库搞挂了），找出 Top 10 的大 Key，分析是否有必要拆分。&lt;/li&gt;
+&lt;li&gt;&lt;strong&gt;代码审查：&lt;/strong&gt; 全局搜索代码里的 &lt;code&gt;Duration.ofMinutes(60)&lt;/code&gt; 或 &lt;code&gt;expire(3600)&lt;/code&gt; 这种固定值，给它们都加上随机后缀。&lt;/li&gt;
+&lt;li&gt;&lt;strong&gt;监控补全：&lt;/strong&gt; 不要只看 Redis CPU，去检查一下 Redis 的 &lt;strong&gt;Output Buffer&lt;/strong&gt; 和 &lt;strong&gt;Network Bandwidth&lt;/strong&gt;，那才是隐形杀手藏身的地方。&lt;/li&gt;
+&lt;/ol&gt;
+&lt;p&gt;从明天起，试着把你手里的缓存命中率，不仅仅看作一个数字，而是看作一次次成功的“降本增效”。&lt;/p&gt;
+</description>
+        </item>
+        
+    </channel>
+</rss>

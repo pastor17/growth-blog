@@ -1,0 +1,468 @@
+<!DOCTYPE html>
+<html lang="zh-cn" dir="ltr">
+    <head><meta charset='utf-8'>
+<meta name='viewport' content='width=device-width, initial-scale=1'><meta name='description' content="那时我还年轻，把手机铃声设置成最刺耳的“核警报”音效，生怕漏掉任何一个监控报警。\n哪怕现在回想起来，那种凌晨3点被震醒，看到监控群里赫然写着 “出口带宽占用率：100%” 的绝望感，依然能让我指尖发麻。那时的第一反应往往是懵的：是被DDoS攻击了？还是代码写了死循环？或者是运营搞了什么大动作没通知我？\n我曾经以为，只要服务器配置够高、带宽买得够大，就能高枕无忧。直到我在2019年的那次大促中，眼睁睁看着升级了三倍的带宽依然在两分钟内被吞噬殆尽，才明白了一个道理：带宽永远是稀缺资源，靠“硬抗”不仅费钱，而且无效。\n如果你现在也正对着那条“心跳停止”般的平直线条焦虑，请深呼吸，喝口水。这不是世界末日，我们都有过这样的时刻。这里有三个我这几年反复验证过的应急与复盘经验，希望能陪你度过这个难关。\n谁在“偷吃”你的带宽？别猜，去抓现行\r当你发现带宽打满，SSH登录都卡顿时，千万别急着重启服务器。重启也许能缓解这一分钟，但五分钟后噩梦通常会卷土重来。我们需要的是像侦探一样，揪出那个“流量大户”。\n记得有次帮一家电商客户排查，他们的带宽突然从50Mbps飙升到500Mbps。老板急得在电话里吼，怀疑是竞争对手搞DDoS。\n我强迫自己冷静下来，虽然SSH操作很卡，但我还是敲下了 iftop。\n经验之谈：如果服务器卡到无法安装软件，请务必提前在镜像里装好 iftop、nethogs 这类工具。这就像灭火器，平时占地方，用时救大命。\n屏幕上瞬间跳动的数据让我大跌眼镜：没有任何外部攻击IP，流量全是一个内部备份脚本跑出来的。 原来是新来的运维小哥把备份时间设错了，几百G的日志文件正在疯狂往备用机房传输，直接挤占了业务出口带宽。\n那一刻的教训是惨痛的： 我们总习惯把锅甩给“黑客”，却往往忽略了“内鬼”或“配置漂移”。\n如果你能登录服务器，立刻执行以下操作查看实时流量：\n# 查看网卡流量实时状况，按带宽占用排序 iftop -P -N -n 如果发现某个IP异常高，再配合Nginx日志确认由于什么请求导致：\n# 实时分析Nginx日志，找出请求流量最大的前10个IP tail -n 10000 /var/log/nginx/access.log | awk &#39;{print $1}&#39; | sort | uniq -c | sort -nr | head -n 10 看到结果的那一刻，焦虑感通常会消退一半，因为未知才是恐惧的根源。\n止血第一，治疗第二：该“砍”就得“砍”\r找到了元凶，接下来就是最艰难的决策时刻：止血。\n很多技术同学（包括曾经的我）在这时候容易陷入“完美主义”陷阱，试图通过优化代码、调整内核参数来优雅地解决问题。但在此刻，业务可用性高于一切。\n那是2020年的一个周五下午，我正准备收拾东西过周末，一家做短视频资讯的客户突然炸锅了。某个爬虫团队发现了他们未鉴权的视频接口，几千个肉鸡IP疯狂下载视频文件，带宽瞬间打满，正常用户连图片都刷不出来。\n由于IP极其分散，传统的封IP效率极低。看着用户群里的谩骂，我做了一个违背“技术优雅”的决定：直接在反向代理层，临时把所有视频请求返回404或者降级为一张静态占位图。\n虽然这意味着那一小时内，用户看不了视频，但至少App的文字内容、图片加载恢复了正常，核心功能保住了。\n“在急诊室，医生会先止血，再考虑缝合得漂不漂亮。”\n操作建议： 如果确认是恶意爬虫或非核心业务占用了带宽，不要犹豫：\n封锁入口：利用安全组（Security Group）或 iptables 直接丢弃特定端口或IP段的包。 服务降级：在Nginx层直接对大文件请求返回 503 或 404，或者限速。 # Nginx 紧急限速配置示例 location /download/ { limit_rate 100k; # 限制每个连接的速度 limit_conn addr 1; # 限制并发连接数 } 那一晚，虽然我们损失了部分视频播放量，但没有造成全站瘫痪。事后复盘，老板反而感谢了我的果断。\n">
+<title>半夜报警带宽打满？这3个救命招数我用了五年</title>
+
+<link rel='canonical' href='https://blog.irudder.me/tech/jiagouyouhuashizhananlijiexi/fuwuqidaikuandamandeyingjichulifangan.html'>
+
+<link rel="stylesheet" href="/scss/style.min.b9e9128fec450ebccecc4ec9900157f32b85d0609bcd5ee3293968bcaa1235f2.css"><meta property='og:title' content="半夜报警带宽打满？这3个救命招数我用了五年">
+<meta property='og:description' content="那时我还年轻，把手机铃声设置成最刺耳的“核警报”音效，生怕漏掉任何一个监控报警。\n哪怕现在回想起来，那种凌晨3点被震醒，看到监控群里赫然写着 “出口带宽占用率：100%” 的绝望感，依然能让我指尖发麻。那时的第一反应往往是懵的：是被DDoS攻击了？还是代码写了死循环？或者是运营搞了什么大动作没通知我？\n我曾经以为，只要服务器配置够高、带宽买得够大，就能高枕无忧。直到我在2019年的那次大促中，眼睁睁看着升级了三倍的带宽依然在两分钟内被吞噬殆尽，才明白了一个道理：带宽永远是稀缺资源，靠“硬抗”不仅费钱，而且无效。\n如果你现在也正对着那条“心跳停止”般的平直线条焦虑，请深呼吸，喝口水。这不是世界末日，我们都有过这样的时刻。这里有三个我这几年反复验证过的应急与复盘经验，希望能陪你度过这个难关。\n谁在“偷吃”你的带宽？别猜，去抓现行\r当你发现带宽打满，SSH登录都卡顿时，千万别急着重启服务器。重启也许能缓解这一分钟，但五分钟后噩梦通常会卷土重来。我们需要的是像侦探一样，揪出那个“流量大户”。\n记得有次帮一家电商客户排查，他们的带宽突然从50Mbps飙升到500Mbps。老板急得在电话里吼，怀疑是竞争对手搞DDoS。\n我强迫自己冷静下来，虽然SSH操作很卡，但我还是敲下了 iftop。\n经验之谈：如果服务器卡到无法安装软件，请务必提前在镜像里装好 iftop、nethogs 这类工具。这就像灭火器，平时占地方，用时救大命。\n屏幕上瞬间跳动的数据让我大跌眼镜：没有任何外部攻击IP，流量全是一个内部备份脚本跑出来的。 原来是新来的运维小哥把备份时间设错了，几百G的日志文件正在疯狂往备用机房传输，直接挤占了业务出口带宽。\n那一刻的教训是惨痛的： 我们总习惯把锅甩给“黑客”，却往往忽略了“内鬼”或“配置漂移”。\n如果你能登录服务器，立刻执行以下操作查看实时流量：\n# 查看网卡流量实时状况，按带宽占用排序 iftop -P -N -n 如果发现某个IP异常高，再配合Nginx日志确认由于什么请求导致：\n# 实时分析Nginx日志，找出请求流量最大的前10个IP tail -n 10000 /var/log/nginx/access.log | awk &#39;{print $1}&#39; | sort | uniq -c | sort -nr | head -n 10 看到结果的那一刻，焦虑感通常会消退一半，因为未知才是恐惧的根源。\n止血第一，治疗第二：该“砍”就得“砍”\r找到了元凶，接下来就是最艰难的决策时刻：止血。\n很多技术同学（包括曾经的我）在这时候容易陷入“完美主义”陷阱，试图通过优化代码、调整内核参数来优雅地解决问题。但在此刻，业务可用性高于一切。\n那是2020年的一个周五下午，我正准备收拾东西过周末，一家做短视频资讯的客户突然炸锅了。某个爬虫团队发现了他们未鉴权的视频接口，几千个肉鸡IP疯狂下载视频文件，带宽瞬间打满，正常用户连图片都刷不出来。\n由于IP极其分散，传统的封IP效率极低。看着用户群里的谩骂，我做了一个违背“技术优雅”的决定：直接在反向代理层，临时把所有视频请求返回404或者降级为一张静态占位图。\n虽然这意味着那一小时内，用户看不了视频，但至少App的文字内容、图片加载恢复了正常，核心功能保住了。\n“在急诊室，医生会先止血，再考虑缝合得漂不漂亮。”\n操作建议： 如果确认是恶意爬虫或非核心业务占用了带宽，不要犹豫：\n封锁入口：利用安全组（Security Group）或 iptables 直接丢弃特定端口或IP段的包。 服务降级：在Nginx层直接对大文件请求返回 503 或 404，或者限速。 # Nginx 紧急限速配置示例 location /download/ { limit_rate 100k; # 限制每个连接的速度 limit_conn addr 1; # 限制并发连接数 } 那一晚，虽然我们损失了部分视频播放量，但没有造成全站瘫痪。事后复盘，老板反而感谢了我的果断。\n">
+<meta property='og:url' content='https://blog.irudder.me/tech/jiagouyouhuashizhananlijiexi/fuwuqidaikuandamandeyingjichulifangan.html'>
+<meta property='og:site_name' content='SelfTechHub'>
+<meta property='og:type' content='article'><meta property='article:section' content='Tech' /><meta property='article:tag' content='服务器带宽打满的应急处理方案' /><meta property='article:published_time' content='2020-04-17T00:00:00&#43;00:00'/><meta property='article:modified_time' content='2020-04-17T00:00:00&#43;00:00'/>
+<meta name="twitter:title" content="半夜报警带宽打满？这3个救命招数我用了五年">
+<meta name="twitter:description" content="那时我还年轻，把手机铃声设置成最刺耳的“核警报”音效，生怕漏掉任何一个监控报警。\n哪怕现在回想起来，那种凌晨3点被震醒，看到监控群里赫然写着 “出口带宽占用率：100%” 的绝望感，依然能让我指尖发麻。那时的第一反应往往是懵的：是被DDoS攻击了？还是代码写了死循环？或者是运营搞了什么大动作没通知我？\n我曾经以为，只要服务器配置够高、带宽买得够大，就能高枕无忧。直到我在2019年的那次大促中，眼睁睁看着升级了三倍的带宽依然在两分钟内被吞噬殆尽，才明白了一个道理：带宽永远是稀缺资源，靠“硬抗”不仅费钱，而且无效。\n如果你现在也正对着那条“心跳停止”般的平直线条焦虑，请深呼吸，喝口水。这不是世界末日，我们都有过这样的时刻。这里有三个我这几年反复验证过的应急与复盘经验，希望能陪你度过这个难关。\n谁在“偷吃”你的带宽？别猜，去抓现行\r当你发现带宽打满，SSH登录都卡顿时，千万别急着重启服务器。重启也许能缓解这一分钟，但五分钟后噩梦通常会卷土重来。我们需要的是像侦探一样，揪出那个“流量大户”。\n记得有次帮一家电商客户排查，他们的带宽突然从50Mbps飙升到500Mbps。老板急得在电话里吼，怀疑是竞争对手搞DDoS。\n我强迫自己冷静下来，虽然SSH操作很卡，但我还是敲下了 iftop。\n经验之谈：如果服务器卡到无法安装软件，请务必提前在镜像里装好 iftop、nethogs 这类工具。这就像灭火器，平时占地方，用时救大命。\n屏幕上瞬间跳动的数据让我大跌眼镜：没有任何外部攻击IP，流量全是一个内部备份脚本跑出来的。 原来是新来的运维小哥把备份时间设错了，几百G的日志文件正在疯狂往备用机房传输，直接挤占了业务出口带宽。\n那一刻的教训是惨痛的： 我们总习惯把锅甩给“黑客”，却往往忽略了“内鬼”或“配置漂移”。\n如果你能登录服务器，立刻执行以下操作查看实时流量：\n# 查看网卡流量实时状况，按带宽占用排序 iftop -P -N -n 如果发现某个IP异常高，再配合Nginx日志确认由于什么请求导致：\n# 实时分析Nginx日志，找出请求流量最大的前10个IP tail -n 10000 /var/log/nginx/access.log | awk &#39;{print $1}&#39; | sort | uniq -c | sort -nr | head -n 10 看到结果的那一刻，焦虑感通常会消退一半，因为未知才是恐惧的根源。\n止血第一，治疗第二：该“砍”就得“砍”\r找到了元凶，接下来就是最艰难的决策时刻：止血。\n很多技术同学（包括曾经的我）在这时候容易陷入“完美主义”陷阱，试图通过优化代码、调整内核参数来优雅地解决问题。但在此刻，业务可用性高于一切。\n那是2020年的一个周五下午，我正准备收拾东西过周末，一家做短视频资讯的客户突然炸锅了。某个爬虫团队发现了他们未鉴权的视频接口，几千个肉鸡IP疯狂下载视频文件，带宽瞬间打满，正常用户连图片都刷不出来。\n由于IP极其分散，传统的封IP效率极低。看着用户群里的谩骂，我做了一个违背“技术优雅”的决定：直接在反向代理层，临时把所有视频请求返回404或者降级为一张静态占位图。\n虽然这意味着那一小时内，用户看不了视频，但至少App的文字内容、图片加载恢复了正常，核心功能保住了。\n“在急诊室，医生会先止血，再考虑缝合得漂不漂亮。”\n操作建议： 如果确认是恶意爬虫或非核心业务占用了带宽，不要犹豫：\n封锁入口：利用安全组（Security Group）或 iptables 直接丢弃特定端口或IP段的包。 服务降级：在Nginx层直接对大文件请求返回 503 或 404，或者限速。 # Nginx 紧急限速配置示例 location /download/ { limit_rate 100k; # 限制每个连接的速度 limit_conn addr 1; # 限制并发连接数 } 那一晚，虽然我们损失了部分视频播放量，但没有造成全站瘫痪。事后复盘，老板反而感谢了我的果断。\n">
+    </head>
+    <body class="
+    article-page
+    ">
+    <script>
+        (function() {
+            const colorSchemeKey = 'StackColorScheme';
+            if(!localStorage.getItem(colorSchemeKey)){
+                localStorage.setItem(colorSchemeKey, "auto");
+            }
+        })();
+    </script><script>
+    (function() {
+        const colorSchemeKey = 'StackColorScheme';
+        const colorSchemeItem = localStorage.getItem(colorSchemeKey);
+        const supportDarkMode = window.matchMedia('(prefers-color-scheme: dark)').matches === true;
+
+        if (colorSchemeItem == 'dark' || colorSchemeItem === 'auto' && supportDarkMode) {
+            
+
+            document.documentElement.dataset.scheme = 'dark';
+        } else {
+            document.documentElement.dataset.scheme = 'light';
+        }
+    })();
+</script>
+<div class="container main-container flex on-phone--column compact"><aside class="sidebar left-sidebar sticky ">
+    <button class="hamburger hamburger--spin" type="button" id="toggle-menu" aria-label="切换菜单">
+        <span class="hamburger-box">
+            <span class="hamburger-inner"></span>
+        </span>
+    </button>
+
+    <header>
+        
+            
+            <figure class="site-avatar">
+                <a href="/">
+                
+                    
+                    
+                    
+                        
+                        <img src="/img/avatar_hu_8588ce14af1147e2.png" width="300"
+                            height="286" class="site-logo" loading="lazy" alt="Avatar">
+                    
+                
+                </a>
+                
+            </figure>
+            
+        
+        
+        <div class="site-meta">
+            <h1 class="site-name"><a href="/">SelfTechHub</a></h1>
+            <h2 class="site-description"></h2>
+        </div>
+    </header><ol class="menu" id="main-menu">
+        
+        
+        <li class="menu-bottom-section">
+            <ol class="menu">
+
+                
+                    <li id="dark-mode-toggle">
+                        <svg xmlns="http://www.w3.org/2000/svg" class="icon icon-tabler icon-tabler-toggle-left" width="24" height="24" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor" fill="none" stroke-linecap="round" stroke-linejoin="round">
+  <path stroke="none" d="M0 0h24v24H0z"/>
+  <circle cx="8" cy="12" r="2" />
+  <rect x="2" y="6" width="20" height="12" rx="6" />
+</svg>
+
+
+
+                        <svg xmlns="http://www.w3.org/2000/svg" class="icon icon-tabler icon-tabler-toggle-right" width="24" height="24" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor" fill="none" stroke-linecap="round" stroke-linejoin="round">
+  <path stroke="none" d="M0 0h24v24H0z"/>
+  <circle cx="16" cy="12" r="2" />
+  <rect x="2" y="6" width="20" height="12" rx="6" />
+</svg>
+
+
+
+                        <span>暗色模式</span>
+                    </li>
+                
+            </ol>
+        </li>
+    </ol>
+</aside>
+
+    
+
+            <main class="main full-width">
+    <article class="main-article">
+    <header class="article-header">
+
+    <div class="article-details">
+    
+    <header class="article-category">
+        
+            <a href="/categories/%E6%8A%80%E6%9C%AF.html" >
+                技术精进
+            </a>
+        
+    </header>
+    
+
+    <div class="article-title-wrapper">
+        <h2 class="article-title">
+            <a href="/tech/jiagouyouhuashizhananlijiexi/fuwuqidaikuandamandeyingjichulifangan.html">半夜报警带宽打满？这3个救命招数我用了五年</a>
+        </h2>
+    
+        
+    </div>
+
+    
+    
+    
+    
+    <footer class="article-time">
+        
+            <div>
+                <svg xmlns="http://www.w3.org/2000/svg" class="icon icon-tabler icon-tabler-calendar-time" width="56" height="56" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor" fill="none" stroke-linecap="round" stroke-linejoin="round">
+  <path stroke="none" d="M0 0h24v24H0z"/>
+  <path d="M11.795 21h-6.795a2 2 0 0 1 -2 -2v-12a2 2 0 0 1 2 -2h12a2 2 0 0 1 2 2v4" />
+  <circle cx="18" cy="18" r="4" />
+  <path d="M15 3v4" />
+  <path d="M7 3v4" />
+  <path d="M3 11h16" />
+  <path d="M18 16.496v1.504l1 1" />
+</svg>
+                <time class="article-time--published" datetime='2020-04-17T00:00:00Z'>Apr 17, 2020</time>
+            </div>
+        
+
+        
+            <div>
+                <svg xmlns="http://www.w3.org/2000/svg" class="icon icon-tabler icon-tabler-clock" width="24" height="24" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor" fill="none" stroke-linecap="round" stroke-linejoin="round">
+  <path stroke="none" d="M0 0h24v24H0z"/>
+  <circle cx="12" cy="12" r="9" />
+  <polyline points="12 7 12 12 15 15" />
+</svg>
+
+
+
+                <time class="article-time--reading">
+                    阅读时长: 1 分钟
+                </time>
+            </div>
+        
+    </footer>
+    
+
+    
+</div>
+
+</header>
+
+    <section class="article-content">
+    
+    
+    <p>那时我还年轻，把手机铃声设置成最刺耳的“核警报”音效，生怕漏掉任何一个监控报警。</p>
+<p>哪怕现在回想起来，那种凌晨3点被震醒，看到监控群里赫然写着 <strong>“出口带宽占用率：100%”</strong> 的绝望感，依然能让我指尖发麻。那时的第一反应往往是懵的：是被DDoS攻击了？还是代码写了死循环？或者是运营搞了什么大动作没通知我？</p>
+<p>我曾经以为，只要服务器配置够高、带宽买得够大，就能高枕无忧。直到我在2019年的那次大促中，眼睁睁看着升级了三倍的带宽依然在两分钟内被吞噬殆尽，才明白了一个道理：<strong>带宽永远是稀缺资源，靠“硬抗”不仅费钱，而且无效。</strong></p>
+<p>如果你现在也正对着那条“心跳停止”般的平直线条焦虑，请深呼吸，喝口水。这不是世界末日，我们都有过这样的时刻。这里有三个我这几年反复验证过的应急与复盘经验，希望能陪你度过这个难关。</p>
+<h2 id="谁在偷吃你的带宽别猜去抓现行">谁在“偷吃”你的带宽？别猜，去抓现行
+</h2><p>当你发现带宽打满，SSH登录都卡顿时，千万别急着重启服务器。重启也许能缓解这一分钟，但五分钟后噩梦通常会卷土重来。我们需要的是像侦探一样，揪出那个“流量大户”。</p>
+<p>记得有次帮一家电商客户排查，他们的带宽突然从50Mbps飙升到500Mbps。老板急得在电话里吼，怀疑是竞争对手搞DDoS。</p>
+<p>我强迫自己冷静下来，虽然SSH操作很卡，但我还是敲下了 <code>iftop</code>。</p>
+<blockquote>
+<p><strong>经验之谈</strong>：如果服务器卡到无法安装软件，请务必提前在镜像里装好 <code>iftop</code>、<code>nethogs</code> 这类工具。这就像灭火器，平时占地方，用时救大命。</p>
+</blockquote>
+<p>屏幕上瞬间跳动的数据让我大跌眼镜：<strong>没有任何外部攻击IP，流量全是一个内部备份脚本跑出来的。</strong> 原来是新来的运维小哥把备份时间设错了，几百G的日志文件正在疯狂往备用机房传输，直接挤占了业务出口带宽。</p>
+<p><strong>那一刻的教训是惨痛的：</strong> 我们总习惯把锅甩给“黑客”，却往往忽略了“内鬼”或“配置漂移”。</p>
+<p>如果你能登录服务器，立刻执行以下操作查看实时流量：</p>
+<div class="highlight"><pre tabindex="0" style="color:#f8f8f2;background-color:#272822;-moz-tab-size:4;-o-tab-size:4;tab-size:4;"><code class="language-bash" data-lang="bash"><span style="display:flex;"><span><span style="color:#75715e"># 查看网卡流量实时状况，按带宽占用排序</span>
+</span></span><span style="display:flex;"><span>iftop -P -N -n
+</span></span></code></pre></div><p>如果发现某个IP异常高，再配合Nginx日志确认由于什么请求导致：</p>
+<div class="highlight"><pre tabindex="0" style="color:#f8f8f2;background-color:#272822;-moz-tab-size:4;-o-tab-size:4;tab-size:4;"><code class="language-bash" data-lang="bash"><span style="display:flex;"><span><span style="color:#75715e"># 实时分析Nginx日志，找出请求流量最大的前10个IP</span>
+</span></span><span style="display:flex;"><span>tail -n <span style="color:#ae81ff">10000</span> /var/log/nginx/access.log | awk <span style="color:#e6db74">&#39;{print $1}&#39;</span> | sort | uniq -c | sort -nr | head -n <span style="color:#ae81ff">10</span>
+</span></span></code></pre></div><p><img src="https://picsum.photos/800/450?random=1768457593637"
+	
+	
+	
+	loading="lazy"
+	
+		alt="配图"
+	
+	
+></p>
+<p>看到结果的那一刻，焦虑感通常会消退一半，因为未知才是恐惧的根源。</p>
+<h2 id="止血第一治疗第二该砍就得砍">止血第一，治疗第二：该“砍”就得“砍”
+</h2><p>找到了元凶，接下来就是最艰难的决策时刻：<strong>止血</strong>。</p>
+<p>很多技术同学（包括曾经的我）在这时候容易陷入“完美主义”陷阱，试图通过优化代码、调整内核参数来优雅地解决问题。但在此刻，<strong>业务可用性高于一切</strong>。</p>
+<p>那是2020年的一个周五下午，我正准备收拾东西过周末，一家做短视频资讯的客户突然炸锅了。某个爬虫团队发现了他们未鉴权的视频接口，几千个肉鸡IP疯狂下载视频文件，带宽瞬间打满，正常用户连图片都刷不出来。</p>
+<p>由于IP极其分散，传统的封IP效率极低。看着用户群里的谩骂，我做了一个违背“技术优雅”的决定：<strong>直接在反向代理层，临时把所有视频请求返回404或者降级为一张静态占位图。</strong></p>
+<p>虽然这意味着那一小时内，用户看不了视频，但至少App的文字内容、图片加载恢复了正常，核心功能保住了。</p>
+<blockquote>
+<p>“在急诊室，医生会先止血，再考虑缝合得漂不漂亮。”</p>
+</blockquote>
+<p><strong>操作建议：</strong>
+如果确认是恶意爬虫或非核心业务占用了带宽，不要犹豫：</p>
+<ol>
+<li><strong>封锁入口</strong>：利用安全组（Security Group）或 <code>iptables</code> 直接丢弃特定端口或IP段的包。</li>
+<li><strong>服务降级</strong>：在Nginx层直接对大文件请求返回 503 或 404，或者限速。</li>
+</ol>
+<div class="highlight"><pre tabindex="0" style="color:#f8f8f2;background-color:#272822;-moz-tab-size:4;-o-tab-size:4;tab-size:4;"><code class="language-nginx" data-lang="nginx"><span style="display:flex;"><span><span style="color:#75715e"># Nginx 紧急限速配置示例
+</span></span></span><span style="display:flex;"><span><span style="color:#75715e"></span><span style="color:#66d9ef">location</span> <span style="color:#e6db74">/download/</span> {
+</span></span><span style="display:flex;"><span>    <span style="color:#f92672">limit_rate</span> <span style="color:#ae81ff">100k</span>; <span style="color:#75715e"># 限制每个连接的速度
+</span></span></span><span style="display:flex;"><span><span style="color:#75715e"></span>    <span style="color:#f92672">limit_conn</span> <span style="color:#e6db74">addr</span> <span style="color:#ae81ff">1</span>; <span style="color:#75715e"># 限制并发连接数
+</span></span></span><span style="display:flex;"><span><span style="color:#75715e"></span>}
+</span></span></code></pre></div><p>那一晚，虽然我们损失了部分视频播放量，但没有造成全站瘫痪。事后复盘，老板反而感谢了我的果断。</p>
+<h2 id="哪怕再小的图片也请搬出服务器">哪怕再小的图片，也请搬出服务器
+</h2><p>这是我这五年里最深刻的感悟，也是想送给所有架构师的一句话：<strong>服务器是用来计算的，不是用来发文件的。</strong></p>
+<p>早期做项目，为了图省事，我习惯把用户上传的头像、Banner图直接存在服务器本地磁盘，让Nginx直接吐出去。随着用户量增长，这个隐患就像定时炸弹。</p>
+<p><img src="https://picsum.photos/800/450?random=1768457588612"
+	
+	
+	
+	loading="lazy"
+	
+		alt="配图"
+	
+	
+></p>
+<p>有一次，一个简单的H5营销页面火了。页面只有一张背景图，大小是2MB。看似不大，但当并发达到1000QPS时，需要的带宽是 <code>2MB * 1000 * 8 = 16Gbps</code>。
+这根本不是普通云服务器能承受的量级。哪怕我们扩容了服务器，CPU闲得发慌，带宽却早已窒息。</p>
+<p>从那以后，我有了一个雷打不动的习惯：<strong>无论项目多小，静态资源（图片、JS、CSS、视频）一律上对象存储（OSS/S3）+ CDN。</strong></p>
+<p>这不仅是性能问题，更是成本问题。CDN的流量费比服务器带宽便宜太多，而且它天然能抗流量洪峰。</p>
+<p><strong>怎么落地？</strong>
+如果你的旧系统还在本地存文件，不用推倒重来，可以采用“回源”策略：</p>
+<ol>
+<li>配置CDN域名指向你的服务器；</li>
+<li>代码里把图片链接替换为CDN域名；</li>
+<li>用户访问CDN -&gt; CDN没缓存 -&gt; 回源抓取服务器文件 -&gt; CDN缓存住。</li>
+</ol>
+<p>当你把90%的流量卸载给CDN后，你会发现，哪怕服务器带宽只有5Mbps，跑起来也像飞一样轻盈。</p>
+<hr>
+<h2 id="写在最后给未来的自己留个锦囊">写在最后：给未来的自己留个锦囊
+</h2><p>技术这条路，就是在不断的“填坑”中成长的。现在的焦虑和手忙脚乱，终将成为你简历上最亮眼的一笔“高并发实战经验”。</p>
+<p>我不希望你再次半夜惊醒，所以分享一个我常用的<strong>Nginx日志快速分析脚本模板</strong>，建议你保存在笔记里，或者做成服务器上的别名命令（alias）：</p>
+<p><strong>急救排查三板斧（复制即用）：</strong></p>
+<ol>
+<li><strong>看谁在连你</strong>（查当前并发最多的IP）：
+<div class="highlight"><pre tabindex="0" style="color:#f8f8f2;background-color:#272822;-moz-tab-size:4;-o-tab-size:4;tab-size:4;"><code class="language-bash" data-lang="bash"><span style="display:flex;"><span>netstat -ntu | awk <span style="color:#e6db74">&#39;{print $5}&#39;</span> | cut -d: -f1 | sort | uniq -c | sort -nr | head -n <span style="color:#ae81ff">10</span>
+</span></span></code></pre></div></li>
+<li><strong>看谁流量大</strong>（查日志里传输字节数最大的请求）：
+<div class="highlight"><pre tabindex="0" style="color:#f8f8f2;background-color:#272822;-moz-tab-size:4;-o-tab-size:4;tab-size:4;"><code class="language-bash" data-lang="bash"><span style="display:flex;"><span><span style="color:#75715e"># 假设日志格式最后一列是body_bytes_sent</span>
+</span></span><span style="display:flex;"><span>cat access.log | awk <span style="color:#e6db74">&#39;{print $10 &#34; &#34; $1}&#39;</span> | sort -nr | head -n <span style="color:#ae81ff">10</span>
+</span></span></code></pre></div></li>
+<li><strong>一键封锁</strong>（慎用，针对单点恶意IP）：
+<div class="highlight"><pre tabindex="0" style="color:#f8f8f2;background-color:#272822;-moz-tab-size:4;-o-tab-size:4;tab-size:4;"><code class="language-bash" data-lang="bash"><span style="display:flex;"><span>iptables -I INPUT -s &lt;恶意IP&gt; -j DROP
+</span></span></code></pre></div></li>
+</ol>
+<p><strong>接下来的行动建议：</strong></p>
+<ul>
+<li><strong>明天上班第一件事</strong>：检查你的静态资源，是不是还在走服务器带宽？如果是，提个工单计划迁到CDN吧。</li>
+<li><strong>本周内</strong>：在服务器安装好 <code>iftop</code>、<code>dstat</code> 等监控工具，别等出事了再临时 <code>yum install</code>。</li>
+<li><strong>心态上</strong>：接受故障的发生。服务器带宽打满，说明业务在增长（或者是被关注），这是“幸福的烦恼”。</li>
+</ul>
+<p>哪怕天塌下来，服务器还能重启，生活也还得继续。今晚，愿你的监控曲线平稳如水，好梦。</p>
+
+</section>
+
+
+    <footer class="article-footer">
+    
+    <section class="article-tags">
+        
+            <a href="/tags/%E6%9C%8D%E5%8A%A1%E5%99%A8%E5%B8%A6%E5%AE%BD%E6%89%93%E6%BB%A1%E7%9A%84%E5%BA%94%E6%80%A5%E5%A4%84%E7%90%86%E6%96%B9%E6%A1%88.html">服务器带宽打满的应急处理方案</a>
+        
+    </section>
+
+
+    </footer>
+
+
+    
+</article>
+
+    
+
+    
+
+     
+    
+        
+    <script
+    src="https://giscus.app/client.js"
+    data-repo="pastor17/bloggiscus"
+    data-repo-id="R_kgDOQ6H9qQ"
+    data-category=""
+    data-category-id="DIC_kwDOQ6H9qc4C0-T8"
+    data-mapping="pathname"
+    data-strict="0"
+    data-reactions-enabled="1"
+    data-emit-metadata="0"
+    data-input-position="bottom"
+    data-theme="light"
+    data-lang="zh-CN"
+    data-loading="lazy"
+    crossorigin="anonymous"
+    async
+></script>
+<script>
+    function setGiscusTheme(theme) {
+        let giscus = document.querySelector("iframe.giscus-frame");
+        if (giscus) {
+            giscus.contentWindow.postMessage(
+                {
+                    giscus: {
+                        setConfig: {
+                            theme: theme,
+                        },
+                    },
+                },
+                "https://giscus.app"
+            );
+        }
+    }
+
+    (function () {
+        addEventListener("message", (e) => {
+            if (event.origin !== "https://giscus.app") return;
+            handler();
+        });
+        window.addEventListener("onColorSchemeChange", handler);
+
+        function handler() {
+            if (document.documentElement.dataset.scheme === "light") {
+                setGiscusTheme('light');
+            } else {
+                setGiscusTheme('dark_dimmed');
+            }
+        }
+    })();
+</script>
+
+    
+
+    <footer class="site-footer">
+    <section class="copyright">
+        &copy; 
+        
+        2026 SelfTechHub
+    </section>
+    
+    <section class="powerby">
+        
+
+    </section>
+</footer>
+
+
+    
+<div class="pswp" tabindex="-1" role="dialog" aria-hidden="true">
+
+    
+    <div class="pswp__bg"></div>
+
+    
+    <div class="pswp__scroll-wrap">
+
+        
+        <div class="pswp__container">
+            <div class="pswp__item"></div>
+            <div class="pswp__item"></div>
+            <div class="pswp__item"></div>
+        </div>
+
+        
+        <div class="pswp__ui pswp__ui--hidden">
+
+            <div class="pswp__top-bar">
+
+                
+
+                <div class="pswp__counter"></div>
+
+                <button class="pswp__button pswp__button--close" title="Close (Esc)"></button>
+
+                <button class="pswp__button pswp__button--share" title="Share"></button>
+
+                <button class="pswp__button pswp__button--fs" title="Toggle fullscreen"></button>
+
+                <button class="pswp__button pswp__button--zoom" title="Zoom in/out"></button>
+
+                
+                
+                <div class="pswp__preloader">
+                    <div class="pswp__preloader__icn">
+                        <div class="pswp__preloader__cut">
+                            <div class="pswp__preloader__donut"></div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <div class="pswp__share-modal pswp__share-modal--hidden pswp__single-tap">
+                <div class="pswp__share-tooltip"></div>
+            </div>
+
+            <button class="pswp__button pswp__button--arrow--left" title="Previous (arrow left)">
+            </button>
+
+            <button class="pswp__button pswp__button--arrow--right" title="Next (arrow right)">
+            </button>
+
+            <div class="pswp__caption">
+                <div class="pswp__caption__center"></div>
+            </div>
+
+        </div>
+
+    </div>
+
+</div><script 
+                src="https://cdn.jsdelivr.net/npm/photoswipe@4.1.3/dist/photoswipe.min.js"integrity="sha256-ePwmChbbvXbsO02lbM3HoHbSHTHFAeChekF1xKJdleo="crossorigin="anonymous"
+                defer
+                >
+            </script><script 
+                src="https://cdn.jsdelivr.net/npm/photoswipe@4.1.3/dist/photoswipe-ui-default.min.js"integrity="sha256-UKkzOn/w1mBxRmLLGrSeyB4e1xbrp4xylgAWb3M42pU="crossorigin="anonymous"
+                defer
+                >
+            </script><link 
+                rel="stylesheet" 
+                href="https://cdn.jsdelivr.net/npm/photoswipe@4.1.3/dist/default-skin/default-skin.min.css"crossorigin="anonymous"
+            ><link 
+                rel="stylesheet" 
+                href="https://cdn.jsdelivr.net/npm/photoswipe@4.1.3/dist/photoswipe.min.css"crossorigin="anonymous"
+            >
+    
+
+            </main>
+        </div>
+        <script 
+                src="https://cdn.jsdelivr.net/npm/node-vibrant@3.1.6/dist/vibrant.min.js"integrity="sha256-awcR2jno4kI5X0zL8ex0vi2z&#43;KMkF24hUW8WePSA9HM="crossorigin="anonymous"
+                
+                >
+            </script><script type="text/javascript" src="/ts/main.c922af694cc257bf1ecc41c0dd7b0430f9114ec280ccf67cd2c6ad55f5316c4e.js" defer></script>
+<script>
+    (function () {
+        const customFont = document.createElement('link');
+        customFont.href = "https://fonts.googleapis.com/css2?family=Lato:wght@300;400;700&display=swap";
+
+        customFont.type = "text/css";
+        customFont.rel = "stylesheet";
+
+        document.head.appendChild(customFont);
+    }());
+</script>
+
+    </body>
+</html>

@@ -1,0 +1,110 @@
+<?xml version="1.0" encoding="utf-8" standalone="yes"?>
+<rss version="2.0" xmlns:atom="http://www.w3.org/2005/Atom">
+    <channel>
+        <title>优化方案落地：最小化影响的发布策略 on SelfTechHub</title>
+        <link>https://blog.irudder.me/tags/%E4%BC%98%E5%8C%96%E6%96%B9%E6%A1%88%E8%90%BD%E5%9C%B0%E6%9C%80%E5%B0%8F%E5%8C%96%E5%BD%B1%E5%93%8D%E7%9A%84%E5%8F%91%E5%B8%83%E7%AD%96%E7%95%A5.html</link>
+        <description>Recent content in 优化方案落地：最小化影响的发布策略 on SelfTechHub</description>
+        <generator>Hugo -- gohugo.io</generator>
+        <language>zh-cn</language>
+        <lastBuildDate>Wed, 13 Mar 2024 00:00:00 +0000</lastBuildDate><atom:link href="https://blog.irudder.me/tags/%E4%BC%98%E5%8C%96%E6%96%B9%E6%A1%88%E8%90%BD%E5%9C%B0%E6%9C%80%E5%B0%8F%E5%8C%96%E5%BD%B1%E5%93%8D%E7%9A%84%E5%8F%91%E5%B8%83%E7%AD%96%E7%95%A5/index.xml" rel="self" type="application/rss+xml" /><item>
+        <title>每次发布都像拆弹？3招告别&#34;上线焦虑症</title>
+        <link>https://blog.irudder.me/tech/jiagouyouhuashizhananlijiexi/youhuafanganluodi_zuixiaohuayingxiangdefabucelve.html</link>
+        <pubDate>Wed, 13 Mar 2024 00:00:00 +0000</pubDate>
+        
+        <guid>https://blog.irudder.me/tech/jiagouyouhuashizhananlijiexi/youhuafanganluodi_zuixiaohuayingxiangdefabucelve.html</guid>
+        <description>&lt;p&gt;还记得你职业生涯中最惊心动魄的一次发布吗？&lt;/p&gt;
+&lt;p&gt;我的那次发生在2018年的一个周五凌晨。当时我们对核心订单系统做了一次&amp;quot;完美&amp;quot;的代码重构，在测试环境跑了三遍全量回归，测试报告全是绿色的勾。凌晨2点，我满怀信心地敲下了发布命令。&lt;/p&gt;
+&lt;p&gt;两分钟后，监控报警群像炸了锅一样疯狂弹窗，数据库CPU瞬间飙到99%，客服电话被打爆。我们手忙脚乱地回滚，整整折腾到天亮才恢复正常。那天走出写字楼，看着初升的太阳，我没有一丝欣赏美景的心情，只有深深的后怕和疲惫。&lt;/p&gt;
+&lt;p&gt;很长一段时间里，我对&amp;quot;优化&amp;quot;和&amp;quot;重构&amp;quot;这两个词产生了生理性的抗拒。我曾以为，所谓的技术实力就是写出复杂的代码；直到踩了那次大坑，我才明白：&lt;strong&gt;真正的技术实力，是能把复杂的改动，用最无聊、最不起眼的方式发布上线。&lt;/strong&gt;&lt;/p&gt;
+&lt;p&gt;如果你也曾因为担心发布出问题而彻夜难眠，或者在面对复杂的架构升级时感到无从下手，希望这篇文章能给你一些温暖的抚慰和实用的解法。&lt;/p&gt;
+&lt;h2 id=&#34;一-所谓无损核心是将部署与发布解耦&#34;&gt;一、 所谓&amp;quot;无损&amp;quot;，核心是将&amp;quot;部署&amp;quot;与&amp;quot;发布&amp;quot;解耦
+&lt;/h2&gt;&lt;p&gt;很多时候，我们的焦虑来自于&amp;quot;一锤子买卖&amp;quot;。代码部署上去的那一刻，新功能就生效了，流量就进来了，这时候一旦出问题，就是P0级事故。&lt;/p&gt;
+&lt;p&gt;我后来养成了一个习惯：&lt;strong&gt;即使是改动一行核心逻辑，我也要给它装上&amp;quot;开关&amp;quot;。&lt;/strong&gt;&lt;/p&gt;
+&lt;p&gt;两年前，我们在做一次计费逻辑的优化，涉及到复杂的金额计算。这次我们没有直接替换旧代码，而是引入了&lt;strong&gt;特性开关（Feature Toggles）&lt;/strong&gt;。&lt;/p&gt;
+&lt;p&gt;我们把新代码部署上去，但开关默认是关闭的。此时，线上运行的依然是旧逻辑，新代码只是静静地躺在服务器里。这种状态下，运维兄弟们可以放心地在白天任何时间点进行部署，因为对用户来说，什么都没发生。&lt;/p&gt;
+&lt;div class=&#34;highlight&#34;&gt;&lt;pre tabindex=&#34;0&#34; style=&#34;color:#f8f8f2;background-color:#272822;-moz-tab-size:4;-o-tab-size:4;tab-size:4;&#34;&gt;&lt;code class=&#34;language-java&#34; data-lang=&#34;java&#34;&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;&lt;span style=&#34;color:#75715e&#34;&gt;// 简单的开关逻辑示意&lt;/span&gt;
+&lt;/span&gt;&lt;/span&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;&lt;span style=&#34;color:#66d9ef&#34;&gt;if&lt;/span&gt; (featureFlags.&lt;span style=&#34;color:#a6e22e&#34;&gt;isOn&lt;/span&gt;(&lt;span style=&#34;color:#e6db74&#34;&gt;&amp;#34;new_billing_logic&amp;#34;&lt;/span&gt;, userContext)) {
+&lt;/span&gt;&lt;/span&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;    &lt;span style=&#34;color:#66d9ef&#34;&gt;return&lt;/span&gt; newBillingService.&lt;span style=&#34;color:#a6e22e&#34;&gt;calculate&lt;/span&gt;(order);
+&lt;/span&gt;&lt;/span&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;} &lt;span style=&#34;color:#66d9ef&#34;&gt;else&lt;/span&gt; {
+&lt;/span&gt;&lt;/span&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;    &lt;span style=&#34;color:#66d9ef&#34;&gt;return&lt;/span&gt; oldBillingService.&lt;span style=&#34;color:#a6e22e&#34;&gt;calculate&lt;/span&gt;(order); &lt;span style=&#34;color:#75715e&#34;&gt;// 兜底逻辑&lt;/span&gt;
+&lt;/span&gt;&lt;/span&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;}
+&lt;/span&gt;&lt;/span&gt;&lt;/code&gt;&lt;/pre&gt;&lt;/div&gt;&lt;p&gt;&lt;strong&gt;落地细节：&lt;/strong&gt;
+我们先用自己的测试账号（白名单）打开开关，在生产环境验证了一遍。确认无误后，再通过配置中心动态开启1%的流量。那天下午，我一边喝着咖啡，一边看着日志里的新逻辑开始吞吐流量，那种&amp;quot;一切尽在掌握&amp;quot;的松弛感，是以前&amp;quot;Big Bang&amp;quot;式发布从未有过的。&lt;/p&gt;
+&lt;blockquote&gt;
+&lt;p&gt;&lt;strong&gt;过来人建议：&lt;/strong&gt; 不要相信&amp;quot;我在测试环境测过了&amp;quot;。生产环境的数据多样性和并发量，是测试环境永远无法100%模拟的。开关，就是你的安全带。&lt;/p&gt;
+&lt;/blockquote&gt;
+&lt;h2 id=&#34;二-灰度不是切流量而是观测信心&#34;&gt;二、 灰度不是切流量，而是&amp;quot;观测信心&amp;quot;
+&lt;/h2&gt;&lt;p&gt;有了开关，接下来的问题是：怎么切？&lt;/p&gt;
+&lt;p&gt;很多团队的灰度策略是粗放的：一台机器 -&amp;gt; 一个机房 -&amp;gt; 全量。但这往往忽略了业务维度的风险。我见过一个案例，按机器灰度没问题，但全量后发现某个特定版本的客户端在请求新接口时会崩溃。&lt;/p&gt;
+&lt;p&gt;我现在更倾向于&lt;strong&gt;基于业务标签的精细化金丝雀发布（Canary Release）&lt;/strong&gt;。&lt;/p&gt;
+&lt;p&gt;去年双11前夕，我们需要升级整个鉴权服务。这是一个高风险操作，一旦挂了，全站用户都登不进。我们没有按服务器IP切分，而是制定了这样的策略：&lt;/p&gt;
+&lt;ol&gt;
+&lt;li&gt;&lt;strong&gt;内部员工阶段：&lt;/strong&gt; 只有公司IP或特定Header请求走新服务；&lt;/li&gt;
+&lt;li&gt;&lt;strong&gt;低风险用户阶段：&lt;/strong&gt; 选取注册时间在3年以上、且非VIP的老用户（数据表明这类用户对异常的容忍度稍高，且非核心付费群体）；&lt;/li&gt;
+&lt;li&gt;&lt;strong&gt;地域渐进：&lt;/strong&gt; 先开放凌晨流量较少的偏远地区；&lt;/li&gt;
+&lt;li&gt;&lt;strong&gt;全量观察：&lt;/strong&gt; 逐步放开至100%。&lt;/li&gt;
+&lt;/ol&gt;
+&lt;p&gt;在第2阶段时，我们监控到新服务的内存出现了缓慢泄漏。因为只有10%的流量，内存增长很慢，但如果是全量上线，撑不过2小时服务就会OOM（内存溢出）。&lt;/p&gt;
+&lt;p&gt;&lt;strong&gt;这次发现救了我们一命。&lt;/strong&gt; 我们迅速回滚开关，修复内存泄漏后再重新走流程。用户几乎无感知，老板也不知道我们刚刚经历了一次潜在的崩溃。&lt;/p&gt;
+&lt;p&gt;&lt;strong&gt;观测重点：&lt;/strong&gt;
+灰度期间，不要只看&amp;quot;有没有报错&amp;quot;。你需要盯着业务指标：&lt;/p&gt;
+&lt;ul&gt;
+&lt;li&gt;转化率有没有跌？&lt;/li&gt;
+&lt;li&gt;接口响应时间（TP99）有没有抖动？&lt;/li&gt;
+&lt;li&gt;错误日志的类型有没有新增？&lt;/li&gt;
+&lt;/ul&gt;
+&lt;h2 id=&#34;三-影子流量给系统做一次无痛胃镜&#34;&gt;三、 影子流量：给系统做一次&amp;quot;无痛胃镜&amp;quot;
+&lt;/h2&gt;&lt;p&gt;如果你要重构的是最核心、最不能出错的模块（比如支付网关），连1%的错误率都无法容忍，该怎么办？&lt;/p&gt;
+&lt;p&gt;&lt;img src=&#34;https://picsum.photos/800/450?random=1768458317360&#34;
+	
+	
+	
+	loading=&#34;lazy&#34;
+	
+		alt=&#34;配图&#34;
+	
+	
+&gt;&lt;/p&gt;
+&lt;p&gt;这时候，&lt;strong&gt;流量镜像（Traffic Mirroring/Shadowing）&lt;/strong&gt; 是我用过最稳的方案。它的原理是：把生产环境的真实流量，复制一份发送给新服务，但&lt;strong&gt;丢弃新服务的响应&lt;/strong&gt;。&lt;/p&gt;
+&lt;p&gt;这就好比给系统做一次&amp;quot;无痛胃镜&amp;quot;。用户依然在旧系统上完成支付，体验完全不受影响；而新系统也在处理同样的请求，经历同样的压力。&lt;/p&gt;
+&lt;p&gt;实操案例：
+在一次支付网关从老旧的PHP迁移到Go架构的过程中，我们在Nginx层做了流量镜像。&lt;/p&gt;
+&lt;div class=&#34;highlight&#34;&gt;&lt;pre tabindex=&#34;0&#34; style=&#34;color:#f8f8f2;background-color:#272822;-moz-tab-size:4;-o-tab-size:4;tab-size:4;&#34;&gt;&lt;code class=&#34;language-nginx&#34; data-lang=&#34;nginx&#34;&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;&lt;span style=&#34;color:#75715e&#34;&gt;# Nginx 流量镜像配置示例
+&lt;/span&gt;&lt;/span&gt;&lt;/span&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;&lt;span style=&#34;color:#75715e&#34;&gt;&lt;/span&gt;&lt;span style=&#34;color:#66d9ef&#34;&gt;location&lt;/span&gt; &lt;span style=&#34;color:#e6db74&#34;&gt;/api/payment&lt;/span&gt; {
+&lt;/span&gt;&lt;/span&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;    &lt;span style=&#34;color:#f92672&#34;&gt;mirror&lt;/span&gt; &lt;span style=&#34;color:#e6db74&#34;&gt;/mirror&lt;/span&gt;;
+&lt;/span&gt;&lt;/span&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;    &lt;span style=&#34;color:#f92672&#34;&gt;proxy_pass&lt;/span&gt; &lt;span style=&#34;color:#e6db74&#34;&gt;http://old_backend&lt;/span&gt;; &lt;span style=&#34;color:#75715e&#34;&gt;# 用户请求依然走旧服务
+&lt;/span&gt;&lt;/span&gt;&lt;/span&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;&lt;span style=&#34;color:#75715e&#34;&gt;&lt;/span&gt;}
+&lt;/span&gt;&lt;/span&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;
+&lt;/span&gt;&lt;/span&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;&lt;span style=&#34;color:#66d9ef&#34;&gt;location&lt;/span&gt; &lt;span style=&#34;color:#e6db74&#34;&gt;/mirror&lt;/span&gt; {
+&lt;/span&gt;&lt;/span&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;    &lt;span style=&#34;color:#f92672&#34;&gt;internal&lt;/span&gt;;
+&lt;/span&gt;&lt;/span&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;    &lt;span style=&#34;color:#f92672&#34;&gt;proxy_pass&lt;/span&gt; &lt;span style=&#34;color:#e6db74&#34;&gt;http://new_backend&lt;/span&gt;; &lt;span style=&#34;color:#75715e&#34;&gt;# 流量复制一份给新服务
+&lt;/span&gt;&lt;/span&gt;&lt;/span&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;&lt;span style=&#34;color:#75715e&#34;&gt;&lt;/span&gt;}
+&lt;/span&gt;&lt;/span&gt;&lt;/code&gt;&lt;/pre&gt;&lt;/div&gt;&lt;p&gt;我们在后台跑了一个对比脚本，实时比对旧服务和新服务的处理结果（比如计算的金额、生成的各种ID格式）。&lt;/p&gt;
+&lt;p&gt;&lt;img src=&#34;https://picsum.photos/800/450?random=1768458310006&#34;
+	
+	
+	
+	loading=&#34;lazy&#34;
+	
+		alt=&#34;配图&#34;
+	
+	
+&gt;&lt;/p&gt;
+&lt;p&gt;结果令人大跌眼镜：新服务在处理某种特定精度的货币计算时，和旧服务有0.01元的误差。这个问题在数万次请求中才出现一次，靠人工测试几乎不可能发现。&lt;/p&gt;
+&lt;p&gt;我们在不影响任何真实交易的情况下，通过影子流量修复了7个类似的边缘Bug。直到新旧系统的结果一致性达到99.9999%，我们才真正把流量切过去。那一刻的切流，不再是赌博，而是水到渠成的仪式。&lt;/p&gt;
+&lt;h2 id=&#34;结语让发布变得无聊&#34;&gt;结语：让发布变得&amp;quot;无聊&amp;quot;
+&lt;/h2&gt;&lt;p&gt;回望这十年的架构之路，我发现一个有趣的悖论：&lt;strong&gt;新手总想搞大新闻，而高手都在努力让一切变得平平无奇。&lt;/strong&gt;&lt;/p&gt;
+&lt;p&gt;最好的发布，应该是无聊的。没有惊心动魄的报警，没有通宵达旦的修复，只有按部就班的流程和波澜不惊的曲线。我们所有的努力，都是为了保护屏幕后面那位具体的用户，也为了保护我们自己，能有一个睡得安稳的夜晚。&lt;/p&gt;
+&lt;p&gt;优化方案落地，不仅仅是代码层面的替换，更是一场心理战和策略战。&lt;/p&gt;
+&lt;p&gt;&lt;strong&gt;最后，给你3个明天就能落地的小建议：&lt;/strong&gt;&lt;/p&gt;
+&lt;ol&gt;
+&lt;li&gt;&lt;strong&gt;加一个开关：&lt;/strong&gt; 下次做需求时，尝试为核心逻辑加上一个&lt;code&gt;if/else&lt;/code&gt;开关，不要硬编码。&lt;/li&gt;
+&lt;li&gt;&lt;strong&gt;看一眼日志：&lt;/strong&gt; 发布后，不要只盯着监控大盘，去服务器上&lt;code&gt;tail -f&lt;/code&gt;看一下实时日志，很多隐患藏在那些不起眼的Warning里。&lt;/li&gt;
+&lt;li&gt;&lt;strong&gt;预演回滚：&lt;/strong&gt; 在按下发布按钮前，问自己一句：&amp;ldquo;如果现在挂了，我能在1分钟内回滚吗？&amp;ldquo;如果答案是否定的，请先准备好回滚脚本。&lt;/li&gt;
+&lt;/ol&gt;
+&lt;p&gt;&lt;strong&gt;你在过往的发布经历中，遇到过什么让你&amp;quot;心跳停止&amp;quot;的瞬间？又是如何化险为夷的？&lt;/strong&gt; 欢迎在评论区聊聊，让我们一起把这些经验变成盔甲。&lt;/p&gt;
+</description>
+        </item>
+        
+    </channel>
+</rss>

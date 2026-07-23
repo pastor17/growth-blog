@@ -1,0 +1,544 @@
+<!DOCTYPE html>
+<html lang="zh-cn" dir="ltr">
+    <head><meta charset='utf-8'>
+<meta name='viewport' content='width=device-width, initial-scale=1'><meta name='description' content="第5章：MCP——工具调用的标准化革命\r系列导读：本章是上章的延伸。如果你还在手写每个工具的集成代码，MCP 就是来救你的。它能让你接入一个工具的效率从「一天」降到「十分钟」。\n一、没有 MCP 之前，接工具有多麻烦？\r想象你要给 Claude Desktop 接入三个工具：GitHub（查仓库）、文件系统（读本地文件）、Slack（发通知）。\n在没有 MCP 之前：\n写 GitHub API 调用代码 + OAuth 认证 + 错误处理 + 格式转换，确保返回结果能被模型理解 写文件系统操作代码 + 权限管控 + 路径沙箱，防止模型删除不该删的文件 写 Slack API 调用代码 + Bot 配置 + 消息格式化 折腾了三周，终于接好了。三个月后 Claude 升级了，接口变了，你的代码又得重写。\n最致命的问题：每个工具都要单独集成，而且强绑定到某个模型。你想换 Gemini 用这些工具？之前写的所有代码都要重写一遍嫁接逻辑。更别说换个多模态模型（比如能看图、能听语音的），工具 layer 可能完全不兼容。\n这种碎片化的结果就是：目前市面上有成百上千个有用的工具 API，开发者和模型提供者之间形成了一个糟糕的分发瓶颈——每一家模型厂都要跟每一家工具厂谈合作、做适配。\n二、MCP 是什么？\rMCP（Model Context Protocol，模型上下文协议）是 Anthropic 在 2024 年底推出的开放协议（不是框架，是协议）。\n它的核心目标是：工具实现一次，到处复用；任何支持 MCP 的 AI 客户端，都能自动发现并接入。\n你可以把它理解成 AI 时代的「USB-C 接口」——所有工具都按统一标准做接口，所有 AI 客户端都支持这个接口。工具提供者按协议标准写一个 Server，任何支持 MCP 的客户端都能直接拿来用，不需要再说服 OpenAI 或 Google 专门为你做对接。\n">
+<title>第5章：MCP——工具调用的标准化革命</title>
+
+<link rel='canonical' href='https://blog.irudder.me/ai/knowledge-series/05-MCP-and-Protocolized-Tool-Ecosystem.html'>
+
+<link rel="stylesheet" href="/scss/style.min.b9e9128fec450ebccecc4ec9900157f32b85d0609bcd5ee3293968bcaa1235f2.css"><meta property='og:title' content="第5章：MCP——工具调用的标准化革命">
+<meta property='og:description' content="第5章：MCP——工具调用的标准化革命\r系列导读：本章是上章的延伸。如果你还在手写每个工具的集成代码，MCP 就是来救你的。它能让你接入一个工具的效率从「一天」降到「十分钟」。\n一、没有 MCP 之前，接工具有多麻烦？\r想象你要给 Claude Desktop 接入三个工具：GitHub（查仓库）、文件系统（读本地文件）、Slack（发通知）。\n在没有 MCP 之前：\n写 GitHub API 调用代码 + OAuth 认证 + 错误处理 + 格式转换，确保返回结果能被模型理解 写文件系统操作代码 + 权限管控 + 路径沙箱，防止模型删除不该删的文件 写 Slack API 调用代码 + Bot 配置 + 消息格式化 折腾了三周，终于接好了。三个月后 Claude 升级了，接口变了，你的代码又得重写。\n最致命的问题：每个工具都要单独集成，而且强绑定到某个模型。你想换 Gemini 用这些工具？之前写的所有代码都要重写一遍嫁接逻辑。更别说换个多模态模型（比如能看图、能听语音的），工具 layer 可能完全不兼容。\n这种碎片化的结果就是：目前市面上有成百上千个有用的工具 API，开发者和模型提供者之间形成了一个糟糕的分发瓶颈——每一家模型厂都要跟每一家工具厂谈合作、做适配。\n二、MCP 是什么？\rMCP（Model Context Protocol，模型上下文协议）是 Anthropic 在 2024 年底推出的开放协议（不是框架，是协议）。\n它的核心目标是：工具实现一次，到处复用；任何支持 MCP 的 AI 客户端，都能自动发现并接入。\n你可以把它理解成 AI 时代的「USB-C 接口」——所有工具都按统一标准做接口，所有 AI 客户端都支持这个接口。工具提供者按协议标准写一个 Server，任何支持 MCP 的客户端都能直接拿来用，不需要再说服 OpenAI 或 Google 专门为你做对接。\n">
+<meta property='og:url' content='https://blog.irudder.me/ai/knowledge-series/05-MCP-and-Protocolized-Tool-Ecosystem.html'>
+<meta property='og:site_name' content='SelfTechHub'>
+<meta property='og:type' content='article'><meta property='article:section' content='Ai' /><meta property='article:tag' content='MCP' /><meta property='article:tag' content='Model Context Protocol' /><meta property='article:tag' content='Tool Ecosystem' /><meta property='article:tag' content='Function Calling' /><meta property='article:tag' content='Standardization' /><meta property='article:published_time' content='2026-06-01T00:00:00&#43;00:00'/><meta property='article:modified_time' content='2026-06-01T00:00:00&#43;00:00'/>
+<meta name="twitter:title" content="第5章：MCP——工具调用的标准化革命">
+<meta name="twitter:description" content="第5章：MCP——工具调用的标准化革命\r系列导读：本章是上章的延伸。如果你还在手写每个工具的集成代码，MCP 就是来救你的。它能让你接入一个工具的效率从「一天」降到「十分钟」。\n一、没有 MCP 之前，接工具有多麻烦？\r想象你要给 Claude Desktop 接入三个工具：GitHub（查仓库）、文件系统（读本地文件）、Slack（发通知）。\n在没有 MCP 之前：\n写 GitHub API 调用代码 + OAuth 认证 + 错误处理 + 格式转换，确保返回结果能被模型理解 写文件系统操作代码 + 权限管控 + 路径沙箱，防止模型删除不该删的文件 写 Slack API 调用代码 + Bot 配置 + 消息格式化 折腾了三周，终于接好了。三个月后 Claude 升级了，接口变了，你的代码又得重写。\n最致命的问题：每个工具都要单独集成，而且强绑定到某个模型。你想换 Gemini 用这些工具？之前写的所有代码都要重写一遍嫁接逻辑。更别说换个多模态模型（比如能看图、能听语音的），工具 layer 可能完全不兼容。\n这种碎片化的结果就是：目前市面上有成百上千个有用的工具 API，开发者和模型提供者之间形成了一个糟糕的分发瓶颈——每一家模型厂都要跟每一家工具厂谈合作、做适配。\n二、MCP 是什么？\rMCP（Model Context Protocol，模型上下文协议）是 Anthropic 在 2024 年底推出的开放协议（不是框架，是协议）。\n它的核心目标是：工具实现一次，到处复用；任何支持 MCP 的 AI 客户端，都能自动发现并接入。\n你可以把它理解成 AI 时代的「USB-C 接口」——所有工具都按统一标准做接口，所有 AI 客户端都支持这个接口。工具提供者按协议标准写一个 Server，任何支持 MCP 的客户端都能直接拿来用，不需要再说服 OpenAI 或 Google 专门为你做对接。\n">
+    </head>
+    <body class="
+    article-page
+    ">
+    <script>
+        (function() {
+            const colorSchemeKey = 'StackColorScheme';
+            if(!localStorage.getItem(colorSchemeKey)){
+                localStorage.setItem(colorSchemeKey, "auto");
+            }
+        })();
+    </script><script>
+    (function() {
+        const colorSchemeKey = 'StackColorScheme';
+        const colorSchemeItem = localStorage.getItem(colorSchemeKey);
+        const supportDarkMode = window.matchMedia('(prefers-color-scheme: dark)').matches === true;
+
+        if (colorSchemeItem == 'dark' || colorSchemeItem === 'auto' && supportDarkMode) {
+            
+
+            document.documentElement.dataset.scheme = 'dark';
+        } else {
+            document.documentElement.dataset.scheme = 'light';
+        }
+    })();
+</script>
+<div class="container main-container flex on-phone--column compact"><aside class="sidebar left-sidebar sticky ">
+    <button class="hamburger hamburger--spin" type="button" id="toggle-menu" aria-label="切换菜单">
+        <span class="hamburger-box">
+            <span class="hamburger-inner"></span>
+        </span>
+    </button>
+
+    <header>
+        
+            
+            <figure class="site-avatar">
+                <a href="/">
+                
+                    
+                    
+                    
+                        
+                        <img src="/img/avatar_hu_8588ce14af1147e2.png" width="300"
+                            height="286" class="site-logo" loading="lazy" alt="Avatar">
+                    
+                
+                </a>
+                
+            </figure>
+            
+        
+        
+        <div class="site-meta">
+            <h1 class="site-name"><a href="/">SelfTechHub</a></h1>
+            <h2 class="site-description"></h2>
+        </div>
+    </header><ol class="menu" id="main-menu">
+        
+        
+        <li class="menu-bottom-section">
+            <ol class="menu">
+
+                
+                    <li id="dark-mode-toggle">
+                        <svg xmlns="http://www.w3.org/2000/svg" class="icon icon-tabler icon-tabler-toggle-left" width="24" height="24" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor" fill="none" stroke-linecap="round" stroke-linejoin="round">
+  <path stroke="none" d="M0 0h24v24H0z"/>
+  <circle cx="8" cy="12" r="2" />
+  <rect x="2" y="6" width="20" height="12" rx="6" />
+</svg>
+
+
+
+                        <svg xmlns="http://www.w3.org/2000/svg" class="icon icon-tabler icon-tabler-toggle-right" width="24" height="24" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor" fill="none" stroke-linecap="round" stroke-linejoin="round">
+  <path stroke="none" d="M0 0h24v24H0z"/>
+  <circle cx="16" cy="12" r="2" />
+  <rect x="2" y="6" width="20" height="12" rx="6" />
+</svg>
+
+
+
+                        <span>暗色模式</span>
+                    </li>
+                
+            </ol>
+        </li>
+    </ol>
+</aside>
+
+    
+
+            <main class="main full-width">
+    <article class="main-article">
+    <header class="article-header">
+
+    <div class="article-details">
+    
+    <header class="article-category">
+        
+            <a href="/categories/ai.html" >
+                AI探索
+            </a>
+        
+    </header>
+    
+
+    <div class="article-title-wrapper">
+        <h2 class="article-title">
+            <a href="/ai/knowledge-series/05-MCP-and-Protocolized-Tool-Ecosystem.html">第5章：MCP——工具调用的标准化革命</a>
+        </h2>
+    
+        
+    </div>
+
+    
+    
+    
+    
+    <footer class="article-time">
+        
+            <div>
+                <svg xmlns="http://www.w3.org/2000/svg" class="icon icon-tabler icon-tabler-calendar-time" width="56" height="56" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor" fill="none" stroke-linecap="round" stroke-linejoin="round">
+  <path stroke="none" d="M0 0h24v24H0z"/>
+  <path d="M11.795 21h-6.795a2 2 0 0 1 -2 -2v-12a2 2 0 0 1 2 -2h12a2 2 0 0 1 2 2v4" />
+  <circle cx="18" cy="18" r="4" />
+  <path d="M15 3v4" />
+  <path d="M7 3v4" />
+  <path d="M3 11h16" />
+  <path d="M18 16.496v1.504l1 1" />
+</svg>
+                <time class="article-time--published" datetime='2026-06-01T00:00:00Z'>Jun 01, 2026</time>
+            </div>
+        
+
+        
+            <div>
+                <svg xmlns="http://www.w3.org/2000/svg" class="icon icon-tabler icon-tabler-clock" width="24" height="24" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor" fill="none" stroke-linecap="round" stroke-linejoin="round">
+  <path stroke="none" d="M0 0h24v24H0z"/>
+  <circle cx="12" cy="12" r="9" />
+  <polyline points="12 7 12 12 15 15" />
+</svg>
+
+
+
+                <time class="article-time--reading">
+                    阅读时长: 2 分钟
+                </time>
+            </div>
+        
+    </footer>
+    
+
+    
+</div>
+
+</header>
+
+    <section class="article-content">
+    
+    
+    <h1 id="第5章mcp工具调用的标准化革命">第5章：MCP——工具调用的标准化革命
+</h1><blockquote>
+<p>系列导读：本章是上章的延伸。如果你还在手写每个工具的集成代码，MCP 就是来救你的。它能让你接入一个工具的效率从「一天」降到「十分钟」。</p>
+</blockquote>
+<h2 id="一没有-mcp-之前接工具有多麻烦">一、没有 MCP 之前，接工具有多麻烦？
+</h2><p>想象你要给 Claude Desktop 接入三个工具：GitHub（查仓库）、文件系统（读本地文件）、Slack（发通知）。</p>
+<p>在没有 MCP 之前：</p>
+<ol>
+<li>写 GitHub API 调用代码 + OAuth 认证 + 错误处理 + 格式转换，确保返回结果能被模型理解</li>
+<li>写文件系统操作代码 + 权限管控 + 路径沙箱，防止模型删除不该删的文件</li>
+<li>写 Slack API 调用代码 + Bot 配置 + 消息格式化</li>
+</ol>
+<p>折腾了三周，终于接好了。三个月后 Claude 升级了，接口变了，你的代码又得重写。</p>
+<p>最致命的问题：每个工具都要单独集成，而且强绑定到某个模型。你想换 Gemini 用这些工具？之前写的所有代码都要重写一遍嫁接逻辑。更别说换个多模态模型（比如能看图、能听语音的），工具 layer 可能完全不兼容。</p>
+<p>这种碎片化的结果就是：目前市面上有成百上千个有用的工具 API，开发者和模型提供者之间形成了一个糟糕的分发瓶颈——每一家模型厂都要跟每一家工具厂谈合作、做适配。</p>
+<h2 id="二mcp-是什么">二、MCP 是什么？
+</h2><p>MCP（Model Context Protocol，模型上下文协议）是 Anthropic 在 2024 年底推出的开放协议（不是框架，是协议）。</p>
+<p>它的核心目标是：工具实现一次，到处复用；任何支持 MCP 的 AI 客户端，都能自动发现并接入。</p>
+<p>你可以把它理解成 AI 时代的「USB-C 接口」——所有工具都按统一标准做接口，所有 AI 客户端都支持这个接口。工具提供者按协议标准写一个 Server，任何支持 MCP 的客户端都能直接拿来用，不需要再说服 OpenAI 或 Google 专门为你做对接。</p>
+<h2 id="三mcp-的架构client-server-模式">三、MCP 的架构：Client-Server 模式
+</h2><pre tabindex="0"><code>    ┌──────────────┐                    ┌──────────────┐
+    │  AI Client   │ ←─── MCP 协议 ───→ │ MCP Server 1 │ (GitHub工具)
+    │ (Claude,     │    JSON-RPC 2.0     └──────────────┘
+    │  OpenAI SDK) │                          ┌──────────────┐
+    │              │ ←─── MCP 协议 ───→       │ MCP Server 2 │ (文件系统)
+    └──────────────┘    (stdio / SSE / HTTP) └──────────────┘
+</code></pre><ul>
+<li>MCP Server：每个工具按 MCP 协议实现一个服务进程，暴露能力</li>
+<li>AI Client：在配置文件中声明 MCP Server 地址，自动发现可用的工具</li>
+<li>通信方式：支持 stdio（本地进程）、SSE（HTTP流式）、HTTP（远程调用）</li>
+</ul>
+<p>这种设计的妙处在于：工具提供者只需要写一份标准化的 Server 实现，所有客户端（Claude、OpenAI SDK、Cursor IDE、Zed 编辑器等）都能自动发现并调用它的能力。工具生态的分发效率得到了本质提升。</p>
+<h2 id="四mcp-的三类核心能力">四、MCP 的三类核心能力
+</h2><h3 id="1-tools工具-执行有副作用的操作">1. Tools（工具）—— 执行有副作用的操作
+</h3><p>如发送邮件、创建文件、调用 API。每次调用都可能改变外部世界状态。工具调用后需要返回执行结果给模型，模型据此决定下一步。</p>
+<h3 id="2-resources资源-只读数据通道">2. Resources（资源）—— 只读数据通道
+</h3><p>如读取文件内容、访问数据库、查看日志。资源可以被&quot;挂载&quot;到客户端上下文，模型可以随时调用，不会产生副作用。</p>
+<h3 id="3-prompts提示词模板-结构化输入模板">3. Prompts（提示词模板）—— 结构化输入模板
+</h3><p>预定义一组任务模板，用户可以在使用前填充参数。比如 &ldquo;生成代码审查提示词&rdquo; → 填充 &ldquo;文件路径&rdquo; → 拿到完整 prompt。这类能力让 MCP Server 不仅是被动的工具提供者，也是主动的交互助手。</p>
+<p>这三类能力覆盖了 AI 工具生态中的&quot;执行&quot;、&ldquo;读取&rdquo;、&ldquo;交互模板&quot;三个核心场景。</p>
+<h2 id="五mcp-vs-function-calling不是替代是互补">五、MCP vs Function Calling：不是替代，是互补
+</h2><div class="table-wrapper"><table>
+  <thead>
+      <tr>
+          <th>维度</th>
+          <th>Function Calling</th>
+          <th>MCP</th>
+      </tr>
+  </thead>
+  <tbody>
+      <tr>
+          <td>层级</td>
+          <td>API 调用格式（命令）</td>
+          <td>工具生态协议 + 发现机制</td>
+      </tr>
+      <tr>
+          <td>解决的问题</td>
+          <td>模型怎么说出「我要调什么」</td>
+          <td>工具怎么被接入和管理</td>
+      </tr>
+      <tr>
+          <td>类比</td>
+          <td>HTTP 请求格式</td>
+          <td>REST API 规范 + 服务注册发现</td>
+      </tr>
+      <tr>
+          <td>关系</td>
+          <td>依赖关系</td>
+          <td>MCP 底层还是靠 Function Calling！</td>
+      </tr>
+  </tbody>
+</table></div>
+<p>最关键的一句话：MCP 底层驱动的仍然是 Function Calling。MCP 不是「不用 Function Calling 了」，而是在 Function Calling 之上加了一层生态层。</p>
+<ul>
+<li>Function Calling 说：模型输出的工具调用应该是 JSON Schema 格式</li>
+<li>MCP 说：工具怎么注册、怎么发现、怎么通信、怎么复用，都按统一标准来</li>
+</ul>
+<p>你可以只靠 Function Calling 写一辈子代码，但接入第10个工具时你就会想要 MCP。手动管理10个工具的 schema、认证、状态同步、错误重试，是在做重复的体力活。</p>
+<h2 id="六配置一个-mcp-server-有多简单">六、配置一个 MCP Server 有多简单？
+</h2><p>以 Claude Desktop 为例，它的配置文件中加几行就行：</p>
+<div class="highlight"><pre tabindex="0" style="color:#f8f8f2;background-color:#272822;-moz-tab-size:4;-o-tab-size:4;tab-size:4;"><code class="language-json" data-lang="json"><span style="display:flex;"><span>{
+</span></span><span style="display:flex;"><span>  <span style="color:#f92672">&#34;mcpServers&#34;</span>: {
+</span></span><span style="display:flex;"><span>    <span style="color:#f92672">&#34;filesystem&#34;</span>: {
+</span></span><span style="display:flex;"><span>      <span style="color:#f92672">&#34;command&#34;</span>: <span style="color:#e6db74">&#34;npx&#34;</span>,
+</span></span><span style="display:flex;"><span>      <span style="color:#f92672">&#34;args&#34;</span>: [<span style="color:#e6db74">&#34;-y&#34;</span>, <span style="color:#e6db74">&#34;@modelcontextprotocol/server-filesystem&#34;</span>, <span style="color:#e6db74">&#34;/Users/me/docs&#34;</span>]
+</span></span><span style="display:flex;"><span>    },
+</span></span><span style="display:flex;"><span>    <span style="color:#f92672">&#34;github&#34;</span>: {
+</span></span><span style="display:flex;"><span>      <span style="color:#f92672">&#34;command&#34;</span>: <span style="color:#e6db74">&#34;npx&#34;</span>,
+</span></span><span style="display:flex;"><span>      <span style="color:#f92672">&#34;args&#34;</span>: [<span style="color:#e6db74">&#34;-y&#34;</span>, <span style="color:#e6db74">&#34;@modelcontextprotocol/server-github&#34;</span>],
+</span></span><span style="display:flex;"><span>      <span style="color:#f92672">&#34;env&#34;</span>: { <span style="color:#f92672">&#34;GITHUB_PERSONAL_ACCESS_TOKEN&#34;</span>: <span style="color:#e6db74">&#34;ghp_xxx&#34;</span> }
+</span></span><span style="display:flex;"><span>    }
+</span></span><span style="display:flex;"><span>  }
+</span></span><span style="display:flex;"><span>}
+</span></span></code></pre></div><p>启动 Claude Desktop 后：</p>
+<ol>
+<li>自动启动各 MCP Server 进程</li>
+<li>读取各 Server 暴露的 tools/resources/prompts 列表</li>
+<li>Claude 自动发现这些工具并能随时调用</li>
+</ol>
+<p>零代码接入。</p>
+<h2 id="七mcp-对生态的影响">七、MCP 对生态的影响
+</h2><ul>
+<li>工具开发者：按 MCP 标准实现一次，OpenAI、Claude、Gemini 都能用。分发成本从 O(NxM) 降到 O(N+M)。</li>
+<li>AI 客户端开发者：接入 MCP 协议就能自动获得成百上千的工具</li>
+<li>终端用户：AI 能做的事情从「聊天+联网搜索」变成「调用整个数字世界&rdquo;</li>
+</ul>
+<p>MCP 的意义跟当年 HTTP 协议标准化 web 服务是一样的底层逻辑。如果没有 HTTP，每个网站都得写自己的传输协议，浏览器永远做不到通用。MCP 的目标是让 AI 工具的接入也有同样的标准化基础。</p>
+<h2 id="八本章小结">八、本章小结
+</h2><ul>
+<li>MCP 是 AI 工具生态的&quot;USB-C&quot;标准化协议</li>
+<li>三类能力：Tools（执行）、Resources（只读数据）、Prompts（模板）</li>
+<li>MCP 和 Function Calling 是不同层次的东西：FC 解决&quot;格式&quot;问题，MCP 解决&quot;生态&quot;问题</li>
+<li>配置 MCP Server 只需几行配置，零代码接入</li>
+<li>MCP 代表了 AI 工具生态从碎片化走向标准化的关键转折点</li>
+</ul>
+<h2 id="思考题">思考题
+</h2><ol>
+<li>MCP 的「开放协议」定位意味着它的生命周期会长于任何单一公司的产品。如果这个协议成为事实标准，会对 AI 工具生态产生什么深远影响？</li>
+<li>在 MCP 的三种能力（Tools/Resources/Prompts）中，你认为哪一类最有商业想象空间？为什么？</li>
+</ol>
+
+</section>
+
+
+    <footer class="article-footer">
+    
+    <section class="article-tags">
+        
+            <a href="/tags/MCP.html">MCP</a>
+        
+            <a href="/tags/Model-Context-Protocol.html">Model Context Protocol</a>
+        
+            <a href="/tags/Tool-Ecosystem.html">Tool Ecosystem</a>
+        
+            <a href="/tags/Function-Calling.html">Function Calling</a>
+        
+            <a href="/tags/Standardization.html">Standardization</a>
+        
+    </section>
+
+
+    </footer>
+
+
+    
+</article>
+
+    
+
+    
+
+<aside class="related-content--wrapper">
+    <h2 class="section-title">相关文章</h2>
+    <div class="related-content">
+        <div class="flex article-list--tile">
+            
+                
+<article class="">
+    <a href="/ai/knowledge-series/04-Function-Calling.html">
+        
+        
+
+        <div class="article-details">
+            <h2 class="article-title">第4章：Function Calling——让大模型从「聊天者」变成「执行者」</h2>
+        </div>
+    </a>
+</article>
+
+            
+                
+<article class="">
+    <a href="/ai/ped/Chapter22-Industry-Trends-and-Long-term-Career-Planning.html">
+        
+        
+
+        <div class="article-details">
+            <h2 class="article-title">第22章 行业趋势与职业长期规划</h2>
+        </div>
+    </a>
+</article>
+
+            
+                
+<article class="">
+    <a href="/ai/ped/Chapter19-Scaled-Delivery-and-Productization-Design.html">
+        
+        
+
+        <div class="article-details">
+            <h2 class="article-title">第19章 规模化交付与产品化设计</h2>
+        </div>
+    </a>
+</article>
+
+            
+        </div>
+    </div>
+</aside>
+
+     
+    
+        
+    <script
+    src="https://giscus.app/client.js"
+    data-repo="pastor17/bloggiscus"
+    data-repo-id="R_kgDOQ6H9qQ"
+    data-category=""
+    data-category-id="DIC_kwDOQ6H9qc4C0-T8"
+    data-mapping="pathname"
+    data-strict="0"
+    data-reactions-enabled="1"
+    data-emit-metadata="0"
+    data-input-position="bottom"
+    data-theme="light"
+    data-lang="zh-CN"
+    data-loading="lazy"
+    crossorigin="anonymous"
+    async
+></script>
+<script>
+    function setGiscusTheme(theme) {
+        let giscus = document.querySelector("iframe.giscus-frame");
+        if (giscus) {
+            giscus.contentWindow.postMessage(
+                {
+                    giscus: {
+                        setConfig: {
+                            theme: theme,
+                        },
+                    },
+                },
+                "https://giscus.app"
+            );
+        }
+    }
+
+    (function () {
+        addEventListener("message", (e) => {
+            if (event.origin !== "https://giscus.app") return;
+            handler();
+        });
+        window.addEventListener("onColorSchemeChange", handler);
+
+        function handler() {
+            if (document.documentElement.dataset.scheme === "light") {
+                setGiscusTheme('light');
+            } else {
+                setGiscusTheme('dark_dimmed');
+            }
+        }
+    })();
+</script>
+
+    
+
+    <footer class="site-footer">
+    <section class="copyright">
+        &copy; 
+        
+        2026 SelfTechHub
+    </section>
+    
+    <section class="powerby">
+        
+
+    </section>
+</footer>
+
+
+    
+<div class="pswp" tabindex="-1" role="dialog" aria-hidden="true">
+
+    
+    <div class="pswp__bg"></div>
+
+    
+    <div class="pswp__scroll-wrap">
+
+        
+        <div class="pswp__container">
+            <div class="pswp__item"></div>
+            <div class="pswp__item"></div>
+            <div class="pswp__item"></div>
+        </div>
+
+        
+        <div class="pswp__ui pswp__ui--hidden">
+
+            <div class="pswp__top-bar">
+
+                
+
+                <div class="pswp__counter"></div>
+
+                <button class="pswp__button pswp__button--close" title="Close (Esc)"></button>
+
+                <button class="pswp__button pswp__button--share" title="Share"></button>
+
+                <button class="pswp__button pswp__button--fs" title="Toggle fullscreen"></button>
+
+                <button class="pswp__button pswp__button--zoom" title="Zoom in/out"></button>
+
+                
+                
+                <div class="pswp__preloader">
+                    <div class="pswp__preloader__icn">
+                        <div class="pswp__preloader__cut">
+                            <div class="pswp__preloader__donut"></div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <div class="pswp__share-modal pswp__share-modal--hidden pswp__single-tap">
+                <div class="pswp__share-tooltip"></div>
+            </div>
+
+            <button class="pswp__button pswp__button--arrow--left" title="Previous (arrow left)">
+            </button>
+
+            <button class="pswp__button pswp__button--arrow--right" title="Next (arrow right)">
+            </button>
+
+            <div class="pswp__caption">
+                <div class="pswp__caption__center"></div>
+            </div>
+
+        </div>
+
+    </div>
+
+</div><script 
+                src="https://cdn.jsdelivr.net/npm/photoswipe@4.1.3/dist/photoswipe.min.js"integrity="sha256-ePwmChbbvXbsO02lbM3HoHbSHTHFAeChekF1xKJdleo="crossorigin="anonymous"
+                defer
+                >
+            </script><script 
+                src="https://cdn.jsdelivr.net/npm/photoswipe@4.1.3/dist/photoswipe-ui-default.min.js"integrity="sha256-UKkzOn/w1mBxRmLLGrSeyB4e1xbrp4xylgAWb3M42pU="crossorigin="anonymous"
+                defer
+                >
+            </script><link 
+                rel="stylesheet" 
+                href="https://cdn.jsdelivr.net/npm/photoswipe@4.1.3/dist/default-skin/default-skin.min.css"crossorigin="anonymous"
+            ><link 
+                rel="stylesheet" 
+                href="https://cdn.jsdelivr.net/npm/photoswipe@4.1.3/dist/photoswipe.min.css"crossorigin="anonymous"
+            >
+    
+
+            </main>
+        </div>
+        <script 
+                src="https://cdn.jsdelivr.net/npm/node-vibrant@3.1.6/dist/vibrant.min.js"integrity="sha256-awcR2jno4kI5X0zL8ex0vi2z&#43;KMkF24hUW8WePSA9HM="crossorigin="anonymous"
+                
+                >
+            </script><script type="text/javascript" src="/ts/main.c922af694cc257bf1ecc41c0dd7b0430f9114ec280ccf67cd2c6ad55f5316c4e.js" defer></script>
+<script>
+    (function () {
+        const customFont = document.createElement('link');
+        customFont.href = "https://fonts.googleapis.com/css2?family=Lato:wght@300;400;700&display=swap";
+
+        customFont.type = "text/css";
+        customFont.rel = "stylesheet";
+
+        document.head.appendChild(customFont);
+    }());
+</script>
+
+    </body>
+</html>

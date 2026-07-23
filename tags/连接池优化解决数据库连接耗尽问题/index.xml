@@ -1,0 +1,99 @@
+<?xml version="1.0" encoding="utf-8" standalone="yes"?>
+<rss version="2.0" xmlns:atom="http://www.w3.org/2005/Atom">
+    <channel>
+        <title>连接池优化：解决数据库连接耗尽问题 on SelfTechHub</title>
+        <link>https://blog.irudder.me/tags/%E8%BF%9E%E6%8E%A5%E6%B1%A0%E4%BC%98%E5%8C%96%E8%A7%A3%E5%86%B3%E6%95%B0%E6%8D%AE%E5%BA%93%E8%BF%9E%E6%8E%A5%E8%80%97%E5%B0%BD%E9%97%AE%E9%A2%98.html</link>
+        <description>Recent content in 连接池优化：解决数据库连接耗尽问题 on SelfTechHub</description>
+        <generator>Hugo -- gohugo.io</generator>
+        <language>zh-cn</language>
+        <lastBuildDate>Wed, 01 Jun 2022 00:00:00 +0000</lastBuildDate><atom:link href="https://blog.irudder.me/tags/%E8%BF%9E%E6%8E%A5%E6%B1%A0%E4%BC%98%E5%8C%96%E8%A7%A3%E5%86%B3%E6%95%B0%E6%8D%AE%E5%BA%93%E8%BF%9E%E6%8E%A5%E8%80%97%E5%B0%BD%E9%97%AE%E9%A2%98/index.xml" rel="self" type="application/rss+xml" /><item>
+        <title>凌晨3点的报警：救回崩溃数据库的3个关键</title>
+        <link>https://blog.irudder.me/tech/jiagouyouhuashizhananlijiexi/lianjiechiyouhua_jiejueshujukulianjiehaojinwenti.html</link>
+        <pubDate>Wed, 01 Jun 2022 00:00:00 +0000</pubDate>
+        
+        <guid>https://blog.irudder.me/tech/jiagouyouhuashizhananlijiexi/lianjiechiyouhua_jiejueshujukulianjiehaojinwenti.html</guid>
+        <description>&lt;p&gt;那一刻的绝望感，我相信做过后端或运维的朋友都懂。&lt;/p&gt;
+&lt;p&gt;手机在凌晨3:17分疯狂震动，屏幕上赫然跳动着那行令人窒息的报警信息：&lt;code&gt;Data source rejected establishment of connection, message from server: &amp;quot;Too many connections&amp;quot;&lt;/code&gt;。&lt;/p&gt;
+&lt;p&gt;你揉着惺忪的睡眼打开电脑，看着监控面板上飙升到顶的红色曲线，手心开始冒汗。那一刻，你可能和我当初一样，下意识的第一反应是：“赶紧把连接池调大点！”&lt;/p&gt;
+&lt;p&gt;&lt;img src=&#34;https://picsum.photos/800/450?random=1768458024874&#34;
+	
+	
+	
+	loading=&#34;lazy&#34;
+	
+		alt=&#34;配图&#34;
+	
+	
+&gt;&lt;/p&gt;
+&lt;p&gt;&lt;strong&gt;请停下来。&lt;/strong&gt;&lt;/p&gt;
+&lt;p&gt;我也曾以为“池子越大，并发越高”，直到在一次双十一压测中，我亲手把所有的数据库节点都拖垮了。那时我才明白，技术上的许多“直觉”，往往是通往灾难的捷径。&lt;/p&gt;
+&lt;p&gt;今天，我想陪大家聊聊关于连接池的那些“反直觉”真相。这不是一篇枯燥的技术文档，而是无数个不眠之夜换来的实战复盘。希望这些经验能像一杯热茶，在这个寒冬里，给你和你的系统带来一点温暖和确定性。&lt;/p&gt;
+&lt;h2 id=&#34;盲目扩容一场堵车引发的惨案&#34;&gt;盲目扩容：一场“堵车”引发的惨案
+&lt;/h2&gt;&lt;p&gt;大概三年前，我接手过一个电商大促项目。当时的架构师为了追求极致的并发，把每个微服务的连接池最大连接数（MaxActive）从默认的10直接干到了200。&lt;/p&gt;
+&lt;p&gt;他的逻辑很简单：&lt;strong&gt;路宽了，车不就跑得快了吗？&lt;/strong&gt;&lt;/p&gt;
+&lt;p&gt;结果大促开始不到5分钟，数据库CPU飙升到98%，但TPS（每秒事务处理量）却断崖式下跌。所有的应用线程都在等待数据库响应，而数据库那边却忙着在成千上万个线程之间做上下文切换（Context Switching），真正干活的时间少得可怜。&lt;/p&gt;
+&lt;p&gt;这就像早高峰的十字路口，如果你把原本的4车道突然扩建成40车道，但出口只有一个收费站（CPU核心），结果会怎样？车辆不仅过不去，还会因为互相加塞、剐蹭，彻底把路堵死。&lt;/p&gt;
+&lt;blockquote&gt;
+&lt;p&gt;&lt;strong&gt;行业铁律&lt;/strong&gt;：对于数据库而言，连接数并不是越多越好。&lt;/p&gt;
+&lt;/blockquote&gt;
+&lt;p&gt;后来，我们参考了PostgreSQL核心维护者提供的公式，做了一次大胆的“降级”实验：&lt;/p&gt;
+&lt;div class=&#34;highlight&#34;&gt;&lt;pre tabindex=&#34;0&#34; style=&#34;color:#f8f8f2;background-color:#272822;-moz-tab-size:4;-o-tab-size:4;tab-size:4;&#34;&gt;&lt;code class=&#34;language-java&#34; data-lang=&#34;java&#34;&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;&lt;span style=&#34;color:#75715e&#34;&gt;// 经验公式：连接数 = ((核心数 * 2) + 有效磁盘数)&lt;/span&gt;
+&lt;/span&gt;&lt;/span&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;&lt;span style=&#34;color:#75715e&#34;&gt;// 即使是强悍的服务器，通常也不需要超过几百个连接&lt;/span&gt;
+&lt;/span&gt;&lt;/span&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;poolSize &lt;span style=&#34;color:#f92672&#34;&gt;=&lt;/span&gt; (cpu_core_count &lt;span style=&#34;color:#f92672&#34;&gt;*&lt;/span&gt; 2) &lt;span style=&#34;color:#f92672&#34;&gt;+&lt;/span&gt; effective_spindle_count
+&lt;/span&gt;&lt;/span&gt;&lt;/code&gt;&lt;/pre&gt;&lt;/div&gt;&lt;p&gt;我们将连接池大小强行降回到了 &lt;strong&gt;HikariCP 推荐的固定大小（如 10-20）&lt;/strong&gt;。奇迹发生了：CPU 负载降到了 40% 以下，而吞吐量反而提升了 3 倍。&lt;/p&gt;
+&lt;p&gt;&lt;strong&gt;治愈建议：&lt;/strong&gt;
+如果你正为性能发愁，试着&lt;strong&gt;做减法&lt;/strong&gt;。信任你的数据库，给它一点呼吸的空间。与其无限制地增加连接，不如优化你的 SQL 语句。&lt;/p&gt;
+&lt;h2 id=&#34;隐形杀手那些借而不还的连接&#34;&gt;隐形杀手：那些“借而不还”的连接
+&lt;/h2&gt;&lt;p&gt;如果说配置错误是明枪，那么代码层面的泄漏就是暗箭。&lt;/p&gt;
+&lt;p&gt;我记得有个做金融报表的兄弟项目，每周五下午两点准时崩盘。那个时间点业务量并不大，但连接池总是莫名其妙地满载。重启应用能好一小时，然后继续满。&lt;/p&gt;
+&lt;p&gt;排查了两天，我们发现了一个藏得很深的代码逻辑。在一段处理Excel导出的代码中，开发同学手动获取了连接，却把 &lt;code&gt;connection.close()&lt;/code&gt; 写在了一个巨大的 &lt;code&gt;try&lt;/code&gt; 块里。而那个 &lt;code&gt;try&lt;/code&gt; 块中间有一行代码，在特定数据下会抛出 &lt;code&gt;NullPointerException&lt;/code&gt;，直接跳过了关闭连接的步骤。&lt;/p&gt;
+&lt;p&gt;这就像你去图书馆借书，书没还，人却走了。久而久之，图书馆的书架空了，后面排队的人只能干瞪眼。&lt;/p&gt;
+&lt;p&gt;&lt;strong&gt;针对这个案例，我们引入了两个机制：&lt;/strong&gt;&lt;/p&gt;
+&lt;ol&gt;
+&lt;li&gt;&lt;strong&gt;强制超时回收（Leak Detection）：&lt;/strong&gt; 在连接池层面（以HikariCP为例）开启泄漏检测。&lt;/li&gt;
+&lt;li&gt;&lt;strong&gt;防御性编程：&lt;/strong&gt; 永远不要相信手动管理连接，尽可能使用 &lt;code&gt;try-with-resources&lt;/code&gt;。&lt;/li&gt;
+&lt;/ol&gt;
+&lt;div class=&#34;highlight&#34;&gt;&lt;pre tabindex=&#34;0&#34; style=&#34;color:#f8f8f2;background-color:#272822;-moz-tab-size:4;-o-tab-size:4;tab-size:4;&#34;&gt;&lt;code class=&#34;language-yaml&#34; data-lang=&#34;yaml&#34;&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;&lt;span style=&#34;color:#75715e&#34;&gt;# HikariCP 配置示例&lt;/span&gt;
+&lt;/span&gt;&lt;/span&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;&lt;span style=&#34;color:#f92672&#34;&gt;hikari&lt;/span&gt;:
+&lt;/span&gt;&lt;/span&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;  &lt;span style=&#34;color:#75715e&#34;&gt;# 超过2秒未归还连接，打印堆栈日志，帮你定位是哪行代码在“耍流氓”&lt;/span&gt;
+&lt;/span&gt;&lt;/span&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;  &lt;span style=&#34;color:#f92672&#34;&gt;leak-detection-threshold&lt;/span&gt;: &lt;span style=&#34;color:#ae81ff&#34;&gt;2000&lt;/span&gt; 
+&lt;/span&gt;&lt;/span&gt;&lt;/code&gt;&lt;/pre&gt;&lt;/div&gt;&lt;p&gt;自从加上这个配置，那个每周五下午让我心惊肉跳的报警，再也没响过。我也终于能在周五下午安心地去楼下喝杯拿铁了。&lt;/p&gt;
+&lt;h2 id=&#34;虚假繁荣由于验证引发的风暴&#34;&gt;虚假繁荣：由于“验证”引发的风暴
+&lt;/h2&gt;&lt;p&gt;还有一个坑，特别容易被忽略，那就是&lt;strong&gt;连接有效性检测&lt;/strong&gt;。&lt;/p&gt;
+&lt;p&gt;早期的 DBCP 或 Druid 配置中，很多人喜欢开启 &lt;code&gt;testOnBorrow=true&lt;/code&gt;（借出时检测）。这意味着，每次业务拿连接，都要先发一个 &lt;code&gt;SELECT 1&lt;/code&gt; 给数据库问问：“老兄，你还活着吗？”&lt;/p&gt;
+&lt;p&gt;在低并发时，这没问题。但在高并发场景下，这多出来的一次网络交互（Round Trip），就是压死骆驼的最后一根稻草。&lt;/p&gt;
+&lt;p&gt;我有一次在做系统迁移时，因为照搬了老旧的配置，导致应用启动瞬间数据库压力暴增。明明业务请求还没进来，数据库QPS已经飙高了——全是在做心跳检测。&lt;/p&gt;
+&lt;p&gt;&lt;strong&gt;更优雅的解法是：&lt;/strong&gt;&lt;/p&gt;
+&lt;p&gt;利用现代驱动的底层能力。现在的 JDBC 驱动（如 MySQL Connector/J）已经足够智能。&lt;/p&gt;
+&lt;ul&gt;
+&lt;li&gt;&lt;strong&gt;推荐策略&lt;/strong&gt;：关闭 &lt;code&gt;testOnBorrow&lt;/code&gt;，利用 &lt;code&gt;JDBC4 Connection.isValid()&lt;/code&gt; 方法。&lt;/li&gt;
+&lt;li&gt;&lt;strong&gt;具体操作&lt;/strong&gt;：设置合理的 &lt;code&gt;maxLifeTime&lt;/code&gt;（最大生命周期）。让连接在变得“苍老”之前，主动退休，而不是等到它坏了再去修。&lt;/li&gt;
+&lt;/ul&gt;
+&lt;p&gt;设置 &lt;code&gt;maxLifeTime&lt;/code&gt; 比数据库服务端的 &lt;code&gt;wait_timeout&lt;/code&gt; 短 30-60 秒，是一个既安全又高效的黄金法则。这能保证你的连接池里永远是一批精力充沛的“年轻人”。&lt;/p&gt;
+&lt;h2 id=&#34;写在最后&#34;&gt;写在最后
+&lt;/h2&gt;&lt;p&gt;技术工作不仅是与机器的对话，更是对人性的修炼。我们总想拥有更多资源（更多连接），总想掌控一切（频繁检测），但往往&lt;strong&gt;克制&lt;/strong&gt;和&lt;strong&gt;信任&lt;/strong&gt;才是系统稳定的基石。&lt;/p&gt;
+&lt;p&gt;解决数据库连接耗尽的问题，归根结底只需三步走：&lt;/p&gt;
+&lt;ol&gt;
+&lt;li&gt;&lt;strong&gt;理性克制&lt;/strong&gt;：根据 CPU 核心数计算连接池大小，别被“越大越好”的直觉欺骗。&lt;/li&gt;
+&lt;li&gt;&lt;strong&gt;兜底思维&lt;/strong&gt;：开启连接泄漏检测（Leak Detection），给代码加一道保险。&lt;/li&gt;
+&lt;li&gt;&lt;strong&gt;顺势而为&lt;/strong&gt;：利用驱动特性，配置合理的生命周期（MaxLifetime），减少无用的交互。&lt;/li&gt;
+&lt;/ol&gt;
+&lt;p&gt;&lt;img src=&#34;https://picsum.photos/800/450?random=1768458026843&#34;
+	
+	
+	
+	loading=&#34;lazy&#34;
+	
+		alt=&#34;配图&#34;
+	
+	
+&gt;&lt;/p&gt;
+&lt;p&gt;在这个充满不确定性的时代，让我们的系统变得更具韧性，或许是我们能给用户、给团队、给自己最好的安慰。&lt;/p&gt;
+&lt;p&gt;&lt;strong&gt;最后，想问问大家：&lt;/strong&gt;&lt;/p&gt;
+&lt;p&gt;你在维护系统的过程中，遇到过最离谱的数据库崩溃原因是什么？是半夜的定时任务？还是某条没有索引的慢 SQL？&lt;/p&gt;
+&lt;p&gt;欢迎在评论区聊聊你的故事。有时候，说出来，焦虑就少了一半。&lt;/p&gt;
+</description>
+        </item>
+        
+    </channel>
+</rss>

@@ -1,0 +1,133 @@
+<?xml version="1.0" encoding="utf-8" standalone="yes"?>
+<rss version="2.0" xmlns:atom="http://www.w3.org/2005/Atom">
+    <channel>
+        <title>性能瓶颈定位：从现象到根源的排查 on SelfTechHub</title>
+        <link>https://blog.irudder.me/tags/%E6%80%A7%E8%83%BD%E7%93%B6%E9%A2%88%E5%AE%9A%E4%BD%8D%E4%BB%8E%E7%8E%B0%E8%B1%A1%E5%88%B0%E6%A0%B9%E6%BA%90%E7%9A%84%E6%8E%92%E6%9F%A5.html</link>
+        <description>Recent content in 性能瓶颈定位：从现象到根源的排查 on SelfTechHub</description>
+        <generator>Hugo -- gohugo.io</generator>
+        <language>zh-cn</language>
+        <lastBuildDate>Fri, 02 May 2025 00:00:00 +0000</lastBuildDate><atom:link href="https://blog.irudder.me/tags/%E6%80%A7%E8%83%BD%E7%93%B6%E9%A2%88%E5%AE%9A%E4%BD%8D%E4%BB%8E%E7%8E%B0%E8%B1%A1%E5%88%B0%E6%A0%B9%E6%BA%90%E7%9A%84%E6%8E%92%E6%9F%A5/index.xml" rel="self" type="application/rss+xml" /><item>
+        <title>CPU飙升100%？别急着重启，3招揪出幕后黑手</title>
+        <link>https://blog.irudder.me/tech/jiagouyouhuashizhananlijiexi/xingnengpingjingdingwei_congxianxiangdaogenyuandepaicha.html</link>
+        <pubDate>Fri, 02 May 2025 00:00:00 +0000</pubDate>
+        
+        <guid>https://blog.irudder.me/tech/jiagouyouhuashizhananlijiexi/xingnengpingjingdingwei_congxianxiangdaogenyuandepaicha.html</guid>
+        <description>&lt;p&gt;这也是我早期运维生涯中最常犯的错：报警短信在凌晨2点响起，迷迷糊糊爬起来，看到服务器负载飙升，第一反应往往是 &lt;strong&gt;&amp;ldquo;先重启再说&amp;rdquo;&lt;/strong&gt;。&lt;/p&gt;
+&lt;p&gt;重启确实能暂时止血，让老板和客户不再投诉，但它也&lt;strong&gt;彻底破坏了&amp;quot;案发现场&amp;quot;&lt;/strong&gt;。等到第二天早高峰流量一上来，问题依旧会复现，而你手里没有任何线索，只能两眼一抹黑地去猜代码逻辑。&lt;/p&gt;
+&lt;p&gt;现在的我，习惯在每周五下午做一次系统的&amp;quot;体检&amp;quot;复盘。我发现，真正的性能瓶颈排查，绝不是靠猜，而是靠&lt;strong&gt;保留现场、精准定位、数据说话&lt;/strong&gt;。&lt;/p&gt;
+&lt;p&gt;这里分享我这几年在生产环境摸爬滚打总结出来的三个&amp;quot;反直觉&amp;quot;排查思路，希望能帮你少踩几个坑。&lt;/p&gt;
+&lt;hr&gt;
+&lt;h2 id=&#34;一-别只盯着数据库cpu飙升往往是代码在空转&#34;&gt;一、 别只盯着数据库，CPU飙升往往是代码在&amp;quot;空转&amp;quot;
+&lt;/h2&gt;&lt;p&gt;很多开发有一个误区：系统慢了？肯定是数据库不行，加索引！CPU高了？肯定是并发太大，加机器！&lt;/p&gt;
+&lt;p&gt;&lt;strong&gt;观点：&lt;/strong&gt; 80%的CPU异常飙升，不是因为用户太多，而是因为代码里有死循环、频繁GC或者低效的计算逻辑。&lt;/p&gt;
+&lt;p&gt;&lt;strong&gt;真实案例：&lt;/strong&gt;
+去年双11大促备战期间，我们有一个核心的促销服务，在进行压测时，并发才到500 QPS，CPU就直接被打到了95%以上。&lt;/p&gt;
+&lt;p&gt;起初团队一直认为是MySQL扛不住，但我看了一眼数据库监控，CPU利用率不足20%。显然，瓶颈在应用层。&lt;/p&gt;
+&lt;p&gt;&lt;strong&gt;排查方法：&lt;/strong&gt;
+我没有重启服务，而是直接上服务器操作了三步（这套连招建议背下来）：&lt;/p&gt;
+&lt;ol&gt;
+&lt;li&gt;&lt;strong&gt;定位进程：&lt;/strong&gt; &lt;code&gt;top&lt;/code&gt; 找到占用CPU最高的进程ID（PID）。&lt;/li&gt;
+&lt;li&gt;&lt;strong&gt;定位线程：&lt;/strong&gt; &lt;code&gt;top -Hp &amp;lt;PID&amp;gt;&lt;/code&gt; 找出该进程下最耗费CPU的线程ID，并将线程ID转换为16进制（比如用 &lt;code&gt;printf &amp;quot;%x\n&amp;quot; &amp;lt;线程ID&amp;gt;&lt;/code&gt;）。&lt;/li&gt;
+&lt;li&gt;&lt;strong&gt;定位代码：&lt;/strong&gt; &lt;code&gt;jstack &amp;lt;PID&amp;gt; | grep &amp;lt;16进制线程ID&amp;gt; -A 20&lt;/code&gt;，直接打印出该线程当前的堆栈信息。&lt;/li&gt;
+&lt;/ol&gt;
+&lt;p&gt;&lt;strong&gt;真相大白：&lt;/strong&gt;
+堆栈直接指向了一行代码——一个用于处理营销文案的&lt;strong&gt;正则表达式&lt;/strong&gt;。一位刚入职的同事写了一个极其复杂的正则，在处理某些特殊长字符串时发生了&amp;quot;回溯灾难&amp;quot;（Catastrophic Backtracking）。CPU不是在干活，而是在进行数亿次的无效匹配。&lt;/p&gt;
+&lt;p&gt;我们将正则逻辑优化为简单的字符串替换后，同样的机器配置，QPS轻松抗到了4000，CPU仅占用30%。&lt;/p&gt;
+&lt;hr&gt;
+&lt;h2 id=&#34;二-隐形的io等待比报错更可怕&#34;&gt;二、 &amp;ldquo;隐形&amp;quot;的I/O等待，比报错更可怕
+&lt;/h2&gt;&lt;p&gt;有时候服务器负载（Load Average）很高，系统响应极慢，但你一看CPU使用率，可能只有10%不到。这种&amp;quot;有劲使不出&amp;quot;的感觉最让人抓狂。&lt;/p&gt;
+&lt;p&gt;&lt;strong&gt;观点：&lt;/strong&gt; 这种现象通常是 &lt;strong&gt;I/O Wait&lt;/strong&gt; 过高导致的。线程都在排队等待磁盘读写或网络响应，CPU处于闲置状态，但系统已经瘫痪了。&lt;/p&gt;
+&lt;p&gt;&lt;strong&gt;真实案例：&lt;/strong&gt;
+2022年某个周三下午，我们的报表导出服务突然卡死。运维监控显示 Load Average 飙到了 20（4核机器），但 CPU id（空闲） 却还有 80%。&lt;/p&gt;
+&lt;p&gt;&lt;img src=&#34;https://picsum.photos/800/450?random=1768458252164&#34;
+	
+	
+	
+	loading=&#34;lazy&#34;
+	
+		alt=&#34;配图&#34;
+	
+	
+&gt;&lt;/p&gt;
+&lt;p&gt;开发团队排查了一圈SQL，发现全是简单查询。我看了一眼服务器的连接状态，发现大量线程处于 &lt;code&gt;WAITING&lt;/code&gt; 状态。&lt;/p&gt;
+&lt;p&gt;&lt;strong&gt;排查细节：&lt;/strong&gt;
+我使用了 &lt;code&gt;iostat -x 1&lt;/code&gt; 命令，发现磁盘 &lt;code&gt;%util&lt;/code&gt;（利用率）并没有满，说明不是本地磁盘问题。
+接着我用 &lt;code&gt;Arthas&lt;/code&gt;（阿里开源的诊断工具）查看线程堆栈，发现几百个线程都卡在了一个第三方支付渠道的SDK调用上。&lt;/p&gt;
+&lt;div class=&#34;highlight&#34;&gt;&lt;pre tabindex=&#34;0&#34; style=&#34;color:#f8f8f2;background-color:#272822;-moz-tab-size:4;-o-tab-size:4;tab-size:4;&#34;&gt;&lt;code class=&#34;language-java&#34; data-lang=&#34;java&#34;&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;&lt;span style=&#34;color:#75715e&#34;&gt;// 模拟当时的堆栈情况&lt;/span&gt;
+&lt;/span&gt;&lt;/span&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;&lt;span style=&#34;color:#e6db74&#34;&gt;&amp;#34;http-nio-8080-exec-5&amp;#34;&lt;/span&gt; &lt;span style=&#34;color:#960050;background-color:#1e0010&#34;&gt;#&lt;/span&gt;23 ... waiting on condition 
+&lt;/span&gt;&lt;/span&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;   java.&lt;span style=&#34;color:#a6e22e&#34;&gt;lang&lt;/span&gt;.&lt;span style=&#34;color:#a6e22e&#34;&gt;Thread&lt;/span&gt;.&lt;span style=&#34;color:#a6e22e&#34;&gt;State&lt;/span&gt;: WAITING (parking)
+&lt;/span&gt;&lt;/span&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;   at sun.&lt;span style=&#34;color:#a6e22e&#34;&gt;misc&lt;/span&gt;.&lt;span style=&#34;color:#a6e22e&#34;&gt;Unsafe&lt;/span&gt;.&lt;span style=&#34;color:#a6e22e&#34;&gt;park&lt;/span&gt;(Native Method)
+&lt;/span&gt;&lt;/span&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;   ...
+&lt;/span&gt;&lt;/span&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;   at com.&lt;span style=&#34;color:#a6e22e&#34;&gt;thirdparty&lt;/span&gt;.&lt;span style=&#34;color:#a6e22e&#34;&gt;payment&lt;/span&gt;.&lt;span style=&#34;color:#a6e22e&#34;&gt;sdk&lt;/span&gt;.&lt;span style=&#34;color:#a6e22e&#34;&gt;verify&lt;/span&gt;(...) &lt;span style=&#34;color:#75715e&#34;&gt;// 罪魁祸首&lt;/span&gt;
+&lt;/span&gt;&lt;/span&gt;&lt;/code&gt;&lt;/pre&gt;&lt;/div&gt;&lt;p&gt;&lt;strong&gt;根源：&lt;/strong&gt;
+那个第三方支付渠道的API挂了，响应极慢（超过30秒）。而我们的代码中，HTTP客户端&lt;strong&gt;没有设置合理的超时时间&lt;/strong&gt;（默认无限等待）。导致所有处理线程都被这个外部请求&amp;quot;挂起&amp;rdquo;，耗尽了线程池，后续的正常请求进不来，系统假死。&lt;/p&gt;
+&lt;p&gt;&lt;strong&gt;硬核解法：&lt;/strong&gt;&lt;/p&gt;
+&lt;ul&gt;
+&lt;li&gt;&lt;strong&gt;短期：&lt;/strong&gt; 紧急重启，并临时通过防火墙切断该第三方服务的调用。&lt;/li&gt;
+&lt;li&gt;&lt;strong&gt;长期：&lt;/strong&gt; 所有外部依赖调用（DB、Redis、第三方API），&lt;strong&gt;必须&lt;/strong&gt;强制设置 &lt;code&gt;Connect Timeout&lt;/code&gt; 和 &lt;code&gt;Read Timeout&lt;/code&gt;。对于非核心链路，必须加上&lt;strong&gt;熔断降级&lt;/strong&gt;策略。&lt;/li&gt;
+&lt;/ul&gt;
+&lt;hr&gt;
+&lt;h2 id=&#34;三-日志不是越多越好它可能是性能刺客&#34;&gt;三、 日志不是越多越好，它可能是性能刺客
+&lt;/h2&gt;&lt;p&gt;&lt;img src=&#34;https://picsum.photos/800/450?random=1768458259712&#34;
+	
+	
+	
+	loading=&#34;lazy&#34;
+	
+		alt=&#34;配图&#34;
+	
+	
+&gt;&lt;/p&gt;
+&lt;p&gt;&amp;ldquo;为了方便排查问题，我把所有参数都打到日志里了。&amp;rdquo; —— 听起来很负责任，但在高并发场景下，这可能是致命的。&lt;/p&gt;
+&lt;p&gt;&lt;strong&gt;观点：&lt;/strong&gt; 序列化（Serialization）和磁盘写入是昂贵的操作。在热点代码路径上打印大对象日志，足以拖垮整个服务。&lt;/p&gt;
+&lt;p&gt;&lt;strong&gt;真实案例：&lt;/strong&gt;
+今年年初，我们上线了一个用户画像推荐服务。上线后发现，TP99（99%的请求响应时间）从 20ms 飙升到了 300ms。&lt;/p&gt;
+&lt;p&gt;没有死循环，没有慢SQL，外部依赖也正常。为了定位问题，我使用了 &lt;strong&gt;火焰图（Flame Graph）&lt;/strong&gt; 进行全链路分析。&lt;/p&gt;
+&lt;p&gt;&lt;strong&gt;排查过程：&lt;/strong&gt;
+通过 &lt;code&gt;async-profiler&lt;/code&gt; 生成火焰图，我看到一个巨大的&amp;quot;平顶山&amp;quot;（表示占用大量CPU时间），竟然来自 &lt;code&gt;log.info(&amp;quot;User Context: {}&amp;quot;, userObject)&lt;/code&gt;。&lt;/p&gt;
+&lt;p&gt;&lt;strong&gt;真相：&lt;/strong&gt;
+那个 &lt;code&gt;userObject&lt;/code&gt; 包含了用户的几百个标签、历史订单列表等数据，转成 JSON 字符串足足有 20KB。而在推荐循环里，每个商品判定都会打印一次这个日志。
+这意味着，每处理一次请求，CPU都要疯狂进行 JSON 序列化，磁盘IO也被日志写满。&lt;/p&gt;
+&lt;p&gt;&lt;strong&gt;改进方案：&lt;/strong&gt;
+删掉这行日志后，性能提升了10倍。我随后在团队内推行了一个日志规范：&lt;/p&gt;
+&lt;blockquote&gt;
+&lt;p&gt;生产环境禁止在循环内打印日志；
+禁止直接打印未经过滤的超大对象；
+必须使用 &lt;code&gt;if(log.isDebugEnabled())&lt;/code&gt; 进行判断，或者使用占位符，避免无效的字符串拼接。&lt;/p&gt;
+&lt;/blockquote&gt;
+&lt;hr&gt;
+&lt;h2 id=&#34;结尾你的急救包准备好了吗&#34;&gt;结尾：你的&amp;quot;急救包&amp;quot;准备好了吗？
+&lt;/h2&gt;&lt;p&gt;性能优化不是玄学，它是基于证据的推理。不要等到火烧眉毛了再去百度&amp;quot;Linux常用命令&amp;quot;。&lt;/p&gt;
+&lt;p&gt;分享一个我常用的&lt;strong&gt;快速现场快照脚本&lt;/strong&gt;（建议保存为 &lt;code&gt;capture_snapshot.sh&lt;/code&gt;，出问题时执行一下再重启）：&lt;/p&gt;
+&lt;div class=&#34;highlight&#34;&gt;&lt;pre tabindex=&#34;0&#34; style=&#34;color:#f8f8f2;background-color:#272822;-moz-tab-size:4;-o-tab-size:4;tab-size:4;&#34;&gt;&lt;code class=&#34;language-bash&#34; data-lang=&#34;bash&#34;&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;&lt;span style=&#34;color:#75715e&#34;&gt;#!/bin/bash
+&lt;/span&gt;&lt;/span&gt;&lt;/span&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;&lt;span style=&#34;color:#75715e&#34;&gt;&lt;/span&gt;&lt;span style=&#34;color:#75715e&#34;&gt;# 遇到故障先别慌，跑完这个再重启&lt;/span&gt;
+&lt;/span&gt;&lt;/span&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;TS&lt;span style=&#34;color:#f92672&#34;&gt;=&lt;/span&gt;&lt;span style=&#34;color:#66d9ef&#34;&gt;$(&lt;/span&gt;date +%Y%m%d_%H%M%S&lt;span style=&#34;color:#66d9ef&#34;&gt;)&lt;/span&gt;
+&lt;/span&gt;&lt;/span&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;DIR&lt;span style=&#34;color:#f92672&#34;&gt;=&lt;/span&gt;&lt;span style=&#34;color:#e6db74&#34;&gt;&amp;#34;/tmp/crash_dump_&lt;/span&gt;$TS&lt;span style=&#34;color:#e6db74&#34;&gt;&amp;#34;&lt;/span&gt;
+&lt;/span&gt;&lt;/span&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;mkdir -p $DIR
+&lt;/span&gt;&lt;/span&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;
+&lt;/span&gt;&lt;/span&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;&lt;span style=&#34;color:#75715e&#34;&gt;# 1. 保存系统负载快照&lt;/span&gt;
+&lt;/span&gt;&lt;/span&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;top -b -n &lt;span style=&#34;color:#ae81ff&#34;&gt;1&lt;/span&gt; &amp;gt; $DIR/top.log
+&lt;/span&gt;&lt;/span&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;vmstat &lt;span style=&#34;color:#ae81ff&#34;&gt;1&lt;/span&gt; &lt;span style=&#34;color:#ae81ff&#34;&gt;3&lt;/span&gt; &amp;gt; $DIR/vmstat.log
+&lt;/span&gt;&lt;/span&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;iostat -x &lt;span style=&#34;color:#ae81ff&#34;&gt;1&lt;/span&gt; &lt;span style=&#34;color:#ae81ff&#34;&gt;3&lt;/span&gt; &amp;gt; $DIR/iostat.log
+&lt;/span&gt;&lt;/span&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;
+&lt;/span&gt;&lt;/span&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;&lt;span style=&#34;color:#75715e&#34;&gt;# 2. 如果是Java应用，尝试保留堆栈（假设PID已知或自动获取）&lt;/span&gt;
+&lt;/span&gt;&lt;/span&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;&lt;span style=&#34;color:#75715e&#34;&gt;# PID=$(pgrep -f &amp;#34;java&amp;#34; | head -n 1)&lt;/span&gt;
+&lt;/span&gt;&lt;/span&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;&lt;span style=&#34;color:#75715e&#34;&gt;# jstack $PID &amp;gt; $DIR/thread_dump.log&lt;/span&gt;
+&lt;/span&gt;&lt;/span&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;&lt;span style=&#34;color:#75715e&#34;&gt;# jmap -histo:live $PID &amp;gt; $DIR/heap_histo.log&lt;/span&gt;
+&lt;/span&gt;&lt;/span&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;
+&lt;/span&gt;&lt;/span&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;&lt;span style=&#34;color:#75715e&#34;&gt;# 3. 保存网络连接状态&lt;/span&gt;
+&lt;/span&gt;&lt;/span&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;netstat -nawk &amp;gt; $DIR/netstat.log
+&lt;/span&gt;&lt;/span&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;
+&lt;/span&gt;&lt;/span&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;echo &lt;span style=&#34;color:#e6db74&#34;&gt;&amp;#34;现场已保留至: &lt;/span&gt;$DIR&lt;span style=&#34;color:#e6db74&#34;&gt;&amp;#34;&lt;/span&gt;
+&lt;/span&gt;&lt;/span&gt;&lt;/code&gt;&lt;/pre&gt;&lt;/div&gt;&lt;p&gt;&lt;strong&gt;最后给3个可落地的行动建议：&lt;/strong&gt;&lt;/p&gt;
+&lt;ol&gt;
+&lt;li&gt;&lt;strong&gt;告别&amp;quot;重启大神&amp;quot;：&lt;/strong&gt; 下次遇到性能问题，强迫自己先用 &lt;code&gt;top&lt;/code&gt; 和 &lt;code&gt;jstack&lt;/code&gt; 看一眼再重启，哪怕只看一眼，你也比上次进步了。&lt;/li&gt;
+&lt;li&gt;&lt;strong&gt;给系统装上&amp;quot;记录仪&amp;quot;：&lt;/strong&gt; 还没用上 SkyWalking 或 Arthas？赶紧去调研一下，看不见内部状态的系统就是个黑盒。&lt;/li&gt;
+&lt;li&gt;&lt;strong&gt;防御性编程：&lt;/strong&gt; 检查你负责的代码，所有的外部调用（HTTP/RPC/DB）到底有没有设置超时时间？如果没有，今天就加上。&lt;/li&gt;
+&lt;/ol&gt;
+&lt;p&gt;排查性能瓶颈，本质上是&lt;strong&gt;与系统对话&lt;/strong&gt;。当你能听懂它的&amp;quot;呻吟&amp;quot;（日志、监控、堆栈）时，就没有解决不了的Bug。&lt;/p&gt;
+</description>
+        </item>
+        
+    </channel>
+</rss>

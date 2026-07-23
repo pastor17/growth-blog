@@ -1,0 +1,111 @@
+<?xml version="1.0" encoding="utf-8" standalone="yes"?>
+<rss version="2.0" xmlns:atom="http://www.w3.org/2005/Atom">
+    <channel>
+        <title>需求评审会（PRD Review）的避坑指南 on SelfTechHub</title>
+        <link>https://blog.irudder.me/tags/%E9%9C%80%E6%B1%82%E8%AF%84%E5%AE%A1%E4%BC%9APRD-Review%E7%9A%84%E9%81%BF%E5%9D%91%E6%8C%87%E5%8D%97.html</link>
+        <description>Recent content in 需求评审会（PRD Review）的避坑指南 on SelfTechHub</description>
+        <generator>Hugo -- gohugo.io</generator>
+        <language>zh-cn</language>
+        <lastBuildDate>Thu, 26 Jan 2023 00:00:00 +0000</lastBuildDate><atom:link href="https://blog.irudder.me/tags/%E9%9C%80%E6%B1%82%E8%AF%84%E5%AE%A1%E4%BC%9APRD-Review%E7%9A%84%E9%81%BF%E5%9D%91%E6%8C%87%E5%8D%97/index.xml" rel="self" type="application/rss+xml" /><item>
+        <title>告别「撕逼」现场：PRD评审避坑的3个底层逻辑</title>
+        <link>https://blog.irudder.me/tech/kuabumenxiezuogaopinwentijiejueqingdan/xuqiupingshenhuiprd-reviewdebikengzhinan.html</link>
+        <pubDate>Thu, 26 Jan 2023 00:00:00 +0000</pubDate>
+        
+        <guid>https://blog.irudder.me/tech/kuabumenxiezuogaopinwentijiejueqingdan/xuqiupingshenhuiprd-reviewdebikengzhinan.html</guid>
+        <description>&lt;p&gt;这周三下午两点，我又在茶水间碰到了满脸愁容的产品经理小A。手里捏着刚打印好的需求文档，他叹了口气说：“一想到下午的PRD评审我就胃疼。上次评审，开发老张的一个逻辑漏洞追问，让我在全组面前挂了十分钟黑板，太窒息了。”&lt;/p&gt;
+&lt;p&gt;这种窒息感，相信很多做产品或者技术的朋友都不陌生。&lt;/p&gt;
+&lt;p&gt;在这个行业摸爬滚打这么多年，我曾一度以为，评审会即使不是战场，也是某种意义上的“法庭”——产品经理是被告，技术是原告，而在场的其他人是陪审团。只要文档写得够细、逻辑够严密，就能赢得这场“官司”。&lt;/p&gt;
+&lt;p&gt;&lt;strong&gt;直到踩过无数个“文档很完美，上线就崩盘”的大坑，我才意识到：评审会的本质不是“找茬”，而是一次集体对齐认知的过程。&lt;/strong&gt;&lt;/p&gt;
+&lt;p&gt;&lt;img src=&#34;https://picsum.photos/800/450?random=1768450584481&#34;
+	
+	
+	
+	loading=&#34;lazy&#34;
+	
+		alt=&#34;配图&#34;
+	
+	
+&gt;&lt;/p&gt;
+&lt;p&gt;如果你也在这场协作游戏中感到心累，不妨停下来，看看这几个能让你从焦虑中解脱出来的底层逻辑。&lt;/p&gt;
+&lt;h2 id=&#34;什么是隐形信息的诅咒&#34;&gt;什么是「隐形信息」的诅咒？
+&lt;/h2&gt;&lt;p&gt;很多时候，评审会上的争执，并不是因为你写得不够好，而是因为“知识诅咒”。你脑海中理所应当的逻辑，在别人眼里可能是完全陌生的黑洞。&lt;/p&gt;
+&lt;p&gt;&lt;strong&gt;我们来看一个真实的惨案：&lt;/strong&gt;&lt;/p&gt;
+&lt;p&gt;去年双十一前夕，电商团队要做一个“满减凑单页”。需求文档写得很漂亮：“用户在购物车勾选商品，若不满300元，点击凑单按钮，跳转至凑单推荐页。”&lt;/p&gt;
+&lt;p&gt;评审时大家一片祥和，前端说没问题，后端说接口现成的。&lt;/p&gt;
+&lt;p&gt;结果上线前一天，测试测出了一个Blocking级别的Bug：如果用户购物车里什么都没勾选，点击“凑单”会发生什么？文档里没写。前端默认置灰不可点，后端默认跳转推荐页（但参数为空报错）。&lt;/p&gt;
+&lt;p&gt;就为了这个极其细小的交互差异，两个组在发布窗口期吵了半小时，最后不得不临时加了一个Toast提示，代码重新打包，所有人陪着熬夜到凌晨三点。&lt;/p&gt;
+&lt;p&gt;&lt;strong&gt;如何破解？&lt;/strong&gt;&lt;/p&gt;
+&lt;p&gt;我这几年坚持用一个笨办法：&lt;strong&gt;「伪代码+状态图」前置&lt;/strong&gt;。&lt;/p&gt;
+&lt;p&gt;文字是有欺骗性的，但逻辑图不会。在评审会之前，不要只讲“用户做什么”，要讲“数据怎么流转”。&lt;/p&gt;
+&lt;p&gt;对于关键逻辑，哪怕你是产品经理，也可以尝试用简单的伪代码逻辑来表述：&lt;/p&gt;
+&lt;div class=&#34;highlight&#34;&gt;&lt;pre tabindex=&#34;0&#34; style=&#34;color:#f8f8f2;background-color:#272822;-moz-tab-size:4;-o-tab-size:4;tab-size:4;&#34;&gt;&lt;code class=&#34;language-text&#34; data-lang=&#34;text&#34;&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;IF (用户勾选商品总金额 &amp;gt; 0 AND &amp;lt; 300) {
+&lt;/span&gt;&lt;/span&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;    跳转凑单页(带入当前差额参数);
+&lt;/span&gt;&lt;/span&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;} ELSE IF (用户勾选商品总金额 == 0) {
+&lt;/span&gt;&lt;/span&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;    弹出提示(&amp;#34;请先勾选商品&amp;#34;);
+&lt;/span&gt;&lt;/span&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;} ELSE {
+&lt;/span&gt;&lt;/span&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;    // 满额情况
+&lt;/span&gt;&lt;/span&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;    跳转结算页;
+&lt;/span&gt;&lt;/span&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;}
+&lt;/span&gt;&lt;/span&gt;&lt;/code&gt;&lt;/pre&gt;&lt;/div&gt;&lt;p&gt;&lt;img src=&#34;https://picsum.photos/800/450?random=1768450580635&#34;
+	
+	
+	
+	loading=&#34;lazy&#34;
+	
+		alt=&#34;配图&#34;
+	
+	
+&gt;&lt;/p&gt;
+&lt;p&gt;当你把逻辑具象化到这种程度，技术人员感受到的不是“被指挥”，而是“被理解”。这种安全感，是高效评审的基础。&lt;/p&gt;
+&lt;h2 id=&#34;沉默不代表同意可能是防御性接受&#34;&gt;沉默不代表同意，可能是「防御性接受」
+&lt;/h2&gt;&lt;p&gt;你有没有遇到过这种情况：评审会上你问“大家有疑问吗？”，全场鸦雀无声。你以为万事大吉，结果开发排期出来——原本预估3天的工作量，对方报了7天。&lt;/p&gt;
+&lt;p&gt;这时候你才发现，沉默背后藏着巨大的雷。&lt;/p&gt;
+&lt;p&gt;&lt;strong&gt;这就是典型的“防御性接受”。&lt;/strong&gt;&lt;/p&gt;
+&lt;p&gt;我曾带过一个做CRM系统的项目。那是周五下午四点的评审会，大家都急着下班。由于涉及到底层权限重构，逻辑非常绕。&lt;/p&gt;
+&lt;p&gt;当时的后端Tech Lead老李一直没说话，只是偶尔点头。我以为他懂了。结果周一开工，老李直接找过来说：“那个权限逻辑如果你坚持要按文档做，所有历史数据得洗一遍，风险极大，至少两周。”&lt;/p&gt;
+&lt;p&gt;那一刻我才明白，他在评审会上的沉默，是因为他当时也没想清楚怎么反驳，或者单纯不想在周五下午泼冷水。&lt;/p&gt;
+&lt;p&gt;&lt;strong&gt;我的建议是：把「技术预审」变成标准动作。&lt;/strong&gt;&lt;/p&gt;
+&lt;p&gt;不要试图在几十人的大会上解决核心矛盾。我现在的习惯是，在正式评审前1-2天，单独拉上核心开发和测试，开一个15-20分钟的“小灶会”。&lt;/p&gt;
+&lt;p&gt;话术很简单：“这个功能有点复杂，我不确定现在的方案是不是最优的，想请你们先帮我把把关，看看有没有技术硬伤。”&lt;/p&gt;
+&lt;p&gt;&lt;strong&gt;这样做有两个好处：&lt;/strong&gt;&lt;/p&gt;
+&lt;ol&gt;
+&lt;li&gt;&lt;strong&gt;面子问题&lt;/strong&gt;：如果你真的有逻辑漏洞，他们在私下指出来，你改了就好，不用当众出丑。&lt;/li&gt;
+&lt;li&gt;&lt;strong&gt;参与感&lt;/strong&gt;：当方案有了他们的建议，正式评审时，他们就成了你的“盟友”，会主动帮你解释技术难点，而不是站在对面挑刺。&lt;/li&gt;
+&lt;/ol&gt;
+&lt;h2 id=&#34;别让范围蔓延毁了你的排期&#34;&gt;别让「范围蔓延」毁了你的排期
+&lt;/h2&gt;&lt;p&gt;评审会最怕的不是吵架，而是“灵感爆发”。&lt;/p&gt;
+&lt;p&gt;往往是讲到某个功能点，运营突然插一句：“哎，这里能不能顺便加个分享按钮？”或者老板随口说：“这个报表能不能支持导出Excel？”&lt;/p&gt;
+&lt;p&gt;出于“顺手”的心态，或者迫于压力，很多人当场就答应了：“行，这个简单，加上。”&lt;/p&gt;
+&lt;p&gt;&lt;strong&gt;这就是噩梦的开始。&lt;/strong&gt;&lt;/p&gt;
+&lt;p&gt;记得三年前做一个社区APP的改版。评审会上，UI设计师提了一嘴：“这个点赞动画如果能做成类似Twitter那种爆炸效果就好了。”&lt;/p&gt;
+&lt;p&gt;当时的iOS小哥觉得挺酷，没多想就应下来了。结果那个动画库的兼容性极差，为了这就这一个“顺手”的需求，他在适配低版本机型上耗了整整两天，导致核心功能的联调延期，整个项目组的周末都搭进去了。&lt;/p&gt;
+&lt;p&gt;&lt;strong&gt;现在的我会使用「停车场（Parking Lot）」机制。&lt;/strong&gt;&lt;/p&gt;
+&lt;p&gt;在会议室白板的一角，专门画个框，写上“停车场”三个字。&lt;/p&gt;
+&lt;p&gt;当有人提出文档之外的新想法，无论多诱人、多简单，我都会温和但坚定地说：&lt;/p&gt;
+&lt;blockquote&gt;
+&lt;p&gt;“这个想法很棒，但为了保证咱们核心功能如期上线，我先把它记在停车场里。等评审完核心流程，我们再看有没有余量做这个，或者放到下个版本迭代。”&lt;/p&gt;
+&lt;/blockquote&gt;
+&lt;p&gt;这不仅保护了开发资源，也维护了评审会的严肃性。你会发现，90%被记在“停车场”里的需求，最后其实都没那么重要。&lt;/p&gt;
+&lt;h2 id=&#34;写在最后&#34;&gt;写在最后
+&lt;/h2&gt;&lt;p&gt;做需求评审，其实就像是一场为了达成共识的“翻译”工作。&lt;/p&gt;
+&lt;p&gt;我们把商业诉求翻译成功能逻辑，技术把逻辑翻译成代码实现。在这个过程中，出现误解、摩擦、焦虑都是极其正常的。&lt;/p&gt;
+&lt;p&gt;&lt;strong&gt;别因为一次评审的争执就否定自己，也别因为对方的质疑就觉得被针对。大家都是坐在同一条船上，想把船划得更快一点的人。&lt;/strong&gt;&lt;/p&gt;
+&lt;p&gt;下次走进会议室前，试着深呼吸，带上你的逻辑图，提前做好“私下勾兑”，准备好你的“停车场”。你会发现，那个曾经让你胃疼的战场，也能变成一个高效协作的工作坊。&lt;/p&gt;
+&lt;hr&gt;
+&lt;p&gt;&lt;strong&gt;那么，关于评审会，你更倾向于哪种风格？&lt;/strong&gt;&lt;/p&gt;
+&lt;ul&gt;
+&lt;li&gt;A. 速战速决派：核心逻辑过一遍，细节执行时再对，效率优先。&lt;/li&gt;
+&lt;li&gt;B. 极致细节派：每个字段、报错都要定义清楚，哪怕评审一下午，也要规避风险。&lt;/li&gt;
+&lt;/ul&gt;
+&lt;p&gt;&lt;strong&gt;欢迎在评论区告诉我你的选择。&lt;/strong&gt;&lt;/p&gt;
+&lt;p&gt;&lt;strong&gt;最后送给正在焦虑的你3个立刻能用的行动清单：&lt;/strong&gt;&lt;/p&gt;
+&lt;ol&gt;
+&lt;li&gt;&lt;strong&gt;明天就试：&lt;/strong&gt; 找核心开发聊聊下周要评的需求，只聊10分钟，听听他们的“直觉反应”。&lt;/li&gt;
+&lt;li&gt;&lt;strong&gt;画一张图：&lt;/strong&gt; 尝试把全是文字的文档，转成一张状态流转图，哪怕画在草稿纸上。&lt;/li&gt;
+&lt;li&gt;&lt;strong&gt;准备一句挡箭牌：&lt;/strong&gt; 遇到临时加需求，笑着说“好主意，先记在Parking Lot，会后评估”。&lt;/li&gt;
+&lt;/ol&gt;
+</description>
+        </item>
+        
+    </channel>
+</rss>

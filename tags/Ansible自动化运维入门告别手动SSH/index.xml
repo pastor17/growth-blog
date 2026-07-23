@@ -1,0 +1,124 @@
+<?xml version="1.0" encoding="utf-8" standalone="yes"?>
+<rss version="2.0" xmlns:atom="http://www.w3.org/2005/Atom">
+    <channel>
+        <title>Ansible自动化运维入门：告别手动SSH on SelfTechHub</title>
+        <link>https://blog.irudder.me/tags/Ansible%E8%87%AA%E5%8A%A8%E5%8C%96%E8%BF%90%E7%BB%B4%E5%85%A5%E9%97%A8%E5%91%8A%E5%88%AB%E6%89%8B%E5%8A%A8SSH.html</link>
+        <description>Recent content in Ansible自动化运维入门：告别手动SSH on SelfTechHub</description>
+        <generator>Hugo -- gohugo.io</generator>
+        <language>zh-cn</language>
+        <lastBuildDate>Thu, 20 Jun 2024 00:00:00 +0000</lastBuildDate><atom:link href="https://blog.irudder.me/tags/Ansible%E8%87%AA%E5%8A%A8%E5%8C%96%E8%BF%90%E7%BB%B4%E5%85%A5%E9%97%A8%E5%91%8A%E5%88%AB%E6%89%8B%E5%8A%A8SSH/index.xml" rel="self" type="application/rss+xml" /><item>
+        <title>凌晨3点的救赎：我为何劝你放弃手动SSH</title>
+        <link>https://blog.irudder.me/tech/devopsjichugongjurumenyushicao/ansiblezidonghuayunweirumen_gaobieshoudongssh.html</link>
+        <pubDate>Thu, 20 Jun 2024 00:00:00 +0000</pubDate>
+        
+        <guid>https://blog.irudder.me/tech/devopsjichugongjurumenyushicao/ansiblezidonghuayunweirumen_gaobieshoudongssh.html</guid>
+        <description>&lt;p&gt;记得几年前还在一家初创公司时，我有过一段&amp;quot;黑暗&amp;quot;的运维经历。&lt;/p&gt;
+&lt;p&gt;那时我们只有十二台服务器。每次发布新版本，我都要打开终端，熟练地分割屏幕，连上每一台机器，像个弹钢琴的演奏家一样敲击着 &lt;code&gt;git pull&lt;/code&gt;、&lt;code&gt;npm install&lt;/code&gt; 和 &lt;code&gt;pm2 restart&lt;/code&gt;。&lt;/p&gt;
+&lt;p&gt;那时候我觉得自己很酷，手速很快，对每一台服务器的IP烂熟于心。&lt;/p&gt;
+&lt;p&gt;直到那个周五的傍晚，因为着急去赶朋友的聚餐，我在第六台服务器上少敲了一个参数。结果显而易见：服务只挂了一半，数据开始不一致，客户投诉电话打爆了老板的手机。那一晚，我没有聚餐，而是坐在屏幕前排查到凌晨三点，手心全是冷汗。&lt;/p&gt;
+&lt;p&gt;那一刻我意识到：&lt;strong&gt;依赖人的&amp;quot;细心&amp;quot;是运维最大的谎言。人的本质是会犯错，而机器不会。&lt;/strong&gt;&lt;/p&gt;
+&lt;p&gt;如果你也还在维护着那些&amp;quot;只有我知道怎么配置&amp;quot;的服务器，或者每次敲击回车键前都要深吸一口气，那么这篇文章或许能给你一些不一样的解题思路。我们要聊的不是冰冷的工具，而是如何用 Ansible 找回你的睡眠和生活的掌控感。&lt;/p&gt;
+&lt;h2 id=&#34;拒绝雪花服务器把不确定性变成确定性&#34;&gt;拒绝&amp;quot;雪花服务器&amp;quot;：把不确定性变成确定性
+&lt;/h2&gt;&lt;p&gt;很多中小团队的痛点在于，服务器像&amp;quot;雪花&amp;quot;一样——每一片都独一无二。&lt;/p&gt;
+&lt;p&gt;这台机器上周装了 Python 3.8，那台机器昨天为了修个 bug 临时改了 Nginx 配置。这种&amp;quot;手动微调&amp;quot;积累得越多，你对系统的恐惧感就越重。因为你不知道重启之后，它还能不能跑起来。&lt;/p&gt;
+&lt;p&gt;&lt;strong&gt;Ansible 的核心价值，其实是把这种&amp;quot;状态&amp;quot;固定下来。&lt;/strong&gt;&lt;/p&gt;
+&lt;p&gt;我想讲讲我的同事小李的故事。小李接手了一个老旧的 Java 项目，文档早已丢失。每次扩容，他都要对着一台&amp;quot;金丝雀&amp;quot;服务器，像考古学家一样去查看 &lt;code&gt;.bashrc&lt;/code&gt; 里藏着什么环境变量，&lt;code&gt;/etc/hosts&lt;/code&gt; 里绑了什么奇怪的域名。&lt;/p&gt;
+&lt;p&gt;那一周，小李焦虑得脸上爆痘。后来，我们决定停止一切手动操作，用 Ansible 重写环境。&lt;/p&gt;
+&lt;p&gt;&lt;img src=&#34;https://picsum.photos/800/450?random=1768387830109&#34;
+	
+	
+	
+	loading=&#34;lazy&#34;
+	
+		alt=&#34;配图&#34;
+	
+	
+&gt;&lt;/p&gt;
+&lt;p&gt;我们不再关心服务器现在是什么样，我们只关心&lt;strong&gt;它应该是什么样&lt;/strong&gt;。&lt;/p&gt;
+&lt;blockquote&gt;
+&lt;p&gt;这种思维转变叫&amp;quot;声明式&amp;quot;（Declarative）。你不需要告诉机器&amp;quot;第一步做什么，第二步做什么&amp;quot;，你只需要告诉它：&amp;ldquo;我要一个装了 JDK 11 的环境&amp;rdquo;。&lt;/p&gt;
+&lt;/blockquote&gt;
+&lt;p&gt;当小李第一次跑完 Playbook，看着绿色的 &lt;code&gt;ok&lt;/code&gt; 提示亮起时，他长舒了一口气说：&amp;ldquo;感觉终于从地雷阵里走出来了。&amp;rdquo;&lt;/p&gt;
+&lt;h2 id=&#34;脚本是过程ansible-是结果&#34;&gt;脚本是过程，Ansible 是结果
+&lt;/h2&gt;&lt;p&gt;&amp;ldquo;既然要自动化，我写个 Shell 脚本循环跑一下不就行了吗？&amp;rdquo;&lt;/p&gt;
+&lt;p&gt;这是很多开发人员的直觉反应。我曾经也这么干过。我写过一个数百行的 Shell 脚本，用来分发配置文件。&lt;/p&gt;
+&lt;p&gt;但我遇到了一个致命问题：&lt;strong&gt;幂等性（Idempotency）。&lt;/strong&gt;&lt;/p&gt;
+&lt;p&gt;简单说，就是&lt;strong&gt;一个操作执行一次和执行一百次，结果应该是一样的&lt;/strong&gt;。&lt;/p&gt;
+&lt;p&gt;有一次，我的 Shell 脚本跑了一半断网了。当我再次运行脚本时，它在配置文件里重复追加了同样的配置项，导致服务启动失败。我不得不花更多时间去写 &lt;code&gt;if-else&lt;/code&gt; 来判断&amp;quot;如果文件存在就不写入&amp;quot;。&lt;/p&gt;
+&lt;p&gt;代码越写越长，逻辑越来越乱。&lt;/p&gt;
+&lt;p&gt;而在 Ansible 中，这只是一个简单的任务描述。看看下面这段代码，它体现了极简的智慧：&lt;/p&gt;
+&lt;div class=&#34;highlight&#34;&gt;&lt;pre tabindex=&#34;0&#34; style=&#34;color:#f8f8f2;background-color:#272822;-moz-tab-size:4;-o-tab-size:4;tab-size:4;&#34;&gt;&lt;code class=&#34;language-yaml&#34; data-lang=&#34;yaml&#34;&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;- &lt;span style=&#34;color:#f92672&#34;&gt;name&lt;/span&gt;: &lt;span style=&#34;color:#ae81ff&#34;&gt;确保Nginx配置文件存在且正确&lt;/span&gt;
+&lt;/span&gt;&lt;/span&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;  &lt;span style=&#34;color:#f92672&#34;&gt;template&lt;/span&gt;:
+&lt;/span&gt;&lt;/span&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;    &lt;span style=&#34;color:#f92672&#34;&gt;src&lt;/span&gt;: &lt;span style=&#34;color:#ae81ff&#34;&gt;nginx.conf.j2&lt;/span&gt;
+&lt;/span&gt;&lt;/span&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;    &lt;span style=&#34;color:#f92672&#34;&gt;dest&lt;/span&gt;: &lt;span style=&#34;color:#ae81ff&#34;&gt;/etc/nginx/nginx.conf&lt;/span&gt;
+&lt;/span&gt;&lt;/span&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;    &lt;span style=&#34;color:#f92672&#34;&gt;owner&lt;/span&gt;: &lt;span style=&#34;color:#ae81ff&#34;&gt;root&lt;/span&gt;
+&lt;/span&gt;&lt;/span&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;    &lt;span style=&#34;color:#f92672&#34;&gt;group&lt;/span&gt;: &lt;span style=&#34;color:#ae81ff&#34;&gt;root&lt;/span&gt;
+&lt;/span&gt;&lt;/span&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;    &lt;span style=&#34;color:#f92672&#34;&gt;mode&lt;/span&gt;: &lt;span style=&#34;color:#e6db74&#34;&gt;&amp;#39;0644&amp;#39;&lt;/span&gt;
+&lt;/span&gt;&lt;/span&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;  &lt;span style=&#34;color:#f92672&#34;&gt;notify&lt;/span&gt;: &lt;span style=&#34;color:#ae81ff&#34;&gt;重启Nginx&lt;/span&gt;
+&lt;/span&gt;&lt;/span&gt;&lt;/code&gt;&lt;/pre&gt;&lt;/div&gt;&lt;p&gt;这段代码的高明之处在于：&lt;/p&gt;
+&lt;ol&gt;
+&lt;li&gt;如果文件不存在，它会创建；&lt;/li&gt;
+&lt;li&gt;如果文件存在且内容一致，它什么都不做（绿色 &lt;code&gt;ok&lt;/code&gt;）；&lt;/li&gt;
+&lt;li&gt;如果文件存在但内容不同，它会覆盖并标记为&amp;quot;改变&amp;quot;（黄色 &lt;code&gt;changed&lt;/code&gt;）；&lt;/li&gt;
+&lt;li&gt;只有当文件真的发生变化时，才会触发重启 Nginx。&lt;/li&gt;
+&lt;/ol&gt;
+&lt;p&gt;&lt;img src=&#34;https://picsum.photos/800/450?random=1768387827104&#34;
+	
+	
+	
+	loading=&#34;lazy&#34;
+	
+		alt=&#34;配图&#34;
+	
+	
+&gt;&lt;/p&gt;
+&lt;p&gt;&lt;strong&gt;你不需要教 Ansible 怎么做判断，你只需要把结果交给它。&lt;/strong&gt; 这能极大地降低你的心智负担。&lt;/p&gt;
+&lt;h2 id=&#34;所谓自动化其实是团队协作的契约&#34;&gt;所谓&amp;quot;自动化&amp;quot;，其实是团队协作的契约
+&lt;/h2&gt;&lt;p&gt;在很多小团队里，运维往往是&amp;quot;背锅侠&amp;quot;。&lt;/p&gt;
+&lt;p&gt;&lt;img src=&#34;https://picsum.photos/800/450?random=1768387824475&#34;
+	
+	
+	
+	loading=&#34;lazy&#34;
+	
+		alt=&#34;配图&#34;
+	
+	
+&gt;&lt;/p&gt;
+&lt;p&gt;开发说：&amp;ldquo;我在本地跑得好好的，上去就挂了，肯定是环境问题。&amp;rdquo;
+运维说：&amp;ldquo;你这代码依赖了什么库也没告诉我啊。&amp;rdquo;&lt;/p&gt;
+&lt;p&gt;这种推诿，本质上是因为&lt;strong&gt;环境成为了一个黑盒&lt;/strong&gt;。&lt;/p&gt;
+&lt;p&gt;我建议大家尝试把 Ansible 的 Playbook 当作项目的一部分，存在 Git 仓库里。这不仅是自动化脚本，更是一份&lt;strong&gt;活着的文档&lt;/strong&gt;。&lt;/p&gt;
+&lt;p&gt;我现在的团队有一个习惯：每周五下午，我们不仅 Review 业务代码，也会 Review 基础设施代码。&lt;/p&gt;
+&lt;p&gt;有一次，后端想引入一个新的图片处理库。以前他可能只是口头告诉我，然后我在服务器上 &lt;code&gt;yum install&lt;/code&gt; 一下。但现在，他提交了一个 Pull Request，修改了 Ansible 的 &lt;code&gt;roles/web/tasks/main.yml&lt;/code&gt;。&lt;/p&gt;
+&lt;p&gt;我看了一眼代码，发现他选的版本可能和系统库冲突，直接在评论里指了出来。&lt;/p&gt;
+&lt;p&gt;&lt;strong&gt;这次故障在发生之前就被消灭了。&lt;/strong&gt;&lt;/p&gt;
+&lt;p&gt;Ansible 的剧本（Playbook）变成了一种契约。它让开发人员理解了环境的构成，也让运维人员理解了代码的依赖。当所有配置都白纸黑字写在代码里时，团队之间的信任感建立起来了，焦虑自然就消失了。&lt;/p&gt;
+&lt;p&gt;&lt;em&gt;你有没有发现，很多时候我们的焦虑并不是因为事情难做，而是因为不知道&amp;quot;坑&amp;quot;在哪里？&lt;/em&gt;&lt;/p&gt;
+&lt;hr&gt;
+&lt;h2 id=&#34;现在的你可以做些什么&#34;&gt;现在的你，可以做些什么？
+&lt;/h2&gt;&lt;p&gt;或许你现在的环境还是一团乱麻，或许你觉得重构整个运维流程遥不可及。没关系，自动化不是一蹴而就的，它是一个渐进的&amp;quot;治愈&amp;quot;过程。&lt;/p&gt;
+&lt;p&gt;如果你想告别提心吊胆的手动 SSH，我建议你从这三个微小的步骤开始：&lt;/p&gt;
+&lt;ol&gt;
+&lt;li&gt;
+&lt;p&gt;&lt;strong&gt;建立&amp;quot;资产清单&amp;quot;（Inventory）&lt;/strong&gt;
+别再把服务器 IP 记在脑子里或便签纸上了。创建一个 &lt;code&gt;hosts&lt;/code&gt; 文件，把你的服务器分门别类地写进去（web, db, cache）。这是你掌控局面的第一步。&lt;/p&gt;
+&lt;/li&gt;
+&lt;li&gt;
+&lt;p&gt;&lt;strong&gt;用 Ad-Hoc 命令代替一次性 SSH&lt;/strong&gt;
+下次你想看所有服务器的磁盘空间时，别再一台台登录了。试着在本地敲下这行命令：&lt;/p&gt;
+&lt;div class=&#34;highlight&#34;&gt;&lt;pre tabindex=&#34;0&#34; style=&#34;color:#f8f8f2;background-color:#272822;-moz-tab-size:4;-o-tab-size:4;tab-size:4;&#34;&gt;&lt;code class=&#34;language-bash&#34; data-lang=&#34;bash&#34;&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;ansible all -m shell -a &lt;span style=&#34;color:#e6db74&#34;&gt;&amp;#34;df -h&amp;#34;&lt;/span&gt;
+&lt;/span&gt;&lt;/span&gt;&lt;/code&gt;&lt;/pre&gt;&lt;/div&gt;&lt;p&gt;当你看到所有服务器的反馈整齐地刷屏时，你会爱上这种掌控感。&lt;/p&gt;
+&lt;/li&gt;
+&lt;li&gt;
+&lt;p&gt;&lt;strong&gt;哪怕只自动化一个配置文件&lt;/strong&gt;
+不要试图一开始就搞定全套 CI/CD。找一个最让你头疼的配置文件（比如 Nginx 或 Logrotate），把它写成 Playbook。&lt;/p&gt;
+&lt;/li&gt;
+&lt;/ol&gt;
+&lt;p&gt;运维工作的终极目标，不是为了显得忙碌，而是为了让自己变得&amp;quot;多余&amp;quot;，从而腾出时间去思考更有价值的事情，或者，仅仅是为了在周五晚上能安心地去赴那场推迟已久的聚餐。&lt;/p&gt;
+&lt;p&gt;愿你的服务器永远 &lt;code&gt;ok=1&lt;/code&gt;，&lt;code&gt;failed=0&lt;/code&gt;。&lt;/p&gt;
+</description>
+        </item>
+        
+    </channel>
+</rss>

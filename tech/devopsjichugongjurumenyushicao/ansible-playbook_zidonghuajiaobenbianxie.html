@@ -1,0 +1,476 @@
+<!DOCTYPE html>
+<html lang="zh-cn" dir="ltr">
+    <head><meta charset='utf-8'>
+<meta name='viewport' content='width=device-width, initial-scale=1'><meta name='description' content="老实交代，以前我对自动化运维工具有点“迷之自信”。\n那会儿刚入行，觉得自己那一手行云流水的Shell脚本简直无敌：for循环批量操作，sed正则替换配置，awk处理日志，这多极客啊？直到那个凌晨两点的“事故现场”，彻底改变了我的看法。\n当时我们要紧急给生产环境的50台Web服务器打一个补丁，更新Nginx配置。我自信满满地敲下了那个用来追加配置的Shell脚本回车键。结果因为网络波动，脚本在一部分机器上中断了，我下意识地按了“重试”。\n悲剧发生了——脚本里用的是echo &gt;&gt;追加写入，重试导致配置文件里出现了双份配置，Nginx重启直接报错，全线业务挂了15分钟。\n那一刻我才明白，写脚本和做工程是两码事。也是从那时候起，我开始硬着头皮啃Ansible。今天我想以一个“过来人”的身份，不讲枯燥的概念，只聊聊如果你想摆脱“人肉运维”的苦海，Ansible Playbook（剧本）到底该怎么写，以及怎么避免我当年踩过的那些坑。\n告别“一次性”脚本，拥抱“幂等性”\r很多做开发或者运维刚转型的朋友，最大的思维误区就是把Ansible当成“批量执行Shell命令的工具”。如果你只是在Playbook里用shell模块跑命令，那你真的亏大了。\nAnsible最核心的价值在于幂等性（Idempotency）。啥意思？就是同一个操作，无论你执行一次还是执行一百次，结果都是一样的，且不会产生副作用。\n回到我那个惨痛的Nginx案例。如果用Shell写，你需要写大量的if判断来检查配置是否存在。但用Ansible的原生模块，画风是这样的：\n- name: 确保Nginx配置文件包含安全策略 blockinfile: path: /etc/nginx/nginx.conf marker: &#34;# {mark} ANSIBLE MANAGED BLOCK&#34; block: | server_tokens off; add_header X-Frame-Options SAMEORIGIN; 这个写法的妙处在哪？\n自动判断：它会自动检查/etc/nginx/nginx.conf里有没有这段内容。 安全重试：如果有，它就什么都不做；如果没有，它就加上；如果内容不一样，它就修正。 结果导向：你不用管它是怎么写入的，你只需要告诉Ansible：“我要这个文件长这样”。 我有个同事大刘，之前死活不愿意学Ansible，觉得写YAML麻烦。后来有次因断电导致脚本跑了一半，他花了一整天去排查哪台跑了哪台没跑。后来我让他试着用上面的逻辑跑了一遍Playbook，5分钟搞定。从那以后，他再也没提过用Shell批量改配置的事。\n让代码像“说明书”一样易读\r大家回想一下，当你接手前任留下的几百行Shell脚本时，是什么心情？\n是不是充满了各种var1、temp_file这种莫名其妙的变量？代码逻辑像迷宫一样？我曾经接手过一个项目，光是读懂那个初始化环境的脚本就花了我整整两天。\nAnsible Playbook 强迫你把运维操作变成文档。\n这就好比做菜。Shell脚本像是那种只有大厨看得懂的“少许、适量、火候自便”；而Playbook则是标准的工业化SOP（标准作业程序）。\n来看看这个对比：\n普通脚本风格：\n# 安装软件 yum install -y httpd # 启动 systemctl start httpd 你不知道这步是为了干啥，也不知道失败了会怎样。\nPlaybook风格：\n- name: 部署Web服务全流程 hosts: webservers tasks: - name: 第一步：安装Apache服务 yum: name: httpd state: present - name: 第二步：启动服务并设置开机自启 service: name: httpd state: started enabled: yes ">
+<title>写了三年Shell脚本，我是怎么被Ansible“打脸”救命的？</title>
+
+<link rel='canonical' href='https://blog.irudder.me/tech/devopsjichugongjurumenyushicao/ansible-playbook_zidonghuajiaobenbianxie.html'>
+
+<link rel="stylesheet" href="/scss/style.min.b9e9128fec450ebccecc4ec9900157f32b85d0609bcd5ee3293968bcaa1235f2.css"><meta property='og:title' content="写了三年Shell脚本，我是怎么被Ansible“打脸”救命的？">
+<meta property='og:description' content="老实交代，以前我对自动化运维工具有点“迷之自信”。\n那会儿刚入行，觉得自己那一手行云流水的Shell脚本简直无敌：for循环批量操作，sed正则替换配置，awk处理日志，这多极客啊？直到那个凌晨两点的“事故现场”，彻底改变了我的看法。\n当时我们要紧急给生产环境的50台Web服务器打一个补丁，更新Nginx配置。我自信满满地敲下了那个用来追加配置的Shell脚本回车键。结果因为网络波动，脚本在一部分机器上中断了，我下意识地按了“重试”。\n悲剧发生了——脚本里用的是echo &gt;&gt;追加写入，重试导致配置文件里出现了双份配置，Nginx重启直接报错，全线业务挂了15分钟。\n那一刻我才明白，写脚本和做工程是两码事。也是从那时候起，我开始硬着头皮啃Ansible。今天我想以一个“过来人”的身份，不讲枯燥的概念，只聊聊如果你想摆脱“人肉运维”的苦海，Ansible Playbook（剧本）到底该怎么写，以及怎么避免我当年踩过的那些坑。\n告别“一次性”脚本，拥抱“幂等性”\r很多做开发或者运维刚转型的朋友，最大的思维误区就是把Ansible当成“批量执行Shell命令的工具”。如果你只是在Playbook里用shell模块跑命令，那你真的亏大了。\nAnsible最核心的价值在于幂等性（Idempotency）。啥意思？就是同一个操作，无论你执行一次还是执行一百次，结果都是一样的，且不会产生副作用。\n回到我那个惨痛的Nginx案例。如果用Shell写，你需要写大量的if判断来检查配置是否存在。但用Ansible的原生模块，画风是这样的：\n- name: 确保Nginx配置文件包含安全策略 blockinfile: path: /etc/nginx/nginx.conf marker: &#34;# {mark} ANSIBLE MANAGED BLOCK&#34; block: | server_tokens off; add_header X-Frame-Options SAMEORIGIN; 这个写法的妙处在哪？\n自动判断：它会自动检查/etc/nginx/nginx.conf里有没有这段内容。 安全重试：如果有，它就什么都不做；如果没有，它就加上；如果内容不一样，它就修正。 结果导向：你不用管它是怎么写入的，你只需要告诉Ansible：“我要这个文件长这样”。 我有个同事大刘，之前死活不愿意学Ansible，觉得写YAML麻烦。后来有次因断电导致脚本跑了一半，他花了一整天去排查哪台跑了哪台没跑。后来我让他试着用上面的逻辑跑了一遍Playbook，5分钟搞定。从那以后，他再也没提过用Shell批量改配置的事。\n让代码像“说明书”一样易读\r大家回想一下，当你接手前任留下的几百行Shell脚本时，是什么心情？\n是不是充满了各种var1、temp_file这种莫名其妙的变量？代码逻辑像迷宫一样？我曾经接手过一个项目，光是读懂那个初始化环境的脚本就花了我整整两天。\nAnsible Playbook 强迫你把运维操作变成文档。\n这就好比做菜。Shell脚本像是那种只有大厨看得懂的“少许、适量、火候自便”；而Playbook则是标准的工业化SOP（标准作业程序）。\n来看看这个对比：\n普通脚本风格：\n# 安装软件 yum install -y httpd # 启动 systemctl start httpd 你不知道这步是为了干啥，也不知道失败了会怎样。\nPlaybook风格：\n- name: 部署Web服务全流程 hosts: webservers tasks: - name: 第一步：安装Apache服务 yum: name: httpd state: present - name: 第二步：启动服务并设置开机自启 service: name: httpd state: started enabled: yes ">
+<meta property='og:url' content='https://blog.irudder.me/tech/devopsjichugongjurumenyushicao/ansible-playbook_zidonghuajiaobenbianxie.html'>
+<meta property='og:site_name' content='SelfTechHub'>
+<meta property='og:type' content='article'><meta property='article:section' content='Tech' /><meta property='article:tag' content='Ansible Playbook：自动化脚本编写' /><meta property='article:published_time' content='2022-08-08T00:00:00&#43;00:00'/><meta property='article:modified_time' content='2022-08-08T00:00:00&#43;00:00'/>
+<meta name="twitter:title" content="写了三年Shell脚本，我是怎么被Ansible“打脸”救命的？">
+<meta name="twitter:description" content="老实交代，以前我对自动化运维工具有点“迷之自信”。\n那会儿刚入行，觉得自己那一手行云流水的Shell脚本简直无敌：for循环批量操作，sed正则替换配置，awk处理日志，这多极客啊？直到那个凌晨两点的“事故现场”，彻底改变了我的看法。\n当时我们要紧急给生产环境的50台Web服务器打一个补丁，更新Nginx配置。我自信满满地敲下了那个用来追加配置的Shell脚本回车键。结果因为网络波动，脚本在一部分机器上中断了，我下意识地按了“重试”。\n悲剧发生了——脚本里用的是echo &gt;&gt;追加写入，重试导致配置文件里出现了双份配置，Nginx重启直接报错，全线业务挂了15分钟。\n那一刻我才明白，写脚本和做工程是两码事。也是从那时候起，我开始硬着头皮啃Ansible。今天我想以一个“过来人”的身份，不讲枯燥的概念，只聊聊如果你想摆脱“人肉运维”的苦海，Ansible Playbook（剧本）到底该怎么写，以及怎么避免我当年踩过的那些坑。\n告别“一次性”脚本，拥抱“幂等性”\r很多做开发或者运维刚转型的朋友，最大的思维误区就是把Ansible当成“批量执行Shell命令的工具”。如果你只是在Playbook里用shell模块跑命令，那你真的亏大了。\nAnsible最核心的价值在于幂等性（Idempotency）。啥意思？就是同一个操作，无论你执行一次还是执行一百次，结果都是一样的，且不会产生副作用。\n回到我那个惨痛的Nginx案例。如果用Shell写，你需要写大量的if判断来检查配置是否存在。但用Ansible的原生模块，画风是这样的：\n- name: 确保Nginx配置文件包含安全策略 blockinfile: path: /etc/nginx/nginx.conf marker: &#34;# {mark} ANSIBLE MANAGED BLOCK&#34; block: | server_tokens off; add_header X-Frame-Options SAMEORIGIN; 这个写法的妙处在哪？\n自动判断：它会自动检查/etc/nginx/nginx.conf里有没有这段内容。 安全重试：如果有，它就什么都不做；如果没有，它就加上；如果内容不一样，它就修正。 结果导向：你不用管它是怎么写入的，你只需要告诉Ansible：“我要这个文件长这样”。 我有个同事大刘，之前死活不愿意学Ansible，觉得写YAML麻烦。后来有次因断电导致脚本跑了一半，他花了一整天去排查哪台跑了哪台没跑。后来我让他试着用上面的逻辑跑了一遍Playbook，5分钟搞定。从那以后，他再也没提过用Shell批量改配置的事。\n让代码像“说明书”一样易读\r大家回想一下，当你接手前任留下的几百行Shell脚本时，是什么心情？\n是不是充满了各种var1、temp_file这种莫名其妙的变量？代码逻辑像迷宫一样？我曾经接手过一个项目，光是读懂那个初始化环境的脚本就花了我整整两天。\nAnsible Playbook 强迫你把运维操作变成文档。\n这就好比做菜。Shell脚本像是那种只有大厨看得懂的“少许、适量、火候自便”；而Playbook则是标准的工业化SOP（标准作业程序）。\n来看看这个对比：\n普通脚本风格：\n# 安装软件 yum install -y httpd # 启动 systemctl start httpd 你不知道这步是为了干啥，也不知道失败了会怎样。\nPlaybook风格：\n- name: 部署Web服务全流程 hosts: webservers tasks: - name: 第一步：安装Apache服务 yum: name: httpd state: present - name: 第二步：启动服务并设置开机自启 service: name: httpd state: started enabled: yes ">
+    </head>
+    <body class="
+    article-page
+    ">
+    <script>
+        (function() {
+            const colorSchemeKey = 'StackColorScheme';
+            if(!localStorage.getItem(colorSchemeKey)){
+                localStorage.setItem(colorSchemeKey, "auto");
+            }
+        })();
+    </script><script>
+    (function() {
+        const colorSchemeKey = 'StackColorScheme';
+        const colorSchemeItem = localStorage.getItem(colorSchemeKey);
+        const supportDarkMode = window.matchMedia('(prefers-color-scheme: dark)').matches === true;
+
+        if (colorSchemeItem == 'dark' || colorSchemeItem === 'auto' && supportDarkMode) {
+            
+
+            document.documentElement.dataset.scheme = 'dark';
+        } else {
+            document.documentElement.dataset.scheme = 'light';
+        }
+    })();
+</script>
+<div class="container main-container flex on-phone--column compact"><aside class="sidebar left-sidebar sticky ">
+    <button class="hamburger hamburger--spin" type="button" id="toggle-menu" aria-label="切换菜单">
+        <span class="hamburger-box">
+            <span class="hamburger-inner"></span>
+        </span>
+    </button>
+
+    <header>
+        
+            
+            <figure class="site-avatar">
+                <a href="/">
+                
+                    
+                    
+                    
+                        
+                        <img src="/img/avatar_hu_8588ce14af1147e2.png" width="300"
+                            height="286" class="site-logo" loading="lazy" alt="Avatar">
+                    
+                
+                </a>
+                
+            </figure>
+            
+        
+        
+        <div class="site-meta">
+            <h1 class="site-name"><a href="/">SelfTechHub</a></h1>
+            <h2 class="site-description"></h2>
+        </div>
+    </header><ol class="menu" id="main-menu">
+        
+        
+        <li class="menu-bottom-section">
+            <ol class="menu">
+
+                
+                    <li id="dark-mode-toggle">
+                        <svg xmlns="http://www.w3.org/2000/svg" class="icon icon-tabler icon-tabler-toggle-left" width="24" height="24" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor" fill="none" stroke-linecap="round" stroke-linejoin="round">
+  <path stroke="none" d="M0 0h24v24H0z"/>
+  <circle cx="8" cy="12" r="2" />
+  <rect x="2" y="6" width="20" height="12" rx="6" />
+</svg>
+
+
+
+                        <svg xmlns="http://www.w3.org/2000/svg" class="icon icon-tabler icon-tabler-toggle-right" width="24" height="24" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor" fill="none" stroke-linecap="round" stroke-linejoin="round">
+  <path stroke="none" d="M0 0h24v24H0z"/>
+  <circle cx="16" cy="12" r="2" />
+  <rect x="2" y="6" width="20" height="12" rx="6" />
+</svg>
+
+
+
+                        <span>暗色模式</span>
+                    </li>
+                
+            </ol>
+        </li>
+    </ol>
+</aside>
+
+    
+
+            <main class="main full-width">
+    <article class="main-article">
+    <header class="article-header">
+
+    <div class="article-details">
+    
+    <header class="article-category">
+        
+            <a href="/categories/%E6%8A%80%E6%9C%AF.html" >
+                技术精进
+            </a>
+        
+    </header>
+    
+
+    <div class="article-title-wrapper">
+        <h2 class="article-title">
+            <a href="/tech/devopsjichugongjurumenyushicao/ansible-playbook_zidonghuajiaobenbianxie.html">写了三年Shell脚本，我是怎么被Ansible“打脸”救命的？</a>
+        </h2>
+    
+        
+    </div>
+
+    
+    
+    
+    
+    <footer class="article-time">
+        
+            <div>
+                <svg xmlns="http://www.w3.org/2000/svg" class="icon icon-tabler icon-tabler-calendar-time" width="56" height="56" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor" fill="none" stroke-linecap="round" stroke-linejoin="round">
+  <path stroke="none" d="M0 0h24v24H0z"/>
+  <path d="M11.795 21h-6.795a2 2 0 0 1 -2 -2v-12a2 2 0 0 1 2 -2h12a2 2 0 0 1 2 2v4" />
+  <circle cx="18" cy="18" r="4" />
+  <path d="M15 3v4" />
+  <path d="M7 3v4" />
+  <path d="M3 11h16" />
+  <path d="M18 16.496v1.504l1 1" />
+</svg>
+                <time class="article-time--published" datetime='2022-08-08T00:00:00Z'>Aug 08, 2022</time>
+            </div>
+        
+
+        
+            <div>
+                <svg xmlns="http://www.w3.org/2000/svg" class="icon icon-tabler icon-tabler-clock" width="24" height="24" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor" fill="none" stroke-linecap="round" stroke-linejoin="round">
+  <path stroke="none" d="M0 0h24v24H0z"/>
+  <circle cx="12" cy="12" r="9" />
+  <polyline points="12 7 12 12 15 15" />
+</svg>
+
+
+
+                <time class="article-time--reading">
+                    阅读时长: 1 分钟
+                </time>
+            </div>
+        
+    </footer>
+    
+
+    
+</div>
+
+</header>
+
+    <section class="article-content">
+    
+    
+    <p>老实交代，以前我对自动化运维工具有点“迷之自信”。</p>
+<p>那会儿刚入行，觉得自己那一手行云流水的Shell脚本简直无敌：<code>for</code>循环批量操作，<code>sed</code>正则替换配置，<code>awk</code>处理日志，这多极客啊？直到那个凌晨两点的“事故现场”，彻底改变了我的看法。</p>
+<p>当时我们要紧急给生产环境的50台Web服务器打一个补丁，更新Nginx配置。我自信满满地敲下了那个用来追加配置的Shell脚本回车键。结果因为网络波动，脚本在一部分机器上中断了，我下意识地按了“重试”。</p>
+<p>悲剧发生了——脚本里用的是<code>echo &gt;&gt;</code>追加写入，<strong>重试导致配置文件里出现了双份配置</strong>，Nginx重启直接报错，全线业务挂了15分钟。</p>
+<p>那一刻我才明白，写脚本和做工程是两码事。也是从那时候起，我开始硬着头皮啃Ansible。今天我想以一个“过来人”的身份，不讲枯燥的概念，只聊聊如果你想摆脱“人肉运维”的苦海，Ansible Playbook（剧本）到底该怎么写，以及怎么避免我当年踩过的那些坑。</p>
+<h2 id="告别一次性脚本拥抱幂等性">告别“一次性”脚本，拥抱“幂等性”
+</h2><p>很多做开发或者运维刚转型的朋友，最大的思维误区就是把Ansible当成“批量执行Shell命令的工具”。如果你只是在Playbook里用<code>shell</code>模块跑命令，那你真的亏大了。</p>
+<p>Ansible最核心的价值在于<strong>幂等性（Idempotency）</strong>。啥意思？就是<strong>同一个操作，无论你执行一次还是执行一百次，结果都是一样的，且不会产生副作用。</strong></p>
+<p>回到我那个惨痛的Nginx案例。如果用Shell写，你需要写大量的<code>if</code>判断来检查配置是否存在。但用Ansible的原生模块，画风是这样的：</p>
+<div class="highlight"><pre tabindex="0" style="color:#f8f8f2;background-color:#272822;-moz-tab-size:4;-o-tab-size:4;tab-size:4;"><code class="language-yaml" data-lang="yaml"><span style="display:flex;"><span>- <span style="color:#f92672">name</span>: <span style="color:#ae81ff">确保Nginx配置文件包含安全策略</span>
+</span></span><span style="display:flex;"><span>  <span style="color:#f92672">blockinfile</span>:
+</span></span><span style="display:flex;"><span>    <span style="color:#f92672">path</span>: <span style="color:#ae81ff">/etc/nginx/nginx.conf</span>
+</span></span><span style="display:flex;"><span>    <span style="color:#f92672">marker</span>: <span style="color:#e6db74">&#34;# {mark} ANSIBLE MANAGED BLOCK&#34;</span>
+</span></span><span style="display:flex;"><span>    <span style="color:#f92672">block</span>: |<span style="color:#e6db74">
+</span></span></span><span style="display:flex;"><span><span style="color:#e6db74">      server_tokens off;
+</span></span></span><span style="display:flex;"><span><span style="color:#e6db74">      add_header X-Frame-Options SAMEORIGIN;</span>
+</span></span></code></pre></div><p><strong>这个写法的妙处在哪？</strong></p>
+<ol>
+<li><strong>自动判断</strong>：它会自动检查<code>/etc/nginx/nginx.conf</code>里有没有这段内容。</li>
+<li><strong>安全重试</strong>：如果有，它就什么都不做；如果没有，它就加上；如果内容不一样，它就修正。</li>
+<li><strong>结果导向</strong>：你不用管它是怎么写入的，你只需要告诉Ansible：“我要这个文件长这样”。</li>
+</ol>
+<p>我有个同事大刘，之前死活不愿意学Ansible，觉得写YAML麻烦。后来有次因断电导致脚本跑了一半，他花了一整天去排查哪台跑了哪台没跑。后来我让他试着用上面的逻辑跑了一遍Playbook，5分钟搞定。从那以后，他再也没提过用Shell批量改配置的事。</p>
+<h2 id="让代码像说明书一样易读">让代码像“说明书”一样易读
+</h2><p>大家回想一下，当你接手前任留下的几百行Shell脚本时，是什么心情？</p>
+<p>是不是充满了各种<code>var1</code>、<code>temp_file</code>这种莫名其妙的变量？代码逻辑像迷宫一样？我曾经接手过一个项目，光是读懂那个初始化环境的脚本就花了我整整两天。</p>
+<p><strong>Ansible Playbook 强迫你把运维操作变成文档。</strong></p>
+<p><img src="https://picsum.photos/800/450?random=1768442334759"
+	
+	
+	
+	loading="lazy"
+	
+		alt="配图"
+	
+	
+></p>
+<p>这就好比做菜。Shell脚本像是那种只有大厨看得懂的“少许、适量、火候自便”；而Playbook则是标准的工业化SOP（标准作业程序）。</p>
+<p>来看看这个对比：</p>
+<p><strong>普通脚本风格：</strong></p>
+<div class="highlight"><pre tabindex="0" style="color:#f8f8f2;background-color:#272822;-moz-tab-size:4;-o-tab-size:4;tab-size:4;"><code class="language-bash" data-lang="bash"><span style="display:flex;"><span><span style="color:#75715e"># 安装软件</span>
+</span></span><span style="display:flex;"><span>yum install -y httpd
+</span></span><span style="display:flex;"><span><span style="color:#75715e"># 启动</span>
+</span></span><span style="display:flex;"><span>systemctl start httpd
+</span></span></code></pre></div><p>你不知道这步是为了干啥，也不知道失败了会怎样。</p>
+<p><strong>Playbook风格：</strong></p>
+<div class="highlight"><pre tabindex="0" style="color:#f8f8f2;background-color:#272822;-moz-tab-size:4;-o-tab-size:4;tab-size:4;"><code class="language-yaml" data-lang="yaml"><span style="display:flex;"><span>- <span style="color:#f92672">name</span>: <span style="color:#ae81ff">部署Web服务全流程</span>
+</span></span><span style="display:flex;"><span>  <span style="color:#f92672">hosts</span>: <span style="color:#ae81ff">webservers</span>
+</span></span><span style="display:flex;"><span>  <span style="color:#f92672">tasks</span>:
+</span></span><span style="display:flex;"><span>    - <span style="color:#f92672">name</span>: <span style="color:#ae81ff">第一步：安装Apache服务</span>
+</span></span><span style="display:flex;"><span>      <span style="color:#f92672">yum</span>:
+</span></span><span style="display:flex;"><span>        <span style="color:#f92672">name</span>: <span style="color:#ae81ff">httpd</span>
+</span></span><span style="display:flex;"><span>        <span style="color:#f92672">state</span>: <span style="color:#ae81ff">present</span>
+</span></span><span style="display:flex;"><span>
+</span></span><span style="display:flex;"><span>    - <span style="color:#f92672">name</span>: <span style="color:#ae81ff">第二步：启动服务并设置开机自启</span>
+</span></span><span style="display:flex;"><span>      <span style="color:#f92672">service</span>:
+</span></span><span style="display:flex;"><span>        <span style="color:#f92672">name</span>: <span style="color:#ae81ff">httpd</span>
+</span></span><span style="display:flex;"><span>        <span style="color:#f92672">state</span>: <span style="color:#ae81ff">started</span>
+</span></span><span style="display:flex;"><span>        <span style="color:#f92672">enabled</span>: <span style="color:#66d9ef">yes</span>
+</span></span></code></pre></div><p><img src="https://picsum.photos/800/450?random=1768442334497"
+	
+	
+	
+	loading="lazy"
+	
+		alt="配图"
+	
+	
+></p>
+<p>我现在的习惯是，每周五下午进行复盘时，只要把Playbook打开，对着YAML文件给新人讲一遍，他们基本就能明白整个系统的部署架构。<strong>代码即文档</strong>，这句话真不是虚的，它能帮你省下大量写Wiki和解释的时间。</p>
+<h2 id="变量与模板不要把配置写死">变量与模板：不要把配置“写死”
+</h2><p>刚开始写Playbook时，我最爱干的事就是Hardcode（硬编码）。比如把数据库IP直接写在配置文件任务里。</p>
+<p>结果到了年底，公司做架构调整，数据库迁移了。我不得不打开十几个Playbook文件，一个个查找替换。那种绝望感，谁试谁知道。</p>
+<p><strong>真正的自动化，是把“逻辑”和“数据”剥离开。</strong></p>
+<p>这时候，Ansible的<code>Jinja2</code>模板引擎就派上用场了。</p>
+<p>举个真实场景：我们要给开发环境（Dev）、测试环境（QA）和生产环境（Prod）部署同一套应用，但它们的端口和数据库地址不一样。</p>
+<p><strong>做法是这样的：</strong></p>
+<ol>
+<li>
+<p>创建一个模板文件 <code>app_config.j2</code>：</p>
+<div class="highlight"><pre tabindex="0" style="color:#f8f8f2;background-color:#272822;-moz-tab-size:4;-o-tab-size:4;tab-size:4;"><code class="language-ini" data-lang="ini"><span style="display:flex;"><span><span style="color:#66d9ef">[database]</span>
+</span></span><span style="display:flex;"><span><span style="color:#a6e22e">host</span> <span style="color:#f92672">=</span> 
+</span></span><span style="display:flex;"><span><span style="color:#a6e22e">port</span> <span style="color:#f92672">=</span> 
+</span></span></code></pre></div></li>
+<li>
+<p>在Playbook里调用：</p>
+<div class="highlight"><pre tabindex="0" style="color:#f8f8f2;background-color:#272822;-moz-tab-size:4;-o-tab-size:4;tab-size:4;"><code class="language-yaml" data-lang="yaml"><span style="display:flex;"><span>- <span style="color:#f92672">name</span>: <span style="color:#ae81ff">分发配置文件</span>
+</span></span><span style="display:flex;"><span>  <span style="color:#f92672">template</span>:
+</span></span><span style="display:flex;"><span>    <span style="color:#f92672">src</span>: <span style="color:#ae81ff">app_config.j2</span>
+</span></span><span style="display:flex;"><span>    <span style="color:#f92672">dest</span>: <span style="color:#ae81ff">/opt/app/config.ini</span>
+</span></span></code></pre></div></li>
+<li>
+<p>在变量文件里定义不同环境的值。</p>
+</li>
+</ol>
+<p>这套方法落地后，效果立竿见影。上个月我们做灾备演练，需要把全套环境切换到备用机房。我只需要修改<code>group_vars</code>里的几个IP变量，运行一遍Playbook，<strong>10分钟内，30多个微服务的配置全部自动更新并重启完毕。</strong></p>
+<p>要是放在以前用脚本处理，我估计得拉上整个运维组通宵加班。</p>
+<h2 id="别光看不练给你3个落地建议">别光看不练，给你3个落地建议
+</h2><p>说了这么多，我知道很多朋友还在犹豫：“看起来好难，我还是用老办法吧。”</p>
+<p>其实技术债都是这么欠下的。与其等到像我当年那样半夜炸雷，不如现在就开始填坑。Ansible其实是DevOps工具链里门槛最低的一个，不需要Agent，只要能SSH就能跑。</p>
+<p>如果你想开始尝试，我建议你这周只做这三件事：</p>
+<ol>
+<li><strong>环境准备</strong>：在你的笔记本或者一台跳板机上装好Ansible（<code>pip install ansible</code> 或者 <code>yum install ansible</code>），不需要复杂的配置。</li>
+<li><strong>写第一个Hello World</strong>：不要试图上来就搞复杂的部署。写一个Playbook，只做一件事：<strong>在所有目标服务器的 <code>/tmp</code> 目录下创建一个叫 <code>success.txt</code> 的文件。</strong> 跑通这个，你就理解了核心流程。</li>
+<li><strong>重构一个小脚本</strong>：找一个你平时最常用的、不超过20行的Shell脚本（比如清理日志、同步时间），把它翻译成Ansible Playbook，并设定为每天自动运行。</li>
+</ol>
+<p>当你第一次看着屏幕上那一排绿色的“OK”和黄色的“Changed”滚动闪过，相信我，那种掌控感会让你上瘾的。</p>
+<p><strong>最后留个问题</strong>：你们现在的日常运维中，哪一个重复性操作让你最头疼？或者如果你已经用了Ansible，踩过什么印象深刻的“坑”？欢迎在评论区聊聊，我们一起避雷。</p>
+
+</section>
+
+
+    <footer class="article-footer">
+    
+    <section class="article-tags">
+        
+            <a href="/tags/Ansible-Playbook%E8%87%AA%E5%8A%A8%E5%8C%96%E8%84%9A%E6%9C%AC%E7%BC%96%E5%86%99.html">Ansible Playbook：自动化脚本编写</a>
+        
+    </section>
+
+
+    </footer>
+
+
+    
+</article>
+
+    
+
+    
+
+     
+    
+        
+    <script
+    src="https://giscus.app/client.js"
+    data-repo="pastor17/bloggiscus"
+    data-repo-id="R_kgDOQ6H9qQ"
+    data-category=""
+    data-category-id="DIC_kwDOQ6H9qc4C0-T8"
+    data-mapping="pathname"
+    data-strict="0"
+    data-reactions-enabled="1"
+    data-emit-metadata="0"
+    data-input-position="bottom"
+    data-theme="light"
+    data-lang="zh-CN"
+    data-loading="lazy"
+    crossorigin="anonymous"
+    async
+></script>
+<script>
+    function setGiscusTheme(theme) {
+        let giscus = document.querySelector("iframe.giscus-frame");
+        if (giscus) {
+            giscus.contentWindow.postMessage(
+                {
+                    giscus: {
+                        setConfig: {
+                            theme: theme,
+                        },
+                    },
+                },
+                "https://giscus.app"
+            );
+        }
+    }
+
+    (function () {
+        addEventListener("message", (e) => {
+            if (event.origin !== "https://giscus.app") return;
+            handler();
+        });
+        window.addEventListener("onColorSchemeChange", handler);
+
+        function handler() {
+            if (document.documentElement.dataset.scheme === "light") {
+                setGiscusTheme('light');
+            } else {
+                setGiscusTheme('dark_dimmed');
+            }
+        }
+    })();
+</script>
+
+    
+
+    <footer class="site-footer">
+    <section class="copyright">
+        &copy; 
+        
+        2026 SelfTechHub
+    </section>
+    
+    <section class="powerby">
+        
+
+    </section>
+</footer>
+
+
+    
+<div class="pswp" tabindex="-1" role="dialog" aria-hidden="true">
+
+    
+    <div class="pswp__bg"></div>
+
+    
+    <div class="pswp__scroll-wrap">
+
+        
+        <div class="pswp__container">
+            <div class="pswp__item"></div>
+            <div class="pswp__item"></div>
+            <div class="pswp__item"></div>
+        </div>
+
+        
+        <div class="pswp__ui pswp__ui--hidden">
+
+            <div class="pswp__top-bar">
+
+                
+
+                <div class="pswp__counter"></div>
+
+                <button class="pswp__button pswp__button--close" title="Close (Esc)"></button>
+
+                <button class="pswp__button pswp__button--share" title="Share"></button>
+
+                <button class="pswp__button pswp__button--fs" title="Toggle fullscreen"></button>
+
+                <button class="pswp__button pswp__button--zoom" title="Zoom in/out"></button>
+
+                
+                
+                <div class="pswp__preloader">
+                    <div class="pswp__preloader__icn">
+                        <div class="pswp__preloader__cut">
+                            <div class="pswp__preloader__donut"></div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <div class="pswp__share-modal pswp__share-modal--hidden pswp__single-tap">
+                <div class="pswp__share-tooltip"></div>
+            </div>
+
+            <button class="pswp__button pswp__button--arrow--left" title="Previous (arrow left)">
+            </button>
+
+            <button class="pswp__button pswp__button--arrow--right" title="Next (arrow right)">
+            </button>
+
+            <div class="pswp__caption">
+                <div class="pswp__caption__center"></div>
+            </div>
+
+        </div>
+
+    </div>
+
+</div><script 
+                src="https://cdn.jsdelivr.net/npm/photoswipe@4.1.3/dist/photoswipe.min.js"integrity="sha256-ePwmChbbvXbsO02lbM3HoHbSHTHFAeChekF1xKJdleo="crossorigin="anonymous"
+                defer
+                >
+            </script><script 
+                src="https://cdn.jsdelivr.net/npm/photoswipe@4.1.3/dist/photoswipe-ui-default.min.js"integrity="sha256-UKkzOn/w1mBxRmLLGrSeyB4e1xbrp4xylgAWb3M42pU="crossorigin="anonymous"
+                defer
+                >
+            </script><link 
+                rel="stylesheet" 
+                href="https://cdn.jsdelivr.net/npm/photoswipe@4.1.3/dist/default-skin/default-skin.min.css"crossorigin="anonymous"
+            ><link 
+                rel="stylesheet" 
+                href="https://cdn.jsdelivr.net/npm/photoswipe@4.1.3/dist/photoswipe.min.css"crossorigin="anonymous"
+            >
+    
+
+            </main>
+        </div>
+        <script 
+                src="https://cdn.jsdelivr.net/npm/node-vibrant@3.1.6/dist/vibrant.min.js"integrity="sha256-awcR2jno4kI5X0zL8ex0vi2z&#43;KMkF24hUW8WePSA9HM="crossorigin="anonymous"
+                
+                >
+            </script><script type="text/javascript" src="/ts/main.c922af694cc257bf1ecc41c0dd7b0430f9114ec280ccf67cd2c6ad55f5316c4e.js" defer></script>
+<script>
+    (function () {
+        const customFont = document.createElement('link');
+        customFont.href = "https://fonts.googleapis.com/css2?family=Lato:wght@300;400;700&display=swap";
+
+        customFont.type = "text/css";
+        customFont.rel = "stylesheet";
+
+        document.head.appendChild(customFont);
+    }());
+</script>
+
+    </body>
+</html>

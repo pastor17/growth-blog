@@ -1,0 +1,277 @@
+<?xml version="1.0" encoding="utf-8" standalone="yes"?>
+<rss version="2.0" xmlns:atom="http://www.w3.org/2005/Atom">
+    <channel>
+        <title>Workflow on SelfTechHub</title>
+        <link>https://blog.irudder.me/tags/Workflow.html</link>
+        <description>Recent content in Workflow on SelfTechHub</description>
+        <generator>Hugo -- gohugo.io</generator>
+        <language>zh-cn</language>
+        <lastBuildDate>Thu, 12 Feb 2026 00:00:00 +0000</lastBuildDate><atom:link href="https://blog.irudder.me/tags/Workflow/index.xml" rel="self" type="application/rss+xml" /><item>
+        <title>第7章 AI技术基础与工具选型</title>
+        <link>https://blog.irudder.me/ai/ped/Chapter07-AI-Tech-Fundamentals-and-Tool-Selection.html</link>
+        <pubDate>Thu, 12 Feb 2026 00:00:00 +0000</pubDate>
+        
+        <guid>https://blog.irudder.me/ai/ped/Chapter07-AI-Tech-Fundamentals-and-Tool-Selection.html</guid>
+        <description>&lt;h1 id=&#34;第7章-ai技术基础与工具选型&#34;&gt;第7章 AI技术基础与工具选型
+&lt;/h1&gt;&lt;blockquote&gt;
+&lt;p&gt;&lt;strong&gt;本章导读&lt;/strong&gt;&lt;/p&gt;
+&lt;p&gt;第4章扫盲了术语，本章把术语背后的技术逻辑讲透，并落到FDE最实际的决策——工具选型。FDE不必写底层代码，但必须懂技术原理，才能判断&amp;quot;什么场景用什么工具&amp;quot;。本章图解大模型调用、Prompt工程、RAG检索、工作流编排四项核心技术的原理；盘点主流工具；给出以落地效果为核心的选型方法论。读完本章，你应当能根据业务场景，快速匹配合适的工具组合。&lt;/p&gt;
+&lt;/blockquote&gt;
+&lt;hr&gt;
+&lt;h2 id=&#34;71-fde要懂的技术深度&#34;&gt;§7.1 FDE要懂的技术深度
+&lt;/h2&gt;&lt;p&gt;先校准一个认知：FDE要懂技术，但不必要懂到能写底层算法。&lt;/p&gt;
+&lt;p&gt;FDE的技术深度标准是**&amp;ldquo;能判断、能配置、能排查&amp;rdquo;**：&lt;/p&gt;
+&lt;ul&gt;
+&lt;li&gt;&lt;strong&gt;能判断&lt;/strong&gt;：知道什么场景该用什么技术、什么技术做不了什么。&lt;/li&gt;
+&lt;li&gt;&lt;strong&gt;能配置&lt;/strong&gt;：能在零代码平台配置Prompt、RAG、工作流。&lt;/li&gt;
+&lt;li&gt;&lt;strong&gt;能排查&lt;/strong&gt;：出问题能定位是Prompt、数据、还是接口的问题。&lt;/li&gt;
+&lt;/ul&gt;
+&lt;p&gt;不要求&amp;quot;能开发&amp;quot;——开发底层是算法工程师与平台团队的事。FDE的技术价值在应用层判断，不在底层实现。&lt;/p&gt;
+&lt;hr&gt;
+&lt;h2 id=&#34;72-核心技术逻辑图解&#34;&gt;§7.2 核心技术逻辑图解
+&lt;/h2&gt;&lt;h3 id=&#34;721-大模型调用&#34;&gt;7.2.1 大模型调用
+&lt;/h3&gt;&lt;p&gt;&lt;strong&gt;原理&lt;/strong&gt;：FDE通过API向大模型发送一段文本（Prompt），模型返回生成的文本（Response）。整个过程是&amp;quot;输入文本→模型预测→输出文本&amp;quot;。&lt;/p&gt;
+&lt;blockquote&gt;
+&lt;p&gt;&lt;strong&gt;图7-1：大模型调用流程&lt;/strong&gt;
+（建议呈现：横向流程图。Prompt组装→API请求→模型推理→Response返回→结果解析。）&lt;/p&gt;
+&lt;/blockquote&gt;
+&lt;p&gt;&lt;strong&gt;FDE要懂的关键点&lt;/strong&gt;：&lt;/p&gt;
+&lt;ul&gt;
+&lt;li&gt;&lt;strong&gt;Token计费&lt;/strong&gt;：输入与输出都按Token计费，长Prompt成本高。&lt;/li&gt;
+&lt;li&gt;&lt;strong&gt;上下文窗口&lt;/strong&gt;：超过窗口的输入会被截断，影响效果。&lt;/li&gt;
+&lt;li&gt;&lt;strong&gt;温度（Temperature）&lt;/strong&gt;：控制输出随机性，0最确定、1较随机。事实性任务用低温度，创意性任务用高温度。&lt;/li&gt;
+&lt;li&gt;&lt;strong&gt;超时与重试&lt;/strong&gt;：API可能超时或失败，调用逻辑要设计重试。&lt;/li&gt;
+&lt;/ul&gt;
+&lt;h3 id=&#34;722-prompt工程&#34;&gt;7.2.2 Prompt工程
+&lt;/h3&gt;&lt;p&gt;&lt;strong&gt;原理&lt;/strong&gt;：Prompt是给大模型的指令。同样的模型，不同Prompt效果天差地别。Prompt工程就是设计能稳定产出预期结果的指令。&lt;/p&gt;
+&lt;p&gt;&lt;strong&gt;核心要素&lt;/strong&gt;：&lt;/p&gt;
+&lt;ul&gt;
+&lt;li&gt;&lt;strong&gt;角色设定&lt;/strong&gt;：告诉模型&amp;quot;你是谁&amp;quot;（&amp;ldquo;你是一位资深客服主管&amp;rdquo;）。&lt;/li&gt;
+&lt;li&gt;&lt;strong&gt;任务描述&lt;/strong&gt;：明确要做什么（&amp;ldquo;请根据以下客户问题，生成回复&amp;rdquo;）。&lt;/li&gt;
+&lt;li&gt;&lt;strong&gt;约束条件&lt;/strong&gt;：限定输出（&amp;ldquo;不超过200字&amp;quot;&amp;ldquo;不承诺具体赔偿&amp;rdquo;）。&lt;/li&gt;
+&lt;li&gt;&lt;strong&gt;输出格式&lt;/strong&gt;：指定结构（JSON、表格、Markdown）。&lt;/li&gt;
+&lt;li&gt;&lt;strong&gt;Few-Shot示例&lt;/strong&gt;：给几个输入输出范例，引导模型学习模式。&lt;/li&gt;
+&lt;/ul&gt;
+&lt;blockquote&gt;
+&lt;p&gt;&lt;strong&gt;方法论框7-1：Prompt五要素检查&lt;/strong&gt;
+写完一个Prompt，逐项检查：&lt;/p&gt;
+&lt;ol&gt;
+&lt;li&gt;角色设定了吗？&lt;/li&gt;
+&lt;li&gt;任务说清了吗？&lt;/li&gt;
+&lt;li&gt;约束给了吗？&lt;/li&gt;
+&lt;li&gt;输出格式定了吗？&lt;/li&gt;
+&lt;li&gt;需要Few-Shot吗？
+五项想清楚再写，比写完返工快。&lt;/li&gt;
+&lt;/ol&gt;
+&lt;/blockquote&gt;
+&lt;h3 id=&#34;723-rag检索&#34;&gt;7.2.3 RAG检索
+&lt;/h3&gt;&lt;p&gt;&lt;strong&gt;原理&lt;/strong&gt;：见第4章§4.5。RAG的核心是&amp;quot;先检索相关片段，再让模型基于片段回答&amp;rdquo;。&lt;/p&gt;
+&lt;p&gt;&lt;strong&gt;FDE要懂的调优点&lt;/strong&gt;：&lt;/p&gt;
+&lt;ul&gt;
+&lt;li&gt;&lt;strong&gt;切片策略&lt;/strong&gt;：文档怎么切（按段落、按字数、按语义）影响检索质量。&lt;/li&gt;
+&lt;li&gt;&lt;strong&gt;向量模型选择&lt;/strong&gt;：不同向量模型对中文、专业术语的支持不同。&lt;/li&gt;
+&lt;li&gt;&lt;strong&gt;检索Top-K&lt;/strong&gt;：每次取几条最相似片段，太少漏信息、太多噪声多。&lt;/li&gt;
+&lt;li&gt;&lt;strong&gt;重排序（Rerank）&lt;/strong&gt;：对检索结果二次排序，提升相关性。&lt;/li&gt;
+&lt;li&gt;&lt;strong&gt;混合检索&lt;/strong&gt;：向量检索+关键词检索结合，兼顾语义与精确匹配。&lt;/li&gt;
+&lt;/ul&gt;
+&lt;blockquote&gt;
+&lt;p&gt;&lt;strong&gt;图7-2：RAG调优关键点&lt;/strong&gt;
+（建议呈现：流程图，在标准RAG流程上标注切片、向量模型、Top-K、Rerank、混合检索五个调优点。）&lt;/p&gt;
+&lt;/blockquote&gt;
+&lt;h3 id=&#34;724-工作流编排&#34;&gt;7.2.4 工作流编排
+&lt;/h3&gt;&lt;p&gt;&lt;strong&gt;原理&lt;/strong&gt;：把复杂任务拆成多个节点，每个节点用一个AI能力或工具，按顺序/条件串联，自动完成。&lt;/p&gt;
+&lt;p&gt;&lt;strong&gt;节点类型&lt;/strong&gt;：&lt;/p&gt;
+&lt;ul&gt;
+&lt;li&gt;&lt;strong&gt;大模型节点&lt;/strong&gt;：调用LLM做生成/分析/分类。&lt;/li&gt;
+&lt;li&gt;&lt;strong&gt;工具节点&lt;/strong&gt;：调用API、查数据库、发邮件。&lt;/li&gt;
+&lt;li&gt;&lt;strong&gt;条件节点&lt;/strong&gt;：根据上游输出分支。&lt;/li&gt;
+&lt;li&gt;&lt;strong&gt;循环节点&lt;/strong&gt;：对列表数据逐条处理。&lt;/li&gt;
+&lt;/ul&gt;
+&lt;blockquote&gt;
+&lt;p&gt;&lt;strong&gt;图7-3：工作流编排示例&lt;/strong&gt;
+（建议呈现：节点流程图。输入→LLM分类→条件分支（A/B）→A分支调工具+LLM生成→B分支直接LLM生成→合并输出。）&lt;/p&gt;
+&lt;/blockquote&gt;
+&lt;p&gt;&lt;strong&gt;FDE要懂的设计点&lt;/strong&gt;：&lt;/p&gt;
+&lt;ul&gt;
+&lt;li&gt;&lt;strong&gt;节点粒度&lt;/strong&gt;：每个节点做一件事，不要塞太多逻辑。&lt;/li&gt;
+&lt;li&gt;&lt;strong&gt;错误处理&lt;/strong&gt;：每个节点都可能失败，要有降级方案。&lt;/li&gt;
+&lt;li&gt;&lt;strong&gt;数据流转&lt;/strong&gt;：上游节点的输出如何作为下游输入，要设计清楚。&lt;/li&gt;
+&lt;/ul&gt;
+&lt;hr&gt;
+&lt;h2 id=&#34;73-主流工具盘点&#34;&gt;§7.3 主流工具盘点
+&lt;/h2&gt;&lt;blockquote&gt;
+&lt;p&gt;&lt;strong&gt;说明&lt;/strong&gt;：工具市场变化快，本节盘点为撰写时主流选择，读者应以最新市场情况为准。本书不替任何工具背书，仅做分类参考。&lt;/p&gt;
+&lt;/blockquote&gt;
+&lt;h3 id=&#34;731-大模型平台&#34;&gt;7.3.1 大模型平台
+&lt;/h3&gt;&lt;p&gt;提供模型调用能力。选型关注：能力、价格、稳定性、合规性。&lt;/p&gt;
+&lt;ul&gt;
+&lt;li&gt;&lt;strong&gt;海外&lt;/strong&gt;：GPT系列、Claude系列、Gemini系列（国内使用需注意合规）。&lt;/li&gt;
+&lt;li&gt;&lt;strong&gt;国内&lt;/strong&gt;：通义、文心、智谱、月之暗面、DeepSeek、豆包等，各有侧重。&lt;/li&gt;
+&lt;/ul&gt;
+&lt;p&gt;FDE建议至少熟悉2-3个，因为不同模型在不同任务上表现差异大。&lt;/p&gt;
+&lt;h3 id=&#34;732-零代码agent搭建平台&#34;&gt;7.3.2 零代码Agent搭建平台
+&lt;/h3&gt;&lt;p&gt;提供Agent/Skill/工作流的可视化搭建。选型关注：易用性、扩展性、生态、价格。&lt;/p&gt;
+&lt;p&gt;主流方向：&lt;/p&gt;
+&lt;ul&gt;
+&lt;li&gt;&lt;strong&gt;大厂生态平台&lt;/strong&gt;：与自家模型深度集成，适合深度用户。&lt;/li&gt;
+&lt;li&gt;&lt;strong&gt;独立Agent平台&lt;/strong&gt;：支持多家模型，灵活度高。&lt;/li&gt;
+&lt;li&gt;&lt;strong&gt;工作流自动化平台&lt;/strong&gt;：偏自动化集成，适合跨系统串联。&lt;/li&gt;
+&lt;/ul&gt;
+&lt;h3 id=&#34;733-工作流自动化工具&#34;&gt;7.3.3 工作流自动化工具
+&lt;/h3&gt;&lt;p&gt;用于跨系统串联、触发与执行。关注：连接器丰富度、稳定性、触发方式。&lt;/p&gt;
+&lt;h3 id=&#34;734-数据处理工具&#34;&gt;7.3.4 数据处理工具
+&lt;/h3&gt;&lt;p&gt;用于清洗、转换、分析数据。关注：处理量、易用性、与AI能力的衔接。&lt;/p&gt;
+&lt;hr&gt;
+&lt;h2 id=&#34;74-工具选型方法论&#34;&gt;§7.4 工具选型方法论
+&lt;/h2&gt;&lt;p&gt;工具多到眼花，FDE怎么选？核心原则一句话：&lt;strong&gt;以落地效果为核心，不是以技术先进性为核心。&lt;/strong&gt;&lt;/p&gt;
+&lt;h3 id=&#34;选型四步法&#34;&gt;选型四步法
+&lt;/h3&gt;&lt;blockquote&gt;
+&lt;p&gt;&lt;strong&gt;方法论框7-2：工具选型四步法&lt;/strong&gt;&lt;/p&gt;
+&lt;ol&gt;
+&lt;li&gt;&lt;strong&gt;先定场景&lt;/strong&gt;：要解决什么业务问题？输出什么效果？&lt;/li&gt;
+&lt;li&gt;&lt;strong&gt;再定能力&lt;/strong&gt;：完成这个场景需要哪些AI能力（生成/检索/分类/编排）？&lt;/li&gt;
+&lt;li&gt;&lt;strong&gt;匹配工具&lt;/strong&gt;：哪些工具能提供这些能力？列候选清单。&lt;/li&gt;
+&lt;li&gt;&lt;strong&gt;实测对比&lt;/strong&gt;：用真实数据测2-3个候选，选效果最好且成本可控的。&lt;/li&gt;
+&lt;/ol&gt;
+&lt;/blockquote&gt;
+&lt;h3 id=&#34;选型的常见误区&#34;&gt;选型的常见误区
+&lt;/h3&gt;&lt;p&gt;&lt;strong&gt;误区一：追新。&lt;/strong&gt; 新工具层出不穷，追新会陷入&amp;quot;工具焦虑&amp;quot;。原则：能用现有工具解决的，不换新。&lt;/p&gt;
+&lt;p&gt;&lt;strong&gt;误区二：贪全。&lt;/strong&gt; 想用一个工具解决所有问题。现实是每个工具都有强项弱项，组合使用更合理。&lt;/p&gt;
+&lt;p&gt;&lt;strong&gt;误区三：只看Demo。&lt;/strong&gt; 工具Demo都很漂亮，真实业务数据下表现可能差很多。必须用客户真实数据测。&lt;/p&gt;
+&lt;p&gt;&lt;strong&gt;误区四：忽视成本。&lt;/strong&gt; 光看效果不看成本，上线后发现Token费用爆表。选型必须算成本。&lt;/p&gt;
+&lt;p&gt;&lt;strong&gt;误区五：忽视合规。&lt;/strong&gt; 客户数据敏感度不同，选型要考虑私有化部署、数据脱敏、合规通道。&lt;/p&gt;
+&lt;h3 id=&#34;选型决策表&#34;&gt;选型决策表
+&lt;/h3&gt;&lt;p&gt;建议FDE维护一张自己的选型决策表，每次选型填一遍：&lt;/p&gt;
+&lt;table&gt;
+  &lt;thead&gt;
+      &lt;tr&gt;
+          &lt;th&gt;维度&lt;/th&gt;
+          &lt;th&gt;权重&lt;/th&gt;
+          &lt;th&gt;候选A&lt;/th&gt;
+          &lt;th&gt;候选B&lt;/th&gt;
+          &lt;th&gt;候选C&lt;/th&gt;
+      &lt;/tr&gt;
+  &lt;/thead&gt;
+  &lt;tbody&gt;
+      &lt;tr&gt;
+          &lt;td&gt;效果（实测）&lt;/td&gt;
+          &lt;td&gt;30%&lt;/td&gt;
+          &lt;td&gt;&lt;/td&gt;
+          &lt;td&gt;&lt;/td&gt;
+          &lt;td&gt;&lt;/td&gt;
+      &lt;/tr&gt;
+      &lt;tr&gt;
+          &lt;td&gt;成本&lt;/td&gt;
+          &lt;td&gt;20%&lt;/td&gt;
+          &lt;td&gt;&lt;/td&gt;
+          &lt;td&gt;&lt;/td&gt;
+          &lt;td&gt;&lt;/td&gt;
+      &lt;/tr&gt;
+      &lt;tr&gt;
+          &lt;td&gt;稳定性&lt;/td&gt;
+          &lt;td&gt;15%&lt;/td&gt;
+          &lt;td&gt;&lt;/td&gt;
+          &lt;td&gt;&lt;/td&gt;
+          &lt;td&gt;&lt;/td&gt;
+      &lt;/tr&gt;
+      &lt;tr&gt;
+          &lt;td&gt;易用性&lt;/td&gt;
+          &lt;td&gt;10%&lt;/td&gt;
+          &lt;td&gt;&lt;/td&gt;
+          &lt;td&gt;&lt;/td&gt;
+          &lt;td&gt;&lt;/td&gt;
+      &lt;/tr&gt;
+      &lt;tr&gt;
+          &lt;td&gt;合规性&lt;/td&gt;
+          &lt;td&gt;15%&lt;/td&gt;
+          &lt;td&gt;&lt;/td&gt;
+          &lt;td&gt;&lt;/td&gt;
+          &lt;td&gt;&lt;/td&gt;
+      &lt;/tr&gt;
+      &lt;tr&gt;
+          &lt;td&gt;生态扩展&lt;/td&gt;
+          &lt;td&gt;10%&lt;/td&gt;
+          &lt;td&gt;&lt;/td&gt;
+          &lt;td&gt;&lt;/td&gt;
+          &lt;td&gt;&lt;/td&gt;
+      &lt;/tr&gt;
+      &lt;tr&gt;
+          &lt;td&gt;&lt;strong&gt;加权总分&lt;/strong&gt;&lt;/td&gt;
+          &lt;td&gt;&lt;/td&gt;
+          &lt;td&gt;&lt;/td&gt;
+          &lt;td&gt;&lt;/td&gt;
+          &lt;td&gt;&lt;/td&gt;
+      &lt;/tr&gt;
+  &lt;/tbody&gt;
+&lt;/table&gt;
+&lt;p&gt;填完表，选型决策有据可依，不再是拍脑袋。&lt;/p&gt;
+&lt;hr&gt;
+&lt;h2 id=&#34;75-场景与工具的匹配速查&#34;&gt;§7.5 场景与工具的匹配速查
+&lt;/h2&gt;&lt;p&gt;把四类典型场景（第4章§4.9）与工具匹配，给一张速查表。&lt;/p&gt;
+&lt;table&gt;
+  &lt;thead&gt;
+      &lt;tr&gt;
+          &lt;th&gt;场景类型&lt;/th&gt;
+          &lt;th&gt;核心能力&lt;/th&gt;
+          &lt;th&gt;推荐工具组合&lt;/th&gt;
+          &lt;th&gt;关键调优点&lt;/th&gt;
+      &lt;/tr&gt;
+  &lt;/thead&gt;
+  &lt;tbody&gt;
+      &lt;tr&gt;
+          &lt;td&gt;信息整理&lt;/td&gt;
+          &lt;td&gt;分类/摘要&lt;/td&gt;
+          &lt;td&gt;大模型 + Prompt&lt;/td&gt;
+          &lt;td&gt;Prompt约束输出格式&lt;/td&gt;
+      &lt;/tr&gt;
+      &lt;tr&gt;
+          &lt;td&gt;内容生成&lt;/td&gt;
+          &lt;td&gt;生成&lt;/td&gt;
+          &lt;td&gt;大模型 + Prompt + Few-Shot&lt;/td&gt;
+          &lt;td&gt;角色设定与Few-Shot&lt;/td&gt;
+      &lt;/tr&gt;
+      &lt;tr&gt;
+          &lt;td&gt;知识问答&lt;/td&gt;
+          &lt;td&gt;检索+生成&lt;/td&gt;
+          &lt;td&gt;大模型 + RAG + 向量库&lt;/td&gt;
+          &lt;td&gt;切片与Top-K&lt;/td&gt;
+      &lt;/tr&gt;
+      &lt;tr&gt;
+          &lt;td&gt;流程自动化&lt;/td&gt;
+          &lt;td&gt;编排+集成&lt;/td&gt;
+          &lt;td&gt;工作流平台 + 大模型 + 工具&lt;/td&gt;
+          &lt;td&gt;节点粒度与错误处理&lt;/td&gt;
+      &lt;/tr&gt;
+  &lt;/tbody&gt;
+&lt;/table&gt;
+&lt;p&gt;这张表是入门速查，复杂场景需组合多种能力，第三篇会深入。&lt;/p&gt;
+&lt;hr&gt;
+&lt;h2 id=&#34;本章小结&#34;&gt;本章小结
+&lt;/h2&gt;&lt;ol&gt;
+&lt;li&gt;&lt;strong&gt;技术深度标准&lt;/strong&gt;：能判断、能配置、能排查，不要求能开发底层。&lt;/li&gt;
+&lt;li&gt;&lt;strong&gt;四项核心技术&lt;/strong&gt;：大模型调用、Prompt工程、RAG检索、工作流编排，各有调优点。&lt;/li&gt;
+&lt;li&gt;&lt;strong&gt;工具盘点&lt;/strong&gt;：大模型平台、Agent平台、工作流工具、数据处理工具四类。&lt;/li&gt;
+&lt;li&gt;&lt;strong&gt;选型方法论&lt;/strong&gt;：先定场景→再定能力→匹配工具→实测对比，以落地效果为核心。&lt;/li&gt;
+&lt;li&gt;&lt;strong&gt;选型误区&lt;/strong&gt;：追新、贪全、只看Demo、忽视成本、忽视合规。&lt;/li&gt;
+&lt;li&gt;&lt;strong&gt;场景速查&lt;/strong&gt;：四类场景对应不同工具组合与调优点。&lt;/li&gt;
+&lt;/ol&gt;
+&lt;hr&gt;
+&lt;h2 id=&#34;思考题&#34;&gt;思考题
+&lt;/h2&gt;&lt;ol&gt;
+&lt;li&gt;选一个你熟悉的工作任务，判断它属于四类场景的哪类，匹配对应工具组合。&lt;/li&gt;
+&lt;li&gt;用方法论框7-2，为这个任务做一次工具选型，填出选型决策表。&lt;/li&gt;
+&lt;li&gt;找两个大模型，用同一组Prompt测试同一任务，对比效果差异并分析原因。&lt;/li&gt;
+&lt;li&gt;用零代码平台搭一个简单RAG，调整切片策略与Top-K，观察检索效果变化。&lt;/li&gt;
+&lt;/ol&gt;
+&lt;hr&gt;
+&lt;h2 id=&#34;延伸阅读&#34;&gt;延伸阅读
+&lt;/h2&gt;&lt;ul&gt;
+&lt;li&gt;本书第8章深入Prompt工程与Skill搭建，是本章7.2.2的延伸。&lt;/li&gt;
+&lt;li&gt;第9章讲工作流自动化落地，是7.2.4的延伸。&lt;/li&gt;
+&lt;li&gt;各工具官方文档（用于刷新能力边界与最新功能）。&lt;/li&gt;
+&lt;/ul&gt;
+</description>
+        </item>
+        
+    </channel>
+</rss>

@@ -1,0 +1,460 @@
+<!DOCTYPE html>
+<html lang="zh-cn" dir="ltr">
+    <head><meta charset='utf-8'>
+<meta name='viewport' content='width=device-width, initial-scale=1'><meta name='description' content="早些年做架构的时候，我曾天真地以为，只要给数据库加上一层 Redis，再给每个 Key 设个随机过期时间，就能搞定 90% 的高并发问题。\n直到两年前的一次双十一大促预演，现实狠狠给了我一巴掌。\n那天下午2点，流量只是比平时翻了一倍，我们的数据库 CPU 却突然飙到了 100%，报警群里的消息像机关枪一样响个不停。排查下来发现，不是 Redis 挂了，而是缓存策略太粗糙——几个热点 Key 同时过期，加上一个看似不起眼的 Big Key，直接击穿了数据库，顺带把带宽打满了。\n这次“踩坑”让我深刻意识到：在中小团队资源有限的情况下，盲目堆机器没用，精细化的缓存策略才是保命符。\n今天想和大家复盘一下，我在那次事故后总结的一套适合中小项目的 Redis 避坑指南，不讲虚的理论，只聊怎么落地。\n## 策略一：热点 Key 别用强一致，试试“逻辑过期”\r很多兄弟在处理热点数据（比如首页 Banner、爆款商品详情）时，最怕的就是缓存击穿。\n经典的教科书方案是“加互斥锁（Mutex Lock）”：当缓存失效时，只允许一个线程去查库重建缓存，其他线程等待。\n说实话，这在理论上很完美，但在我们那次事故中，因为代码里的锁粒度没控制好，加上数据库响应慢，导致大量线程阻塞在应用层，Tomcat 线程池瞬间被打满，整个服务直接假死。\n后来我改用了“逻辑过期”方案，效果出奇的好。\n简单说，就是物理上不给 Key 设置过期时间（也就是永不过期），而是把过期时间戳写在 Value 的内容里。\n{ &#34;data&#34;: { &#34;title&#34;: &#34;iPhone 15&#34;, &#34;price&#34;: 5999 }, &#34;expire_at&#34;: 1715682000000 // 逻辑过期时间 } 落地逻辑是这样的：\n应用拿到数据，先判断 expire_at 是否过期。 如果没过期，直接返回数据。 如果已过期，先返回旧数据给用户（这一步是关键，用户对几秒的数据延迟通常不敏感），同时异步启动一个线程去数据库查新数据，更新缓存。 这个方案最大的好处是服务永远可用，不用担心大量线程阻塞。哪怕数据库挂了，用户至少还能看到旧数据，而不是 404 或转圈圈。对于追求高可用的中小团队来说，这比追求绝对强一致性划算得多。\n## 策略二：消灭 Big Key，比扩容更重要\r那次事故中，另一个罪魁祸首是一个“用户详情”的 Key。\n开发这个功能的兄弟为了图省事，把用户的基本信息、最近 10 条订单、最近 50 条浏览记录全塞进了一个 Key 里。平时测试数据少没感觉，大促时某些活跃用户的 Value 居然膨胀到了 500KB。\n">
+<title>QPS翻倍后Redis崩了？这3个缓存策略救了我一命</title>
+
+<link rel='canonical' href='https://blog.irudder.me/tech/zhongxiaoxingxiangmujiagoushejizhinan/gaobingfachangjingxiadehuancuncelveredissheji.html'>
+
+<link rel="stylesheet" href="/scss/style.min.b9e9128fec450ebccecc4ec9900157f32b85d0609bcd5ee3293968bcaa1235f2.css"><meta property='og:title' content="QPS翻倍后Redis崩了？这3个缓存策略救了我一命">
+<meta property='og:description' content="早些年做架构的时候，我曾天真地以为，只要给数据库加上一层 Redis，再给每个 Key 设个随机过期时间，就能搞定 90% 的高并发问题。\n直到两年前的一次双十一大促预演，现实狠狠给了我一巴掌。\n那天下午2点，流量只是比平时翻了一倍，我们的数据库 CPU 却突然飙到了 100%，报警群里的消息像机关枪一样响个不停。排查下来发现，不是 Redis 挂了，而是缓存策略太粗糙——几个热点 Key 同时过期，加上一个看似不起眼的 Big Key，直接击穿了数据库，顺带把带宽打满了。\n这次“踩坑”让我深刻意识到：在中小团队资源有限的情况下，盲目堆机器没用，精细化的缓存策略才是保命符。\n今天想和大家复盘一下，我在那次事故后总结的一套适合中小项目的 Redis 避坑指南，不讲虚的理论，只聊怎么落地。\n## 策略一：热点 Key 别用强一致，试试“逻辑过期”\r很多兄弟在处理热点数据（比如首页 Banner、爆款商品详情）时，最怕的就是缓存击穿。\n经典的教科书方案是“加互斥锁（Mutex Lock）”：当缓存失效时，只允许一个线程去查库重建缓存，其他线程等待。\n说实话，这在理论上很完美，但在我们那次事故中，因为代码里的锁粒度没控制好，加上数据库响应慢，导致大量线程阻塞在应用层，Tomcat 线程池瞬间被打满，整个服务直接假死。\n后来我改用了“逻辑过期”方案，效果出奇的好。\n简单说，就是物理上不给 Key 设置过期时间（也就是永不过期），而是把过期时间戳写在 Value 的内容里。\n{ &#34;data&#34;: { &#34;title&#34;: &#34;iPhone 15&#34;, &#34;price&#34;: 5999 }, &#34;expire_at&#34;: 1715682000000 // 逻辑过期时间 } 落地逻辑是这样的：\n应用拿到数据，先判断 expire_at 是否过期。 如果没过期，直接返回数据。 如果已过期，先返回旧数据给用户（这一步是关键，用户对几秒的数据延迟通常不敏感），同时异步启动一个线程去数据库查新数据，更新缓存。 这个方案最大的好处是服务永远可用，不用担心大量线程阻塞。哪怕数据库挂了，用户至少还能看到旧数据，而不是 404 或转圈圈。对于追求高可用的中小团队来说，这比追求绝对强一致性划算得多。\n## 策略二：消灭 Big Key，比扩容更重要\r那次事故中，另一个罪魁祸首是一个“用户详情”的 Key。\n开发这个功能的兄弟为了图省事，把用户的基本信息、最近 10 条订单、最近 50 条浏览记录全塞进了一个 Key 里。平时测试数据少没感觉，大促时某些活跃用户的 Value 居然膨胀到了 500KB。\n">
+<meta property='og:url' content='https://blog.irudder.me/tech/zhongxiaoxingxiangmujiagoushejizhinan/gaobingfachangjingxiadehuancuncelveredissheji.html'>
+<meta property='og:site_name' content='SelfTechHub'>
+<meta property='og:type' content='article'><meta property='article:section' content='Tech' /><meta property='article:tag' content='高并发场景下的缓存策略（Redis）设计' /><meta property='article:published_time' content='2024-01-01T00:00:00&#43;00:00'/><meta property='article:modified_time' content='2024-01-01T00:00:00&#43;00:00'/>
+<meta name="twitter:title" content="QPS翻倍后Redis崩了？这3个缓存策略救了我一命">
+<meta name="twitter:description" content="早些年做架构的时候，我曾天真地以为，只要给数据库加上一层 Redis，再给每个 Key 设个随机过期时间，就能搞定 90% 的高并发问题。\n直到两年前的一次双十一大促预演，现实狠狠给了我一巴掌。\n那天下午2点，流量只是比平时翻了一倍，我们的数据库 CPU 却突然飙到了 100%，报警群里的消息像机关枪一样响个不停。排查下来发现，不是 Redis 挂了，而是缓存策略太粗糙——几个热点 Key 同时过期，加上一个看似不起眼的 Big Key，直接击穿了数据库，顺带把带宽打满了。\n这次“踩坑”让我深刻意识到：在中小团队资源有限的情况下，盲目堆机器没用，精细化的缓存策略才是保命符。\n今天想和大家复盘一下，我在那次事故后总结的一套适合中小项目的 Redis 避坑指南，不讲虚的理论，只聊怎么落地。\n## 策略一：热点 Key 别用强一致，试试“逻辑过期”\r很多兄弟在处理热点数据（比如首页 Banner、爆款商品详情）时，最怕的就是缓存击穿。\n经典的教科书方案是“加互斥锁（Mutex Lock）”：当缓存失效时，只允许一个线程去查库重建缓存，其他线程等待。\n说实话，这在理论上很完美，但在我们那次事故中，因为代码里的锁粒度没控制好，加上数据库响应慢，导致大量线程阻塞在应用层，Tomcat 线程池瞬间被打满，整个服务直接假死。\n后来我改用了“逻辑过期”方案，效果出奇的好。\n简单说，就是物理上不给 Key 设置过期时间（也就是永不过期），而是把过期时间戳写在 Value 的内容里。\n{ &#34;data&#34;: { &#34;title&#34;: &#34;iPhone 15&#34;, &#34;price&#34;: 5999 }, &#34;expire_at&#34;: 1715682000000 // 逻辑过期时间 } 落地逻辑是这样的：\n应用拿到数据，先判断 expire_at 是否过期。 如果没过期，直接返回数据。 如果已过期，先返回旧数据给用户（这一步是关键，用户对几秒的数据延迟通常不敏感），同时异步启动一个线程去数据库查新数据，更新缓存。 这个方案最大的好处是服务永远可用，不用担心大量线程阻塞。哪怕数据库挂了，用户至少还能看到旧数据，而不是 404 或转圈圈。对于追求高可用的中小团队来说，这比追求绝对强一致性划算得多。\n## 策略二：消灭 Big Key，比扩容更重要\r那次事故中，另一个罪魁祸首是一个“用户详情”的 Key。\n开发这个功能的兄弟为了图省事，把用户的基本信息、最近 10 条订单、最近 50 条浏览记录全塞进了一个 Key 里。平时测试数据少没感觉，大促时某些活跃用户的 Value 居然膨胀到了 500KB。\n">
+    </head>
+    <body class="
+    article-page
+    ">
+    <script>
+        (function() {
+            const colorSchemeKey = 'StackColorScheme';
+            if(!localStorage.getItem(colorSchemeKey)){
+                localStorage.setItem(colorSchemeKey, "auto");
+            }
+        })();
+    </script><script>
+    (function() {
+        const colorSchemeKey = 'StackColorScheme';
+        const colorSchemeItem = localStorage.getItem(colorSchemeKey);
+        const supportDarkMode = window.matchMedia('(prefers-color-scheme: dark)').matches === true;
+
+        if (colorSchemeItem == 'dark' || colorSchemeItem === 'auto' && supportDarkMode) {
+            
+
+            document.documentElement.dataset.scheme = 'dark';
+        } else {
+            document.documentElement.dataset.scheme = 'light';
+        }
+    })();
+</script>
+<div class="container main-container flex on-phone--column compact"><aside class="sidebar left-sidebar sticky ">
+    <button class="hamburger hamburger--spin" type="button" id="toggle-menu" aria-label="切换菜单">
+        <span class="hamburger-box">
+            <span class="hamburger-inner"></span>
+        </span>
+    </button>
+
+    <header>
+        
+            
+            <figure class="site-avatar">
+                <a href="/">
+                
+                    
+                    
+                    
+                        
+                        <img src="/img/avatar_hu_8588ce14af1147e2.png" width="300"
+                            height="286" class="site-logo" loading="lazy" alt="Avatar">
+                    
+                
+                </a>
+                
+            </figure>
+            
+        
+        
+        <div class="site-meta">
+            <h1 class="site-name"><a href="/">SelfTechHub</a></h1>
+            <h2 class="site-description"></h2>
+        </div>
+    </header><ol class="menu" id="main-menu">
+        
+        
+        <li class="menu-bottom-section">
+            <ol class="menu">
+
+                
+                    <li id="dark-mode-toggle">
+                        <svg xmlns="http://www.w3.org/2000/svg" class="icon icon-tabler icon-tabler-toggle-left" width="24" height="24" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor" fill="none" stroke-linecap="round" stroke-linejoin="round">
+  <path stroke="none" d="M0 0h24v24H0z"/>
+  <circle cx="8" cy="12" r="2" />
+  <rect x="2" y="6" width="20" height="12" rx="6" />
+</svg>
+
+
+
+                        <svg xmlns="http://www.w3.org/2000/svg" class="icon icon-tabler icon-tabler-toggle-right" width="24" height="24" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor" fill="none" stroke-linecap="round" stroke-linejoin="round">
+  <path stroke="none" d="M0 0h24v24H0z"/>
+  <circle cx="16" cy="12" r="2" />
+  <rect x="2" y="6" width="20" height="12" rx="6" />
+</svg>
+
+
+
+                        <span>暗色模式</span>
+                    </li>
+                
+            </ol>
+        </li>
+    </ol>
+</aside>
+
+    
+
+            <main class="main full-width">
+    <article class="main-article">
+    <header class="article-header">
+
+    <div class="article-details">
+    
+    <header class="article-category">
+        
+            <a href="/categories/%E6%8A%80%E6%9C%AF.html" >
+                技术精进
+            </a>
+        
+    </header>
+    
+
+    <div class="article-title-wrapper">
+        <h2 class="article-title">
+            <a href="/tech/zhongxiaoxingxiangmujiagoushejizhinan/gaobingfachangjingxiadehuancuncelveredissheji.html">QPS翻倍后Redis崩了？这3个缓存策略救了我一命</a>
+        </h2>
+    
+        
+    </div>
+
+    
+    
+    
+    
+    <footer class="article-time">
+        
+            <div>
+                <svg xmlns="http://www.w3.org/2000/svg" class="icon icon-tabler icon-tabler-calendar-time" width="56" height="56" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor" fill="none" stroke-linecap="round" stroke-linejoin="round">
+  <path stroke="none" d="M0 0h24v24H0z"/>
+  <path d="M11.795 21h-6.795a2 2 0 0 1 -2 -2v-12a2 2 0 0 1 2 -2h12a2 2 0 0 1 2 2v4" />
+  <circle cx="18" cy="18" r="4" />
+  <path d="M15 3v4" />
+  <path d="M7 3v4" />
+  <path d="M3 11h16" />
+  <path d="M18 16.496v1.504l1 1" />
+</svg>
+                <time class="article-time--published" datetime='2024-01-01T00:00:00Z'>Jan 01, 2024</time>
+            </div>
+        
+
+        
+            <div>
+                <svg xmlns="http://www.w3.org/2000/svg" class="icon icon-tabler icon-tabler-clock" width="24" height="24" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor" fill="none" stroke-linecap="round" stroke-linejoin="round">
+  <path stroke="none" d="M0 0h24v24H0z"/>
+  <circle cx="12" cy="12" r="9" />
+  <polyline points="12 7 12 12 15 15" />
+</svg>
+
+
+
+                <time class="article-time--reading">
+                    阅读时长: 1 分钟
+                </time>
+            </div>
+        
+    </footer>
+    
+
+    
+</div>
+
+</header>
+
+    <section class="article-content">
+    
+    
+    <p>早些年做架构的时候，我曾天真地以为，只要给数据库加上一层 Redis，再给每个 Key 设个随机过期时间，就能搞定 90% 的高并发问题。</p>
+<p>直到两年前的一次双十一大促预演，现实狠狠给了我一巴掌。</p>
+<p>那天下午2点，流量只是比平时翻了一倍，我们的数据库 CPU 却突然飙到了 100%，报警群里的消息像机关枪一样响个不停。排查下来发现，不是 Redis 挂了，而是<strong>缓存策略太粗糙</strong>——几个热点 Key 同时过期，加上一个看似不起眼的 Big Key，直接击穿了数据库，顺带把带宽打满了。</p>
+<p>这次“踩坑”让我深刻意识到：<strong>在中小团队资源有限的情况下，盲目堆机器没用，精细化的缓存策略才是保命符。</strong></p>
+<p>今天想和大家复盘一下，我在那次事故后总结的一套适合中小项目的 Redis 避坑指南，不讲虚的理论，只聊怎么落地。</p>
+<h3 id="-策略一热点-key-别用强一致试试逻辑过期">## 策略一：热点 Key 别用强一致，试试“逻辑过期”
+</h3><p>很多兄弟在处理热点数据（比如首页 Banner、爆款商品详情）时，最怕的就是<strong>缓存击穿</strong>。</p>
+<p><img src="https://picsum.photos/800/450?random=1768451744631"
+	
+	
+	
+	loading="lazy"
+	
+		alt="配图"
+	
+	
+></p>
+<p>经典的教科书方案是“加互斥锁（Mutex Lock）”：当缓存失效时，只允许一个线程去查库重建缓存，其他线程等待。</p>
+<p>说实话，这在理论上很完美，但在我们那次事故中，因为代码里的锁粒度没控制好，加上数据库响应慢，导致大量线程阻塞在应用层，Tomcat 线程池瞬间被打满，整个服务直接假死。</p>
+<p><strong>后来我改用了“逻辑过期”方案，效果出奇的好。</strong></p>
+<p>简单说，就是<strong>物理上不给 Key 设置过期时间（也就是永不过期）</strong>，而是把过期时间戳写在 Value 的内容里。</p>
+<div class="highlight"><pre tabindex="0" style="color:#f8f8f2;background-color:#272822;-moz-tab-size:4;-o-tab-size:4;tab-size:4;"><code class="language-json" data-lang="json"><span style="display:flex;"><span>{
+</span></span><span style="display:flex;"><span>  <span style="color:#f92672">&#34;data&#34;</span>: { <span style="color:#f92672">&#34;title&#34;</span>: <span style="color:#e6db74">&#34;iPhone 15&#34;</span>, <span style="color:#f92672">&#34;price&#34;</span>: <span style="color:#ae81ff">5999</span> },
+</span></span><span style="display:flex;"><span>  <span style="color:#f92672">&#34;expire_at&#34;</span>: <span style="color:#ae81ff">1715682000000</span>  <span style="color:#75715e">// 逻辑过期时间
+</span></span></span><span style="display:flex;"><span><span style="color:#75715e"></span>}
+</span></span></code></pre></div><p><strong>落地逻辑是这样的：</strong></p>
+<ol>
+<li>应用拿到数据，先判断 <code>expire_at</code> 是否过期。</li>
+<li>如果没过期，直接返回数据。</li>
+<li>如果已过期，<strong>先返回旧数据</strong>给用户（这一步是关键，用户对几秒的数据延迟通常不敏感），同时异步启动一个线程去数据库查新数据，更新缓存。</li>
+</ol>
+<p>这个方案最大的好处是<strong>服务永远可用</strong>，不用担心大量线程阻塞。哪怕数据库挂了，用户至少还能看到旧数据，而不是 404 或转圈圈。对于追求高可用的中小团队来说，这比追求绝对强一致性划算得多。</p>
+<h3 id="-策略二消灭-big-key比扩容更重要">## 策略二：消灭 Big Key，比扩容更重要
+</h3><p>那次事故中，另一个罪魁祸首是一个“用户详情”的 Key。</p>
+<p>开发这个功能的兄弟为了图省事，把用户的基本信息、最近 10 条订单、最近 50 条浏览记录全塞进了一个 Key 里。平时测试数据少没感觉，大促时某些活跃用户的 Value 居然膨胀到了 500KB。</p>
+<p>你可以算一笔账：如果有 1000 个并发请求同时读取这个 Key，光网卡带宽就占了 500MB/s（4Gbps）。我们当时的云服务器网卡直接瓶颈，导致 Redis 响应变慢，拖垮了整个链路。</p>
+<p><strong>我现在的复盘经验是：</strong></p>
+<blockquote>
+<p>也就是我常挂在嘴边的“极简原则”——Redis 是缓存，不是数据库，别什么垃圾都往里塞。</p>
+</blockquote>
+<p>针对 Big Key，我有两个非常硬性的落地手段：</p>
+<ol>
+<li><strong>拆分（Split）：</strong> 把那个巨大的“用户详情”拆成 <code>user:basic:101</code>（基础信息）、<code>user:orders:101</code>（订单列表）。前端页面需要哪里取哪里，别搞“全家桶”。</li>
+<li><strong>压缩与裁剪：</strong> 对于不得不存的长文本，必须用 Snappy 或 Gzip 压缩；对于列表，设置严格的长度限制（比如只存最近 10 条），超出的部分去查库。</li>
+</ol>
+<p>我现在每周五下午做 Code Review 时，都会专门让团队扫一遍 Redis 里的 Key 大小，<strong>超过 10KB 的必须说明理由</strong>，这已经成了我们的铁律。</p>
+<h3 id="-策略三缓存一致性放弃既要又要">## 策略三：缓存一致性，放弃“既要又要”
+</h3><p>“先更新数据库，还是先删除缓存？”这个问题，在面试里能聊半小时，但在实战中，中小团队最容易被绕晕。</p>
+<p><img src="https://picsum.photos/800/450?random=1768451745669"
+	
+	
+	
+	loading="lazy"
+	
+		alt="配图"
+	
+	
+></p>
+<p>我们也尝试过复杂的“延迟双删”策略，甚至想引入 Canal 监听 Binlog 来异步更新缓存。结果呢？架构变得极其复杂，Canal 偶尔挂一次，排查问题能要了半条命。</p>
+<p>对于大多数并发量在万级（QPS &lt; 10k）的业务，我强烈建议采用 <strong>Cache Aside Pattern（旁路缓存模式）的改良版</strong>，别搞太复杂。</p>
+<p><strong>我的实操建议：</strong></p>
+<ol>
+<li><strong>读数据：</strong> 缓存有就读，没有就查库并回写。</li>
+<li><strong>写数据：</strong> 先更新数据库，<strong>然后直接删除缓存</strong>（注意，是删除，不是更新）。</li>
+<li><strong>兜底：</strong> 给所有缓存必须加上一个<strong>较短的 TTL（过期时间）</strong>，比如 5 分钟。</li>
+</ol>
+<p>为什么这么做？因为“删除缓存”的操作是幂等的，比“更新缓存”出错概率低。而加上 TTL，是为了保证<strong>最终一致性</strong>——哪怕因为网络抖动导致删除缓存失败了，5 分钟后缓存自动过期，数据也就修正过来了。</p>
+<p>对于中小团队，<strong>“短 TTL + 失败重试”</strong> 的性价比，远远高于引入一套庞大的消息队列或中间件来保证强一致性。业务能接受 5 分钟的不一致，你就没必要为了那 0.01% 的完美去增加 50% 的架构复杂度。</p>
+<h3 id="-总结与行动">## 总结与行动
+</h3><p>做架构设计，最忌讳的就是手里拿着锤子，看什么都是钉子。Redis 确实快，但它不是无限容量、无限带宽的神器。</p>
+<p>如果在高并发场景下，你只能做三件事来提升 Redis 的稳定性，我建议是：</p>
+<ol>
+<li><strong>扫盲：</strong> 用工具（如 <code>redis-rdb-tools</code>）把线上大于 10KB 的 Key 找出来，要么拆，要么删，这是立竿见影的性能提升。</li>
+<li><strong>隔离：</strong> 别让所有业务共用一个 Redis 实例。把核心业务（如交易）和边缘业务（如日志、非核心计数）物理隔离，几百块钱的成本能省去几万块的故障损失。</li>
+<li><strong>降级：</strong> 永远要有“如果 Redis 全挂了，系统能不能跑”的预案。即使是只能提供静态页面，也比白屏强。</li>
+</ol>
+<p><strong>最后，做个小调查：</strong></p>
+<p>在处理热点数据缓存失效时，<strong>你更倾向于用“互斥锁”来保证数据准确，还是用“逻辑过期”来保证服务可用？</strong> A 还是 B？</p>
+<p><img src="https://picsum.photos/800/450?random=1768451744977"
+	
+	
+	
+	loading="lazy"
+	
+		alt="配图"
+	
+	
+></p>
+<p>欢迎在评论区告诉我你的选择和踩坑经历。</p>
+<hr>
+<p><strong>本周行动建议：</strong>
+如果你现在的项目里也有“一坨”大的 JSON 存在 Redis 里，明天上班第一件事，把它拆了。相信我，你的网卡会感谢你的。</p>
+
+</section>
+
+
+    <footer class="article-footer">
+    
+    <section class="article-tags">
+        
+            <a href="/tags/%E9%AB%98%E5%B9%B6%E5%8F%91%E5%9C%BA%E6%99%AF%E4%B8%8B%E7%9A%84%E7%BC%93%E5%AD%98%E7%AD%96%E7%95%A5Redis%E8%AE%BE%E8%AE%A1.html">高并发场景下的缓存策略（Redis）设计</a>
+        
+    </section>
+
+
+    </footer>
+
+
+    
+</article>
+
+    
+
+    
+
+     
+    
+        
+    <script
+    src="https://giscus.app/client.js"
+    data-repo="pastor17/bloggiscus"
+    data-repo-id="R_kgDOQ6H9qQ"
+    data-category=""
+    data-category-id="DIC_kwDOQ6H9qc4C0-T8"
+    data-mapping="pathname"
+    data-strict="0"
+    data-reactions-enabled="1"
+    data-emit-metadata="0"
+    data-input-position="bottom"
+    data-theme="light"
+    data-lang="zh-CN"
+    data-loading="lazy"
+    crossorigin="anonymous"
+    async
+></script>
+<script>
+    function setGiscusTheme(theme) {
+        let giscus = document.querySelector("iframe.giscus-frame");
+        if (giscus) {
+            giscus.contentWindow.postMessage(
+                {
+                    giscus: {
+                        setConfig: {
+                            theme: theme,
+                        },
+                    },
+                },
+                "https://giscus.app"
+            );
+        }
+    }
+
+    (function () {
+        addEventListener("message", (e) => {
+            if (event.origin !== "https://giscus.app") return;
+            handler();
+        });
+        window.addEventListener("onColorSchemeChange", handler);
+
+        function handler() {
+            if (document.documentElement.dataset.scheme === "light") {
+                setGiscusTheme('light');
+            } else {
+                setGiscusTheme('dark_dimmed');
+            }
+        }
+    })();
+</script>
+
+    
+
+    <footer class="site-footer">
+    <section class="copyright">
+        &copy; 
+        
+        2026 SelfTechHub
+    </section>
+    
+    <section class="powerby">
+        
+
+    </section>
+</footer>
+
+
+    
+<div class="pswp" tabindex="-1" role="dialog" aria-hidden="true">
+
+    
+    <div class="pswp__bg"></div>
+
+    
+    <div class="pswp__scroll-wrap">
+
+        
+        <div class="pswp__container">
+            <div class="pswp__item"></div>
+            <div class="pswp__item"></div>
+            <div class="pswp__item"></div>
+        </div>
+
+        
+        <div class="pswp__ui pswp__ui--hidden">
+
+            <div class="pswp__top-bar">
+
+                
+
+                <div class="pswp__counter"></div>
+
+                <button class="pswp__button pswp__button--close" title="Close (Esc)"></button>
+
+                <button class="pswp__button pswp__button--share" title="Share"></button>
+
+                <button class="pswp__button pswp__button--fs" title="Toggle fullscreen"></button>
+
+                <button class="pswp__button pswp__button--zoom" title="Zoom in/out"></button>
+
+                
+                
+                <div class="pswp__preloader">
+                    <div class="pswp__preloader__icn">
+                        <div class="pswp__preloader__cut">
+                            <div class="pswp__preloader__donut"></div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <div class="pswp__share-modal pswp__share-modal--hidden pswp__single-tap">
+                <div class="pswp__share-tooltip"></div>
+            </div>
+
+            <button class="pswp__button pswp__button--arrow--left" title="Previous (arrow left)">
+            </button>
+
+            <button class="pswp__button pswp__button--arrow--right" title="Next (arrow right)">
+            </button>
+
+            <div class="pswp__caption">
+                <div class="pswp__caption__center"></div>
+            </div>
+
+        </div>
+
+    </div>
+
+</div><script 
+                src="https://cdn.jsdelivr.net/npm/photoswipe@4.1.3/dist/photoswipe.min.js"integrity="sha256-ePwmChbbvXbsO02lbM3HoHbSHTHFAeChekF1xKJdleo="crossorigin="anonymous"
+                defer
+                >
+            </script><script 
+                src="https://cdn.jsdelivr.net/npm/photoswipe@4.1.3/dist/photoswipe-ui-default.min.js"integrity="sha256-UKkzOn/w1mBxRmLLGrSeyB4e1xbrp4xylgAWb3M42pU="crossorigin="anonymous"
+                defer
+                >
+            </script><link 
+                rel="stylesheet" 
+                href="https://cdn.jsdelivr.net/npm/photoswipe@4.1.3/dist/default-skin/default-skin.min.css"crossorigin="anonymous"
+            ><link 
+                rel="stylesheet" 
+                href="https://cdn.jsdelivr.net/npm/photoswipe@4.1.3/dist/photoswipe.min.css"crossorigin="anonymous"
+            >
+    
+
+            </main>
+        </div>
+        <script 
+                src="https://cdn.jsdelivr.net/npm/node-vibrant@3.1.6/dist/vibrant.min.js"integrity="sha256-awcR2jno4kI5X0zL8ex0vi2z&#43;KMkF24hUW8WePSA9HM="crossorigin="anonymous"
+                
+                >
+            </script><script type="text/javascript" src="/ts/main.c922af694cc257bf1ecc41c0dd7b0430f9114ec280ccf67cd2c6ad55f5316c4e.js" defer></script>
+<script>
+    (function () {
+        const customFont = document.createElement('link');
+        customFont.href = "https://fonts.googleapis.com/css2?family=Lato:wght@300;400;700&display=swap";
+
+        customFont.type = "text/css";
+        customFont.rel = "stylesheet";
+
+        document.head.appendChild(customFont);
+    }());
+</script>
+
+    </body>
+</html>

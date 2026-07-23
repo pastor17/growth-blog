@@ -1,0 +1,486 @@
+<!DOCTYPE html>
+<html lang="zh-cn" dir="ltr">
+    <head><meta charset='utf-8'>
+<meta name='viewport' content='width=device-width, initial-scale=1'><meta name='description' content="“给这台机器加到16G内存，应该就不卡了。”\n这句话我大概听过不下五十次。曾经我也天真地以为，只要堆内存（Heap）给得足够大，Garbage Collection (GC) 就能离我远去。直到2021年的一次大促压测，我亲手把一个核心服务的Heap从4G扩到32G，结果应用不仅没变快，反而出现了长达5秒的“假死”——请求全部超时，监控曲线心电图直接拉成一条直线。\n那时候我才明白：JVM调优从来不是“大碗宽面”管饱，而是一场在吞吐量与延迟之间走钢丝的艺术。\n很多兄弟在面对线上OOM（内存溢出）或者CPU飙高时，第一反应是重启，第二反应是加配置。但这通常只能延缓死亡，无法根治顽疾。今天不聊那些晦涩的内存模型理论，我想结合这几年在一线“填坑”的经历，分享3个典型的业务场景调优案例。\n一、 “大对象”的偷渡：导出服务为何总崩？\r这是我接手过的一个后台管理系统，平时稳得一批，但每到月底财务做报表时，服务就必挂。\n运维老张排查发现，每次挂掉前，Old Gen（老年代）的占用率都会瞬间飙升到99%，引发频繁Full GC，最后直接OOM。奇怪的是，平时Old Gen几乎没波动。\n案发细节： 为了排查，我当时在周五下午蹲点，利用Arthas挂在进程上监控。下午3点，一名财务人员点击了“导出全月明细”。\n瞬间，Eden区还没满，Old Gen直接炸了。\n问题本质： 默认情况下，对象先在Eden分配，经过15次GC后才进老年代。但JVM有个参数叫 -XX:PretenureSizeThreshold。如果对象超过这个阈值，会直接进入老年代。\n业务代码里，那个导出功能一次性从DB拉取了20万条数据加载到内存，生成一个巨大的List对象。这个巨无霸直接绕过Eden区，“偷渡”到了老年代。老年代那是给长寿对象住的养老院，突然闯进个年轻力壮的庞然大物，GC收集器（当时用的是CMS）根本来不及清理。\n硬核解法： 除了优化代码（改为流式查询、分批写入Excel）这种“治本”的方法外，JVM层面必须做防御性调整。\n我们调大了TLAB（线程本地分配缓冲区），但这还不够。对于这种不可避免的大对象业务，G1收集器比CMS更智能。\n我将垃圾收集器切换为G1，并调整了Region大小：\n# 切换为G1，指定Region大小为8MB（默认可能是1MB或2MB，视堆大小而定） -XX:+UseG1GC -XX:G1HeapRegionSize=8m 结果： G1将堆切分为多个Region，大对象虽然还要占连续的Region（Humongous Region），但G1会在Young GC阶段顺手处理掉这部分对象，而不需要等到Full GC。月底的报表导出再也没崩过，Old Gen曲线平滑如水。\n二、 吞吐量的骗局：高并发下的“卡顿”之谜\r2022年，我在负责一个高并发的C端营销服务。QPS（每秒查询率）大概在1.5万左右。\n起初为了追求高吞吐量，我们给ParNew + CMS组合配置了较大的新生代（Young Gen），比例大概是 1:1（NewRatio=1）。逻辑是：大部分请求都是短命的，让它们在新生代自生自灭，别去烦老年代。\n踩坑经历： 上线后，吞吐量确实不错，但TP99（99%的请求响应时间）偶尔会飙升到800ms以上。对于要求200ms内返回的接口，这是不可接受的。\n分析GC日志发现，虽然Young GC频率低了，但单次Young GC的耗时变长了。因为新生代太大（给到了4GB），扫描和复制存活对象的时间成本大幅增加。不仅如此，每次STW（Stop The World）暂停时间都超过了100ms。\n观点： 内存不是越大越好，新生代也不是越大越好。业务场景决定策略：你是要“一次拉一大车但停很久”，还是要“小步快跑不停顿”？ 对于高并发低延迟的API服务，后者才是王道。\n落地调整： 我做了一个反直觉的操作：缩小新生代，限制最大停顿时间。\n# 启用G1（G1是延迟敏感型业务的首选） -XX:+UseG1GC # 设定目标停顿时间为50ms（JVM会尽力保证，但不绝对） -XX:MaxGCPauseMillis=50 # 甚至可以主动限制最大堆内存，避免GC扫描区域过大 -Xmx6g -Xms6g 不要迷信默认配置，G1的 MaxGCPauseMillis 是个神参。\n">
+<title>频繁Full GC致死？3个真实案例教你JVM“保命”调优</title>
+
+<link rel='canonical' href='https://blog.irudder.me/tech/jiagouyouhuashizhananlijiexi/jvmdiaoyou_zhenduiyewuchangjingdecanshutiaozheng.html'>
+
+<link rel="stylesheet" href="/scss/style.min.b9e9128fec450ebccecc4ec9900157f32b85d0609bcd5ee3293968bcaa1235f2.css"><meta property='og:title' content="频繁Full GC致死？3个真实案例教你JVM“保命”调优">
+<meta property='og:description' content="“给这台机器加到16G内存，应该就不卡了。”\n这句话我大概听过不下五十次。曾经我也天真地以为，只要堆内存（Heap）给得足够大，Garbage Collection (GC) 就能离我远去。直到2021年的一次大促压测，我亲手把一个核心服务的Heap从4G扩到32G，结果应用不仅没变快，反而出现了长达5秒的“假死”——请求全部超时，监控曲线心电图直接拉成一条直线。\n那时候我才明白：JVM调优从来不是“大碗宽面”管饱，而是一场在吞吐量与延迟之间走钢丝的艺术。\n很多兄弟在面对线上OOM（内存溢出）或者CPU飙高时，第一反应是重启，第二反应是加配置。但这通常只能延缓死亡，无法根治顽疾。今天不聊那些晦涩的内存模型理论，我想结合这几年在一线“填坑”的经历，分享3个典型的业务场景调优案例。\n一、 “大对象”的偷渡：导出服务为何总崩？\r这是我接手过的一个后台管理系统，平时稳得一批，但每到月底财务做报表时，服务就必挂。\n运维老张排查发现，每次挂掉前，Old Gen（老年代）的占用率都会瞬间飙升到99%，引发频繁Full GC，最后直接OOM。奇怪的是，平时Old Gen几乎没波动。\n案发细节： 为了排查，我当时在周五下午蹲点，利用Arthas挂在进程上监控。下午3点，一名财务人员点击了“导出全月明细”。\n瞬间，Eden区还没满，Old Gen直接炸了。\n问题本质： 默认情况下，对象先在Eden分配，经过15次GC后才进老年代。但JVM有个参数叫 -XX:PretenureSizeThreshold。如果对象超过这个阈值，会直接进入老年代。\n业务代码里，那个导出功能一次性从DB拉取了20万条数据加载到内存，生成一个巨大的List对象。这个巨无霸直接绕过Eden区，“偷渡”到了老年代。老年代那是给长寿对象住的养老院，突然闯进个年轻力壮的庞然大物，GC收集器（当时用的是CMS）根本来不及清理。\n硬核解法： 除了优化代码（改为流式查询、分批写入Excel）这种“治本”的方法外，JVM层面必须做防御性调整。\n我们调大了TLAB（线程本地分配缓冲区），但这还不够。对于这种不可避免的大对象业务，G1收集器比CMS更智能。\n我将垃圾收集器切换为G1，并调整了Region大小：\n# 切换为G1，指定Region大小为8MB（默认可能是1MB或2MB，视堆大小而定） -XX:+UseG1GC -XX:G1HeapRegionSize=8m 结果： G1将堆切分为多个Region，大对象虽然还要占连续的Region（Humongous Region），但G1会在Young GC阶段顺手处理掉这部分对象，而不需要等到Full GC。月底的报表导出再也没崩过，Old Gen曲线平滑如水。\n二、 吞吐量的骗局：高并发下的“卡顿”之谜\r2022年，我在负责一个高并发的C端营销服务。QPS（每秒查询率）大概在1.5万左右。\n起初为了追求高吞吐量，我们给ParNew + CMS组合配置了较大的新生代（Young Gen），比例大概是 1:1（NewRatio=1）。逻辑是：大部分请求都是短命的，让它们在新生代自生自灭，别去烦老年代。\n踩坑经历： 上线后，吞吐量确实不错，但TP99（99%的请求响应时间）偶尔会飙升到800ms以上。对于要求200ms内返回的接口，这是不可接受的。\n分析GC日志发现，虽然Young GC频率低了，但单次Young GC的耗时变长了。因为新生代太大（给到了4GB），扫描和复制存活对象的时间成本大幅增加。不仅如此，每次STW（Stop The World）暂停时间都超过了100ms。\n观点： 内存不是越大越好，新生代也不是越大越好。业务场景决定策略：你是要“一次拉一大车但停很久”，还是要“小步快跑不停顿”？ 对于高并发低延迟的API服务，后者才是王道。\n落地调整： 我做了一个反直觉的操作：缩小新生代，限制最大停顿时间。\n# 启用G1（G1是延迟敏感型业务的首选） -XX:+UseG1GC # 设定目标停顿时间为50ms（JVM会尽力保证，但不绝对） -XX:MaxGCPauseMillis=50 # 甚至可以主动限制最大堆内存，避免GC扫描区域过大 -Xmx6g -Xms6g 不要迷信默认配置，G1的 MaxGCPauseMillis 是个神参。\n">
+<meta property='og:url' content='https://blog.irudder.me/tech/jiagouyouhuashizhananlijiexi/jvmdiaoyou_zhenduiyewuchangjingdecanshutiaozheng.html'>
+<meta property='og:site_name' content='SelfTechHub'>
+<meta property='og:type' content='article'><meta property='article:section' content='Tech' /><meta property='article:tag' content='JVM调优：针对业务场景的参数调整' /><meta property='article:published_time' content='2020-10-08T00:00:00&#43;00:00'/><meta property='article:modified_time' content='2020-10-08T00:00:00&#43;00:00'/>
+<meta name="twitter:title" content="频繁Full GC致死？3个真实案例教你JVM“保命”调优">
+<meta name="twitter:description" content="“给这台机器加到16G内存，应该就不卡了。”\n这句话我大概听过不下五十次。曾经我也天真地以为，只要堆内存（Heap）给得足够大，Garbage Collection (GC) 就能离我远去。直到2021年的一次大促压测，我亲手把一个核心服务的Heap从4G扩到32G，结果应用不仅没变快，反而出现了长达5秒的“假死”——请求全部超时，监控曲线心电图直接拉成一条直线。\n那时候我才明白：JVM调优从来不是“大碗宽面”管饱，而是一场在吞吐量与延迟之间走钢丝的艺术。\n很多兄弟在面对线上OOM（内存溢出）或者CPU飙高时，第一反应是重启，第二反应是加配置。但这通常只能延缓死亡，无法根治顽疾。今天不聊那些晦涩的内存模型理论，我想结合这几年在一线“填坑”的经历，分享3个典型的业务场景调优案例。\n一、 “大对象”的偷渡：导出服务为何总崩？\r这是我接手过的一个后台管理系统，平时稳得一批，但每到月底财务做报表时，服务就必挂。\n运维老张排查发现，每次挂掉前，Old Gen（老年代）的占用率都会瞬间飙升到99%，引发频繁Full GC，最后直接OOM。奇怪的是，平时Old Gen几乎没波动。\n案发细节： 为了排查，我当时在周五下午蹲点，利用Arthas挂在进程上监控。下午3点，一名财务人员点击了“导出全月明细”。\n瞬间，Eden区还没满，Old Gen直接炸了。\n问题本质： 默认情况下，对象先在Eden分配，经过15次GC后才进老年代。但JVM有个参数叫 -XX:PretenureSizeThreshold。如果对象超过这个阈值，会直接进入老年代。\n业务代码里，那个导出功能一次性从DB拉取了20万条数据加载到内存，生成一个巨大的List对象。这个巨无霸直接绕过Eden区，“偷渡”到了老年代。老年代那是给长寿对象住的养老院，突然闯进个年轻力壮的庞然大物，GC收集器（当时用的是CMS）根本来不及清理。\n硬核解法： 除了优化代码（改为流式查询、分批写入Excel）这种“治本”的方法外，JVM层面必须做防御性调整。\n我们调大了TLAB（线程本地分配缓冲区），但这还不够。对于这种不可避免的大对象业务，G1收集器比CMS更智能。\n我将垃圾收集器切换为G1，并调整了Region大小：\n# 切换为G1，指定Region大小为8MB（默认可能是1MB或2MB，视堆大小而定） -XX:+UseG1GC -XX:G1HeapRegionSize=8m 结果： G1将堆切分为多个Region，大对象虽然还要占连续的Region（Humongous Region），但G1会在Young GC阶段顺手处理掉这部分对象，而不需要等到Full GC。月底的报表导出再也没崩过，Old Gen曲线平滑如水。\n二、 吞吐量的骗局：高并发下的“卡顿”之谜\r2022年，我在负责一个高并发的C端营销服务。QPS（每秒查询率）大概在1.5万左右。\n起初为了追求高吞吐量，我们给ParNew + CMS组合配置了较大的新生代（Young Gen），比例大概是 1:1（NewRatio=1）。逻辑是：大部分请求都是短命的，让它们在新生代自生自灭，别去烦老年代。\n踩坑经历： 上线后，吞吐量确实不错，但TP99（99%的请求响应时间）偶尔会飙升到800ms以上。对于要求200ms内返回的接口，这是不可接受的。\n分析GC日志发现，虽然Young GC频率低了，但单次Young GC的耗时变长了。因为新生代太大（给到了4GB），扫描和复制存活对象的时间成本大幅增加。不仅如此，每次STW（Stop The World）暂停时间都超过了100ms。\n观点： 内存不是越大越好，新生代也不是越大越好。业务场景决定策略：你是要“一次拉一大车但停很久”，还是要“小步快跑不停顿”？ 对于高并发低延迟的API服务，后者才是王道。\n落地调整： 我做了一个反直觉的操作：缩小新生代，限制最大停顿时间。\n# 启用G1（G1是延迟敏感型业务的首选） -XX:+UseG1GC # 设定目标停顿时间为50ms（JVM会尽力保证，但不绝对） -XX:MaxGCPauseMillis=50 # 甚至可以主动限制最大堆内存，避免GC扫描区域过大 -Xmx6g -Xms6g 不要迷信默认配置，G1的 MaxGCPauseMillis 是个神参。\n">
+    </head>
+    <body class="
+    article-page
+    ">
+    <script>
+        (function() {
+            const colorSchemeKey = 'StackColorScheme';
+            if(!localStorage.getItem(colorSchemeKey)){
+                localStorage.setItem(colorSchemeKey, "auto");
+            }
+        })();
+    </script><script>
+    (function() {
+        const colorSchemeKey = 'StackColorScheme';
+        const colorSchemeItem = localStorage.getItem(colorSchemeKey);
+        const supportDarkMode = window.matchMedia('(prefers-color-scheme: dark)').matches === true;
+
+        if (colorSchemeItem == 'dark' || colorSchemeItem === 'auto' && supportDarkMode) {
+            
+
+            document.documentElement.dataset.scheme = 'dark';
+        } else {
+            document.documentElement.dataset.scheme = 'light';
+        }
+    })();
+</script>
+<div class="container main-container flex on-phone--column compact"><aside class="sidebar left-sidebar sticky ">
+    <button class="hamburger hamburger--spin" type="button" id="toggle-menu" aria-label="切换菜单">
+        <span class="hamburger-box">
+            <span class="hamburger-inner"></span>
+        </span>
+    </button>
+
+    <header>
+        
+            
+            <figure class="site-avatar">
+                <a href="/">
+                
+                    
+                    
+                    
+                        
+                        <img src="/img/avatar_hu_8588ce14af1147e2.png" width="300"
+                            height="286" class="site-logo" loading="lazy" alt="Avatar">
+                    
+                
+                </a>
+                
+            </figure>
+            
+        
+        
+        <div class="site-meta">
+            <h1 class="site-name"><a href="/">SelfTechHub</a></h1>
+            <h2 class="site-description"></h2>
+        </div>
+    </header><ol class="menu" id="main-menu">
+        
+        
+        <li class="menu-bottom-section">
+            <ol class="menu">
+
+                
+                    <li id="dark-mode-toggle">
+                        <svg xmlns="http://www.w3.org/2000/svg" class="icon icon-tabler icon-tabler-toggle-left" width="24" height="24" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor" fill="none" stroke-linecap="round" stroke-linejoin="round">
+  <path stroke="none" d="M0 0h24v24H0z"/>
+  <circle cx="8" cy="12" r="2" />
+  <rect x="2" y="6" width="20" height="12" rx="6" />
+</svg>
+
+
+
+                        <svg xmlns="http://www.w3.org/2000/svg" class="icon icon-tabler icon-tabler-toggle-right" width="24" height="24" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor" fill="none" stroke-linecap="round" stroke-linejoin="round">
+  <path stroke="none" d="M0 0h24v24H0z"/>
+  <circle cx="16" cy="12" r="2" />
+  <rect x="2" y="6" width="20" height="12" rx="6" />
+</svg>
+
+
+
+                        <span>暗色模式</span>
+                    </li>
+                
+            </ol>
+        </li>
+    </ol>
+</aside>
+
+    
+
+            <main class="main full-width">
+    <article class="main-article">
+    <header class="article-header">
+
+    <div class="article-details">
+    
+    <header class="article-category">
+        
+            <a href="/categories/%E6%8A%80%E6%9C%AF.html" >
+                技术精进
+            </a>
+        
+    </header>
+    
+
+    <div class="article-title-wrapper">
+        <h2 class="article-title">
+            <a href="/tech/jiagouyouhuashizhananlijiexi/jvmdiaoyou_zhenduiyewuchangjingdecanshutiaozheng.html">频繁Full GC致死？3个真实案例教你JVM“保命”调优</a>
+        </h2>
+    
+        
+    </div>
+
+    
+    
+    
+    
+    <footer class="article-time">
+        
+            <div>
+                <svg xmlns="http://www.w3.org/2000/svg" class="icon icon-tabler icon-tabler-calendar-time" width="56" height="56" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor" fill="none" stroke-linecap="round" stroke-linejoin="round">
+  <path stroke="none" d="M0 0h24v24H0z"/>
+  <path d="M11.795 21h-6.795a2 2 0 0 1 -2 -2v-12a2 2 0 0 1 2 -2h12a2 2 0 0 1 2 2v4" />
+  <circle cx="18" cy="18" r="4" />
+  <path d="M15 3v4" />
+  <path d="M7 3v4" />
+  <path d="M3 11h16" />
+  <path d="M18 16.496v1.504l1 1" />
+</svg>
+                <time class="article-time--published" datetime='2020-10-08T00:00:00Z'>Oct 08, 2020</time>
+            </div>
+        
+
+        
+            <div>
+                <svg xmlns="http://www.w3.org/2000/svg" class="icon icon-tabler icon-tabler-clock" width="24" height="24" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor" fill="none" stroke-linecap="round" stroke-linejoin="round">
+  <path stroke="none" d="M0 0h24v24H0z"/>
+  <circle cx="12" cy="12" r="9" />
+  <polyline points="12 7 12 12 15 15" />
+</svg>
+
+
+
+                <time class="article-time--reading">
+                    阅读时长: 1 分钟
+                </time>
+            </div>
+        
+    </footer>
+    
+
+    
+</div>
+
+</header>
+
+    <section class="article-content">
+    
+    
+    <p>“给这台机器加到16G内存，应该就不卡了。”</p>
+<p>这句话我大概听过不下五十次。曾经我也天真地以为，只要堆内存（Heap）给得足够大，Garbage Collection (GC) 就能离我远去。直到2021年的一次大促压测，我亲手把一个核心服务的Heap从4G扩到32G，结果应用不仅没变快，反而出现了长达5秒的“假死”——请求全部超时，监控曲线心电图直接拉成一条直线。</p>
+<p>那时候我才明白：<strong>JVM调优从来不是“大碗宽面”管饱，而是一场在吞吐量与延迟之间走钢丝的艺术。</strong></p>
+<p>很多兄弟在面对线上OOM（内存溢出）或者CPU飙高时，第一反应是重启，第二反应是加配置。但这通常只能延缓死亡，无法根治顽疾。今天不聊那些晦涩的内存模型理论，我想结合这几年在一线“填坑”的经历，分享3个典型的业务场景调优案例。</p>
+<h2 id="一-大对象的偷渡导出服务为何总崩">一、 “大对象”的偷渡：导出服务为何总崩？
+</h2><p>这是我接手过的一个后台管理系统，平时稳得一批，但每到月底财务做报表时，服务就必挂。</p>
+<p>运维老张排查发现，每次挂掉前，Old Gen（老年代）的占用率都会瞬间飙升到99%，引发频繁Full GC，最后直接OOM。奇怪的是，平时Old Gen几乎没波动。</p>
+<p><strong>案发细节：</strong>
+为了排查，我当时在周五下午蹲点，利用Arthas挂在进程上监控。下午3点，一名财务人员点击了“导出全月明细”。</p>
+<p>瞬间，Eden区还没满，Old Gen直接炸了。</p>
+<p><strong>问题本质：</strong>
+默认情况下，对象先在Eden分配，经过15次GC后才进老年代。但JVM有个参数叫 <code>-XX:PretenureSizeThreshold</code>。如果对象超过这个阈值，会直接进入老年代。</p>
+<p>业务代码里，那个导出功能一次性从DB拉取了20万条数据加载到内存，生成一个巨大的List对象。这个巨无霸直接绕过Eden区，“偷渡”到了老年代。老年代那是给长寿对象住的养老院，突然闯进个年轻力壮的庞然大物，GC收集器（当时用的是CMS）根本来不及清理。</p>
+<p><strong>硬核解法：</strong>
+除了优化代码（改为流式查询、分批写入Excel）这种“治本”的方法外，JVM层面必须做防御性调整。</p>
+<p>我们调大了TLAB（线程本地分配缓冲区），但这还不够。对于这种不可避免的大对象业务，G1收集器比CMS更智能。</p>
+<p><img src="https://picsum.photos/800/450?random=1768458407218"
+	
+	
+	
+	loading="lazy"
+	
+		alt="配图"
+	
+	
+></p>
+<p>我将垃圾收集器切换为G1，并调整了Region大小：</p>
+<div class="highlight"><pre tabindex="0" style="color:#f8f8f2;background-color:#272822;-moz-tab-size:4;-o-tab-size:4;tab-size:4;"><code class="language-bash" data-lang="bash"><span style="display:flex;"><span><span style="color:#75715e"># 切换为G1，指定Region大小为8MB（默认可能是1MB或2MB，视堆大小而定）</span>
+</span></span><span style="display:flex;"><span>-XX:+UseG1GC 
+</span></span><span style="display:flex;"><span>-XX:G1HeapRegionSize<span style="color:#f92672">=</span>8m
+</span></span></code></pre></div><p><strong>结果：</strong>
+G1将堆切分为多个Region，大对象虽然还要占连续的Region（Humongous Region），但G1会在Young GC阶段顺手处理掉这部分对象，而不需要等到Full GC。月底的报表导出再也没崩过，Old Gen曲线平滑如水。</p>
+<p><img src="https://picsum.photos/800/450?random=1768458405615"
+	
+	
+	
+	loading="lazy"
+	
+		alt="配图"
+	
+	
+></p>
+<h2 id="二-吞吐量的骗局高并发下的卡顿之谜">二、 吞吐量的骗局：高并发下的“卡顿”之谜
+</h2><p><img src="https://picsum.photos/800/450?random=1768458404128"
+	
+	
+	
+	loading="lazy"
+	
+		alt="配图"
+	
+	
+></p>
+<p>2022年，我在负责一个高并发的C端营销服务。QPS（每秒查询率）大概在1.5万左右。</p>
+<p>起初为了追求高吞吐量，我们给ParNew + CMS组合配置了较大的新生代（Young Gen），比例大概是 1:1（NewRatio=1）。逻辑是：大部分请求都是短命的，让它们在新生代自生自灭，别去烦老年代。</p>
+<p><strong>踩坑经历：</strong>
+上线后，吞吐量确实不错，但TP99（99%的请求响应时间）偶尔会飙升到800ms以上。对于要求200ms内返回的接口，这是不可接受的。</p>
+<p>分析GC日志发现，虽然Young GC频率低了，但单次Young GC的耗时变长了。因为新生代太大（给到了4GB），扫描和复制存活对象的时间成本大幅增加。<strong>不仅如此，每次STW（Stop The World）暂停时间都超过了100ms。</strong></p>
+<p><strong>观点：</strong>
+内存不是越大越好，新生代也不是越大越好。<strong>业务场景决定策略：你是要“一次拉一大车但停很久”，还是要“小步快跑不停顿”？</strong> 对于高并发低延迟的API服务，后者才是王道。</p>
+<p><strong>落地调整：</strong>
+我做了一个反直觉的操作：<strong>缩小新生代，限制最大停顿时间。</strong></p>
+<div class="highlight"><pre tabindex="0" style="color:#f8f8f2;background-color:#272822;-moz-tab-size:4;-o-tab-size:4;tab-size:4;"><code class="language-bash" data-lang="bash"><span style="display:flex;"><span><span style="color:#75715e"># 启用G1（G1是延迟敏感型业务的首选）</span>
+</span></span><span style="display:flex;"><span>-XX:+UseG1GC 
+</span></span><span style="display:flex;"><span><span style="color:#75715e"># 设定目标停顿时间为50ms（JVM会尽力保证，但不绝对）</span>
+</span></span><span style="display:flex;"><span>-XX:MaxGCPauseMillis<span style="color:#f92672">=</span><span style="color:#ae81ff">50</span>
+</span></span><span style="display:flex;"><span><span style="color:#75715e"># 甚至可以主动限制最大堆内存，避免GC扫描区域过大</span>
+</span></span><span style="display:flex;"><span>-Xmx6g -Xms6g
+</span></span></code></pre></div><p>不要迷信默认配置，G1的 <code>MaxGCPauseMillis</code> 是个神参。</p>
+<p><strong>结果：</strong>
+调整后，虽然GC频率从每10秒一次变成了每3秒一次，但每次暂停时间控制在20-40ms之间。TP99稳稳落在150ms以内，用户端的体感流畅度提升了不止一个档次。</p>
+<h2 id="三-容器环境的隐雷k8s里的oom-killer">三、 容器环境的隐雷：K8s里的OOM Killer
+</h2><p>随着公司全面拥抱云原生，我们将服务迁移到了K8s容器中。</p>
+<p>有个小微服务，Pod配置限制是 <code>Limit: 4G</code>。JVM启动参数我们很保守地写了 <code>-Xmx3g</code>，预留1G给堆外内存（Metaspace、线程栈等）。</p>
+<p><strong>诡异现象：</strong>
+服务运行几天就会莫名其妙重启，没有产生Java层面的OOM Error日志。</p>
+<p>排查系统日志（<code>dmesg</code>），发现了惨烈的现场：<code>Killed process 1234 (java) total-vm: ...</code>。这是Linux系统的OOM Killer动的手。</p>
+<p><strong>问题根源：</strong>
+很多开发人员（包括当年的我）容易忽略一点：<strong>JVM的堆外内存开销比想象中大。</strong></p>
+<ul>
+<li><code>Metaspace</code>：加载类信息，不仅限设置的大小，默认几乎无上限。</li>
+<li><code>Direct Memory</code>：NIO操作（如Netty）大量使用堆外内存。</li>
+<li><code>Thread Stack</code>：每个线程默认1MB，几百个线程就是几百MB。</li>
+<li><code>Code Cache</code>：JIT编译后的代码。</li>
+</ul>
+<p>我们只给操作系统预留了1G，对于一个使用了Netty且类加载较多的服务，根本不够吃。一旦JVM总内存超过Pod的Limit限制，Docker所在的宿主机就会无情杀掉进程。</p>
+<p><strong>避坑指南：</strong>
+在容器环境中，强烈建议放弃硬编码 <code>-Xmx</code>，改用百分比配置。</p>
+<div class="highlight"><pre tabindex="0" style="color:#f8f8f2;background-color:#272822;-moz-tab-size:4;-o-tab-size:4;tab-size:4;"><code class="language-bash" data-lang="bash"><span style="display:flex;"><span><span style="color:#75715e"># 开启容器感知支持（JDK8u191+ 默认开启，但显式写上更保险）</span>
+</span></span><span style="display:flex;"><span>-XX:+UseContainerSupport 
+</span></span><span style="display:flex;"><span><span style="color:#75715e"># 将最大堆内存限制为容器Limit的70%-75%</span>
+</span></span><span style="display:flex;"><span>-XX:MaxRAMPercentage<span style="color:#f92672">=</span>75.0 
+</span></span><span style="display:flex;"><span><span style="color:#75715e"># 初始堆内存也设为75%，避免动态扩容带来的性能抖动</span>
+</span></span><span style="display:flex;"><span>-XX:InitialRAMPercentage<span style="color:#f92672">=</span>75.0
+</span></span></code></pre></div><p><strong>结果：</strong>
+改为百分比配置后，无论Pod如何扩缩容（2G、4G、8G），JVM都能自动适配出合理的堆大小，留足25%给堆外内存，从此彻底告别物理机OOM Killer。</p>
+<h2 id="总结与落地">总结与落地
+</h2><p>JVM调优没有银弹，但有套路。所有的参数调整都应该建立在<strong>GC日志分析</strong>和<strong>业务场景理解</strong>之上。</p>
+<p>为了方便大家复用，我整理了一套我个人常用的、适配大多数**Web服务（JDK 8/11 + G1）**的启动参数模板。你可以把它贴到你的启动脚本里，作为基准进行微调：</p>
+<div class="highlight"><pre tabindex="0" style="color:#f8f8f2;background-color:#272822;-moz-tab-size:4;-o-tab-size:4;tab-size:4;"><code class="language-bash" data-lang="bash"><span style="display:flex;"><span>java -server <span style="color:#ae81ff">\
+</span></span></span><span style="display:flex;"><span><span style="color:#ae81ff"></span>  -Xms4g -Xmx4g <span style="color:#ae81ff">\ </span> <span style="color:#75715e"># 建议设为物理内存的60%-70%，且Xms=Xmx</span>
+</span></span><span style="display:flex;"><span>  -XX:+UseG1GC <span style="color:#ae81ff">\
+</span></span></span><span style="display:flex;"><span><span style="color:#ae81ff"></span>  -XX:MaxGCPauseMillis<span style="color:#f92672">=</span><span style="color:#ae81ff">100</span> <span style="color:#ae81ff">\ </span><span style="color:#75715e"># 这是一个平衡点，可根据SLA调整</span>
+</span></span><span style="display:flex;"><span>  -XX:MetaspaceSize<span style="color:#f92672">=</span>256m <span style="color:#ae81ff">\
+</span></span></span><span style="display:flex;"><span><span style="color:#ae81ff"></span>  -XX:MaxMetaspaceSize<span style="color:#f92672">=</span>256m <span style="color:#ae81ff">\ </span><span style="color:#75715e"># 锁死元空间，防止泄露</span>
+</span></span><span style="display:flex;"><span>  -XX:+DisableExplicitGC <span style="color:#ae81ff">\ </span><span style="color:#75715e"># 禁止代码里手贱写的System.gc()</span>
+</span></span><span style="display:flex;"><span>  -XX:+HeapDumpOnOutOfMemoryError <span style="color:#ae81ff">\ </span><span style="color:#75715e"># OOM时保留现场</span>
+</span></span><span style="display:flex;"><span>  -XX:HeapDumpPath<span style="color:#f92672">=</span>/data/logs/dump.hprof <span style="color:#ae81ff">\
+</span></span></span><span style="display:flex;"><span><span style="color:#ae81ff"></span>  -XX:+PrintGCDetails -XX:+PrintGCDateStamps <span style="color:#ae81ff">\ </span><span style="color:#75715e"># 必须留日志！</span>
+</span></span><span style="display:flex;"><span>  -Xloggc:/data/logs/gc.log <span style="color:#ae81ff">\
+</span></span></span><span style="display:flex;"><span><span style="color:#ae81ff"></span>  -jar your-app.jar
+</span></span></code></pre></div><p>最后，给想动手的兄弟们3个具体的行动建议：</p>
+<ol>
+<li><strong>先看病，再开药</strong>：别上来就改参数。先用 <code>VisualVM</code> 或者 <code>GCEasy.io</code> 分析现有的GC日志，看看到底是Young GC太频，还是Full GC太久。</li>
+<li><strong>压测环境大胆试</strong>：生产环境不敢动的参数，在压测环境（Staging）模拟流量去试。我习惯在周五下午做这事，验证完心里有底。</li>
+<li><strong>加上监控告警</strong>：Prometheus + Grafana 是标配，必须监控 <code>jvm_gc_pause_seconds_max</code> 和 <code>jvm_memory_used_bytes</code>。没有监控的调优就是瞎蒙。</li>
+</ol>
+<p>调优的终极目标，不是让GC消失，而是让它变得“由于太快，而让你感觉不到它的存在”。</p>
+
+</section>
+
+
+    <footer class="article-footer">
+    
+    <section class="article-tags">
+        
+            <a href="/tags/JVM%E8%B0%83%E4%BC%98%E9%92%88%E5%AF%B9%E4%B8%9A%E5%8A%A1%E5%9C%BA%E6%99%AF%E7%9A%84%E5%8F%82%E6%95%B0%E8%B0%83%E6%95%B4.html">JVM调优：针对业务场景的参数调整</a>
+        
+    </section>
+
+
+    </footer>
+
+
+    
+</article>
+
+    
+
+    
+
+     
+    
+        
+    <script
+    src="https://giscus.app/client.js"
+    data-repo="pastor17/bloggiscus"
+    data-repo-id="R_kgDOQ6H9qQ"
+    data-category=""
+    data-category-id="DIC_kwDOQ6H9qc4C0-T8"
+    data-mapping="pathname"
+    data-strict="0"
+    data-reactions-enabled="1"
+    data-emit-metadata="0"
+    data-input-position="bottom"
+    data-theme="light"
+    data-lang="zh-CN"
+    data-loading="lazy"
+    crossorigin="anonymous"
+    async
+></script>
+<script>
+    function setGiscusTheme(theme) {
+        let giscus = document.querySelector("iframe.giscus-frame");
+        if (giscus) {
+            giscus.contentWindow.postMessage(
+                {
+                    giscus: {
+                        setConfig: {
+                            theme: theme,
+                        },
+                    },
+                },
+                "https://giscus.app"
+            );
+        }
+    }
+
+    (function () {
+        addEventListener("message", (e) => {
+            if (event.origin !== "https://giscus.app") return;
+            handler();
+        });
+        window.addEventListener("onColorSchemeChange", handler);
+
+        function handler() {
+            if (document.documentElement.dataset.scheme === "light") {
+                setGiscusTheme('light');
+            } else {
+                setGiscusTheme('dark_dimmed');
+            }
+        }
+    })();
+</script>
+
+    
+
+    <footer class="site-footer">
+    <section class="copyright">
+        &copy; 
+        
+        2026 SelfTechHub
+    </section>
+    
+    <section class="powerby">
+        
+
+    </section>
+</footer>
+
+
+    
+<div class="pswp" tabindex="-1" role="dialog" aria-hidden="true">
+
+    
+    <div class="pswp__bg"></div>
+
+    
+    <div class="pswp__scroll-wrap">
+
+        
+        <div class="pswp__container">
+            <div class="pswp__item"></div>
+            <div class="pswp__item"></div>
+            <div class="pswp__item"></div>
+        </div>
+
+        
+        <div class="pswp__ui pswp__ui--hidden">
+
+            <div class="pswp__top-bar">
+
+                
+
+                <div class="pswp__counter"></div>
+
+                <button class="pswp__button pswp__button--close" title="Close (Esc)"></button>
+
+                <button class="pswp__button pswp__button--share" title="Share"></button>
+
+                <button class="pswp__button pswp__button--fs" title="Toggle fullscreen"></button>
+
+                <button class="pswp__button pswp__button--zoom" title="Zoom in/out"></button>
+
+                
+                
+                <div class="pswp__preloader">
+                    <div class="pswp__preloader__icn">
+                        <div class="pswp__preloader__cut">
+                            <div class="pswp__preloader__donut"></div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <div class="pswp__share-modal pswp__share-modal--hidden pswp__single-tap">
+                <div class="pswp__share-tooltip"></div>
+            </div>
+
+            <button class="pswp__button pswp__button--arrow--left" title="Previous (arrow left)">
+            </button>
+
+            <button class="pswp__button pswp__button--arrow--right" title="Next (arrow right)">
+            </button>
+
+            <div class="pswp__caption">
+                <div class="pswp__caption__center"></div>
+            </div>
+
+        </div>
+
+    </div>
+
+</div><script 
+                src="https://cdn.jsdelivr.net/npm/photoswipe@4.1.3/dist/photoswipe.min.js"integrity="sha256-ePwmChbbvXbsO02lbM3HoHbSHTHFAeChekF1xKJdleo="crossorigin="anonymous"
+                defer
+                >
+            </script><script 
+                src="https://cdn.jsdelivr.net/npm/photoswipe@4.1.3/dist/photoswipe-ui-default.min.js"integrity="sha256-UKkzOn/w1mBxRmLLGrSeyB4e1xbrp4xylgAWb3M42pU="crossorigin="anonymous"
+                defer
+                >
+            </script><link 
+                rel="stylesheet" 
+                href="https://cdn.jsdelivr.net/npm/photoswipe@4.1.3/dist/default-skin/default-skin.min.css"crossorigin="anonymous"
+            ><link 
+                rel="stylesheet" 
+                href="https://cdn.jsdelivr.net/npm/photoswipe@4.1.3/dist/photoswipe.min.css"crossorigin="anonymous"
+            >
+    
+
+            </main>
+        </div>
+        <script 
+                src="https://cdn.jsdelivr.net/npm/node-vibrant@3.1.6/dist/vibrant.min.js"integrity="sha256-awcR2jno4kI5X0zL8ex0vi2z&#43;KMkF24hUW8WePSA9HM="crossorigin="anonymous"
+                
+                >
+            </script><script type="text/javascript" src="/ts/main.c922af694cc257bf1ecc41c0dd7b0430f9114ec280ccf67cd2c6ad55f5316c4e.js" defer></script>
+<script>
+    (function () {
+        const customFont = document.createElement('link');
+        customFont.href = "https://fonts.googleapis.com/css2?family=Lato:wght@300;400;700&display=swap";
+
+        customFont.type = "text/css";
+        customFont.rel = "stylesheet";
+
+        document.head.appendChild(customFont);
+    }());
+</script>
+
+    </body>
+</html>

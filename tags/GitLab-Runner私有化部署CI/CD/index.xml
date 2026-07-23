@@ -1,0 +1,159 @@
+<?xml version="1.0" encoding="utf-8" standalone="yes"?>
+<rss version="2.0" xmlns:atom="http://www.w3.org/2005/Atom">
+    <channel>
+        <title>GitLab Runner：私有化部署CI/CD on SelfTechHub</title>
+        <link>https://blog.irudder.me/tags/GitLab-Runner%E7%A7%81%E6%9C%89%E5%8C%96%E9%83%A8%E7%BD%B2CI/CD.html</link>
+        <description>Recent content in GitLab Runner：私有化部署CI/CD on SelfTechHub</description>
+        <generator>Hugo -- gohugo.io</generator>
+        <language>zh-cn</language>
+        <lastBuildDate>Thu, 01 Sep 2022 00:00:00 +0000</lastBuildDate><atom:link href="https://blog.irudder.me/tags/GitLab-Runner%E7%A7%81%E6%9C%89%E5%8C%96%E9%83%A8%E7%BD%B2CI/CD/index.xml" rel="self" type="application/rss+xml" /><item>
+        <title>GitLab Runner避坑：从手动发布到自动化的3次进化</title>
+        <link>https://blog.irudder.me/tech/devopsjichugongjurumenyushicao/gitlab-runner_siyouhuabushuci_cd.html</link>
+        <pubDate>Thu, 01 Sep 2022 00:00:00 +0000</pubDate>
+        
+        <guid>https://blog.irudder.me/tech/devopsjichugongjurumenyushicao/gitlab-runner_siyouhuabushuci_cd.html</guid>
+        <description>&lt;p&gt;&lt;strong&gt;3年前，我曾以为“自动化部署”是大厂的专利，直到我在周五晚上因为传错了一个jar包，被迫在机房待到了凌晨2点。&lt;/strong&gt;&lt;/p&gt;
+&lt;p&gt;那时我还在一家几十人的软件外包公司，每次发布版本，整个流程充满了“原始部落”的气息：本地打包 -&amp;gt; 打开FTP/Xshell -&amp;gt; 停止服务 -&amp;gt; 备份 -&amp;gt; 上传新包 -&amp;gt; 重启。&lt;/p&gt;
+&lt;p&gt;这一套动作，熟练的运维可能只要10分钟，但如果是一个刚入职的开发，或者是疲惫的周五下午，出错率几乎是100%。&lt;/p&gt;
+&lt;p&gt;也就是那个凌晨，我痛定思痛，决定必须把CI/CD（持续集成/持续部署）这块骨头啃下来。今天我想站在一个“过来人”的角度，聊聊如何利用 &lt;strong&gt;GitLab Runner&lt;/strong&gt; 搭建一套私有化的自动化流水线。不讲枯燥的概念，只聊我踩过的坑和落地的实操。&lt;/p&gt;
+&lt;hr&gt;
+&lt;h2 id=&#34;一-为什么要自己搞runner别信共享的鬼话&#34;&gt;一、 为什么要自己搞Runner？（别信“共享”的鬼话）
+&lt;/h2&gt;&lt;p&gt;刚开始接触GitLab CI的时候，我犯过一个新手常犯的错：&lt;strong&gt;直接用GitLab官方提供的Shared Runners（共享构建器）。&lt;/strong&gt;&lt;/p&gt;
+&lt;p&gt;起初觉得挺香，不用配置服务器，提交代码自动跑。但很快，痛点就来了：&lt;/p&gt;
+&lt;ol&gt;
+&lt;li&gt;&lt;strong&gt;慢到怀疑人生&lt;/strong&gt;：作为免费用户，排队是常态。有时候改一行代码，等Runner分配资源要等10分钟，黄花菜都凉了。&lt;/li&gt;
+&lt;li&gt;&lt;strong&gt;环境不可控&lt;/strong&gt;：今天要用Node 14，明天项目升级要Node 18，共享环境里各种依赖冲突，每次构建都在“赌运气”。&lt;/li&gt;
+&lt;/ol&gt;
+&lt;p&gt;&lt;strong&gt;真实的转折点&lt;/strong&gt;发生在一次紧急热修复。客户系统崩了，我代码改好了，结果卡在GitLab的共享队列里排队了半小时。老板在后面站着，我在前面汗流浃背。&lt;/p&gt;
+&lt;p&gt;那一刻我明白：&lt;strong&gt;只有私有化部署Runner，才能把控制权握在自己手里。&lt;/strong&gt;&lt;/p&gt;
+&lt;p&gt;简单理解，GitLab Server是“包工头”，负责发号施令；GitLab Runner就是“搬砖工”，负责干活。我们现在要做的，就是雇一个只听命于我们自己的“搬砖工”，安在自己的服务器上。&lt;/p&gt;
+&lt;p&gt;&lt;img src=&#34;https://picsum.photos/800/450?random=1768388406244&#34;
+	
+	
+	
+	loading=&#34;lazy&#34;
+	
+		alt=&#34;配图&#34;
+	
+	
+&gt;&lt;/p&gt;
+&lt;hr&gt;
+&lt;h2 id=&#34;二-只要两步给你的代码配个私人管家&#34;&gt;二、 只要两步，给你的代码配个“私人管家”
+&lt;/h2&gt;&lt;p&gt;很多人被官方文档里长篇大论的安装劝退。其实，对于中小团队，最稳妥、最干净的方式只有一种：&lt;strong&gt;Docker安装&lt;/strong&gt;。&lt;/p&gt;
+&lt;p&gt;我大概每周三下午会抽空检查一遍基础设施，用了两年Docker方式部署Runner，它最大的好处是——&lt;strong&gt;即使搞挂了，删了容器重来就行，不会污染宿主机环境。&lt;/strong&gt;&lt;/p&gt;
+&lt;h3 id=&#34;第一步启动runner容器&#34;&gt;第一步：启动Runner容器
+&lt;/h3&gt;&lt;p&gt;别去折腾什么RPM包安装了，直接在你的服务器（可以是测试服）上跑这个：&lt;/p&gt;
+&lt;div class=&#34;highlight&#34;&gt;&lt;pre tabindex=&#34;0&#34; style=&#34;color:#f8f8f2;background-color:#272822;-moz-tab-size:4;-o-tab-size:4;tab-size:4;&#34;&gt;&lt;code class=&#34;language-bash&#34; data-lang=&#34;bash&#34;&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;docker run -d --name gitlab-runner --restart always &lt;span style=&#34;color:#ae81ff&#34;&gt;\
+&lt;/span&gt;&lt;/span&gt;&lt;/span&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;&lt;span style=&#34;color:#ae81ff&#34;&gt;&lt;/span&gt;  -v /srv/gitlab-runner/config:/etc/gitlab-runner &lt;span style=&#34;color:#ae81ff&#34;&gt;\
+&lt;/span&gt;&lt;/span&gt;&lt;/span&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;&lt;span style=&#34;color:#ae81ff&#34;&gt;&lt;/span&gt;  -v /var/run/docker.sock:/var/run/docker.sock &lt;span style=&#34;color:#ae81ff&#34;&gt;\
+&lt;/span&gt;&lt;/span&gt;&lt;/span&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;&lt;span style=&#34;color:#ae81ff&#34;&gt;&lt;/span&gt;  gitlab/gitlab-runner:latest
+&lt;/span&gt;&lt;/span&gt;&lt;/code&gt;&lt;/pre&gt;&lt;/div&gt;&lt;p&gt;这行命令里有个核心细节：&lt;code&gt;-v /var/run/docker.sock:/var/run/docker.sock&lt;/code&gt;。&lt;/p&gt;
+&lt;blockquote&gt;
+&lt;p&gt;&lt;strong&gt;踩坑预警&lt;/strong&gt;：如果你希望你的Runner能在构建过程中也能使用Docker（比如打包镜像），这个挂载必须加！这叫“Docker in Docker”或者是让容器控制宿主机的Docker守护进程。&lt;/p&gt;
+&lt;/blockquote&gt;
+&lt;h3 id=&#34;第二步把管家介绍给包工头注册&#34;&gt;第二步：把“管家”介绍给“包工头”（注册）
+&lt;/h3&gt;&lt;p&gt;Runner启动了，但它还不知道要听谁的指挥。你需要去GitLab项目页面 -&amp;gt; Settings -&amp;gt; CI/CD -&amp;gt; Runners，找到 &lt;strong&gt;URL&lt;/strong&gt; 和 &lt;strong&gt;Registration token&lt;/strong&gt;。&lt;/p&gt;
+&lt;p&gt;然后进入容器内部执行注册：&lt;/p&gt;
+&lt;div class=&#34;highlight&#34;&gt;&lt;pre tabindex=&#34;0&#34; style=&#34;color:#f8f8f2;background-color:#272822;-moz-tab-size:4;-o-tab-size:4;tab-size:4;&#34;&gt;&lt;code class=&#34;language-bash&#34; data-lang=&#34;bash&#34;&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;docker exec -it gitlab-runner gitlab-runner register
+&lt;/span&gt;&lt;/span&gt;&lt;/code&gt;&lt;/pre&gt;&lt;/div&gt;&lt;p&gt;&lt;img src=&#34;https://picsum.photos/800/450?random=1768388414375&#34;
+	
+	
+	
+	loading=&#34;lazy&#34;
+	
+		alt=&#34;配图&#34;
+	
+	
+&gt;&lt;/p&gt;
+&lt;p&gt;接下来会是一次简单的问答交互，我建议的配置如下：&lt;/p&gt;
+&lt;ol&gt;
+&lt;li&gt;&lt;strong&gt;URL&lt;/strong&gt;: 填你在GitLab页面看到的。&lt;/li&gt;
+&lt;li&gt;&lt;strong&gt;Token&lt;/strong&gt;: 填页面上的Token。&lt;/li&gt;
+&lt;li&gt;&lt;strong&gt;Description&lt;/strong&gt;: 给Runner起个名，比如 &lt;code&gt;dev-runner-01&lt;/code&gt;。&lt;/li&gt;
+&lt;li&gt;&lt;strong&gt;Tags&lt;/strong&gt;: &lt;strong&gt;关键点！&lt;/strong&gt; 填 &lt;code&gt;docker,deploy&lt;/code&gt;（逗号分隔）。后续在代码里指定tag，只有匹配的Runner才会接单。&lt;/li&gt;
+&lt;li&gt;&lt;strong&gt;Executor&lt;/strong&gt;: &lt;strong&gt;重中之重！&lt;/strong&gt; 选 &lt;code&gt;docker&lt;/code&gt;。&lt;/li&gt;
+&lt;li&gt;&lt;strong&gt;Docker Image&lt;/strong&gt;: 填个默认的，比如 &lt;code&gt;alpine:latest&lt;/code&gt; 或者 &lt;code&gt;node:16&lt;/code&gt;。&lt;/li&gt;
+&lt;/ol&gt;
+&lt;p&gt;搞定！回到GitLab页面，看到那个绿色的圆点亮起，你就拥有了一个专属的自动化构建工人。&lt;/p&gt;
+&lt;hr&gt;
+&lt;h2 id=&#34;三-编写施工图纸让自动化动起来&#34;&gt;三、 编写“施工图纸”：让自动化动起来
+&lt;/h2&gt;&lt;p&gt;有了工人，还得有图纸。这就是项目根目录下的 &lt;code&gt;.gitlab-ci.yml&lt;/code&gt; 文件。&lt;/p&gt;
+&lt;p&gt;记得带我的实习生小王第一次写这个文件时，他恨不得把所有脚本都堆在一个stage里。结果只要一步出错，查日志查到眼瞎。&lt;/p&gt;
+&lt;p&gt;&lt;strong&gt;经验告诉我，流水线必须分层。&lt;/strong&gt; 一个标准的后端项目（比如Spring Boot或Go），我通常这么设计：&lt;/p&gt;
+&lt;div class=&#34;highlight&#34;&gt;&lt;pre tabindex=&#34;0&#34; style=&#34;color:#f8f8f2;background-color:#272822;-moz-tab-size:4;-o-tab-size:4;tab-size:4;&#34;&gt;&lt;code class=&#34;language-yaml&#34; data-lang=&#34;yaml&#34;&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;&lt;span style=&#34;color:#f92672&#34;&gt;stages&lt;/span&gt;:
+&lt;/span&gt;&lt;/span&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;  - &lt;span style=&#34;color:#ae81ff&#34;&gt;build&lt;/span&gt;
+&lt;/span&gt;&lt;/span&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;  - &lt;span style=&#34;color:#ae81ff&#34;&gt;test&lt;/span&gt;
+&lt;/span&gt;&lt;/span&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;  - &lt;span style=&#34;color:#ae81ff&#34;&gt;deploy&lt;/span&gt;
+&lt;/span&gt;&lt;/span&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;
+&lt;/span&gt;&lt;/span&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;&lt;span style=&#34;color:#75715e&#34;&gt;# 全局变量定义，方便维护&lt;/span&gt;
+&lt;/span&gt;&lt;/span&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;&lt;span style=&#34;color:#f92672&#34;&gt;variables&lt;/span&gt;:
+&lt;/span&gt;&lt;/span&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;  &lt;span style=&#34;color:#f92672&#34;&gt;MAVEN_OPTS&lt;/span&gt;: &lt;span style=&#34;color:#e6db74&#34;&gt;&amp;#34;-Dmaven.repo.local=.m2/repository&amp;#34;&lt;/span&gt;
+&lt;/span&gt;&lt;/span&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;
+&lt;/span&gt;&lt;/span&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;&lt;span style=&#34;color:#75715e&#34;&gt;# 缓存依赖，不用每次都重新下载jar包，速度提升50%&lt;/span&gt;
+&lt;/span&gt;&lt;/span&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;&lt;span style=&#34;color:#f92672&#34;&gt;cache&lt;/span&gt;:
+&lt;/span&gt;&lt;/span&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;  &lt;span style=&#34;color:#f92672&#34;&gt;paths&lt;/span&gt;:
+&lt;/span&gt;&lt;/span&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;    - &lt;span style=&#34;color:#ae81ff&#34;&gt;.m2/repository/&lt;/span&gt;
+&lt;/span&gt;&lt;/span&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;
+&lt;/span&gt;&lt;/span&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;&lt;span style=&#34;color:#75715e&#34;&gt;# 第一步：打包&lt;/span&gt;
+&lt;/span&gt;&lt;/span&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;&lt;span style=&#34;color:#f92672&#34;&gt;build_job&lt;/span&gt;:
+&lt;/span&gt;&lt;/span&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;  &lt;span style=&#34;color:#f92672&#34;&gt;stage&lt;/span&gt;: &lt;span style=&#34;color:#ae81ff&#34;&gt;build&lt;/span&gt;
+&lt;/span&gt;&lt;/span&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;  &lt;span style=&#34;color:#f92672&#34;&gt;image&lt;/span&gt;: &lt;span style=&#34;color:#ae81ff&#34;&gt;maven:3.8-jdk-11&lt;/span&gt;
+&lt;/span&gt;&lt;/span&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;  &lt;span style=&#34;color:#f92672&#34;&gt;script&lt;/span&gt;:
+&lt;/span&gt;&lt;/span&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;    - &lt;span style=&#34;color:#ae81ff&#34;&gt;echo &amp;#34;开始打包...&amp;#34;&lt;/span&gt;
+&lt;/span&gt;&lt;/span&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;    - &lt;span style=&#34;color:#ae81ff&#34;&gt;mvn clean package -DskipTests&lt;/span&gt;
+&lt;/span&gt;&lt;/span&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;  &lt;span style=&#34;color:#f92672&#34;&gt;artifacts&lt;/span&gt;: &lt;span style=&#34;color:#75715e&#34;&gt;# 产物传递，把打好的jar包传给下一步&lt;/span&gt;
+&lt;/span&gt;&lt;/span&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;    &lt;span style=&#34;color:#f92672&#34;&gt;paths&lt;/span&gt;:
+&lt;/span&gt;&lt;/span&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;      - &lt;span style=&#34;color:#ae81ff&#34;&gt;target/*.jar&lt;/span&gt;
+&lt;/span&gt;&lt;/span&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;  &lt;span style=&#34;color:#f92672&#34;&gt;tags&lt;/span&gt;:
+&lt;/span&gt;&lt;/span&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;    - &lt;span style=&#34;color:#ae81ff&#34;&gt;docker&lt;/span&gt; &lt;span style=&#34;color:#75715e&#34;&gt;# 指定用我们刚才注册的Runner&lt;/span&gt;
+&lt;/span&gt;&lt;/span&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;
+&lt;/span&gt;&lt;/span&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;&lt;span style=&#34;color:#75715e&#34;&gt;# 第二步：测试（哪怕只是跑个简单的单元测试，也是心理安慰）&lt;/span&gt;
+&lt;/span&gt;&lt;/span&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;&lt;span style=&#34;color:#f92672&#34;&gt;test_job&lt;/span&gt;:
+&lt;/span&gt;&lt;/span&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;  &lt;span style=&#34;color:#f92672&#34;&gt;stage&lt;/span&gt;: &lt;span style=&#34;color:#ae81ff&#34;&gt;test&lt;/span&gt;
+&lt;/span&gt;&lt;/span&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;  &lt;span style=&#34;color:#f92672&#34;&gt;image&lt;/span&gt;: &lt;span style=&#34;color:#ae81ff&#34;&gt;maven:3.8-jdk-11&lt;/span&gt;
+&lt;/span&gt;&lt;/span&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;  &lt;span style=&#34;color:#f92672&#34;&gt;script&lt;/span&gt;:
+&lt;/span&gt;&lt;/span&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;    - &lt;span style=&#34;color:#ae81ff&#34;&gt;echo &amp;#34;运行测试...&amp;#34;&lt;/span&gt;
+&lt;/span&gt;&lt;/span&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;    - &lt;span style=&#34;color:#ae81ff&#34;&gt;mvn test&lt;/span&gt;
+&lt;/span&gt;&lt;/span&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;  &lt;span style=&#34;color:#f92672&#34;&gt;tags&lt;/span&gt;:
+&lt;/span&gt;&lt;/span&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;    - &lt;span style=&#34;color:#ae81ff&#34;&gt;docker&lt;/span&gt;
+&lt;/span&gt;&lt;/span&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;
+&lt;/span&gt;&lt;/span&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;&lt;span style=&#34;color:#75715e&#34;&gt;# 第三步：部署（利用SSH免密登录部署到目标服）&lt;/span&gt;
+&lt;/span&gt;&lt;/span&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;&lt;span style=&#34;color:#f92672&#34;&gt;deploy_job&lt;/span&gt;:
+&lt;/span&gt;&lt;/span&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;  &lt;span style=&#34;color:#f92672&#34;&gt;stage&lt;/span&gt;: &lt;span style=&#34;color:#ae81ff&#34;&gt;deploy&lt;/span&gt;
+&lt;/span&gt;&lt;/span&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;  &lt;span style=&#34;color:#f92672&#34;&gt;image&lt;/span&gt;: &lt;span style=&#34;color:#ae81ff&#34;&gt;ubuntu:latest&lt;/span&gt;
+&lt;/span&gt;&lt;/span&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;  &lt;span style=&#34;color:#f92672&#34;&gt;before_script&lt;/span&gt;:
+&lt;/span&gt;&lt;/span&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;    &lt;span style=&#34;color:#75715e&#34;&gt;# 这里通常需要配置SSH私钥，稍微复杂点，但只需配一次&lt;/span&gt;
+&lt;/span&gt;&lt;/span&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;    - &lt;span style=&#34;color:#e6db74&#34;&gt;&amp;#39;which ssh-agent || ( apt-get update -y &amp;amp;&amp;amp; apt-get install openssh-client -y )&amp;#39;&lt;/span&gt;
+&lt;/span&gt;&lt;/span&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;    - &lt;span style=&#34;color:#ae81ff&#34;&gt;eval $(ssh-agent -s)&lt;/span&gt;
+&lt;/span&gt;&lt;/span&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;    - &lt;span style=&#34;color:#ae81ff&#34;&gt;echo &amp;#34;$SSH_PRIVATE_KEY&amp;#34; | tr -d &amp;#39;\r&amp;#39; | ssh-add -&lt;/span&gt;
+&lt;/span&gt;&lt;/span&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;    - &lt;span style=&#34;color:#ae81ff&#34;&gt;mkdir -p ~/.ssh&lt;/span&gt;
+&lt;/span&gt;&lt;/span&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;    - &lt;span style=&#34;color:#ae81ff&#34;&gt;chmod 700 ~/.ssh&lt;/span&gt;
+&lt;/span&gt;&lt;/span&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;    - &lt;span style=&#34;color:#ae81ff&#34;&gt;echo -e &amp;#34;Host *\n\tStrictHostKeyChecking no\n\n&amp;#34; &amp;gt; ~/.ssh/config&lt;/span&gt;
+&lt;/span&gt;&lt;/span&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;  &lt;span style=&#34;color:#f92672&#34;&gt;script&lt;/span&gt;:
+&lt;/span&gt;&lt;/span&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;    - &lt;span style=&#34;color:#ae81ff&#34;&gt;echo &amp;#34;开始部署...&amp;#34;&lt;/span&gt;
+&lt;/span&gt;&lt;/span&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;    - &lt;span style=&#34;color:#ae81ff&#34;&gt;scp target/*.jar user@192.168.1.100:/app/&lt;/span&gt;
+&lt;/span&gt;&lt;/span&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;    - &lt;span style=&#34;color:#ae81ff&#34;&gt;ssh user@192.168.1.100 &amp;#34;sh /app/restart.sh&amp;#34;&lt;/span&gt;
+&lt;/span&gt;&lt;/span&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;  &lt;span style=&#34;color:#f92672&#34;&gt;tags&lt;/span&gt;:
+&lt;/span&gt;&lt;/span&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;    - &lt;span style=&#34;color:#ae81ff&#34;&gt;docker&lt;/span&gt;
+&lt;/span&gt;&lt;/span&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;  &lt;span style=&#34;color:#f92672&#34;&gt;only&lt;/span&gt;:
+&lt;/span&gt;&lt;/span&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;    - &lt;span style=&#34;color:#ae81ff&#34;&gt;main&lt;/span&gt; &lt;span style=&#34;color:#75715e&#34;&gt;# 只有合并到main分支才触发部署&lt;/span&gt;
+&lt;/span&gt;&lt;/span&gt;&lt;/code&gt;&lt;/pre&gt;&lt;/div&gt;&lt;p&gt;这里有个&lt;strong&gt;反直觉&lt;/strong&gt;的设计：&lt;strong&gt;部署操作为什么要单独用一个ubuntu镜像？&lt;/strong&gt;&lt;/p&gt;
+&lt;p&gt;很多新手喜欢直接在Runner所在的宿主机上操作。但我建议，让Runner保持纯净，通过SSH远程去操作目标服务器（即使目标服务器就是Runner所在的那台机器）。这样能最大程度解耦，就算以后应用扩容到10台机器，改改脚本就行，不用动Runner架构。&lt;/p&gt;
+&lt;hr&gt;
+&lt;h2 id=&#34;结尾解放双手去喝杯咖啡吧&#34;&gt;结尾：解放双手，去喝杯咖啡吧
+&lt;/h2&gt;&lt;p&gt;自从落地了这套GitLab Runner方案，那种“周五傍晚不敢提交代码”的恐惧感彻底消失了。现在，我的日常变成了：写代码 -&amp;gt; 提交 -&amp;gt; 泡咖啡 -&amp;gt; 收到钉钉/企业微信通知“部署成功”。&lt;/p&gt;
+&lt;p&gt;如果你还在犹豫是否要引入CI/CD，不妨先从一个小项目试起。&lt;/p&gt;
+&lt;p&gt;&lt;strong&gt;这里给大家留一个小调研：&lt;/strong&gt;
+在配置Runner执行器（Executor）时，&lt;strong&gt;你更倾向于简单粗暴的 &lt;code&gt;Shell&lt;/code&gt; 模式，还是隔离性更好的 &lt;code&gt;Docker&lt;/code&gt; 模式？&lt;/strong&gt; 为什么？欢迎在评论区告诉我你的选择。&lt;/p&gt;
+&lt;p&gt;&lt;strong&gt;最后，总结一下今天能落地的3个行动步骤：&lt;/strong&gt;&lt;/p&gt;
+&lt;ol&gt;
+&lt;li&gt;&lt;strong&gt;找台空闲服务器&lt;/strong&gt;（2核4G足矣），安装Docker。&lt;/li&gt;
+&lt;li&gt;用 &lt;code&gt;docker run&lt;/code&gt; &lt;strong&gt;启动并注册&lt;/strong&gt; 一个私有GitLab Runner。&lt;/li&gt;
+&lt;li&gt;在项目根目录新建 &lt;code&gt;.gitlab-ci.yml&lt;/code&gt;，先写一个最简单的 &lt;code&gt;echo &amp;quot;Hello World&amp;quot;&lt;/code&gt; 跑通流程。&lt;/li&gt;
+&lt;/ol&gt;
+&lt;p&gt;别光看，去试试。当你第一次看到那个绿色的 &amp;ldquo;Passed&amp;rdquo; 对勾亮起时，你会发现，技术带来的不仅是效率，更是尊严。&lt;/p&gt;
+</description>
+        </item>
+        
+    </channel>
+</rss>

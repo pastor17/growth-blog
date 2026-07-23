@@ -1,0 +1,670 @@
+<?xml version="1.0" encoding="utf-8" standalone="yes"?>
+<rss version="2.0" xmlns:atom="http://www.w3.org/2005/Atom">
+    <channel>
+        <title>Prompt Engineering on SelfTechHub</title>
+        <link>https://blog.irudder.me/tags/Prompt-Engineering.html</link>
+        <description>Recent content in Prompt Engineering on SelfTechHub</description>
+        <generator>Hugo -- gohugo.io</generator>
+        <language>zh-cn</language>
+        <lastBuildDate>Tue, 16 Jun 2026 00:00:00 +0000</lastBuildDate><atom:link href="https://blog.irudder.me/tags/Prompt-Engineering/index.xml" rel="self" type="application/rss+xml" /><item>
+        <title>第10章：从 Prompt 到 Agent——AI 能力跃迁的分水岭</title>
+        <link>https://blog.irudder.me/ai/knowledge-series/10-From-Prompt-to-Agent.html</link>
+        <pubDate>Tue, 16 Jun 2026 00:00:00 +0000</pubDate>
+        
+        <guid>https://blog.irudder.me/ai/knowledge-series/10-From-Prompt-to-Agent.html</guid>
+        <description>&lt;h1 id=&#34;第10章从-prompt-到-agentai-能力跃迁的分水岭&#34;&gt;第10章：从 Prompt 到 Agent——AI 能力跃迁的分水岭
+&lt;/h1&gt;&lt;blockquote&gt;
+&lt;p&gt;系列导读：本章是 Agent 模块的开篇。建议先看第1-5章建立 LLM 和工具调用的基础认知，再进入 Agent 的学习。&lt;/p&gt;
+&lt;/blockquote&gt;
+&lt;hr&gt;
+&lt;h2 id=&#34;一为什么说-prompt-和-agent-之间有一道鸿沟&#34;&gt;一、为什么说 Prompt 和 Agent 之间有一道鸿沟？
+&lt;/h2&gt;&lt;p&gt;&lt;strong&gt;Prompt 时代&lt;/strong&gt;：你给模型一个指令，模型给你一个回答。对话结束。&lt;/p&gt;
+&lt;p&gt;&lt;strong&gt;Agent 时代&lt;/strong&gt;：你给模型一个目标，模型决定需要什么信息，去搜索、执行、验证，最终给你一个完整的解决方案。&lt;/p&gt;
+&lt;p&gt;这个分水岭就是：&lt;strong&gt;自主性（Autonomy）&lt;/strong&gt;。&lt;/p&gt;
+&lt;table&gt;
+  &lt;thead&gt;
+      &lt;tr&gt;
+          &lt;th&gt;能力&lt;/th&gt;
+          &lt;th&gt;Prompt&lt;/th&gt;
+          &lt;th&gt;Agent&lt;/th&gt;
+      &lt;/tr&gt;
+  &lt;/thead&gt;
+  &lt;tbody&gt;
+      &lt;tr&gt;
+          &lt;td&gt;理解任务&lt;/td&gt;
+          &lt;td&gt;被动接收指令&lt;/td&gt;
+          &lt;td&gt;主动解析目标&lt;/td&gt;
+      &lt;/tr&gt;
+      &lt;tr&gt;
+          &lt;td&gt;工具调用&lt;/td&gt;
+          &lt;td&gt;没有&lt;/td&gt;
+          &lt;td&gt;自主决定用什么工具&lt;/td&gt;
+      &lt;/tr&gt;
+      &lt;tr&gt;
+          &lt;td&gt;多步执行&lt;/td&gt;
+          &lt;td&gt;没有&lt;/td&gt;
+          &lt;td&gt;可执行多步操作链&lt;/td&gt;
+      &lt;/tr&gt;
+      &lt;tr&gt;
+          &lt;td&gt;状态保持&lt;/td&gt;
+          &lt;td&gt;无（每次独立）&lt;/td&gt;
+          &lt;td&gt;有（记忆系统）&lt;/td&gt;
+      &lt;/tr&gt;
+      &lt;tr&gt;
+          &lt;td&gt;结果验证&lt;/td&gt;
+          &lt;td&gt;没有&lt;/td&gt;
+          &lt;td&gt;自检查/自修正&lt;/td&gt;
+      &lt;/tr&gt;
+      &lt;tr&gt;
+          &lt;td&gt;闭环能力&lt;/td&gt;
+          &lt;td&gt;开环（输出即结束）&lt;/td&gt;
+          &lt;td&gt;闭环（输出→行动→反馈→再决策）&lt;/td&gt;
+      &lt;/tr&gt;
+  &lt;/tbody&gt;
+&lt;/table&gt;
+&lt;h2 id=&#34;二理解-agent不是加了工具的-llm&#34;&gt;二、理解 Agent：不是「加了工具的 LLM」
+&lt;/h2&gt;&lt;p&gt;最常被误解的概念：Agent 不是&amp;quot;给 LLM 加了几个 Function Calling&amp;quot;。&lt;/p&gt;
+&lt;p&gt;真正的 Agent 有三个核心特征：&lt;/p&gt;
+&lt;h3 id=&#34;1-自主决策&#34;&gt;1. 自主决策
+&lt;/h3&gt;&lt;p&gt;模型自己判断「下一步该做什么」，不是人类在每个节点发指令。&lt;/p&gt;
+&lt;h3 id=&#34;2-行动-感知-调整闭环&#34;&gt;2. 行动-感知-调整闭环
+&lt;/h3&gt;&lt;p&gt;模型执行一个行动（如搜索），收到结果，然后根据结果调整下一步的计划。&lt;/p&gt;
+&lt;h3 id=&#34;3-状态管理&#34;&gt;3. 状态管理
+&lt;/h3&gt;&lt;p&gt;在多步执行过程中，模型知道自己之前做了什么、当前进展到哪一步。这不是简单的对话历史，而是&lt;strong&gt;结构化的任务状态&lt;/strong&gt;。&lt;/p&gt;
+&lt;h2 id=&#34;三agent-与三个易混淆概念的区别&#34;&gt;三、Agent 与三个易混淆概念的区别
+&lt;/h2&gt;&lt;h3 id=&#34;tools最小的能力积木&#34;&gt;Tools：最小的能力积木
+&lt;/h3&gt;&lt;ul&gt;
+&lt;li&gt;一个封装好的可调用函数&lt;/li&gt;
+&lt;li&gt;只负责执行，自己不做任何决策&lt;/li&gt;
+&lt;li&gt;如：搜索 API、发邮件 API、查询数据库&lt;/li&gt;
+&lt;/ul&gt;
+&lt;h3 id=&#34;agent完整的决策系统&#34;&gt;Agent：完整的决策系统
+&lt;/h3&gt;&lt;ul&gt;
+&lt;li&gt;内部用 LLM 做大脑&lt;/li&gt;
+&lt;li&gt;自己判断「要不要调工具」「调哪个工具」「什么时候结束&amp;quot;&lt;/li&gt;
+&lt;li&gt;是主动的执行者&lt;/li&gt;
+&lt;/ul&gt;
+&lt;h3 id=&#34;workflow确定性流程编排&#34;&gt;Workflow：确定性流程编排
+&lt;/h3&gt;&lt;ul&gt;
+&lt;li&gt;开发者事先写好所有节点和流转逻辑&lt;/li&gt;
+&lt;li&gt;什么时候调什么工具、走什么分支，都是代码写死的&lt;/li&gt;
+&lt;li&gt;LLM 只负责某个节点的执行，不负责流程决策&lt;/li&gt;
+&lt;/ul&gt;
+&lt;p&gt;&lt;strong&gt;核心区分维度：谁来做&amp;quot;下一步该干什么&amp;quot;这个决策？&lt;/strong&gt;&lt;/p&gt;
+&lt;ul&gt;
+&lt;li&gt;Tools：不做决策，只执行&lt;/li&gt;
+&lt;li&gt;Agent：自己决策&lt;/li&gt;
+&lt;li&gt;Workflow：开发者替所有节点决策&lt;/li&gt;
+&lt;/ul&gt;
+&lt;h2 id=&#34;四为什么说-agent-是-llm-进化的必然&#34;&gt;四、为什么说 Agent 是 LLM 进化的必然？
+&lt;/h2&gt;&lt;p&gt;你问 LLM：&amp;ldquo;帮我规划一个去三亚旅游的7天行程。&amp;rdquo;&lt;/p&gt;
+&lt;p&gt;&lt;strong&gt;如果没有工具&lt;/strong&gt;：LLM 只能根据训练数据给出建议，信息可能已经过时，也无法查实时机票和酒店价格。&lt;/p&gt;
+&lt;p&gt;&lt;strong&gt;有了工具但没 Agent&lt;/strong&gt;：你可以手动把多个工具的调用写好，串成一个流程。但问题是：不同的输入可能需要不同的流程。&lt;/p&gt;
+&lt;p&gt;&lt;strong&gt;有了 Agent&lt;/strong&gt;：把目标交给它，它自己决定要不要查天气、查酒店、查景点，把所有信息汇总后再出方案，而且每个步骤都会有实时数据。&lt;/p&gt;
+&lt;p&gt;Agent 让 LLM 从一个「有知识的回答者」变成了一个「能行动的智能体」。&lt;/p&gt;
+&lt;h2 id=&#34;五agent-基础工作模式&#34;&gt;五、Agent 基础工作模式
+&lt;/h2&gt;&lt;p&gt;最基础的 Agent 循环：&lt;/p&gt;
+&lt;pre tabindex=&#34;0&#34;&gt;&lt;code&gt;            ┌───────────────────┐
+            │   用户输入目标     │
+            └─────────┬─────────┘
+                      ↓
+     ┌─────────────────────────────────┐
+     │  LLM 分析目标，判断需要什么信息   │
+     └─────────────────┬───────────────┘
+                       ↓
+     ┌─────────────────────────────────┐
+     │  LLM 决定调用哪个工具，输出参数   │
+     └─────────────────┬───────────────┘
+                       ↓
+     ┌─────────────────────────────────┐
+     │  代码执行工具，获取结果          │
+     └─────────────────┬───────────────┘
+                       ↓
+     ┌─────────────────────────────────┐
+     │  结果反馈给 LLM                  │
+     └─────────────────┬───────────────┘
+                       ↓
+     ┌─────────────────────────────────┐
+     │  LLM 判断是否完成任务：           │
+     │  → 未完成，继续循环              │
+     │  → 完成，输出最终答案            │
+     └─────────────────────────────────┘
+&lt;/code&gt;&lt;/pre&gt;&lt;p&gt;这个循环跑几次（迭代次数取决于任务复杂度），最后输出综合答案。&lt;/p&gt;
+&lt;h2 id=&#34;六从-prompt-到-agent-的思维转变&#34;&gt;六、从 Prompt 到 Agent 的思维转变
+&lt;/h2&gt;&lt;p&gt;作为开发者，你需要从「写 prompt 让模型回答」转变为「设计一个系统让模型自主决策」。&lt;/p&gt;
+&lt;p&gt;核心设计要素：&lt;/p&gt;
+&lt;ol&gt;
+&lt;li&gt;&lt;strong&gt;System Prompt&lt;/strong&gt;：给模型设定 &amp;ldquo;你是谁、你能做什么、你的工具是什么&amp;rdquo;&lt;/li&gt;
+&lt;li&gt;&lt;strong&gt;Tool Schema&lt;/strong&gt;：精确定义工具的使用方式&lt;/li&gt;
+&lt;li&gt;&lt;strong&gt;Memory 设计&lt;/strong&gt;：管理中间状态和历史 context&lt;/li&gt;
+&lt;li&gt;&lt;strong&gt;终止条件&lt;/strong&gt;：什么时候算完成了？&lt;/li&gt;
+&lt;li&gt;&lt;strong&gt;错误处理&lt;/strong&gt;：工具调用失败怎么办？模型决策跑偏怎么办？&lt;/li&gt;
+&lt;/ol&gt;
+&lt;h2 id=&#34;七本章小结&#34;&gt;七、本章小结
+&lt;/h2&gt;&lt;ul&gt;
+&lt;li&gt;Agent 的质变在于&amp;quot;自主决策&amp;quot;和&amp;quot;行动-感知-调整闭环&amp;quot;&lt;/li&gt;
+&lt;li&gt;Tools、Agent、Workflow 是三层不同粒度的概念，不是替代关系&lt;/li&gt;
+&lt;li&gt;Agent 让 LLM 从&amp;quot;回答者&amp;quot;升级为&amp;quot;行动者&amp;quot;&lt;/li&gt;
+&lt;li&gt;开发 Agent 需要设计思维转变：从&amp;quot;写 prompt&amp;quot;到&amp;quot;设计自主系统&amp;quot;&lt;/li&gt;
+&lt;/ul&gt;
+&lt;h2 id=&#34;思考题&#34;&gt;思考题
+&lt;/h2&gt;&lt;ol&gt;
+&lt;li&gt;一个天气预报查询任务，用纯 prompt、用 workflow、用 agent，三种方案各有什么优劣？&lt;/li&gt;
+&lt;li&gt;Agent 的&amp;quot;自主决策&amp;quot;在哪些场景下是优势，在哪些场景下是风险？如何平衡自主性和可控性？&lt;/li&gt;
+&lt;/ol&gt;
+</description>
+        </item>
+        <item>
+        <title>第8章 Prompt工程与基础Skill搭建</title>
+        <link>https://blog.irudder.me/ai/ped/Chapter08-Prompt-Engineering-and-Basic-Skill-Building.html</link>
+        <pubDate>Thu, 19 Feb 2026 00:00:00 +0000</pubDate>
+        
+        <guid>https://blog.irudder.me/ai/ped/Chapter08-Prompt-Engineering-and-Basic-Skill-Building.html</guid>
+        <description>&lt;h1 id=&#34;第8章-prompt工程与基础skill搭建&#34;&gt;第8章 Prompt工程与基础Skill搭建
+&lt;/h1&gt;&lt;blockquote&gt;
+&lt;p&gt;&lt;strong&gt;本章导读&lt;/strong&gt;&lt;/p&gt;
+&lt;p&gt;第7章讲了技术原理与工具选型。本章落到FDE最高频的实操——Prompt工程与Skill搭建。这是FDE&amp;quot;动手能力&amp;quot;的核心体现。本章先讲高阶Prompt技巧，再讲Skill设计方法，最后用三个通用Skill实战（信息整理、文案生成、数据分类）带读者走完从设计到迭代的全流程。读完本章，你应当能独立设计并搭建基础AI Skill。&lt;/p&gt;
+&lt;/blockquote&gt;
+&lt;hr&gt;
+&lt;h2 id=&#34;81-从prompt到skill&#34;&gt;§8.1 从Prompt到Skill
+&lt;/h2&gt;&lt;p&gt;先厘清两个概念的关系。&lt;/p&gt;
+&lt;p&gt;&lt;strong&gt;Prompt&lt;/strong&gt;是给大模型的一次性指令。&lt;strong&gt;Skill&lt;/strong&gt;是封装好的、可复用的AI能力模块——它内部包含Prompt，但还包含触发条件、输入输出规范、异常处理等。&lt;/p&gt;
+&lt;p&gt;打个比方：Prompt是菜谱，Skill是&amp;quot;一道菜&amp;quot;——菜谱是核心，但一道菜还包括备料、火候、装盘、出错补救。FDE的工作不是写Prompt，而是搭Skill。&lt;/p&gt;
+&lt;p&gt;理解这个区别，就理解了本章的结构：先讲Prompt（菜谱），再讲Skill（完整的菜）。&lt;/p&gt;
+&lt;hr&gt;
+&lt;h2 id=&#34;82-高阶prompt技巧&#34;&gt;§8.2 高阶Prompt技巧
+&lt;/h2&gt;&lt;p&gt;第7章讲了Prompt五要素（角色、任务、约束、格式、Few-Shot）。本节讲四个高阶技巧。&lt;/p&gt;
+&lt;h3 id=&#34;821-角色设定的进阶用法&#34;&gt;8.2.1 角色设定的进阶用法
+&lt;/h3&gt;&lt;p&gt;基础角色设定是&amp;quot;你是一位客服&amp;quot;。进阶用法是&lt;strong&gt;给角色具体的经验与风格&lt;/strong&gt;。&lt;/p&gt;
+&lt;p&gt;对比：&lt;/p&gt;
+&lt;ul&gt;
+&lt;li&gt;基础：&amp;ldquo;你是一位客服主管。&amp;rdquo;&lt;/li&gt;
+&lt;li&gt;进阶：&amp;ldquo;你是一位有10年经验的零售行业客服主管，风格专业、共情、不卑不亢，擅长把复杂政策用客户听得懂的话解释。&amp;rdquo;&lt;/li&gt;
+&lt;/ul&gt;
+&lt;p&gt;进阶设定让模型&amp;quot;代入&amp;quot;更具体，输出更稳定。但注意：角色设定要真实，不要编造不可能的经验（&amp;ldquo;你是同时精通法律、医学、金融的专家&amp;quot;会让模型胡编）。&lt;/p&gt;
+&lt;h3 id=&#34;822-任务拆解chain-of-thought&#34;&gt;8.2.2 任务拆解（Chain of Thought）
+&lt;/h3&gt;&lt;p&gt;复杂任务一次性让模型做，效果差。拆解成多步，每步专注一件事，效果好得多。&lt;/p&gt;
+&lt;p&gt;示例（写客户跟进邮件）：&lt;/p&gt;
+&lt;ul&gt;
+&lt;li&gt;不拆解：&amp;ldquo;根据客户信息写一封跟进邮件。&amp;quot;（输出泛泛）&lt;/li&gt;
+&lt;li&gt;拆解：
+&lt;ol&gt;
+&lt;li&gt;分析客户偏好（基于历史互动）。&lt;/li&gt;
+&lt;li&gt;确定邮件核心卖点（匹配偏好）。&lt;/li&gt;
+&lt;li&gt;写邮件草稿。&lt;/li&gt;
+&lt;li&gt;检查语气与合规。&lt;/li&gt;
+&lt;li&gt;输出最终邮件。&lt;/li&gt;
+&lt;/ol&gt;
+&lt;/li&gt;
+&lt;/ul&gt;
+&lt;p&gt;拆解后每步聚焦，整体质量显著提升。这种&amp;quot;让模型显式展示思考过程&amp;quot;的方法叫Chain of Thought（CoT）。&lt;/p&gt;
+&lt;blockquote&gt;
+&lt;p&gt;&lt;strong&gt;方法论框8-1：任务拆解的判断标准&lt;/strong&gt;
+出现以下任一情况，就该拆解：&lt;/p&gt;
+&lt;ul&gt;
+&lt;li&gt;任务包含多个子目标。&lt;/li&gt;
+&lt;li&gt;输出质量不稳定。&lt;/li&gt;
+&lt;li&gt;需要中间判断（如先分析再生成）。&lt;/li&gt;
+&lt;li&gt;单步输出过长导致信息丢失。&lt;/li&gt;
+&lt;/ul&gt;
+&lt;/blockquote&gt;
+&lt;h3 id=&#34;823-约束条件的精细化&#34;&gt;8.2.3 约束条件的精细化
+&lt;/h3&gt;&lt;p&gt;约束不是&amp;quot;不超过200字&amp;quot;这么简单。精细化约束能大幅提升可控性。&lt;/p&gt;
+&lt;p&gt;常见约束维度：&lt;/p&gt;
+&lt;ul&gt;
+&lt;li&gt;&lt;strong&gt;长度&lt;/strong&gt;：字数/句数/段数。&lt;/li&gt;
+&lt;li&gt;&lt;strong&gt;格式&lt;/strong&gt;：JSON/表格/Markdown/特定模板。&lt;/li&gt;
+&lt;li&gt;&lt;strong&gt;语气&lt;/strong&gt;：正式/亲切/专业/活泼。&lt;/li&gt;
+&lt;li&gt;&lt;strong&gt;禁区&lt;/strong&gt;：不承诺什么、不提什么话题、不用什么词。&lt;/li&gt;
+&lt;li&gt;&lt;strong&gt;必须包含&lt;/strong&gt;：必须出现的要素（如签名、免责声明）。&lt;/li&gt;
+&lt;li&gt;&lt;strong&gt;风格参考&lt;/strong&gt;：给一段范例文本，要求&amp;quot;模仿此风格&amp;rdquo;。&lt;/li&gt;
+&lt;/ul&gt;
+&lt;p&gt;约束越细，输出越可控。但注意约束之间不能冲突（&amp;ldquo;不超过100字&amp;quot;与&amp;quot;必须包含5个要点各30字&amp;quot;冲突）。&lt;/p&gt;
+&lt;h3 id=&#34;824-few-shot的用法&#34;&gt;8.2.4 Few-Shot的用法
+&lt;/h3&gt;&lt;p&gt;Few-Shot是给模型几个输入输出范例，让它学习模式。适合需要特定格式的任务。&lt;/p&gt;
+&lt;p&gt;&lt;strong&gt;用法要点&lt;/strong&gt;：&lt;/p&gt;
+&lt;ul&gt;
+&lt;li&gt;示例要典型，覆盖主要模式。&lt;/li&gt;
+&lt;li&gt;示例数量2-5个为宜，太少学不会、太多浪费Token。&lt;/li&gt;
+&lt;li&gt;示例的输入输出格式要与你期望的完全一致。&lt;/li&gt;
+&lt;li&gt;负例（不该这么输出的例子）有时比正例更有效。&lt;/li&gt;
+&lt;/ul&gt;
+&lt;p&gt;示例（客户情绪分类）：&lt;/p&gt;
+&lt;pre tabindex=&#34;0&#34;&gt;&lt;code&gt;输入：这破产品用不了，退款！
+输出：愤怒
+
+输入：麻烦问下怎么退款？
+输出：咨询
+
+输入：用了三天还不错，但有几点建议。
+输出：中性+建议
+&lt;/code&gt;&lt;/pre&gt;&lt;p&gt;给3个Few-Shot，模型就能稳定按这个分类逻辑输出。&lt;/p&gt;
+&lt;hr&gt;
+&lt;h2 id=&#34;83-skill设计方法&#34;&gt;§8.3 Skill设计方法
+&lt;/h2&gt;&lt;p&gt;Prompt写好，下一步封装成Skill。一个完整的Skill包含五个部分。&lt;/p&gt;
+&lt;blockquote&gt;
+&lt;p&gt;&lt;strong&gt;图8-1：Skill的五大组成部分&lt;/strong&gt;
+（建议呈现：五模块图。触发条件→输入规范→核心Prompt→输出规范→异常处理。）&lt;/p&gt;
+&lt;/blockquote&gt;
+&lt;h3 id=&#34;831-触发条件&#34;&gt;8.3.1 触发条件
+&lt;/h3&gt;&lt;p&gt;什么时候调用这个Skill？触发条件要明确，避免误触发或漏触发。&lt;/p&gt;
+&lt;p&gt;示例：&lt;/p&gt;
+&lt;ul&gt;
+&lt;li&gt;&amp;ldquo;当用户输入包含&amp;rsquo;退款&amp;rsquo;&amp;lsquo;退货&amp;rsquo;&amp;lsquo;售后&amp;rsquo;关键词时触发。&amp;rdquo;&lt;/li&gt;
+&lt;li&gt;&amp;ldquo;当上游分类节点输出为&amp;rsquo;投诉&amp;rsquo;时触发。&amp;rdquo;&lt;/li&gt;
+&lt;/ul&gt;
+&lt;p&gt;触发条件可以是关键词、分类结果、人工配置。复杂场景可用多重条件组合。&lt;/p&gt;
+&lt;h3 id=&#34;832-输入规范&#34;&gt;8.3.2 输入规范
+&lt;/h3&gt;&lt;p&gt;Skill需要什么输入？要明确输入字段、类型、来源。&lt;/p&gt;
+&lt;p&gt;示例：&lt;/p&gt;
+&lt;ul&gt;
+&lt;li&gt;输入字段：客户问题（文本）、客户ID（字符串）、历史互动（列表）。&lt;/li&gt;
+&lt;li&gt;来源：上游节点输出 / 用户输入 / 数据库查询。&lt;/li&gt;
+&lt;/ul&gt;
+&lt;p&gt;输入规范不清，Skill就接不稳。&lt;/p&gt;
+&lt;h3 id=&#34;833-核心prompt&#34;&gt;8.3.3 核心Prompt
+&lt;/h3&gt;&lt;p&gt;Skill的核心。用§8.2的方法设计，包含角色、任务、约束、格式、Few-Shot。&lt;/p&gt;
+&lt;h3 id=&#34;834-输出规范&#34;&gt;8.3.4 输出规范
+&lt;/h3&gt;&lt;p&gt;Skill输出什么？格式、字段、对接下游的方式。&lt;/p&gt;
+&lt;p&gt;示例：&lt;/p&gt;
+&lt;ul&gt;
+&lt;li&gt;输出格式：JSON。&lt;/li&gt;
+&lt;li&gt;字段：reply（回复文本）、confidence（置信度0-1）、need_escalation（是否需转人工）。&lt;/li&gt;
+&lt;li&gt;下游对接：reply返回用户，need_escalation为true时触发转人工流程。&lt;/li&gt;
+&lt;/ul&gt;
+&lt;h3 id=&#34;835-异常处理&#34;&gt;8.3.5 异常处理
+&lt;/h3&gt;&lt;p&gt;Skill失败时怎么办？这是新手最易忽略、却最影响稳定性的部分。&lt;/p&gt;
+&lt;p&gt;常见异常与处理：&lt;/p&gt;
+&lt;ul&gt;
+&lt;li&gt;&lt;strong&gt;模型超时&lt;/strong&gt;：重试2次，仍失败则降级（用预设回复）。&lt;/li&gt;
+&lt;li&gt;&lt;strong&gt;输入缺失&lt;/strong&gt;：返回&amp;quot;信息不足，请补充XX&amp;rdquo;，不强行生成。&lt;/li&gt;
+&lt;li&gt;&lt;strong&gt;输出格式错&lt;/strong&gt;：用解析器校验，格式错则重试或降级。&lt;/li&gt;
+&lt;li&gt;&lt;strong&gt;置信度低&lt;/strong&gt;：低于阈值转人工，不直接给用户。&lt;/li&gt;
+&lt;/ul&gt;
+&lt;blockquote&gt;
+&lt;p&gt;&lt;strong&gt;方法论框8-2：Skill设计自检五问&lt;/strong&gt;&lt;/p&gt;
+&lt;ol&gt;
+&lt;li&gt;触发条件明确吗？（不会误触发或漏触发）&lt;/li&gt;
+&lt;li&gt;输入规范清晰吗？（字段、类型、来源）&lt;/li&gt;
+&lt;li&gt;核心Prompt五要素齐全吗？&lt;/li&gt;
+&lt;li&gt;输出规范可对接下游吗？（格式、字段）&lt;/li&gt;
+&lt;li&gt;异常处理有降级方案吗？（超时、缺失、格式错、低置信度）
+五问全清，Skill才算设计完成。&lt;/li&gt;
+&lt;/ol&gt;
+&lt;/blockquote&gt;
+&lt;hr&gt;
+&lt;h2 id=&#34;84-实战一信息整理skill&#34;&gt;§8.4 实战一：信息整理Skill
+&lt;/h2&gt;&lt;p&gt;&lt;strong&gt;场景&lt;/strong&gt;：把会议录音转写文本，整理成结构化纪要。&lt;/p&gt;
+&lt;p&gt;&lt;strong&gt;设计&lt;/strong&gt;：&lt;/p&gt;
+&lt;ul&gt;
+&lt;li&gt;触发条件：用户上传会议转写文本并选择&amp;quot;生成纪要&amp;rdquo;。&lt;/li&gt;
+&lt;li&gt;输入：会议转写文本（文本）。&lt;/li&gt;
+&lt;li&gt;核心Prompt：
+&lt;ul&gt;
+&lt;li&gt;角色：&amp;ldquo;你是一位专业的会议纪要助理。&amp;rdquo;&lt;/li&gt;
+&lt;li&gt;任务：&amp;ldquo;请把以下会议转写整理为结构化纪要。&amp;rdquo;&lt;/li&gt;
+&lt;li&gt;约束：&amp;ldquo;保留关键决策与待办，去除寒暄与重复；待办需含负责人与截止时间。&amp;rdquo;&lt;/li&gt;
+&lt;li&gt;格式：Markdown，含&amp;quot;会议主题/参会人/关键讨论/决策/待办&amp;quot;五部分。&lt;/li&gt;
+&lt;/ul&gt;
+&lt;/li&gt;
+&lt;li&gt;输出：结构化纪要（Markdown）。&lt;/li&gt;
+&lt;li&gt;异常处理：转写过短（&amp;lt;500字）提示&amp;quot;内容过少，请确认转写完整&amp;quot;；无明确待办时标注&amp;quot;本次会议无明确待办&amp;quot;。&lt;/li&gt;
+&lt;/ul&gt;
+&lt;p&gt;&lt;strong&gt;迭代要点&lt;/strong&gt;：初版常出现&amp;quot;待办无负责人&amp;quot;，需在Prompt加约束&amp;quot;待办必须含负责人，无法识别时标注&amp;rsquo;待指定&amp;rsquo;&amp;quot;。&lt;/p&gt;
+&lt;hr&gt;
+&lt;h2 id=&#34;85-实战二文案生成skill&#34;&gt;§8.5 实战二：文案生成Skill
+&lt;/h2&gt;&lt;p&gt;&lt;strong&gt;场景&lt;/strong&gt;：根据产品信息与目标客户画像，生成个性化营销文案。&lt;/p&gt;
+&lt;p&gt;&lt;strong&gt;设计&lt;/strong&gt;：&lt;/p&gt;
+&lt;ul&gt;
+&lt;li&gt;触发条件：上游传入产品信息+客户画像。&lt;/li&gt;
+&lt;li&gt;输入：产品信息（结构化）、客户画像（结构化）、渠道（邮件/短信/朋友圈）。&lt;/li&gt;
+&lt;li&gt;核心Prompt：
+&lt;ul&gt;
+&lt;li&gt;角色：&amp;ldquo;你是一位资深B2B营销文案撰写人。&amp;rdquo;&lt;/li&gt;
+&lt;li&gt;任务：&amp;ldquo;根据产品与客户画像，生成适合指定渠道的营销文案。&amp;rdquo;&lt;/li&gt;
+&lt;li&gt;约束：&amp;ldquo;突出产品与客户痛点的匹配；不夸大不承诺具体效果；邮件300字内、短信80字内、朋友圈150字内。&amp;rdquo;&lt;/li&gt;
+&lt;li&gt;Few-Shot：给2-3个优秀文案范例。&lt;/li&gt;
+&lt;/ul&gt;
+&lt;/li&gt;
+&lt;li&gt;输出：文案文本 + 卖点匹配说明。&lt;/li&gt;
+&lt;li&gt;异常处理：客户画像字段缺失时降级为通用文案；输出超长时自动截断并提示。&lt;/li&gt;
+&lt;/ul&gt;
+&lt;p&gt;&lt;strong&gt;迭代要点&lt;/strong&gt;：初版易出现&amp;quot;通用化套话&amp;quot;，需在Prompt加&amp;quot;必须引用客户画像中至少2个具体信息&amp;quot;。&lt;/p&gt;
+&lt;hr&gt;
+&lt;h2 id=&#34;86-实战三数据分类skill&#34;&gt;§8.6 实战三：数据分类Skill
+&lt;/h2&gt;&lt;p&gt;&lt;strong&gt;场景&lt;/strong&gt;：把客服工单自动分类到预设类别。&lt;/p&gt;
+&lt;p&gt;&lt;strong&gt;设计&lt;/strong&gt;：&lt;/p&gt;
+&lt;ul&gt;
+&lt;li&gt;触发条件：新工单进入系统。&lt;/li&gt;
+&lt;li&gt;输入：工单文本（文本）。&lt;/li&gt;
+&lt;li&gt;核心Prompt：
+&lt;ul&gt;
+&lt;li&gt;角色：&amp;ldquo;你是一位客服工单分类专家。&amp;rdquo;&lt;/li&gt;
+&lt;li&gt;任务：&amp;ldquo;把以下工单分类到最匹配的类别。&amp;rdquo;&lt;/li&gt;
+&lt;li&gt;约束：&amp;ldquo;只从给定类别中选择，不允许自创；无法判断时输出&amp;rsquo;其他&amp;rsquo;。&amp;rdquo;&lt;/li&gt;
+&lt;li&gt;Few-Shot：每类给2个范例。&lt;/li&gt;
+&lt;li&gt;输出格式：JSON，含category（类别）、confidence（置信度）、reason（分类理由）。&lt;/li&gt;
+&lt;/ul&gt;
+&lt;/li&gt;
+&lt;li&gt;输出：结构化分类结果。&lt;/li&gt;
+&lt;li&gt;异常处理：置信度&amp;lt;0.7转人工复核；格式错重试1次。&lt;/li&gt;
+&lt;/ul&gt;
+&lt;p&gt;&lt;strong&gt;迭代要点&lt;/strong&gt;：初版常出现&amp;quot;边界类别混淆&amp;quot;（如&amp;quot;产品质量&amp;quot;与&amp;quot;售后投诉&amp;quot;），需在Few-Shot里加边界案例。&lt;/p&gt;
+&lt;hr&gt;
+&lt;h2 id=&#34;87-skill的测试与迭代&#34;&gt;§8.7 Skill的测试与迭代
+&lt;/h2&gt;&lt;p&gt;Skill搭完不等于能用，必须测试与迭代。&lt;/p&gt;
+&lt;h3 id=&#34;测试方法&#34;&gt;测试方法
+&lt;/h3&gt;&lt;p&gt;&lt;strong&gt;测试集构建&lt;/strong&gt;：准备20-50条真实样本，覆盖正常、边界、异常三类情况。&lt;/p&gt;
+&lt;p&gt;&lt;strong&gt;测试维度&lt;/strong&gt;：&lt;/p&gt;
+&lt;ul&gt;
+&lt;li&gt;&lt;strong&gt;准确性&lt;/strong&gt;：输出是否符合预期。&lt;/li&gt;
+&lt;li&gt;&lt;strong&gt;稳定性&lt;/strong&gt;：同输入多次运行，输出是否一致。&lt;/li&gt;
+&lt;li&gt;&lt;strong&gt;健壮性&lt;/strong&gt;：异常输入（缺失、超长、格式错）是否优雅处理。&lt;/li&gt;
+&lt;li&gt;&lt;strong&gt;成本&lt;/strong&gt;：Token消耗是否在预算内。&lt;/li&gt;
+&lt;/ul&gt;
+&lt;h3 id=&#34;迭代方法&#34;&gt;迭代方法
+&lt;/h3&gt;&lt;blockquote&gt;
+&lt;p&gt;&lt;strong&gt;方法论框8-3：Skill迭代四步法&lt;/strong&gt;&lt;/p&gt;
+&lt;ol&gt;
+&lt;li&gt;&lt;strong&gt;找问题&lt;/strong&gt;：测试集里哪些样本输出不达标？&lt;/li&gt;
+&lt;li&gt;&lt;strong&gt;析原因&lt;/strong&gt;：是Prompt问题、Few-Shot不够、还是约束不清？&lt;/li&gt;
+&lt;li&gt;&lt;strong&gt;改一处&lt;/strong&gt;：每次只改一处，避免变量混淆。&lt;/li&gt;
+&lt;li&gt;&lt;strong&gt;回归测&lt;/strong&gt;：改完用全测试集回归，确认改进且未引入新问题。&lt;/li&gt;
+&lt;/ol&gt;
+&lt;/blockquote&gt;
+&lt;p&gt;迭代是Skill质量提升的核心环节，没有一次成功的Skill，只有不断迭代的Skill。&lt;/p&gt;
+&lt;hr&gt;
+&lt;h2 id=&#34;本章小结&#34;&gt;本章小结
+&lt;/h2&gt;&lt;ol&gt;
+&lt;li&gt;&lt;strong&gt;Prompt与Skill&lt;/strong&gt;：Prompt是菜谱，Skill是完整的菜；FDE搭Skill不只是写Prompt。&lt;/li&gt;
+&lt;li&gt;&lt;strong&gt;高阶Prompt&lt;/strong&gt;：角色进阶、任务拆解（CoT）、约束精细化、Few-Shot四技巧。&lt;/li&gt;
+&lt;li&gt;&lt;strong&gt;Skill五部分&lt;/strong&gt;：触发条件、输入规范、核心Prompt、输出规范、异常处理。&lt;/li&gt;
+&lt;li&gt;&lt;strong&gt;三个实战&lt;/strong&gt;：信息整理、文案生成、数据分类，覆盖三类典型场景。&lt;/li&gt;
+&lt;li&gt;&lt;strong&gt;测试迭代&lt;/strong&gt;：测试集+四维度+迭代四步法，Skill靠打磨不靠一次成功。&lt;/li&gt;
+&lt;/ol&gt;
+&lt;hr&gt;
+&lt;h2 id=&#34;思考题&#34;&gt;思考题
+&lt;/h2&gt;&lt;ol&gt;
+&lt;li&gt;用§8.2的高阶技巧，为一个你工作中的任务写一个Prompt，对比基础版与进阶版的输出差异。&lt;/li&gt;
+&lt;li&gt;用§8.3的五部分，设计一个Skill（场景自选），填完自检五问。&lt;/li&gt;
+&lt;li&gt;用零代码平台搭建你设计的Skill，准备20条测试样本，跑一轮测试并记录问题。&lt;/li&gt;
+&lt;li&gt;用迭代四步法，针对测试发现的一个问题，做一轮迭代并回归测。&lt;/li&gt;
+&lt;/ol&gt;
+&lt;hr&gt;
+&lt;h2 id=&#34;延伸阅读&#34;&gt;延伸阅读
+&lt;/h2&gt;&lt;ul&gt;
+&lt;li&gt;本书第9章讲工作流自动化，是把Skill嵌入业务流程的下一步。&lt;/li&gt;
+&lt;li&gt;第13章讲可复用Skill体系，是Skill从单个到体系的进阶。&lt;/li&gt;
+&lt;li&gt;各大模型官方Prompt指南（用于刷新最佳实践）。&lt;/li&gt;
+&lt;/ul&gt;
+</description>
+        </item>
+        <item>
+        <title>第7章 AI技术基础与工具选型</title>
+        <link>https://blog.irudder.me/ai/ped/Chapter07-AI-Tech-Fundamentals-and-Tool-Selection.html</link>
+        <pubDate>Thu, 12 Feb 2026 00:00:00 +0000</pubDate>
+        
+        <guid>https://blog.irudder.me/ai/ped/Chapter07-AI-Tech-Fundamentals-and-Tool-Selection.html</guid>
+        <description>&lt;h1 id=&#34;第7章-ai技术基础与工具选型&#34;&gt;第7章 AI技术基础与工具选型
+&lt;/h1&gt;&lt;blockquote&gt;
+&lt;p&gt;&lt;strong&gt;本章导读&lt;/strong&gt;&lt;/p&gt;
+&lt;p&gt;第4章扫盲了术语，本章把术语背后的技术逻辑讲透，并落到FDE最实际的决策——工具选型。FDE不必写底层代码，但必须懂技术原理，才能判断&amp;quot;什么场景用什么工具&amp;quot;。本章图解大模型调用、Prompt工程、RAG检索、工作流编排四项核心技术的原理；盘点主流工具；给出以落地效果为核心的选型方法论。读完本章，你应当能根据业务场景，快速匹配合适的工具组合。&lt;/p&gt;
+&lt;/blockquote&gt;
+&lt;hr&gt;
+&lt;h2 id=&#34;71-fde要懂的技术深度&#34;&gt;§7.1 FDE要懂的技术深度
+&lt;/h2&gt;&lt;p&gt;先校准一个认知：FDE要懂技术，但不必要懂到能写底层算法。&lt;/p&gt;
+&lt;p&gt;FDE的技术深度标准是**&amp;ldquo;能判断、能配置、能排查&amp;rdquo;**：&lt;/p&gt;
+&lt;ul&gt;
+&lt;li&gt;&lt;strong&gt;能判断&lt;/strong&gt;：知道什么场景该用什么技术、什么技术做不了什么。&lt;/li&gt;
+&lt;li&gt;&lt;strong&gt;能配置&lt;/strong&gt;：能在零代码平台配置Prompt、RAG、工作流。&lt;/li&gt;
+&lt;li&gt;&lt;strong&gt;能排查&lt;/strong&gt;：出问题能定位是Prompt、数据、还是接口的问题。&lt;/li&gt;
+&lt;/ul&gt;
+&lt;p&gt;不要求&amp;quot;能开发&amp;quot;——开发底层是算法工程师与平台团队的事。FDE的技术价值在应用层判断，不在底层实现。&lt;/p&gt;
+&lt;hr&gt;
+&lt;h2 id=&#34;72-核心技术逻辑图解&#34;&gt;§7.2 核心技术逻辑图解
+&lt;/h2&gt;&lt;h3 id=&#34;721-大模型调用&#34;&gt;7.2.1 大模型调用
+&lt;/h3&gt;&lt;p&gt;&lt;strong&gt;原理&lt;/strong&gt;：FDE通过API向大模型发送一段文本（Prompt），模型返回生成的文本（Response）。整个过程是&amp;quot;输入文本→模型预测→输出文本&amp;quot;。&lt;/p&gt;
+&lt;blockquote&gt;
+&lt;p&gt;&lt;strong&gt;图7-1：大模型调用流程&lt;/strong&gt;
+（建议呈现：横向流程图。Prompt组装→API请求→模型推理→Response返回→结果解析。）&lt;/p&gt;
+&lt;/blockquote&gt;
+&lt;p&gt;&lt;strong&gt;FDE要懂的关键点&lt;/strong&gt;：&lt;/p&gt;
+&lt;ul&gt;
+&lt;li&gt;&lt;strong&gt;Token计费&lt;/strong&gt;：输入与输出都按Token计费，长Prompt成本高。&lt;/li&gt;
+&lt;li&gt;&lt;strong&gt;上下文窗口&lt;/strong&gt;：超过窗口的输入会被截断，影响效果。&lt;/li&gt;
+&lt;li&gt;&lt;strong&gt;温度（Temperature）&lt;/strong&gt;：控制输出随机性，0最确定、1较随机。事实性任务用低温度，创意性任务用高温度。&lt;/li&gt;
+&lt;li&gt;&lt;strong&gt;超时与重试&lt;/strong&gt;：API可能超时或失败，调用逻辑要设计重试。&lt;/li&gt;
+&lt;/ul&gt;
+&lt;h3 id=&#34;722-prompt工程&#34;&gt;7.2.2 Prompt工程
+&lt;/h3&gt;&lt;p&gt;&lt;strong&gt;原理&lt;/strong&gt;：Prompt是给大模型的指令。同样的模型，不同Prompt效果天差地别。Prompt工程就是设计能稳定产出预期结果的指令。&lt;/p&gt;
+&lt;p&gt;&lt;strong&gt;核心要素&lt;/strong&gt;：&lt;/p&gt;
+&lt;ul&gt;
+&lt;li&gt;&lt;strong&gt;角色设定&lt;/strong&gt;：告诉模型&amp;quot;你是谁&amp;quot;（&amp;ldquo;你是一位资深客服主管&amp;rdquo;）。&lt;/li&gt;
+&lt;li&gt;&lt;strong&gt;任务描述&lt;/strong&gt;：明确要做什么（&amp;ldquo;请根据以下客户问题，生成回复&amp;rdquo;）。&lt;/li&gt;
+&lt;li&gt;&lt;strong&gt;约束条件&lt;/strong&gt;：限定输出（&amp;ldquo;不超过200字&amp;quot;&amp;ldquo;不承诺具体赔偿&amp;rdquo;）。&lt;/li&gt;
+&lt;li&gt;&lt;strong&gt;输出格式&lt;/strong&gt;：指定结构（JSON、表格、Markdown）。&lt;/li&gt;
+&lt;li&gt;&lt;strong&gt;Few-Shot示例&lt;/strong&gt;：给几个输入输出范例，引导模型学习模式。&lt;/li&gt;
+&lt;/ul&gt;
+&lt;blockquote&gt;
+&lt;p&gt;&lt;strong&gt;方法论框7-1：Prompt五要素检查&lt;/strong&gt;
+写完一个Prompt，逐项检查：&lt;/p&gt;
+&lt;ol&gt;
+&lt;li&gt;角色设定了吗？&lt;/li&gt;
+&lt;li&gt;任务说清了吗？&lt;/li&gt;
+&lt;li&gt;约束给了吗？&lt;/li&gt;
+&lt;li&gt;输出格式定了吗？&lt;/li&gt;
+&lt;li&gt;需要Few-Shot吗？
+五项想清楚再写，比写完返工快。&lt;/li&gt;
+&lt;/ol&gt;
+&lt;/blockquote&gt;
+&lt;h3 id=&#34;723-rag检索&#34;&gt;7.2.3 RAG检索
+&lt;/h3&gt;&lt;p&gt;&lt;strong&gt;原理&lt;/strong&gt;：见第4章§4.5。RAG的核心是&amp;quot;先检索相关片段，再让模型基于片段回答&amp;rdquo;。&lt;/p&gt;
+&lt;p&gt;&lt;strong&gt;FDE要懂的调优点&lt;/strong&gt;：&lt;/p&gt;
+&lt;ul&gt;
+&lt;li&gt;&lt;strong&gt;切片策略&lt;/strong&gt;：文档怎么切（按段落、按字数、按语义）影响检索质量。&lt;/li&gt;
+&lt;li&gt;&lt;strong&gt;向量模型选择&lt;/strong&gt;：不同向量模型对中文、专业术语的支持不同。&lt;/li&gt;
+&lt;li&gt;&lt;strong&gt;检索Top-K&lt;/strong&gt;：每次取几条最相似片段，太少漏信息、太多噪声多。&lt;/li&gt;
+&lt;li&gt;&lt;strong&gt;重排序（Rerank）&lt;/strong&gt;：对检索结果二次排序，提升相关性。&lt;/li&gt;
+&lt;li&gt;&lt;strong&gt;混合检索&lt;/strong&gt;：向量检索+关键词检索结合，兼顾语义与精确匹配。&lt;/li&gt;
+&lt;/ul&gt;
+&lt;blockquote&gt;
+&lt;p&gt;&lt;strong&gt;图7-2：RAG调优关键点&lt;/strong&gt;
+（建议呈现：流程图，在标准RAG流程上标注切片、向量模型、Top-K、Rerank、混合检索五个调优点。）&lt;/p&gt;
+&lt;/blockquote&gt;
+&lt;h3 id=&#34;724-工作流编排&#34;&gt;7.2.4 工作流编排
+&lt;/h3&gt;&lt;p&gt;&lt;strong&gt;原理&lt;/strong&gt;：把复杂任务拆成多个节点，每个节点用一个AI能力或工具，按顺序/条件串联，自动完成。&lt;/p&gt;
+&lt;p&gt;&lt;strong&gt;节点类型&lt;/strong&gt;：&lt;/p&gt;
+&lt;ul&gt;
+&lt;li&gt;&lt;strong&gt;大模型节点&lt;/strong&gt;：调用LLM做生成/分析/分类。&lt;/li&gt;
+&lt;li&gt;&lt;strong&gt;工具节点&lt;/strong&gt;：调用API、查数据库、发邮件。&lt;/li&gt;
+&lt;li&gt;&lt;strong&gt;条件节点&lt;/strong&gt;：根据上游输出分支。&lt;/li&gt;
+&lt;li&gt;&lt;strong&gt;循环节点&lt;/strong&gt;：对列表数据逐条处理。&lt;/li&gt;
+&lt;/ul&gt;
+&lt;blockquote&gt;
+&lt;p&gt;&lt;strong&gt;图7-3：工作流编排示例&lt;/strong&gt;
+（建议呈现：节点流程图。输入→LLM分类→条件分支（A/B）→A分支调工具+LLM生成→B分支直接LLM生成→合并输出。）&lt;/p&gt;
+&lt;/blockquote&gt;
+&lt;p&gt;&lt;strong&gt;FDE要懂的设计点&lt;/strong&gt;：&lt;/p&gt;
+&lt;ul&gt;
+&lt;li&gt;&lt;strong&gt;节点粒度&lt;/strong&gt;：每个节点做一件事，不要塞太多逻辑。&lt;/li&gt;
+&lt;li&gt;&lt;strong&gt;错误处理&lt;/strong&gt;：每个节点都可能失败，要有降级方案。&lt;/li&gt;
+&lt;li&gt;&lt;strong&gt;数据流转&lt;/strong&gt;：上游节点的输出如何作为下游输入，要设计清楚。&lt;/li&gt;
+&lt;/ul&gt;
+&lt;hr&gt;
+&lt;h2 id=&#34;73-主流工具盘点&#34;&gt;§7.3 主流工具盘点
+&lt;/h2&gt;&lt;blockquote&gt;
+&lt;p&gt;&lt;strong&gt;说明&lt;/strong&gt;：工具市场变化快，本节盘点为撰写时主流选择，读者应以最新市场情况为准。本书不替任何工具背书，仅做分类参考。&lt;/p&gt;
+&lt;/blockquote&gt;
+&lt;h3 id=&#34;731-大模型平台&#34;&gt;7.3.1 大模型平台
+&lt;/h3&gt;&lt;p&gt;提供模型调用能力。选型关注：能力、价格、稳定性、合规性。&lt;/p&gt;
+&lt;ul&gt;
+&lt;li&gt;&lt;strong&gt;海外&lt;/strong&gt;：GPT系列、Claude系列、Gemini系列（国内使用需注意合规）。&lt;/li&gt;
+&lt;li&gt;&lt;strong&gt;国内&lt;/strong&gt;：通义、文心、智谱、月之暗面、DeepSeek、豆包等，各有侧重。&lt;/li&gt;
+&lt;/ul&gt;
+&lt;p&gt;FDE建议至少熟悉2-3个，因为不同模型在不同任务上表现差异大。&lt;/p&gt;
+&lt;h3 id=&#34;732-零代码agent搭建平台&#34;&gt;7.3.2 零代码Agent搭建平台
+&lt;/h3&gt;&lt;p&gt;提供Agent/Skill/工作流的可视化搭建。选型关注：易用性、扩展性、生态、价格。&lt;/p&gt;
+&lt;p&gt;主流方向：&lt;/p&gt;
+&lt;ul&gt;
+&lt;li&gt;&lt;strong&gt;大厂生态平台&lt;/strong&gt;：与自家模型深度集成，适合深度用户。&lt;/li&gt;
+&lt;li&gt;&lt;strong&gt;独立Agent平台&lt;/strong&gt;：支持多家模型，灵活度高。&lt;/li&gt;
+&lt;li&gt;&lt;strong&gt;工作流自动化平台&lt;/strong&gt;：偏自动化集成，适合跨系统串联。&lt;/li&gt;
+&lt;/ul&gt;
+&lt;h3 id=&#34;733-工作流自动化工具&#34;&gt;7.3.3 工作流自动化工具
+&lt;/h3&gt;&lt;p&gt;用于跨系统串联、触发与执行。关注：连接器丰富度、稳定性、触发方式。&lt;/p&gt;
+&lt;h3 id=&#34;734-数据处理工具&#34;&gt;7.3.4 数据处理工具
+&lt;/h3&gt;&lt;p&gt;用于清洗、转换、分析数据。关注：处理量、易用性、与AI能力的衔接。&lt;/p&gt;
+&lt;hr&gt;
+&lt;h2 id=&#34;74-工具选型方法论&#34;&gt;§7.4 工具选型方法论
+&lt;/h2&gt;&lt;p&gt;工具多到眼花，FDE怎么选？核心原则一句话：&lt;strong&gt;以落地效果为核心，不是以技术先进性为核心。&lt;/strong&gt;&lt;/p&gt;
+&lt;h3 id=&#34;选型四步法&#34;&gt;选型四步法
+&lt;/h3&gt;&lt;blockquote&gt;
+&lt;p&gt;&lt;strong&gt;方法论框7-2：工具选型四步法&lt;/strong&gt;&lt;/p&gt;
+&lt;ol&gt;
+&lt;li&gt;&lt;strong&gt;先定场景&lt;/strong&gt;：要解决什么业务问题？输出什么效果？&lt;/li&gt;
+&lt;li&gt;&lt;strong&gt;再定能力&lt;/strong&gt;：完成这个场景需要哪些AI能力（生成/检索/分类/编排）？&lt;/li&gt;
+&lt;li&gt;&lt;strong&gt;匹配工具&lt;/strong&gt;：哪些工具能提供这些能力？列候选清单。&lt;/li&gt;
+&lt;li&gt;&lt;strong&gt;实测对比&lt;/strong&gt;：用真实数据测2-3个候选，选效果最好且成本可控的。&lt;/li&gt;
+&lt;/ol&gt;
+&lt;/blockquote&gt;
+&lt;h3 id=&#34;选型的常见误区&#34;&gt;选型的常见误区
+&lt;/h3&gt;&lt;p&gt;&lt;strong&gt;误区一：追新。&lt;/strong&gt; 新工具层出不穷，追新会陷入&amp;quot;工具焦虑&amp;quot;。原则：能用现有工具解决的，不换新。&lt;/p&gt;
+&lt;p&gt;&lt;strong&gt;误区二：贪全。&lt;/strong&gt; 想用一个工具解决所有问题。现实是每个工具都有强项弱项，组合使用更合理。&lt;/p&gt;
+&lt;p&gt;&lt;strong&gt;误区三：只看Demo。&lt;/strong&gt; 工具Demo都很漂亮，真实业务数据下表现可能差很多。必须用客户真实数据测。&lt;/p&gt;
+&lt;p&gt;&lt;strong&gt;误区四：忽视成本。&lt;/strong&gt; 光看效果不看成本，上线后发现Token费用爆表。选型必须算成本。&lt;/p&gt;
+&lt;p&gt;&lt;strong&gt;误区五：忽视合规。&lt;/strong&gt; 客户数据敏感度不同，选型要考虑私有化部署、数据脱敏、合规通道。&lt;/p&gt;
+&lt;h3 id=&#34;选型决策表&#34;&gt;选型决策表
+&lt;/h3&gt;&lt;p&gt;建议FDE维护一张自己的选型决策表，每次选型填一遍：&lt;/p&gt;
+&lt;table&gt;
+  &lt;thead&gt;
+      &lt;tr&gt;
+          &lt;th&gt;维度&lt;/th&gt;
+          &lt;th&gt;权重&lt;/th&gt;
+          &lt;th&gt;候选A&lt;/th&gt;
+          &lt;th&gt;候选B&lt;/th&gt;
+          &lt;th&gt;候选C&lt;/th&gt;
+      &lt;/tr&gt;
+  &lt;/thead&gt;
+  &lt;tbody&gt;
+      &lt;tr&gt;
+          &lt;td&gt;效果（实测）&lt;/td&gt;
+          &lt;td&gt;30%&lt;/td&gt;
+          &lt;td&gt;&lt;/td&gt;
+          &lt;td&gt;&lt;/td&gt;
+          &lt;td&gt;&lt;/td&gt;
+      &lt;/tr&gt;
+      &lt;tr&gt;
+          &lt;td&gt;成本&lt;/td&gt;
+          &lt;td&gt;20%&lt;/td&gt;
+          &lt;td&gt;&lt;/td&gt;
+          &lt;td&gt;&lt;/td&gt;
+          &lt;td&gt;&lt;/td&gt;
+      &lt;/tr&gt;
+      &lt;tr&gt;
+          &lt;td&gt;稳定性&lt;/td&gt;
+          &lt;td&gt;15%&lt;/td&gt;
+          &lt;td&gt;&lt;/td&gt;
+          &lt;td&gt;&lt;/td&gt;
+          &lt;td&gt;&lt;/td&gt;
+      &lt;/tr&gt;
+      &lt;tr&gt;
+          &lt;td&gt;易用性&lt;/td&gt;
+          &lt;td&gt;10%&lt;/td&gt;
+          &lt;td&gt;&lt;/td&gt;
+          &lt;td&gt;&lt;/td&gt;
+          &lt;td&gt;&lt;/td&gt;
+      &lt;/tr&gt;
+      &lt;tr&gt;
+          &lt;td&gt;合规性&lt;/td&gt;
+          &lt;td&gt;15%&lt;/td&gt;
+          &lt;td&gt;&lt;/td&gt;
+          &lt;td&gt;&lt;/td&gt;
+          &lt;td&gt;&lt;/td&gt;
+      &lt;/tr&gt;
+      &lt;tr&gt;
+          &lt;td&gt;生态扩展&lt;/td&gt;
+          &lt;td&gt;10%&lt;/td&gt;
+          &lt;td&gt;&lt;/td&gt;
+          &lt;td&gt;&lt;/td&gt;
+          &lt;td&gt;&lt;/td&gt;
+      &lt;/tr&gt;
+      &lt;tr&gt;
+          &lt;td&gt;&lt;strong&gt;加权总分&lt;/strong&gt;&lt;/td&gt;
+          &lt;td&gt;&lt;/td&gt;
+          &lt;td&gt;&lt;/td&gt;
+          &lt;td&gt;&lt;/td&gt;
+          &lt;td&gt;&lt;/td&gt;
+      &lt;/tr&gt;
+  &lt;/tbody&gt;
+&lt;/table&gt;
+&lt;p&gt;填完表，选型决策有据可依，不再是拍脑袋。&lt;/p&gt;
+&lt;hr&gt;
+&lt;h2 id=&#34;75-场景与工具的匹配速查&#34;&gt;§7.5 场景与工具的匹配速查
+&lt;/h2&gt;&lt;p&gt;把四类典型场景（第4章§4.9）与工具匹配，给一张速查表。&lt;/p&gt;
+&lt;table&gt;
+  &lt;thead&gt;
+      &lt;tr&gt;
+          &lt;th&gt;场景类型&lt;/th&gt;
+          &lt;th&gt;核心能力&lt;/th&gt;
+          &lt;th&gt;推荐工具组合&lt;/th&gt;
+          &lt;th&gt;关键调优点&lt;/th&gt;
+      &lt;/tr&gt;
+  &lt;/thead&gt;
+  &lt;tbody&gt;
+      &lt;tr&gt;
+          &lt;td&gt;信息整理&lt;/td&gt;
+          &lt;td&gt;分类/摘要&lt;/td&gt;
+          &lt;td&gt;大模型 + Prompt&lt;/td&gt;
+          &lt;td&gt;Prompt约束输出格式&lt;/td&gt;
+      &lt;/tr&gt;
+      &lt;tr&gt;
+          &lt;td&gt;内容生成&lt;/td&gt;
+          &lt;td&gt;生成&lt;/td&gt;
+          &lt;td&gt;大模型 + Prompt + Few-Shot&lt;/td&gt;
+          &lt;td&gt;角色设定与Few-Shot&lt;/td&gt;
+      &lt;/tr&gt;
+      &lt;tr&gt;
+          &lt;td&gt;知识问答&lt;/td&gt;
+          &lt;td&gt;检索+生成&lt;/td&gt;
+          &lt;td&gt;大模型 + RAG + 向量库&lt;/td&gt;
+          &lt;td&gt;切片与Top-K&lt;/td&gt;
+      &lt;/tr&gt;
+      &lt;tr&gt;
+          &lt;td&gt;流程自动化&lt;/td&gt;
+          &lt;td&gt;编排+集成&lt;/td&gt;
+          &lt;td&gt;工作流平台 + 大模型 + 工具&lt;/td&gt;
+          &lt;td&gt;节点粒度与错误处理&lt;/td&gt;
+      &lt;/tr&gt;
+  &lt;/tbody&gt;
+&lt;/table&gt;
+&lt;p&gt;这张表是入门速查，复杂场景需组合多种能力，第三篇会深入。&lt;/p&gt;
+&lt;hr&gt;
+&lt;h2 id=&#34;本章小结&#34;&gt;本章小结
+&lt;/h2&gt;&lt;ol&gt;
+&lt;li&gt;&lt;strong&gt;技术深度标准&lt;/strong&gt;：能判断、能配置、能排查，不要求能开发底层。&lt;/li&gt;
+&lt;li&gt;&lt;strong&gt;四项核心技术&lt;/strong&gt;：大模型调用、Prompt工程、RAG检索、工作流编排，各有调优点。&lt;/li&gt;
+&lt;li&gt;&lt;strong&gt;工具盘点&lt;/strong&gt;：大模型平台、Agent平台、工作流工具、数据处理工具四类。&lt;/li&gt;
+&lt;li&gt;&lt;strong&gt;选型方法论&lt;/strong&gt;：先定场景→再定能力→匹配工具→实测对比，以落地效果为核心。&lt;/li&gt;
+&lt;li&gt;&lt;strong&gt;选型误区&lt;/strong&gt;：追新、贪全、只看Demo、忽视成本、忽视合规。&lt;/li&gt;
+&lt;li&gt;&lt;strong&gt;场景速查&lt;/strong&gt;：四类场景对应不同工具组合与调优点。&lt;/li&gt;
+&lt;/ol&gt;
+&lt;hr&gt;
+&lt;h2 id=&#34;思考题&#34;&gt;思考题
+&lt;/h2&gt;&lt;ol&gt;
+&lt;li&gt;选一个你熟悉的工作任务，判断它属于四类场景的哪类，匹配对应工具组合。&lt;/li&gt;
+&lt;li&gt;用方法论框7-2，为这个任务做一次工具选型，填出选型决策表。&lt;/li&gt;
+&lt;li&gt;找两个大模型，用同一组Prompt测试同一任务，对比效果差异并分析原因。&lt;/li&gt;
+&lt;li&gt;用零代码平台搭一个简单RAG，调整切片策略与Top-K，观察检索效果变化。&lt;/li&gt;
+&lt;/ol&gt;
+&lt;hr&gt;
+&lt;h2 id=&#34;延伸阅读&#34;&gt;延伸阅读
+&lt;/h2&gt;&lt;ul&gt;
+&lt;li&gt;本书第8章深入Prompt工程与Skill搭建，是本章7.2.2的延伸。&lt;/li&gt;
+&lt;li&gt;第9章讲工作流自动化落地，是7.2.4的延伸。&lt;/li&gt;
+&lt;li&gt;各工具官方文档（用于刷新能力边界与最新功能）。&lt;/li&gt;
+&lt;/ul&gt;
+</description>
+        </item>
+        
+    </channel>
+</rss>

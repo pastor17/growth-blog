@@ -1,0 +1,125 @@
+<?xml version="1.0" encoding="utf-8" standalone="yes"?>
+<rss version="2.0" xmlns:atom="http://www.w3.org/2005/Atom">
+    <channel>
+        <title>小团队的容器化：从单机Docker开始 on SelfTechHub</title>
+        <link>https://blog.irudder.me/tags/%E5%B0%8F%E5%9B%A2%E9%98%9F%E7%9A%84%E5%AE%B9%E5%99%A8%E5%8C%96%E4%BB%8E%E5%8D%95%E6%9C%BADocker%E5%BC%80%E5%A7%8B.html</link>
+        <description>Recent content in 小团队的容器化：从单机Docker开始 on SelfTechHub</description>
+        <generator>Hugo -- gohugo.io</generator>
+        <language>zh-cn</language>
+        <lastBuildDate>Sun, 07 Jan 2024 00:00:00 +0000</lastBuildDate><atom:link href="https://blog.irudder.me/tags/%E5%B0%8F%E5%9B%A2%E9%98%9F%E7%9A%84%E5%AE%B9%E5%99%A8%E5%8C%96%E4%BB%8E%E5%8D%95%E6%9C%BADocker%E5%BC%80%E5%A7%8B/index.xml" rel="self" type="application/rss+xml" /><item>
+        <title>只有3个开发，别碰K8s！单机Docker救了我们的命</title>
+        <link>https://blog.irudder.me/tech/zhongxiaoxingtuanduidevopsluodifangan/xiaotuanduiderongqihua_congdanjidockerkaishi.html</link>
+        <pubDate>Sun, 07 Jan 2024 00:00:00 +0000</pubDate>
+        
+        <guid>https://blog.irudder.me/tech/zhongxiaoxingtuanduidevopsluodifangan/xiaotuanduiderongqihua_congdanjidockerkaishi.html</guid>
+        <description>&lt;p&gt;我曾以为拥抱云原生就是要在第一时间上 Kubernetes（K8s），搞微服务，弄Service Mesh。直到2021年，我带着一个5人的技术团队，因为盲目上K8s，在某次大促前夕，因为Etcd集群的一个节点故障导致整个控制面瘫痪，我们修了整整一夜，业务停摆了6个小时。&lt;/p&gt;
+&lt;p&gt;那个凌晨4点，看着依然红一片的监控面板，我意识到一个残酷的真相：&lt;strong&gt;对于没有专职运维的中小团队，复杂的架构不是护城河，而是随时会爆炸的地雷。&lt;/strong&gt;&lt;/p&gt;
+&lt;p&gt;也就是从那时起，我开始推行&amp;quot;极简容器化&amp;quot;策略。今天想和大家复盘一下，我们是如何仅靠单机Docker和Docker Compose，就解决了90%的运维痛点，让团队从此告别&amp;quot;在我电脑上明明能运行&amp;quot;的扯皮。&lt;/p&gt;
+&lt;h2 id=&#34;拒绝过度设计docker-compose-才是中小团队的瑞士军刀&#34;&gt;拒绝过度设计：Docker Compose 才是中小团队的瑞士军刀
+&lt;/h2&gt;&lt;p&gt;很多技术负责人（包括曾经的我）都有&amp;quot;大厂崇拜症&amp;quot;。看到大厂都在用K8s，觉得自己不用就落伍了。但现实是，你的业务量可能连单机32G内存都跑不满，却要花一半的服务器资源去跑K8s的组件。&lt;/p&gt;
+&lt;p&gt;&lt;strong&gt;观点：&lt;/strong&gt; 只要你的机器数量还在个位数，Docker Compose 就足够了。它能解决服务编排、网络隔离、一键拉起，而且配置文件简单到连刚入职的实习生都能看懂。&lt;/p&gt;
+&lt;p&gt;&lt;strong&gt;真实案例：&lt;/strong&gt;
+2022年，我接手了一个SaaS项目，前任留下了3套环境（开发、测试、生产），部署全靠文档里的20多步手动命令。每次发版，后端老张都要盯着屏幕敲半小时命令，少敲一个参数就报错。&lt;/p&gt;
+&lt;p&gt;我接手后的第一件事，不是重构代码，而是写了一个 &lt;code&gt;docker-compose.yml&lt;/code&gt;。&lt;/p&gt;
+&lt;p&gt;我们将Nginx、API服务、Redis、MySQL全部编排进去。&lt;/p&gt;
+&lt;p&gt;&lt;strong&gt;改造结果：&lt;/strong&gt;&lt;/p&gt;
+&lt;ul&gt;
+&lt;li&gt;&lt;strong&gt;部署时间：&lt;/strong&gt; 从30分钟缩短到3分钟。&lt;/li&gt;
+&lt;li&gt;&lt;strong&gt;事故率：&lt;/strong&gt; 因环境配置不一致导致的Bug归零。&lt;/li&gt;
+&lt;li&gt;&lt;strong&gt;硬件成本：&lt;/strong&gt; 退订了专门用于跑K8s管理节点的2台服务器，每月省下1000多块。&lt;/li&gt;
+&lt;/ul&gt;
+&lt;p&gt;&lt;strong&gt;硬核方法：&lt;/strong&gt;
+不要把数据库放在物理机，服务放在Docker里，要&amp;quot;全员容器化&amp;quot;。包括你的Nginx网关、定时任务脚本。这是我用了很多年的一个原则：&lt;strong&gt;除了Docker Daemon和SSH，宿主机上不要安装任何业务软件。&lt;/strong&gt;&lt;/p&gt;
+&lt;h2 id=&#34;统一开发环境终结环境不一致的内耗&#34;&gt;统一开发环境：终结&amp;quot;环境不一致&amp;quot;的内耗
+&lt;/h2&gt;&lt;p&gt;除了部署，Docker在开发阶段的价值被严重低估了。你一定经历过新人入职，光是配环境就要花2天时间：Python版本不对、Node依赖冲突、本地Redis没启动&amp;hellip;&lt;/p&gt;
+&lt;p&gt;&lt;strong&gt;观点：&lt;/strong&gt; 开发环境即生产环境。让Docker接管本地开发流程，是提升团队效率最立竿见影的手段。&lt;/p&gt;
+&lt;p&gt;&lt;strong&gt;真实场景：&lt;/strong&gt;
+去年团队扩招，来了个前端小李。以前新人入职，我要专门派个老员工指导他装环境。这次，我只丢给他一个Git仓库地址，说了一句：&amp;ldquo;Clone下来，运行 &lt;code&gt;make dev&lt;/code&gt;。&amp;rdquo;&lt;/p&gt;
+&lt;p&gt;小李很惊讶，因为这行命令背后，执行了 &lt;code&gt;docker-compose -f docker-compose.dev.yml up&lt;/code&gt;。15分钟后，所有依赖（包括不仅限于数据库、消息队列、模拟的第三方服务Mock）全部在他的Macbook上跑了起来，热更新功能也配置好了。&lt;/p&gt;
+&lt;p&gt;&lt;strong&gt;落地细节：&lt;/strong&gt;
+为了让大家少敲命令，我强制要求每个项目根目录必须有一个 &lt;code&gt;Makefile&lt;/code&gt;。这不仅是偷懒，更是将操作&amp;quot;标准化&amp;quot;。&lt;/p&gt;
+&lt;div class=&#34;highlight&#34;&gt;&lt;pre tabindex=&#34;0&#34; style=&#34;color:#f8f8f2;background-color:#272822;-moz-tab-size:4;-o-tab-size:4;tab-size:4;&#34;&gt;&lt;code class=&#34;language-makefile&#34; data-lang=&#34;makefile&#34;&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;&lt;span style=&#34;color:#75715e&#34;&gt;# Makefile 示例
+&lt;/span&gt;&lt;/span&gt;&lt;/span&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;&lt;span style=&#34;color:#75715e&#34;&gt;&lt;/span&gt;&lt;span style=&#34;color:#a6e22e&#34;&gt;.PHONY&lt;/span&gt;&lt;span style=&#34;color:#f92672&#34;&gt;:&lt;/span&gt; dev build deploy
+&lt;/span&gt;&lt;/span&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;
+&lt;/span&gt;&lt;/span&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;&lt;span style=&#34;color:#a6e22e&#34;&gt;dev&lt;/span&gt;&lt;span style=&#34;color:#f92672&#34;&gt;:&lt;/span&gt;
+&lt;/span&gt;&lt;/span&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;    &lt;span style=&#34;color:#75715e&#34;&gt;# 本地开发模式，挂载源代码&lt;/span&gt;
+&lt;/span&gt;&lt;/span&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;    docker-compose -f docker-compose.yml -f docker-compose.override.yml up
+&lt;/span&gt;&lt;/span&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;
+&lt;/span&gt;&lt;/span&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;&lt;span style=&#34;color:#a6e22e&#34;&gt;build&lt;/span&gt;&lt;span style=&#34;color:#f92672&#34;&gt;:&lt;/span&gt;
+&lt;/span&gt;&lt;/span&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;    &lt;span style=&#34;color:#75715e&#34;&gt;# 构建生产镜像&lt;/span&gt;
+&lt;/span&gt;&lt;/span&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;    docker build -t my-app:latest .
+&lt;/span&gt;&lt;/span&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;
+&lt;/span&gt;&lt;/span&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;&lt;span style=&#34;color:#a6e22e&#34;&gt;shell&lt;/span&gt;&lt;span style=&#34;color:#f92672&#34;&gt;:&lt;/span&gt;
+&lt;/span&gt;&lt;/span&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;    &lt;span style=&#34;color:#75715e&#34;&gt;# 快速进入容器调试&lt;/span&gt;
+&lt;/span&gt;&lt;/span&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;    docker-compose exec app /bin/bash
+&lt;/span&gt;&lt;/span&gt;&lt;/code&gt;&lt;/pre&gt;&lt;/div&gt;&lt;p&gt;这套机制运行了两年，最大的好处是：&lt;strong&gt;开发人员再也不用在本地安装乱七八糟的语言环境了，电脑干干净净。&lt;/strong&gt;&lt;/p&gt;
+&lt;h2 id=&#34;穷人的cicdshell脚本git-hook足够用&#34;&gt;穷人的CI/CD：Shell脚本+Git Hook足够用
+&lt;/h2&gt;&lt;p&gt;说到自动化部署，很多人第一反应是搭建Jenkins，或者配置复杂的GitLab CI Runner。这些都很棒，但对于只有两三个后端的小团队，维护Jenkins本身就是负担。&lt;/p&gt;
+&lt;p&gt;&lt;strong&gt;观点：&lt;/strong&gt; 在资源受限时，越原始的工具越可靠。一个精心编写的Shell脚本，配合Git，就是最稳健的CD系统。&lt;/p&gt;
+&lt;p&gt;&lt;strong&gt;实操复盘：&lt;/strong&gt;
+我们目前的生产环境部署，并没有用昂贵的商业CI/CD工具。我们的流程简单到令人发指，但极其稳定：&lt;/p&gt;
+&lt;ol&gt;
+&lt;li&gt;&lt;strong&gt;本地构建：&lt;/strong&gt; 开发者本地（或一台专门的构建机）Build镜像，推送到私有仓库（阿里云/腾讯云的免费版镜像仓库就很好用）。&lt;/li&gt;
+&lt;li&gt;&lt;strong&gt;触发更新：&lt;/strong&gt; 通过SSH登录到目标服务器，执行一个部署脚本。&lt;/li&gt;
+&lt;/ol&gt;
+&lt;p&gt;为了防止误操作，我写了一个 &lt;code&gt;deploy.sh&lt;/code&gt;，放在服务器上。&lt;/p&gt;
+&lt;div class=&#34;highlight&#34;&gt;&lt;pre tabindex=&#34;0&#34; style=&#34;color:#f8f8f2;background-color:#272822;-moz-tab-size:4;-o-tab-size:4;tab-size:4;&#34;&gt;&lt;code class=&#34;language-bash&#34; data-lang=&#34;bash&#34;&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;&lt;span style=&#34;color:#75715e&#34;&gt;#!/bin/bash
+&lt;/span&gt;&lt;/span&gt;&lt;/span&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;&lt;span style=&#34;color:#75715e&#34;&gt;&lt;/span&gt;&lt;span style=&#34;color:#75715e&#34;&gt;# 简单的零停机更新策略（虽然会有短暂中断，但对小业务可接受）&lt;/span&gt;
+&lt;/span&gt;&lt;/span&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;
+&lt;/span&gt;&lt;/span&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;IMAGE_NAME&lt;span style=&#34;color:#f92672&#34;&gt;=&lt;/span&gt;&lt;span style=&#34;color:#e6db74&#34;&gt;&amp;#34;registry.cn-hangzhou.aliyuncs.com/myteam/backend:latest&amp;#34;&lt;/span&gt;
+&lt;/span&gt;&lt;/span&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;
+&lt;/span&gt;&lt;/span&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;echo &lt;span style=&#34;color:#e6db74&#34;&gt;&amp;#34;Step 1: Pulling latest image...&amp;#34;&lt;/span&gt;
+&lt;/span&gt;&lt;/span&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;docker pull $IMAGE_NAME
+&lt;/span&gt;&lt;/span&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;
+&lt;/span&gt;&lt;/span&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;echo &lt;span style=&#34;color:#e6db74&#34;&gt;&amp;#34;Step 2: Stopping old container...&amp;#34;&lt;/span&gt;
+&lt;/span&gt;&lt;/span&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;docker-compose down
+&lt;/span&gt;&lt;/span&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;
+&lt;/span&gt;&lt;/span&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;!&lt;span style=&#34;color:#f92672&#34;&gt;[&lt;/span&gt;配图&lt;span style=&#34;color:#f92672&#34;&gt;](&lt;/span&gt;https://picsum.photos/800/450?random&lt;span style=&#34;color:#f92672&#34;&gt;=&lt;/span&gt;1768390391607&lt;span style=&#34;color:#f92672&#34;&gt;)&lt;/span&gt;
+&lt;/span&gt;&lt;/span&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;
+&lt;/span&gt;&lt;/span&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;echo &lt;span style=&#34;color:#e6db74&#34;&gt;&amp;#34;Step 3: Starting new container...&amp;#34;&lt;/span&gt;
+&lt;/span&gt;&lt;/span&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;docker-compose up -d
+&lt;/span&gt;&lt;/span&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;
+&lt;/span&gt;&lt;/span&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;echo &lt;span style=&#34;color:#e6db74&#34;&gt;&amp;#34;Step 4: Pruning unused images...&amp;#34;&lt;/span&gt;
+&lt;/span&gt;&lt;/span&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;docker image prune -f
+&lt;/span&gt;&lt;/span&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;
+&lt;/span&gt;&lt;/span&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;echo &lt;span style=&#34;color:#e6db74&#34;&gt;&amp;#34;Deployment Done!&amp;#34;&lt;/span&gt;
+&lt;/span&gt;&lt;/span&gt;&lt;/code&gt;&lt;/pre&gt;&lt;/div&gt;&lt;p&gt;你可能会质疑：这不还是会停机吗？
+是的，&lt;code&gt;docker-compose down&lt;/code&gt; 再 &lt;code&gt;up&lt;/code&gt; 会有几秒的中断。但请扪心自问：你的业务真的每秒都有几百万上下吗？如果是在深夜低峰期发布，或者配合Nginx的重试机制，这几秒钟用户根本无感。&lt;/p&gt;
+&lt;p&gt;&lt;strong&gt;反思：&lt;/strong&gt; 我们曾尝试搞蓝绿部署，配置了一堆复杂的Nginx Lua脚本，结果因为配置错误导致流量切不过去。后来回退到这个&amp;quot;笨办法&amp;quot;，反而再没出过岔子。&lt;strong&gt;技术选型要匹配团队的掌控力，而不是匹配PPT的酷炫程度。&lt;/strong&gt;&lt;/p&gt;
+&lt;h2 id=&#34;总结与落地指南&#34;&gt;总结与落地指南
+&lt;/h2&gt;&lt;p&gt;小团队做容器化，核心不在于&amp;quot;技术先进性&amp;quot;，而在于&amp;quot;可维护性&amp;quot;。&lt;strong&gt;单机Docker + Docker Compose + Shell脚本&lt;/strong&gt;，这个组合就像一把AK47，结构简单、皮实耐用，哪怕扔进泥潭里捞出来还能打响。&lt;/p&gt;
+&lt;p&gt;如果你现在正被繁杂的运维工作缠身，建议按以下步骤行动：&lt;/p&gt;
+&lt;ol&gt;
+&lt;li&gt;&lt;strong&gt;第一周：&lt;/strong&gt; 挑选一个边缘服务（如内部管理后台），编写 &lt;code&gt;Dockerfile&lt;/code&gt; 和 &lt;code&gt;docker-compose.yml&lt;/code&gt;，跑通本地运行。&lt;/li&gt;
+&lt;li&gt;&lt;strong&gt;第二周：&lt;/strong&gt; 编写 &lt;code&gt;Makefile&lt;/code&gt;，将启动、停止、日志查看等高频操作封装成命令，强迫团队使用。&lt;/li&gt;
+&lt;li&gt;&lt;strong&gt;第三周：&lt;/strong&gt; 购买一个云厂商的容器镜像服务（很多都有免费额度），打通&amp;quot;本地构建 -&amp;gt; 推送镜像 -&amp;gt; 服务器拉取&amp;quot;的流程。&lt;/li&gt;
+&lt;/ol&gt;
+&lt;p&gt;最后，分享一个我常用的 &lt;strong&gt;Dockerfile 黄金模板&lt;/strong&gt;（以Node.js为例），直接复制微调即可避开很多坑（如时区、权限问题）：&lt;/p&gt;
+&lt;div class=&#34;highlight&#34;&gt;&lt;pre tabindex=&#34;0&#34; style=&#34;color:#f8f8f2;background-color:#272822;-moz-tab-size:4;-o-tab-size:4;tab-size:4;&#34;&gt;&lt;code class=&#34;language-dockerfile&#34; data-lang=&#34;dockerfile&#34;&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;&lt;span style=&#34;color:#75715e&#34;&gt;# 使用具体版本号，别用 latest&lt;/span&gt;&lt;span style=&#34;color:#960050;background-color:#1e0010&#34;&gt;
+&lt;/span&gt;&lt;/span&gt;&lt;/span&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;&lt;span style=&#34;color:#960050;background-color:#1e0010&#34;&gt;&lt;/span&gt;&lt;span style=&#34;color:#66d9ef&#34;&gt;FROM&lt;/span&gt; &lt;span style=&#34;color:#e6db74&#34;&gt;node:18-alpine&lt;/span&gt; &lt;span style=&#34;color:#960050;background-color:#1e0010&#34;&gt;
+&lt;/span&gt;&lt;/span&gt;&lt;/span&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;&lt;span style=&#34;color:#960050;background-color:#1e0010&#34;&gt;
+&lt;/span&gt;&lt;/span&gt;&lt;/span&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;&lt;span style=&#34;color:#960050;background-color:#1e0010&#34;&gt;&lt;/span&gt;&lt;span style=&#34;color:#75715e&#34;&gt;# 设置时区，防止日志时间差8小时&lt;/span&gt;&lt;span style=&#34;color:#960050;background-color:#1e0010&#34;&gt;
+&lt;/span&gt;&lt;/span&gt;&lt;/span&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;&lt;span style=&#34;color:#960050;background-color:#1e0010&#34;&gt;&lt;/span&gt;&lt;span style=&#34;color:#66d9ef&#34;&gt;RUN&lt;/span&gt; apk add --no-cache tzdata &lt;span style=&#34;color:#f92672&#34;&gt;&amp;amp;&amp;amp;&lt;/span&gt; &lt;span style=&#34;color:#ae81ff&#34;&gt;\
+&lt;/span&gt;&lt;/span&gt;&lt;/span&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;&lt;span style=&#34;color:#ae81ff&#34;&gt;&lt;/span&gt;    cp /usr/share/zoneinfo/Asia/Shanghai /etc/localtime &lt;span style=&#34;color:#f92672&#34;&gt;&amp;amp;&amp;amp;&lt;/span&gt; &lt;span style=&#34;color:#ae81ff&#34;&gt;\
+&lt;/span&gt;&lt;/span&gt;&lt;/span&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;&lt;span style=&#34;color:#ae81ff&#34;&gt;&lt;/span&gt;    echo &lt;span style=&#34;color:#e6db74&#34;&gt;&amp;#34;Asia/Shanghai&amp;#34;&lt;/span&gt; &amp;gt; /etc/timezone&lt;span style=&#34;color:#960050;background-color:#1e0010&#34;&gt;
+&lt;/span&gt;&lt;/span&gt;&lt;/span&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;&lt;span style=&#34;color:#960050;background-color:#1e0010&#34;&gt;
+&lt;/span&gt;&lt;/span&gt;&lt;/span&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;&lt;span style=&#34;color:#960050;background-color:#1e0010&#34;&gt;&lt;/span&gt;&lt;span style=&#34;color:#66d9ef&#34;&gt;WORKDIR&lt;/span&gt; &lt;span style=&#34;color:#e6db74&#34;&gt;/app&lt;/span&gt;&lt;span style=&#34;color:#960050;background-color:#1e0010&#34;&gt;
+&lt;/span&gt;&lt;/span&gt;&lt;/span&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;&lt;span style=&#34;color:#960050;background-color:#1e0010&#34;&gt;
+&lt;/span&gt;&lt;/span&gt;&lt;/span&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;&lt;span style=&#34;color:#960050;background-color:#1e0010&#34;&gt;&lt;/span&gt;&lt;span style=&#34;color:#75715e&#34;&gt;# 分层构建技巧：先拷 package.json，利用缓存加速&lt;/span&gt;&lt;span style=&#34;color:#960050;background-color:#1e0010&#34;&gt;
+&lt;/span&gt;&lt;/span&gt;&lt;/span&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;&lt;span style=&#34;color:#960050;background-color:#1e0010&#34;&gt;&lt;/span&gt;&lt;span style=&#34;color:#66d9ef&#34;&gt;COPY&lt;/span&gt; package*.json ./&lt;span style=&#34;color:#960050;background-color:#1e0010&#34;&gt;
+&lt;/span&gt;&lt;/span&gt;&lt;/span&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;&lt;span style=&#34;color:#960050;background-color:#1e0010&#34;&gt;&lt;/span&gt;&lt;span style=&#34;color:#66d9ef&#34;&gt;RUN&lt;/span&gt; npm ci --only&lt;span style=&#34;color:#f92672&#34;&gt;=&lt;/span&gt;production&lt;span style=&#34;color:#960050;background-color:#1e0010&#34;&gt;
+&lt;/span&gt;&lt;/span&gt;&lt;/span&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;&lt;span style=&#34;color:#960050;background-color:#1e0010&#34;&gt;
+&lt;/span&gt;&lt;/span&gt;&lt;/span&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;&lt;span style=&#34;color:#960050;background-color:#1e0010&#34;&gt;&lt;/span&gt;&lt;span style=&#34;color:#66d9ef&#34;&gt;COPY&lt;/span&gt; . .&lt;span style=&#34;color:#960050;background-color:#1e0010&#34;&gt;
+&lt;/span&gt;&lt;/span&gt;&lt;/span&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;&lt;span style=&#34;color:#960050;background-color:#1e0010&#34;&gt;
+&lt;/span&gt;&lt;/span&gt;&lt;/span&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;&lt;span style=&#34;color:#960050;background-color:#1e0010&#34;&gt;&lt;/span&gt;&lt;span style=&#34;color:#75715e&#34;&gt;# 不要用 root 用户运行应用&lt;/span&gt;&lt;span style=&#34;color:#960050;background-color:#1e0010&#34;&gt;
+&lt;/span&gt;&lt;/span&gt;&lt;/span&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;&lt;span style=&#34;color:#960050;background-color:#1e0010&#34;&gt;&lt;/span&gt;&lt;span style=&#34;color:#66d9ef&#34;&gt;USER&lt;/span&gt; &lt;span style=&#34;color:#e6db74&#34;&gt;node&lt;/span&gt;&lt;span style=&#34;color:#960050;background-color:#1e0010&#34;&gt;
+&lt;/span&gt;&lt;/span&gt;&lt;/span&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;&lt;span style=&#34;color:#960050;background-color:#1e0010&#34;&gt;
+&lt;/span&gt;&lt;/span&gt;&lt;/span&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;&lt;span style=&#34;color:#960050;background-color:#1e0010&#34;&gt;&lt;/span&gt;!&lt;span style=&#34;color:#f92672&#34;&gt;[&lt;/span&gt;配图&lt;span style=&#34;color:#f92672&#34;&gt;](&lt;/span&gt;https://picsum.photos/800/450?random&lt;span style=&#34;color:#f92672&#34;&gt;=&lt;/span&gt;1768390394652&lt;span style=&#34;color:#f92672&#34;&gt;)&lt;/span&gt;&lt;span style=&#34;color:#960050;background-color:#1e0010&#34;&gt;
+&lt;/span&gt;&lt;/span&gt;&lt;/span&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;&lt;span style=&#34;color:#960050;background-color:#1e0010&#34;&gt;
+&lt;/span&gt;&lt;/span&gt;&lt;/span&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;&lt;span style=&#34;color:#960050;background-color:#1e0010&#34;&gt;&lt;/span&gt;&lt;span style=&#34;color:#66d9ef&#34;&gt;CMD&lt;/span&gt; [&lt;span style=&#34;color:#e6db74&#34;&gt;&amp;#34;node&amp;#34;&lt;/span&gt;, &lt;span style=&#34;color:#e6db74&#34;&gt;&amp;#34;src/index.js&amp;#34;&lt;/span&gt;]&lt;span style=&#34;color:#960050;background-color:#1e0010&#34;&gt;
+&lt;/span&gt;&lt;/span&gt;&lt;/span&gt;&lt;/code&gt;&lt;/pre&gt;&lt;/div&gt;&lt;p&gt;记住，&lt;strong&gt;DevOps的尽头不是K8s，而是早点下班。&lt;/strong&gt;&lt;/p&gt;
+</description>
+        </item>
+        
+    </channel>
+</rss>

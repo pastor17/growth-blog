@@ -1,0 +1,779 @@
+<?xml version="1.0" encoding="utf-8" standalone="yes"?>
+<rss version="2.0" xmlns:atom="http://www.w3.org/2005/Atom">
+    <channel>
+        <title>LLM on SelfTechHub</title>
+        <link>https://blog.irudder.me/tags/LLM.html</link>
+        <description>Recent content in LLM on SelfTechHub</description>
+        <generator>Hugo -- gohugo.io</generator>
+        <language>zh-cn</language>
+        <lastBuildDate>Tue, 02 Jun 2026 00:00:00 +0000</lastBuildDate><atom:link href="https://blog.irudder.me/tags/LLM/index.xml" rel="self" type="application/rss+xml" /><item>
+        <title>第6章：RAG——给大模型一本「开卷考试」的参考资料</title>
+        <link>https://blog.irudder.me/ai/knowledge-series/06-What-is-RAG.html</link>
+        <pubDate>Tue, 02 Jun 2026 00:00:00 +0000</pubDate>
+        
+        <guid>https://blog.irudder.me/ai/knowledge-series/06-What-is-RAG.html</guid>
+        <description>&lt;h1 id=&#34;第6章rag给大模型一本开卷考试的参考资料&#34;&gt;第6章：RAG——给大模型一本「开卷考试」的参考资料
+&lt;/h1&gt;&lt;blockquote&gt;
+&lt;p&gt;系列导读：RAG 是 LLM 工程中最主流、最有实现价值的系统方案。从本章开始，建议认真跟完 RAG 模块（第6-11章），这是把 LLM 做成靠谱产品最关键的技术栈。&lt;/p&gt;
+&lt;/blockquote&gt;
+&lt;hr&gt;
+&lt;h2 id=&#34;一rag-的定位解决-llm-的知识冻结问题&#34;&gt;一、RAG 的定位：解决 LLM 的知识冻结问题
+&lt;/h2&gt;&lt;p&gt;LLM 最大的硬伤是什么？&lt;strong&gt;知识被冻结在训练截止日期&lt;/strong&gt;。&lt;/p&gt;
+&lt;p&gt;你问它：「我们公司上个月发布了什么新功能？」它不知道。
+你问它：「我的私人笔记里关于算法的那部分内容是什么？」它不知道。&lt;/p&gt;
+&lt;p&gt;RAG 全称 &lt;strong&gt;Retrieval-Augmented Generation（检索增强生成）&lt;/strong&gt;，核心思路是：&lt;/p&gt;
+&lt;blockquote&gt;
+&lt;p&gt;&lt;strong&gt;在 LLM 生成答案之前，先从一个外部知识库里检索相关内容，把检索结果作为上下文喂给 LLM，让它基于这些参考资料来回答。&lt;/strong&gt;&lt;/p&gt;
+&lt;/blockquote&gt;
+&lt;p&gt;这就好比把闭卷考试改成了开卷考试——LLM 不需要背诵所有知识，考试时现场翻资料就行了。&lt;/p&gt;
+&lt;h2 id=&#34;二rag-完整工作流一句话--一张图&#34;&gt;二、RAG 完整工作流（一句话 + 一张图）
+&lt;/h2&gt;&lt;pre tabindex=&#34;0&#34;&gt;&lt;code&gt;用户提问 → 预处理/改写 → 向量化 → 向量数据库检索 →
+粗排/精排 → 拼装 Prompt → LLM 基于参考资料生成答案 → 答案
+&lt;/code&gt;&lt;/pre&gt;&lt;p&gt;整个过程分两条线：&lt;/p&gt;
+&lt;ul&gt;
+&lt;li&gt;&lt;strong&gt;离线线&lt;/strong&gt;：文档 → 切割 → 向量化 → 存入向量数据库（一次性预处理）&lt;/li&gt;
+&lt;li&gt;&lt;strong&gt;在线线&lt;/strong&gt;：用户提问 → 检索 → 生成答案（每次用户提问都走）&lt;/li&gt;
+&lt;/ul&gt;
+&lt;h2 id=&#34;三离线阶段把文档变成可检索的向量&#34;&gt;三、离线阶段：把文档变成可检索的向量
+&lt;/h2&gt;&lt;h3 id=&#34;步骤1文档切割chunking&#34;&gt;步骤1：文档切割（Chunking）
+&lt;/h3&gt;&lt;p&gt;原始文档不能整篇直接存入向量库，因为：&lt;/p&gt;
+&lt;ul&gt;
+&lt;li&gt;Embedding 模型有输入长度限制（通常几百到几千 token）&lt;/li&gt;
+&lt;li&gt;长文档压缩成一个向量会「平均掉」细节，检索精度极低&lt;/li&gt;
+&lt;/ul&gt;
+&lt;p&gt;所以必须**切成小块（chunk）**存储。&lt;/p&gt;
+&lt;p&gt;&lt;strong&gt;常见切割策略&lt;/strong&gt;：&lt;/p&gt;
+&lt;table&gt;
+  &lt;thead&gt;
+      &lt;tr&gt;
+          &lt;th&gt;策略&lt;/th&gt;
+          &lt;th&gt;适用场景&lt;/th&gt;
+          &lt;th&gt;优缺点&lt;/th&gt;
+      &lt;/tr&gt;
+  &lt;/thead&gt;
+  &lt;tbody&gt;
+      &lt;tr&gt;
+          &lt;td&gt;固定大小 + 重叠&lt;/td&gt;
+          &lt;td&gt;通用文本&lt;/td&gt;
+          &lt;td&gt;简单，可能切到句中&lt;/td&gt;
+      &lt;/tr&gt;
+      &lt;tr&gt;
+          &lt;td&gt;按语义边界切&lt;/td&gt;
+          &lt;td&gt;有章节结构的文档&lt;/td&gt;
+          &lt;td&gt;语意完整，实现稍复杂&lt;/td&gt;
+      &lt;/tr&gt;
+      &lt;tr&gt;
+          &lt;td&gt;按函数/类切&lt;/td&gt;
+          &lt;td&gt;代码文件&lt;/td&gt;
+          &lt;td&gt;保持代码逻辑单元完整&lt;/td&gt;
+      &lt;/tr&gt;
+      &lt;tr&gt;
+          &lt;td&gt;父子切割&lt;/td&gt;
+          &lt;td&gt;精度+全文都要&lt;/td&gt;
+          &lt;td&gt;小块检索，大块返回&lt;/td&gt;
+      &lt;/tr&gt;
+  &lt;/tbody&gt;
+&lt;/table&gt;
+&lt;p&gt;每条 chunk 包含三部分：&lt;/p&gt;
+&lt;ul&gt;
+&lt;li&gt;&lt;strong&gt;向量&lt;/strong&gt;：用于相似度检索&lt;/li&gt;
+&lt;li&gt;&lt;strong&gt;原始文本&lt;/strong&gt;：检索命中后塞给 LLM 读的内容&lt;/li&gt;
+&lt;li&gt;&lt;strong&gt;Metadata&lt;/strong&gt;：来源文件、页码、分类等附加信息&lt;/li&gt;
+&lt;/ul&gt;
+&lt;h3 id=&#34;步骤2embedding-向量化&#34;&gt;步骤2：Embedding 向量化
+&lt;/h3&gt;&lt;p&gt;Embedding 是一种「语义压缩」——把文本映射成一个固定长度的浮点数向量。&lt;/p&gt;
+&lt;p&gt;核心性质：&lt;strong&gt;语义相近的文本，向量距离就相近&lt;/strong&gt;（通常用余弦相似度衡量）。&lt;/p&gt;
+&lt;p&gt;举个例子：&lt;/p&gt;
+&lt;ul&gt;
+&lt;li&gt;&amp;ldquo;猫坐在垫子上&amp;rdquo; 和 &amp;ldquo;小猫趴在毯子上面&amp;rdquo; → 向量距离很近&lt;/li&gt;
+&lt;li&gt;&amp;ldquo;猫坐在垫子上&amp;rdquo; 和 &amp;ldquo;股票价格今日大涨&amp;rdquo; → 向量距离很远&lt;/li&gt;
+&lt;/ul&gt;
+&lt;p&gt;选择 Embedding 模型的关键考量：&lt;/p&gt;
+&lt;ol&gt;
+&lt;li&gt;&lt;strong&gt;语言支持&lt;/strong&gt;：中文场景首选 BGE 系列、M3E、智谱 Embedding&lt;/li&gt;
+&lt;li&gt;&lt;strong&gt;向量维度&lt;/strong&gt;：维度越高精度越好，但存储成本也越大（常见 384-4096 维）&lt;/li&gt;
+&lt;li&gt;&lt;strong&gt;最大输入长度&lt;/strong&gt;：决定能处理多长的 chunk（常见 512-8192 token）&lt;/li&gt;
+&lt;li&gt;&lt;strong&gt;评估&lt;/strong&gt;：不要只看排行榜，要在&lt;strong&gt;你自己的数据&lt;/strong&gt;上测召回率（Hit@K、NDCG@K）&lt;/li&gt;
+&lt;/ol&gt;
+&lt;h3 id=&#34;步骤3存入向量数据库&#34;&gt;步骤3：存入向量数据库
+&lt;/h3&gt;&lt;p&gt;向量数据库是专门存储和检索高维向量的数据库，核心能力是&lt;strong&gt;近似最近邻搜索（ANN）&lt;/strong&gt;。&lt;/p&gt;
+&lt;p&gt;在大规模（百万甚至亿级）向量中，它能在毫秒级找出最相似的几条。&lt;/p&gt;
+&lt;p&gt;&lt;strong&gt;不是「在 MySQL 里加个 float 数组」，也不是用 LIKE 字符串匹配&lt;/strong&gt;——向量相似度搜索在算法层（HNSW、IVF-PQ）和硬件层（SIMD 指令、GPU 加速）专门做了优化。&lt;/p&gt;
+&lt;h2 id=&#34;四在线阶段从用户提问到最终答案&#34;&gt;四、在线阶段：从用户提问到最终答案
+&lt;/h2&gt;&lt;h3 id=&#34;步骤1query-预处理&#34;&gt;步骤1：Query 预处理
+&lt;/h3&gt;&lt;p&gt;用户问「这个功能怎么用」，知识库里写的是「XX 模块操作指南」。&lt;/p&gt;
+&lt;p&gt;口语化的问题和正式文档表述之间存在&lt;strong&gt;语义鸿沟&lt;/strong&gt;，直接检索效果很差。&lt;/p&gt;
+&lt;p&gt;解决方案：Query Rewrite（查询改写）。方法包括：&lt;/p&gt;
+&lt;ul&gt;
+&lt;li&gt;&lt;strong&gt;直接改写&lt;/strong&gt;：让 LLM 把口语问题转成规范表述&lt;/li&gt;
+&lt;li&gt;&lt;strong&gt;Query 扩展&lt;/strong&gt;：补充相关关键词&lt;/li&gt;
+&lt;li&gt;&lt;strong&gt;HyDE（假设文档嵌入）&lt;/strong&gt;：让 LLM 先假设一个答案，用这个答案的向量去检索（隐性扩展匹配面）&lt;/li&gt;
+&lt;li&gt;&lt;strong&gt;Step-back Prompting&lt;/strong&gt;：把具体问题抽象一层，检索更通用的背景知识&lt;/li&gt;
+&lt;/ul&gt;
+&lt;h3 id=&#34;步骤2向量检索&#34;&gt;步骤2：向量检索
+&lt;/h3&gt;&lt;p&gt;把改写后的查询向量化，去向量库中搜索最相似的 Top-K 个 chunk。&lt;/p&gt;
+&lt;p&gt;这一步叫 &lt;strong&gt;粗排（Retrieval）&lt;/strong&gt;，目标是「尽可能多地把相关内容召回来」（召回优先）。&lt;/p&gt;
+&lt;h3 id=&#34;步骤3重排序rerank&#34;&gt;步骤3：重排序（Rerank）
+&lt;/h3&gt;&lt;p&gt;粗排召回的 Top-K 中可能包含很多不相关的内容（噪音）。&lt;/p&gt;
+&lt;p&gt;Rerank（重排序）用更精确的模型（如 BGE-Reranker）对粗排结果打分，只保留最相关的几条，把参数量降低同时提高精度。&lt;/p&gt;
+&lt;h3 id=&#34;步骤4prompt-拼装与生成&#34;&gt;步骤4：Prompt 拼装与生成
+&lt;/h3&gt;&lt;p&gt;把筛选后的 chunk 和用户问题一起拼成 prompt：&lt;/p&gt;
+&lt;pre tabindex=&#34;0&#34;&gt;&lt;code&gt;请基于以下参考资料回答问题：
+
+[参考资料1]
+...
+
+[参考资料2]
+...
+
+问题是：用户的问题是什么？
+
+请只基于以上参考资料作答。如果资料中找不到答案，请明确说明&amp;#34;无法从已有资料中找到相关信息&amp;#34;。
+&lt;/code&gt;&lt;/pre&gt;&lt;p&gt;&lt;strong&gt;关键设计&lt;/strong&gt;：强制要求模型只基于参考资料回答，有效防止幻觉和编造。&lt;/p&gt;
+&lt;h2 id=&#34;五rag-vs-微调fine-tuning&#34;&gt;五、RAG vs 微调（Fine-tuning）
+&lt;/h2&gt;&lt;table&gt;
+  &lt;thead&gt;
+      &lt;tr&gt;
+          &lt;th&gt;维度&lt;/th&gt;
+          &lt;th&gt;RAG&lt;/th&gt;
+          &lt;th&gt;微调&lt;/th&gt;
+      &lt;/tr&gt;
+  &lt;/thead&gt;
+  &lt;tbody&gt;
+      &lt;tr&gt;
+          &lt;td&gt;原理&lt;/td&gt;
+          &lt;td&gt;动态检索外部知识&lt;/td&gt;
+          &lt;td&gt;修改模型参数&lt;/td&gt;
+      &lt;/tr&gt;
+      &lt;tr&gt;
+          &lt;td&gt;知识更新&lt;/td&gt;
+          &lt;td&gt;即时替换文档即可&lt;/td&gt;
+          &lt;td&gt;需要重新训练&lt;/td&gt;
+      &lt;/tr&gt;
+      &lt;tr&gt;
+          &lt;td&gt;成本&lt;/td&gt;
+          &lt;td&gt;低（向量库查询+LLM调用）&lt;/td&gt;
+          &lt;td&gt;高（训练计算+标注数据）&lt;/td&gt;
+      &lt;/tr&gt;
+      &lt;tr&gt;
+          &lt;td&gt;通用效果&lt;/td&gt;
+          &lt;td&gt;适合知识密集型任务&lt;/td&gt;
+          &lt;td&gt;适合风格/格式适应&lt;/td&gt;
+      &lt;/tr&gt;
+      &lt;tr&gt;
+          &lt;td&gt;可解释性&lt;/td&gt;
+          &lt;td&gt;好（可追溯来源）&lt;/td&gt;
+          &lt;td&gt;差（参数变化不可见）&lt;/td&gt;
+      &lt;/tr&gt;
+  &lt;/tbody&gt;
+&lt;/table&gt;
+&lt;p&gt;&lt;strong&gt;经验法则&lt;/strong&gt;：先上 RAG，RAG 真不够用再考虑微调。90% 的知识问答场景用 RAG 就够了。&lt;/p&gt;
+&lt;h2 id=&#34;六知识问答场景的-rag-六边形&#34;&gt;六、知识问答场景的 RAG 六边形
+&lt;/h2&gt;&lt;p&gt;一个成熟的 RAG 系统至少要考虑：&lt;/p&gt;
+&lt;ol&gt;
+&lt;li&gt;&lt;strong&gt;文档解析&lt;/strong&gt;：PDF/Word/Excel/网页等各种格式的读取&lt;/li&gt;
+&lt;li&gt;&lt;strong&gt;切割策略&lt;/strong&gt;：用什么粒度、什么策略切 chunk&lt;/li&gt;
+&lt;li&gt;&lt;strong&gt;Embedding 选型&lt;/strong&gt;：用什么模型、什么维度&lt;/li&gt;
+&lt;li&gt;&lt;strong&gt;向量库选型&lt;/strong&gt;：规模多大、需要实时更新吗&lt;/li&gt;
+&lt;li&gt;&lt;strong&gt;检索优化&lt;/strong&gt;：粗排+Rerank+多路召回&lt;/li&gt;
+&lt;li&gt;&lt;strong&gt;生成控制&lt;/strong&gt;：Prompt 设计、幻觉规避、引用来源&lt;/li&gt;
+&lt;/ol&gt;
+&lt;h2 id=&#34;七本章小结&#34;&gt;七、本章小结
+&lt;/h2&gt;&lt;ul&gt;
+&lt;li&gt;RAG = 检索 + 生成，解决 LLM 知识冻结问题&lt;/li&gt;
+&lt;li&gt;离线线：切分 → Embedding → 存向量库&lt;/li&gt;
+&lt;li&gt;在线线：Query改写 → 向量检索 → Rerank精排 → Prompt拼装 → LLM生成&lt;/li&gt;
+&lt;li&gt;选 RAG 还是微调：先 RAG，真的不行再上微调&lt;/li&gt;
+&lt;li&gt;RAG 的本质是给 LLM 提供有据可查的上下文，把闭卷考试改成开卷考试→减少幻觉、增加可解释性、知识实时更新&lt;/li&gt;
+&lt;/ul&gt;
+&lt;h2 id=&#34;思考题&#34;&gt;思考题
+&lt;/h2&gt;&lt;ol&gt;
+&lt;li&gt;为什么 Embedding 模型在通用数据集上的排行榜分数不能直接代表你的业务场景效果？&lt;/li&gt;
+&lt;li&gt;如果你要构建一个企业内部文档问答系统，哪些环节最可能拖慢你的开发进度？&lt;/li&gt;
+&lt;/ol&gt;
+</description>
+        </item>
+        <item>
+        <title>第4章：Function Calling——让大模型从「聊天者」变成「执行者」</title>
+        <link>https://blog.irudder.me/ai/knowledge-series/04-Function-Calling.html</link>
+        <pubDate>Sat, 30 May 2026 00:00:00 +0000</pubDate>
+        
+        <guid>https://blog.irudder.me/ai/knowledge-series/04-Function-Calling.html</guid>
+        <description>&lt;h1 id=&#34;第4章function-calling让大模型从聊天者变成执行者&#34;&gt;第4章：Function Calling——让大模型从「聊天者」变成「执行者」
+&lt;/h1&gt;&lt;blockquote&gt;
+&lt;p&gt;系列导读：从本章开始，我们进入 LLM 的「行动能力」阶段。如果你还没看第1章，建议先了解 LLM 的本质，再去理解为什么它能「调用工具」是真正的事半功倍。&lt;/p&gt;
+&lt;/blockquote&gt;
+&lt;hr&gt;
+&lt;h2 id=&#34;一function-calling-到底是什么&#34;&gt;一、Function Calling 到底是什么？
+&lt;/h2&gt;&lt;p&gt;LLM 本身是一个&lt;strong&gt;文本生成器&lt;/strong&gt;，它生成了天气查询请求，但它不能自己去调用 API。&lt;/p&gt;
+&lt;p&gt;Function Calling（工具调用）就是解决这个问题的机制：让 LLM &lt;strong&gt;输出结构化的工具调用指令&lt;/strong&gt;（通常是 JSON 格式），你的代码负责解析并执行真实的调用。&lt;/p&gt;
+&lt;p&gt;&lt;strong&gt;核心原则&lt;/strong&gt;：模型只判断「该做什么」，代码负责「真正把它做了」。&lt;/p&gt;
+&lt;h2 id=&#34;二function-calling-的两轮对话流程&#34;&gt;二、Function Calling 的两轮对话流程
+&lt;/h2&gt;&lt;pre tabindex=&#34;0&#34;&gt;&lt;code&gt;用户提问 → LLM 判断需要调工具 → 输出 tool_call JSON →
+代码解析 JSON → 真正调用 API → 获得结果 →
+把结果塞回对话 → LLM 生成最终答案
+&lt;/code&gt;&lt;/pre&gt;&lt;p&gt;这是最基础的流程，实际可能有多次工具调用循环。&lt;/p&gt;
+&lt;h3 id=&#34;具体例子&#34;&gt;具体例子
+&lt;/h3&gt;&lt;p&gt;&lt;strong&gt;Round 1 - 用户输入：&lt;/strong&gt;&lt;/p&gt;
+&lt;blockquote&gt;
+&lt;p&gt;&amp;ldquo;北京今天的天气怎么样？&amp;rdquo;&lt;/p&gt;
+&lt;/blockquote&gt;
+&lt;p&gt;&lt;strong&gt;Round 1 - LLM 响应（不是答案，是工具调用指令）：&lt;/strong&gt;&lt;/p&gt;
+&lt;div class=&#34;highlight&#34;&gt;&lt;pre tabindex=&#34;0&#34; style=&#34;color:#f8f8f2;background-color:#272822;-moz-tab-size:4;-o-tab-size:4;tab-size:4;&#34;&gt;&lt;code class=&#34;language-json&#34; data-lang=&#34;json&#34;&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;{
+&lt;/span&gt;&lt;/span&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;  &lt;span style=&#34;color:#f92672&#34;&gt;&amp;#34;tool_calls&amp;#34;&lt;/span&gt;: [{
+&lt;/span&gt;&lt;/span&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;    &lt;span style=&#34;color:#f92672&#34;&gt;&amp;#34;id&amp;#34;&lt;/span&gt;: &lt;span style=&#34;color:#e6db74&#34;&gt;&amp;#34;call_abc123&amp;#34;&lt;/span&gt;,
+&lt;/span&gt;&lt;/span&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;    &lt;span style=&#34;color:#f92672&#34;&gt;&amp;#34;type&amp;#34;&lt;/span&gt;: &lt;span style=&#34;color:#e6db74&#34;&gt;&amp;#34;function&amp;#34;&lt;/span&gt;,
+&lt;/span&gt;&lt;/span&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;    &lt;span style=&#34;color:#f92672&#34;&gt;&amp;#34;function&amp;#34;&lt;/span&gt;: {
+&lt;/span&gt;&lt;/span&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;      &lt;span style=&#34;color:#f92672&#34;&gt;&amp;#34;name&amp;#34;&lt;/span&gt;: &lt;span style=&#34;color:#e6db74&#34;&gt;&amp;#34;get_weather&amp;#34;&lt;/span&gt;,
+&lt;/span&gt;&lt;/span&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;      &lt;span style=&#34;color:#f92672&#34;&gt;&amp;#34;arguments&amp;#34;&lt;/span&gt;: &lt;span style=&#34;color:#e6db74&#34;&gt;&amp;#34;{\&amp;#34;city\&amp;#34;: \&amp;#34;北京\&amp;#34;, \&amp;#34;date\&amp;#34;: \&amp;#34;2026-07-21\&amp;#34;}&amp;#34;&lt;/span&gt;
+&lt;/span&gt;&lt;/span&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;    }
+&lt;/span&gt;&lt;/span&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;  }]
+&lt;/span&gt;&lt;/span&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;}
+&lt;/span&gt;&lt;/span&gt;&lt;/code&gt;&lt;/pre&gt;&lt;/div&gt;&lt;p&gt;&lt;strong&gt;代码层 - 解析并执行：&lt;/strong&gt;&lt;/p&gt;
+&lt;div class=&#34;highlight&#34;&gt;&lt;pre tabindex=&#34;0&#34; style=&#34;color:#f8f8f2;background-color:#272822;-moz-tab-size:4;-o-tab-size:4;tab-size:4;&#34;&gt;&lt;code class=&#34;language-python&#34; data-lang=&#34;python&#34;&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;tool_call &lt;span style=&#34;color:#f92672&#34;&gt;=&lt;/span&gt; response&lt;span style=&#34;color:#f92672&#34;&gt;.&lt;/span&gt;tool_calls[&lt;span style=&#34;color:#ae81ff&#34;&gt;0&lt;/span&gt;]
+&lt;/span&gt;&lt;/span&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;&lt;span style=&#34;color:#66d9ef&#34;&gt;if&lt;/span&gt; tool_call&lt;span style=&#34;color:#f92672&#34;&gt;.&lt;/span&gt;function&lt;span style=&#34;color:#f92672&#34;&gt;.&lt;/span&gt;name &lt;span style=&#34;color:#f92672&#34;&gt;==&lt;/span&gt; &lt;span style=&#34;color:#e6db74&#34;&gt;&amp;#34;get_weather&amp;#34;&lt;/span&gt;:
+&lt;/span&gt;&lt;/span&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;    args &lt;span style=&#34;color:#f92672&#34;&gt;=&lt;/span&gt; json&lt;span style=&#34;color:#f92672&#34;&gt;.&lt;/span&gt;loads(tool_call&lt;span style=&#34;color:#f92672&#34;&gt;.&lt;/span&gt;function&lt;span style=&#34;color:#f92672&#34;&gt;.&lt;/span&gt;arguments)
+&lt;/span&gt;&lt;/span&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;    result &lt;span style=&#34;color:#f92672&#34;&gt;=&lt;/span&gt; get_weather(args[&lt;span style=&#34;color:#e6db74&#34;&gt;&amp;#34;city&amp;#34;&lt;/span&gt;], args[&lt;span style=&#34;color:#e6db74&#34;&gt;&amp;#34;date&amp;#34;&lt;/span&gt;])
+&lt;/span&gt;&lt;/span&gt;&lt;/code&gt;&lt;/pre&gt;&lt;/div&gt;&lt;p&gt;&lt;strong&gt;Round 2 - 把结果塞回对话：&lt;/strong&gt;&lt;/p&gt;
+&lt;pre tabindex=&#34;0&#34;&gt;&lt;code&gt;User: 北京今天的天气怎么样？
+Assistant: [tool_call: get_weather(city=&amp;#34;北京&amp;#34;, date=&amp;#34;2026-07-21&amp;#34;)]
+Function: {&amp;#34;temperature&amp;#34;: 32, &amp;#34;condition&amp;#34;: &amp;#34;晴&amp;#34;, &amp;#34;humidity&amp;#34;: &amp;#34;65%&amp;#34;}
+Assistant: 北京今天晴天，气温 32℃，湿度 65%，非常适合户外活动！
+&lt;/code&gt;&lt;/pre&gt;&lt;h2 id=&#34;三schema-定义关键工程细节&#34;&gt;三、Schema 定义：关键工程细节
+&lt;/h2&gt;&lt;p&gt;Function Calling 的核心是 schema 的定义。schema 告诉模型每个工具：&lt;/p&gt;
+&lt;ul&gt;
+&lt;li&gt;&lt;strong&gt;name&lt;/strong&gt;：工具名称，越具体越好&lt;/li&gt;
+&lt;li&gt;&lt;strong&gt;description&lt;/strong&gt;：工具的详细用途，模型靠这个决定要不要调它&lt;/li&gt;
+&lt;li&gt;&lt;strong&gt;parameters&lt;/strong&gt;：参数结构，包含每个参数名、类型、描述、是否必填&lt;/li&gt;
+&lt;li&gt;&lt;strong&gt;required&lt;/strong&gt;：必填参数列表&lt;/li&gt;
+&lt;/ul&gt;
+&lt;p&gt;&lt;strong&gt;Schema 示例&lt;/strong&gt;：&lt;/p&gt;
+&lt;div class=&#34;highlight&#34;&gt;&lt;pre tabindex=&#34;0&#34; style=&#34;color:#f8f8f2;background-color:#272822;-moz-tab-size:4;-o-tab-size:4;tab-size:4;&#34;&gt;&lt;code class=&#34;language-json&#34; data-lang=&#34;json&#34;&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;{
+&lt;/span&gt;&lt;/span&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;  &lt;span style=&#34;color:#f92672&#34;&gt;&amp;#34;name&amp;#34;&lt;/span&gt;: &lt;span style=&#34;color:#e6db74&#34;&gt;&amp;#34;get_weather&amp;#34;&lt;/span&gt;,
+&lt;/span&gt;&lt;/span&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;  &lt;span style=&#34;color:#f92672&#34;&gt;&amp;#34;description&amp;#34;&lt;/span&gt;: &lt;span style=&#34;color:#e6db74&#34;&gt;&amp;#34;获取指定城市和日期的天气信息，包括温度、天气状况、湿度。支持中国境内城市。&amp;#34;&lt;/span&gt;,
+&lt;/span&gt;&lt;/span&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;  &lt;span style=&#34;color:#f92672&#34;&gt;&amp;#34;parameters&amp;#34;&lt;/span&gt;: {
+&lt;/span&gt;&lt;/span&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;    &lt;span style=&#34;color:#f92672&#34;&gt;&amp;#34;type&amp;#34;&lt;/span&gt;: &lt;span style=&#34;color:#e6db74&#34;&gt;&amp;#34;object&amp;#34;&lt;/span&gt;,
+&lt;/span&gt;&lt;/span&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;    &lt;span style=&#34;color:#f92672&#34;&gt;&amp;#34;properties&amp;#34;&lt;/span&gt;: {
+&lt;/span&gt;&lt;/span&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;      &lt;span style=&#34;color:#f92672&#34;&gt;&amp;#34;city&amp;#34;&lt;/span&gt;: {
+&lt;/span&gt;&lt;/span&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;        &lt;span style=&#34;color:#f92672&#34;&gt;&amp;#34;type&amp;#34;&lt;/span&gt;: &lt;span style=&#34;color:#e6db74&#34;&gt;&amp;#34;string&amp;#34;&lt;/span&gt;,
+&lt;/span&gt;&lt;/span&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;        &lt;span style=&#34;color:#f92672&#34;&gt;&amp;#34;description&amp;#34;&lt;/span&gt;: &lt;span style=&#34;color:#e6db74&#34;&gt;&amp;#34;要查询天气的城市名称，例如：北京、上海、广州&amp;#34;&lt;/span&gt;
+&lt;/span&gt;&lt;/span&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;      },
+&lt;/span&gt;&lt;/span&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;      &lt;span style=&#34;color:#f92672&#34;&gt;&amp;#34;date&amp;#34;&lt;/span&gt;: {
+&lt;/span&gt;&lt;/span&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;        &lt;span style=&#34;color:#f92672&#34;&gt;&amp;#34;type&amp;#34;&lt;/span&gt;: &lt;span style=&#34;color:#e6db74&#34;&gt;&amp;#34;string&amp;#34;&lt;/span&gt;,
+&lt;/span&gt;&lt;/span&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;        &lt;span style=&#34;color:#f92672&#34;&gt;&amp;#34;description&amp;#34;&lt;/span&gt;: &lt;span style=&#34;color:#e6db74&#34;&gt;&amp;#34;查询日期，格式为 YYYY-MM-DD&amp;#34;&lt;/span&gt;
+&lt;/span&gt;&lt;/span&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;      }
+&lt;/span&gt;&lt;/span&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;    },
+&lt;/span&gt;&lt;/span&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;    &lt;span style=&#34;color:#f92672&#34;&gt;&amp;#34;required&amp;#34;&lt;/span&gt;: [&lt;span style=&#34;color:#e6db74&#34;&gt;&amp;#34;city&amp;#34;&lt;/span&gt;, &lt;span style=&#34;color:#e6db74&#34;&gt;&amp;#34;date&amp;#34;&lt;/span&gt;]
+&lt;/span&gt;&lt;/span&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;  }
+&lt;/span&gt;&lt;/span&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;}
+&lt;/span&gt;&lt;/span&gt;&lt;/code&gt;&lt;/pre&gt;&lt;/div&gt;&lt;p&gt;&lt;strong&gt;description 是最关键的字段&lt;/strong&gt;。模型完全靠 description 来判断该不该调这个工具。写 description 的技巧：&lt;/p&gt;
+&lt;ol&gt;
+&lt;li&gt;&lt;strong&gt;明确边界&lt;/strong&gt;：不是什么都调，只在什么场景下调&lt;/li&gt;
+&lt;li&gt;&lt;strong&gt;给出例子&lt;/strong&gt;：比如 &amp;ldquo;当用户问 xx 时调用&amp;rdquo;&lt;/li&gt;
+&lt;li&gt;&lt;strong&gt;避免触发词陷阱&lt;/strong&gt;：description里别用模型的名字（如 &amp;ldquo;ChatGPT&amp;rdquo;），否则模型可能误触发&lt;/li&gt;
+&lt;/ol&gt;
+&lt;h2 id=&#34;四function-calling-和土办法的区别&#34;&gt;四、Function Calling 和「土办法」的区别
+&lt;/h2&gt;&lt;p&gt;在没有 Function Calling 之前，开发者只能靠解析自然语言文本来判断模型要不要调工具：&lt;/p&gt;
+&lt;div class=&#34;highlight&#34;&gt;&lt;pre tabindex=&#34;0&#34; style=&#34;color:#f8f8f2;background-color:#272822;-moz-tab-size:4;-o-tab-size:4;tab-size:4;&#34;&gt;&lt;code class=&#34;language-python&#34; data-lang=&#34;python&#34;&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;&lt;span style=&#34;color:#75715e&#34;&gt;# 土办法&lt;/span&gt;
+&lt;/span&gt;&lt;/span&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;response &lt;span style=&#34;color:#f92672&#34;&gt;=&lt;/span&gt; model&lt;span style=&#34;color:#f92672&#34;&gt;.&lt;/span&gt;chat(&lt;span style=&#34;color:#e6db74&#34;&gt;&amp;#34;帮我查北京天气&amp;#34;&lt;/span&gt;)
+&lt;/span&gt;&lt;/span&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;&lt;span style=&#34;color:#66d9ef&#34;&gt;if&lt;/span&gt; &lt;span style=&#34;color:#e6db74&#34;&gt;&amp;#34;天气&amp;#34;&lt;/span&gt; &lt;span style=&#34;color:#f92672&#34;&gt;in&lt;/span&gt; response:
+&lt;/span&gt;&lt;/span&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;    &lt;span style=&#34;color:#75715e&#34;&gt;# 手动解析，极其脆弱&lt;/span&gt;
+&lt;/span&gt;&lt;/span&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;    city &lt;span style=&#34;color:#f92672&#34;&gt;=&lt;/span&gt; extract_city(response)  &lt;span style=&#34;color:#75715e&#34;&gt;# 容易出错&lt;/span&gt;
+&lt;/span&gt;&lt;/span&gt;&lt;/code&gt;&lt;/pre&gt;&lt;/div&gt;&lt;p&gt;Function Calling 以后：&lt;/p&gt;
+&lt;div class=&#34;highlight&#34;&gt;&lt;pre tabindex=&#34;0&#34; style=&#34;color:#f8f8f2;background-color:#272822;-moz-tab-size:4;-o-tab-size:4;tab-size:4;&#34;&gt;&lt;code class=&#34;language-python&#34; data-lang=&#34;python&#34;&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;&lt;span style=&#34;color:#75715e&#34;&gt;# Function Calling 方式&lt;/span&gt;
+&lt;/span&gt;&lt;/span&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;response &lt;span style=&#34;color:#f92672&#34;&gt;=&lt;/span&gt; model&lt;span style=&#34;color:#f92672&#34;&gt;.&lt;/span&gt;chat(&lt;span style=&#34;color:#e6db74&#34;&gt;&amp;#34;帮我查北京天气&amp;#34;&lt;/span&gt;, tools&lt;span style=&#34;color:#f92672&#34;&gt;=&lt;/span&gt;[weather_tool_schema])
+&lt;/span&gt;&lt;/span&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;&lt;span style=&#34;color:#66d9ef&#34;&gt;if&lt;/span&gt; response&lt;span style=&#34;color:#f92672&#34;&gt;.&lt;/span&gt;tool_calls:
+&lt;/span&gt;&lt;/span&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;    &lt;span style=&#34;color:#75715e&#34;&gt;# 模型输出的是结构化 JSON，解析安全得多&lt;/span&gt;
+&lt;/span&gt;&lt;/span&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;    tool_call &lt;span style=&#34;color:#f92672&#34;&gt;=&lt;/span&gt; response&lt;span style=&#34;color:#f92672&#34;&gt;.&lt;/span&gt;tool_calls[&lt;span style=&#34;color:#ae81ff&#34;&gt;0&lt;/span&gt;]
+&lt;/span&gt;&lt;/span&gt;&lt;/code&gt;&lt;/pre&gt;&lt;/div&gt;&lt;p&gt;关键区别：&lt;strong&gt;结构化输出 vs 自然语言解析&lt;/strong&gt;。结构化输出准确率接近100%，自然语言解析经常抽风。&lt;/p&gt;
+&lt;h2 id=&#34;五高级特性&#34;&gt;五、高级特性
+&lt;/h2&gt;&lt;h3 id=&#34;1-并行工具调用&#34;&gt;1. 并行工具调用
+&lt;/h3&gt;&lt;p&gt;模型可能在一次响应中输出多个 tool_calls，比如用户问&amp;quot;北京和上海的天气&amp;quot;:&lt;/p&gt;
+&lt;div class=&#34;highlight&#34;&gt;&lt;pre tabindex=&#34;0&#34; style=&#34;color:#f8f8f2;background-color:#272822;-moz-tab-size:4;-o-tab-size:4;tab-size:4;&#34;&gt;&lt;code class=&#34;language-json&#34; data-lang=&#34;json&#34;&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;{
+&lt;/span&gt;&lt;/span&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;  &lt;span style=&#34;color:#f92672&#34;&gt;&amp;#34;tool_calls&amp;#34;&lt;/span&gt;: [
+&lt;/span&gt;&lt;/span&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;    {&lt;span style=&#34;color:#f92672&#34;&gt;&amp;#34;function&amp;#34;&lt;/span&gt;: {&lt;span style=&#34;color:#f92672&#34;&gt;&amp;#34;name&amp;#34;&lt;/span&gt;: &lt;span style=&#34;color:#e6db74&#34;&gt;&amp;#34;get_weather&amp;#34;&lt;/span&gt;, &lt;span style=&#34;color:#f92672&#34;&gt;&amp;#34;arguments&amp;#34;&lt;/span&gt;: &lt;span style=&#34;color:#e6db74&#34;&gt;&amp;#34;{\&amp;#34;city\&amp;#34;: \&amp;#34;北京\&amp;#34;}&amp;#34;&lt;/span&gt;}},
+&lt;/span&gt;&lt;/span&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;    {&lt;span style=&#34;color:#f92672&#34;&gt;&amp;#34;function&amp;#34;&lt;/span&gt;: {&lt;span style=&#34;color:#f92672&#34;&gt;&amp;#34;name&amp;#34;&lt;/span&gt;: &lt;span style=&#34;color:#e6db74&#34;&gt;&amp;#34;get_weather&amp;#34;&lt;/span&gt;, &lt;span style=&#34;color:#f92672&#34;&gt;&amp;#34;arguments&amp;#34;&lt;/span&gt;: &lt;span style=&#34;color:#e6db74&#34;&gt;&amp;#34;{\&amp;#34;city\&amp;#34;: \&amp;#34;上海\&amp;#34;}&amp;#34;&lt;/span&gt;}}
+&lt;/span&gt;&lt;/span&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;  ]
+&lt;/span&gt;&lt;/span&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;}
+&lt;/span&gt;&lt;/span&gt;&lt;/code&gt;&lt;/pre&gt;&lt;/div&gt;&lt;p&gt;你的代码可以并行执行两个调用，然后再把结果一起塞回去。&lt;/p&gt;
+&lt;h3 id=&#34;2-强制使用工具&#34;&gt;2. 强制使用工具
+&lt;/h3&gt;&lt;p&gt;有些场景要求模型&lt;strong&gt;必须&lt;/strong&gt;调工具，不提供直接回答：&lt;/p&gt;
+&lt;div class=&#34;highlight&#34;&gt;&lt;pre tabindex=&#34;0&#34; style=&#34;color:#f8f8f2;background-color:#272822;-moz-tab-size:4;-o-tab-size:4;tab-size:4;&#34;&gt;&lt;code class=&#34;language-python&#34; data-lang=&#34;python&#34;&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;response &lt;span style=&#34;color:#f92672&#34;&gt;=&lt;/span&gt; model&lt;span style=&#34;color:#f92672&#34;&gt;.&lt;/span&gt;chat(query, tools&lt;span style=&#34;color:#f92672&#34;&gt;=&lt;/span&gt;tools, tool_choice&lt;span style=&#34;color:#f92672&#34;&gt;=&lt;/span&gt;&lt;span style=&#34;color:#e6db74&#34;&gt;&amp;#34;required&amp;#34;&lt;/span&gt;)
+&lt;/span&gt;&lt;/span&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;&lt;span style=&#34;color:#75715e&#34;&gt;# 设置 tool_choice 为 &amp;#34;required&amp;#34; 强制模型输出 tool_calls&lt;/span&gt;
+&lt;/span&gt;&lt;/span&gt;&lt;/code&gt;&lt;/pre&gt;&lt;/div&gt;&lt;h3 id=&#34;3-多轮工具调用链&#34;&gt;3. 多轮工具调用链
+&lt;/h3&gt;&lt;p&gt;复杂任务可能需要多次调用：查天气 → 根据温度推荐衣服 → 查找推荐店铺的地址 → 查询交通路线。&lt;/p&gt;
+&lt;p&gt;每一轮把结果塞回 history，LLM 自动判断下一步该做什么。这就是 Agent 的基础。&lt;/p&gt;
+&lt;h2 id=&#34;六常见坑&#34;&gt;六、常见坑
+&lt;/h2&gt;&lt;table&gt;
+  &lt;thead&gt;
+      &lt;tr&gt;
+          &lt;th&gt;坑&lt;/th&gt;
+          &lt;th&gt;解决方案&lt;/th&gt;
+      &lt;/tr&gt;
+  &lt;/thead&gt;
+  &lt;tbody&gt;
+      &lt;tr&gt;
+          &lt;td&gt;模型选错工具&lt;/td&gt;
+          &lt;td&gt;description 写清楚边界 + 用 tool_choice 限制&lt;/td&gt;
+      &lt;/tr&gt;
+      &lt;tr&gt;
+          &lt;td&gt;参数类型错误&lt;/td&gt;
+          &lt;td&gt;schema 中严格定义 enum/number/string&lt;/td&gt;
+      &lt;/tr&gt;
+      &lt;tr&gt;
+          &lt;td&gt;函数结果太长塞爆 context&lt;/td&gt;
+          &lt;td&gt;摘要压缩后返回&lt;/td&gt;
+      &lt;/tr&gt;
+      &lt;tr&gt;
+          &lt;td&gt;工具调用死循环&lt;/td&gt;
+          &lt;td&gt;max_iterations 限制 + 超时熔断&lt;/td&gt;
+      &lt;/tr&gt;
+      &lt;tr&gt;
+          &lt;td&gt;结果格式不一致&lt;/td&gt;
+          &lt;td&gt;在 function result 中也标准化输出格式&lt;/td&gt;
+      &lt;/tr&gt;
+  &lt;/tbody&gt;
+&lt;/table&gt;
+&lt;h2 id=&#34;七本章小结&#34;&gt;七、本章小结
+&lt;/h2&gt;&lt;ul&gt;
+&lt;li&gt;Function Calling = 模型决策 + 代码执行，两者严格分离&lt;/li&gt;
+&lt;li&gt;Schema description 是核心，决定了模型是否选对工具、传对参数&lt;/li&gt;
+&lt;li&gt;并行调用、强制调用、多轮链式调用是高级用法&lt;/li&gt;
+&lt;li&gt;它是通往 Agent 的必经之路&lt;/li&gt;
+&lt;/ul&gt;
+&lt;h2 id=&#34;思考题&#34;&gt;思考题
+&lt;/h2&gt;&lt;ol&gt;
+&lt;li&gt;为什么 Function Calling 要求模型输出的是 JSON schema 而不是自由文本？这背后的设计哲学是什么？&lt;/li&gt;
+&lt;li&gt;如果模型的 tool_calls 返回的参数含危险操作（如删除文件），你的拦截策略应该放在哪一层？&lt;/li&gt;
+&lt;/ol&gt;
+</description>
+        </item>
+        <item>
+        <title>第3章：大模型幻觉——它为什么胡说八道？如何让它老实？</title>
+        <link>https://blog.irudder.me/ai/knowledge-series/03-Hallucination-and-Controllability.html</link>
+        <pubDate>Fri, 29 May 2026 00:00:00 +0000</pubDate>
+        
+        <guid>https://blog.irudder.me/ai/knowledge-series/03-Hallucination-and-Controllability.html</guid>
+        <description>&lt;h1 id=&#34;第3章大模型幻觉它为什么胡说八道如何让它老实&#34;&gt;第3章：大模型幻觉——它为什么胡说八道？如何让它老实？
+&lt;/h1&gt;&lt;blockquote&gt;
+&lt;p&gt;系列导读：从本章开始，我们从「原理认知」转向「工程控制」。理解幻觉的成因，是构建可靠 AI 系统的第一步。&lt;/p&gt;
+&lt;/blockquote&gt;
+&lt;h2 id=&#34;一什么是幻觉&#34;&gt;一、什么是幻觉？
+&lt;/h2&gt;&lt;p&gt;当你问 GPT-4：「鲁迅和周树人是什么关系？」&lt;/p&gt;
+&lt;p&gt;它可能回答：「鲁迅和周树人是两位不同的现代作家。」——这是不折不扣的【事实性幻觉】。&lt;/p&gt;
+&lt;p&gt;幻觉的精确定义是：模型生成了听起来合理、语法正确、但实际上不符合事实的内容。&lt;/p&gt;
+&lt;p&gt;它不是 bug，是 LLM 概率生成机制的【固有特性】。&lt;/p&gt;
+&lt;p&gt;要理解幻觉，先得承认一个事实：LLM 不是数据库，它是概率续写器。你给它一个问题，它做的不是「查询正确答案」，而是「猜测下一个最可能发生的内容」。这个区分是解决幻觉问题的认知基础。&lt;/p&gt;
+&lt;h2 id=&#34;二幻觉的三大根源&#34;&gt;二、幻觉的三大根源
+&lt;/h2&gt;&lt;h3 id=&#34;第一层训练数据&#34;&gt;第一层：训练数据
+&lt;/h3&gt;&lt;p&gt;互联网语料本身就有错误、矛盾、过时信息。模型把它们全部「学进去」当作事实。比如：&lt;/p&gt;
+&lt;ul&gt;
+&lt;li&gt;某个错误知识在网上流传甚广 → 模型学得深&lt;/li&gt;
+&lt;li&gt;互相矛盾的信息并存（比如不同国家对同一历史事件的描述不同）→ 模型学到两种说法轮流出现&lt;/li&gt;
+&lt;li&gt;训练截止日期之后的事件 → 模型一无所知，面对这类问题只能靠概率推断&lt;/li&gt;
+&lt;/ul&gt;
+&lt;p&gt;训练数据的问题还包括「重复偏见」——如果某个错误信息出现了很多次（比如某个谣言被广泛传播），模型会认为它更可信。这是训练机制本身的副作用：语料出现频率高 → 权重被放大。&lt;/p&gt;
+&lt;h3 id=&#34;第二层生成机制最本质&#34;&gt;第二层：生成机制（最本质）
+&lt;/h3&gt;&lt;p&gt;LLM 的工作方式是：给定前面的文本，按概率分布选下一个词。&lt;/p&gt;
+&lt;p&gt;问题在于：概率最高 ≠ 事实正确。&lt;/p&gt;
+&lt;p&gt;你问「鲁迅是谁的笔名」→ 正确答案「周树人」在概率分布中排名第一，模型答对。
+你问一个模型从未见过的问题 → 概率分布中排名第一的，可能是一个【编造出来的、看起来最合理的答案】。&lt;/p&gt;
+&lt;p&gt;模型的训练目标是「生成看起来最连贯、最像人话的文本」，不是「输出真实信息」。当它不知道怎么答的时候，它会「编造一个最合理的答案」，因为这是它的本职工作。&lt;/p&gt;
+&lt;p&gt;把 Temperature 调到0也不能消除幻觉——概率最高的那条路径本身可能就是错的。Temperature 控制的是随机性，不是「知不知道」。模型不知道的时候，即使不随机，也会沿着最像真的那条路径走到一个错误答案。&lt;/p&gt;
+&lt;h3 id=&#34;第三层对齐训练alignment&#34;&gt;第三层：对齐训练（Alignment）
+&lt;/h3&gt;&lt;p&gt;这是最容易被忽略的一层。SFT（监督微调）和 RLHF（基于人类反馈的强化学习）有一个隐藏的副作用：训练数据中的偏好是「自信地给出答案」比「诚实地说我不知道」得分更高。&lt;/p&gt;
+&lt;p&gt;标注者通常更喜欢完整、自信的答案，而不是简短、不确定的回答。模型被这个奖励信号训练成了【不会拒绝回答】的角色。即使它不知道答案，也会尝试输出一大段说服力强但不保证正确的话，而不是说「抱歉，我不确定」。&lt;/p&gt;
+&lt;h2 id=&#34;三幻觉的三类形态&#34;&gt;三、幻觉的三类形态
+&lt;/h2&gt;&lt;table&gt;
+  &lt;thead&gt;
+      &lt;tr&gt;
+          &lt;th&gt;类型&lt;/th&gt;
+          &lt;th&gt;描述&lt;/th&gt;
+          &lt;th&gt;例子&lt;/th&gt;
+      &lt;/tr&gt;
+  &lt;/thead&gt;
+  &lt;tbody&gt;
+      &lt;tr&gt;
+          &lt;td&gt;事实性幻觉&lt;/td&gt;
+          &lt;td&gt;编造不存在的事实&lt;/td&gt;
+          &lt;td&gt;「张爱玲获得过诺贝尔文学奖」&lt;/td&gt;
+      &lt;/tr&gt;
+      &lt;tr&gt;
+          &lt;td&gt;推理性幻觉&lt;/td&gt;
+          &lt;td&gt;逻辑链条断裂或自相矛盾&lt;/td&gt;
+          &lt;td&gt;「A&amp;gt;B，B&amp;gt;C，所以C&amp;gt;A」&lt;/td&gt;
+      &lt;/tr&gt;
+      &lt;tr&gt;
+          &lt;td&gt;上下文不一致&lt;/td&gt;
+          &lt;td&gt;违背用户给出的明确条件&lt;/td&gt;
+          &lt;td&gt;用户说「主角名叫李明」，模型后面说「张明的经历」&lt;/td&gt;
+      &lt;/tr&gt;
+  &lt;/tbody&gt;
+&lt;/table&gt;
+&lt;p&gt;事实性幻觉最容易被发现——只要跟真实数据一对就知道。推理性幻觉更隐蔽，因为模型可能每一步看起来都有道理，但整体链条是断裂的。上下文不一致是在长对话里最恼人的——模型忘了你前面说过什么。&lt;/p&gt;
+&lt;h2 id=&#34;四如何缓解幻觉三层组合拳&#34;&gt;四、如何缓解幻觉？三层组合拳
+&lt;/h2&gt;&lt;h3 id=&#34;训练层治本&#34;&gt;训练层（治本）
+&lt;/h3&gt;&lt;ul&gt;
+&lt;li&gt;拒答能力训练：在 SFT 数据里专门加入「不知道就说不知道」的样本，让模型学会在必要时拒绝回答&lt;/li&gt;
+&lt;li&gt;校准（Calibration）：让模型学会输出概率分数，表示对答案的信心度。用户可以根据置信度决定是否采信&lt;/li&gt;
+&lt;li&gt;幻觉检测预训练：用外部知识库自动标注训练数据中的错误内容，在预训练阶段过滤低质来源&lt;/li&gt;
+&lt;/ul&gt;
+&lt;h3 id=&#34;推理层治标&#34;&gt;推理层（治标）
+&lt;/h3&gt;&lt;ul&gt;
+&lt;li&gt;分步推理（CoT）：让模型先分析再结论，错误推理更容易暴露&lt;/li&gt;
+&lt;li&gt;低 Temperature + Top-P 采样：减少随机偏差，让输出更稳定&lt;/li&gt;
+&lt;li&gt;Self-Consistency：对同一问题采样多次，投票取众数。错误答案不一定能稳定重复&lt;/li&gt;
+&lt;li&gt;约束解码：限制输出只能在特定词汇表内（如只能输出数字 1/2/3），防止创造性胡编&lt;/li&gt;
+&lt;/ul&gt;
+&lt;h3 id=&#34;系统层工程首选&#34;&gt;系统层（工程首选）
+&lt;/h3&gt;&lt;ul&gt;
+&lt;li&gt;RAG（检索增强生成）：让模型「看着资料答」而不是「凭记忆答」——这是工业界最主流的解法&lt;/li&gt;
+&lt;li&gt;答案后处理核查：用外部工具（如搜索引擎、数据库查询）验证关键事实&lt;/li&gt;
+&lt;li&gt;强制带引用来源：要求模型在回答时标注信息来源，既方便追溯也方便人工核验&lt;/li&gt;
+&lt;li&gt;知识蒸馏 + 事实编辑：在已有大模型基础上，用少量事实数据做局部参数修正&lt;/li&gt;
+&lt;/ul&gt;
+&lt;h2 id=&#34;五致命认知误区&#34;&gt;五、致命认知误区
+&lt;/h2&gt;&lt;p&gt;&lt;strong&gt;误区1：「幻觉是数据问题，数据干净了就行了」&lt;/strong&gt;
+→ 不完全是。即使训练数据100%正确，模型在没见过的问题上仍会依赖概率推断。LLM 的概率生成机制本身就是幻觉的土壤。&lt;/p&gt;
+&lt;p&gt;&lt;strong&gt;误区2：「用 RAG 就能消除幻觉」&lt;/strong&gt;
+→ RAG 只是把幻觉风险从「编造知识」转移到「编造引用」和「断章取义」。如果检索回来的内容本身就错了，或者模型把引用张冠李戴了，结果还是幻觉。RAG 降低幻觉率，但不是灵丹妙药。&lt;/p&gt;
+&lt;p&gt;&lt;strong&gt;误区3：「越大越好的模型越不会幻觉」&lt;/strong&gt;
+→ 规模增大确实能减少常识性幻觉（见过更多），但在小众知识领域幻觉反而可能更严重。大模型更「自信」，它对自己的错误回答也更有把握，更不容易说「我不知道」。&lt;/p&gt;
+&lt;h2 id=&#34;六工程启示如何跟一个会撒谎的系统打交道&#34;&gt;六、工程启示：如何跟一个会撒谎的系统打交道？
+&lt;/h2&gt;&lt;p&gt;核心原则：系统级别的不信任校验机制。&lt;/p&gt;
+&lt;ol&gt;
+&lt;li&gt;关键信息强制引用来源——回答必须带出处，出处可人工核验&lt;/li&gt;
+&lt;li&gt;置信度透出——让用户知道模型对答案的不确定性，高置信采信、低置信核实&lt;/li&gt;
+&lt;li&gt;关键领域人机配合——医疗、法律、金融等场景，模型只提供初步信息，最终判断由人类做&lt;/li&gt;
+&lt;li&gt;设计可验证的交互——不是让模型直接给结论，而是让它推荐检索关键词，由用户确认后再查&lt;/li&gt;
+&lt;/ol&gt;
+&lt;p&gt;一句话总结：幻觉不可消灭，只能工程化收敛到「可接受风险」。&lt;/p&gt;
+&lt;h2 id=&#34;七本章小结&#34;&gt;七、本章小结
+&lt;/h2&gt;&lt;ul&gt;
+&lt;li&gt;幻觉是 LLM 概率生成机制的固有副产品，不是 bug&lt;/li&gt;
+&lt;li&gt;根源分三层：训练数据污染、生成机制缺陷（概率最优≠事实）、对齐奖励鼓励「自信回答」&lt;/li&gt;
+&lt;li&gt;三类幻觉：事实性、推理性、上下文不一致&lt;/li&gt;
+&lt;li&gt;缓解需训练层+推理层+系统层三层组合拳，缺一不可&lt;/li&gt;
+&lt;li&gt;最低成本的工程方案：RAG + 强制引用来源 + 置信度透出&lt;/li&gt;
+&lt;/ul&gt;
+&lt;h2 id=&#34;思考题&#34;&gt;思考题
+&lt;/h2&gt;&lt;ol&gt;
+&lt;li&gt;如果模型知道自己不知道某件事，它应该怎么做最优？是「编造一个最接近的答案」还是「直接说不知道」？这取决于什么场景？&lt;/li&gt;
+&lt;li&gt;为什么 LLM 在数学问题上也可能幻觉？代码领域幻觉和事实幻觉有什么不同？&lt;/li&gt;
+&lt;/ol&gt;
+</description>
+        </item>
+        <item>
+        <title>第1章：大语言模型到底是什么？从零开始的AI认知升级</title>
+        <link>https://blog.irudder.me/ai/knowledge-series/01-What-is-LLM.html</link>
+        <pubDate>Thu, 28 May 2026 00:00:00 +0000</pubDate>
+        
+        <guid>https://blog.irudder.me/ai/knowledge-series/01-What-is-LLM.html</guid>
+        <description>&lt;h1 id=&#34;第1章大语言模型到底是什么从零开始的ai认知升级&#34;&gt;第1章：大语言模型到底是什么？从零开始的AI认知升级
+&lt;/h1&gt;&lt;blockquote&gt;
+&lt;p&gt;系列导读：这是「AI知识成长体系」系列的开篇。如果你刚接触大模型，本章帮你建立底层认知；如果你已有经验，建议从第3章「幻觉与可控性」开始，那里的工程视角同样值得回顾。&lt;/p&gt;
+&lt;/blockquote&gt;
+&lt;hr&gt;
+&lt;h2 id=&#34;一一句话定义&#34;&gt;一、一句话定义
+&lt;/h2&gt;&lt;p&gt;&lt;strong&gt;大语言模型（LLM, Large Language Model）&lt;strong&gt;是用海量文本语料预训练、参数规模达到百亿乃至万亿级别、基于&lt;/strong&gt;自回归&lt;/strong&gt;方式逐字生成文本的统一模型。&lt;/p&gt;
+&lt;p&gt;它不是「一台能聊天的电脑」，也不是「一个搜索引擎」。最本质的理解是：&lt;strong&gt;它是一个概率续写器&lt;/strong&gt;——给定前n个词，预测第n+1个词的概率分布，然后挑一个词，继续往下预测。&lt;/p&gt;
+&lt;h2 id=&#34;二一个核心类比&#34;&gt;二、一个核心类比
+&lt;/h2&gt;&lt;p&gt;想象你在玩「成语接龙」：我说「指鹿为马」，你说「马到成功」；我说「功」，你说「功成名就」……&lt;/p&gt;
+&lt;p&gt;LLM 每天都在玩这个游戏，只是规模不一样：它接的不是几个字，是互联网上的几千亿个token。玩了几个月后，它发现自己不仅能填词，还能写诗、编程、做数学题。这就是 LLM 的根本工作方式——&lt;strong&gt;下一个 token 预测&lt;/strong&gt;。&lt;/p&gt;
+&lt;h2 id=&#34;三llm-vs-传统-nlp-的本质区别&#34;&gt;三、LLM vs 传统 NLP 的本质区别
+&lt;/h2&gt;&lt;table&gt;
+  &lt;thead&gt;
+      &lt;tr&gt;
+          &lt;th&gt;维度&lt;/th&gt;
+          &lt;th&gt;传统 NLP&lt;/th&gt;
+          &lt;th&gt;大语言模型&lt;/th&gt;
+      &lt;/tr&gt;
+  &lt;/thead&gt;
+  &lt;tbody&gt;
+      &lt;tr&gt;
+          &lt;td&gt;任务模式&lt;/td&gt;
+          &lt;td&gt;一任务一模型&lt;/td&gt;
+          &lt;td&gt;一模型万任务&lt;/td&gt;
+      &lt;/tr&gt;
+      &lt;tr&gt;
+          &lt;td&gt;实现方式&lt;/td&gt;
+          &lt;td&gt;流水线拆分：分词→词性标注→NER→下游任务&lt;/td&gt;
+          &lt;td&gt;端到端：输入文本，输出文本&lt;/td&gt;
+      &lt;/tr&gt;
+      &lt;tr&gt;
+          &lt;td&gt;模型性质&lt;/td&gt;
+          &lt;td&gt;判别式（输出标签/概率）&lt;/td&gt;
+          &lt;td&gt;生成式（输出新文本）&lt;/td&gt;
+      &lt;/tr&gt;
+      &lt;tr&gt;
+          &lt;td&gt;能力边界&lt;/td&gt;
+          &lt;td&gt;训练目标里有的才会&lt;/td&gt;
+          &lt;td&gt;规模够大时&lt;strong&gt;涌现&lt;/strong&gt;出新能力&lt;/td&gt;
+      &lt;/tr&gt;
+      &lt;tr&gt;
+          &lt;td&gt;迁移学习&lt;/td&gt;
+          &lt;td&gt;需要微调适配&lt;/td&gt;
+          &lt;td&gt;Prompt 即任务&lt;/td&gt;
+      &lt;/tr&gt;
+  &lt;/tbody&gt;
+&lt;/table&gt;
+&lt;h3 id=&#34;为什么说这是质变&#34;&gt;为什么说这是「质变」？
+&lt;/h3&gt;&lt;p&gt;传统 NLP 里，你要做情感分析，就训练一个情感分类器；做命名实体识别，就训一个 NER 模型。每个模型只会在训练数据里的「标签空间」内输出结果。&lt;/p&gt;
+&lt;p&gt;LLM 不一样。它只学了一件事：&lt;strong&gt;预测下一个词&lt;/strong&gt;。但这个任务太极端了——互联网上的每一个句子都是一个训练样本。学会这个任务的过程中，它被迫理解了语法、语义、推理、常识、编程逻辑……所有能用语言表达的思维模式。&lt;/p&gt;
+&lt;h3 id=&#34;涌现能力emergent-abilities&#34;&gt;涌现能力（Emergent Abilities）
+&lt;/h3&gt;&lt;p&gt;这是 LLM 最令人惊讶的特征。当模型规模突破某个阈值（通常是数十亿到百亿参数），会突然「涌现」出训练目标里没有显式教过的能力：&lt;/p&gt;
+&lt;ul&gt;
+&lt;li&gt;&lt;strong&gt;上下文学习（In-Context Learning）&lt;/strong&gt;：给几个示例，模型就能学会新任务模式&lt;/li&gt;
+&lt;li&gt;&lt;strong&gt;多步推理（Chain-of-Thought Reasoning）&lt;/strong&gt;：面对复杂问题能一步步拆解思考&lt;/li&gt;
+&lt;li&gt;&lt;strong&gt;跨语言迁移&lt;/strong&gt;：主要训练英语，却也能流畅地说中文、日语&lt;/li&gt;
+&lt;/ul&gt;
+&lt;p&gt;这些能力在结构上没有变化，只是参数量变多了。就像水加热到100度突然沸腾——量变到了阈值，质变自然发生。&lt;/p&gt;
+&lt;h2 id=&#34;四llm-的核心特性&#34;&gt;四、LLM 的核心特性
+&lt;/h2&gt;&lt;h3 id=&#34;1-知识冻结knowledge-cutoff&#34;&gt;1. 知识冻结（Knowledge Cutoff）
+&lt;/h3&gt;&lt;p&gt;LLM 的知识截止到训练数据的收集日期。GPT-4 训练数据到2024年初，之后的事它不知道。你问它2026年7月的股市走势，它会一本正经地编答案——这就是&lt;strong&gt;幻觉&lt;/strong&gt;。&lt;/p&gt;
+&lt;h3 id=&#34;2-没有真正的理解&#34;&gt;2. 没有真正的「理解」
+&lt;/h3&gt;&lt;p&gt;LLM 并不「理解」你说的每一句话。它只是在统计意义上学会了「哪些词组合在一起概率最高」。这带来了两个后果：&lt;/p&gt;
+&lt;ul&gt;
+&lt;li&gt;&lt;strong&gt;它能做对数学题，但可能不理解数学意义&lt;/strong&gt;——因为训练数据里见过足够多的推导过程&lt;/li&gt;
+&lt;li&gt;&lt;strong&gt;它不会主动说「我不知道」&lt;/strong&gt;——因为训练目标要求它必须产出下一个词&lt;/li&gt;
+&lt;/ul&gt;
+&lt;h3 id=&#34;3-上下文长度有限&#34;&gt;3. 上下文长度有限
+&lt;/h3&gt;&lt;p&gt;LLM 的「工作台」（context window）不是无限的。GPT-4o 是 128K token（约10万字），Claude 3.5 是 200K（约15万字），超过的部分会被遗忘。这意味着：&lt;/p&gt;
+&lt;ul&gt;
+&lt;li&gt;长文档对话到后面会开始「掉线」&lt;/li&gt;
+&lt;li&gt;RAG（检索增强生成）成为必修课&lt;/li&gt;
+&lt;li&gt;任务拆解和记忆压缩是工程核心&lt;/li&gt;
+&lt;/ul&gt;
+&lt;h2 id=&#34;五为什么说这是一个时代的开始&#34;&gt;五、为什么说这是一个时代的开始？
+&lt;/h2&gt;&lt;p&gt;LLM 的伟大之处，不在于它有多聪明，而在于&lt;strong&gt;它是第一个能用自然语言跟全世界沟通的通用接口&lt;/strong&gt;。&lt;/p&gt;
+&lt;p&gt;在它之前，你想让计算机做一件事，需要学编程语言、API 文档、数据库查询。现在你只需要说：「帮我写一个爬虫，抓取某网站的新闻标题。」&lt;/p&gt;
+&lt;p&gt;它不完美，经常出错，但它开启了一个人机协作的新时代。它不是「替代人类」，而是「让人类用更自然的方式调用信息」。&lt;/p&gt;
+&lt;h2 id=&#34;六本章小结&#34;&gt;六、本章小结
+&lt;/h2&gt;&lt;ul&gt;
+&lt;li&gt;LLM 本质是「下一个 token 预测」，参数规模带来的涌现效果是质变&lt;/li&gt;
+&lt;li&gt;与传统 NLP 的根本区别在于「一模型万任务」和「涌现能力」&lt;/li&gt;
+&lt;li&gt;LLM 有三大天生缺陷：知识冻结、没有真正的「理解」、上下文有限&lt;/li&gt;
+&lt;li&gt;认识这些缺陷，才不会陷入「AI万能论」或「AI无用论」的两个极端&lt;/li&gt;
+&lt;/ul&gt;
+&lt;h2 id=&#34;思考题&#34;&gt;思考题
+&lt;/h2&gt;&lt;ol&gt;
+&lt;li&gt;如果 LLM 只是在做「概率续写」，为什么它能做对数学题？是「真正学会了」还是「模式匹配」？&lt;/li&gt;
+&lt;li&gt;涌现能力的出现，对人工智能研究意味着什么？它是否暗示了规模是通往通用智能的路径之一？&lt;/li&gt;
+&lt;/ol&gt;
+</description>
+        </item>
+        <item>
+        <title>第4章 AI落地基础术语扫盲</title>
+        <link>https://blog.irudder.me/ai/ped/Chapter04-AI-Implementation-Basic-Terms.html</link>
+        <pubDate>Thu, 22 Jan 2026 00:00:00 +0000</pubDate>
+        
+        <guid>https://blog.irudder.me/ai/ped/Chapter04-AI-Implementation-Basic-Terms.html</guid>
+        <description>&lt;h1 id=&#34;第4章-ai落地基础术语扫盲&#34;&gt;第4章 AI落地基础术语扫盲
+&lt;/h1&gt;&lt;blockquote&gt;
+&lt;p&gt;&lt;strong&gt;本章导读&lt;/strong&gt;&lt;/p&gt;
+&lt;p&gt;前三章建立了FDE的行业与路径认知。但许多读者卡在一个具体障碍上：术语听不懂。大模型、Agent、Skill、Tool、RAG、工作流、API、微调、向量数据库……这些词在方案文档里密密麻麻，让非技术背景者望而却步。&lt;/p&gt;
+&lt;p&gt;本章用图解+生活化类比，系统扫盲FDE工作中最常遇到的核心术语。每个术语都给出&amp;quot;通俗解释+技术原理+与FDE的关系&amp;quot;，确保你既能听懂、又能用对。读完本章，你应当能看懂基础方案文档，能在客户沟通中把技术术语翻译成客户语言。&lt;/p&gt;
+&lt;/blockquote&gt;
+&lt;hr&gt;
+&lt;h2 id=&#34;41-术语是工具不是门槛&#34;&gt;§4.1 术语是工具，不是门槛
+&lt;/h2&gt;&lt;p&gt;先破一个心态：术语不可怕，它只是行业里的&amp;quot;简称工具&amp;quot;。就像装修行业的&amp;quot;找平&amp;quot;&amp;ldquo;批腻子&amp;quot;&amp;ldquo;开槽&amp;rdquo;，外人听着陌生，本质都是具体动作。AI术语同理——每个词背后都是具体的功能或机制。&lt;/p&gt;
+&lt;p&gt;学术语的正确方式不是死记定义，而是&lt;strong&gt;理解它解决的问题+它的工作机制+它在FDE工作中怎么用&lt;/strong&gt;。本章就按这个三段式来讲。&lt;/p&gt;
+&lt;hr&gt;
+&lt;h2 id=&#34;42-大模型large-language-model-llm&#34;&gt;§4.2 大模型（Large Language Model, LLM）
+&lt;/h2&gt;&lt;h3 id=&#34;通俗解释&#34;&gt;通俗解释
+&lt;/h3&gt;&lt;p&gt;大模型像一个读了海量书、什么都能聊两句的&amp;quot;博学助手&amp;rdquo;。你问它问题，它根据读过的内容生成回答。但它有几个天生毛病：有时会一本正经地胡说（幻觉）、不知道你公司的内部事（无私有知识）、记不住太长的对话（上下文有限）。&lt;/p&gt;
+&lt;h3 id=&#34;技术原理&#34;&gt;技术原理
+&lt;/h3&gt;&lt;p&gt;大模型是基于Transformer架构、用海量文本训练出的统计预测模型。它的本质是&amp;quot;根据上文预测下一个词&amp;quot;。这个简单机制在海量数据与巨大参数量下，涌现出了语言理解、推理、生成等能力。&lt;/p&gt;
+&lt;p&gt;大模型的能力边界由三方面决定：&lt;/p&gt;
+&lt;ul&gt;
+&lt;li&gt;&lt;strong&gt;训练数据&lt;/strong&gt;：决定了它知道什么。&lt;/li&gt;
+&lt;li&gt;&lt;strong&gt;参数规模&lt;/strong&gt;：影响理解与推理的精细度。&lt;/li&gt;
+&lt;li&gt;&lt;strong&gt;对齐方式&lt;/strong&gt;：决定它回答的风格与边界。&lt;/li&gt;
+&lt;/ul&gt;
+&lt;h3 id=&#34;与fde的关系&#34;&gt;与FDE的关系
+&lt;/h3&gt;&lt;p&gt;FDE几乎每天都在调用大模型。理解大模型的能力边界，是判断&amp;quot;哪些任务能交给AI、哪些不能&amp;quot;的前提。FDE的核心工作之一，就是把客户需求拆解到大模型能力边界之内。&lt;/p&gt;
+&lt;blockquote&gt;
+&lt;p&gt;&lt;strong&gt;图4-1：大模型能力边界&lt;/strong&gt;
+（建议呈现：同心圆图。内圈&amp;quot;擅长&amp;quot;：文本生成、总结、分类、翻译、简单推理；外圈&amp;quot;不擅长&amp;quot;：实时信息、私有知识、精确计算、多步复杂逻辑、长时记忆。）&lt;/p&gt;
+&lt;/blockquote&gt;
+&lt;hr&gt;
+&lt;h2 id=&#34;43-幻觉时效隐私大模型三大局限&#34;&gt;§4.3 幻觉、时效、隐私：大模型三大局限
+&lt;/h2&gt;&lt;p&gt;大模型有三大局限，是FDE落地必须直面的。&lt;/p&gt;
+&lt;p&gt;&lt;strong&gt;局限一：幻觉（Hallucination）。&lt;/strong&gt; 大模型会编造看起来合理但实际错误的内容。比如被问&amp;quot;某公司2024年财报数据&amp;quot;，它可能编出一组数字。原因是它本质是预测下一个词，不是查数据库。应对：用RAG接入真实资料、用Prompt约束&amp;quot;不知道就说不知道&amp;quot;、关键信息人工复核。&lt;/p&gt;
+&lt;p&gt;&lt;strong&gt;局限二：时效性。&lt;/strong&gt; 大模型的训练数据有截止时间，之后发生的事它不知道。应对：用联网搜索能力、用RAG接入最新资料。&lt;/p&gt;
+&lt;p&gt;&lt;strong&gt;局限三：隐私与数据安全。&lt;/strong&gt; 直接把客户敏感数据发给公有模型有泄露风险。应对：用私有化部署、用数据脱敏、用合规的API通道。&lt;/p&gt;
+&lt;blockquote&gt;
+&lt;p&gt;&lt;strong&gt;方法论框4-1：大模型局限的FDE应对清单&lt;/strong&gt;&lt;/p&gt;
+&lt;table&gt;
+  &lt;thead&gt;
+      &lt;tr&gt;
+          &lt;th&gt;局限&lt;/th&gt;
+          &lt;th&gt;应对手段&lt;/th&gt;
+      &lt;/tr&gt;
+  &lt;/thead&gt;
+  &lt;tbody&gt;
+      &lt;tr&gt;
+          &lt;td&gt;幻觉&lt;/td&gt;
+          &lt;td&gt;RAG + Prompt约束 + 人工复核&lt;/td&gt;
+      &lt;/tr&gt;
+      &lt;tr&gt;
+          &lt;td&gt;时效&lt;/td&gt;
+          &lt;td&gt;联网搜索 + RAG接入最新资料&lt;/td&gt;
+      &lt;/tr&gt;
+      &lt;tr&gt;
+          &lt;td&gt;隐私&lt;/td&gt;
+          &lt;td&gt;私有化部署 + 数据脱敏 + 合规通道&lt;/td&gt;
+      &lt;/tr&gt;
+  &lt;/tbody&gt;
+&lt;/table&gt;
+&lt;/blockquote&gt;
+&lt;hr&gt;
+&lt;h2 id=&#34;44-agentskilltool&#34;&gt;§4.4 Agent、Skill、Tool
+&lt;/h2&gt;&lt;p&gt;这三个词是FDE工作的高频术语，三者关系常被混淆。&lt;/p&gt;
+&lt;h3 id=&#34;通俗解释-1&#34;&gt;通俗解释
+&lt;/h3&gt;&lt;p&gt;用一个&amp;quot;厨房团队&amp;quot;类比：&lt;/p&gt;
+&lt;ul&gt;
+&lt;li&gt;&lt;strong&gt;Agent（智能体）&lt;/strong&gt; = 厨师。能听懂&amp;quot;做一桌川菜&amp;quot;的指令，自己规划做菜流程并执行。&lt;/li&gt;
+&lt;li&gt;&lt;strong&gt;Skill（技能）&lt;/strong&gt; = 菜谱技能。比如&amp;quot;回锅肉技能&amp;quot;&amp;ldquo;麻婆豆腐技能&amp;rdquo;，是厨师会做的具体菜。&lt;/li&gt;
+&lt;li&gt;&lt;strong&gt;Tool（工具）&lt;/strong&gt; = 厨具。锅、刀、灶，是技能执行时调用的工具。&lt;/li&gt;
+&lt;/ul&gt;
+&lt;h3 id=&#34;三者关系&#34;&gt;三者关系
+&lt;/h3&gt;&lt;p&gt;Agent是大模型加上了&amp;quot;规划+执行&amp;quot;能力的封装。它接到任务后，会自主选择调用哪个Skill；Skill在执行时，会调用需要的Tool。&lt;/p&gt;
+&lt;blockquote&gt;
+&lt;p&gt;&lt;strong&gt;图4-2：Agent / Skill / Tool 层级关系&lt;/strong&gt;
+（建议呈现：树状图。顶层Agent，下挂多个Skill节点，每个Skill下挂若干Tool叶子。）&lt;/p&gt;
+&lt;/blockquote&gt;
+&lt;p&gt;用一次客户服务场景说明：&lt;/p&gt;
+&lt;ul&gt;
+&lt;li&gt;客户问&amp;quot;我的订单到哪了&amp;quot;。&lt;/li&gt;
+&lt;li&gt;Agent判断这是&amp;quot;订单查询&amp;quot;任务，调用&amp;quot;订单查询Skill&amp;quot;。&lt;/li&gt;
+&lt;li&gt;订单查询Skill调用&amp;quot;订单系统API&amp;quot;这个Tool，获取物流信息。&lt;/li&gt;
+&lt;li&gt;Agent把信息整理后回复客户。&lt;/li&gt;
+&lt;/ul&gt;
+&lt;h3 id=&#34;与fde的关系-1&#34;&gt;与FDE的关系
+&lt;/h3&gt;&lt;p&gt;FDE搭建AI能力模块，本质上就是在搭Agent、Skill、Tool的组合。本书第二篇会详细讲Skill设计与搭建。&lt;/p&gt;
+&lt;hr&gt;
+&lt;h2 id=&#34;45-rag检索增强生成&#34;&gt;§4.5 RAG（检索增强生成）
+&lt;/h2&gt;&lt;h3 id=&#34;通俗解释-2&#34;&gt;通俗解释
+&lt;/h3&gt;&lt;p&gt;RAG像一个&amp;quot;允许翻书的考试&amp;quot;。大模型本身不知道你公司的内部知识（没学过），直接问它会幻觉。RAG的做法是：先把你的内部资料切片存进知识库，客户提问时先去知识库检索相关片段，再把片段喂给大模型，让它基于真实资料回答。&lt;/p&gt;
+&lt;h3 id=&#34;技术原理-1&#34;&gt;技术原理
+&lt;/h3&gt;&lt;p&gt;RAG的核心流程：&lt;/p&gt;
+&lt;ol&gt;
+&lt;li&gt;&lt;strong&gt;入库&lt;/strong&gt;：把文档切成小块（chunk），用向量化模型转成向量，存入向量数据库。&lt;/li&gt;
+&lt;li&gt;&lt;strong&gt;检索&lt;/strong&gt;：用户提问时，把问题也向量化，在数据库里找最相似的片段。&lt;/li&gt;
+&lt;li&gt;&lt;strong&gt;生成&lt;/strong&gt;：把检索到的片段作为上下文，连同问题一起发给大模型，让它生成回答。&lt;/li&gt;
+&lt;/ol&gt;
+&lt;blockquote&gt;
+&lt;p&gt;&lt;strong&gt;图4-3：RAG工作流程&lt;/strong&gt;
+（建议呈现：横向流程图。文档→切片→向量化→向量库；用户问题→向量化→检索→片段+问题→大模型→回答。）&lt;/p&gt;
+&lt;/blockquote&gt;
+&lt;h3 id=&#34;与fde的关系-2&#34;&gt;与FDE的关系
+&lt;/h3&gt;&lt;p&gt;RAG是FDE落地最常用的技术之一，几乎所有&amp;quot;企业知识库&amp;quot;&amp;ldquo;智能客服&amp;quot;&amp;ldquo;文档问答&amp;quot;类项目都基于RAG。FDE要会配置RAG（切片策略、向量模型选择、检索调优），但不必自己写底层算法。&lt;/p&gt;
+&lt;hr&gt;
+&lt;h2 id=&#34;46-工作流workflow&#34;&gt;§4.6 工作流（Workflow）
+&lt;/h2&gt;&lt;h3 id=&#34;通俗解释-3&#34;&gt;通俗解释
+&lt;/h3&gt;&lt;p&gt;工作流像一条&amp;quot;AI流水线&amp;rdquo;。把一个复杂任务拆成多个环节，每个环节用对应的AI能力或工具处理，串联起来自动完成。&lt;/p&gt;
+&lt;h3 id=&#34;与单次大模型调用的区别&#34;&gt;与单次大模型调用的区别
+&lt;/h3&gt;&lt;p&gt;单次大模型调用是&amp;quot;一问一答&amp;rdquo;，适合简单任务。工作流是&amp;quot;多步串联&amp;quot;，适合需要多个环节协同的复杂任务。&lt;/p&gt;
+&lt;p&gt;举个例子，&amp;ldquo;自动生成客户跟进邮件&amp;rdquo;：&lt;/p&gt;
+&lt;ul&gt;
+&lt;li&gt;单次调用：把客户信息直接喂给大模型，让它写邮件。质量一般，缺个性化。&lt;/li&gt;
+&lt;li&gt;工作流：①查询客户历史互动→②大模型分析客户偏好→③大模型生成邮件草稿→④大模型润色→⑤发送。每步专注一件事，质量更高。&lt;/li&gt;
+&lt;/ul&gt;
+&lt;h3 id=&#34;与fde的关系-3&#34;&gt;与FDE的关系
+&lt;/h3&gt;&lt;p&gt;工作流编排是FDE的核心技能之一。本书第9章会详细讲工作流自动化落地。&lt;/p&gt;
+&lt;hr&gt;
+&lt;h2 id=&#34;47-api应用程序接口&#34;&gt;§4.7 API（应用程序接口）
+&lt;/h2&gt;&lt;h3 id=&#34;通俗解释-4&#34;&gt;通俗解释
+&lt;/h3&gt;&lt;p&gt;API像一个&amp;quot;插座&amp;quot;。你想用电，不需要自己发电，把插头插进插座就行。大模型厂商提供API，你不需要自己训练模型，调用API就能用上它的能力。&lt;/p&gt;
+&lt;h3 id=&#34;关键概念&#34;&gt;关键概念
+&lt;/h3&gt;&lt;ul&gt;
+&lt;li&gt;&lt;strong&gt;调用&lt;/strong&gt;：通过API发送请求，获取模型响应。&lt;/li&gt;
+&lt;li&gt;&lt;strong&gt;Token&lt;/strong&gt;：大模型计费与上下文计量的单位，大约1个汉字≈1.5-2个token。&lt;/li&gt;
+&lt;li&gt;&lt;strong&gt;上下文窗口&lt;/strong&gt;：模型一次能处理的文本长度上限，超出需截断或分段。&lt;/li&gt;
+&lt;li&gt;&lt;strong&gt;Rate Limit&lt;/strong&gt;：调用频率限制，超限会被限流。&lt;/li&gt;
+&lt;/ul&gt;
+&lt;h3 id=&#34;与fde的关系-4&#34;&gt;与FDE的关系
+&lt;/h3&gt;&lt;p&gt;FDE用零代码平台时，平台已经封装了API调用，FDE不直接写代码调API。但理解API、Token、上下文这些概念，对估算成本、设计Prompt、排查问题至关重要。&lt;/p&gt;
+&lt;blockquote&gt;
+&lt;p&gt;&lt;strong&gt;方法论框4-2：FDE必须懂的API基础概念&lt;/strong&gt;&lt;/p&gt;
+&lt;ul&gt;
+&lt;li&gt;调用：发请求得响应&lt;/li&gt;
+&lt;li&gt;Token：计费与计量单位&lt;/li&gt;
+&lt;li&gt;上下文窗口：单次处理上限&lt;/li&gt;
+&lt;li&gt;Rate Limit：调用频率限制&lt;/li&gt;
+&lt;li&gt;这四个概念直接影响成本估算、Prompt设计与方案可行性判断。&lt;/li&gt;
+&lt;/ul&gt;
+&lt;/blockquote&gt;
+&lt;hr&gt;
+&lt;h2 id=&#34;48-微调fine-tuning与向量数据库&#34;&gt;§4.8 微调（Fine-tuning）与向量数据库
+&lt;/h2&gt;&lt;p&gt;这两个术语FDE未必直接操作，但常在方案讨论中出现，需要听懂。&lt;/p&gt;
+&lt;h3 id=&#34;微调&#34;&gt;微调
+&lt;/h3&gt;&lt;p&gt;微调是在通用大模型基础上，用特定领域数据继续训练，让它在某领域表现更好。类比：大模型是大学毕业生，微调是给他做岗前培训。&lt;/p&gt;
+&lt;p&gt;&lt;strong&gt;与RAG的区别&lt;/strong&gt;：RAG是&amp;quot;翻书&amp;quot;（临时查资料），微调是&amp;quot;上学&amp;quot;（长期改变模型本身）。RAG适合频繁变化的知识，微调适合稳定的风格或领域特性。FDE落地以RAG为主，微调较少（成本高、周期长）。&lt;/p&gt;
+&lt;h3 id=&#34;向量数据库&#34;&gt;向量数据库
+&lt;/h3&gt;&lt;p&gt;向量数据库是专门存储与检索向量的数据库，是RAG的存储基础设施。常见产品有Milvus、Pinecone、Chroma等。FDE通常不直接运维向量数据库，但要知道它在RAG里的角色，以便与算法团队沟通。&lt;/p&gt;
+&lt;hr&gt;
+&lt;h2 id=&#34;49-ai落地的四类典型场景&#34;&gt;§4.9 AI落地的四类典型场景
+&lt;/h2&gt;&lt;p&gt;把上述术语串起来，看AI落地的四类典型场景。FDE的绝大多数项目都属于这四类之一。&lt;/p&gt;
+&lt;blockquote&gt;
+&lt;p&gt;&lt;strong&gt;图4-4：AI落地四类场景&lt;/strong&gt;
+（建议呈现：四象限图。横轴&amp;quot;输入结构化程度&amp;quot;，纵轴&amp;quot;输出自由度&amp;quot;。四象限分别标注四类场景。）&lt;/p&gt;
+&lt;/blockquote&gt;
+&lt;p&gt;&lt;strong&gt;第一类：信息整理类。&lt;/strong&gt; 输入结构化、输出受限。如：会议纪要生成、文档摘要、数据分类。难度低，适合入门。&lt;/p&gt;
+&lt;p&gt;&lt;strong&gt;第二类：内容生成类。&lt;/strong&gt; 输入结构化、输出自由。如：营销文案生成、邮件草稿、报告初稿。难度中，Prompt工程是关键。&lt;/p&gt;
+&lt;p&gt;&lt;strong&gt;第三类：知识问答类。&lt;/strong&gt; 输入半结构化、输出受限。如：企业知识库问答、客服FAQ、合规咨询。RAG是核心技术。&lt;/p&gt;
+&lt;p&gt;&lt;strong&gt;第四类：流程自动化类。&lt;/strong&gt; 多环节串联、跨系统协同。如：获客工作流、报表自动化、工单分类与派单。工作流编排是核心。&lt;/p&gt;
+&lt;p&gt;FDE入门通常从第一类做起，逐步进阶到第四类。&lt;/p&gt;
+&lt;hr&gt;
+&lt;h2 id=&#34;410-术语转译fde的必备能力&#34;&gt;§4.10 术语转译：FDE的必备能力
+&lt;/h2&gt;&lt;p&gt;光懂术语不够，FDE还要能把术语翻译成客户能懂的话。这是一项被低估的核心能力。&lt;/p&gt;
+&lt;blockquote&gt;
+&lt;p&gt;&lt;strong&gt;方法论框4-3：术语转译三步法&lt;/strong&gt;&lt;/p&gt;
+&lt;ol&gt;
+&lt;li&gt;&lt;strong&gt;去术语&lt;/strong&gt;：把技术名词换成生活名词（如&amp;quot;RAG&amp;quot;→&amp;ldquo;给AI配个可翻的资料库&amp;rdquo;）。&lt;/li&gt;
+&lt;li&gt;&lt;strong&gt;接场景&lt;/strong&gt;：用客户自己的业务场景举例（如对零售客户说&amp;quot;就像你店员遇到不熟悉的商品，先翻库存表再回答顾客&amp;quot;）。&lt;/li&gt;
+&lt;li&gt;&lt;strong&gt;说价值&lt;/strong&gt;：最后落到对客户的价值（如&amp;quot;这样AI就不会乱编，回答都基于你的真实资料&amp;quot;）。&lt;/li&gt;
+&lt;/ol&gt;
+&lt;/blockquote&gt;
+&lt;p&gt;举一个转译实例：&lt;/p&gt;
+&lt;ul&gt;
+&lt;li&gt;技术话：&amp;ldquo;我们用RAG接入您的知识库，通过向量检索召回相关片段，再由大模型生成回答，降低幻觉风险。&amp;rdquo;&lt;/li&gt;
+&lt;li&gt;转译后：&amp;ldquo;我们会把您公司的资料整理成一个AI能随时翻阅的资料库。客户提问时，AI先去资料库找相关内容，再基于真实资料回答，不会胡编。&amp;rdquo;&lt;/li&gt;
+&lt;/ul&gt;
+&lt;p&gt;后者客户听得懂、记得住、愿意付费。这就是术语转译的价值。&lt;/p&gt;
+&lt;hr&gt;
+&lt;h2 id=&#34;本章小结&#34;&gt;本章小结
+&lt;/h2&gt;&lt;ol&gt;
+&lt;li&gt;&lt;strong&gt;大模型&lt;/strong&gt;：博学但有幻觉、时效、隐私三大局限，FDE要用RAG、Prompt约束、私有化部署应对。&lt;/li&gt;
+&lt;li&gt;&lt;strong&gt;Agent/Skill/Tool&lt;/strong&gt;：Agent是厨师、Skill是菜谱技能、Tool是厨具，三者层级关系清晰。&lt;/li&gt;
+&lt;li&gt;&lt;strong&gt;RAG&lt;/strong&gt;：允许翻书的考试，企业知识库类项目的核心技术。&lt;/li&gt;
+&lt;li&gt;&lt;strong&gt;工作流&lt;/strong&gt;：AI流水线，多步串联处理复杂任务。&lt;/li&gt;
+&lt;li&gt;&lt;strong&gt;API&lt;/strong&gt;：AI的插座，Token与上下文是成本与设计的关键概念。&lt;/li&gt;
+&lt;li&gt;&lt;strong&gt;四类场景&lt;/strong&gt;：信息整理、内容生成、知识问答、流程自动化，FDE项目基本归属其一。&lt;/li&gt;
+&lt;li&gt;&lt;strong&gt;术语转译&lt;/strong&gt;：去术语+接场景+说价值，是FDE的核心能力。&lt;/li&gt;
+&lt;/ol&gt;
+&lt;hr&gt;
+&lt;h2 id=&#34;思考题&#34;&gt;思考题
+&lt;/h2&gt;&lt;ol&gt;
+&lt;li&gt;用自己的类比重新解释Agent/Skill/Tool，确保一个完全不懂技术的人能听懂。&lt;/li&gt;
+&lt;li&gt;找一份真实AI方案文档，标注其中的术语，用术语转译三步法把其中3句技术话翻译成客户话。&lt;/li&gt;
+&lt;li&gt;观察你工作中一个重复任务，判断它属于四类场景的哪类，说明理由。&lt;/li&gt;
+&lt;li&gt;解释RAG与微调的区别，并说明什么场景该用哪个。&lt;/li&gt;
+&lt;/ol&gt;
+&lt;hr&gt;
+&lt;h2 id=&#34;延伸阅读&#34;&gt;延伸阅读
+&lt;/h2&gt;&lt;ul&gt;
+&lt;li&gt;本书第7章将深入AI技术基础与工具选型，是本章的进阶延伸。&lt;/li&gt;
+&lt;li&gt;第8章讲Prompt工程与Skill搭建，可与本章Agent/Skill部分对照。&lt;/li&gt;
+&lt;li&gt;各大模型厂商的官方文档（用于刷新术语的最新定义与能力边界）。&lt;/li&gt;
+&lt;/ul&gt;
+&lt;hr&gt;
+&lt;blockquote&gt;
+&lt;p&gt;&lt;strong&gt;第一篇结束。&lt;/strong&gt; 完成本篇四章，你已建立FDE的行业认知、岗位边界、入行路径与术语基础。第二篇将进入实战，从工作方法论开始，逐步掌握FDE的基础工作流。&lt;/p&gt;
+&lt;/blockquote&gt;
+</description>
+        </item>
+        
+    </channel>
+</rss>

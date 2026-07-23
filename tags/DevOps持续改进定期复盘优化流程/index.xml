@@ -1,0 +1,139 @@
+<?xml version="1.0" encoding="utf-8" standalone="yes"?>
+<rss version="2.0" xmlns:atom="http://www.w3.org/2005/Atom">
+    <channel>
+        <title>DevOps持续改进：定期复盘优化流程 on SelfTechHub</title>
+        <link>https://blog.irudder.me/tags/DevOps%E6%8C%81%E7%BB%AD%E6%94%B9%E8%BF%9B%E5%AE%9A%E6%9C%9F%E5%A4%8D%E7%9B%98%E4%BC%98%E5%8C%96%E6%B5%81%E7%A8%8B.html</link>
+        <description>Recent content in DevOps持续改进：定期复盘优化流程 on SelfTechHub</description>
+        <generator>Hugo -- gohugo.io</generator>
+        <language>zh-cn</language>
+        <lastBuildDate>Tue, 15 Aug 2023 00:00:00 +0000</lastBuildDate><atom:link href="https://blog.irudder.me/tags/DevOps%E6%8C%81%E7%BB%AD%E6%94%B9%E8%BF%9B%E5%AE%9A%E6%9C%9F%E5%A4%8D%E7%9B%98%E4%BC%98%E5%8C%96%E6%B5%81%E7%A8%8B/index.xml" rel="self" type="application/rss+xml" /><item>
+        <title>小团队别因DevOps内耗：复盘3次换来的效率真相</title>
+        <link>https://blog.irudder.me/tech/zhongxiaoxingtuanduidevopsluodifangan/devopschixugaijin_dingqifupanyouhualiucheng.html</link>
+        <pubDate>Tue, 15 Aug 2023 00:00:00 +0000</pubDate>
+        
+        <guid>https://blog.irudder.me/tech/zhongxiaoxingtuanduidevopsluodifangan/devopschixugaijin_dingqifupanyouhualiucheng.html</guid>
+        <description>&lt;p&gt;我还记得三年前那个周五的下午，那是所有运维和开发人员的噩梦时刻。&lt;/p&gt;
+&lt;p&gt;下午4点50分，我们自信满满地按下了发布按钮。十分钟后，用户群里的报错截图像雪花一样飞来，CTO站在我的工位后面，整个办公室安静得只剩下键盘急促的敲击声。那次事故后，我陷入了深深的自我怀疑：&lt;strong&gt;明明我们引入了Jenkins，也搭建了自动化脚本，为什么还是会“翻车”？&lt;/strong&gt;&lt;/p&gt;
+&lt;p&gt;很长一段时间里，我都以为DevOps就是买更好的服务器、写更复杂的流水线脚本。直到带着团队踩过无数个坑，经历了几次痛苦的复盘，我才意识到：&lt;strong&gt;DevOps不是一套冰冷的工具链，而是一场关于信任、复盘与持续改进的温和革命。&lt;/strong&gt;&lt;/p&gt;
+&lt;p&gt;如果你身处一个没有专职运维的中小团队，既要赶业务进度，又要背负系统稳定的压力，希望这篇文章能给你一些温暖的抚慰和实用的解法。&lt;/p&gt;
+&lt;h2 id=&#34;拒绝工具崇拜回归极简主义&#34;&gt;拒绝“工具崇拜”，回归极简主义
+&lt;/h2&gt;&lt;p&gt;&lt;img src=&#34;https://picsum.photos/800/450?random=1768390652865&#34;
+	
+	
+	
+	loading=&#34;lazy&#34;
+	
+		alt=&#34;配图&#34;
+	
+	
+&gt;&lt;/p&gt;
+&lt;p&gt;在这个行业里观察久了，我发现中小团队最大的内耗，往往源于“配不上大厂架构”的焦虑。&lt;/p&gt;
+&lt;p&gt;我曾见过一个10人的初创团队，技术负责人因为崇拜Google的架构，坚持要上全套Kubernetes（K8s）微服务体系。结果呢？他们没有专职SRE，开发人员每天花30%的时间在调试容器网络和YAML文件上，业务迭代速度反而慢如蜗牛。&lt;/p&gt;
+&lt;blockquote&gt;
+&lt;p&gt;“我们以为穿上了大人的西装就会变强，结果只是被绊倒了。”&lt;/p&gt;
+&lt;/blockquote&gt;
+&lt;p&gt;&lt;strong&gt;真实的案例是这样的：&lt;/strong&gt;
+我的朋友老张，在一个做SaaS电商的小团队。去年他们痛定思痛，砍掉了复杂的容器编排，回归到最朴素的架构：&lt;/p&gt;
+&lt;ol&gt;
+&lt;li&gt;&lt;strong&gt;代码托管&lt;/strong&gt;：GitLab&lt;/li&gt;
+&lt;li&gt;&lt;strong&gt;CI/CD&lt;/strong&gt;：简单的GitLab Runner + Shell脚本&lt;/li&gt;
+&lt;li&gt;&lt;strong&gt;部署&lt;/strong&gt;：利用Ansible将构建好的包推送到传统的ECS服务器。&lt;/li&gt;
+&lt;/ol&gt;
+&lt;p&gt;&lt;strong&gt;结果？&lt;/strong&gt;
+虽然看起来“土”，但他们的部署成功率从85%提升到了99%，新员工入职半天就能看懂部署流程。&lt;/p&gt;
+&lt;p&gt;&lt;strong&gt;我的建议：&lt;/strong&gt;
+对于中小团队，&lt;strong&gt;“够用”就是最好的DevOps&lt;/strong&gt;。不要为了DevOps而DevOps。&lt;/p&gt;
+&lt;ul&gt;
+&lt;li&gt;如果你的服务器少于20台，写好Shell脚本比搭一套K8s集群更管用。&lt;/li&gt;
+&lt;li&gt;如果Docker让你感到吃力，直接跑二进制文件也不丢人。&lt;/li&gt;
+&lt;li&gt;&lt;strong&gt;核心逻辑&lt;/strong&gt;：自动化那些每天重复超过3次的动作，而不是自动化整个宇宙。&lt;/li&gt;
+&lt;/ul&gt;
+&lt;div class=&#34;highlight&#34;&gt;&lt;pre tabindex=&#34;0&#34; style=&#34;color:#f8f8f2;background-color:#272822;-moz-tab-size:4;-o-tab-size:4;tab-size:4;&#34;&gt;&lt;code class=&#34;language-bash&#34; data-lang=&#34;bash&#34;&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;&lt;span style=&#34;color:#75715e&#34;&gt;# 哪怕只是这样一个简单的deploy.sh，只要能固化流程，就是好的DevOps&lt;/span&gt;
+&lt;/span&gt;&lt;/span&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;&lt;span style=&#34;color:#75715e&#34;&gt;#!/bin/bash&lt;/span&gt;
+&lt;/span&gt;&lt;/span&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;echo &lt;span style=&#34;color:#e6db74&#34;&gt;&amp;#34;Start Deployment...&amp;#34;&lt;/span&gt;
+&lt;/span&gt;&lt;/span&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;git pull origin main
+&lt;/span&gt;&lt;/span&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;npm install
+&lt;/span&gt;&lt;/span&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;pm2 reload all
+&lt;/span&gt;&lt;/span&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;echo &lt;span style=&#34;color:#e6db74&#34;&gt;&amp;#34;Deployment Finished at &lt;/span&gt;&lt;span style=&#34;color:#66d9ef&#34;&gt;$(&lt;/span&gt;date&lt;span style=&#34;color:#66d9ef&#34;&gt;)&lt;/span&gt;&lt;span style=&#34;color:#e6db74&#34;&gt;&amp;#34;&lt;/span&gt;
+&lt;/span&gt;&lt;/span&gt;&lt;/code&gt;&lt;/pre&gt;&lt;/div&gt;&lt;p&gt;&lt;strong&gt;想一想：你的团队里，是不是也有因为工具过于复杂而导致的“假性繁忙”？&lt;/strong&gt;&lt;/p&gt;
+&lt;h2 id=&#34;把甩锅大会变成只有事没有人&#34;&gt;把“甩锅大会”变成“只有事，没有人”
+&lt;/h2&gt;&lt;p&gt;技术复盘（Retrospective）是DevOps的灵魂，但在很多公司，它变成了“分锅大会”。&lt;/p&gt;
+&lt;p&gt;“这次Bug是谁写的？”“测试为什么没测出来？”
+当这种指责出现时，人们的本能反应是防御和隐瞒。&lt;strong&gt;恐惧是DevOps最大的敌人。&lt;/strong&gt;&lt;/p&gt;
+&lt;p&gt;去年，我们团队发生了一次严重的线上配置丢失事故。按照以往的惯例，这得有人扣绩效。但我当时尝试了一个新的做法——&lt;strong&gt;无指责复盘（Blameless Post-mortem）&lt;/strong&gt;。&lt;/p&gt;
+&lt;p&gt;&lt;strong&gt;具体场景：&lt;/strong&gt;
+周一下午的例会，我们没有问“谁干的”，而是围在一起画白板。&lt;/p&gt;
+&lt;ul&gt;
+&lt;li&gt;&lt;strong&gt;现象&lt;/strong&gt;：生产环境数据库连接断开。&lt;/li&gt;
+&lt;li&gt;&lt;strong&gt;直接原因&lt;/strong&gt;：配置文件在发布时被覆盖为空。&lt;/li&gt;
+&lt;li&gt;&lt;strong&gt;根本原因（5 Whys）&lt;/strong&gt;：
+&lt;ul&gt;
+&lt;li&gt;为什么被覆盖？因为发布脚本里有一行 &lt;code&gt;cp config.prod.json&lt;/code&gt; 命令失效。&lt;/li&gt;
+&lt;li&gt;为什么失效？因为本地开发环境没有这个文件，CI环境也没有校验机制。&lt;/li&gt;
+&lt;li&gt;为什么没校验？因为我们太依赖人工检查Log。&lt;/li&gt;
+&lt;/ul&gt;
+&lt;/li&gt;
+&lt;/ul&gt;
+&lt;p&gt;&lt;strong&gt;改进方案&lt;/strong&gt;：
+我们没有惩罚那个写错代码的实习生，而是在CI流程里加了一行代码：&lt;strong&gt;如果配置文件不存在或为空，直接阻断发布流程。&lt;/strong&gt;&lt;/p&gt;
+&lt;p&gt;&lt;strong&gt;结果&lt;/strong&gt;：
+那个实习生后来成为了团队里对质量把控最严的人。大家开始敢于说出自己的失误，因为他们知道，说出来是为了&lt;strong&gt;优化流程&lt;/strong&gt;，而不是&lt;strong&gt;被公审&lt;/strong&gt;。&lt;/p&gt;
+&lt;p&gt;&lt;strong&gt;落地方法&lt;/strong&gt;：
+下次复盘时，试着把主语从“你/他”换成“流程/系统”。&lt;/p&gt;
+&lt;ul&gt;
+&lt;li&gt;❌ “小王忘了检查配置。”&lt;/li&gt;
+&lt;li&gt;✅ “发布流程中缺少了配置检查的自动化步骤。”&lt;/li&gt;
+&lt;/ul&gt;
+&lt;h2 id=&#34;周期性还债给焦虑按下暂停键&#34;&gt;周期性“还债”，给焦虑按下暂停键
+&lt;/h2&gt;&lt;p&gt;很多技术负责人和我在聊天时都会提到一种无力感：业务需求排得满满的，明知道系统有隐患，就是没时间改，像是在这辆高速行驶的破车上换轮子。&lt;/p&gt;
+&lt;p&gt;&lt;img src=&#34;https://picsum.photos/800/450?random=1768390654262&#34;
+	
+	
+	
+	loading=&#34;lazy&#34;
+	
+		alt=&#34;配图&#34;
+	
+	
+&gt;&lt;/p&gt;
+&lt;p&gt;这种焦虑是真实的，但并非无解。&lt;/p&gt;
+&lt;p&gt;我曾带过的一个团队，实行了**“技术周五”**制度。这并不是什么高大上的概念，就是很简单的一个约定：
+&lt;strong&gt;每周五下午，不接新需求，不发布新版本。&lt;/strong&gt;&lt;/p&gt;
+&lt;p&gt;&lt;strong&gt;我们利用这段时间做什么？&lt;/strong&gt;&lt;/p&gt;
+&lt;ul&gt;
+&lt;li&gt;&lt;strong&gt;修缮&lt;/strong&gt;：把那些虽然不报错但看着难受的代码重构一下。&lt;/li&gt;
+&lt;li&gt;&lt;strong&gt;自动化&lt;/strong&gt;：把这周手动操作过两次以上的任务写成脚本。&lt;/li&gt;
+&lt;li&gt;&lt;strong&gt;文档&lt;/strong&gt;：把脑子里的部署步骤写进Wiki。&lt;/li&gt;
+&lt;/ul&gt;
+&lt;p&gt;有一个真实的细节：我有一位运维同事，之前每天都要帮开发查日志，烦不胜烦。在一个“技术周五”，他花了两小时搭建了一个简易的ELK（日志分析系统）面板，把查询权限开放给开发。
+&lt;strong&gt;结果&lt;/strong&gt;：第二周他的被打断次数减少了80%。&lt;/p&gt;
+&lt;p&gt;&lt;strong&gt;底层逻辑&lt;/strong&gt;：
+DevOps本质上是一种&lt;strong&gt;投资思维&lt;/strong&gt;。你必须从繁重的业务中强行挤出一点时间来“磨刀”。虽然短期看少写了半天代码，但长期看，你规避了未来可能因为混乱而浪费的无数个通宵。&lt;/p&gt;
+&lt;blockquote&gt;
+&lt;p&gt;“持续改进不是要你一口吃成胖子，而是每天进步一点点，直到量变引起质变。”&lt;/p&gt;
+&lt;/blockquote&gt;
+&lt;h2 id=&#34;结语在不完美中前行&#34;&gt;结语：在不完美中前行
+&lt;/h2&gt;&lt;p&gt;写到最后，我想告诉你的是，&lt;strong&gt;世界上不存在完美的DevOps流程。&lt;/strong&gt;&lt;/p&gt;
+&lt;p&gt;哪怕是Google、Netflix这样的巨头，他们的系统也会挂，流程也会有漏洞。作为中小团队的我们，不必因为当下的混乱而感到羞愧。DevOps的真谛不在于你用了多么昂贵的工具，而在于&lt;strong&gt;当问题发生时，你们团队是选择互相指责，还是选择坐下来，一起把这个坑填平，保证下次不再掉进去。&lt;/strong&gt;&lt;/p&gt;
+&lt;p&gt;&lt;img src=&#34;https://picsum.photos/800/450?random=1768390646237&#34;
+	
+	
+	
+	loading=&#34;lazy&#34;
+	
+		alt=&#34;配图&#34;
+	
+	
+&gt;&lt;/p&gt;
+&lt;p&gt;&lt;strong&gt;给你的3个落地行动建议：&lt;/strong&gt;&lt;/p&gt;
+&lt;ol&gt;
+&lt;li&gt;&lt;strong&gt;建立“停机坪”机制&lt;/strong&gt;：哪怕再忙，每周抽出&lt;strong&gt;1小时&lt;/strong&gt;作为团队的内部复盘或技术优化时间，雷打不动。&lt;/li&gt;
+&lt;li&gt;&lt;strong&gt;实施“一次性豁免”&lt;/strong&gt;：公开宣布，任何人犯的任何技术错误，只要是第一次且主动上报，&lt;strong&gt;免责&lt;/strong&gt;。但要求必须产出改进措施（代码或文档）。&lt;/li&gt;
+&lt;li&gt;&lt;strong&gt;从“脚本化”开始&lt;/strong&gt;：这周就去找一个你觉得最麻烦的手工操作（比如SSH连服务器重启服务），把它变成一个一键执行的脚本。&lt;/li&gt;
+&lt;/ol&gt;
+&lt;p&gt;愿你的每一次发布都如丝般顺滑，愿你的团队在复盘中日益强大。别急，慢慢来，比较快。&lt;/p&gt;
+</description>
+        </item>
+        
+    </channel>
+</rss>

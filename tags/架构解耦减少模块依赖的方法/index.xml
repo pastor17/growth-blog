@@ -1,0 +1,124 @@
+<?xml version="1.0" encoding="utf-8" standalone="yes"?>
+<rss version="2.0" xmlns:atom="http://www.w3.org/2005/Atom">
+    <channel>
+        <title>架构解耦：减少模块依赖的方法 on SelfTechHub</title>
+        <link>https://blog.irudder.me/tags/%E6%9E%B6%E6%9E%84%E8%A7%A3%E8%80%A6%E5%87%8F%E5%B0%91%E6%A8%A1%E5%9D%97%E4%BE%9D%E8%B5%96%E7%9A%84%E6%96%B9%E6%B3%95.html</link>
+        <description>Recent content in 架构解耦：减少模块依赖的方法 on SelfTechHub</description>
+        <generator>Hugo -- gohugo.io</generator>
+        <language>zh-cn</language>
+        <lastBuildDate>Sat, 23 Sep 2023 00:00:00 +0000</lastBuildDate><atom:link href="https://blog.irudder.me/tags/%E6%9E%B6%E6%9E%84%E8%A7%A3%E8%80%A6%E5%87%8F%E5%B0%91%E6%A8%A1%E5%9D%97%E4%BE%9D%E8%B5%96%E7%9A%84%E6%96%B9%E6%B3%95/index.xml" rel="self" type="application/rss+xml" /><item>
+        <title>拒绝&#34;分布式大泥球&#34;：中小团队低成本解耦实战</title>
+        <link>https://blog.irudder.me/tech/zhongxiaoxingxiangmujiagoushejizhinan/jiagoujieou_jianshaomokuaiyilaidefangfa.html</link>
+        <pubDate>Sat, 23 Sep 2023 00:00:00 +0000</pubDate>
+        
+        <guid>https://blog.irudder.me/tech/zhongxiaoxingxiangmujiagoushejizhinan/jiagoujieou_jianshaomokuaiyilaidefangfa.html</guid>
+        <description>&lt;p&gt;三年前的一个周五下午，我正准备合上电脑去过周末，监控群突然炸了。&lt;/p&gt;
+&lt;p&gt;起因看似荒谬：新来的实习生在底层通用的 &lt;code&gt;common-utils&lt;/code&gt; 包里，修改了一个关于用户状态的枚举值（Enum），仅仅是想给营销活动加个新状态。结果，负责订单服务的核心链路直接报错——因为订单服务引用了这个通用包，但没有及时重新编译发布，序列化版本不一致，导致整个下单接口 500 错误。&lt;/p&gt;
+&lt;p&gt;那时候我才意识到，我们所谓的&amp;quot;微服务架构&amp;quot;，其实是个骗局。我们只是把代码拆到了不同的仓库里，但实际上，通过无数个共享的 Jar 包、直连的数据库表、深不见底的 RPC 调用链，构建出了一个更难维护的**&amp;ldquo;分布式大泥球&amp;rdquo;**。&lt;/p&gt;
+&lt;p&gt;这也是很多中小团队架构师最头疼的问题：&lt;strong&gt;想拆分，怕改不动；不拆分，牵一发而动全身。&lt;/strong&gt;&lt;/p&gt;
+&lt;p&gt;今天不谈高大上的 DDD 理论，只聊聊我在一线&amp;quot;填坑&amp;quot;这几年总结出来的三个低成本、高回报的解耦策略。&lt;/p&gt;
+&lt;h2 id=&#34;二-警惕伪复用别让-common-包成为垃圾场&#34;&gt;二、 警惕&amp;quot;伪复用&amp;quot;：别让 Common 包成为垃圾场
+&lt;/h2&gt;&lt;p&gt;很多团队为了追求&amp;quot;代码复用&amp;quot;，恨不得把所有的 DTO、枚举、工具类都塞进一个 &lt;code&gt;common.jar&lt;/code&gt; 里。只要这个包一更新，几十个服务都要跟着重新发版，这哪里是解耦，这是&lt;strong&gt;物理绑定&lt;/strong&gt;。&lt;/p&gt;
+&lt;p&gt;&lt;img src=&#34;https://picsum.photos/800/450?random=1768456943056&#34;
+	
+	
+	
+	loading=&#34;lazy&#34;
+	
+		alt=&#34;配图&#34;
+	
+	
+&gt;&lt;/p&gt;
+&lt;h3 id=&#34;真实踩坑案例&#34;&gt;真实踩坑案例
+&lt;/h3&gt;&lt;p&gt;2022年，我们在重构会员系统时，发现了一个叫 &lt;code&gt;UserDTO&lt;/code&gt; 的对象被定义在公共包里。在这个 DTO 里，既有支付需要的 &lt;code&gt;bankCardId&lt;/code&gt;，又有营销需要的 &lt;code&gt;couponList&lt;/code&gt;，还有客服需要的 &lt;code&gt;lastLoginTime&lt;/code&gt;。&lt;/p&gt;
+&lt;p&gt;某次营销活动，开发同学给 &lt;code&gt;couponList&lt;/code&gt; 的逻辑加了个复杂的校验注解。结果，支付服务只是单纯引用了这个对象做数据透传，根本不需要校验优惠券，却因为引入了新的依赖包（校验库版本冲突），导致支付服务启动失败。排查依赖冲突花了整整4个小时，当晚所有人的心态都崩了。&lt;/p&gt;
+&lt;h3 id=&#34;硬核解法去中心化复用&#34;&gt;硬核解法：去中心化复用
+&lt;/h3&gt;&lt;p&gt;在那次事故后，我给团队定了一条死规矩：&lt;strong&gt;业务逻辑对象，严禁放入 Common 包。&lt;/strong&gt;&lt;/p&gt;
+&lt;p&gt;我们采取了看似&amp;quot;反常识&amp;quot;的做法：&lt;strong&gt;允许适当的代码冗余。&lt;/strong&gt;&lt;/p&gt;
+&lt;p&gt;&lt;img src=&#34;https://picsum.photos/800/450?random=1768456943270&#34;
+	
+	
+	
+	loading=&#34;lazy&#34;
+	
+		alt=&#34;配图&#34;
+	
+	
+&gt;&lt;/p&gt;
+&lt;ol&gt;
+&lt;li&gt;&lt;strong&gt;纯粹的工具类&lt;/strong&gt;（如 StringUtil、加密算法）保留在 Common 包。&lt;/li&gt;
+&lt;li&gt;&lt;strong&gt;业务对象（POJO/DTO）&lt;/strong&gt;，哪怕长得一模一样，也要在各自的服务里自己定义。&lt;/li&gt;
+&lt;li&gt;&lt;strong&gt;枚举值&lt;/strong&gt;，如果在不同服务含义略有不同，必须拆分。&lt;/li&gt;
+&lt;/ol&gt;
+&lt;p&gt;你会问，这不是重复造轮子吗？&lt;strong&gt;是的，但为了解耦，这点&amp;quot;复制粘贴&amp;quot;的成本远低于&amp;quot;全站爆炸&amp;quot;的风险。&lt;/strong&gt;&lt;/p&gt;
+&lt;blockquote&gt;
+&lt;p&gt;你有没有发现，你的项目中修改一个字段，需要在五六个仓库里同步改代码？这就是典型的耦合报警信号。&lt;/p&gt;
+&lt;/blockquote&gt;
+&lt;h2 id=&#34;三-斩断数据直连你的数据库不是-api&#34;&gt;三、 斩断&amp;quot;数据直连&amp;quot;：你的数据库不是 API
+&lt;/h2&gt;&lt;p&gt;在中小团队，最快的数据获取方式是什么？直接连对方的数据库查表。
+&amp;ldquo;我就 Join 一下这张表，不做修改，应该没事吧？&amp;rdquo; —— 这句话通常是噩梦的开始。&lt;/p&gt;
+&lt;h3 id=&#34;真实踩坑案例-1&#34;&gt;真实踩坑案例
+&lt;/h3&gt;&lt;p&gt;我们有一个&amp;quot;积分服务&amp;quot;，逻辑是用户下单成功后计算积分。起初，积分服务直接去查&amp;quot;订单库&amp;quot;的 &lt;code&gt;order_table&lt;/code&gt;。&lt;/p&gt;
+&lt;p&gt;随着双十一流量洪峰到来，订单团队为了优化写入性能，对 &lt;code&gt;order_table&lt;/code&gt; 进行了分库分表，并且去掉了几个不常用的索引。结果，积分服务因为原本依赖的索引失效，产生了大量的全表扫描。&lt;/p&gt;
+&lt;p&gt;更可怕的是，积分服务的慢查询直接把数据库连接池占满了，导致正常的下单业务无法获取连接，系统瘫痪。原本只是积分延迟到账的小问题，硬生生搞成了交易瘫痪的P0级事故。&lt;/p&gt;
+&lt;h3 id=&#34;硬核解法领域事件驱动event-driven&#34;&gt;硬核解法：领域事件驱动（Event-Driven）
+&lt;/h3&gt;&lt;p&gt;我们花了两个月时间，彻底切断了服务间的数据库直连。&lt;/p&gt;
+&lt;p&gt;这里的核心原则是：&lt;strong&gt;谁产生数据，谁负责通知；谁需要数据，谁负责订阅。&lt;/strong&gt;&lt;/p&gt;
+&lt;p&gt;&lt;img src=&#34;https://picsum.photos/800/450?random=1768456942492&#34;
+	
+	
+	
+	loading=&#34;lazy&#34;
+	
+		alt=&#34;配图&#34;
+	
+	
+&gt;&lt;/p&gt;
+&lt;p&gt;我们引入了一个轻量级的消息队列（对于中小团队，Redis Stream 或者 RabbitMQ 足矣，不需要搞 Kafka 那么重）。&lt;/p&gt;
+&lt;ul&gt;
+&lt;li&gt;&lt;strong&gt;Before:&lt;/strong&gt; 积分服务 SQL -&amp;gt; &lt;code&gt;SELECT * FROM order_db.orders WHERE status = &#39;PAID&#39;&lt;/code&gt;&lt;/li&gt;
+&lt;li&gt;&lt;strong&gt;After:&lt;/strong&gt; 订单服务 -&amp;gt; 发布 &lt;code&gt;OrderPaidEvent&lt;/code&gt; -&amp;gt; 消息队列 -&amp;gt; 积分服务订阅&lt;/li&gt;
+&lt;/ul&gt;
+&lt;div class=&#34;highlight&#34;&gt;&lt;pre tabindex=&#34;0&#34; style=&#34;color:#f8f8f2;background-color:#272822;-moz-tab-size:4;-o-tab-size:4;tab-size:4;&#34;&gt;&lt;code class=&#34;language-java&#34; data-lang=&#34;java&#34;&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;&lt;span style=&#34;color:#75715e&#34;&gt;// 订单服务：只管发消息，不关心谁在听&lt;/span&gt;
+&lt;/span&gt;&lt;/span&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;eventBus.&lt;span style=&#34;color:#a6e22e&#34;&gt;publish&lt;/span&gt;(&lt;span style=&#34;color:#66d9ef&#34;&gt;new&lt;/span&gt; OrderPaidEvent(orderId, userId, amount));
+&lt;/span&gt;&lt;/span&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;
+&lt;/span&gt;&lt;/span&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;&lt;span style=&#34;color:#75715e&#34;&gt;// 积分服务：只管处理消息，不关心数据怎么存的&lt;/span&gt;
+&lt;/span&gt;&lt;/span&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;&lt;span style=&#34;color:#a6e22e&#34;&gt;@EventListener&lt;/span&gt;
+&lt;/span&gt;&lt;/span&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;&lt;span style=&#34;color:#66d9ef&#34;&gt;public&lt;/span&gt; &lt;span style=&#34;color:#66d9ef&#34;&gt;void&lt;/span&gt; &lt;span style=&#34;color:#a6e22e&#34;&gt;onOrderPaid&lt;/span&gt;(OrderPaidEvent event) {
+&lt;/span&gt;&lt;/span&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;    pointService.&lt;span style=&#34;color:#a6e22e&#34;&gt;addPoints&lt;/span&gt;(event.&lt;span style=&#34;color:#a6e22e&#34;&gt;getUserId&lt;/span&gt;(), event.&lt;span style=&#34;color:#a6e22e&#34;&gt;getAmount&lt;/span&gt;());
+&lt;/span&gt;&lt;/span&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;}
+&lt;/span&gt;&lt;/span&gt;&lt;/code&gt;&lt;/pre&gt;&lt;/div&gt;&lt;p&gt;这样一来，订单表结构怎么改，只要保证 Event 的消息格式不变，积分服务就毫不知情，真正实现了&lt;strong&gt;存储层的解耦&lt;/strong&gt;。&lt;/p&gt;
+&lt;h2 id=&#34;四-防腐层acl给外部依赖穿上防护服&#34;&gt;四、 防腐层（ACL）：给外部依赖穿上&amp;quot;防护服&amp;quot;
+&lt;/h2&gt;&lt;p&gt;很多时候，我们的系统需要依赖外部服务（如微信支付、第三方物流、老旧的 ERP 系统）。这些外部系统的接口定义往往很烂，甚至经常变动。如果直接在业务代码里调用这些接口，你的核心逻辑就会被这堆烂代码&amp;quot;污染&amp;quot;。&lt;/p&gt;
+&lt;h3 id=&#34;真实踩坑案例-2&#34;&gt;真实踩坑案例
+&lt;/h3&gt;&lt;p&gt;我们的供应链系统对接了一家外部物流商。对方的接口返回格式极其随性，有时候返回 &lt;code&gt;{&amp;quot;code&amp;quot;: 200}&lt;/code&gt;，有时候返回 &lt;code&gt;{&amp;quot;status&amp;quot;: &amp;quot;success&amp;quot;}&lt;/code&gt;，有时候直接抛出 HTTP 500。&lt;/p&gt;
+&lt;p&gt;开发人员在业务逻辑里写满了 &lt;code&gt;if-else&lt;/code&gt; 来处理这些奇葩情况。后来这家物流商升级了 API 版本，字段全变了。我们的核心下单流程代码被迫大改，修改范围涉及15个文件，测试测了整整三天。&lt;/p&gt;
+&lt;h3 id=&#34;硬核解法建立防腐层anti-corruption-layer&#34;&gt;硬核解法：建立防腐层（Anti-Corruption Layer）
+&lt;/h3&gt;&lt;p&gt;我在架构评审时强制要求：&lt;strong&gt;严禁在核心业务逻辑中直接出现第三方 SDK 的类或方法。&lt;/strong&gt;&lt;/p&gt;
+&lt;p&gt;必须在中间加一层适配器（Adapter/Facade）：&lt;/p&gt;
+&lt;ol&gt;
+&lt;li&gt;&lt;strong&gt;定义标准接口&lt;/strong&gt;：按照我们自己的业务需求，定义一套干净、清晰的接口 &lt;code&gt;LogisticsService&lt;/code&gt;。&lt;/li&gt;
+&lt;li&gt;&lt;strong&gt;隔离脏逻辑&lt;/strong&gt;：在一个独立的 &lt;code&gt;Infrastructure&lt;/code&gt; 模块中实现这个接口，专门负责把那些乱七八糟的外部参数，转换成我们自己定义的标准对象。&lt;/li&gt;
+&lt;/ol&gt;
+&lt;p&gt;无论外部系统怎么变，甚至我们换了一家物流商，核心业务逻辑（Domain层）的代码一行都不用改，只需要重写这个适配器即可。&lt;/p&gt;
+&lt;p&gt;这个方法我用了两年，最大的感受是：&lt;strong&gt;即使外面狂风暴雨（外部依赖挂了），屋里依然岁月静好（核心业务不受影响）。&lt;/strong&gt;&lt;/p&gt;
+&lt;h2 id=&#34;结语与行动&#34;&gt;结语与行动
+&lt;/h2&gt;&lt;p&gt;架构解耦，本质上不是技术问题，而是&lt;strong&gt;管理&amp;quot;变化&amp;quot;的艺术&lt;/strong&gt;。它的核心目的是：&lt;strong&gt;让不相关的变化，不要互相干扰。&lt;/strong&gt;&lt;/p&gt;
+&lt;p&gt;回顾一下，你的项目里是否也存在这些隐患？&lt;/p&gt;
+&lt;ul&gt;
+&lt;li&gt;改一个公共类，全员都要加班升级依赖？&lt;/li&gt;
+&lt;li&gt;查一个问题，要在三四个服务的日志里跳来跳去？&lt;/li&gt;
+&lt;li&gt;某个非核心服务挂了，导致主流程无法进行？&lt;/li&gt;
+&lt;/ul&gt;
+&lt;p&gt;如果你是中小团队的架构师或资深开发，不想陷入无尽的维护泥潭，我建议你从下周一开始，尝试这 3 个具体行动：&lt;/p&gt;
+&lt;ol&gt;
+&lt;li&gt;&lt;strong&gt;扫描 Common 包&lt;/strong&gt;：把里面所有的 POJO 和业务枚举找出来，标记为 &lt;code&gt;@Deprecated&lt;/code&gt;，强迫新业务在本地重新定义。&lt;/li&gt;
+&lt;li&gt;&lt;strong&gt;审查 SQL&lt;/strong&gt;：找出所有跨库 Join 或跨服务查表的代码，列入&amp;quot;技术债务清单&amp;quot;，排期用消息队列重构。&lt;/li&gt;
+&lt;li&gt;&lt;strong&gt;封装一个外部调用&lt;/strong&gt;：挑一个最恶心的第三方接口，用&amp;quot;防腐层&amp;quot;模式重写一次，你会发现代码清爽得让人想哭。&lt;/li&gt;
+&lt;/ol&gt;
+&lt;p&gt;不要等到系统崩塌的那一刻再去想解耦，&lt;strong&gt;架构的债，迟早是要还的，带息偿还。&lt;/strong&gt;&lt;/p&gt;
+</description>
+        </item>
+        
+    </channel>
+</rss>

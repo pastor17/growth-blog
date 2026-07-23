@@ -1,0 +1,443 @@
+<!DOCTYPE html>
+<html lang="zh-cn" dir="ltr">
+    <head><meta charset='utf-8'>
+<meta name='viewport' content='width=device-width, initial-scale=1'><meta name='description' content="凌晨三点，看着监控屏上因为网络抖动导致分布式事务回滚失败的报警红灯，我手里的速溶咖啡早已经凉透了。\n那是2021年的一个春天，作为一家B轮创业公司的架构师，我带着5个后端兄弟，雄心勃勃地维护着一套包含12个微服务的庞大系统。日活用户刚破万，我们的服务器成本却比竞品高出三倍，开发一个新功能需要改动三个仓库，联调得喊上大半个组的人。\n那一刻我突然意识到：我们引以为傲的“先进架构”，正在慢慢拖死整个团队。\n如果你也正对着复杂的Service Mesh配置发愁，或者因为某些“高大上”的技术选型而焦虑，不妨停下来听听我的建议：在中小团队，“够用”才是最高级的架构哲学。\n别让“简历驱动开发”毁了项目\r很多时候，我们选择某个技术栈，不是因为业务需要，而是因为“大家都这么用”或者“我想把这个写进简历里”。\n我曾接手过一个电商SaaS项目，前任架构师为了追求极致性能，在日单量不到5000的时候，引入了Kafka做全链路异步，上了ElasticSearch做搜索，还搭了一套复杂的Redis Cluster。\n结果呢？\n维护成本极高：三个后端开发，有一半时间在排查中间件的不稳定问题，而不是写业务代码。 招聘困难：新来的实习生光是搭本地开发环境就要花两天，看到复杂的调用链路直接被劝退。 后来我们在重构时，做了一个极其“倒退”的决定：砍掉Kafka，改用Redis List做简单队列；砍掉ES，直接用MySQL的全文索引（对于十万级数据完全够用）。\n结果惊人：服务器成本下降了60%，系统稳定性从99%提升到了99.9%，因为组件越少，出错的概率越低。\n“在中小规模下，单体架构+适当的模块化，往往比微服务更能打。”\n模块化单体：被低估的“银弹”\r提到单体架构（Monolith），很多人脑海里浮现的是那坨改一行崩三处的“意大利面条代码”。但其实，模块化单体（Modular Monolith） 才是中小团队的救星。\n我不止一次在代码评审会上强调：物理上的拆分（微服务）并不等于逻辑上的解耦。 如果你的代码耦合度高，拆成微服务只会变成“分布式大泥球”，不仅没解决耦合，还引入了网络延迟。\n我现在每做一个新项目，都会坚持使用模块化单体结构。我们把不同的业务域（如订单、用户、支付）放在同一个仓库的不同包（Package）下，通过定义清晰的接口进行交互，严禁跨包直接依赖数据库表。\n看看这种简单的目录结构，它真的很香：\nsrc/ ├── modules/ │ ├── user/ // 用户模块：只负责用户相关逻辑 │ ├── order/ // 订单模块：通过接口调用User，不查User表 │ └── payment/ // 支付模块 ├── shared/ // 共享基础设施 └── Application.java // 一个启动类，打一个包，部署只需一分钟 这种架构不仅保留了单体架构部署快、测试方便、无网络开销的优点，未来如果某个模块（比如订单量暴增）真的需要独立，直接把那个包拆出去微服务化也非常容易。\n我有个习惯，每周五下午抽出两小时，专门检查各个模块之间的依赖关系。如果发现Order模块直接Import了User模块的DAO层，那就算是个严重的“架构事故”，必须当场修正。这种人为的“纪律约束”，比引入Docker和K8s要管用得多。\n中间件选型：越无聊越好\r在技术选型上，我现在的原则是：选择那些“无聊”且经过实战检验的技术，而不是Github上Star增长最快的技术。\n去年有个做物联网的小伙伴问我，要不要上ClickHouse来处理设备日志？他们每天大概有500万条数据。\n我问他：“你们现在的PostgreSQL遇到瓶颈了吗？” 他说：“还没，查询有点慢，但能接受。”\n我给出的建议是：别换。 给PostgreSQL表做个分区，加好索引，或者定期归档冷数据。\n引入ClickHouse意味着你需要维护一套新的运维体系，你的团队需要学习新的SQL语法，你需要处理数据同步的延迟。对于一个只有3个后端的小团队，这些隐形成本是致命的。\n架构师的能力，不体现在你会用多少复杂的工具，而体现在你能否用最简单的工具解决复杂的问题。\n如果MySQL能抗住，就别引Redis；如果单机Cron能解决，就别上分布式调度中心。在这个阶段，数据一致性和开发效率，远比那所谓的“高并发扩展性”重要。\n够用就好，是放过自己\r我也曾焦虑过，看着大厂的架构分享PPT，觉得自己做的东西太low。但随着年岁增长，看着一个个项目因为过度设计而烂尾，一个个团队因为技术债而分崩离析，我才明白：\n">
+<title>团队不到10人，我为何劝你放弃微服务？</title>
+
+<link rel='canonical' href='https://blog.irudder.me/tech/zhongxiaoxingxiangmujiagoushejizhinan/zhongxiaoxiangmujiagou_gouyongjiuhaodeshejiyuanze.html'>
+
+<link rel="stylesheet" href="/scss/style.min.b9e9128fec450ebccecc4ec9900157f32b85d0609bcd5ee3293968bcaa1235f2.css"><meta property='og:title' content="团队不到10人，我为何劝你放弃微服务？">
+<meta property='og:description' content="凌晨三点，看着监控屏上因为网络抖动导致分布式事务回滚失败的报警红灯，我手里的速溶咖啡早已经凉透了。\n那是2021年的一个春天，作为一家B轮创业公司的架构师，我带着5个后端兄弟，雄心勃勃地维护着一套包含12个微服务的庞大系统。日活用户刚破万，我们的服务器成本却比竞品高出三倍，开发一个新功能需要改动三个仓库，联调得喊上大半个组的人。\n那一刻我突然意识到：我们引以为傲的“先进架构”，正在慢慢拖死整个团队。\n如果你也正对着复杂的Service Mesh配置发愁，或者因为某些“高大上”的技术选型而焦虑，不妨停下来听听我的建议：在中小团队，“够用”才是最高级的架构哲学。\n别让“简历驱动开发”毁了项目\r很多时候，我们选择某个技术栈，不是因为业务需要，而是因为“大家都这么用”或者“我想把这个写进简历里”。\n我曾接手过一个电商SaaS项目，前任架构师为了追求极致性能，在日单量不到5000的时候，引入了Kafka做全链路异步，上了ElasticSearch做搜索，还搭了一套复杂的Redis Cluster。\n结果呢？\n维护成本极高：三个后端开发，有一半时间在排查中间件的不稳定问题，而不是写业务代码。 招聘困难：新来的实习生光是搭本地开发环境就要花两天，看到复杂的调用链路直接被劝退。 后来我们在重构时，做了一个极其“倒退”的决定：砍掉Kafka，改用Redis List做简单队列；砍掉ES，直接用MySQL的全文索引（对于十万级数据完全够用）。\n结果惊人：服务器成本下降了60%，系统稳定性从99%提升到了99.9%，因为组件越少，出错的概率越低。\n“在中小规模下，单体架构+适当的模块化，往往比微服务更能打。”\n模块化单体：被低估的“银弹”\r提到单体架构（Monolith），很多人脑海里浮现的是那坨改一行崩三处的“意大利面条代码”。但其实，模块化单体（Modular Monolith） 才是中小团队的救星。\n我不止一次在代码评审会上强调：物理上的拆分（微服务）并不等于逻辑上的解耦。 如果你的代码耦合度高，拆成微服务只会变成“分布式大泥球”，不仅没解决耦合，还引入了网络延迟。\n我现在每做一个新项目，都会坚持使用模块化单体结构。我们把不同的业务域（如订单、用户、支付）放在同一个仓库的不同包（Package）下，通过定义清晰的接口进行交互，严禁跨包直接依赖数据库表。\n看看这种简单的目录结构，它真的很香：\nsrc/ ├── modules/ │ ├── user/ // 用户模块：只负责用户相关逻辑 │ ├── order/ // 订单模块：通过接口调用User，不查User表 │ └── payment/ // 支付模块 ├── shared/ // 共享基础设施 └── Application.java // 一个启动类，打一个包，部署只需一分钟 这种架构不仅保留了单体架构部署快、测试方便、无网络开销的优点，未来如果某个模块（比如订单量暴增）真的需要独立，直接把那个包拆出去微服务化也非常容易。\n我有个习惯，每周五下午抽出两小时，专门检查各个模块之间的依赖关系。如果发现Order模块直接Import了User模块的DAO层，那就算是个严重的“架构事故”，必须当场修正。这种人为的“纪律约束”，比引入Docker和K8s要管用得多。\n中间件选型：越无聊越好\r在技术选型上，我现在的原则是：选择那些“无聊”且经过实战检验的技术，而不是Github上Star增长最快的技术。\n去年有个做物联网的小伙伴问我，要不要上ClickHouse来处理设备日志？他们每天大概有500万条数据。\n我问他：“你们现在的PostgreSQL遇到瓶颈了吗？” 他说：“还没，查询有点慢，但能接受。”\n我给出的建议是：别换。 给PostgreSQL表做个分区，加好索引，或者定期归档冷数据。\n引入ClickHouse意味着你需要维护一套新的运维体系，你的团队需要学习新的SQL语法，你需要处理数据同步的延迟。对于一个只有3个后端的小团队，这些隐形成本是致命的。\n架构师的能力，不体现在你会用多少复杂的工具，而体现在你能否用最简单的工具解决复杂的问题。\n如果MySQL能抗住，就别引Redis；如果单机Cron能解决，就别上分布式调度中心。在这个阶段，数据一致性和开发效率，远比那所谓的“高并发扩展性”重要。\n够用就好，是放过自己\r我也曾焦虑过，看着大厂的架构分享PPT，觉得自己做的东西太low。但随着年岁增长，看着一个个项目因为过度设计而烂尾，一个个团队因为技术债而分崩离析，我才明白：\n">
+<meta property='og:url' content='https://blog.irudder.me/tech/zhongxiaoxingxiangmujiagoushejizhinan/zhongxiaoxiangmujiagou_gouyongjiuhaodeshejiyuanze.html'>
+<meta property='og:site_name' content='SelfTechHub'>
+<meta property='og:type' content='article'><meta property='article:section' content='Tech' /><meta property='article:tag' content='中小项目架构：够用就好的设计原则' /><meta property='article:published_time' content='2024-06-07T00:00:00&#43;00:00'/><meta property='article:modified_time' content='2024-06-07T00:00:00&#43;00:00'/>
+<meta name="twitter:title" content="团队不到10人，我为何劝你放弃微服务？">
+<meta name="twitter:description" content="凌晨三点，看着监控屏上因为网络抖动导致分布式事务回滚失败的报警红灯，我手里的速溶咖啡早已经凉透了。\n那是2021年的一个春天，作为一家B轮创业公司的架构师，我带着5个后端兄弟，雄心勃勃地维护着一套包含12个微服务的庞大系统。日活用户刚破万，我们的服务器成本却比竞品高出三倍，开发一个新功能需要改动三个仓库，联调得喊上大半个组的人。\n那一刻我突然意识到：我们引以为傲的“先进架构”，正在慢慢拖死整个团队。\n如果你也正对着复杂的Service Mesh配置发愁，或者因为某些“高大上”的技术选型而焦虑，不妨停下来听听我的建议：在中小团队，“够用”才是最高级的架构哲学。\n别让“简历驱动开发”毁了项目\r很多时候，我们选择某个技术栈，不是因为业务需要，而是因为“大家都这么用”或者“我想把这个写进简历里”。\n我曾接手过一个电商SaaS项目，前任架构师为了追求极致性能，在日单量不到5000的时候，引入了Kafka做全链路异步，上了ElasticSearch做搜索，还搭了一套复杂的Redis Cluster。\n结果呢？\n维护成本极高：三个后端开发，有一半时间在排查中间件的不稳定问题，而不是写业务代码。 招聘困难：新来的实习生光是搭本地开发环境就要花两天，看到复杂的调用链路直接被劝退。 后来我们在重构时，做了一个极其“倒退”的决定：砍掉Kafka，改用Redis List做简单队列；砍掉ES，直接用MySQL的全文索引（对于十万级数据完全够用）。\n结果惊人：服务器成本下降了60%，系统稳定性从99%提升到了99.9%，因为组件越少，出错的概率越低。\n“在中小规模下，单体架构+适当的模块化，往往比微服务更能打。”\n模块化单体：被低估的“银弹”\r提到单体架构（Monolith），很多人脑海里浮现的是那坨改一行崩三处的“意大利面条代码”。但其实，模块化单体（Modular Monolith） 才是中小团队的救星。\n我不止一次在代码评审会上强调：物理上的拆分（微服务）并不等于逻辑上的解耦。 如果你的代码耦合度高，拆成微服务只会变成“分布式大泥球”，不仅没解决耦合，还引入了网络延迟。\n我现在每做一个新项目，都会坚持使用模块化单体结构。我们把不同的业务域（如订单、用户、支付）放在同一个仓库的不同包（Package）下，通过定义清晰的接口进行交互，严禁跨包直接依赖数据库表。\n看看这种简单的目录结构，它真的很香：\nsrc/ ├── modules/ │ ├── user/ // 用户模块：只负责用户相关逻辑 │ ├── order/ // 订单模块：通过接口调用User，不查User表 │ └── payment/ // 支付模块 ├── shared/ // 共享基础设施 └── Application.java // 一个启动类，打一个包，部署只需一分钟 这种架构不仅保留了单体架构部署快、测试方便、无网络开销的优点，未来如果某个模块（比如订单量暴增）真的需要独立，直接把那个包拆出去微服务化也非常容易。\n我有个习惯，每周五下午抽出两小时，专门检查各个模块之间的依赖关系。如果发现Order模块直接Import了User模块的DAO层，那就算是个严重的“架构事故”，必须当场修正。这种人为的“纪律约束”，比引入Docker和K8s要管用得多。\n中间件选型：越无聊越好\r在技术选型上，我现在的原则是：选择那些“无聊”且经过实战检验的技术，而不是Github上Star增长最快的技术。\n去年有个做物联网的小伙伴问我，要不要上ClickHouse来处理设备日志？他们每天大概有500万条数据。\n我问他：“你们现在的PostgreSQL遇到瓶颈了吗？” 他说：“还没，查询有点慢，但能接受。”\n我给出的建议是：别换。 给PostgreSQL表做个分区，加好索引，或者定期归档冷数据。\n引入ClickHouse意味着你需要维护一套新的运维体系，你的团队需要学习新的SQL语法，你需要处理数据同步的延迟。对于一个只有3个后端的小团队，这些隐形成本是致命的。\n架构师的能力，不体现在你会用多少复杂的工具，而体现在你能否用最简单的工具解决复杂的问题。\n如果MySQL能抗住，就别引Redis；如果单机Cron能解决，就别上分布式调度中心。在这个阶段，数据一致性和开发效率，远比那所谓的“高并发扩展性”重要。\n够用就好，是放过自己\r我也曾焦虑过，看着大厂的架构分享PPT，觉得自己做的东西太low。但随着年岁增长，看着一个个项目因为过度设计而烂尾，一个个团队因为技术债而分崩离析，我才明白：\n">
+    </head>
+    <body class="
+    article-page
+    ">
+    <script>
+        (function() {
+            const colorSchemeKey = 'StackColorScheme';
+            if(!localStorage.getItem(colorSchemeKey)){
+                localStorage.setItem(colorSchemeKey, "auto");
+            }
+        })();
+    </script><script>
+    (function() {
+        const colorSchemeKey = 'StackColorScheme';
+        const colorSchemeItem = localStorage.getItem(colorSchemeKey);
+        const supportDarkMode = window.matchMedia('(prefers-color-scheme: dark)').matches === true;
+
+        if (colorSchemeItem == 'dark' || colorSchemeItem === 'auto' && supportDarkMode) {
+            
+
+            document.documentElement.dataset.scheme = 'dark';
+        } else {
+            document.documentElement.dataset.scheme = 'light';
+        }
+    })();
+</script>
+<div class="container main-container flex on-phone--column compact"><aside class="sidebar left-sidebar sticky ">
+    <button class="hamburger hamburger--spin" type="button" id="toggle-menu" aria-label="切换菜单">
+        <span class="hamburger-box">
+            <span class="hamburger-inner"></span>
+        </span>
+    </button>
+
+    <header>
+        
+            
+            <figure class="site-avatar">
+                <a href="/">
+                
+                    
+                    
+                    
+                        
+                        <img src="/img/avatar_hu_8588ce14af1147e2.png" width="300"
+                            height="286" class="site-logo" loading="lazy" alt="Avatar">
+                    
+                
+                </a>
+                
+            </figure>
+            
+        
+        
+        <div class="site-meta">
+            <h1 class="site-name"><a href="/">SelfTechHub</a></h1>
+            <h2 class="site-description"></h2>
+        </div>
+    </header><ol class="menu" id="main-menu">
+        
+        
+        <li class="menu-bottom-section">
+            <ol class="menu">
+
+                
+                    <li id="dark-mode-toggle">
+                        <svg xmlns="http://www.w3.org/2000/svg" class="icon icon-tabler icon-tabler-toggle-left" width="24" height="24" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor" fill="none" stroke-linecap="round" stroke-linejoin="round">
+  <path stroke="none" d="M0 0h24v24H0z"/>
+  <circle cx="8" cy="12" r="2" />
+  <rect x="2" y="6" width="20" height="12" rx="6" />
+</svg>
+
+
+
+                        <svg xmlns="http://www.w3.org/2000/svg" class="icon icon-tabler icon-tabler-toggle-right" width="24" height="24" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor" fill="none" stroke-linecap="round" stroke-linejoin="round">
+  <path stroke="none" d="M0 0h24v24H0z"/>
+  <circle cx="16" cy="12" r="2" />
+  <rect x="2" y="6" width="20" height="12" rx="6" />
+</svg>
+
+
+
+                        <span>暗色模式</span>
+                    </li>
+                
+            </ol>
+        </li>
+    </ol>
+</aside>
+
+    
+
+            <main class="main full-width">
+    <article class="main-article">
+    <header class="article-header">
+
+    <div class="article-details">
+    
+    <header class="article-category">
+        
+            <a href="/categories/%E6%8A%80%E6%9C%AF.html" >
+                技术精进
+            </a>
+        
+    </header>
+    
+
+    <div class="article-title-wrapper">
+        <h2 class="article-title">
+            <a href="/tech/zhongxiaoxingxiangmujiagoushejizhinan/zhongxiaoxiangmujiagou_gouyongjiuhaodeshejiyuanze.html">团队不到10人，我为何劝你放弃微服务？</a>
+        </h2>
+    
+        
+    </div>
+
+    
+    
+    
+    
+    <footer class="article-time">
+        
+            <div>
+                <svg xmlns="http://www.w3.org/2000/svg" class="icon icon-tabler icon-tabler-calendar-time" width="56" height="56" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor" fill="none" stroke-linecap="round" stroke-linejoin="round">
+  <path stroke="none" d="M0 0h24v24H0z"/>
+  <path d="M11.795 21h-6.795a2 2 0 0 1 -2 -2v-12a2 2 0 0 1 2 -2h12a2 2 0 0 1 2 2v4" />
+  <circle cx="18" cy="18" r="4" />
+  <path d="M15 3v4" />
+  <path d="M7 3v4" />
+  <path d="M3 11h16" />
+  <path d="M18 16.496v1.504l1 1" />
+</svg>
+                <time class="article-time--published" datetime='2024-06-07T00:00:00Z'>Jun 07, 2024</time>
+            </div>
+        
+
+        
+            <div>
+                <svg xmlns="http://www.w3.org/2000/svg" class="icon icon-tabler icon-tabler-clock" width="24" height="24" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor" fill="none" stroke-linecap="round" stroke-linejoin="round">
+  <path stroke="none" d="M0 0h24v24H0z"/>
+  <circle cx="12" cy="12" r="9" />
+  <polyline points="12 7 12 12 15 15" />
+</svg>
+
+
+
+                <time class="article-time--reading">
+                    阅读时长: 1 分钟
+                </time>
+            </div>
+        
+    </footer>
+    
+
+    
+</div>
+
+</header>
+
+    <section class="article-content">
+    
+    
+    <p>凌晨三点，看着监控屏上因为网络抖动导致分布式事务回滚失败的报警红灯，我手里的速溶咖啡早已经凉透了。</p>
+<p>那是2021年的一个春天，作为一家B轮创业公司的架构师，我带着5个后端兄弟，雄心勃勃地维护着一套包含12个微服务的庞大系统。日活用户刚破万，我们的服务器成本却比竞品高出三倍，开发一个新功能需要改动三个仓库，联调得喊上大半个组的人。</p>
+<p>那一刻我突然意识到：<strong>我们引以为傲的“先进架构”，正在慢慢拖死整个团队。</strong></p>
+<p>如果你也正对着复杂的Service Mesh配置发愁，或者因为某些“高大上”的技术选型而焦虑，不妨停下来听听我的建议：在中小团队，<strong>“够用”才是最高级的架构哲学。</strong></p>
+<h2 id="别让简历驱动开发毁了项目">别让“简历驱动开发”毁了项目
+</h2><p>很多时候，我们选择某个技术栈，不是因为业务需要，而是因为“大家都这么用”或者“我想把这个写进简历里”。</p>
+<p>我曾接手过一个电商SaaS项目，前任架构师为了追求极致性能，在日单量不到5000的时候，引入了Kafka做全链路异步，上了ElasticSearch做搜索，还搭了一套复杂的Redis Cluster。</p>
+<p>结果呢？</p>
+<ul>
+<li><strong>维护成本极高</strong>：三个后端开发，有一半时间在排查中间件的不稳定问题，而不是写业务代码。</li>
+<li><strong>招聘困难</strong>：新来的实习生光是搭本地开发环境就要花两天，看到复杂的调用链路直接被劝退。</li>
+</ul>
+<p>后来我们在重构时，做了一个极其“倒退”的决定：<strong>砍掉Kafka，改用Redis List做简单队列；砍掉ES，直接用MySQL的全文索引（对于十万级数据完全够用）。</strong></p>
+<p><strong>结果惊人</strong>：服务器成本下降了60%，系统稳定性从99%提升到了99.9%，因为组件越少，出错的概率越低。</p>
+<blockquote>
+<p>“在中小规模下，单体架构+适当的模块化，往往比微服务更能打。”</p>
+</blockquote>
+<h2 id="模块化单体被低估的银弹">模块化单体：被低估的“银弹”
+</h2><p>提到单体架构（Monolith），很多人脑海里浮现的是那坨改一行崩三处的“意大利面条代码”。但其实，<strong>模块化单体（Modular Monolith）</strong> 才是中小团队的救星。</p>
+<p>我不止一次在代码评审会上强调：<strong>物理上的拆分（微服务）并不等于逻辑上的解耦。</strong> 如果你的代码耦合度高，拆成微服务只会变成“分布式大泥球”，不仅没解决耦合，还引入了网络延迟。</p>
+<p>我现在每做一个新项目，都会坚持使用<strong>模块化单体</strong>结构。我们把不同的业务域（如订单、用户、支付）放在同一个仓库的不同包（Package）下，通过定义清晰的接口进行交互，严禁跨包直接依赖数据库表。</p>
+<p>看看这种简单的目录结构，它真的很香：</p>
+<p><img src="https://picsum.photos/800/450?random=1768456180973"
+	
+	
+	
+	loading="lazy"
+	
+		alt="配图"
+	
+	
+></p>
+<div class="highlight"><pre tabindex="0" style="color:#f8f8f2;background-color:#272822;-moz-tab-size:4;-o-tab-size:4;tab-size:4;"><code class="language-text" data-lang="text"><span style="display:flex;"><span>src/
+</span></span><span style="display:flex;"><span>  ├── modules/
+</span></span><span style="display:flex;"><span>  │     ├── user/       // 用户模块：只负责用户相关逻辑
+</span></span><span style="display:flex;"><span>  │     ├── order/      // 订单模块：通过接口调用User，不查User表
+</span></span><span style="display:flex;"><span>  │     └── payment/    // 支付模块
+</span></span><span style="display:flex;"><span>  ├── shared/           // 共享基础设施
+</span></span><span style="display:flex;"><span>  └── Application.java  // 一个启动类，打一个包，部署只需一分钟
+</span></span></code></pre></div><p>这种架构不仅保留了单体架构部署快、测试方便、无网络开销的优点，未来如果某个模块（比如订单量暴增）真的需要独立，直接把那个包拆出去微服务化也非常容易。</p>
+<p>我有个习惯，<strong>每周五下午抽出两小时</strong>，专门检查各个模块之间的依赖关系。如果发现Order模块直接Import了User模块的DAO层，那就算是个严重的“架构事故”，必须当场修正。这种人为的“纪律约束”，比引入Docker和K8s要管用得多。</p>
+<h2 id="中间件选型越无聊越好">中间件选型：越无聊越好
+</h2><p>在技术选型上，我现在的原则是：<strong>选择那些“无聊”且经过实战检验的技术，而不是Github上Star增长最快的技术。</strong></p>
+<p>去年有个做物联网的小伙伴问我，要不要上ClickHouse来处理设备日志？他们每天大概有500万条数据。</p>
+<p>我问他：“你们现在的PostgreSQL遇到瓶颈了吗？”
+他说：“还没，查询有点慢，但能接受。”</p>
+<p>我给出的建议是：<strong>别换。</strong> 给PostgreSQL表做个分区，加好索引，或者定期归档冷数据。</p>
+<p>引入ClickHouse意味着你需要维护一套新的运维体系，你的团队需要学习新的SQL语法，你需要处理数据同步的延迟。对于一个只有3个后端的小团队，这些隐形成本是致命的。</p>
+<p><strong>架构师的能力，不体现在你会用多少复杂的工具，而体现在你能否用最简单的工具解决复杂的问题。</strong></p>
+<p>如果MySQL能抗住，就别引Redis；如果单机Cron能解决，就别上分布式调度中心。<strong>在这个阶段，数据一致性和开发效率，远比那所谓的“高并发扩展性”重要。</strong></p>
+<h2 id="够用就好是放过自己">够用就好，是放过自己
+</h2><p>我也曾焦虑过，看着大厂的架构分享PPT，觉得自己做的东西太low。但随着年岁增长，看着一个个项目因为过度设计而烂尾，一个个团队因为技术债而分崩离析，我才明白：</p>
+<p><strong>架构没有高低之分，只有适合与否。</strong></p>
+<p>当你能用最简单的技术栈，快速支撑起业务的百倍增长；当你能让团队成员并在晚上8点前准时下班，而不是通宵修补复杂的分布式Bug时，你就是这个团队最好的架构师。</p>
+<p><img src="https://picsum.photos/800/450?random=1768456175874"
+	
+	
+	
+	loading="lazy"
+	
+		alt="配图"
+	
+	
+></p>
+<p>最后，想邀请大家做个选择：
+<strong>在项目初期，你更倾向于哪种方案？</strong>
+A. 直接上微服务，为未来可能的百万用户做准备，哪怕初期开发慢点。
+B. 先做单体，跑通业务，遇到瓶颈再拆分，哪怕未来重构痛苦点。
+<em>(欢迎在评论区告诉我你的答案)</em></p>
+<p><strong>给架构师/资深开发的3个落地建议：</strong></p>
+<ol>
+<li><strong>定期“做减法”</strong>：下周一上班，检查一遍你的依赖库，删掉那些三个月没用过的中间件和废弃代码。</li>
+<li><strong>设立“复杂度红线”</strong>：引入任何新组件前，要求提出者写一个文档，回答三个问题：为什么现有技术解决不了？引入后的运维成本谁来抗？回滚方案是什么？</li>
+<li><strong>关注业务数据</strong>：哪怕是纯技术人员，也要盯着DAU和QPS看。如果QPS只有50，请把那套复杂的缓存层代码删了吧，直接查库真的很快。</li>
+</ol>
+
+</section>
+
+
+    <footer class="article-footer">
+    
+    <section class="article-tags">
+        
+            <a href="/tags/%E4%B8%AD%E5%B0%8F%E9%A1%B9%E7%9B%AE%E6%9E%B6%E6%9E%84%E5%A4%9F%E7%94%A8%E5%B0%B1%E5%A5%BD%E7%9A%84%E8%AE%BE%E8%AE%A1%E5%8E%9F%E5%88%99.html">中小项目架构：够用就好的设计原则</a>
+        
+    </section>
+
+
+    </footer>
+
+
+    
+</article>
+
+    
+
+    
+
+     
+    
+        
+    <script
+    src="https://giscus.app/client.js"
+    data-repo="pastor17/bloggiscus"
+    data-repo-id="R_kgDOQ6H9qQ"
+    data-category=""
+    data-category-id="DIC_kwDOQ6H9qc4C0-T8"
+    data-mapping="pathname"
+    data-strict="0"
+    data-reactions-enabled="1"
+    data-emit-metadata="0"
+    data-input-position="bottom"
+    data-theme="light"
+    data-lang="zh-CN"
+    data-loading="lazy"
+    crossorigin="anonymous"
+    async
+></script>
+<script>
+    function setGiscusTheme(theme) {
+        let giscus = document.querySelector("iframe.giscus-frame");
+        if (giscus) {
+            giscus.contentWindow.postMessage(
+                {
+                    giscus: {
+                        setConfig: {
+                            theme: theme,
+                        },
+                    },
+                },
+                "https://giscus.app"
+            );
+        }
+    }
+
+    (function () {
+        addEventListener("message", (e) => {
+            if (event.origin !== "https://giscus.app") return;
+            handler();
+        });
+        window.addEventListener("onColorSchemeChange", handler);
+
+        function handler() {
+            if (document.documentElement.dataset.scheme === "light") {
+                setGiscusTheme('light');
+            } else {
+                setGiscusTheme('dark_dimmed');
+            }
+        }
+    })();
+</script>
+
+    
+
+    <footer class="site-footer">
+    <section class="copyright">
+        &copy; 
+        
+        2026 SelfTechHub
+    </section>
+    
+    <section class="powerby">
+        
+
+    </section>
+</footer>
+
+
+    
+<div class="pswp" tabindex="-1" role="dialog" aria-hidden="true">
+
+    
+    <div class="pswp__bg"></div>
+
+    
+    <div class="pswp__scroll-wrap">
+
+        
+        <div class="pswp__container">
+            <div class="pswp__item"></div>
+            <div class="pswp__item"></div>
+            <div class="pswp__item"></div>
+        </div>
+
+        
+        <div class="pswp__ui pswp__ui--hidden">
+
+            <div class="pswp__top-bar">
+
+                
+
+                <div class="pswp__counter"></div>
+
+                <button class="pswp__button pswp__button--close" title="Close (Esc)"></button>
+
+                <button class="pswp__button pswp__button--share" title="Share"></button>
+
+                <button class="pswp__button pswp__button--fs" title="Toggle fullscreen"></button>
+
+                <button class="pswp__button pswp__button--zoom" title="Zoom in/out"></button>
+
+                
+                
+                <div class="pswp__preloader">
+                    <div class="pswp__preloader__icn">
+                        <div class="pswp__preloader__cut">
+                            <div class="pswp__preloader__donut"></div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <div class="pswp__share-modal pswp__share-modal--hidden pswp__single-tap">
+                <div class="pswp__share-tooltip"></div>
+            </div>
+
+            <button class="pswp__button pswp__button--arrow--left" title="Previous (arrow left)">
+            </button>
+
+            <button class="pswp__button pswp__button--arrow--right" title="Next (arrow right)">
+            </button>
+
+            <div class="pswp__caption">
+                <div class="pswp__caption__center"></div>
+            </div>
+
+        </div>
+
+    </div>
+
+</div><script 
+                src="https://cdn.jsdelivr.net/npm/photoswipe@4.1.3/dist/photoswipe.min.js"integrity="sha256-ePwmChbbvXbsO02lbM3HoHbSHTHFAeChekF1xKJdleo="crossorigin="anonymous"
+                defer
+                >
+            </script><script 
+                src="https://cdn.jsdelivr.net/npm/photoswipe@4.1.3/dist/photoswipe-ui-default.min.js"integrity="sha256-UKkzOn/w1mBxRmLLGrSeyB4e1xbrp4xylgAWb3M42pU="crossorigin="anonymous"
+                defer
+                >
+            </script><link 
+                rel="stylesheet" 
+                href="https://cdn.jsdelivr.net/npm/photoswipe@4.1.3/dist/default-skin/default-skin.min.css"crossorigin="anonymous"
+            ><link 
+                rel="stylesheet" 
+                href="https://cdn.jsdelivr.net/npm/photoswipe@4.1.3/dist/photoswipe.min.css"crossorigin="anonymous"
+            >
+    
+
+            </main>
+        </div>
+        <script 
+                src="https://cdn.jsdelivr.net/npm/node-vibrant@3.1.6/dist/vibrant.min.js"integrity="sha256-awcR2jno4kI5X0zL8ex0vi2z&#43;KMkF24hUW8WePSA9HM="crossorigin="anonymous"
+                
+                >
+            </script><script type="text/javascript" src="/ts/main.c922af694cc257bf1ecc41c0dd7b0430f9114ec280ccf67cd2c6ad55f5316c4e.js" defer></script>
+<script>
+    (function () {
+        const customFont = document.createElement('link');
+        customFont.href = "https://fonts.googleapis.com/css2?family=Lato:wght@300;400;700&display=swap";
+
+        customFont.type = "text/css";
+        customFont.rel = "stylesheet";
+
+        document.head.appendChild(customFont);
+    }());
+</script>
+
+    </body>
+</html>

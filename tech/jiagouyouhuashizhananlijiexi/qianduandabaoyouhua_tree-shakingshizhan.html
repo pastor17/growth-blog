@@ -1,0 +1,460 @@
+<!DOCTYPE html>
+<html lang="zh-cn" dir="ltr">
+    <head><meta charset='utf-8'>
+<meta name='viewport' content='width=device-width, initial-scale=1'><meta name='description' content="还记得两年前那个周五的凌晨两点，我盯着Jenkins的构建日志发呆。\n当时的那个后台管理系统项目，经过半年的功能堆砌，首屏加载文件（Main Bundle）竟然膨胀到了 4.8MB。在弱网环境下测试，白屏时间长达 8 秒。老板在群里丢下一句：“这速度，客户能忍？”\n我当时信心满满地回复：“放心，我开了 Tree Shaking，构建时会自动剔除没用的代码。”\n然而现实给了我一记响亮的耳光。明明配置了 mode: production，明明用了 ES6 模块，为什么那些根本没用到的重型图表库、几年前遗留的加密函数，依然稳稳地躺在打包产物里？\nTree Shaking 并不是一个“开了就能用”的魔法开关。在实战中，我踩过无数坑，才发现让它失效的往往是我们习以为常的代码习惯。今天，我想带大家复盘那次优化经历，聊聊如何揪出那 50% 的冗余代码。\n一、 被误杀的 CSS 与 sideEffects 的博弈\r很多人（包括当年的我）认为，Tree Shaking 只是 Webpack 自己的事。\n在那次项目中，为了激进地减少体积，我直接在 package.json 里加上了 &quot;sideEffects&quot;: false。我想法很简单：只要没被引用的文件，统统干掉。\n结果是灾难性的： 项目跑起来了，但样式全崩了。所有的全局重置样式（Reset CSS）和引入的第三方 UI 库样式瞬间消失。\n这是因为 Webpack 的 Tree Shaking 机制依赖于静态分析。它看到 import './style.css'，发现并没有任何变量从这里被导出使用，于是判定为“无用代码”直接移除。但 CSS 的引入本身就是一种“副作用”（Side Effect），它会修改全局 DOM 样式。\n避坑指南与实操：\n我们不能一刀切。正确的做法是告诉打包工具，“大部分文件是无副作用的，但这些文件你别动”。\n我在 package.json 中将配置修正为数组形式，这招瞬间救回了样式，同时剔除了 20% 的无用 JS 文件：\n{ &#34;name&#34;: &#34;my-project&#34;, &#34;sideEffects&#34;: [ &#34;*.css&#34;, &#34;*.less&#34;, &#34;*.scss&#34;, &#34;./src/utils/global-polyfill.js&#34; ] } 关键点： 哪怕是 JS 文件，如果只执行逻辑不导出变量（比如挂载 window 对象、Polyfill），也必须加入这个白名单，否则不仅是样式丢失，连基础功能都会莫名其妙失效。\n">
+<title>体积减半？揭秘Tree Shaking“失效”的3个隐形杀手</title>
+
+<link rel='canonical' href='https://blog.irudder.me/tech/jiagouyouhuashizhananlijiexi/qianduandabaoyouhua_tree-shakingshizhan.html'>
+
+<link rel="stylesheet" href="/scss/style.min.b9e9128fec450ebccecc4ec9900157f32b85d0609bcd5ee3293968bcaa1235f2.css"><meta property='og:title' content="体积减半？揭秘Tree Shaking“失效”的3个隐形杀手">
+<meta property='og:description' content="还记得两年前那个周五的凌晨两点，我盯着Jenkins的构建日志发呆。\n当时的那个后台管理系统项目，经过半年的功能堆砌，首屏加载文件（Main Bundle）竟然膨胀到了 4.8MB。在弱网环境下测试，白屏时间长达 8 秒。老板在群里丢下一句：“这速度，客户能忍？”\n我当时信心满满地回复：“放心，我开了 Tree Shaking，构建时会自动剔除没用的代码。”\n然而现实给了我一记响亮的耳光。明明配置了 mode: production，明明用了 ES6 模块，为什么那些根本没用到的重型图表库、几年前遗留的加密函数，依然稳稳地躺在打包产物里？\nTree Shaking 并不是一个“开了就能用”的魔法开关。在实战中，我踩过无数坑，才发现让它失效的往往是我们习以为常的代码习惯。今天，我想带大家复盘那次优化经历，聊聊如何揪出那 50% 的冗余代码。\n一、 被误杀的 CSS 与 sideEffects 的博弈\r很多人（包括当年的我）认为，Tree Shaking 只是 Webpack 自己的事。\n在那次项目中，为了激进地减少体积，我直接在 package.json 里加上了 &quot;sideEffects&quot;: false。我想法很简单：只要没被引用的文件，统统干掉。\n结果是灾难性的： 项目跑起来了，但样式全崩了。所有的全局重置样式（Reset CSS）和引入的第三方 UI 库样式瞬间消失。\n这是因为 Webpack 的 Tree Shaking 机制依赖于静态分析。它看到 import './style.css'，发现并没有任何变量从这里被导出使用，于是判定为“无用代码”直接移除。但 CSS 的引入本身就是一种“副作用”（Side Effect），它会修改全局 DOM 样式。\n避坑指南与实操：\n我们不能一刀切。正确的做法是告诉打包工具，“大部分文件是无副作用的，但这些文件你别动”。\n我在 package.json 中将配置修正为数组形式，这招瞬间救回了样式，同时剔除了 20% 的无用 JS 文件：\n{ &#34;name&#34;: &#34;my-project&#34;, &#34;sideEffects&#34;: [ &#34;*.css&#34;, &#34;*.less&#34;, &#34;*.scss&#34;, &#34;./src/utils/global-polyfill.js&#34; ] } 关键点： 哪怕是 JS 文件，如果只执行逻辑不导出变量（比如挂载 window 对象、Polyfill），也必须加入这个白名单，否则不仅是样式丢失，连基础功能都会莫名其妙失效。\n">
+<meta property='og:url' content='https://blog.irudder.me/tech/jiagouyouhuashizhananlijiexi/qianduandabaoyouhua_tree-shakingshizhan.html'>
+<meta property='og:site_name' content='SelfTechHub'>
+<meta property='og:type' content='article'><meta property='article:section' content='Tech' /><meta property='article:tag' content='前端打包优化：Tree Shaking实战' /><meta property='article:published_time' content='2024-02-05T00:00:00&#43;00:00'/><meta property='article:modified_time' content='2024-02-05T00:00:00&#43;00:00'/>
+<meta name="twitter:title" content="体积减半？揭秘Tree Shaking“失效”的3个隐形杀手">
+<meta name="twitter:description" content="还记得两年前那个周五的凌晨两点，我盯着Jenkins的构建日志发呆。\n当时的那个后台管理系统项目，经过半年的功能堆砌，首屏加载文件（Main Bundle）竟然膨胀到了 4.8MB。在弱网环境下测试，白屏时间长达 8 秒。老板在群里丢下一句：“这速度，客户能忍？”\n我当时信心满满地回复：“放心，我开了 Tree Shaking，构建时会自动剔除没用的代码。”\n然而现实给了我一记响亮的耳光。明明配置了 mode: production，明明用了 ES6 模块，为什么那些根本没用到的重型图表库、几年前遗留的加密函数，依然稳稳地躺在打包产物里？\nTree Shaking 并不是一个“开了就能用”的魔法开关。在实战中，我踩过无数坑，才发现让它失效的往往是我们习以为常的代码习惯。今天，我想带大家复盘那次优化经历，聊聊如何揪出那 50% 的冗余代码。\n一、 被误杀的 CSS 与 sideEffects 的博弈\r很多人（包括当年的我）认为，Tree Shaking 只是 Webpack 自己的事。\n在那次项目中，为了激进地减少体积，我直接在 package.json 里加上了 &quot;sideEffects&quot;: false。我想法很简单：只要没被引用的文件，统统干掉。\n结果是灾难性的： 项目跑起来了，但样式全崩了。所有的全局重置样式（Reset CSS）和引入的第三方 UI 库样式瞬间消失。\n这是因为 Webpack 的 Tree Shaking 机制依赖于静态分析。它看到 import './style.css'，发现并没有任何变量从这里被导出使用，于是判定为“无用代码”直接移除。但 CSS 的引入本身就是一种“副作用”（Side Effect），它会修改全局 DOM 样式。\n避坑指南与实操：\n我们不能一刀切。正确的做法是告诉打包工具，“大部分文件是无副作用的，但这些文件你别动”。\n我在 package.json 中将配置修正为数组形式，这招瞬间救回了样式，同时剔除了 20% 的无用 JS 文件：\n{ &#34;name&#34;: &#34;my-project&#34;, &#34;sideEffects&#34;: [ &#34;*.css&#34;, &#34;*.less&#34;, &#34;*.scss&#34;, &#34;./src/utils/global-polyfill.js&#34; ] } 关键点： 哪怕是 JS 文件，如果只执行逻辑不导出变量（比如挂载 window 对象、Polyfill），也必须加入这个白名单，否则不仅是样式丢失，连基础功能都会莫名其妙失效。\n">
+    </head>
+    <body class="
+    article-page
+    ">
+    <script>
+        (function() {
+            const colorSchemeKey = 'StackColorScheme';
+            if(!localStorage.getItem(colorSchemeKey)){
+                localStorage.setItem(colorSchemeKey, "auto");
+            }
+        })();
+    </script><script>
+    (function() {
+        const colorSchemeKey = 'StackColorScheme';
+        const colorSchemeItem = localStorage.getItem(colorSchemeKey);
+        const supportDarkMode = window.matchMedia('(prefers-color-scheme: dark)').matches === true;
+
+        if (colorSchemeItem == 'dark' || colorSchemeItem === 'auto' && supportDarkMode) {
+            
+
+            document.documentElement.dataset.scheme = 'dark';
+        } else {
+            document.documentElement.dataset.scheme = 'light';
+        }
+    })();
+</script>
+<div class="container main-container flex on-phone--column compact"><aside class="sidebar left-sidebar sticky ">
+    <button class="hamburger hamburger--spin" type="button" id="toggle-menu" aria-label="切换菜单">
+        <span class="hamburger-box">
+            <span class="hamburger-inner"></span>
+        </span>
+    </button>
+
+    <header>
+        
+            
+            <figure class="site-avatar">
+                <a href="/">
+                
+                    
+                    
+                    
+                        
+                        <img src="/img/avatar_hu_8588ce14af1147e2.png" width="300"
+                            height="286" class="site-logo" loading="lazy" alt="Avatar">
+                    
+                
+                </a>
+                
+            </figure>
+            
+        
+        
+        <div class="site-meta">
+            <h1 class="site-name"><a href="/">SelfTechHub</a></h1>
+            <h2 class="site-description"></h2>
+        </div>
+    </header><ol class="menu" id="main-menu">
+        
+        
+        <li class="menu-bottom-section">
+            <ol class="menu">
+
+                
+                    <li id="dark-mode-toggle">
+                        <svg xmlns="http://www.w3.org/2000/svg" class="icon icon-tabler icon-tabler-toggle-left" width="24" height="24" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor" fill="none" stroke-linecap="round" stroke-linejoin="round">
+  <path stroke="none" d="M0 0h24v24H0z"/>
+  <circle cx="8" cy="12" r="2" />
+  <rect x="2" y="6" width="20" height="12" rx="6" />
+</svg>
+
+
+
+                        <svg xmlns="http://www.w3.org/2000/svg" class="icon icon-tabler icon-tabler-toggle-right" width="24" height="24" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor" fill="none" stroke-linecap="round" stroke-linejoin="round">
+  <path stroke="none" d="M0 0h24v24H0z"/>
+  <circle cx="16" cy="12" r="2" />
+  <rect x="2" y="6" width="20" height="12" rx="6" />
+</svg>
+
+
+
+                        <span>暗色模式</span>
+                    </li>
+                
+            </ol>
+        </li>
+    </ol>
+</aside>
+
+    
+
+            <main class="main full-width">
+    <article class="main-article">
+    <header class="article-header">
+
+    <div class="article-details">
+    
+    <header class="article-category">
+        
+            <a href="/categories/%E6%8A%80%E6%9C%AF.html" >
+                技术精进
+            </a>
+        
+    </header>
+    
+
+    <div class="article-title-wrapper">
+        <h2 class="article-title">
+            <a href="/tech/jiagouyouhuashizhananlijiexi/qianduandabaoyouhua_tree-shakingshizhan.html">体积减半？揭秘Tree Shaking“失效”的3个隐形杀手</a>
+        </h2>
+    
+        
+    </div>
+
+    
+    
+    
+    
+    <footer class="article-time">
+        
+            <div>
+                <svg xmlns="http://www.w3.org/2000/svg" class="icon icon-tabler icon-tabler-calendar-time" width="56" height="56" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor" fill="none" stroke-linecap="round" stroke-linejoin="round">
+  <path stroke="none" d="M0 0h24v24H0z"/>
+  <path d="M11.795 21h-6.795a2 2 0 0 1 -2 -2v-12a2 2 0 0 1 2 -2h12a2 2 0 0 1 2 2v4" />
+  <circle cx="18" cy="18" r="4" />
+  <path d="M15 3v4" />
+  <path d="M7 3v4" />
+  <path d="M3 11h16" />
+  <path d="M18 16.496v1.504l1 1" />
+</svg>
+                <time class="article-time--published" datetime='2024-02-05T00:00:00Z'>Feb 05, 2024</time>
+            </div>
+        
+
+        
+            <div>
+                <svg xmlns="http://www.w3.org/2000/svg" class="icon icon-tabler icon-tabler-clock" width="24" height="24" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor" fill="none" stroke-linecap="round" stroke-linejoin="round">
+  <path stroke="none" d="M0 0h24v24H0z"/>
+  <circle cx="12" cy="12" r="9" />
+  <polyline points="12 7 12 12 15 15" />
+</svg>
+
+
+
+                <time class="article-time--reading">
+                    阅读时长: 2 分钟
+                </time>
+            </div>
+        
+    </footer>
+    
+
+    
+</div>
+
+</header>
+
+    <section class="article-content">
+    
+    
+    <p>还记得两年前那个周五的凌晨两点，我盯着Jenkins的构建日志发呆。</p>
+<p>当时的那个后台管理系统项目，经过半年的功能堆砌，首屏加载文件（Main Bundle）竟然膨胀到了 4.8MB。在弱网环境下测试，白屏时间长达 8 秒。老板在群里丢下一句：“这速度，客户能忍？”</p>
+<p>我当时信心满满地回复：“放心，我开了 Tree Shaking，构建时会自动剔除没用的代码。”</p>
+<p>然而现实给了我一记响亮的耳光。明明配置了 <code>mode: production</code>，明明用了 ES6 模块，为什么那些根本没用到的重型图表库、几年前遗留的加密函数，依然稳稳地躺在打包产物里？</p>
+<p>Tree Shaking 并不是一个“开了就能用”的魔法开关。在实战中，我踩过无数坑，才发现让它失效的往往是我们习以为常的代码习惯。今天，我想带大家复盘那次优化经历，聊聊如何揪出那 50% 的冗余代码。</p>
+<p><img src="https://picsum.photos/800/450?random=1768457833621"
+	
+	
+	
+	loading="lazy"
+	
+		alt="配图"
+	
+	
+></p>
+<h2 id="一-被误杀的-css-与-sideeffects-的博弈">一、 被误杀的 CSS 与 <code>sideEffects</code> 的博弈
+</h2><p>很多人（包括当年的我）认为，Tree Shaking 只是 Webpack 自己的事。</p>
+<p>在那次项目中，为了激进地减少体积，我直接在 <code>package.json</code> 里加上了 <code>&quot;sideEffects&quot;: false</code>。我想法很简单：只要没被引用的文件，统统干掉。</p>
+<p><strong>结果是灾难性的：</strong> 项目跑起来了，但样式全崩了。所有的全局重置样式（Reset CSS）和引入的第三方 UI 库样式瞬间消失。</p>
+<p>这是因为 Webpack 的 Tree Shaking 机制依赖于<strong>静态分析</strong>。它看到 <code>import './style.css'</code>，发现并没有任何变量从这里被导出使用，于是判定为“无用代码”直接移除。但 CSS 的引入本身就是一种“副作用”（Side Effect），它会修改全局 DOM 样式。</p>
+<p><strong>避坑指南与实操：</strong></p>
+<p>我们不能一刀切。正确的做法是告诉打包工具，“大部分文件是无副作用的，但这些文件你别动”。</p>
+<p>我在 <code>package.json</code> 中将配置修正为数组形式，这招瞬间救回了样式，同时剔除了 20% 的无用 JS 文件：</p>
+<div class="highlight"><pre tabindex="0" style="color:#f8f8f2;background-color:#272822;-moz-tab-size:4;-o-tab-size:4;tab-size:4;"><code class="language-json" data-lang="json"><span style="display:flex;"><span>{
+</span></span><span style="display:flex;"><span>  <span style="color:#f92672">&#34;name&#34;</span>: <span style="color:#e6db74">&#34;my-project&#34;</span>,
+</span></span><span style="display:flex;"><span>  <span style="color:#f92672">&#34;sideEffects&#34;</span>: [
+</span></span><span style="display:flex;"><span>    <span style="color:#e6db74">&#34;*.css&#34;</span>,
+</span></span><span style="display:flex;"><span>    <span style="color:#e6db74">&#34;*.less&#34;</span>,
+</span></span><span style="display:flex;"><span>    <span style="color:#e6db74">&#34;*.scss&#34;</span>,
+</span></span><span style="display:flex;"><span>    <span style="color:#e6db74">&#34;./src/utils/global-polyfill.js&#34;</span> 
+</span></span><span style="display:flex;"><span>  ]
+</span></span><span style="display:flex;"><span>}
+</span></span></code></pre></div><p><strong>关键点：</strong> 哪怕是 JS 文件，如果只执行逻辑不导出变量（比如挂载 window 对象、Polyfill），也必须加入这个白名单，否则不仅是样式丢失，连基础功能都会莫名其妙失效。</p>
+<h2 id="二-babel-的热心肠成了绊脚石">二、 Babel 的“热心肠”成了绊脚石
+</h2><p>解决了样式问题，我发现体积只下降了一点点。用 <code>webpack-bundle-analyzer</code> 一看，很多没用到的 <code>lodash</code> 方法依然被打包进去了。</p>
+<p><img src="https://picsum.photos/800/450?random=1768457836605"
+	
+	
+	
+	loading="lazy"
+	
+		alt="配图"
+	
+	
+></p>
+<p>排查了一整天，我才发现真正的凶手竟然是 <strong>Babel</strong>。</p>
+<p>Tree Shaking 的核心依赖于 ES6 的模块机制（<code>import</code> / <code>export</code>），因为它是静态的，打包工具可以在编译时确定哪些导出被使用了。然而，早期的 Babel 配置非常“智能”，它默认会把 ES6 模块转译成 CommonJS（<code>require</code> / <code>module.exports</code>）。</p>
+<p>这就好比 Webpack 想做外科手术切除肿瘤，但 Babel 提前把病人裹成了一个严严实实的木乃伊（CommonJS），Webpack 根本无从下刀，只能把整个模块全盘保留。</p>
+<p><strong>修正方案：</strong></p>
+<p>检查你的 <code>.babelrc</code> 或 <code>babel.config.js</code>。一定要确保 <code>@babel/preset-env</code> 不会转换模块类型。</p>
+<div class="highlight"><pre tabindex="0" style="color:#f8f8f2;background-color:#272822;-moz-tab-size:4;-o-tab-size:4;tab-size:4;"><code class="language-javascript" data-lang="javascript"><span style="display:flex;"><span><span style="color:#75715e">// babel.config.js
+</span></span></span><span style="display:flex;"><span><span style="color:#75715e"></span><span style="color:#a6e22e">module</span>.<span style="color:#a6e22e">exports</span> <span style="color:#f92672">=</span> {
+</span></span><span style="display:flex;"><span>  <span style="color:#a6e22e">presets</span><span style="color:#f92672">:</span> [
+</span></span><span style="display:flex;"><span>    [
+</span></span><span style="display:flex;"><span>      <span style="color:#e6db74">&#39;@babel/preset-env&#39;</span>,
+</span></span><span style="display:flex;"><span>      {
+</span></span><span style="display:flex;"><span>        <span style="color:#75715e">// 关键配置！关闭模块转换，留给 Webpack 处理
+</span></span></span><span style="display:flex;"><span><span style="color:#75715e"></span>        <span style="color:#a6e22e">modules</span><span style="color:#f92672">:</span> <span style="color:#66d9ef">false</span>, 
+</span></span><span style="display:flex;"><span>        <span style="color:#a6e22e">useBuiltIns</span><span style="color:#f92672">:</span> <span style="color:#e6db74">&#39;usage&#39;</span>,
+</span></span><span style="display:flex;"><span>        <span style="color:#a6e22e">corejs</span><span style="color:#f92672">:</span> <span style="color:#ae81ff">3</span>
+</span></span><span style="display:flex;"><span>      }
+</span></span><span style="display:flex;"><span>    ]
+</span></span><span style="display:flex;"><span>  ]
+</span></span><span style="display:flex;"><span>};
+</span></span></code></pre></div><p>修改完这一行配置并重新构建，Bundle 体积直接从 3.5MB 骤降到 2.1MB。那个瞬间，我真正体会到了“配置一行字，性能翻一倍”的快感。</p>
+<h2 id="三-全家桶导出的隐形代价">三、 “全家桶”导出的隐形代价
+</h2><p>随着项目迭代，为了方便开发，我们团队内部封装了一个 <code>components/index.js</code>，里面把所有的通用组件（按钮、表格、地图、富文本编辑器）全部 <code>export</code> 出来。</p>
+<p>开发时爽了，写代码只需一行：
+<code>import { Button } from '@/components';</code></p>
+<p>但这里藏着一个巨大的隐患。在某些老版本的构建工具或配置不严谨的情况下，这种“全家桶”式的导出（Barrel Export）会让 Tree Shaking 失效。</p>
+<p>在那个项目中，我发现只要引入了一个小小的 <code>Button</code>，Webpack 就会认为你可能需要访问该文件下的所有导出，结果把体积巨大的 <code>RichTextEditor</code> 和 <code>AMap</code>（高德地图组件）也顺带打包了进来。这就是典型的“拔出萝卜带出泥”。</p>
+<p><strong>优化策略：</strong></p>
+<p>虽然现在的 Webpack 5 在处理这类“深层作用域分析”上已经很强了，但我亲测最稳妥、立竿见影的方法依然是<strong>保持引用的纯粹性</strong>。</p>
+<p>我花了两个小时，用正则替换配合人工检查，将核心页面的引用方式改为按需引入：</p>
+<div class="highlight"><pre tabindex="0" style="color:#f8f8f2;background-color:#272822;-moz-tab-size:4;-o-tab-size:4;tab-size:4;"><code class="language-javascript" data-lang="javascript"><span style="display:flex;"><span><span style="color:#75715e">// 优化前：引发“幽灵依赖”的风险
+</span></span></span><span style="display:flex;"><span><span style="color:#75715e"></span><span style="color:#66d9ef">import</span> { <span style="color:#a6e22e">Button</span>, <span style="color:#a6e22e">UserCard</span> } <span style="color:#a6e22e">from</span> <span style="color:#e6db74">&#39;@/components&#39;</span>;
+</span></span><span style="display:flex;"><span>
+</span></span><span style="display:flex;"><span><span style="color:#75715e">// 优化后：路径清晰，配合 sideEffects 配置，100% 触发 Tree Shaking
+</span></span></span><span style="display:flex;"><span><span style="color:#75715e"></span><span style="color:#66d9ef">import</span> <span style="color:#a6e22e">Button</span> <span style="color:#a6e22e">from</span> <span style="color:#e6db74">&#39;@/components/Button&#39;</span>;
+</span></span><span style="display:flex;"><span><span style="color:#66d9ef">import</span> <span style="color:#a6e22e">UserCard</span> <span style="color:#a6e22e">from</span> <span style="color:#e6db74">&#39;@/components/UserCard&#39;</span>;
+</span></span></code></pre></div><p>对于第三方库（如 lodash 或 UI 组件库），如果不想手动改路径，可以配合 <code>babel-plugin-import</code> 等插件来实现自动按需加载。</p>
+<p>经过这波操作，首页的主包体积最终定格在 1.2MB 左右。相比最初的 4.8MB，我们成功瘦身了 75%。</p>
+<h2 id="总结与行动">总结与行动
+</h2><p>Tree Shaking 从来不是银弹，它更像是一场需要开发者、工具配置、代码规范三方配合的精密手术。我也养成了习惯，每周五下午都会跑一遍包体积分析，看看有没有新的“赘肉”混进来。</p>
+<p>如果你正为首屏加载速度发愁，不妨按照以下 3 个步骤立刻行动起来：</p>
+<ol>
+<li><strong>检查 Babel 配置</strong>：确认 <code>modules: false</code> 是否已开启，这是前提条件。</li>
+<li><strong>审计 sideEffects</strong>：在 <code>package.json</code> 中明确标记无副作用的文件，尤其是纯函数工具库。</li>
+<li><strong>安装分析工具</strong>：运行 <code>webpack-bundle-analyzer</code>，肉眼定位那些本不该出现的大块头模块。</li>
+</ol>
+<p><strong>最后，想问问大家：</strong>
+在日常开发中，为了开发效率使用 <code>export *</code> 统一导出，还是为了性能坚持写长路径的按需引入，<strong>你会选哪一种？A 还是 B？</strong> 欢迎在评论区告诉我你的选择。</p>
+
+</section>
+
+
+    <footer class="article-footer">
+    
+    <section class="article-tags">
+        
+            <a href="/tags/%E5%89%8D%E7%AB%AF%E6%89%93%E5%8C%85%E4%BC%98%E5%8C%96Tree-Shaking%E5%AE%9E%E6%88%98.html">前端打包优化：Tree Shaking实战</a>
+        
+    </section>
+
+
+    </footer>
+
+
+    
+</article>
+
+    
+
+    
+
+     
+    
+        
+    <script
+    src="https://giscus.app/client.js"
+    data-repo="pastor17/bloggiscus"
+    data-repo-id="R_kgDOQ6H9qQ"
+    data-category=""
+    data-category-id="DIC_kwDOQ6H9qc4C0-T8"
+    data-mapping="pathname"
+    data-strict="0"
+    data-reactions-enabled="1"
+    data-emit-metadata="0"
+    data-input-position="bottom"
+    data-theme="light"
+    data-lang="zh-CN"
+    data-loading="lazy"
+    crossorigin="anonymous"
+    async
+></script>
+<script>
+    function setGiscusTheme(theme) {
+        let giscus = document.querySelector("iframe.giscus-frame");
+        if (giscus) {
+            giscus.contentWindow.postMessage(
+                {
+                    giscus: {
+                        setConfig: {
+                            theme: theme,
+                        },
+                    },
+                },
+                "https://giscus.app"
+            );
+        }
+    }
+
+    (function () {
+        addEventListener("message", (e) => {
+            if (event.origin !== "https://giscus.app") return;
+            handler();
+        });
+        window.addEventListener("onColorSchemeChange", handler);
+
+        function handler() {
+            if (document.documentElement.dataset.scheme === "light") {
+                setGiscusTheme('light');
+            } else {
+                setGiscusTheme('dark_dimmed');
+            }
+        }
+    })();
+</script>
+
+    
+
+    <footer class="site-footer">
+    <section class="copyright">
+        &copy; 
+        
+        2026 SelfTechHub
+    </section>
+    
+    <section class="powerby">
+        
+
+    </section>
+</footer>
+
+
+    
+<div class="pswp" tabindex="-1" role="dialog" aria-hidden="true">
+
+    
+    <div class="pswp__bg"></div>
+
+    
+    <div class="pswp__scroll-wrap">
+
+        
+        <div class="pswp__container">
+            <div class="pswp__item"></div>
+            <div class="pswp__item"></div>
+            <div class="pswp__item"></div>
+        </div>
+
+        
+        <div class="pswp__ui pswp__ui--hidden">
+
+            <div class="pswp__top-bar">
+
+                
+
+                <div class="pswp__counter"></div>
+
+                <button class="pswp__button pswp__button--close" title="Close (Esc)"></button>
+
+                <button class="pswp__button pswp__button--share" title="Share"></button>
+
+                <button class="pswp__button pswp__button--fs" title="Toggle fullscreen"></button>
+
+                <button class="pswp__button pswp__button--zoom" title="Zoom in/out"></button>
+
+                
+                
+                <div class="pswp__preloader">
+                    <div class="pswp__preloader__icn">
+                        <div class="pswp__preloader__cut">
+                            <div class="pswp__preloader__donut"></div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <div class="pswp__share-modal pswp__share-modal--hidden pswp__single-tap">
+                <div class="pswp__share-tooltip"></div>
+            </div>
+
+            <button class="pswp__button pswp__button--arrow--left" title="Previous (arrow left)">
+            </button>
+
+            <button class="pswp__button pswp__button--arrow--right" title="Next (arrow right)">
+            </button>
+
+            <div class="pswp__caption">
+                <div class="pswp__caption__center"></div>
+            </div>
+
+        </div>
+
+    </div>
+
+</div><script 
+                src="https://cdn.jsdelivr.net/npm/photoswipe@4.1.3/dist/photoswipe.min.js"integrity="sha256-ePwmChbbvXbsO02lbM3HoHbSHTHFAeChekF1xKJdleo="crossorigin="anonymous"
+                defer
+                >
+            </script><script 
+                src="https://cdn.jsdelivr.net/npm/photoswipe@4.1.3/dist/photoswipe-ui-default.min.js"integrity="sha256-UKkzOn/w1mBxRmLLGrSeyB4e1xbrp4xylgAWb3M42pU="crossorigin="anonymous"
+                defer
+                >
+            </script><link 
+                rel="stylesheet" 
+                href="https://cdn.jsdelivr.net/npm/photoswipe@4.1.3/dist/default-skin/default-skin.min.css"crossorigin="anonymous"
+            ><link 
+                rel="stylesheet" 
+                href="https://cdn.jsdelivr.net/npm/photoswipe@4.1.3/dist/photoswipe.min.css"crossorigin="anonymous"
+            >
+    
+
+            </main>
+        </div>
+        <script 
+                src="https://cdn.jsdelivr.net/npm/node-vibrant@3.1.6/dist/vibrant.min.js"integrity="sha256-awcR2jno4kI5X0zL8ex0vi2z&#43;KMkF24hUW8WePSA9HM="crossorigin="anonymous"
+                
+                >
+            </script><script type="text/javascript" src="/ts/main.c922af694cc257bf1ecc41c0dd7b0430f9114ec280ccf67cd2c6ad55f5316c4e.js" defer></script>
+<script>
+    (function () {
+        const customFont = document.createElement('link');
+        customFont.href = "https://fonts.googleapis.com/css2?family=Lato:wght@300;400;700&display=swap";
+
+        customFont.type = "text/css";
+        customFont.rel = "stylesheet";
+
+        document.head.appendChild(customFont);
+    }());
+</script>
+
+    </body>
+</html>

@@ -1,0 +1,145 @@
+<?xml version="1.0" encoding="utf-8" standalone="yes"?>
+<rss version="2.0" xmlns:atom="http://www.w3.org/2005/Atom">
+    <channel>
+        <title>低成本搭建CI/CD：GitHub Actions实战 on SelfTechHub</title>
+        <link>https://blog.irudder.me/tags/%E4%BD%8E%E6%88%90%E6%9C%AC%E6%90%AD%E5%BB%BACI/CDGitHub-Actions%E5%AE%9E%E6%88%98.html</link>
+        <description>Recent content in 低成本搭建CI/CD：GitHub Actions实战 on SelfTechHub</description>
+        <generator>Hugo -- gohugo.io</generator>
+        <language>zh-cn</language>
+        <lastBuildDate>Wed, 17 Aug 2022 00:00:00 +0000</lastBuildDate><atom:link href="https://blog.irudder.me/tags/%E4%BD%8E%E6%88%90%E6%9C%AC%E6%90%AD%E5%BB%BACI/CDGitHub-Actions%E5%AE%9E%E6%88%98/index.xml" rel="self" type="application/rss+xml" /><item>
+        <title>抛弃Jenkins后，我用GitHub Actions帮团队省下80%维护成本</title>
+        <link>https://blog.irudder.me/tech/zhongxiaoxingtuanduidevopsluodifangan/dichengbendajianci_cd_github-actionsshizhan.html</link>
+        <pubDate>Wed, 17 Aug 2022 00:00:00 +0000</pubDate>
+        
+        <guid>https://blog.irudder.me/tech/zhongxiaoxingtuanduidevopsluodifangan/dichengbendajianci_cd_github-actionsshizhan.html</guid>
+        <description>&lt;p&gt;记得三年前，作为一家20人规模初创公司的技术负责人，我最害怕的就是周五下午。&lt;/p&gt;
+&lt;p&gt;那时候我们还在用一台老旧的阿里云ECS跑Jenkins。每当有新人入职，我就得花半天教他怎么配置构建参数；每隔两个月，Jenkins的插件升级就会搞崩整个流水线，导致我要在深夜盯着报错日志发愁。&lt;/p&gt;
+&lt;p&gt;我曾坚定地认为：&lt;strong&gt;只有自建CI/CD系统才足够安全、可控。&lt;/strong&gt; 直到2021年的一次&amp;quot;灾难&amp;quot;——由于构建节点磁盘爆满，我们错过了一个紧急修复的黄金发布窗口，导致客户投诉量激增。&lt;/p&gt;
+&lt;p&gt;那天之后，我痛定思痛，决定带领团队从重型运维转向轻量化DevOps，全面迁移至GitHub Actions。今天这篇复盘，就是想聊聊对于没有专职运维的中小团队，如何用最低的成本，搭建一套不输大厂的自动化发布流。&lt;/p&gt;
+&lt;h2 id=&#34;算清楚隐形账免费的往往是最贵的&#34;&gt;算清楚&amp;quot;隐形账&amp;quot;：免费的往往是最贵的
+&lt;/h2&gt;&lt;p&gt;&lt;img src=&#34;https://picsum.photos/800/450?random=1768389248585&#34;
+	
+	
+	
+	loading=&#34;lazy&#34;
+	
+		alt=&#34;配图&#34;
+	
+	
+&gt;&lt;/p&gt;
+&lt;p&gt;很多技术主管在选型时会陷入一个误区：开源软件免费，所以成本低。&lt;/p&gt;
+&lt;p&gt;在我们团队只有5个开发的时候，维护Jenkins似乎没什么问题。但当团队扩张到15人，后端、前端、移动端项目混杂时，问题爆发了。&lt;/p&gt;
+&lt;p&gt;2021年Q3，我做了一次详细的成本核算：&lt;/p&gt;
+&lt;ul&gt;
+&lt;li&gt;&lt;strong&gt;显性成本&lt;/strong&gt;：一台4核8G的构建服务器，每年约3000元。&lt;/li&gt;
+&lt;li&gt;&lt;strong&gt;隐性成本&lt;/strong&gt;：我每周至少花&lt;strong&gt;3小时&lt;/strong&gt;在维护环境、升级插件、清理磁盘、处理构建排队上。按照时薪计算，这部分人力成本每年超过5万元。更别提因为构建失败导致全组人停下来等修复的&amp;quot;等待成本&amp;quot;。&lt;/li&gt;
+&lt;/ul&gt;
+&lt;p&gt;&lt;strong&gt;迁移到GitHub Actions后，这笔账发生了惊人的变化。&lt;/strong&gt;&lt;/p&gt;
+&lt;p&gt;对于公共仓库，GitHub Actions完全免费；对于私有仓库，Free计划每月赠送2000分钟构建时间。即使是我们这样每天提交频次较高的团队，配合Pro版（每人$4/月），只要配置得当，几乎不需要额外购买构建时长。&lt;/p&gt;
+&lt;blockquote&gt;
+&lt;p&gt;&lt;strong&gt;&amp;ldquo;中小团队的核心资源是开发者的注意力，而不是服务器资源。任何能让开发者少操心的工具，都是在省钱。&amp;rdquo;&lt;/strong&gt;&lt;/p&gt;
+&lt;/blockquote&gt;
+&lt;h2 id=&#34;告别黑盒让流水线代码化-pipeline-as-code&#34;&gt;告别&amp;quot;黑盒&amp;quot;：让流水线代码化 (Pipeline as Code)
+&lt;/h2&gt;&lt;p&gt;以前用Jenkins时，构建逻辑都藏在复杂的UI配置里。&lt;/p&gt;
+&lt;p&gt;&lt;img src=&#34;https://picsum.photos/800/450?random=1768389249903&#34;
+	
+	
+	
+	loading=&#34;lazy&#34;
+	
+		alt=&#34;配图&#34;
+	
+	
+&gt;&lt;/p&gt;
+&lt;p&gt;有个叫小李的后端同事，想给自己的微服务加一个简单的代码风格检查（Lint）。他得先找我要Jenkins权限，然后在一堆输入框里摸索，最后因为配错了一个环境变量，把整个测试环境搞挂了。&lt;/p&gt;
+&lt;p&gt;&lt;strong&gt;CI/CD不应该只是运维人员的&amp;quot;特权&amp;quot;，它应该是代码的一部分。&lt;/strong&gt;&lt;/p&gt;
+&lt;p&gt;迁移到GitHub Actions后，所有的构建逻辑都变成了一个 &lt;code&gt;.github/workflows/main.yml&lt;/code&gt; 文件。这带来了两个立竿见影的改变：&lt;/p&gt;
+&lt;ol&gt;
+&lt;li&gt;&lt;strong&gt;版本控制&lt;/strong&gt;：流水线的每一次修改都有Git记录，谁改的、改了什么、什么时候改的，一清二楚。&lt;/li&gt;
+&lt;li&gt;&lt;strong&gt;全员参与&lt;/strong&gt;：现在，连刚入职的实习生都能照葫芦画瓢，通过提交PR来修改构建流程。&lt;/li&gt;
+&lt;/ol&gt;
+&lt;p&gt;这里分享一个我们目前正在使用的、针对Node.js服务的标准化配置模版。它包含了缓存优化，这也是降低成本的关键：&lt;/p&gt;
+&lt;div class=&#34;highlight&#34;&gt;&lt;pre tabindex=&#34;0&#34; style=&#34;color:#f8f8f2;background-color:#272822;-moz-tab-size:4;-o-tab-size:4;tab-size:4;&#34;&gt;&lt;code class=&#34;language-yaml&#34; data-lang=&#34;yaml&#34;&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;&lt;span style=&#34;color:#f92672&#34;&gt;name&lt;/span&gt;: &lt;span style=&#34;color:#ae81ff&#34;&gt;Production Build&lt;/span&gt;
+&lt;/span&gt;&lt;/span&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;&lt;span style=&#34;color:#f92672&#34;&gt;on&lt;/span&gt;:
+&lt;/span&gt;&lt;/span&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;  &lt;span style=&#34;color:#f92672&#34;&gt;push&lt;/span&gt;:
+&lt;/span&gt;&lt;/span&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;    &lt;span style=&#34;color:#f92672&#34;&gt;branches&lt;/span&gt;: [ &lt;span style=&#34;color:#e6db74&#34;&gt;&amp;#34;main&amp;#34;&lt;/span&gt; ]
+&lt;/span&gt;&lt;/span&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;    &lt;span style=&#34;color:#75715e&#34;&gt;# 关键点：只在相关文件变动时触发，节省构建分钟数&lt;/span&gt;
+&lt;/span&gt;&lt;/span&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;    &lt;span style=&#34;color:#f92672&#34;&gt;paths-ignore&lt;/span&gt;:
+&lt;/span&gt;&lt;/span&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;      - &lt;span style=&#34;color:#e6db74&#34;&gt;&amp;#39;**.md&amp;#39;&lt;/span&gt;
+&lt;/span&gt;&lt;/span&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;      - &lt;span style=&#34;color:#e6db74&#34;&gt;&amp;#39;docs/**&amp;#39;&lt;/span&gt;
+&lt;/span&gt;&lt;/span&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;
+&lt;/span&gt;&lt;/span&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;&lt;span style=&#34;color:#f92672&#34;&gt;jobs&lt;/span&gt;:
+&lt;/span&gt;&lt;/span&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;  &lt;span style=&#34;color:#f92672&#34;&gt;build&lt;/span&gt;:
+&lt;/span&gt;&lt;/span&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;    &lt;span style=&#34;color:#f92672&#34;&gt;runs-on&lt;/span&gt;: &lt;span style=&#34;color:#ae81ff&#34;&gt;ubuntu-latest&lt;/span&gt;
+&lt;/span&gt;&lt;/span&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;    &lt;span style=&#34;color:#f92672&#34;&gt;steps&lt;/span&gt;:
+&lt;/span&gt;&lt;/span&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;      - &lt;span style=&#34;color:#f92672&#34;&gt;uses&lt;/span&gt;: &lt;span style=&#34;color:#ae81ff&#34;&gt;actions/checkout@v4&lt;/span&gt;
+&lt;/span&gt;&lt;/span&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;      
+&lt;/span&gt;&lt;/span&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;      - &lt;span style=&#34;color:#f92672&#34;&gt;name&lt;/span&gt;: &lt;span style=&#34;color:#ae81ff&#34;&gt;Setup Node.js&lt;/span&gt;
+&lt;/span&gt;&lt;/span&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;        &lt;span style=&#34;color:#f92672&#34;&gt;uses&lt;/span&gt;: &lt;span style=&#34;color:#ae81ff&#34;&gt;actions/setup-node@v4&lt;/span&gt;
+&lt;/span&gt;&lt;/span&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;        &lt;span style=&#34;color:#f92672&#34;&gt;with&lt;/span&gt;:
+&lt;/span&gt;&lt;/span&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;          &lt;span style=&#34;color:#f92672&#34;&gt;node-version&lt;/span&gt;: &lt;span style=&#34;color:#e6db74&#34;&gt;&amp;#39;18&amp;#39;&lt;/span&gt;
+&lt;/span&gt;&lt;/span&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;          &lt;span style=&#34;color:#75715e&#34;&gt;# 开启缓存，大幅减少依赖下载时间&lt;/span&gt;
+&lt;/span&gt;&lt;/span&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;          &lt;span style=&#34;color:#f92672&#34;&gt;cache&lt;/span&gt;: &lt;span style=&#34;color:#e6db74&#34;&gt;&amp;#39;npm&amp;#39;&lt;/span&gt;
+&lt;/span&gt;&lt;/span&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;          
+&lt;/span&gt;&lt;/span&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;      - &lt;span style=&#34;color:#f92672&#34;&gt;name&lt;/span&gt;: &lt;span style=&#34;color:#ae81ff&#34;&gt;Install Dependencies&lt;/span&gt;
+&lt;/span&gt;&lt;/span&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;        &lt;span style=&#34;color:#75715e&#34;&gt;# 使用 ci 命令比 install 更快更稳定&lt;/span&gt;
+&lt;/span&gt;&lt;/span&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;        &lt;span style=&#34;color:#f92672&#34;&gt;run&lt;/span&gt;: &lt;span style=&#34;color:#ae81ff&#34;&gt;npm ci&lt;/span&gt;
+&lt;/span&gt;&lt;/span&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;        
+&lt;/span&gt;&lt;/span&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;      - &lt;span style=&#34;color:#f92672&#34;&gt;name&lt;/span&gt;: &lt;span style=&#34;color:#ae81ff&#34;&gt;Run Tests&lt;/span&gt;
+&lt;/span&gt;&lt;/span&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;        &lt;span style=&#34;color:#f92672&#34;&gt;run&lt;/span&gt;: &lt;span style=&#34;color:#ae81ff&#34;&gt;npm test&lt;/span&gt;
+&lt;/span&gt;&lt;/span&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;        
+&lt;/span&gt;&lt;/span&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;      - &lt;span style=&#34;color:#f92672&#34;&gt;name&lt;/span&gt;: &lt;span style=&#34;color:#ae81ff&#34;&gt;Build&lt;/span&gt;
+&lt;/span&gt;&lt;/span&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;        &lt;span style=&#34;color:#f92672&#34;&gt;run&lt;/span&gt;: &lt;span style=&#34;color:#ae81ff&#34;&gt;npm run build&lt;/span&gt;
+&lt;/span&gt;&lt;/span&gt;&lt;/code&gt;&lt;/pre&gt;&lt;/div&gt;&lt;p&gt;这个简单的配置，让我们的平均构建时间从Jenkins时代的8分钟，缩短到了&lt;strong&gt;3分钟以内&lt;/strong&gt;。&lt;/p&gt;
+&lt;h2 id=&#34;拒绝乱收费精细化控制每一分钟&#34;&gt;拒绝&amp;quot;乱收费&amp;quot;：精细化控制每一分钟
+&lt;/h2&gt;&lt;p&gt;刚开始迁移时，我也踩过坑。第一个月，我们还没到月底就收到了GitHub的额度耗尽提醒。&lt;/p&gt;
+&lt;p&gt;排查后发现，&lt;strong&gt;90%的浪费来自于无效构建&lt;/strong&gt;。&lt;/p&gt;
+&lt;p&gt;比如，前端改了一个 &lt;code&gt;README.md&lt;/code&gt; 文档，却触发了后端API的完整构建和测试；或者同一个PR由于反复提交代码，导致同时跑了5个并行的构建任务。&lt;/p&gt;
+&lt;p&gt;为了解决这个问题，我总结了三个&amp;quot;省钱妙招&amp;quot;，一直沿用至今：&lt;/p&gt;
+&lt;ol&gt;
+&lt;li&gt;
+&lt;p&gt;&lt;strong&gt;路径过滤（Path Filtering）&lt;/strong&gt;：如上文代码所示，严格配置 &lt;code&gt;paths&lt;/code&gt; 或 &lt;code&gt;paths-ignore&lt;/code&gt;。文档变动绝不触发代码构建。&lt;/p&gt;
+&lt;/li&gt;
+&lt;li&gt;
+&lt;p&gt;&lt;strong&gt;并发控制（Concurrency Control）&lt;/strong&gt;：这是个神器。当同一个分支有新的提交推上来时，自动取消正在进行的旧构建。这一个配置帮我们节省了约30%的分钟数。&lt;/p&gt;
+&lt;div class=&#34;highlight&#34;&gt;&lt;pre tabindex=&#34;0&#34; style=&#34;color:#f8f8f2;background-color:#272822;-moz-tab-size:4;-o-tab-size:4;tab-size:4;&#34;&gt;&lt;code class=&#34;language-yaml&#34; data-lang=&#34;yaml&#34;&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;&lt;span style=&#34;color:#f92672&#34;&gt;concurrency&lt;/span&gt;:
+&lt;/span&gt;&lt;/span&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;  &lt;span style=&#34;color:#f92672&#34;&gt;group&lt;/span&gt;: &lt;span style=&#34;color:#ae81ff&#34;&gt;$-$&lt;/span&gt;
+&lt;/span&gt;&lt;/span&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;  &lt;span style=&#34;color:#f92672&#34;&gt;cancel-in-progress&lt;/span&gt;: &lt;span style=&#34;color:#66d9ef&#34;&gt;true&lt;/span&gt;
+&lt;/span&gt;&lt;/span&gt;&lt;/code&gt;&lt;/pre&gt;&lt;/div&gt;&lt;/li&gt;
+&lt;li&gt;
+&lt;p&gt;&lt;strong&gt;善用Cache&lt;/strong&gt;：无论是npm、maven还是docker layer，都要利用 &lt;code&gt;actions/cache&lt;/code&gt;。我亲测，加上缓存后，构建过程中最耗时的&amp;quot;下载依赖&amp;quot;环节几乎变成了秒级。&lt;/p&gt;
+&lt;/li&gt;
+&lt;/ol&gt;
+&lt;p&gt;通过这套组合拳，即使现在我们的代码库规模翻了一倍，每月的构建费用依然控制在Pro订阅费之内，几乎没有产生额外的分钟数账单。&lt;/p&gt;
+&lt;h2 id=&#34;写在最后&#34;&gt;写在最后
+&lt;/h2&gt;&lt;p&gt;从自建Jenkins到拥抱GitHub Actions，不仅仅是工具的替换，更是团队DevOps文化的升级。&lt;/p&gt;
+&lt;p&gt;我们不再需要一个专门的&amp;quot;发布管理员&amp;quot;，每个开发者在提交代码的那一刻，就对自己代码的构建和测试负责。我也终于把周五下午的时间解放出来，可以安安心心地做一些技术预研，而不是盯着进度条祈祷不要报错。&lt;/p&gt;
+&lt;p&gt;&lt;img src=&#34;https://picsum.photos/800/450?random=1768389244913&#34;
+	
+	
+	
+	loading=&#34;lazy&#34;
+	
+		alt=&#34;配图&#34;
+	
+	
+&gt;&lt;/p&gt;
+&lt;p&gt;&lt;strong&gt;对于正在纠结的中小团队，我的建议很直接：&lt;/strong&gt;
+如果是100人以下的研发团队，且没有复杂的合规（如金融级内网隔离）要求，&lt;strong&gt;尽早切到GitHub Actions或GitLab CI。&lt;/strong&gt; 别让维护工具本身，成为了你们的负担。&lt;/p&gt;
+&lt;hr&gt;
+&lt;p&gt;&lt;strong&gt;最后做个小调查：&lt;/strong&gt;
+在CI/CD选型上，你更看重哪一点？
+A. &lt;strong&gt;完全的可控性&lt;/strong&gt;（哪怕麻烦点，也要数据都在自己服务器上）
+B. &lt;strong&gt;极致的效率与低维护&lt;/strong&gt;（托管服务真香，少折腾才是硬道理）&lt;/p&gt;
+&lt;p&gt;欢迎在评论区留下你的选择。&lt;/p&gt;
+&lt;p&gt;如果你准备开始行动，建议从以下3步着手：&lt;/p&gt;
+&lt;ol&gt;
+&lt;li&gt;&lt;strong&gt;盘点高频痛点&lt;/strong&gt;：找出目前部署流程中最耗时、最容易出错的环节（通常是环境配置或依赖安装）。&lt;/li&gt;
+&lt;li&gt;&lt;strong&gt;Copy &amp;amp; Paste&lt;/strong&gt;：不要从零写，去GitHub Marketplace找一个成熟的Action模版，先跑通&amp;quot;Hello World&amp;quot;。&lt;/li&gt;
+&lt;li&gt;&lt;strong&gt;配置缓存&lt;/strong&gt;：这是让体验从&amp;quot;能用&amp;quot;变成&amp;quot;好用&amp;quot;的关键一步，务必在第一时间加上依赖缓存。&lt;/li&gt;
+&lt;/ol&gt;
+</description>
+        </item>
+        
+    </channel>
+</rss>

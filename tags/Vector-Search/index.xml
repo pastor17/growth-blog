@@ -1,0 +1,214 @@
+<?xml version="1.0" encoding="utf-8" standalone="yes"?>
+<rss version="2.0" xmlns:atom="http://www.w3.org/2005/Atom">
+    <channel>
+        <title>Vector Search on SelfTechHub</title>
+        <link>https://blog.irudder.me/tags/Vector-Search.html</link>
+        <description>Recent content in Vector Search on SelfTechHub</description>
+        <generator>Hugo -- gohugo.io</generator>
+        <language>zh-cn</language>
+        <lastBuildDate>Sat, 13 Jun 2026 00:00:00 +0000</lastBuildDate><atom:link href="https://blog.irudder.me/tags/Vector-Search/index.xml" rel="self" type="application/rss+xml" /><item>
+        <title>第8章：Embedding 与向量数据库——RAG 的技术底座</title>
+        <link>https://blog.irudder.me/ai/knowledge-series/08-Embedding-and-Vector-Database-Selection.html</link>
+        <pubDate>Sat, 13 Jun 2026 00:00:00 +0000</pubDate>
+        
+        <guid>https://blog.irudder.me/ai/knowledge-series/08-Embedding-and-Vector-Database-Selection.html</guid>
+        <description>&lt;h1 id=&#34;第8章embedding-与向量数据库rag-的技术底座&#34;&gt;第8章：Embedding 与向量数据库——RAG 的技术底座
+&lt;/h1&gt;&lt;blockquote&gt;
+&lt;p&gt;系列导读：本章讲 RAG 的&amp;quot;底层基础设施&amp;quot;。选对了 Embedding 模型和向量数据库，后面的优化事半功倍；选错了，上层做再多也救不回来。&lt;/p&gt;
+&lt;/blockquote&gt;
+&lt;hr&gt;
+&lt;h2 id=&#34;一embedding-到底做了一件什么事&#34;&gt;一、Embedding 到底做了一件什么事？
+&lt;/h2&gt;&lt;p&gt;Embedding（嵌入）做的事情本质上只有一件：&lt;/p&gt;
+&lt;blockquote&gt;
+&lt;p&gt;&lt;strong&gt;把一段文本，映射成一个固定长度的浮点数向量。&lt;/strong&gt;&lt;/p&gt;
+&lt;/blockquote&gt;
+&lt;p&gt;比如把 &amp;ldquo;今天天气很好&amp;rdquo; 转成：[0.023, -0.145, 0.778, &amp;hellip;]，长度比如 768 或 1024。&lt;/p&gt;
+&lt;p&gt;这个映射最关键的性质：&lt;strong&gt;语义相近的文本，向量在空间中距离相近&lt;/strong&gt;。&lt;/p&gt;
+&lt;p&gt;度量方式通常用&lt;strong&gt;余弦相似度&lt;/strong&gt;：&lt;/p&gt;
+&lt;pre tabindex=&#34;0&#34;&gt;&lt;code&gt;cos(A, B) = (A·B) / (||A|| × ||B||)
+&lt;/code&gt;&lt;/pre&gt;&lt;p&gt;值接近 1 表示高度相似，接近 0 表示无关。&lt;/p&gt;
+&lt;h2 id=&#34;二如何选择-embedding-模型&#34;&gt;二、如何选择 Embedding 模型？
+&lt;/h2&gt;&lt;h3 id=&#34;维度&#34;&gt;维度
+&lt;/h3&gt;&lt;ul&gt;
+&lt;li&gt;&lt;strong&gt;384 维&lt;/strong&gt;：轻量，存储省，适合简单场景&lt;/li&gt;
+&lt;li&gt;&lt;strong&gt;768-1024 维&lt;/strong&gt;：最常用，精度够用&lt;/li&gt;
+&lt;li&gt;&lt;strong&gt;4096+ 维&lt;/strong&gt;：高精度，适合专业检索&lt;/li&gt;
+&lt;/ul&gt;
+&lt;h3 id=&#34;语言&#34;&gt;语言
+&lt;/h3&gt;&lt;ul&gt;
+&lt;li&gt;&lt;strong&gt;纯中文&lt;/strong&gt;：BGE 系列（推荐 v1.5 或 M3E 通用版）、智谱 embedding&lt;/li&gt;
+&lt;li&gt;&lt;strong&gt;中英混合&lt;/strong&gt;：BGE 系列、GTE 系列&lt;/li&gt;
+&lt;li&gt;&lt;strong&gt;多语言&lt;/strong&gt;：OpenAI text-embedding-3, E5 multilang, GTE multilang&lt;/li&gt;
+&lt;/ul&gt;
+&lt;h3 id=&#34;评估方式&#34;&gt;评估方式
+&lt;/h3&gt;&lt;p&gt;千万不要只看 MTEB 排行榜！&lt;/p&gt;
+&lt;p&gt;&lt;strong&gt;在自己的数据上跑模拟测试&lt;/strong&gt;：&lt;/p&gt;
+&lt;ol&gt;
+&lt;li&gt;标注一组 &amp;ldquo;问题 | 期望答案文档&amp;rdquo; 的配对&lt;/li&gt;
+&lt;li&gt;用候选 Embedding 模型向量化问题和文档&lt;/li&gt;
+&lt;li&gt;计算 Top-K 召回率、NDCG&lt;/li&gt;
+&lt;li&gt;选实际效果最好的，不要迷信榜单第一&lt;/li&gt;
+&lt;/ol&gt;
+&lt;p&gt;&lt;strong&gt;关键指标&lt;/strong&gt;：&lt;/p&gt;
+&lt;ul&gt;
+&lt;li&gt;&lt;strong&gt;Hit@K&lt;/strong&gt;：正确结果在 Top-K 中的占比&lt;/li&gt;
+&lt;li&gt;&lt;strong&gt;NDCG@K&lt;/strong&gt;：不仅看命没命中，还看命中位置的排名质量&lt;/li&gt;
+&lt;/ul&gt;
+&lt;h2 id=&#34;三向量数据库为什么不是普通的字典&#34;&gt;三、向量数据库：为什么不是普通的字典？
+&lt;/h2&gt;&lt;p&gt;向量数据库和普通数据库的根本区别：&lt;/p&gt;
+&lt;table&gt;
+  &lt;thead&gt;
+      &lt;tr&gt;
+          &lt;th&gt;特性&lt;/th&gt;
+          &lt;th&gt;普通数据库&lt;/th&gt;
+          &lt;th&gt;向量数据库&lt;/th&gt;
+      &lt;/tr&gt;
+  &lt;/thead&gt;
+  &lt;tbody&gt;
+      &lt;tr&gt;
+          &lt;td&gt;查询方式&lt;/td&gt;
+          &lt;td&gt;精确匹配 / 范围查询&lt;/td&gt;
+          &lt;td&gt;近似最近邻搜索（ANN）&lt;/td&gt;
+      &lt;/tr&gt;
+      &lt;tr&gt;
+          &lt;td&gt;索引结构&lt;/td&gt;
+          &lt;td&gt;B+ Tree / 哈希&lt;/td&gt;
+          &lt;td&gt;HNSW / IVF / DiskANN&lt;/td&gt;
+      &lt;/tr&gt;
+      &lt;tr&gt;
+          &lt;td&gt;数据维度&lt;/td&gt;
+          &lt;td&gt;低维（几十列）&lt;/td&gt;
+          &lt;td&gt;高维（几百到几千列）&lt;/td&gt;
+      &lt;/tr&gt;
+      &lt;tr&gt;
+          &lt;td&gt;准确率&lt;/td&gt;
+          &lt;td&gt;100%&lt;/td&gt;
+          &lt;td&gt;可接受的近似误差（99%+）&lt;/td&gt;
+      &lt;/tr&gt;
+      &lt;tr&gt;
+          &lt;td&gt;速度目标&lt;/td&gt;
+          &lt;td&gt;毫秒级精确查询&lt;/td&gt;
+          &lt;td&gt;毫秒级近似搜索（百万级数据）&lt;/td&gt;
+      &lt;/tr&gt;
+  &lt;/tbody&gt;
+&lt;/table&gt;
+&lt;p&gt;在高维空间里，最近邻搜索的复杂度是 O(n)。百万级数据全量扫描太慢了，所以必须做近似搜索。&lt;/p&gt;
+&lt;h3 id=&#34;索引算法简述&#34;&gt;索引算法简述
+&lt;/h3&gt;&lt;table&gt;
+  &lt;thead&gt;
+      &lt;tr&gt;
+          &lt;th&gt;算法&lt;/th&gt;
+          &lt;th&gt;核心思想&lt;/th&gt;
+          &lt;th&gt;适用场景&lt;/th&gt;
+      &lt;/tr&gt;
+  &lt;/thead&gt;
+  &lt;tbody&gt;
+      &lt;tr&gt;
+          &lt;td&gt;&lt;strong&gt;HNSW&lt;/strong&gt;&lt;/td&gt;
+          &lt;td&gt;构建多层图结构，像跳表一样逐层搜索&lt;/td&gt;
+          &lt;td&gt;内存充足、追求最高召回率&lt;/td&gt;
+      &lt;/tr&gt;
+      &lt;tr&gt;
+          &lt;td&gt;&lt;strong&gt;IVF-PQ&lt;/strong&gt;&lt;/td&gt;
+          &lt;td&gt;先聚类分桶，粗过滤后精计算&lt;/td&gt;
+          &lt;td&gt;磁盘存储、数据量极大&lt;/td&gt;
+      &lt;/tr&gt;
+      &lt;tr&gt;
+          &lt;td&gt;&lt;strong&gt;DiskANN&lt;/strong&gt;&lt;/td&gt;
+          &lt;td&gt;HNSW 的磁盘友好版本，压缩存入 SSD&lt;/td&gt;
+          &lt;td&gt;十亿级数据&lt;/td&gt;
+      &lt;/tr&gt;
+  &lt;/tbody&gt;
+&lt;/table&gt;
+&lt;h2 id=&#34;四向量数据库选型矩阵&#34;&gt;四、向量数据库选型矩阵
+&lt;/h2&gt;&lt;table&gt;
+  &lt;thead&gt;
+      &lt;tr&gt;
+          &lt;th&gt;产品&lt;/th&gt;
+          &lt;th&gt;类型&lt;/th&gt;
+          &lt;th&gt;适用规模&lt;/th&gt;
+          &lt;th&gt;特点&lt;/th&gt;
+      &lt;/tr&gt;
+  &lt;/thead&gt;
+  &lt;tbody&gt;
+      &lt;tr&gt;
+          &lt;td&gt;&lt;strong&gt;Chroma&lt;/strong&gt;&lt;/td&gt;
+          &lt;td&gt;开源嵌入式&lt;/td&gt;
+          &lt;td&gt;开发/小项目&lt;/td&gt;
+          &lt;td&gt;零配置上手，嵌入式&lt;/td&gt;
+      &lt;/tr&gt;
+      &lt;tr&gt;
+          &lt;td&gt;&lt;strong&gt;Qdrant&lt;/strong&gt;&lt;/td&gt;
+          &lt;td&gt;开源服务端&lt;/td&gt;
+          &lt;td&gt;中小规模生产&lt;/td&gt;
+          &lt;td&gt;Rust 高性能，API 简洁&lt;/td&gt;
+      &lt;/tr&gt;
+      &lt;tr&gt;
+          &lt;td&gt;&lt;strong&gt;Milvus/Zilliz&lt;/strong&gt;&lt;/td&gt;
+          &lt;td&gt;开源 + 云&lt;/td&gt;
+          &lt;td&gt;大规模/超大规模&lt;/td&gt;
+          &lt;td&gt;云原生设计，字节/阿里在用&lt;/td&gt;
+      &lt;/tr&gt;
+      &lt;tr&gt;
+          &lt;td&gt;&lt;strong&gt;Pinecone&lt;/strong&gt;&lt;/td&gt;
+          &lt;td&gt;全托管云&lt;/td&gt;
+          &lt;td&gt;不想运维&lt;/td&gt;
+          &lt;td&gt;成本稍高，API 极简&lt;/td&gt;
+      &lt;/tr&gt;
+      &lt;tr&gt;
+          &lt;td&gt;&lt;strong&gt;pgvector&lt;/strong&gt;&lt;/td&gt;
+          &lt;td&gt;PostgreSQL 插件&lt;/td&gt;
+          &lt;td&gt;已有 PG 架构&lt;/td&gt;
+          &lt;td&gt;无需引入新组件&lt;/td&gt;
+      &lt;/tr&gt;
+      &lt;tr&gt;
+          &lt;td&gt;&lt;strong&gt;Elasticsearch&lt;/strong&gt;&lt;/td&gt;
+          &lt;td&gt;搜索引擎&lt;/td&gt;
+          &lt;td&gt;ES 集群已有&lt;/td&gt;
+          &lt;td&gt;向量检索是后来补的，性能一般&lt;/td&gt;
+      &lt;/tr&gt;
+  &lt;/tbody&gt;
+&lt;/table&gt;
+&lt;p&gt;&lt;strong&gt;选型建议&lt;/strong&gt;：&lt;/p&gt;
+&lt;ul&gt;
+&lt;li&gt;本地开发/原型阶段：Chroma（零配置）&lt;/li&gt;
+&lt;li&gt;生产中小规模：Qdrant / pgvector&lt;/li&gt;
+&lt;li&gt;大规模/云上：Milvus / Pinecone&lt;/li&gt;
+&lt;li&gt;已有搜索架构扩展：在现有系统（ES/MeiliSearch）外挂向量能力&lt;/li&gt;
+&lt;/ul&gt;
+&lt;h2 id=&#34;五embedding--向量库的完整链路&#34;&gt;五、Embedding + 向量库的完整链路
+&lt;/h2&gt;&lt;div class=&#34;highlight&#34;&gt;&lt;pre tabindex=&#34;0&#34; style=&#34;color:#f8f8f2;background-color:#272822;-moz-tab-size:4;-o-tab-size:4;tab-size:4;&#34;&gt;&lt;code class=&#34;language-text&#34; data-lang=&#34;text&#34;&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;文档 → 切割 → Chunking → Embedding 模型 → 向量 [v1, v2, ...] → 向量数据库写入
+&lt;/span&gt;&lt;/span&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;                                          ↓
+&lt;/span&gt;&lt;/span&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;问题 → Embedding 模型（同一个！） → 查询向量 q → 向量库 ANN 搜索 → Top-K 结果 → Rerank → LLM
+&lt;/span&gt;&lt;/span&gt;&lt;/code&gt;&lt;/pre&gt;&lt;/div&gt;&lt;p&gt;&lt;strong&gt;关键注意&lt;/strong&gt;：离线存储和在线查询&lt;strong&gt;必须&lt;/strong&gt;用&lt;strong&gt;同一个 Embedding 模型&lt;/strong&gt;。不同模型映射的向量空间不同，交叉使用会导致检索完全失败。&lt;/p&gt;
+&lt;h2 id=&#34;六生产环境中的高级话题&#34;&gt;六、生产环境中的高级话题
+&lt;/h2&gt;&lt;h3 id=&#34;1-动态更新&#34;&gt;1. 动态更新
+&lt;/h3&gt;&lt;p&gt;知识库内容更新了怎么办？&lt;/p&gt;
+&lt;ul&gt;
+&lt;li&gt;增量写入：新文档 chunk → embedding → 插入&lt;/li&gt;
+&lt;li&gt;删除：按 metadata 标识清理过期 chunk&lt;/li&gt;
+&lt;li&gt;替换：先删后插（需要事务或软删除策略）&lt;/li&gt;
+&lt;/ul&gt;
+&lt;h3 id=&#34;2-混合搜索&#34;&gt;2. 混合搜索
+&lt;/h3&gt;&lt;p&gt;纯向量检索有局限（比如精确匹配产品型号时）。混合搜索 = 向量语义搜索 + 关键词全文搜索，两种结果融合：&lt;/p&gt;
+&lt;pre tabindex=&#34;0&#34;&gt;&lt;code&gt;最终得分 = α × 向量相似度 + β × BM25 分数
+&lt;/code&gt;&lt;/pre&gt;&lt;h3 id=&#34;3-多模态-embedding&#34;&gt;3. 多模态 Embedding
+&lt;/h3&gt;&lt;p&gt;不仅有文本 embedding，还有图片 embedding、音频 embedding。同一语义空间内，&amp;ldquo;一段描述&amp;rdquo; 和 &amp;ldquo;一张图片&amp;rdquo; 可以互相检索。这就是多模态 RAG 的基础。&lt;/p&gt;
+&lt;h2 id=&#34;七本章小结&#34;&gt;七、本章小结
+&lt;/h2&gt;&lt;ul&gt;
+&lt;li&gt;Embedding 是&amp;quot;语义压缩&amp;quot;，让文本变成数学可度量&lt;/li&gt;
+&lt;li&gt;选模型：以&lt;strong&gt;自己业务数据上的召回测试结果&lt;/strong&gt;为准，不是排行榜&lt;/li&gt;
+&lt;li&gt;向量库的核心是 ANN 近似搜索，不是精确匹配&lt;/li&gt;
+&lt;li&gt;选型矩阵覆盖从开发到生产的全链路需求&lt;/li&gt;
+&lt;li&gt;同一个模型贯穿离线和在线链路是基本原则&lt;/li&gt;
+&lt;/ul&gt;
+&lt;h2 id=&#34;思考题&#34;&gt;思考题
+&lt;/h2&gt;&lt;ol&gt;
+&lt;li&gt;为什么在高维空间里，传统数据结构（B+树、哈希）对最近邻搜索失效？这和高维空间的几何特性有什么关系？&lt;/li&gt;
+&lt;li&gt;你设计一个 RAG 系统时，会怎么安排 Embedding 模型更新的灰度策略（避免在线查询和离线存储用的模型版本不一致）？&lt;/li&gt;
+&lt;/ol&gt;
+</description>
+        </item>
+        
+    </channel>
+</rss>

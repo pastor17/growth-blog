@@ -1,0 +1,582 @@
+<!DOCTYPE html>
+<html lang="zh-cn" dir="ltr">
+    <head><meta charset='utf-8'>
+<meta name='viewport' content='width=device-width, initial-scale=1'><meta name='description' content="第4章 AI落地基础术语扫盲\r本章导读\n前三章建立了FDE的行业与路径认知。但许多读者卡在一个具体障碍上：术语听不懂。大模型、Agent、Skill、Tool、RAG、工作流、API、微调、向量数据库……这些词在方案文档里密密麻麻，让非技术背景者望而却步。\n本章用图解+生活化类比，系统扫盲FDE工作中最常遇到的核心术语。每个术语都给出&quot;通俗解释+技术原理+与FDE的关系&quot;，确保你既能听懂、又能用对。读完本章，你应当能看懂基础方案文档，能在客户沟通中把技术术语翻译成客户语言。\n§4.1 术语是工具，不是门槛\r先破一个心态：术语不可怕，它只是行业里的&quot;简称工具&quot;。就像装修行业的&quot;找平&quot;&ldquo;批腻子&quot;&ldquo;开槽&rdquo;，外人听着陌生，本质都是具体动作。AI术语同理——每个词背后都是具体的功能或机制。\n学术语的正确方式不是死记定义，而是理解它解决的问题+它的工作机制+它在FDE工作中怎么用。本章就按这个三段式来讲。\n§4.2 大模型（Large Language Model, LLM）\r通俗解释\r大模型像一个读了海量书、什么都能聊两句的&quot;博学助手&rdquo;。你问它问题，它根据读过的内容生成回答。但它有几个天生毛病：有时会一本正经地胡说（幻觉）、不知道你公司的内部事（无私有知识）、记不住太长的对话（上下文有限）。\n技术原理\r大模型是基于Transformer架构、用海量文本训练出的统计预测模型。它的本质是&quot;根据上文预测下一个词&quot;。这个简单机制在海量数据与巨大参数量下，涌现出了语言理解、推理、生成等能力。\n大模型的能力边界由三方面决定：\n训练数据：决定了它知道什么。 参数规模：影响理解与推理的精细度。 对齐方式：决定它回答的风格与边界。 与FDE的关系\rFDE几乎每天都在调用大模型。理解大模型的能力边界，是判断&quot;哪些任务能交给AI、哪些不能&quot;的前提。FDE的核心工作之一，就是把客户需求拆解到大模型能力边界之内。\n图4-1：大模型能力边界 （建议呈现：同心圆图。内圈&quot;擅长&quot;：文本生成、总结、分类、翻译、简单推理；外圈&quot;不擅长&quot;：实时信息、私有知识、精确计算、多步复杂逻辑、长时记忆。）\n§4.3 幻觉、时效、隐私：大模型三大局限\r大模型有三大局限，是FDE落地必须直面的。\n局限一：幻觉（Hallucination）。 大模型会编造看起来合理但实际错误的内容。比如被问&quot;某公司2024年财报数据&quot;，它可能编出一组数字。原因是它本质是预测下一个词，不是查数据库。应对：用RAG接入真实资料、用Prompt约束&quot;不知道就说不知道&quot;、关键信息人工复核。\n局限二：时效性。 大模型的训练数据有截止时间，之后发生的事它不知道。应对：用联网搜索能力、用RAG接入最新资料。\n局限三：隐私与数据安全。 直接把客户敏感数据发给公有模型有泄露风险。应对：用私有化部署、用数据脱敏、用合规的API通道。\n方法论框4-1：大模型局限的FDE应对清单\n局限 应对手段 幻觉 RAG + Prompt约束 + 人工复核 时效 联网搜索 + RAG接入最新资料 隐私 私有化部署 + 数据脱敏 + 合规通道 §4.4 Agent、Skill、Tool\r这三个词是FDE工作的高频术语，三者关系常被混淆。\n通俗解释\r用一个&quot;厨房团队&quot;类比：\nAgent（智能体） = 厨师。能听懂&quot;做一桌川菜&quot;的指令，自己规划做菜流程并执行。 Skill（技能） = 菜谱技能。比如&quot;回锅肉技能&quot;&ldquo;麻婆豆腐技能&rdquo;，是厨师会做的具体菜。 Tool（工具） = 厨具。锅、刀、灶，是技能执行时调用的工具。 三者关系\rAgent是大模型加上了&quot;规划+执行&quot;能力的封装。它接到任务后，会自主选择调用哪个Skill；Skill在执行时，会调用需要的Tool。\n">
+<title>第4章 AI落地基础术语扫盲</title>
+
+<link rel='canonical' href='https://blog.irudder.me/ai/ped/Chapter04-AI-Implementation-Basic-Terms.html'>
+
+<link rel="stylesheet" href="/scss/style.min.b9e9128fec450ebccecc4ec9900157f32b85d0609bcd5ee3293968bcaa1235f2.css"><meta property='og:title' content="第4章 AI落地基础术语扫盲">
+<meta property='og:description' content="第4章 AI落地基础术语扫盲\r本章导读\n前三章建立了FDE的行业与路径认知。但许多读者卡在一个具体障碍上：术语听不懂。大模型、Agent、Skill、Tool、RAG、工作流、API、微调、向量数据库……这些词在方案文档里密密麻麻，让非技术背景者望而却步。\n本章用图解+生活化类比，系统扫盲FDE工作中最常遇到的核心术语。每个术语都给出&quot;通俗解释+技术原理+与FDE的关系&quot;，确保你既能听懂、又能用对。读完本章，你应当能看懂基础方案文档，能在客户沟通中把技术术语翻译成客户语言。\n§4.1 术语是工具，不是门槛\r先破一个心态：术语不可怕，它只是行业里的&quot;简称工具&quot;。就像装修行业的&quot;找平&quot;&ldquo;批腻子&quot;&ldquo;开槽&rdquo;，外人听着陌生，本质都是具体动作。AI术语同理——每个词背后都是具体的功能或机制。\n学术语的正确方式不是死记定义，而是理解它解决的问题+它的工作机制+它在FDE工作中怎么用。本章就按这个三段式来讲。\n§4.2 大模型（Large Language Model, LLM）\r通俗解释\r大模型像一个读了海量书、什么都能聊两句的&quot;博学助手&rdquo;。你问它问题，它根据读过的内容生成回答。但它有几个天生毛病：有时会一本正经地胡说（幻觉）、不知道你公司的内部事（无私有知识）、记不住太长的对话（上下文有限）。\n技术原理\r大模型是基于Transformer架构、用海量文本训练出的统计预测模型。它的本质是&quot;根据上文预测下一个词&quot;。这个简单机制在海量数据与巨大参数量下，涌现出了语言理解、推理、生成等能力。\n大模型的能力边界由三方面决定：\n训练数据：决定了它知道什么。 参数规模：影响理解与推理的精细度。 对齐方式：决定它回答的风格与边界。 与FDE的关系\rFDE几乎每天都在调用大模型。理解大模型的能力边界，是判断&quot;哪些任务能交给AI、哪些不能&quot;的前提。FDE的核心工作之一，就是把客户需求拆解到大模型能力边界之内。\n图4-1：大模型能力边界 （建议呈现：同心圆图。内圈&quot;擅长&quot;：文本生成、总结、分类、翻译、简单推理；外圈&quot;不擅长&quot;：实时信息、私有知识、精确计算、多步复杂逻辑、长时记忆。）\n§4.3 幻觉、时效、隐私：大模型三大局限\r大模型有三大局限，是FDE落地必须直面的。\n局限一：幻觉（Hallucination）。 大模型会编造看起来合理但实际错误的内容。比如被问&quot;某公司2024年财报数据&quot;，它可能编出一组数字。原因是它本质是预测下一个词，不是查数据库。应对：用RAG接入真实资料、用Prompt约束&quot;不知道就说不知道&quot;、关键信息人工复核。\n局限二：时效性。 大模型的训练数据有截止时间，之后发生的事它不知道。应对：用联网搜索能力、用RAG接入最新资料。\n局限三：隐私与数据安全。 直接把客户敏感数据发给公有模型有泄露风险。应对：用私有化部署、用数据脱敏、用合规的API通道。\n方法论框4-1：大模型局限的FDE应对清单\n局限 应对手段 幻觉 RAG + Prompt约束 + 人工复核 时效 联网搜索 + RAG接入最新资料 隐私 私有化部署 + 数据脱敏 + 合规通道 §4.4 Agent、Skill、Tool\r这三个词是FDE工作的高频术语，三者关系常被混淆。\n通俗解释\r用一个&quot;厨房团队&quot;类比：\nAgent（智能体） = 厨师。能听懂&quot;做一桌川菜&quot;的指令，自己规划做菜流程并执行。 Skill（技能） = 菜谱技能。比如&quot;回锅肉技能&quot;&ldquo;麻婆豆腐技能&rdquo;，是厨师会做的具体菜。 Tool（工具） = 厨具。锅、刀、灶，是技能执行时调用的工具。 三者关系\rAgent是大模型加上了&quot;规划+执行&quot;能力的封装。它接到任务后，会自主选择调用哪个Skill；Skill在执行时，会调用需要的Tool。\n">
+<meta property='og:url' content='https://blog.irudder.me/ai/ped/Chapter04-AI-Implementation-Basic-Terms.html'>
+<meta property='og:site_name' content='SelfTechHub'>
+<meta property='og:type' content='article'><meta property='article:section' content='Ai' /><meta property='article:tag' content='AI' /><meta property='article:tag' content='Terminology' /><meta property='article:tag' content='LLM' /><meta property='article:tag' content='Agent' /><meta property='article:tag' content='RAG' /><meta property='article:tag' content='Skill' /><meta property='article:published_time' content='2026-01-22T00:00:00&#43;00:00'/><meta property='article:modified_time' content='2026-01-22T00:00:00&#43;00:00'/>
+<meta name="twitter:title" content="第4章 AI落地基础术语扫盲">
+<meta name="twitter:description" content="第4章 AI落地基础术语扫盲\r本章导读\n前三章建立了FDE的行业与路径认知。但许多读者卡在一个具体障碍上：术语听不懂。大模型、Agent、Skill、Tool、RAG、工作流、API、微调、向量数据库……这些词在方案文档里密密麻麻，让非技术背景者望而却步。\n本章用图解+生活化类比，系统扫盲FDE工作中最常遇到的核心术语。每个术语都给出&quot;通俗解释+技术原理+与FDE的关系&quot;，确保你既能听懂、又能用对。读完本章，你应当能看懂基础方案文档，能在客户沟通中把技术术语翻译成客户语言。\n§4.1 术语是工具，不是门槛\r先破一个心态：术语不可怕，它只是行业里的&quot;简称工具&quot;。就像装修行业的&quot;找平&quot;&ldquo;批腻子&quot;&ldquo;开槽&rdquo;，外人听着陌生，本质都是具体动作。AI术语同理——每个词背后都是具体的功能或机制。\n学术语的正确方式不是死记定义，而是理解它解决的问题+它的工作机制+它在FDE工作中怎么用。本章就按这个三段式来讲。\n§4.2 大模型（Large Language Model, LLM）\r通俗解释\r大模型像一个读了海量书、什么都能聊两句的&quot;博学助手&rdquo;。你问它问题，它根据读过的内容生成回答。但它有几个天生毛病：有时会一本正经地胡说（幻觉）、不知道你公司的内部事（无私有知识）、记不住太长的对话（上下文有限）。\n技术原理\r大模型是基于Transformer架构、用海量文本训练出的统计预测模型。它的本质是&quot;根据上文预测下一个词&quot;。这个简单机制在海量数据与巨大参数量下，涌现出了语言理解、推理、生成等能力。\n大模型的能力边界由三方面决定：\n训练数据：决定了它知道什么。 参数规模：影响理解与推理的精细度。 对齐方式：决定它回答的风格与边界。 与FDE的关系\rFDE几乎每天都在调用大模型。理解大模型的能力边界，是判断&quot;哪些任务能交给AI、哪些不能&quot;的前提。FDE的核心工作之一，就是把客户需求拆解到大模型能力边界之内。\n图4-1：大模型能力边界 （建议呈现：同心圆图。内圈&quot;擅长&quot;：文本生成、总结、分类、翻译、简单推理；外圈&quot;不擅长&quot;：实时信息、私有知识、精确计算、多步复杂逻辑、长时记忆。）\n§4.3 幻觉、时效、隐私：大模型三大局限\r大模型有三大局限，是FDE落地必须直面的。\n局限一：幻觉（Hallucination）。 大模型会编造看起来合理但实际错误的内容。比如被问&quot;某公司2024年财报数据&quot;，它可能编出一组数字。原因是它本质是预测下一个词，不是查数据库。应对：用RAG接入真实资料、用Prompt约束&quot;不知道就说不知道&quot;、关键信息人工复核。\n局限二：时效性。 大模型的训练数据有截止时间，之后发生的事它不知道。应对：用联网搜索能力、用RAG接入最新资料。\n局限三：隐私与数据安全。 直接把客户敏感数据发给公有模型有泄露风险。应对：用私有化部署、用数据脱敏、用合规的API通道。\n方法论框4-1：大模型局限的FDE应对清单\n局限 应对手段 幻觉 RAG + Prompt约束 + 人工复核 时效 联网搜索 + RAG接入最新资料 隐私 私有化部署 + 数据脱敏 + 合规通道 §4.4 Agent、Skill、Tool\r这三个词是FDE工作的高频术语，三者关系常被混淆。\n通俗解释\r用一个&quot;厨房团队&quot;类比：\nAgent（智能体） = 厨师。能听懂&quot;做一桌川菜&quot;的指令，自己规划做菜流程并执行。 Skill（技能） = 菜谱技能。比如&quot;回锅肉技能&quot;&ldquo;麻婆豆腐技能&rdquo;，是厨师会做的具体菜。 Tool（工具） = 厨具。锅、刀、灶，是技能执行时调用的工具。 三者关系\rAgent是大模型加上了&quot;规划+执行&quot;能力的封装。它接到任务后，会自主选择调用哪个Skill；Skill在执行时，会调用需要的Tool。\n">
+    </head>
+    <body class="
+    article-page
+    ">
+    <script>
+        (function() {
+            const colorSchemeKey = 'StackColorScheme';
+            if(!localStorage.getItem(colorSchemeKey)){
+                localStorage.setItem(colorSchemeKey, "auto");
+            }
+        })();
+    </script><script>
+    (function() {
+        const colorSchemeKey = 'StackColorScheme';
+        const colorSchemeItem = localStorage.getItem(colorSchemeKey);
+        const supportDarkMode = window.matchMedia('(prefers-color-scheme: dark)').matches === true;
+
+        if (colorSchemeItem == 'dark' || colorSchemeItem === 'auto' && supportDarkMode) {
+            
+
+            document.documentElement.dataset.scheme = 'dark';
+        } else {
+            document.documentElement.dataset.scheme = 'light';
+        }
+    })();
+</script>
+<div class="container main-container flex on-phone--column compact"><aside class="sidebar left-sidebar sticky ">
+    <button class="hamburger hamburger--spin" type="button" id="toggle-menu" aria-label="切换菜单">
+        <span class="hamburger-box">
+            <span class="hamburger-inner"></span>
+        </span>
+    </button>
+
+    <header>
+        
+            
+            <figure class="site-avatar">
+                <a href="/">
+                
+                    
+                    
+                    
+                        
+                        <img src="/img/avatar_hu_8588ce14af1147e2.png" width="300"
+                            height="286" class="site-logo" loading="lazy" alt="Avatar">
+                    
+                
+                </a>
+                
+            </figure>
+            
+        
+        
+        <div class="site-meta">
+            <h1 class="site-name"><a href="/">SelfTechHub</a></h1>
+            <h2 class="site-description"></h2>
+        </div>
+    </header><ol class="menu" id="main-menu">
+        
+        
+        <li class="menu-bottom-section">
+            <ol class="menu">
+
+                
+                    <li id="dark-mode-toggle">
+                        <svg xmlns="http://www.w3.org/2000/svg" class="icon icon-tabler icon-tabler-toggle-left" width="24" height="24" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor" fill="none" stroke-linecap="round" stroke-linejoin="round">
+  <path stroke="none" d="M0 0h24v24H0z"/>
+  <circle cx="8" cy="12" r="2" />
+  <rect x="2" y="6" width="20" height="12" rx="6" />
+</svg>
+
+
+
+                        <svg xmlns="http://www.w3.org/2000/svg" class="icon icon-tabler icon-tabler-toggle-right" width="24" height="24" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor" fill="none" stroke-linecap="round" stroke-linejoin="round">
+  <path stroke="none" d="M0 0h24v24H0z"/>
+  <circle cx="16" cy="12" r="2" />
+  <rect x="2" y="6" width="20" height="12" rx="6" />
+</svg>
+
+
+
+                        <span>暗色模式</span>
+                    </li>
+                
+            </ol>
+        </li>
+    </ol>
+</aside>
+
+    
+
+            <main class="main full-width">
+    <article class="main-article">
+    <header class="article-header">
+
+    <div class="article-details">
+    
+    <header class="article-category">
+        
+            <a href="/categories/ai.html" >
+                AI探索
+            </a>
+        
+    </header>
+    
+
+    <div class="article-title-wrapper">
+        <h2 class="article-title">
+            <a href="/ai/ped/Chapter04-AI-Implementation-Basic-Terms.html">第4章 AI落地基础术语扫盲</a>
+        </h2>
+    
+        
+    </div>
+
+    
+    
+    
+    
+    <footer class="article-time">
+        
+            <div>
+                <svg xmlns="http://www.w3.org/2000/svg" class="icon icon-tabler icon-tabler-calendar-time" width="56" height="56" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor" fill="none" stroke-linecap="round" stroke-linejoin="round">
+  <path stroke="none" d="M0 0h24v24H0z"/>
+  <path d="M11.795 21h-6.795a2 2 0 0 1 -2 -2v-12a2 2 0 0 1 2 -2h12a2 2 0 0 1 2 2v4" />
+  <circle cx="18" cy="18" r="4" />
+  <path d="M15 3v4" />
+  <path d="M7 3v4" />
+  <path d="M3 11h16" />
+  <path d="M18 16.496v1.504l1 1" />
+</svg>
+                <time class="article-time--published" datetime='2026-01-22T00:00:00Z'>Jan 22, 2026</time>
+            </div>
+        
+
+        
+            <div>
+                <svg xmlns="http://www.w3.org/2000/svg" class="icon icon-tabler icon-tabler-clock" width="24" height="24" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor" fill="none" stroke-linecap="round" stroke-linejoin="round">
+  <path stroke="none" d="M0 0h24v24H0z"/>
+  <circle cx="12" cy="12" r="9" />
+  <polyline points="12 7 12 12 15 15" />
+</svg>
+
+
+
+                <time class="article-time--reading">
+                    阅读时长: 1 分钟
+                </time>
+            </div>
+        
+    </footer>
+    
+
+    
+</div>
+
+</header>
+
+    <section class="article-content">
+    
+    
+    <h1 id="第4章-ai落地基础术语扫盲">第4章 AI落地基础术语扫盲
+</h1><blockquote>
+<p><strong>本章导读</strong></p>
+<p>前三章建立了FDE的行业与路径认知。但许多读者卡在一个具体障碍上：术语听不懂。大模型、Agent、Skill、Tool、RAG、工作流、API、微调、向量数据库……这些词在方案文档里密密麻麻，让非技术背景者望而却步。</p>
+<p>本章用图解+生活化类比，系统扫盲FDE工作中最常遇到的核心术语。每个术语都给出&quot;通俗解释+技术原理+与FDE的关系&quot;，确保你既能听懂、又能用对。读完本章，你应当能看懂基础方案文档，能在客户沟通中把技术术语翻译成客户语言。</p>
+</blockquote>
+<hr>
+<h2 id="41-术语是工具不是门槛">§4.1 术语是工具，不是门槛
+</h2><p>先破一个心态：术语不可怕，它只是行业里的&quot;简称工具&quot;。就像装修行业的&quot;找平&quot;&ldquo;批腻子&quot;&ldquo;开槽&rdquo;，外人听着陌生，本质都是具体动作。AI术语同理——每个词背后都是具体的功能或机制。</p>
+<p>学术语的正确方式不是死记定义，而是<strong>理解它解决的问题+它的工作机制+它在FDE工作中怎么用</strong>。本章就按这个三段式来讲。</p>
+<hr>
+<h2 id="42-大模型large-language-model-llm">§4.2 大模型（Large Language Model, LLM）
+</h2><h3 id="通俗解释">通俗解释
+</h3><p>大模型像一个读了海量书、什么都能聊两句的&quot;博学助手&rdquo;。你问它问题，它根据读过的内容生成回答。但它有几个天生毛病：有时会一本正经地胡说（幻觉）、不知道你公司的内部事（无私有知识）、记不住太长的对话（上下文有限）。</p>
+<h3 id="技术原理">技术原理
+</h3><p>大模型是基于Transformer架构、用海量文本训练出的统计预测模型。它的本质是&quot;根据上文预测下一个词&quot;。这个简单机制在海量数据与巨大参数量下，涌现出了语言理解、推理、生成等能力。</p>
+<p>大模型的能力边界由三方面决定：</p>
+<ul>
+<li><strong>训练数据</strong>：决定了它知道什么。</li>
+<li><strong>参数规模</strong>：影响理解与推理的精细度。</li>
+<li><strong>对齐方式</strong>：决定它回答的风格与边界。</li>
+</ul>
+<h3 id="与fde的关系">与FDE的关系
+</h3><p>FDE几乎每天都在调用大模型。理解大模型的能力边界，是判断&quot;哪些任务能交给AI、哪些不能&quot;的前提。FDE的核心工作之一，就是把客户需求拆解到大模型能力边界之内。</p>
+<blockquote>
+<p><strong>图4-1：大模型能力边界</strong>
+（建议呈现：同心圆图。内圈&quot;擅长&quot;：文本生成、总结、分类、翻译、简单推理；外圈&quot;不擅长&quot;：实时信息、私有知识、精确计算、多步复杂逻辑、长时记忆。）</p>
+</blockquote>
+<hr>
+<h2 id="43-幻觉时效隐私大模型三大局限">§4.3 幻觉、时效、隐私：大模型三大局限
+</h2><p>大模型有三大局限，是FDE落地必须直面的。</p>
+<p><strong>局限一：幻觉（Hallucination）。</strong> 大模型会编造看起来合理但实际错误的内容。比如被问&quot;某公司2024年财报数据&quot;，它可能编出一组数字。原因是它本质是预测下一个词，不是查数据库。应对：用RAG接入真实资料、用Prompt约束&quot;不知道就说不知道&quot;、关键信息人工复核。</p>
+<p><strong>局限二：时效性。</strong> 大模型的训练数据有截止时间，之后发生的事它不知道。应对：用联网搜索能力、用RAG接入最新资料。</p>
+<p><strong>局限三：隐私与数据安全。</strong> 直接把客户敏感数据发给公有模型有泄露风险。应对：用私有化部署、用数据脱敏、用合规的API通道。</p>
+<blockquote>
+<p><strong>方法论框4-1：大模型局限的FDE应对清单</strong></p>
+<div class="table-wrapper"><table>
+  <thead>
+      <tr>
+          <th>局限</th>
+          <th>应对手段</th>
+      </tr>
+  </thead>
+  <tbody>
+      <tr>
+          <td>幻觉</td>
+          <td>RAG + Prompt约束 + 人工复核</td>
+      </tr>
+      <tr>
+          <td>时效</td>
+          <td>联网搜索 + RAG接入最新资料</td>
+      </tr>
+      <tr>
+          <td>隐私</td>
+          <td>私有化部署 + 数据脱敏 + 合规通道</td>
+      </tr>
+  </tbody>
+</table></div>
+</blockquote>
+<hr>
+<h2 id="44-agentskilltool">§4.4 Agent、Skill、Tool
+</h2><p>这三个词是FDE工作的高频术语，三者关系常被混淆。</p>
+<h3 id="通俗解释-1">通俗解释
+</h3><p>用一个&quot;厨房团队&quot;类比：</p>
+<ul>
+<li><strong>Agent（智能体）</strong> = 厨师。能听懂&quot;做一桌川菜&quot;的指令，自己规划做菜流程并执行。</li>
+<li><strong>Skill（技能）</strong> = 菜谱技能。比如&quot;回锅肉技能&quot;&ldquo;麻婆豆腐技能&rdquo;，是厨师会做的具体菜。</li>
+<li><strong>Tool（工具）</strong> = 厨具。锅、刀、灶，是技能执行时调用的工具。</li>
+</ul>
+<h3 id="三者关系">三者关系
+</h3><p>Agent是大模型加上了&quot;规划+执行&quot;能力的封装。它接到任务后，会自主选择调用哪个Skill；Skill在执行时，会调用需要的Tool。</p>
+<blockquote>
+<p><strong>图4-2：Agent / Skill / Tool 层级关系</strong>
+（建议呈现：树状图。顶层Agent，下挂多个Skill节点，每个Skill下挂若干Tool叶子。）</p>
+</blockquote>
+<p>用一次客户服务场景说明：</p>
+<ul>
+<li>客户问&quot;我的订单到哪了&quot;。</li>
+<li>Agent判断这是&quot;订单查询&quot;任务，调用&quot;订单查询Skill&quot;。</li>
+<li>订单查询Skill调用&quot;订单系统API&quot;这个Tool，获取物流信息。</li>
+<li>Agent把信息整理后回复客户。</li>
+</ul>
+<h3 id="与fde的关系-1">与FDE的关系
+</h3><p>FDE搭建AI能力模块，本质上就是在搭Agent、Skill、Tool的组合。本书第二篇会详细讲Skill设计与搭建。</p>
+<hr>
+<h2 id="45-rag检索增强生成">§4.5 RAG（检索增强生成）
+</h2><h3 id="通俗解释-2">通俗解释
+</h3><p>RAG像一个&quot;允许翻书的考试&quot;。大模型本身不知道你公司的内部知识（没学过），直接问它会幻觉。RAG的做法是：先把你的内部资料切片存进知识库，客户提问时先去知识库检索相关片段，再把片段喂给大模型，让它基于真实资料回答。</p>
+<h3 id="技术原理-1">技术原理
+</h3><p>RAG的核心流程：</p>
+<ol>
+<li><strong>入库</strong>：把文档切成小块（chunk），用向量化模型转成向量，存入向量数据库。</li>
+<li><strong>检索</strong>：用户提问时，把问题也向量化，在数据库里找最相似的片段。</li>
+<li><strong>生成</strong>：把检索到的片段作为上下文，连同问题一起发给大模型，让它生成回答。</li>
+</ol>
+<blockquote>
+<p><strong>图4-3：RAG工作流程</strong>
+（建议呈现：横向流程图。文档→切片→向量化→向量库；用户问题→向量化→检索→片段+问题→大模型→回答。）</p>
+</blockquote>
+<h3 id="与fde的关系-2">与FDE的关系
+</h3><p>RAG是FDE落地最常用的技术之一，几乎所有&quot;企业知识库&quot;&ldquo;智能客服&quot;&ldquo;文档问答&quot;类项目都基于RAG。FDE要会配置RAG（切片策略、向量模型选择、检索调优），但不必自己写底层算法。</p>
+<hr>
+<h2 id="46-工作流workflow">§4.6 工作流（Workflow）
+</h2><h3 id="通俗解释-3">通俗解释
+</h3><p>工作流像一条&quot;AI流水线&rdquo;。把一个复杂任务拆成多个环节，每个环节用对应的AI能力或工具处理，串联起来自动完成。</p>
+<h3 id="与单次大模型调用的区别">与单次大模型调用的区别
+</h3><p>单次大模型调用是&quot;一问一答&rdquo;，适合简单任务。工作流是&quot;多步串联&quot;，适合需要多个环节协同的复杂任务。</p>
+<p>举个例子，&ldquo;自动生成客户跟进邮件&rdquo;：</p>
+<ul>
+<li>单次调用：把客户信息直接喂给大模型，让它写邮件。质量一般，缺个性化。</li>
+<li>工作流：①查询客户历史互动→②大模型分析客户偏好→③大模型生成邮件草稿→④大模型润色→⑤发送。每步专注一件事，质量更高。</li>
+</ul>
+<h3 id="与fde的关系-3">与FDE的关系
+</h3><p>工作流编排是FDE的核心技能之一。本书第9章会详细讲工作流自动化落地。</p>
+<hr>
+<h2 id="47-api应用程序接口">§4.7 API（应用程序接口）
+</h2><h3 id="通俗解释-4">通俗解释
+</h3><p>API像一个&quot;插座&quot;。你想用电，不需要自己发电，把插头插进插座就行。大模型厂商提供API，你不需要自己训练模型，调用API就能用上它的能力。</p>
+<h3 id="关键概念">关键概念
+</h3><ul>
+<li><strong>调用</strong>：通过API发送请求，获取模型响应。</li>
+<li><strong>Token</strong>：大模型计费与上下文计量的单位，大约1个汉字≈1.5-2个token。</li>
+<li><strong>上下文窗口</strong>：模型一次能处理的文本长度上限，超出需截断或分段。</li>
+<li><strong>Rate Limit</strong>：调用频率限制，超限会被限流。</li>
+</ul>
+<h3 id="与fde的关系-4">与FDE的关系
+</h3><p>FDE用零代码平台时，平台已经封装了API调用，FDE不直接写代码调API。但理解API、Token、上下文这些概念，对估算成本、设计Prompt、排查问题至关重要。</p>
+<blockquote>
+<p><strong>方法论框4-2：FDE必须懂的API基础概念</strong></p>
+<ul>
+<li>调用：发请求得响应</li>
+<li>Token：计费与计量单位</li>
+<li>上下文窗口：单次处理上限</li>
+<li>Rate Limit：调用频率限制</li>
+<li>这四个概念直接影响成本估算、Prompt设计与方案可行性判断。</li>
+</ul>
+</blockquote>
+<hr>
+<h2 id="48-微调fine-tuning与向量数据库">§4.8 微调（Fine-tuning）与向量数据库
+</h2><p>这两个术语FDE未必直接操作，但常在方案讨论中出现，需要听懂。</p>
+<h3 id="微调">微调
+</h3><p>微调是在通用大模型基础上，用特定领域数据继续训练，让它在某领域表现更好。类比：大模型是大学毕业生，微调是给他做岗前培训。</p>
+<p><strong>与RAG的区别</strong>：RAG是&quot;翻书&quot;（临时查资料），微调是&quot;上学&quot;（长期改变模型本身）。RAG适合频繁变化的知识，微调适合稳定的风格或领域特性。FDE落地以RAG为主，微调较少（成本高、周期长）。</p>
+<h3 id="向量数据库">向量数据库
+</h3><p>向量数据库是专门存储与检索向量的数据库，是RAG的存储基础设施。常见产品有Milvus、Pinecone、Chroma等。FDE通常不直接运维向量数据库，但要知道它在RAG里的角色，以便与算法团队沟通。</p>
+<hr>
+<h2 id="49-ai落地的四类典型场景">§4.9 AI落地的四类典型场景
+</h2><p>把上述术语串起来，看AI落地的四类典型场景。FDE的绝大多数项目都属于这四类之一。</p>
+<blockquote>
+<p><strong>图4-4：AI落地四类场景</strong>
+（建议呈现：四象限图。横轴&quot;输入结构化程度&quot;，纵轴&quot;输出自由度&quot;。四象限分别标注四类场景。）</p>
+</blockquote>
+<p><strong>第一类：信息整理类。</strong> 输入结构化、输出受限。如：会议纪要生成、文档摘要、数据分类。难度低，适合入门。</p>
+<p><strong>第二类：内容生成类。</strong> 输入结构化、输出自由。如：营销文案生成、邮件草稿、报告初稿。难度中，Prompt工程是关键。</p>
+<p><strong>第三类：知识问答类。</strong> 输入半结构化、输出受限。如：企业知识库问答、客服FAQ、合规咨询。RAG是核心技术。</p>
+<p><strong>第四类：流程自动化类。</strong> 多环节串联、跨系统协同。如：获客工作流、报表自动化、工单分类与派单。工作流编排是核心。</p>
+<p>FDE入门通常从第一类做起，逐步进阶到第四类。</p>
+<hr>
+<h2 id="410-术语转译fde的必备能力">§4.10 术语转译：FDE的必备能力
+</h2><p>光懂术语不够，FDE还要能把术语翻译成客户能懂的话。这是一项被低估的核心能力。</p>
+<blockquote>
+<p><strong>方法论框4-3：术语转译三步法</strong></p>
+<ol>
+<li><strong>去术语</strong>：把技术名词换成生活名词（如&quot;RAG&quot;→&ldquo;给AI配个可翻的资料库&rdquo;）。</li>
+<li><strong>接场景</strong>：用客户自己的业务场景举例（如对零售客户说&quot;就像你店员遇到不熟悉的商品，先翻库存表再回答顾客&quot;）。</li>
+<li><strong>说价值</strong>：最后落到对客户的价值（如&quot;这样AI就不会乱编，回答都基于你的真实资料&quot;）。</li>
+</ol>
+</blockquote>
+<p>举一个转译实例：</p>
+<ul>
+<li>技术话：&ldquo;我们用RAG接入您的知识库，通过向量检索召回相关片段，再由大模型生成回答，降低幻觉风险。&rdquo;</li>
+<li>转译后：&ldquo;我们会把您公司的资料整理成一个AI能随时翻阅的资料库。客户提问时，AI先去资料库找相关内容，再基于真实资料回答，不会胡编。&rdquo;</li>
+</ul>
+<p>后者客户听得懂、记得住、愿意付费。这就是术语转译的价值。</p>
+<hr>
+<h2 id="本章小结">本章小结
+</h2><ol>
+<li><strong>大模型</strong>：博学但有幻觉、时效、隐私三大局限，FDE要用RAG、Prompt约束、私有化部署应对。</li>
+<li><strong>Agent/Skill/Tool</strong>：Agent是厨师、Skill是菜谱技能、Tool是厨具，三者层级关系清晰。</li>
+<li><strong>RAG</strong>：允许翻书的考试，企业知识库类项目的核心技术。</li>
+<li><strong>工作流</strong>：AI流水线，多步串联处理复杂任务。</li>
+<li><strong>API</strong>：AI的插座，Token与上下文是成本与设计的关键概念。</li>
+<li><strong>四类场景</strong>：信息整理、内容生成、知识问答、流程自动化，FDE项目基本归属其一。</li>
+<li><strong>术语转译</strong>：去术语+接场景+说价值，是FDE的核心能力。</li>
+</ol>
+<hr>
+<h2 id="思考题">思考题
+</h2><ol>
+<li>用自己的类比重新解释Agent/Skill/Tool，确保一个完全不懂技术的人能听懂。</li>
+<li>找一份真实AI方案文档，标注其中的术语，用术语转译三步法把其中3句技术话翻译成客户话。</li>
+<li>观察你工作中一个重复任务，判断它属于四类场景的哪类，说明理由。</li>
+<li>解释RAG与微调的区别，并说明什么场景该用哪个。</li>
+</ol>
+<hr>
+<h2 id="延伸阅读">延伸阅读
+</h2><ul>
+<li>本书第7章将深入AI技术基础与工具选型，是本章的进阶延伸。</li>
+<li>第8章讲Prompt工程与Skill搭建，可与本章Agent/Skill部分对照。</li>
+<li>各大模型厂商的官方文档（用于刷新术语的最新定义与能力边界）。</li>
+</ul>
+<hr>
+<blockquote>
+<p><strong>第一篇结束。</strong> 完成本篇四章，你已建立FDE的行业认知、岗位边界、入行路径与术语基础。第二篇将进入实战，从工作方法论开始，逐步掌握FDE的基础工作流。</p>
+</blockquote>
+
+</section>
+
+
+    <footer class="article-footer">
+    
+    <section class="article-tags">
+        
+            <a href="/tags/AI.html">AI</a>
+        
+            <a href="/tags/Terminology.html">Terminology</a>
+        
+            <a href="/tags/LLM.html">LLM</a>
+        
+            <a href="/tags/Agent.html">Agent</a>
+        
+            <a href="/tags/RAG.html">RAG</a>
+        
+            <a href="/tags/Skill.html">Skill</a>
+        
+    </section>
+
+
+    </footer>
+
+
+    
+</article>
+
+    
+
+    
+
+     
+    
+        
+    <script
+    src="https://giscus.app/client.js"
+    data-repo="pastor17/bloggiscus"
+    data-repo-id="R_kgDOQ6H9qQ"
+    data-category=""
+    data-category-id="DIC_kwDOQ6H9qc4C0-T8"
+    data-mapping="pathname"
+    data-strict="0"
+    data-reactions-enabled="1"
+    data-emit-metadata="0"
+    data-input-position="bottom"
+    data-theme="light"
+    data-lang="zh-CN"
+    data-loading="lazy"
+    crossorigin="anonymous"
+    async
+></script>
+<script>
+    function setGiscusTheme(theme) {
+        let giscus = document.querySelector("iframe.giscus-frame");
+        if (giscus) {
+            giscus.contentWindow.postMessage(
+                {
+                    giscus: {
+                        setConfig: {
+                            theme: theme,
+                        },
+                    },
+                },
+                "https://giscus.app"
+            );
+        }
+    }
+
+    (function () {
+        addEventListener("message", (e) => {
+            if (event.origin !== "https://giscus.app") return;
+            handler();
+        });
+        window.addEventListener("onColorSchemeChange", handler);
+
+        function handler() {
+            if (document.documentElement.dataset.scheme === "light") {
+                setGiscusTheme('light');
+            } else {
+                setGiscusTheme('dark_dimmed');
+            }
+        }
+    })();
+</script>
+
+    
+
+    <footer class="site-footer">
+    <section class="copyright">
+        &copy; 
+        
+        2026 SelfTechHub
+    </section>
+    
+    <section class="powerby">
+        
+
+    </section>
+</footer>
+
+
+    
+<div class="pswp" tabindex="-1" role="dialog" aria-hidden="true">
+
+    
+    <div class="pswp__bg"></div>
+
+    
+    <div class="pswp__scroll-wrap">
+
+        
+        <div class="pswp__container">
+            <div class="pswp__item"></div>
+            <div class="pswp__item"></div>
+            <div class="pswp__item"></div>
+        </div>
+
+        
+        <div class="pswp__ui pswp__ui--hidden">
+
+            <div class="pswp__top-bar">
+
+                
+
+                <div class="pswp__counter"></div>
+
+                <button class="pswp__button pswp__button--close" title="Close (Esc)"></button>
+
+                <button class="pswp__button pswp__button--share" title="Share"></button>
+
+                <button class="pswp__button pswp__button--fs" title="Toggle fullscreen"></button>
+
+                <button class="pswp__button pswp__button--zoom" title="Zoom in/out"></button>
+
+                
+                
+                <div class="pswp__preloader">
+                    <div class="pswp__preloader__icn">
+                        <div class="pswp__preloader__cut">
+                            <div class="pswp__preloader__donut"></div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <div class="pswp__share-modal pswp__share-modal--hidden pswp__single-tap">
+                <div class="pswp__share-tooltip"></div>
+            </div>
+
+            <button class="pswp__button pswp__button--arrow--left" title="Previous (arrow left)">
+            </button>
+
+            <button class="pswp__button pswp__button--arrow--right" title="Next (arrow right)">
+            </button>
+
+            <div class="pswp__caption">
+                <div class="pswp__caption__center"></div>
+            </div>
+
+        </div>
+
+    </div>
+
+</div><script 
+                src="https://cdn.jsdelivr.net/npm/photoswipe@4.1.3/dist/photoswipe.min.js"integrity="sha256-ePwmChbbvXbsO02lbM3HoHbSHTHFAeChekF1xKJdleo="crossorigin="anonymous"
+                defer
+                >
+            </script><script 
+                src="https://cdn.jsdelivr.net/npm/photoswipe@4.1.3/dist/photoswipe-ui-default.min.js"integrity="sha256-UKkzOn/w1mBxRmLLGrSeyB4e1xbrp4xylgAWb3M42pU="crossorigin="anonymous"
+                defer
+                >
+            </script><link 
+                rel="stylesheet" 
+                href="https://cdn.jsdelivr.net/npm/photoswipe@4.1.3/dist/default-skin/default-skin.min.css"crossorigin="anonymous"
+            ><link 
+                rel="stylesheet" 
+                href="https://cdn.jsdelivr.net/npm/photoswipe@4.1.3/dist/photoswipe.min.css"crossorigin="anonymous"
+            >
+    
+
+            </main>
+        </div>
+        <script 
+                src="https://cdn.jsdelivr.net/npm/node-vibrant@3.1.6/dist/vibrant.min.js"integrity="sha256-awcR2jno4kI5X0zL8ex0vi2z&#43;KMkF24hUW8WePSA9HM="crossorigin="anonymous"
+                
+                >
+            </script><script type="text/javascript" src="/ts/main.c922af694cc257bf1ecc41c0dd7b0430f9114ec280ccf67cd2c6ad55f5316c4e.js" defer></script>
+<script>
+    (function () {
+        const customFont = document.createElement('link');
+        customFont.href = "https://fonts.googleapis.com/css2?family=Lato:wght@300;400;700&display=swap";
+
+        customFont.type = "text/css";
+        customFont.rel = "stylesheet";
+
+        document.head.appendChild(customFont);
+    }());
+</script>
+
+    </body>
+</html>

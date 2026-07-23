@@ -1,0 +1,527 @@
+<!DOCTYPE html>
+<html lang="zh-cn" dir="ltr">
+    <head><meta charset='utf-8'>
+<meta name='viewport' content='width=device-width, initial-scale=1'><meta name='description' content="记得五年前刚升任技术负责人的时候，我陷入过一种疯狂的&quot;文档焦虑&quot;。\n那时我坚信：团队混乱是因为文档不够多。于是我逼着大家在Confluence上疯狂输出，架构图、流程图、详细到每个参数的部署手册……结果呢？新人入职第一周，对着那堆半年前更新的Wiki发呆，最后还是小心翼翼地跑来拍我肩膀：&ldquo;哥，这个IP好像ping不通了。&rdquo;\n那一刻我才意识到，对于没有专职运维的中小团队，过期的&quot;厚文档&quot;比没有文档更可怕。它是一种虚假的安全感。\n这两年，我带着现在的团队把几十页的Wiki砍成了几个Markdown文件，反而事故率降了，新人上手快了。今天想和大家聊聊，如何用&quot;极简主义&quot;做DevOps知识沉淀，文末我会分享那个救了我发际线的通用模板。\n一、 别做&quot;说明书&quot;，要做&quot;检查清单&quot;\r很多团队的部署文档写得像论文，从Linux内核参数讲到业务逻辑。但实际上，在半夜两点服务挂掉的时候，运维或者替补上场的开发人员根本不想看&quot;为什么&quot;，只想知道&quot;怎么做&quot;。\n真实案例： 2021年双十一前夕，我们团队的小李负责紧急扩容。当时的文档里写了大段关于Nginx负载均衡原理的描述，关键的配置路径却夹杂在一段废话里。结果小李看岔了行，改错了配置文件，导致服务502了整整10分钟。\n事后复盘，我们并没有责怪小李，而是反思了文档结构。\n改进方法： 我们引入了航空业的Checklist（检查清单） 理念。\n在我们的代码仓库根目录下，必须有一个 OPS_README.md。这个文件里不允许出现大段文字，只能有步骤。\n比如，不要写：&ldquo;我们需要确保数据库连接正常，可以通过检查配置文件&hellip;&rdquo;\n要写成：\ncat /etc/config/db.json 确认 host 为 192.168.1.10 执行 npm run db:check 返回 Success 这种傻瓜式的清单，能让一个完全不懂这块业务的实习生，在紧张环境下也能按部就班地完成操作。\n二、 只有代码库里的文档，才是鲜活的\r不知道大家有没有这种经历：Wiki在Confluence上，代码在GitLab里，部署脚本在Jenkins里。三处分离，维护成本极高。\n我的惨痛教训： 我曾经维护过一个支付服务，代码里的环境变量名改了，但Wiki没更新。结果两个月后，一位同事按照Wiki配置新环境，怎么跑都报错，查了一下午才发现是文档&quot;骗&quot;了他。\n落地建议：Docs as Code（文档即代码）\n现在，我强制要求所有运维相关的文档，必须随代码提交。\n这意味着：\n文档就是Markdown文件，放在代码仓库的 /docs 或者根目录下。 代码改动如果涉及环境变更，必须在同一个Merge Request里修改文档。 文档不更新，代码不让合并。 这样做最大的好处是，你查看任何一个历史版本的代码时，都能看到当时那个版本对应的正确文档，这对于回滚操作简直是救命稻草。\n三、 极简模板：中小团队的&quot;救命三页纸&quot;\r经过多次迭代，我总结出了一套适配中小团队（5-50人规模）的极简DevOps文档模板。你可以直接复制到你的项目中。\n这套模板的核心逻辑是：假设操作者只有大专水平的Linux基础，且处于极度疲劳状态。\n模板文件：DEPLOY.md 或 OPS_MANUAL.md\r# [项目名称] 运维极简手册 &gt; 最后更新时间：2023-10-27 (随代码自动变动) &gt; 负责人：@张三 (Backup: @李四) ## 1. 架构速览 (关键信息) - **代码栈**: Java 17 + Spring Boot 3 - **依赖服务**: - MySQL (192.168.1.X) - [读写分离] - Redis (192.168.1.Y) - [仅缓存] - **关键端口**: 内部 8080 / 外部暴露 443 ## 2. 环境配置 (Copy &amp; Paste 就能用) 不要口述参数，直接给出 `.env` 示例： ### Prod 环境 ```bash export DB_HOST=192.168.1.10 export REDIS_HOST=192.168.1.20 # 必须配置，否则无法启动 export JWT_SECRET=****** 3. 部署与重启 (标准动作)\r常规部署:\n">
+<title>不做无效Wiki！这张DevOps极简模板，救了我的发际线</title>
+
+<link rel='canonical' href='https://blog.irudder.me/tech/zhongxiaoxingtuanduidevopsluodifangan/zhishichendian_devopswendangdejijianmuban.html'>
+
+<link rel="stylesheet" href="/scss/style.min.b9e9128fec450ebccecc4ec9900157f32b85d0609bcd5ee3293968bcaa1235f2.css"><meta property='og:title' content="不做无效Wiki！这张DevOps极简模板，救了我的发际线">
+<meta property='og:description' content="记得五年前刚升任技术负责人的时候，我陷入过一种疯狂的&quot;文档焦虑&quot;。\n那时我坚信：团队混乱是因为文档不够多。于是我逼着大家在Confluence上疯狂输出，架构图、流程图、详细到每个参数的部署手册……结果呢？新人入职第一周，对着那堆半年前更新的Wiki发呆，最后还是小心翼翼地跑来拍我肩膀：&ldquo;哥，这个IP好像ping不通了。&rdquo;\n那一刻我才意识到，对于没有专职运维的中小团队，过期的&quot;厚文档&quot;比没有文档更可怕。它是一种虚假的安全感。\n这两年，我带着现在的团队把几十页的Wiki砍成了几个Markdown文件，反而事故率降了，新人上手快了。今天想和大家聊聊，如何用&quot;极简主义&quot;做DevOps知识沉淀，文末我会分享那个救了我发际线的通用模板。\n一、 别做&quot;说明书&quot;，要做&quot;检查清单&quot;\r很多团队的部署文档写得像论文，从Linux内核参数讲到业务逻辑。但实际上，在半夜两点服务挂掉的时候，运维或者替补上场的开发人员根本不想看&quot;为什么&quot;，只想知道&quot;怎么做&quot;。\n真实案例： 2021年双十一前夕，我们团队的小李负责紧急扩容。当时的文档里写了大段关于Nginx负载均衡原理的描述，关键的配置路径却夹杂在一段废话里。结果小李看岔了行，改错了配置文件，导致服务502了整整10分钟。\n事后复盘，我们并没有责怪小李，而是反思了文档结构。\n改进方法： 我们引入了航空业的Checklist（检查清单） 理念。\n在我们的代码仓库根目录下，必须有一个 OPS_README.md。这个文件里不允许出现大段文字，只能有步骤。\n比如，不要写：&ldquo;我们需要确保数据库连接正常，可以通过检查配置文件&hellip;&rdquo;\n要写成：\ncat /etc/config/db.json 确认 host 为 192.168.1.10 执行 npm run db:check 返回 Success 这种傻瓜式的清单，能让一个完全不懂这块业务的实习生，在紧张环境下也能按部就班地完成操作。\n二、 只有代码库里的文档，才是鲜活的\r不知道大家有没有这种经历：Wiki在Confluence上，代码在GitLab里，部署脚本在Jenkins里。三处分离，维护成本极高。\n我的惨痛教训： 我曾经维护过一个支付服务，代码里的环境变量名改了，但Wiki没更新。结果两个月后，一位同事按照Wiki配置新环境，怎么跑都报错，查了一下午才发现是文档&quot;骗&quot;了他。\n落地建议：Docs as Code（文档即代码）\n现在，我强制要求所有运维相关的文档，必须随代码提交。\n这意味着：\n文档就是Markdown文件，放在代码仓库的 /docs 或者根目录下。 代码改动如果涉及环境变更，必须在同一个Merge Request里修改文档。 文档不更新，代码不让合并。 这样做最大的好处是，你查看任何一个历史版本的代码时，都能看到当时那个版本对应的正确文档，这对于回滚操作简直是救命稻草。\n三、 极简模板：中小团队的&quot;救命三页纸&quot;\r经过多次迭代，我总结出了一套适配中小团队（5-50人规模）的极简DevOps文档模板。你可以直接复制到你的项目中。\n这套模板的核心逻辑是：假设操作者只有大专水平的Linux基础，且处于极度疲劳状态。\n模板文件：DEPLOY.md 或 OPS_MANUAL.md\r# [项目名称] 运维极简手册 &gt; 最后更新时间：2023-10-27 (随代码自动变动) &gt; 负责人：@张三 (Backup: @李四) ## 1. 架构速览 (关键信息) - **代码栈**: Java 17 + Spring Boot 3 - **依赖服务**: - MySQL (192.168.1.X) - [读写分离] - Redis (192.168.1.Y) - [仅缓存] - **关键端口**: 内部 8080 / 外部暴露 443 ## 2. 环境配置 (Copy &amp; Paste 就能用) 不要口述参数，直接给出 `.env` 示例： ### Prod 环境 ```bash export DB_HOST=192.168.1.10 export REDIS_HOST=192.168.1.20 # 必须配置，否则无法启动 export JWT_SECRET=****** 3. 部署与重启 (标准动作)\r常规部署:\n">
+<meta property='og:url' content='https://blog.irudder.me/tech/zhongxiaoxingtuanduidevopsluodifangan/zhishichendian_devopswendangdejijianmuban.html'>
+<meta property='og:site_name' content='SelfTechHub'>
+<meta property='og:type' content='article'><meta property='article:section' content='Tech' /><meta property='article:tag' content='知识沉淀：DevOps文档的极简模板' /><meta property='article:published_time' content='2023-12-06T00:00:00&#43;00:00'/><meta property='article:modified_time' content='2023-12-06T00:00:00&#43;00:00'/>
+<meta name="twitter:title" content="不做无效Wiki！这张DevOps极简模板，救了我的发际线">
+<meta name="twitter:description" content="记得五年前刚升任技术负责人的时候，我陷入过一种疯狂的&quot;文档焦虑&quot;。\n那时我坚信：团队混乱是因为文档不够多。于是我逼着大家在Confluence上疯狂输出，架构图、流程图、详细到每个参数的部署手册……结果呢？新人入职第一周，对着那堆半年前更新的Wiki发呆，最后还是小心翼翼地跑来拍我肩膀：&ldquo;哥，这个IP好像ping不通了。&rdquo;\n那一刻我才意识到，对于没有专职运维的中小团队，过期的&quot;厚文档&quot;比没有文档更可怕。它是一种虚假的安全感。\n这两年，我带着现在的团队把几十页的Wiki砍成了几个Markdown文件，反而事故率降了，新人上手快了。今天想和大家聊聊，如何用&quot;极简主义&quot;做DevOps知识沉淀，文末我会分享那个救了我发际线的通用模板。\n一、 别做&quot;说明书&quot;，要做&quot;检查清单&quot;\r很多团队的部署文档写得像论文，从Linux内核参数讲到业务逻辑。但实际上，在半夜两点服务挂掉的时候，运维或者替补上场的开发人员根本不想看&quot;为什么&quot;，只想知道&quot;怎么做&quot;。\n真实案例： 2021年双十一前夕，我们团队的小李负责紧急扩容。当时的文档里写了大段关于Nginx负载均衡原理的描述，关键的配置路径却夹杂在一段废话里。结果小李看岔了行，改错了配置文件，导致服务502了整整10分钟。\n事后复盘，我们并没有责怪小李，而是反思了文档结构。\n改进方法： 我们引入了航空业的Checklist（检查清单） 理念。\n在我们的代码仓库根目录下，必须有一个 OPS_README.md。这个文件里不允许出现大段文字，只能有步骤。\n比如，不要写：&ldquo;我们需要确保数据库连接正常，可以通过检查配置文件&hellip;&rdquo;\n要写成：\ncat /etc/config/db.json 确认 host 为 192.168.1.10 执行 npm run db:check 返回 Success 这种傻瓜式的清单，能让一个完全不懂这块业务的实习生，在紧张环境下也能按部就班地完成操作。\n二、 只有代码库里的文档，才是鲜活的\r不知道大家有没有这种经历：Wiki在Confluence上，代码在GitLab里，部署脚本在Jenkins里。三处分离，维护成本极高。\n我的惨痛教训： 我曾经维护过一个支付服务，代码里的环境变量名改了，但Wiki没更新。结果两个月后，一位同事按照Wiki配置新环境，怎么跑都报错，查了一下午才发现是文档&quot;骗&quot;了他。\n落地建议：Docs as Code（文档即代码）\n现在，我强制要求所有运维相关的文档，必须随代码提交。\n这意味着：\n文档就是Markdown文件，放在代码仓库的 /docs 或者根目录下。 代码改动如果涉及环境变更，必须在同一个Merge Request里修改文档。 文档不更新，代码不让合并。 这样做最大的好处是，你查看任何一个历史版本的代码时，都能看到当时那个版本对应的正确文档，这对于回滚操作简直是救命稻草。\n三、 极简模板：中小团队的&quot;救命三页纸&quot;\r经过多次迭代，我总结出了一套适配中小团队（5-50人规模）的极简DevOps文档模板。你可以直接复制到你的项目中。\n这套模板的核心逻辑是：假设操作者只有大专水平的Linux基础，且处于极度疲劳状态。\n模板文件：DEPLOY.md 或 OPS_MANUAL.md\r# [项目名称] 运维极简手册 &gt; 最后更新时间：2023-10-27 (随代码自动变动) &gt; 负责人：@张三 (Backup: @李四) ## 1. 架构速览 (关键信息) - **代码栈**: Java 17 + Spring Boot 3 - **依赖服务**: - MySQL (192.168.1.X) - [读写分离] - Redis (192.168.1.Y) - [仅缓存] - **关键端口**: 内部 8080 / 外部暴露 443 ## 2. 环境配置 (Copy &amp; Paste 就能用) 不要口述参数，直接给出 `.env` 示例： ### Prod 环境 ```bash export DB_HOST=192.168.1.10 export REDIS_HOST=192.168.1.20 # 必须配置，否则无法启动 export JWT_SECRET=****** 3. 部署与重启 (标准动作)\r常规部署:\n">
+    </head>
+    <body class="
+    article-page
+    ">
+    <script>
+        (function() {
+            const colorSchemeKey = 'StackColorScheme';
+            if(!localStorage.getItem(colorSchemeKey)){
+                localStorage.setItem(colorSchemeKey, "auto");
+            }
+        })();
+    </script><script>
+    (function() {
+        const colorSchemeKey = 'StackColorScheme';
+        const colorSchemeItem = localStorage.getItem(colorSchemeKey);
+        const supportDarkMode = window.matchMedia('(prefers-color-scheme: dark)').matches === true;
+
+        if (colorSchemeItem == 'dark' || colorSchemeItem === 'auto' && supportDarkMode) {
+            
+
+            document.documentElement.dataset.scheme = 'dark';
+        } else {
+            document.documentElement.dataset.scheme = 'light';
+        }
+    })();
+</script>
+<div class="container main-container flex on-phone--column compact"><aside class="sidebar left-sidebar sticky ">
+    <button class="hamburger hamburger--spin" type="button" id="toggle-menu" aria-label="切换菜单">
+        <span class="hamburger-box">
+            <span class="hamburger-inner"></span>
+        </span>
+    </button>
+
+    <header>
+        
+            
+            <figure class="site-avatar">
+                <a href="/">
+                
+                    
+                    
+                    
+                        
+                        <img src="/img/avatar_hu_8588ce14af1147e2.png" width="300"
+                            height="286" class="site-logo" loading="lazy" alt="Avatar">
+                    
+                
+                </a>
+                
+            </figure>
+            
+        
+        
+        <div class="site-meta">
+            <h1 class="site-name"><a href="/">SelfTechHub</a></h1>
+            <h2 class="site-description"></h2>
+        </div>
+    </header><ol class="menu" id="main-menu">
+        
+        
+        <li class="menu-bottom-section">
+            <ol class="menu">
+
+                
+                    <li id="dark-mode-toggle">
+                        <svg xmlns="http://www.w3.org/2000/svg" class="icon icon-tabler icon-tabler-toggle-left" width="24" height="24" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor" fill="none" stroke-linecap="round" stroke-linejoin="round">
+  <path stroke="none" d="M0 0h24v24H0z"/>
+  <circle cx="8" cy="12" r="2" />
+  <rect x="2" y="6" width="20" height="12" rx="6" />
+</svg>
+
+
+
+                        <svg xmlns="http://www.w3.org/2000/svg" class="icon icon-tabler icon-tabler-toggle-right" width="24" height="24" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor" fill="none" stroke-linecap="round" stroke-linejoin="round">
+  <path stroke="none" d="M0 0h24v24H0z"/>
+  <circle cx="16" cy="12" r="2" />
+  <rect x="2" y="6" width="20" height="12" rx="6" />
+</svg>
+
+
+
+                        <span>暗色模式</span>
+                    </li>
+                
+            </ol>
+        </li>
+    </ol>
+</aside>
+
+    
+
+            <main class="main full-width">
+    <article class="main-article">
+    <header class="article-header">
+
+    <div class="article-details">
+    
+    <header class="article-category">
+        
+            <a href="/categories/%E6%8A%80%E6%9C%AF.html" >
+                技术精进
+            </a>
+        
+    </header>
+    
+
+    <div class="article-title-wrapper">
+        <h2 class="article-title">
+            <a href="/tech/zhongxiaoxingtuanduidevopsluodifangan/zhishichendian_devopswendangdejijianmuban.html">不做无效Wiki！这张DevOps极简模板，救了我的发际线</a>
+        </h2>
+    
+        
+    </div>
+
+    
+    
+    
+    
+    <footer class="article-time">
+        
+            <div>
+                <svg xmlns="http://www.w3.org/2000/svg" class="icon icon-tabler icon-tabler-calendar-time" width="56" height="56" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor" fill="none" stroke-linecap="round" stroke-linejoin="round">
+  <path stroke="none" d="M0 0h24v24H0z"/>
+  <path d="M11.795 21h-6.795a2 2 0 0 1 -2 -2v-12a2 2 0 0 1 2 -2h12a2 2 0 0 1 2 2v4" />
+  <circle cx="18" cy="18" r="4" />
+  <path d="M15 3v4" />
+  <path d="M7 3v4" />
+  <path d="M3 11h16" />
+  <path d="M18 16.496v1.504l1 1" />
+</svg>
+                <time class="article-time--published" datetime='2023-12-06T00:00:00Z'>Dec 06, 2023</time>
+            </div>
+        
+
+        
+            <div>
+                <svg xmlns="http://www.w3.org/2000/svg" class="icon icon-tabler icon-tabler-clock" width="24" height="24" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor" fill="none" stroke-linecap="round" stroke-linejoin="round">
+  <path stroke="none" d="M0 0h24v24H0z"/>
+  <circle cx="12" cy="12" r="9" />
+  <polyline points="12 7 12 12 15 15" />
+</svg>
+
+
+
+                <time class="article-time--reading">
+                    阅读时长: 2 分钟
+                </time>
+            </div>
+        
+    </footer>
+    
+
+    
+</div>
+
+</header>
+
+    <section class="article-content">
+    
+    
+    <p>记得五年前刚升任技术负责人的时候，我陷入过一种疯狂的&quot;文档焦虑&quot;。</p>
+<p>那时我坚信：<strong>团队混乱是因为文档不够多</strong>。于是我逼着大家在Confluence上疯狂输出，架构图、流程图、详细到每个参数的部署手册……结果呢？新人入职第一周，对着那堆半年前更新的Wiki发呆，最后还是小心翼翼地跑来拍我肩膀：&ldquo;哥，这个IP好像ping不通了。&rdquo;</p>
+<p>那一刻我才意识到，<strong>对于没有专职运维的中小团队，过期的&quot;厚文档&quot;比没有文档更可怕。它是一种虚假的安全感。</strong></p>
+<p>这两年，我带着现在的团队把几十页的Wiki砍成了几个Markdown文件，反而事故率降了，新人上手快了。今天想和大家聊聊，如何用&quot;极简主义&quot;做DevOps知识沉淀，文末我会分享那个救了我发际线的通用模板。</p>
+<p><img src="https://picsum.photos/800/450?random=1768442532007"
+	
+	
+	
+	loading="lazy"
+	
+		alt="配图"
+	
+	
+></p>
+<h2 id="一-别做说明书要做检查清单">一、 别做&quot;说明书&quot;，要做&quot;检查清单&quot;
+</h2><p>很多团队的部署文档写得像论文，从Linux内核参数讲到业务逻辑。但实际上，在半夜两点服务挂掉的时候，运维或者替补上场的开发人员根本不想看&quot;为什么&quot;，只想知道&quot;怎么做&quot;。</p>
+<p><strong>真实案例：</strong>
+2021年双十一前夕，我们团队的小李负责紧急扩容。当时的文档里写了大段关于Nginx负载均衡原理的描述，关键的配置路径却夹杂在一段废话里。结果小李看岔了行，改错了配置文件，导致服务502了整整10分钟。</p>
+<p>事后复盘，我们并没有责怪小李，而是反思了文档结构。</p>
+<p><strong>改进方法：</strong>
+我们引入了航空业的<strong>Checklist（检查清单）</strong> 理念。</p>
+<p>在我们的代码仓库根目录下，必须有一个 <code>OPS_README.md</code>。这个文件里不允许出现大段文字，只能有步骤。</p>
+<p><img src="https://picsum.photos/800/450?random=1768442528433"
+	
+	
+	
+	loading="lazy"
+	
+		alt="配图"
+	
+	
+></p>
+<blockquote>
+<p>比如，不要写：&ldquo;我们需要确保数据库连接正常，可以通过检查配置文件&hellip;&rdquo;</p>
+<p>要写成：</p>
+<ul>
+<li><input disabled="" type="checkbox"> <code>cat /etc/config/db.json</code> 确认 host 为 <code>192.168.1.10</code></li>
+<li><input disabled="" type="checkbox"> 执行 <code>npm run db:check</code> 返回 <code>Success</code></li>
+</ul>
+</blockquote>
+<p>这种傻瓜式的清单，能让一个完全不懂这块业务的实习生，在紧张环境下也能按部就班地完成操作。</p>
+<h2 id="二-只有代码库里的文档才是鲜活的">二、 只有代码库里的文档，才是鲜活的
+</h2><p>不知道大家有没有这种经历：Wiki在Confluence上，代码在GitLab里，部署脚本在Jenkins里。三处分离，维护成本极高。</p>
+<p><strong>我的惨痛教训：</strong>
+我曾经维护过一个支付服务，代码里的环境变量名改了，但Wiki没更新。结果两个月后，一位同事按照Wiki配置新环境，怎么跑都报错，查了一下午才发现是文档&quot;骗&quot;了他。</p>
+<p><strong>落地建议：Docs as Code（文档即代码）</strong></p>
+<p>现在，我强制要求所有运维相关的文档，<strong>必须随代码提交</strong>。</p>
+<p>这意味着：</p>
+<ol>
+<li>文档就是Markdown文件，放在代码仓库的 <code>/docs</code> 或者根目录下。</li>
+<li>代码改动如果涉及环境变更，必须在同一个Merge Request里修改文档。</li>
+<li><strong>文档不更新，代码不让合并。</strong></li>
+</ol>
+<p>这样做最大的好处是，你查看任何一个历史版本的代码时，都能看到<strong>当时那个版本</strong>对应的正确文档，这对于回滚操作简直是救命稻草。</p>
+<h2 id="三-极简模板中小团队的救命三页纸">三、 极简模板：中小团队的&quot;救命三页纸&quot;
+</h2><p>经过多次迭代，我总结出了一套适配中小团队（5-50人规模）的极简DevOps文档模板。你可以直接复制到你的项目中。</p>
+<p>这套模板的核心逻辑是：<strong>假设操作者只有大专水平的Linux基础，且处于极度疲劳状态。</strong></p>
+<h3 id="模板文件deploymd-或-ops_manualmd">模板文件：<code>DEPLOY.md</code> 或 <code>OPS_MANUAL.md</code>
+</h3><div class="highlight"><pre tabindex="0" style="color:#f8f8f2;background-color:#272822;-moz-tab-size:4;-o-tab-size:4;tab-size:4;"><code class="language-markdown" data-lang="markdown"><span style="display:flex;"><span># [项目名称] 运维极简手册
+</span></span><span style="display:flex;"><span><span style="color:#66d9ef">
+</span></span></span><span style="display:flex;"><span><span style="color:#66d9ef">&gt; </span><span style="font-style:italic">最后更新时间：2023-10-27 (随代码自动变动)
+</span></span></span><span style="display:flex;"><span><span style="font-style:italic"></span><span style="color:#66d9ef">&gt; </span><span style="font-style:italic">负责人：@张三 (Backup: @李四)
+</span></span></span><span style="display:flex;"><span><span style="font-style:italic"></span>
+</span></span><span style="display:flex;"><span><span style="color:#75715e">## 1. 架构速览 (关键信息)
+</span></span></span><span style="display:flex;"><span><span style="color:#75715e"></span><span style="color:#66d9ef">-</span> **代码栈**: Java 17 + Spring Boot 3
+</span></span><span style="display:flex;"><span><span style="color:#66d9ef">-</span> **依赖服务**: 
+</span></span><span style="display:flex;"><span>  <span style="color:#66d9ef">-</span> MySQL (192.168.1.X) - [读写分离]
+</span></span><span style="display:flex;"><span>  <span style="color:#66d9ef">-</span> Redis (192.168.1.Y) - [仅缓存]
+</span></span><span style="display:flex;"><span><span style="color:#66d9ef">-</span> **关键端口**: 内部 8080 / 外部暴露 443
+</span></span><span style="display:flex;"><span>
+</span></span><span style="display:flex;"><span><span style="color:#75715e">## 2. 环境配置 (Copy &amp; Paste 就能用)
+</span></span></span><span style="display:flex;"><span><span style="color:#75715e"></span>不要口述参数，直接给出 <span style="color:#e6db74">`.env`</span> 示例：
+</span></span><span style="display:flex;"><span>
+</span></span><span style="display:flex;"><span><span style="color:#75715e">### Prod 环境
+</span></span></span><span style="display:flex;"><span><span style="color:#75715e"></span>```bash
+</span></span><span style="display:flex;"><span>export DB_HOST=192.168.1.10
+</span></span><span style="display:flex;"><span>export REDIS_HOST=192.168.1.20
+</span></span><span style="display:flex;"><span># 必须配置，否则无法启动
+</span></span><span style="display:flex;"><span>export JWT_SECRET=****** 
+</span></span></code></pre></div><h2 id="3-部署与重启-标准动作">3. 部署与重启 (标准动作)
+</h2><p><strong>常规部署</strong>:</p>
+<div class="highlight"><pre tabindex="0" style="color:#f8f8f2;background-color:#272822;-moz-tab-size:4;-o-tab-size:4;tab-size:4;"><code class="language-bash" data-lang="bash"><span style="display:flex;"><span><span style="color:#75715e"># 1. 拉取代码</span>
+</span></span><span style="display:flex;"><span>git pull origin main
+</span></span><span style="display:flex;"><span><span style="color:#75715e"># 2. 编译</span>
+</span></span><span style="display:flex;"><span>mvn clean package -DskipTests
+</span></span><span style="display:flex;"><span><span style="color:#75715e"># 3. 重启 (使用 systemd)</span>
+</span></span><span style="display:flex;"><span>sudo systemctl restart my-app
+</span></span></code></pre></div><p><strong>紧急回滚 (救火专用)</strong>:</p>
+<ul>
+<li><input disabled="" type="checkbox"> 确认上一版本镜像 Tag: <code>docker images | grep my-app</code></li>
+<li><input disabled="" type="checkbox"> 执行回滚: <code>./scripts/rollback.sh &lt;tag_id&gt;</code></li>
+<li><input disabled="" type="checkbox"> 验证: <code>curl http://localhost:8080/health</code> 返回 <code>{&quot;status&quot;:&quot;UP&quot;}</code></li>
+</ul>
+<h2 id="4-常见报错-踩坑记录">4. 常见报错 (踩坑记录)
+</h2><p><em>这里只记录真实发生过的故障，不要臆想。</em></p>
+<div class="table-wrapper"><table>
+  <thead>
+      <tr>
+          <th style="text-align: left">现象</th>
+          <th style="text-align: left">报错关键字</th>
+          <th style="text-align: left">解决方案</th>
+      </tr>
+  </thead>
+  <tbody>
+      <tr>
+          <td style="text-align: left">启动失败</td>
+          <td style="text-align: left"><code>Connection refused</code></td>
+          <td style="text-align: left">检查 MySQL 是否挂了，或防火墙是否拦截 3306</td>
+      </tr>
+      <tr>
+          <td style="text-align: left">登录慢</td>
+          <td style="text-align: left"><code>Redis timeout</code></td>
+          <td style="text-align: left">可能是连接池满了，重启服务可暂时恢复，后续需排查慢查询</td>
+      </tr>
+  </tbody>
+</table></div>
+<pre tabindex="0"><code>
+**实操心得：**
+我有一个保持了两年的习惯：**每周五下午喝咖啡的时候，花15分钟扫一眼核心项目的这个文档。** 如果发现有&#34;过时&#34;的内容，立刻删掉。**文档的价值在于&#34;准&#34;，而不在于&#34;多&#34;。**
+
+## 四、 自动化是文档的终极形态
+
+写文档的最高境界，是**不需要文档**。
+
+如果一个部署动作需要写10行文档来描述，说明它太复杂了。我们应该写一个脚本，把这10步封装进去，然后文档里只写一行：
+
+&gt; 执行 `./deploy.sh`
+
+**真实场景：**
+以前我们配置新服务器，文档里洋洋洒洒写了30步：安装Docker、配置镜像源、创建用户... 每个人配出来的环境都有细微差别。
+后来我花了一天时间写了一个简单的 `Ansible` Playbook（不用怕，Shell脚本也行）。现在新服务器上线，只需要跑一条命令。
+
+![配图](https://picsum.photos/800/450?random=1768442526227)
+
+当你把复杂的知识固化成脚本，你就完成了从&#34;人治&#34;到&#34;法治&#34;的跨越。这才是DevOps的精髓——**工具承载流程**。
+
+---
+
+## 总结与行动
+
+做技术负责人的这些年，我见过太多因为文档缺失导致的项目&#34;烂尾&#34;，也见过因为文档太繁琐而被束之高阁。
+
+对于我们这种资源有限的中小团队，**&#34;活下来&#34;和&#34;跑得快&#34;是第一要务。** 我们的文档不为KPI服务，只为那个在凌晨3点被叫醒处理故障的兄弟服务。
+
+**这也是一种技术温情。**
+
+**最后，做个小调查：**
+在遇到生产环境故障时，你更倾向于哪种解决方案？
+A. 查阅详细的Wiki知识库，寻找原理和解释。
+B. 打开代码库里的 `OPS.md`，照着Checklist直接敲命令。
+*(欢迎在评论区告诉我你的选择)*
+
+**给你的3个落地行动建议（明天就能用）：**
+
+1.  **做减法**：打开你们的Wiki，把超过6个月未更新且非核心的文档，全部标记为&#34;已归档&#34;或直接删除。
+2.  **建模板**：在你的核心项目根目录下创建一个 `OPS_README.md`，把上面的模板贴进去，填上最基本的信息。
+3.  **定规矩**：在下一次技术周会上宣布——&#34;以后谁改了环境参数不更新这个文件，请大家喝奶茶。&#34;
+
+愿你的团队，文档极简，服务稳定，大家都能准时下班。
+</code></pre>
+</section>
+
+
+    <footer class="article-footer">
+    
+    <section class="article-tags">
+        
+            <a href="/tags/%E7%9F%A5%E8%AF%86%E6%B2%89%E6%B7%80DevOps%E6%96%87%E6%A1%A3%E7%9A%84%E6%9E%81%E7%AE%80%E6%A8%A1%E6%9D%BF.html">知识沉淀：DevOps文档的极简模板</a>
+        
+    </section>
+
+
+    </footer>
+
+
+    
+</article>
+
+    
+
+    
+
+     
+    
+        
+    <script
+    src="https://giscus.app/client.js"
+    data-repo="pastor17/bloggiscus"
+    data-repo-id="R_kgDOQ6H9qQ"
+    data-category=""
+    data-category-id="DIC_kwDOQ6H9qc4C0-T8"
+    data-mapping="pathname"
+    data-strict="0"
+    data-reactions-enabled="1"
+    data-emit-metadata="0"
+    data-input-position="bottom"
+    data-theme="light"
+    data-lang="zh-CN"
+    data-loading="lazy"
+    crossorigin="anonymous"
+    async
+></script>
+<script>
+    function setGiscusTheme(theme) {
+        let giscus = document.querySelector("iframe.giscus-frame");
+        if (giscus) {
+            giscus.contentWindow.postMessage(
+                {
+                    giscus: {
+                        setConfig: {
+                            theme: theme,
+                        },
+                    },
+                },
+                "https://giscus.app"
+            );
+        }
+    }
+
+    (function () {
+        addEventListener("message", (e) => {
+            if (event.origin !== "https://giscus.app") return;
+            handler();
+        });
+        window.addEventListener("onColorSchemeChange", handler);
+
+        function handler() {
+            if (document.documentElement.dataset.scheme === "light") {
+                setGiscusTheme('light');
+            } else {
+                setGiscusTheme('dark_dimmed');
+            }
+        }
+    })();
+</script>
+
+    
+
+    <footer class="site-footer">
+    <section class="copyright">
+        &copy; 
+        
+        2026 SelfTechHub
+    </section>
+    
+    <section class="powerby">
+        
+
+    </section>
+</footer>
+
+
+    
+<div class="pswp" tabindex="-1" role="dialog" aria-hidden="true">
+
+    
+    <div class="pswp__bg"></div>
+
+    
+    <div class="pswp__scroll-wrap">
+
+        
+        <div class="pswp__container">
+            <div class="pswp__item"></div>
+            <div class="pswp__item"></div>
+            <div class="pswp__item"></div>
+        </div>
+
+        
+        <div class="pswp__ui pswp__ui--hidden">
+
+            <div class="pswp__top-bar">
+
+                
+
+                <div class="pswp__counter"></div>
+
+                <button class="pswp__button pswp__button--close" title="Close (Esc)"></button>
+
+                <button class="pswp__button pswp__button--share" title="Share"></button>
+
+                <button class="pswp__button pswp__button--fs" title="Toggle fullscreen"></button>
+
+                <button class="pswp__button pswp__button--zoom" title="Zoom in/out"></button>
+
+                
+                
+                <div class="pswp__preloader">
+                    <div class="pswp__preloader__icn">
+                        <div class="pswp__preloader__cut">
+                            <div class="pswp__preloader__donut"></div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <div class="pswp__share-modal pswp__share-modal--hidden pswp__single-tap">
+                <div class="pswp__share-tooltip"></div>
+            </div>
+
+            <button class="pswp__button pswp__button--arrow--left" title="Previous (arrow left)">
+            </button>
+
+            <button class="pswp__button pswp__button--arrow--right" title="Next (arrow right)">
+            </button>
+
+            <div class="pswp__caption">
+                <div class="pswp__caption__center"></div>
+            </div>
+
+        </div>
+
+    </div>
+
+</div><script 
+                src="https://cdn.jsdelivr.net/npm/photoswipe@4.1.3/dist/photoswipe.min.js"integrity="sha256-ePwmChbbvXbsO02lbM3HoHbSHTHFAeChekF1xKJdleo="crossorigin="anonymous"
+                defer
+                >
+            </script><script 
+                src="https://cdn.jsdelivr.net/npm/photoswipe@4.1.3/dist/photoswipe-ui-default.min.js"integrity="sha256-UKkzOn/w1mBxRmLLGrSeyB4e1xbrp4xylgAWb3M42pU="crossorigin="anonymous"
+                defer
+                >
+            </script><link 
+                rel="stylesheet" 
+                href="https://cdn.jsdelivr.net/npm/photoswipe@4.1.3/dist/default-skin/default-skin.min.css"crossorigin="anonymous"
+            ><link 
+                rel="stylesheet" 
+                href="https://cdn.jsdelivr.net/npm/photoswipe@4.1.3/dist/photoswipe.min.css"crossorigin="anonymous"
+            >
+    
+
+            </main>
+        </div>
+        <script 
+                src="https://cdn.jsdelivr.net/npm/node-vibrant@3.1.6/dist/vibrant.min.js"integrity="sha256-awcR2jno4kI5X0zL8ex0vi2z&#43;KMkF24hUW8WePSA9HM="crossorigin="anonymous"
+                
+                >
+            </script><script type="text/javascript" src="/ts/main.c922af694cc257bf1ecc41c0dd7b0430f9114ec280ccf67cd2c6ad55f5316c4e.js" defer></script>
+<script>
+    (function () {
+        const customFont = document.createElement('link');
+        customFont.href = "https://fonts.googleapis.com/css2?family=Lato:wght@300;400;700&display=swap";
+
+        customFont.type = "text/css";
+        customFont.rel = "stylesheet";
+
+        document.head.appendChild(customFont);
+    }());
+</script>
+
+    </body>
+</html>

@@ -1,0 +1,465 @@
+<!DOCTYPE html>
+<html lang="zh-cn" dir="ltr">
+    <head><meta charset='utf-8'>
+<meta name='viewport' content='width=device-width, initial-scale=1'><meta name='description' content="三年前，如果你告诉我一个不懂任何编程语言的运营人员，能独立开发出一款拥有5000+用户的Chrome插件，并实现每月几百美元的被动收入，我绝对会觉得这是天方夜谭，或者是某种割韭菜的课程广告。\n那时我想做一个简单的“网页批量截图”工具，去Upwork上找外包，对方报价800美元，工期两周。因为沟通成本和后续维护的麻烦，那个想法最终烂在了备忘录里。\n直到ChatGPT和Claude 3.5 Sonnet的出现，彻底击穿了“技术壁垒”。\n现在的现实是：代码能力不再是门槛，“发现微小痛点”的能力才是核心竞争力。 这篇文章不谈宏大的商业模式，只复盘我如何利用AI工具，从零开发Chrome插件并实现变现的全过程。希望能给想做副业、但畏惧技术的你一些真实的参考。\n选品误区：别造火箭，去卖“螺丝钉”\r很多刚接触AI编程的朋友，一上来就想做一个“全能AI助手”或者“下一代笔记软件”。这种心情我太理解了，三年前我也这么想过。\n但对于个人开发者，尤其是依托AI写代码的非技术人员，大而全就是死路。\n市场不需要另一个Notion，但在亚马逊做跨境电商的运营们，迫切需要一个能“一键导出商品评论图片”的小按钮。\n举个真实的例子。我的朋友老张是做小红书运营的。他最大的痛点是：每次写竞品分析，都要手动把几十篇笔记的标题、点赞数、发布时间复制到Excel里，每周末都要耗费整个下午。\n这就是完美的切入点。\n我们是如何验证的？\n搜索现状： 去Chrome应用商店搜“小红书数据导出”，发现现有的插件要么收费极贵（企业级SaaS），要么界面丑陋且很久没更新。 明确需求： 不需要数据分析，不需要图表，只要一个功能——把当前页面的列表数据，一键转成CSV表格。 反思： 如果你现在的idea需要超过3句话才能解释清楚，建议直接砍掉。好的Chrome插件副业，通常只解决一个极度具体的场景问题。\n开发实战：AI不是许愿池，是你的“初级程序员”\r有了想法，怎么让AI写出来？\n很多人失败的原因是把AI当许愿池，直接发指令：“帮我写一个小红书数据导出插件”。AI会给你一堆你看不懂的代码框架，你一运行，报错，然后放弃。\n我摸索出的“AI结对编程”有效路径是：拆解+追问。\n我没有直接让它写整个项目，而是分了三步走（这里以我常用的Claude 3.5 Sonnet为例）：\n第一步：搭建骨架（Manifest V3） Chrome插件的核心是manifest.json文件。我告诉AI：\n“我要开发一个Chrome浏览器插件，基于Manifest V3标准。功能是抓取当前网页的笔记标题和链接。请先给我目录结构和manifest.json文件的代码。”\n第二步：逻辑注入（Content Script） 这是最关键的一步。不懂代码没关系，但你得会“指指点点”。我打开网页，按F12查看元素，告诉AI：\n“笔记的标题在 class名为 title 的 div 标签里，链接是外层的 a 标签。请写一个 content.js，提取这页面上所有这类元素的文本和链接，并打印在控制台。”\n第三步：UI与交互（Popup &amp; Export） 当控制台能打印出数据时，核心逻辑就跑通了。接着我让AI写一个简单的弹窗界面，加一个“导出CSV”按钮，并绑定生成CSV文件的逻辑。\n在这个过程中，我大概遇到了十几次报错。以前遇到报错我会慌，现在我学会了最赖皮的一招：直接把报错信息（红色的字）截图，丢回给AI，并附上一句：“我不知道为什么报错，请帮我分析原因并给出修正后的完整代码。”\n// 我甚至让AI帮我写了详细的注释，方便我理解逻辑 // content.js 示例片段 function extractData() { const items = document.querySelectorAll(&#39;.note-item&#39;); // AI根据我提供的类名写的 const data = []; items.forEach(item =&gt; { // ...提取逻辑 }); return data; } 经验总结： 我现在每周五下午会花两小时维护代码。最大的感悟是，不要试图去理解每一行代码的语法，但要理解代码的逻辑流向。 AI是手，你是脑。\n">
+<title>不懂代码也能做SaaS？我用AI写插件变现的实战复盘</title>
+
+<link rel='canonical' href='https://blog.irudder.me/business/aiplusxiaochengbenchuangyeshijianzongjie/yongaixiedaimakaifaxiaogongjuchromechajianbianxian.html'>
+
+<link rel="stylesheet" href="/scss/style.min.b9e9128fec450ebccecc4ec9900157f32b85d0609bcd5ee3293968bcaa1235f2.css"><meta property='og:title' content="不懂代码也能做SaaS？我用AI写插件变现的实战复盘">
+<meta property='og:description' content="三年前，如果你告诉我一个不懂任何编程语言的运营人员，能独立开发出一款拥有5000+用户的Chrome插件，并实现每月几百美元的被动收入，我绝对会觉得这是天方夜谭，或者是某种割韭菜的课程广告。\n那时我想做一个简单的“网页批量截图”工具，去Upwork上找外包，对方报价800美元，工期两周。因为沟通成本和后续维护的麻烦，那个想法最终烂在了备忘录里。\n直到ChatGPT和Claude 3.5 Sonnet的出现，彻底击穿了“技术壁垒”。\n现在的现实是：代码能力不再是门槛，“发现微小痛点”的能力才是核心竞争力。 这篇文章不谈宏大的商业模式，只复盘我如何利用AI工具，从零开发Chrome插件并实现变现的全过程。希望能给想做副业、但畏惧技术的你一些真实的参考。\n选品误区：别造火箭，去卖“螺丝钉”\r很多刚接触AI编程的朋友，一上来就想做一个“全能AI助手”或者“下一代笔记软件”。这种心情我太理解了，三年前我也这么想过。\n但对于个人开发者，尤其是依托AI写代码的非技术人员，大而全就是死路。\n市场不需要另一个Notion，但在亚马逊做跨境电商的运营们，迫切需要一个能“一键导出商品评论图片”的小按钮。\n举个真实的例子。我的朋友老张是做小红书运营的。他最大的痛点是：每次写竞品分析，都要手动把几十篇笔记的标题、点赞数、发布时间复制到Excel里，每周末都要耗费整个下午。\n这就是完美的切入点。\n我们是如何验证的？\n搜索现状： 去Chrome应用商店搜“小红书数据导出”，发现现有的插件要么收费极贵（企业级SaaS），要么界面丑陋且很久没更新。 明确需求： 不需要数据分析，不需要图表，只要一个功能——把当前页面的列表数据，一键转成CSV表格。 反思： 如果你现在的idea需要超过3句话才能解释清楚，建议直接砍掉。好的Chrome插件副业，通常只解决一个极度具体的场景问题。\n开发实战：AI不是许愿池，是你的“初级程序员”\r有了想法，怎么让AI写出来？\n很多人失败的原因是把AI当许愿池，直接发指令：“帮我写一个小红书数据导出插件”。AI会给你一堆你看不懂的代码框架，你一运行，报错，然后放弃。\n我摸索出的“AI结对编程”有效路径是：拆解+追问。\n我没有直接让它写整个项目，而是分了三步走（这里以我常用的Claude 3.5 Sonnet为例）：\n第一步：搭建骨架（Manifest V3） Chrome插件的核心是manifest.json文件。我告诉AI：\n“我要开发一个Chrome浏览器插件，基于Manifest V3标准。功能是抓取当前网页的笔记标题和链接。请先给我目录结构和manifest.json文件的代码。”\n第二步：逻辑注入（Content Script） 这是最关键的一步。不懂代码没关系，但你得会“指指点点”。我打开网页，按F12查看元素，告诉AI：\n“笔记的标题在 class名为 title 的 div 标签里，链接是外层的 a 标签。请写一个 content.js，提取这页面上所有这类元素的文本和链接，并打印在控制台。”\n第三步：UI与交互（Popup &amp; Export） 当控制台能打印出数据时，核心逻辑就跑通了。接着我让AI写一个简单的弹窗界面，加一个“导出CSV”按钮，并绑定生成CSV文件的逻辑。\n在这个过程中，我大概遇到了十几次报错。以前遇到报错我会慌，现在我学会了最赖皮的一招：直接把报错信息（红色的字）截图，丢回给AI，并附上一句：“我不知道为什么报错，请帮我分析原因并给出修正后的完整代码。”\n// 我甚至让AI帮我写了详细的注释，方便我理解逻辑 // content.js 示例片段 function extractData() { const items = document.querySelectorAll(&#39;.note-item&#39;); // AI根据我提供的类名写的 const data = []; items.forEach(item =&gt; { // ...提取逻辑 }); return data; } 经验总结： 我现在每周五下午会花两小时维护代码。最大的感悟是，不要试图去理解每一行代码的语法，但要理解代码的逻辑流向。 AI是手，你是脑。\n">
+<meta property='og:url' content='https://blog.irudder.me/business/aiplusxiaochengbenchuangyeshijianzongjie/yongaixiedaimakaifaxiaogongjuchromechajianbianxian.html'>
+<meta property='og:site_name' content='SelfTechHub'>
+<meta property='og:type' content='article'><meta property='article:section' content='Business' /><meta property='article:tag' content='用AI写代码开发小工具（Chrome插件）变现' /><meta property='article:published_time' content='2024-08-20T00:00:00&#43;00:00'/><meta property='article:modified_time' content='2024-08-20T00:00:00&#43;00:00'/>
+<meta name="twitter:title" content="不懂代码也能做SaaS？我用AI写插件变现的实战复盘">
+<meta name="twitter:description" content="三年前，如果你告诉我一个不懂任何编程语言的运营人员，能独立开发出一款拥有5000+用户的Chrome插件，并实现每月几百美元的被动收入，我绝对会觉得这是天方夜谭，或者是某种割韭菜的课程广告。\n那时我想做一个简单的“网页批量截图”工具，去Upwork上找外包，对方报价800美元，工期两周。因为沟通成本和后续维护的麻烦，那个想法最终烂在了备忘录里。\n直到ChatGPT和Claude 3.5 Sonnet的出现，彻底击穿了“技术壁垒”。\n现在的现实是：代码能力不再是门槛，“发现微小痛点”的能力才是核心竞争力。 这篇文章不谈宏大的商业模式，只复盘我如何利用AI工具，从零开发Chrome插件并实现变现的全过程。希望能给想做副业、但畏惧技术的你一些真实的参考。\n选品误区：别造火箭，去卖“螺丝钉”\r很多刚接触AI编程的朋友，一上来就想做一个“全能AI助手”或者“下一代笔记软件”。这种心情我太理解了，三年前我也这么想过。\n但对于个人开发者，尤其是依托AI写代码的非技术人员，大而全就是死路。\n市场不需要另一个Notion，但在亚马逊做跨境电商的运营们，迫切需要一个能“一键导出商品评论图片”的小按钮。\n举个真实的例子。我的朋友老张是做小红书运营的。他最大的痛点是：每次写竞品分析，都要手动把几十篇笔记的标题、点赞数、发布时间复制到Excel里，每周末都要耗费整个下午。\n这就是完美的切入点。\n我们是如何验证的？\n搜索现状： 去Chrome应用商店搜“小红书数据导出”，发现现有的插件要么收费极贵（企业级SaaS），要么界面丑陋且很久没更新。 明确需求： 不需要数据分析，不需要图表，只要一个功能——把当前页面的列表数据，一键转成CSV表格。 反思： 如果你现在的idea需要超过3句话才能解释清楚，建议直接砍掉。好的Chrome插件副业，通常只解决一个极度具体的场景问题。\n开发实战：AI不是许愿池，是你的“初级程序员”\r有了想法，怎么让AI写出来？\n很多人失败的原因是把AI当许愿池，直接发指令：“帮我写一个小红书数据导出插件”。AI会给你一堆你看不懂的代码框架，你一运行，报错，然后放弃。\n我摸索出的“AI结对编程”有效路径是：拆解+追问。\n我没有直接让它写整个项目，而是分了三步走（这里以我常用的Claude 3.5 Sonnet为例）：\n第一步：搭建骨架（Manifest V3） Chrome插件的核心是manifest.json文件。我告诉AI：\n“我要开发一个Chrome浏览器插件，基于Manifest V3标准。功能是抓取当前网页的笔记标题和链接。请先给我目录结构和manifest.json文件的代码。”\n第二步：逻辑注入（Content Script） 这是最关键的一步。不懂代码没关系，但你得会“指指点点”。我打开网页，按F12查看元素，告诉AI：\n“笔记的标题在 class名为 title 的 div 标签里，链接是外层的 a 标签。请写一个 content.js，提取这页面上所有这类元素的文本和链接，并打印在控制台。”\n第三步：UI与交互（Popup &amp; Export） 当控制台能打印出数据时，核心逻辑就跑通了。接着我让AI写一个简单的弹窗界面，加一个“导出CSV”按钮，并绑定生成CSV文件的逻辑。\n在这个过程中，我大概遇到了十几次报错。以前遇到报错我会慌，现在我学会了最赖皮的一招：直接把报错信息（红色的字）截图，丢回给AI，并附上一句：“我不知道为什么报错，请帮我分析原因并给出修正后的完整代码。”\n// 我甚至让AI帮我写了详细的注释，方便我理解逻辑 // content.js 示例片段 function extractData() { const items = document.querySelectorAll(&#39;.note-item&#39;); // AI根据我提供的类名写的 const data = []; items.forEach(item =&gt; { // ...提取逻辑 }); return data; } 经验总结： 我现在每周五下午会花两小时维护代码。最大的感悟是，不要试图去理解每一行代码的语法，但要理解代码的逻辑流向。 AI是手，你是脑。\n">
+    </head>
+    <body class="
+    article-page
+    ">
+    <script>
+        (function() {
+            const colorSchemeKey = 'StackColorScheme';
+            if(!localStorage.getItem(colorSchemeKey)){
+                localStorage.setItem(colorSchemeKey, "auto");
+            }
+        })();
+    </script><script>
+    (function() {
+        const colorSchemeKey = 'StackColorScheme';
+        const colorSchemeItem = localStorage.getItem(colorSchemeKey);
+        const supportDarkMode = window.matchMedia('(prefers-color-scheme: dark)').matches === true;
+
+        if (colorSchemeItem == 'dark' || colorSchemeItem === 'auto' && supportDarkMode) {
+            
+
+            document.documentElement.dataset.scheme = 'dark';
+        } else {
+            document.documentElement.dataset.scheme = 'light';
+        }
+    })();
+</script>
+<div class="container main-container flex on-phone--column compact"><aside class="sidebar left-sidebar sticky ">
+    <button class="hamburger hamburger--spin" type="button" id="toggle-menu" aria-label="切换菜单">
+        <span class="hamburger-box">
+            <span class="hamburger-inner"></span>
+        </span>
+    </button>
+
+    <header>
+        
+            
+            <figure class="site-avatar">
+                <a href="/">
+                
+                    
+                    
+                    
+                        
+                        <img src="/img/avatar_hu_8588ce14af1147e2.png" width="300"
+                            height="286" class="site-logo" loading="lazy" alt="Avatar">
+                    
+                
+                </a>
+                
+            </figure>
+            
+        
+        
+        <div class="site-meta">
+            <h1 class="site-name"><a href="/">SelfTechHub</a></h1>
+            <h2 class="site-description"></h2>
+        </div>
+    </header><ol class="menu" id="main-menu">
+        
+        
+        <li class="menu-bottom-section">
+            <ol class="menu">
+
+                
+                    <li id="dark-mode-toggle">
+                        <svg xmlns="http://www.w3.org/2000/svg" class="icon icon-tabler icon-tabler-toggle-left" width="24" height="24" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor" fill="none" stroke-linecap="round" stroke-linejoin="round">
+  <path stroke="none" d="M0 0h24v24H0z"/>
+  <circle cx="8" cy="12" r="2" />
+  <rect x="2" y="6" width="20" height="12" rx="6" />
+</svg>
+
+
+
+                        <svg xmlns="http://www.w3.org/2000/svg" class="icon icon-tabler icon-tabler-toggle-right" width="24" height="24" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor" fill="none" stroke-linecap="round" stroke-linejoin="round">
+  <path stroke="none" d="M0 0h24v24H0z"/>
+  <circle cx="16" cy="12" r="2" />
+  <rect x="2" y="6" width="20" height="12" rx="6" />
+</svg>
+
+
+
+                        <span>暗色模式</span>
+                    </li>
+                
+            </ol>
+        </li>
+    </ol>
+</aside>
+
+    
+
+            <main class="main full-width">
+    <article class="main-article">
+    <header class="article-header">
+
+    <div class="article-details">
+    
+    <header class="article-category">
+        
+            <a href="/categories/%E5%95%86%E4%B8%9A.html" >
+                财富自由
+            </a>
+        
+    </header>
+    
+
+    <div class="article-title-wrapper">
+        <h2 class="article-title">
+            <a href="/business/aiplusxiaochengbenchuangyeshijianzongjie/yongaixiedaimakaifaxiaogongjuchromechajianbianxian.html">不懂代码也能做SaaS？我用AI写插件变现的实战复盘</a>
+        </h2>
+    
+        
+    </div>
+
+    
+    
+    
+    
+    <footer class="article-time">
+        
+            <div>
+                <svg xmlns="http://www.w3.org/2000/svg" class="icon icon-tabler icon-tabler-calendar-time" width="56" height="56" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor" fill="none" stroke-linecap="round" stroke-linejoin="round">
+  <path stroke="none" d="M0 0h24v24H0z"/>
+  <path d="M11.795 21h-6.795a2 2 0 0 1 -2 -2v-12a2 2 0 0 1 2 -2h12a2 2 0 0 1 2 2v4" />
+  <circle cx="18" cy="18" r="4" />
+  <path d="M15 3v4" />
+  <path d="M7 3v4" />
+  <path d="M3 11h16" />
+  <path d="M18 16.496v1.504l1 1" />
+</svg>
+                <time class="article-time--published" datetime='2024-08-20T00:00:00Z'>Aug 20, 2024</time>
+            </div>
+        
+
+        
+            <div>
+                <svg xmlns="http://www.w3.org/2000/svg" class="icon icon-tabler icon-tabler-clock" width="24" height="24" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor" fill="none" stroke-linecap="round" stroke-linejoin="round">
+  <path stroke="none" d="M0 0h24v24H0z"/>
+  <circle cx="12" cy="12" r="9" />
+  <polyline points="12 7 12 12 15 15" />
+</svg>
+
+
+
+                <time class="article-time--reading">
+                    阅读时长: 1 分钟
+                </time>
+            </div>
+        
+    </footer>
+    
+
+    
+</div>
+
+</header>
+
+    <section class="article-content">
+    
+    
+    <p>三年前，如果你告诉我一个不懂任何编程语言的运营人员，能独立开发出一款拥有5000+用户的Chrome插件，并实现每月几百美元的被动收入，我绝对会觉得这是天方夜谭，或者是某种割韭菜的课程广告。</p>
+<p>那时我想做一个简单的“网页批量截图”工具，去Upwork上找外包，对方报价800美元，工期两周。因为沟通成本和后续维护的麻烦，那个想法最终烂在了备忘录里。</p>
+<p><strong>直到ChatGPT和Claude 3.5 Sonnet的出现，彻底击穿了“技术壁垒”。</strong></p>
+<p>现在的现实是：代码能力不再是门槛，<strong>“发现微小痛点”的能力才是核心竞争力。</strong> 这篇文章不谈宏大的商业模式，只复盘我如何利用AI工具，从零开发Chrome插件并实现变现的全过程。希望能给想做副业、但畏惧技术的你一些真实的参考。</p>
+<h2 id="选品误区别造火箭去卖螺丝钉">选品误区：别造火箭，去卖“螺丝钉”
+</h2><p>很多刚接触AI编程的朋友，一上来就想做一个“全能AI助手”或者“下一代笔记软件”。这种心情我太理解了，三年前我也这么想过。</p>
+<p><strong>但对于个人开发者，尤其是依托AI写代码的非技术人员，大而全就是死路。</strong></p>
+<blockquote>
+<p>市场不需要另一个Notion，但在亚马逊做跨境电商的运营们，迫切需要一个能“一键导出商品评论图片”的小按钮。</p>
+</blockquote>
+<p>举个真实的例子。我的朋友老张是做小红书运营的。他最大的痛点是：每次写竞品分析，都要手动把几十篇笔记的标题、点赞数、发布时间复制到Excel里，每周末都要耗费整个下午。</p>
+<p>这就是完美的切入点。</p>
+<p><strong>我们是如何验证的？</strong></p>
+<ol>
+<li><strong>搜索现状：</strong> 去Chrome应用商店搜“小红书数据导出”，发现现有的插件要么收费极贵（企业级SaaS），要么界面丑陋且很久没更新。</li>
+<li><strong>明确需求：</strong> 不需要数据分析，不需要图表，只要一个功能——<strong>把当前页面的列表数据，一键转成CSV表格。</strong></li>
+</ol>
+<p><strong>反思：</strong> 如果你现在的idea需要超过3句话才能解释清楚，建议直接砍掉。好的Chrome插件副业，通常只解决一个极度具体的场景问题。</p>
+<h2 id="开发实战ai不是许愿池是你的初级程序员">开发实战：AI不是许愿池，是你的“初级程序员”
+</h2><p>有了想法，怎么让AI写出来？</p>
+<p>很多人失败的原因是把AI当许愿池，直接发指令：“帮我写一个小红书数据导出插件”。AI会给你一堆你看不懂的代码框架，你一运行，报错，然后放弃。</p>
+<p><strong>我摸索出的“AI结对编程”有效路径是：拆解+追问。</strong></p>
+<p>我没有直接让它写整个项目，而是分了三步走（这里以我常用的Claude 3.5 Sonnet为例）：</p>
+<p><strong>第一步：搭建骨架（Manifest V3）</strong>
+Chrome插件的核心是<code>manifest.json</code>文件。我告诉AI：</p>
+<blockquote>
+<p>“我要开发一个Chrome浏览器插件，基于Manifest V3标准。功能是抓取当前网页的笔记标题和链接。请先给我目录结构和manifest.json文件的代码。”</p>
+</blockquote>
+<p><strong>第二步：逻辑注入（Content Script）</strong>
+这是最关键的一步。不懂代码没关系，但你得会“指指点点”。我打开网页，按F12查看元素，告诉AI：</p>
+<blockquote>
+<p>“笔记的标题在 class名为 <code>title</code> 的 div 标签里，链接是外层的 <code>a</code> 标签。请写一个 content.js，提取这页面上所有这类元素的文本和链接，并打印在控制台。”</p>
+</blockquote>
+<p><strong>第三步：UI与交互（Popup &amp; Export）</strong>
+当控制台能打印出数据时，核心逻辑就跑通了。接着我让AI写一个简单的弹窗界面，加一个“导出CSV”按钮，并绑定生成CSV文件的逻辑。</p>
+<p><img src="https://picsum.photos/800/450?random=1768390839685"
+	
+	
+	
+	loading="lazy"
+	
+		alt="配图"
+	
+	
+></p>
+<p>在这个过程中，我大概遇到了十几次报错。以前遇到报错我会慌，现在我学会了最赖皮的一招：<strong>直接把报错信息（红色的字）截图，丢回给AI，并附上一句：“我不知道为什么报错，请帮我分析原因并给出修正后的完整代码。”</strong></p>
+<div class="highlight"><pre tabindex="0" style="color:#f8f8f2;background-color:#272822;-moz-tab-size:4;-o-tab-size:4;tab-size:4;"><code class="language-javascript" data-lang="javascript"><span style="display:flex;"><span><span style="color:#75715e">// 我甚至让AI帮我写了详细的注释，方便我理解逻辑
+</span></span></span><span style="display:flex;"><span><span style="color:#75715e">// content.js 示例片段
+</span></span></span><span style="display:flex;"><span><span style="color:#75715e"></span><span style="color:#66d9ef">function</span> <span style="color:#a6e22e">extractData</span>() {
+</span></span><span style="display:flex;"><span>  <span style="color:#66d9ef">const</span> <span style="color:#a6e22e">items</span> <span style="color:#f92672">=</span> document.<span style="color:#a6e22e">querySelectorAll</span>(<span style="color:#e6db74">&#39;.note-item&#39;</span>); <span style="color:#75715e">// AI根据我提供的类名写的
+</span></span></span><span style="display:flex;"><span><span style="color:#75715e"></span>  <span style="color:#66d9ef">const</span> <span style="color:#a6e22e">data</span> <span style="color:#f92672">=</span> [];
+</span></span><span style="display:flex;"><span>  <span style="color:#a6e22e">items</span>.<span style="color:#a6e22e">forEach</span>(<span style="color:#a6e22e">item</span> =&gt; {
+</span></span><span style="display:flex;"><span>    <span style="color:#75715e">// ...提取逻辑
+</span></span></span><span style="display:flex;"><span><span style="color:#75715e"></span>  });
+</span></span><span style="display:flex;"><span>  <span style="color:#66d9ef">return</span> <span style="color:#a6e22e">data</span>;
+</span></span><span style="display:flex;"><span>}
+</span></span></code></pre></div><p><strong>经验总结：</strong> 我现在每周五下午会花两小时维护代码。最大的感悟是，<strong>不要试图去理解每一行代码的语法，但要理解代码的逻辑流向。</strong> AI是手，你是脑。</p>
+<h2 id="变现闭环流量从哪里来钱怎么收">变现闭环：流量从哪里来？钱怎么收？
+</h2><p>代码写好了，怎么变现？这是很多技术出身的人最容易忽略的，也是普通人最容易弯道超车的地方。</p>
+<p><strong>1. 流量：利用应用商店的SEO红利</strong>
+Chrome应用商店（CWS）的搜索算法非常原始。
+我的插件最初叫“X-Scraper”，上架一周，下载量为0。
+后来我把名字改成了**“小红书数据导出助手 | 一键保存Excel/CSV”<strong>。
+看出了吗？我把</strong>核心关键词**（平台名+功能+文件格式）直接堆在了标题里。
+修改后的第二天，自然搜索流量带来了15个安装。对于微型工具，精准的搜索流量远比你在社群里发广告有效。</p>
+<p><strong>2. 变现：Freemium（免费+付费）策略</strong>
+我踩过一个大坑：一开始我想搞完全免费积攒口碑，结果引来了一堆伸手党，天天催我加功能。
+后来我调整了策略：</p>
+<ul>
+<li><strong>基础功能免费：</strong> 可以导出前10条数据，只能导出标题。</li>
+<li><strong>Pro版（$3.99/月）：</strong> 无限制导出，包含点赞数、评论数、发布时间等高级字段。</li>
+</ul>
+<p>支付环节我没有接复杂的Stripe（注册太麻烦），而是用了<strong>Gumroad</strong>或者<strong>Lemon Squeezy</strong>。用户支付后，获得一个License Key，在插件里输入即可解锁。</p>
+<p><strong>结果数据：</strong>
+这个小工具上线第3个月，安装量到了1200左右，转化率大概在3%，每月的被动收入大概在150美元左右。钱不多，但它验证了**“痛点-AI开发-商店SEO-付费解锁”**这个闭环是完全跑得通的。</p>
+<h2 id="思考与行动">思考与行动
+</h2><p>回到开头，你可能还在纠结：“我完全看不懂JavaScript，真的能行吗？”</p>
+<p><strong>请思考一个问题：</strong> 那些在这个赛道赚钱的人，是因为他们代码写得比资深工程师好吗？
+大概率不是。是因为他们比工程师更懂“运营想要什么”，比运营更敢于尝试“用AI解决技术难题”。</p>
+<p><strong>技术是手段，解决问题才是目的。</strong></p>
+<p><img src="https://picsum.photos/800/450?random=1768390838748"
+	
+	
+	
+	loading="lazy"
+	
+		alt="配图"
+	
+	
+></p>
+<p>如果你想开始尝试，我建议你这周末做这三件事：</p>
+<ol>
+<li><strong>寻找差评：</strong> 打开Chrome应用商店，搜索你所在行业常用的插件，专门看<strong>3星以下的评论</strong>。用户的抱怨（“这功能太难用了”、“为什么不能导出”）就是你的商机。</li>
+<li><strong>环境准备：</strong> 下载VS Code，注册一个Claude 3.5或ChatGPT Plus账号。</li>
+<li><strong>最小化复刻：</strong> 挑选一个功能极其单一的插件（比如“网页字数统计”），试着把截图发给AI，让它手把手教你复刻一个一模一样的出来。</li>
+</ol>
+<p>不要等到完全准备好才开始，在AI时代，<strong>行动力就是最大的技术壁垒。</strong></p>
+
+</section>
+
+
+    <footer class="article-footer">
+    
+    <section class="article-tags">
+        
+            <a href="/tags/%E7%94%A8AI%E5%86%99%E4%BB%A3%E7%A0%81%E5%BC%80%E5%8F%91%E5%B0%8F%E5%B7%A5%E5%85%B7Chrome%E6%8F%92%E4%BB%B6%E5%8F%98%E7%8E%B0.html">用AI写代码开发小工具（Chrome插件）变现</a>
+        
+    </section>
+
+
+    </footer>
+
+
+    
+</article>
+
+    
+
+    
+
+     
+    
+        
+    <script
+    src="https://giscus.app/client.js"
+    data-repo="pastor17/bloggiscus"
+    data-repo-id="R_kgDOQ6H9qQ"
+    data-category=""
+    data-category-id="DIC_kwDOQ6H9qc4C0-T8"
+    data-mapping="pathname"
+    data-strict="0"
+    data-reactions-enabled="1"
+    data-emit-metadata="0"
+    data-input-position="bottom"
+    data-theme="light"
+    data-lang="zh-CN"
+    data-loading="lazy"
+    crossorigin="anonymous"
+    async
+></script>
+<script>
+    function setGiscusTheme(theme) {
+        let giscus = document.querySelector("iframe.giscus-frame");
+        if (giscus) {
+            giscus.contentWindow.postMessage(
+                {
+                    giscus: {
+                        setConfig: {
+                            theme: theme,
+                        },
+                    },
+                },
+                "https://giscus.app"
+            );
+        }
+    }
+
+    (function () {
+        addEventListener("message", (e) => {
+            if (event.origin !== "https://giscus.app") return;
+            handler();
+        });
+        window.addEventListener("onColorSchemeChange", handler);
+
+        function handler() {
+            if (document.documentElement.dataset.scheme === "light") {
+                setGiscusTheme('light');
+            } else {
+                setGiscusTheme('dark_dimmed');
+            }
+        }
+    })();
+</script>
+
+    
+
+    <footer class="site-footer">
+    <section class="copyright">
+        &copy; 
+        
+        2026 SelfTechHub
+    </section>
+    
+    <section class="powerby">
+        
+
+    </section>
+</footer>
+
+
+    
+<div class="pswp" tabindex="-1" role="dialog" aria-hidden="true">
+
+    
+    <div class="pswp__bg"></div>
+
+    
+    <div class="pswp__scroll-wrap">
+
+        
+        <div class="pswp__container">
+            <div class="pswp__item"></div>
+            <div class="pswp__item"></div>
+            <div class="pswp__item"></div>
+        </div>
+
+        
+        <div class="pswp__ui pswp__ui--hidden">
+
+            <div class="pswp__top-bar">
+
+                
+
+                <div class="pswp__counter"></div>
+
+                <button class="pswp__button pswp__button--close" title="Close (Esc)"></button>
+
+                <button class="pswp__button pswp__button--share" title="Share"></button>
+
+                <button class="pswp__button pswp__button--fs" title="Toggle fullscreen"></button>
+
+                <button class="pswp__button pswp__button--zoom" title="Zoom in/out"></button>
+
+                
+                
+                <div class="pswp__preloader">
+                    <div class="pswp__preloader__icn">
+                        <div class="pswp__preloader__cut">
+                            <div class="pswp__preloader__donut"></div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <div class="pswp__share-modal pswp__share-modal--hidden pswp__single-tap">
+                <div class="pswp__share-tooltip"></div>
+            </div>
+
+            <button class="pswp__button pswp__button--arrow--left" title="Previous (arrow left)">
+            </button>
+
+            <button class="pswp__button pswp__button--arrow--right" title="Next (arrow right)">
+            </button>
+
+            <div class="pswp__caption">
+                <div class="pswp__caption__center"></div>
+            </div>
+
+        </div>
+
+    </div>
+
+</div><script 
+                src="https://cdn.jsdelivr.net/npm/photoswipe@4.1.3/dist/photoswipe.min.js"integrity="sha256-ePwmChbbvXbsO02lbM3HoHbSHTHFAeChekF1xKJdleo="crossorigin="anonymous"
+                defer
+                >
+            </script><script 
+                src="https://cdn.jsdelivr.net/npm/photoswipe@4.1.3/dist/photoswipe-ui-default.min.js"integrity="sha256-UKkzOn/w1mBxRmLLGrSeyB4e1xbrp4xylgAWb3M42pU="crossorigin="anonymous"
+                defer
+                >
+            </script><link 
+                rel="stylesheet" 
+                href="https://cdn.jsdelivr.net/npm/photoswipe@4.1.3/dist/default-skin/default-skin.min.css"crossorigin="anonymous"
+            ><link 
+                rel="stylesheet" 
+                href="https://cdn.jsdelivr.net/npm/photoswipe@4.1.3/dist/photoswipe.min.css"crossorigin="anonymous"
+            >
+    
+
+            </main>
+        </div>
+        <script 
+                src="https://cdn.jsdelivr.net/npm/node-vibrant@3.1.6/dist/vibrant.min.js"integrity="sha256-awcR2jno4kI5X0zL8ex0vi2z&#43;KMkF24hUW8WePSA9HM="crossorigin="anonymous"
+                
+                >
+            </script><script type="text/javascript" src="/ts/main.c922af694cc257bf1ecc41c0dd7b0430f9114ec280ccf67cd2c6ad55f5316c4e.js" defer></script>
+<script>
+    (function () {
+        const customFont = document.createElement('link');
+        customFont.href = "https://fonts.googleapis.com/css2?family=Lato:wght@300;400;700&display=swap";
+
+        customFont.type = "text/css";
+        customFont.rel = "stylesheet";
+
+        document.head.appendChild(customFont);
+    }());
+</script>
+
+    </body>
+</html>

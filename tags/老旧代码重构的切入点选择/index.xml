@@ -1,0 +1,95 @@
+<?xml version="1.0" encoding="utf-8" standalone="yes"?>
+<rss version="2.0" xmlns:atom="http://www.w3.org/2005/Atom">
+    <channel>
+        <title>老旧代码重构的切入点选择 on SelfTechHub</title>
+        <link>https://blog.irudder.me/tags/%E8%80%81%E6%97%A7%E4%BB%A3%E7%A0%81%E9%87%8D%E6%9E%84%E7%9A%84%E5%88%87%E5%85%A5%E7%82%B9%E9%80%89%E6%8B%A9.html</link>
+        <description>Recent content in 老旧代码重构的切入点选择 on SelfTechHub</description>
+        <generator>Hugo -- gohugo.io</generator>
+        <language>zh-cn</language>
+        <lastBuildDate>Wed, 12 May 2021 00:00:00 +0000</lastBuildDate><atom:link href="https://blog.irudder.me/tags/%E8%80%81%E6%97%A7%E4%BB%A3%E7%A0%81%E9%87%8D%E6%9E%84%E7%9A%84%E5%88%87%E5%85%A5%E7%82%B9%E9%80%89%E6%8B%A9/index.xml" rel="self" type="application/rss+xml" /><item>
+        <title>面对“屎山”想重构？别冲动，我曾因此搞垮过项目</title>
+        <link>https://blog.irudder.me/tech/danxiangmuquanliuchengchaijie10fenzhongkedu/laojiudaimazhonggoudeqierudianxuanze.html</link>
+        <pubDate>Wed, 12 May 2021 00:00:00 +0000</pubDate>
+        
+        <guid>https://blog.irudder.me/tech/danxiangmuquanliuchengchaijie10fenzhongkedu/laojiudaimazhonggoudeqierudianxuanze.html</guid>
+        <description>&lt;p&gt;做开发这行久了，谁还没遇到过几座“屎山”呢？&lt;/p&gt;
+&lt;p&gt;我还记得2018年的那个夏天，刚接手一个三年的老项目。看着那段长达4000行的&lt;code&gt;OrderService&lt;/code&gt;类，里面充斥着层层嵌套的&lt;code&gt;if-else&lt;/code&gt;，变量名从&lt;code&gt;a1&lt;/code&gt;排到了&lt;code&gt;temp_final_2&lt;/code&gt;，我内心的“代码洁癖”瞬间爆发。&lt;/p&gt;
+&lt;p&gt;我觉得自己必须拯救这个项目。于是，趁着那个由于需求不饱和的空档期，我花了整整一周时间，把这个类拆分成了策略模式。自我感觉良好，甚至幻想在周一的晨会上接受团队的膜拜。&lt;/p&gt;
+&lt;p&gt;结果呢？周一上线，由于我对一个不起眼的边界条件理解错误，导致VIP用户的运费计算全盘出错。客服电话被打爆，老板脸色铁青，我不得不回滚代码，灰溜溜地把那一周的心血全部删掉。&lt;/p&gt;
+&lt;p&gt;那一刻我才明白：&lt;strong&gt;在中小团队，重构不是为了炫技，甚至不是为了“干净”，而是为了活下去。&lt;/strong&gt;&lt;/p&gt;
+&lt;p&gt;如果你现在也正对着一堆烂代码感到焦虑、恶心，甚至想推倒重来，请先停下来喝杯茶。作为过来人，我想和你聊聊，如何在不搞垮项目（和自己心态）的前提下，找到最安全的重构切入点。&lt;/p&gt;
+&lt;h2 id=&#34;一-别碰那些虽然丑但稳定的代码&#34;&gt;一、 别碰那些“虽然丑但稳定”的代码
+&lt;/h2&gt;&lt;p&gt;很多时候，我们想重构仅仅是因为它“丑”。&lt;/p&gt;
+&lt;blockquote&gt;
+&lt;p&gt;“这段代码逻辑太乱了，完全不符合设计模式。”
+“这个SQL写得太烂了，怎么能用循环查库呢？”&lt;/p&gt;
+&lt;/blockquote&gt;
+&lt;p&gt;&lt;img src=&#34;https://picsum.photos/800/450?random=1768449266538&#34;
+	
+	
+	
+	loading=&#34;lazy&#34;
+	
+		alt=&#34;配图&#34;
+	
+	
+&gt;&lt;/p&gt;
+&lt;p&gt;我曾经有个同事小李，也是个完美主义者。他接手了一个报表导出功能，那个功能代码写得很糟糕，全是硬编码的SQL拼凑。虽然从来没出过错，但他觉得这代码“有毒”，非要用ORM框架重写一遍。&lt;/p&gt;
+&lt;p&gt;结果，那个报表涉及很多历史脏数据，原来的硬编码SQL恰好兼容了这些脏数据，而严谨的ORM框架直接报错。小李修了三个通宵的Bug，最后项目延期，被产品经理疯狂吐槽。&lt;/p&gt;
+&lt;p&gt;&lt;strong&gt;这里有一个残酷的真相：对于中小团队来说，能跑的代码就是好代码。&lt;/strong&gt;&lt;/p&gt;
+&lt;p&gt;如果一段代码写得像意大利面条一样乱，但它已经稳定运行了两年，而且最近半年都没有新需求要改动它，&lt;strong&gt;请绝对不要碰它&lt;/strong&gt;。哪怕它看起来让你很难受，那也是经过岁月洗礼的“防弹代码”。&lt;/p&gt;
+&lt;p&gt;&lt;strong&gt;你需要关注的，不是那些“丑”的地方，而是那些“痛”的地方。&lt;/strong&gt;&lt;/p&gt;
+&lt;p&gt;只有当你要修改它来支持新业务，或者它经常报Bug时，才是动手的时机。&lt;strong&gt;为了重构而重构，是技术人员最大的陷阱。&lt;/strong&gt;&lt;/p&gt;
+&lt;p&gt;&lt;img src=&#34;https://picsum.photos/800/450?random=1768449260888&#34;
+	
+	
+	
+	loading=&#34;lazy&#34;
+	
+		alt=&#34;配图&#34;
+	
+	
+&gt;&lt;/p&gt;
+&lt;h2 id=&#34;二-盯着热点区域用git-log教你做人&#34;&gt;二、 盯着“热点区域”，用git log教你做人
+&lt;/h2&gt;&lt;p&gt;既然不能全改，那从哪下手？&lt;/p&gt;
+&lt;p&gt;我现在的习惯是，每接手一个旧项目，不看架构图，先看&lt;code&gt;git log&lt;/code&gt;。&lt;/p&gt;
+&lt;p&gt;有一个很实用的方法，我称之为**“热点图谱法”**。你可以运行这样一句简单的命令，看看过去半年里，哪些文件被修改的次数最多：&lt;/p&gt;
+&lt;div class=&#34;highlight&#34;&gt;&lt;pre tabindex=&#34;0&#34; style=&#34;color:#f8f8f2;background-color:#272822;-moz-tab-size:4;-o-tab-size:4;tab-size:4;&#34;&gt;&lt;code class=&#34;language-bash&#34; data-lang=&#34;bash&#34;&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;git log --pretty&lt;span style=&#34;color:#f92672&#34;&gt;=&lt;/span&gt;format: --name-only --since&lt;span style=&#34;color:#f92672&#34;&gt;=&lt;/span&gt;&lt;span style=&#34;color:#e6db74&#34;&gt;&amp;#34;6 months ago&amp;#34;&lt;/span&gt; | sort | uniq -c | sort -rg | head -10
+&lt;/span&gt;&lt;/span&gt;&lt;/code&gt;&lt;/pre&gt;&lt;/div&gt;&lt;p&gt;你会发现，80%的需求变更和Bug修复，通常都集中在20%的文件里。&lt;/p&gt;
+&lt;p&gt;拿我去年带的一个电商项目来说，虽然整个项目有几百个文件，但&lt;code&gt;PaymentController.java&lt;/code&gt;这个文件在三个月内被修改了45次。每次改动都会引发冲突，每次上线都提心吊胆。&lt;/p&gt;
+&lt;p&gt;这就找到了&lt;strong&gt;切入点&lt;/strong&gt;。&lt;/p&gt;
+&lt;p&gt;因为这个文件是“热点”，说明业务变化快。在这里进行重构，投入产出比最高。我们当时没有重写整个支付模块，而是做了一个很小的动作：&lt;/p&gt;
+&lt;ol&gt;
+&lt;li&gt;把这个大文件里，处理“微信支付”和“支付宝支付”的逻辑，分别提取成了两个独立的小类。&lt;/li&gt;
+&lt;li&gt;原来的大文件只负责调用。&lt;/li&gt;
+&lt;/ol&gt;
+&lt;p&gt;就这样一个简单的动作，后续的维护成本降低了一半。&lt;strong&gt;不要试图去清洗整个下水道，你只需要把堵得最厉害的那个弯管换掉。&lt;/strong&gt;&lt;/p&gt;
+&lt;h2 id=&#34;三-保护式重构给裸奔的代码穿上铠甲&#34;&gt;三、 保护式重构：给“裸奔”的代码穿上铠甲
+&lt;/h2&gt;&lt;p&gt;当你选定了切入点，准备动手时，最大的焦虑通常是：&lt;strong&gt;“我改坏了怎么办？”&lt;/strong&gt;&lt;/p&gt;
+&lt;p&gt;这种恐惧是正常的。老旧代码通常没有单元测试，逻辑耦合得像团乱麻，改一行代码可能会在看似无关的地方引发雪崩。&lt;/p&gt;
+&lt;p&gt;我曾遇到过一个计算工资的核心方法，里面有几百行逻辑，完全不敢动。后来，我用了一个笨办法，叫**“黄金样本测试（Golden Master Testing）”**。&lt;/p&gt;
+&lt;p&gt;具体操作是这样的：&lt;/p&gt;
+&lt;ol&gt;
+&lt;li&gt;我不去理解代码逻辑，而是找来1000条真实的历史输入数据。&lt;/li&gt;
+&lt;li&gt;把这些数据跑一遍现在的旧代码，记录下1000个对应的输出结果，存成一个文件（这就是“黄金样本”）。&lt;/li&gt;
+&lt;li&gt;写一个测试脚本，确保无论我怎么改代码，这1000个输入对应的输出，必须和“黄金样本”一模一样。&lt;/li&gt;
+&lt;/ol&gt;
+&lt;p&gt;有了这个“笨”测试做保底，我才敢大刀阔斧地去提取方法、重命名变量。&lt;/p&gt;
+&lt;p&gt;有一次，我不小心删掉了一个看似多余的&lt;code&gt;if (user == null)&lt;/code&gt;判断，结果测试脚本立马报错。原来在某种极端的历史数据下，user真的会为空。如果没有这个测试，这个问题只有等发工资那天才会暴露，后果不堪设想。&lt;/p&gt;
+&lt;p&gt;&lt;strong&gt;重构的本质是“在不改变外部行为的前提下改善内部结构”。如果没有测试来定义“外部行为”，那你做的不是重构，是赌博。&lt;/strong&gt;&lt;/p&gt;
+&lt;h2 id=&#34;写在最后&#34;&gt;写在最后
+&lt;/h2&gt;&lt;p&gt;其实，随着年岁增长，我越来越宽容了。&lt;/p&gt;
+&lt;p&gt;看着那些被前人堆砌起来的“屎山”，我不再感到愤怒，反而有一丝敬畏。因为正是这些看似混乱的代码，支撑了公司几年的业务，养活了现在的团队。&lt;/p&gt;
+&lt;p&gt;&lt;strong&gt;你有没有发现，我们往往高估了一次性重构的能力，而低估了日拱一卒的力量？&lt;/strong&gt;&lt;/p&gt;
+&lt;p&gt;如果你正准备对老代码下手，不妨试试这三个微小的行动：&lt;/p&gt;
+&lt;ol&gt;
+&lt;li&gt;&lt;strong&gt;别立项：&lt;/strong&gt; 只要不是架构级变更，别专门立项搞“重构月”，这通常会以烂尾告终。&lt;/li&gt;
+&lt;li&gt;&lt;strong&gt;童子军规则：&lt;/strong&gt; 每次修Bug或做新需求时，顺手把&lt;strong&gt;当前函数&lt;/strong&gt;里的变量名改得可读一点，或者把一小块重复代码提炼出来。就做这么一点点，然后提交。&lt;/li&gt;
+&lt;li&gt;&lt;strong&gt;留下测试：&lt;/strong&gt; 如果你费劲读懂了一块复杂的逻辑，给它补一个单元测试。这是你留给后来人（或者三个月后的自己）最好的礼物。&lt;/li&gt;
+&lt;/ol&gt;
+&lt;p&gt;代码永远不会完美，但只要它今天比昨天清晰了一点点，那就是我们在对抗熵增路上最大的胜利。加油，咱们慢慢来。&lt;/p&gt;
+</description>
+        </item>
+        
+    </channel>
+</rss>

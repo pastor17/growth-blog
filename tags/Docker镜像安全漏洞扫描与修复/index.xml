@@ -1,0 +1,130 @@
+<?xml version="1.0" encoding="utf-8" standalone="yes"?>
+<rss version="2.0" xmlns:atom="http://www.w3.org/2005/Atom">
+    <channel>
+        <title>Docker镜像安全：漏洞扫描与修复 on SelfTechHub</title>
+        <link>https://blog.irudder.me/tags/Docker%E9%95%9C%E5%83%8F%E5%AE%89%E5%85%A8%E6%BC%8F%E6%B4%9E%E6%89%AB%E6%8F%8F%E4%B8%8E%E4%BF%AE%E5%A4%8D.html</link>
+        <description>Recent content in Docker镜像安全：漏洞扫描与修复 on SelfTechHub</description>
+        <generator>Hugo -- gohugo.io</generator>
+        <language>zh-cn</language>
+        <lastBuildDate>Thu, 02 Jul 2020 00:00:00 +0000</lastBuildDate><atom:link href="https://blog.irudder.me/tags/Docker%E9%95%9C%E5%83%8F%E5%AE%89%E5%85%A8%E6%BC%8F%E6%B4%9E%E6%89%AB%E6%8F%8F%E4%B8%8E%E4%BF%AE%E5%A4%8D/index.xml" rel="self" type="application/rss+xml" /><item>
+        <title>炸掉生产环境后，我重构了Docker镜像安全流</title>
+        <link>https://blog.irudder.me/tech/devopsjichugongjurumenyushicao/dockerjingxianganquan_loudongsaomiaoyuxiufu.html</link>
+        <pubDate>Thu, 02 Jul 2020 00:00:00 +0000</pubDate>
+        
+        <guid>https://blog.irudder.me/tech/devopsjichugongjurumenyushicao/dockerjingxianganquan_loudongsaomiaoyuxiufu.html</guid>
+        <description>&lt;p&gt;曾几何时，我也和大多数开发者一样，觉得只要代码逻辑没BUG，单元测试全绿，应用就是安全的。&lt;/p&gt;
+&lt;p&gt;直到两年前的一个周五下午，临下班前我们推送了一个紧急修复补丁。CI/CD流水线一路绿灯，大家开开心心去过周末。结果周六凌晨，运维电话被打爆——生产环境的容器被植入了挖矿脚本，CPU直接飙到100%。&lt;/p&gt;
+&lt;p&gt;&lt;img src=&#34;https://picsum.photos/800/450?random=1768388766114&#34;
+	
+	
+	
+	loading=&#34;lazy&#34;
+	
+		alt=&#34;配图&#34;
+	
+	
+&gt;&lt;/p&gt;
+&lt;p&gt;排查结果让我们背脊发凉：并不是我们的业务代码有漏洞，而是那个用来构建镜像的基础镜像（Base Image），不知何时被上游植入了恶意代码，且包含了一个存在已久的远程执行漏洞（RCE）。&lt;/p&gt;
+&lt;p&gt;这次“翻车”彻底改变了我的认知：&lt;strong&gt;在容器化时代，应用安全不再仅限于代码本身，Docker镜像就是新的“攻击面”。&lt;/strong&gt;&lt;/p&gt;
+&lt;p&gt;很多团队在DevOps建设中狂奔，却往往在镜像安全上“裸奔”。今天我想结合那次惨痛教训，复盘一套适合中小团队的镜像安全治理方案。&lt;/p&gt;
+&lt;h2 id=&#34;警惕官方镜像的隐形陷阱&#34;&gt;警惕“官方镜像”的隐形陷阱
+&lt;/h2&gt;&lt;p&gt;很多人构建镜像的第一行代码通常是 &lt;code&gt;FROM node:latest&lt;/code&gt; 或者 &lt;code&gt;FROM python:3.9&lt;/code&gt;。我们下意识地认为：官方提供的镜像一定是安全且经过加固的。&lt;/p&gt;
+&lt;p&gt;&lt;strong&gt;这可能是一个致命的误区。&lt;/strong&gt;&lt;/p&gt;
+&lt;p&gt;我曾对团队内部使用的20个常用Docker镜像做过一次扫描，结果令人咋舌：一个基于 &lt;code&gt;Debian&lt;/code&gt; 构建的完整版Node.js镜像，由于包含了大量未使用的系统工具（如curl, wget, netcat），竟然检出了300+个系统级漏洞，其中包含4个高危漏洞。&lt;/p&gt;
+&lt;p&gt;&lt;strong&gt;真实案例：&lt;/strong&gt;
+当时我们的支付服务为了图方便，直接用了包含完整构建工具链的胖镜像。黑客利用应用层的一个小漏洞进入容器后，发现容器里竟然预装了GCC和Make工具，直接在容器内编译并运行了提权脚本，轻松拿到了宿主机权限。&lt;/p&gt;
+&lt;p&gt;&lt;strong&gt;改进方案：采用最小化原则（Minimalism）&lt;/strong&gt;&lt;/p&gt;
+&lt;p&gt;既然是生产环境，为什么需要 &lt;code&gt;bash&lt;/code&gt;？为什么需要 &lt;code&gt;vim&lt;/code&gt;？&lt;/p&gt;
+&lt;p&gt;我们花了两个月时间，将所有核心服务的基底镜像切换为 &lt;strong&gt;Alpine&lt;/strong&gt; 或 &lt;strong&gt;Distroless&lt;/strong&gt;。&lt;/p&gt;
+&lt;ul&gt;
+&lt;li&gt;&lt;strong&gt;Alpine&lt;/strong&gt;：极小的Linux发行版，攻击面大幅减小。&lt;/li&gt;
+&lt;li&gt;&lt;strong&gt;Distroless&lt;/strong&gt;：Google推出的镜像，不包含Shell，甚至连包管理器都没有。黑客进来了也无法执行 &lt;code&gt;ls&lt;/code&gt; 或 &lt;code&gt;cd&lt;/code&gt;。&lt;/li&gt;
+&lt;/ul&gt;
+&lt;blockquote&gt;
+&lt;p&gt;&lt;strong&gt;数据对比&lt;/strong&gt;：将一个Python应用从 &lt;code&gt;python:3.9&lt;/code&gt; 迁移到 &lt;code&gt;gcr.io/distroless/python3&lt;/code&gt; 后，镜像体积从 900MB 降至 50MB，扫描出的漏洞数量从 400+ 降到了 &lt;strong&gt;0&lt;/strong&gt;。&lt;/p&gt;
+&lt;/blockquote&gt;
+&lt;p&gt;&lt;img src=&#34;https://picsum.photos/800/450?random=1768388764771&#34;
+	
+	
+	
+	loading=&#34;lazy&#34;
+	
+		alt=&#34;配图&#34;
+	
+	
+&gt;&lt;/p&gt;
+&lt;p&gt;&lt;strong&gt;实操建议：&lt;/strong&gt;
+不要使用 &lt;code&gt;latest&lt;/code&gt; 标签，请锁定具体的SHA256摘要值。&lt;/p&gt;
+&lt;div class=&#34;highlight&#34;&gt;&lt;pre tabindex=&#34;0&#34; style=&#34;color:#f8f8f2;background-color:#272822;-moz-tab-size:4;-o-tab-size:4;tab-size:4;&#34;&gt;&lt;code class=&#34;language-dockerfile&#34; data-lang=&#34;dockerfile&#34;&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;&lt;span style=&#34;color:#75715e&#34;&gt;# ❌ 危险操作：版本不可控，安全不可控&lt;/span&gt;&lt;span style=&#34;color:#960050;background-color:#1e0010&#34;&gt;
+&lt;/span&gt;&lt;/span&gt;&lt;/span&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;&lt;span style=&#34;color:#960050;background-color:#1e0010&#34;&gt;&lt;/span&gt;&lt;span style=&#34;color:#66d9ef&#34;&gt;FROM&lt;/span&gt; &lt;span style=&#34;color:#e6db74&#34;&gt;node:14-alpine&lt;/span&gt; &lt;span style=&#34;color:#960050;background-color:#1e0010&#34;&gt;
+&lt;/span&gt;&lt;/span&gt;&lt;/span&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;&lt;span style=&#34;color:#960050;background-color:#1e0010&#34;&gt;
+&lt;/span&gt;&lt;/span&gt;&lt;/span&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;&lt;span style=&#34;color:#960050;background-color:#1e0010&#34;&gt;&lt;/span&gt;&lt;span style=&#34;color:#75715e&#34;&gt;# ✅ 推荐操作：锁定具体hash，确保环境一致性&lt;/span&gt;&lt;span style=&#34;color:#960050;background-color:#1e0010&#34;&gt;
+&lt;/span&gt;&lt;/span&gt;&lt;/span&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;&lt;span style=&#34;color:#960050;background-color:#1e0010&#34;&gt;&lt;/span&gt;&lt;span style=&#34;color:#66d9ef&#34;&gt;FROM&lt;/span&gt; &lt;span style=&#34;color:#e6db74&#34;&gt;node:14-alpine@sha256:dfc14a79&lt;/span&gt;...&lt;span style=&#34;color:#960050;background-color:#1e0010&#34;&gt;
+&lt;/span&gt;&lt;/span&gt;&lt;/span&gt;&lt;/code&gt;&lt;/pre&gt;&lt;/div&gt;&lt;h2 id=&#34;告别漏洞焦虑扫描不是为了吓唬自己&#34;&gt;告别“漏洞焦虑”：扫描不是为了吓唬自己
+&lt;/h2&gt;&lt;p&gt;如果你尝试过在CI流程中加入扫描工具（如Trivy或Clair），你可能会遇到这种情况：第一次扫描，控制台吐出了几千行红色的漏洞警告。&lt;/p&gt;
+&lt;p&gt;开发人员通常的反应是：“这怎么修？几千个？不管了，先上线再说。”&lt;/p&gt;
+&lt;p&gt;&lt;strong&gt;这就是“报警疲劳”。没有策略的扫描，等于没扫描。&lt;/strong&gt;&lt;/p&gt;
+&lt;p&gt;&lt;strong&gt;真实案例：&lt;/strong&gt;
+我们团队的新人小李曾花费整整一周时间，试图修复镜像扫描出的所有“Medium”级别漏洞。结果发现，90%的漏洞来自于系统底层的依赖库（如glibc），而这些漏洞在官方发布补丁前，我们根本无能为力。不仅浪费了时间，还因为升级底层库导致了应用兼容性问题。&lt;/p&gt;
+&lt;p&gt;&lt;strong&gt;方法论：建立“漏洞分级响应”机制&lt;/strong&gt;&lt;/p&gt;
+&lt;p&gt;我后来制定了一套简单的过滤规则，不再追求“0漏洞”，而是追求“0可利用风险”。&lt;/p&gt;
+&lt;p&gt;我们使用 &lt;strong&gt;Trivy&lt;/strong&gt; 作为扫描工具，并配置了严格的过滤策略：&lt;/p&gt;
+&lt;ol&gt;
+&lt;li&gt;&lt;strong&gt;只关注修复版本&lt;/strong&gt;：如果漏洞没有官方修复方案（Fix Available = False），忽略它。因为即使你焦虑也解决不了。&lt;/li&gt;
+&lt;li&gt;&lt;strong&gt;只阻断高危&lt;/strong&gt;：只有 &lt;code&gt;CRITICAL&lt;/code&gt; 和 &lt;code&gt;HIGH&lt;/code&gt; 级别的漏洞才会中断构建流程，其他级别仅生成报告供后续排期。&lt;/li&gt;
+&lt;li&gt;&lt;strong&gt;忽略非应用依赖&lt;/strong&gt;：对于与业务运行无关的系统组件漏洞，通过 &lt;code&gt;.trivyignore&lt;/code&gt; 文件进行豁免。&lt;/li&gt;
+&lt;/ol&gt;
+&lt;p&gt;&lt;strong&gt;实操代码（GitLab CI示例）：&lt;/strong&gt;&lt;/p&gt;
+&lt;div class=&#34;highlight&#34;&gt;&lt;pre tabindex=&#34;0&#34; style=&#34;color:#f8f8f2;background-color:#272822;-moz-tab-size:4;-o-tab-size:4;tab-size:4;&#34;&gt;&lt;code class=&#34;language-yaml&#34; data-lang=&#34;yaml&#34;&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;&lt;span style=&#34;color:#f92672&#34;&gt;security_scan&lt;/span&gt;:
+&lt;/span&gt;&lt;/span&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;  &lt;span style=&#34;color:#f92672&#34;&gt;stage&lt;/span&gt;: &lt;span style=&#34;color:#ae81ff&#34;&gt;test&lt;/span&gt;
+&lt;/span&gt;&lt;/span&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;  &lt;span style=&#34;color:#f92672&#34;&gt;image&lt;/span&gt;: 
+&lt;/span&gt;&lt;/span&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;    &lt;span style=&#34;color:#f92672&#34;&gt;name&lt;/span&gt;: &lt;span style=&#34;color:#ae81ff&#34;&gt;aquasec/trivy:latest&lt;/span&gt;
+&lt;/span&gt;&lt;/span&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;    &lt;span style=&#34;color:#f92672&#34;&gt;entrypoint&lt;/span&gt;: [&lt;span style=&#34;color:#e6db74&#34;&gt;&amp;#34;&amp;#34;&lt;/span&gt;]
+&lt;/span&gt;&lt;/span&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;  &lt;span style=&#34;color:#f92672&#34;&gt;script&lt;/span&gt;:
+&lt;/span&gt;&lt;/span&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;    &lt;span style=&#34;color:#75715e&#34;&gt;# 第一次运行：生成完整报告，不报错&lt;/span&gt;
+&lt;/span&gt;&lt;/span&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;    - &lt;span style=&#34;color:#ae81ff&#34;&gt;trivy image --format template --template &amp;#34;@/contrib/html.tpl&amp;#34; -o gl-trivy-report.html $CI_REGISTRY_IMAGE:$CI_COMMIT_SHA&lt;/span&gt;
+&lt;/span&gt;&lt;/span&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;    &lt;span style=&#34;color:#75715e&#34;&gt;# 第二次运行：仅在发现“高危”且“可修复”漏洞时报错退出(exit code 1)&lt;/span&gt;
+&lt;/span&gt;&lt;/span&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;    - &lt;span style=&#34;color:#ae81ff&#34;&gt;trivy image --exit-code 1 --severity CRITICAL,HIGH --ignore-unfixed $CI_REGISTRY_IMAGE:$CI_COMMIT_SHA&lt;/span&gt;
+&lt;/span&gt;&lt;/span&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;  &lt;span style=&#34;color:#f92672&#34;&gt;artifacts&lt;/span&gt;:
+&lt;/span&gt;&lt;/span&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;    &lt;span style=&#34;color:#f92672&#34;&gt;paths&lt;/span&gt;:
+&lt;/span&gt;&lt;/span&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;      - &lt;span style=&#34;color:#ae81ff&#34;&gt;gl-trivy-report.html&lt;/span&gt;
+&lt;/span&gt;&lt;/span&gt;&lt;/code&gt;&lt;/pre&gt;&lt;/div&gt;&lt;p&gt;&lt;em&gt;你有没有发现，你们团队的安全报告经常被当作“垃圾邮件”处理？&lt;/em&gt; 如果是，请尝试上述的过滤策略。&lt;/p&gt;
+&lt;h2 id=&#34;多阶段构建把秘密留在黑匣子之外&#34;&gt;多阶段构建：把秘密留在黑匣子之外
+&lt;/h2&gt;&lt;p&gt;除了系统漏洞，Docker镜像最容易泄露的是什么？&lt;strong&gt;是凭证（Secrets）。&lt;/strong&gt;&lt;/p&gt;
+&lt;p&gt;AWS Key、数据库密码、SSH私钥……我见过太多开发者为了拉取私有仓库代码，把 &lt;code&gt;id_rsa&lt;/code&gt; 复制到镜像里，构建完成后虽然删除了文件，但它依然存在于镜像的某一层（Layer）历史中。&lt;/p&gt;
+&lt;p&gt;&lt;strong&gt;真实案例：&lt;/strong&gt;
+某次审计中，我们发现一个前端镜像高达2GB。深入分析Layer后发现，开发人员在构建过程中把整个 &lt;code&gt;.git&lt;/code&gt; 目录都COPY进去了，虽然最后删除了源码，但 &lt;code&gt;.git&lt;/code&gt; 里的提交记录包含了早期的硬编码密码。任何拉取了这个镜像的人，都可以通过 &lt;code&gt;docker history&lt;/code&gt; 命令找回那个密码。&lt;/p&gt;
+&lt;p&gt;&lt;strong&gt;改进方案：多阶段构建（Multi-stage Builds）&lt;/strong&gt;&lt;/p&gt;
+&lt;p&gt;这是目前解决构建依赖残留和敏感信息泄露最优雅的方案。&lt;/p&gt;
+&lt;p&gt;它的核心逻辑是：在一个“脏”的环境里搞定编译、下载依赖、处理密钥，然后只把最终的可执行文件“拎”到一个全新的、干净的镜像里。&lt;/p&gt;
+&lt;p&gt;&lt;strong&gt;代码示例：&lt;/strong&gt;&lt;/p&gt;
+&lt;div class=&#34;highlight&#34;&gt;&lt;pre tabindex=&#34;0&#34; style=&#34;color:#f8f8f2;background-color:#272822;-moz-tab-size:4;-o-tab-size:4;tab-size:4;&#34;&gt;&lt;code class=&#34;language-dockerfile&#34; data-lang=&#34;dockerfile&#34;&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;&lt;span style=&#34;color:#75715e&#34;&gt;# --- 第一阶段：构建环境 ---&lt;/span&gt;&lt;span style=&#34;color:#960050;background-color:#1e0010&#34;&gt;
+&lt;/span&gt;&lt;/span&gt;&lt;/span&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;&lt;span style=&#34;color:#960050;background-color:#1e0010&#34;&gt;&lt;/span&gt;&lt;span style=&#34;color:#66d9ef&#34;&gt;FROM&lt;/span&gt; &lt;span style=&#34;color:#e6db74&#34;&gt;golang:1.16&lt;/span&gt; &lt;span style=&#34;color:#66d9ef&#34;&gt;AS&lt;/span&gt; &lt;span style=&#34;color:#e6db74&#34;&gt;builder&lt;/span&gt;&lt;span style=&#34;color:#960050;background-color:#1e0010&#34;&gt;
+&lt;/span&gt;&lt;/span&gt;&lt;/span&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;&lt;span style=&#34;color:#960050;background-color:#1e0010&#34;&gt;&lt;/span&gt;&lt;span style=&#34;color:#66d9ef&#34;&gt;WORKDIR&lt;/span&gt; &lt;span style=&#34;color:#e6db74&#34;&gt;/app&lt;/span&gt;&lt;span style=&#34;color:#960050;background-color:#1e0010&#34;&gt;
+&lt;/span&gt;&lt;/span&gt;&lt;/span&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;&lt;span style=&#34;color:#960050;background-color:#1e0010&#34;&gt;&lt;/span&gt;&lt;span style=&#34;color:#75715e&#34;&gt;# 这里的TOKEN只在当前阶段有效，不会带入最终镜像&lt;/span&gt;&lt;span style=&#34;color:#960050;background-color:#1e0010&#34;&gt;
+&lt;/span&gt;&lt;/span&gt;&lt;/span&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;&lt;span style=&#34;color:#960050;background-color:#1e0010&#34;&gt;&lt;/span&gt;&lt;span style=&#34;color:#66d9ef&#34;&gt;ARG&lt;/span&gt; GITHUB_TOKEN &lt;span style=&#34;color:#960050;background-color:#1e0010&#34;&gt;
+&lt;/span&gt;&lt;/span&gt;&lt;/span&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;&lt;span style=&#34;color:#960050;background-color:#1e0010&#34;&gt;&lt;/span&gt;&lt;span style=&#34;color:#66d9ef&#34;&gt;COPY&lt;/span&gt; . .&lt;span style=&#34;color:#960050;background-color:#1e0010&#34;&gt;
+&lt;/span&gt;&lt;/span&gt;&lt;/span&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;&lt;span style=&#34;color:#960050;background-color:#1e0010&#34;&gt;&lt;/span&gt;&lt;span style=&#34;color:#66d9ef&#34;&gt;RUN&lt;/span&gt; go build -o main .&lt;span style=&#34;color:#960050;background-color:#1e0010&#34;&gt;
+&lt;/span&gt;&lt;/span&gt;&lt;/span&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;&lt;span style=&#34;color:#960050;background-color:#1e0010&#34;&gt;
+&lt;/span&gt;&lt;/span&gt;&lt;/span&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;&lt;span style=&#34;color:#960050;background-color:#1e0010&#34;&gt;&lt;/span&gt;&lt;span style=&#34;color:#75715e&#34;&gt;# --- 第二阶段：生产环境 ---&lt;/span&gt;&lt;span style=&#34;color:#960050;background-color:#1e0010&#34;&gt;
+&lt;/span&gt;&lt;/span&gt;&lt;/span&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;&lt;span style=&#34;color:#960050;background-color:#1e0010&#34;&gt;&lt;/span&gt;&lt;span style=&#34;color:#75715e&#34;&gt;# 使用Distroless作为基底&lt;/span&gt;&lt;span style=&#34;color:#960050;background-color:#1e0010&#34;&gt;
+&lt;/span&gt;&lt;/span&gt;&lt;/span&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;&lt;span style=&#34;color:#960050;background-color:#1e0010&#34;&gt;&lt;/span&gt;&lt;span style=&#34;color:#66d9ef&#34;&gt;FROM&lt;/span&gt; &lt;span style=&#34;color:#e6db74&#34;&gt;gcr.io/distroless/base&lt;/span&gt;&lt;span style=&#34;color:#960050;background-color:#1e0010&#34;&gt;
+&lt;/span&gt;&lt;/span&gt;&lt;/span&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;&lt;span style=&#34;color:#960050;background-color:#1e0010&#34;&gt;&lt;/span&gt;&lt;span style=&#34;color:#66d9ef&#34;&gt;COPY&lt;/span&gt; --from&lt;span style=&#34;color:#f92672&#34;&gt;=&lt;/span&gt;builder /app/main /&lt;span style=&#34;color:#960050;background-color:#1e0010&#34;&gt;
+&lt;/span&gt;&lt;/span&gt;&lt;/span&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;&lt;span style=&#34;color:#960050;background-color:#1e0010&#34;&gt;&lt;/span&gt;&lt;span style=&#34;color:#66d9ef&#34;&gt;CMD&lt;/span&gt; [&lt;span style=&#34;color:#e6db74&#34;&gt;&amp;#34;/main&amp;#34;&lt;/span&gt;]&lt;span style=&#34;color:#960050;background-color:#1e0010&#34;&gt;
+&lt;/span&gt;&lt;/span&gt;&lt;/span&gt;&lt;/code&gt;&lt;/pre&gt;&lt;/div&gt;&lt;p&gt;这样做，第一阶段产生的所有中间文件、密钥、缓存，都会随着构建结束被丢弃，最终镜像里只有这一行干净的 &lt;code&gt;/main&lt;/code&gt;。&lt;/p&gt;
+&lt;h2 id=&#34;结语安全是场持久战&#34;&gt;结语：安全是场持久战
+&lt;/h2&gt;&lt;p&gt;Docker镜像安全并不是买个昂贵的商业软件就能搞定的，它更像是一种“开发卫生习惯”。&lt;/p&gt;
+&lt;p&gt;回到开头那个周五的噩梦，如果当时我们有自动化的镜像扫描，如果我们将所有非必要权限都在镜像层面剥离，那个挖矿脚本根本跑不起来。&lt;/p&gt;
+&lt;p&gt;现在，我每周五下午还是会看一眼安全周报，但心情已经轻松了很多。&lt;/p&gt;
+&lt;p&gt;&lt;strong&gt;最后，给你三个马上可以落地的行动建议：&lt;/strong&gt;&lt;/p&gt;
+&lt;ol&gt;
+&lt;li&gt;&lt;strong&gt;检查你的Dockerfile&lt;/strong&gt;：把所有的 &lt;code&gt;FROM ...:latest&lt;/code&gt; 全部换成具体的版本号或Hash值。&lt;/li&gt;
+&lt;li&gt;&lt;strong&gt;引入Trivy（或类似工具）&lt;/strong&gt;：即使不在CI里跑，也在本地跑一下 &lt;code&gt;trivy image &amp;lt;你的镜像&amp;gt;&lt;/code&gt;，看看你的应用正“坐”在多少个漏洞上。&lt;/li&gt;
+&lt;li&gt;&lt;strong&gt;瘦身行动&lt;/strong&gt;：尝试将一个核心服务的基底镜像换成 Alpine 或 Slim 版本，你会发现世界清静了很多。&lt;/li&gt;
+&lt;/ol&gt;
+&lt;p&gt;安全没有银弹，但这些基础防线，足以为你挡掉80%的麻烦。&lt;/p&gt;
+</description>
+        </item>
+        
+    </channel>
+</rss>

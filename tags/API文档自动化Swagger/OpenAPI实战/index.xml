@@ -1,0 +1,130 @@
+<?xml version="1.0" encoding="utf-8" standalone="yes"?>
+<rss version="2.0" xmlns:atom="http://www.w3.org/2005/Atom">
+    <channel>
+        <title>API文档自动化：Swagger/OpenAPI实战 on SelfTechHub</title>
+        <link>https://blog.irudder.me/tags/API%E6%96%87%E6%A1%A3%E8%87%AA%E5%8A%A8%E5%8C%96Swagger/OpenAPI%E5%AE%9E%E6%88%98.html</link>
+        <description>Recent content in API文档自动化：Swagger/OpenAPI实战 on SelfTechHub</description>
+        <generator>Hugo -- gohugo.io</generator>
+        <language>zh-cn</language>
+        <lastBuildDate>Sat, 10 Jun 2023 00:00:00 +0000</lastBuildDate><atom:link href="https://blog.irudder.me/tags/API%E6%96%87%E6%A1%A3%E8%87%AA%E5%8A%A8%E5%8C%96Swagger/OpenAPI%E5%AE%9E%E6%88%98/index.xml" rel="self" type="application/rss+xml" /><item>
+        <title>API文档总是过期？3步实现自动化同步</title>
+        <link>https://blog.irudder.me/tech/danxiangmuquanliuchengchaijie10fenzhongkedu/apiwendangzidonghua_swagger_openapishizhan.html</link>
+        <pubDate>Sat, 10 Jun 2023 00:00:00 +0000</pubDate>
+        
+        <guid>https://blog.irudder.me/tech/danxiangmuquanliuchengchaijie10fenzhongkedu/apiwendangzidonghua_swagger_openapishizhan.html</guid>
+        <description>&lt;p&gt;这也曾是我最害怕看到的周五下午场景：&lt;/p&gt;
+&lt;p&gt;后端兄弟喊了一句“接口发完了”，便关机回家过周末。前端同事对着文档调了一下午，最后愤愤地在群里截了个图：“文档里写的返回类型是 Integer，为什么我看 Network 里回来的是 String？报错了一大片！”&lt;/p&gt;
+&lt;p&gt;那一刻，群里的沉默震耳欲聋。&lt;/p&gt;
+&lt;p&gt;这不仅仅是技术问题，更是信任危机。在很长一段时间里，我和我的团队都陷入在“写代码-改文档-忘更新-吵架”的死循环里。我们以为是执行力不够，拼命强调“改代码必须改Wiki”，但结果收效甚微。&lt;/p&gt;
+&lt;p&gt;直到我开始强推 &lt;strong&gt;“文档即代码”（Docs as Code）&lt;/strong&gt; 的理念，引入 Swagger/OpenAPI 自动化流程，这种焦虑才真正缓解。&lt;/p&gt;
+&lt;p&gt;今天，我想站在“过来人”的角度，不讲枯燥的规范，只聊聊中小团队如何用最低成本，把 API 文档从“甩锅工具”变成“协作桥梁”。&lt;/p&gt;
+&lt;h2 id=&#34;一-承认吧人工维护文档是反人性的&#34;&gt;一、 承认吧，人工维护文档是反人性的
+&lt;/h2&gt;&lt;p&gt;很多项目经理喜欢制定严格的 KPI：代码提交时必须同步更新 Word 或 Wiki。但我亲测，这种靠意志力维持的流程，大概率会失败。&lt;/p&gt;
+&lt;p&gt;&lt;strong&gt;案例回顾：&lt;/strong&gt;
+我曾在一家电商初创团队带项目。当时只有 5 个后端、3 个前端。起初我们用腾讯文档维护接口，初期挺快，但随着促销活动上线，需求变更频繁：&lt;/p&gt;
+&lt;ul&gt;
+&lt;li&gt;商品 ID 从 int 变成了 long；&lt;/li&gt;
+&lt;li&gt;状态码新增了 &lt;code&gt;104&lt;/code&gt; 代表“库存锁定”；&lt;/li&gt;
+&lt;li&gt;某个必填字段变成了选填。&lt;/li&gt;
+&lt;/ul&gt;
+&lt;p&gt;结果是，后端改了代码，心想“等会再去改文档”，然后就去忙下一个 Bug 了。两周后，前端拿着那份“过期”的文档开发，上线前一晚才发现数据对不上，整个团队通宵修补。&lt;/p&gt;
+&lt;p&gt;&lt;strong&gt;底层逻辑拆解：&lt;/strong&gt;
+程序员的大脑是单线程专注的。在写逻辑时切换上下文去写文档，不仅打断心流，而且不仅没有任何即时反馈（不像代码写错会报错），还极其枯燥。&lt;/p&gt;
+&lt;p&gt;&lt;strong&gt;让机器做机器擅长的事，让人做人擅长的事。&lt;/strong&gt; 代码里的注解（Annotation）才是离真相最近的地方，我们要做的，是把这些注解“提取”出来。&lt;/p&gt;
+&lt;h2 id=&#34;二-第一步把文档种进代码里&#34;&gt;二、 第一步：把文档“种”进代码里
+&lt;/h2&gt;&lt;p&gt;解决“过期”焦虑的最好办法，就是&lt;strong&gt;让代码变动时，文档自动变动&lt;/strong&gt;。Swagger（现多指 OpenAPI 规范的实现工具）就是为此而生的。&lt;/p&gt;
+&lt;p&gt;&lt;img src=&#34;https://picsum.photos/800/450?random=1768449687068&#34;
+	
+	
+	
+	loading=&#34;lazy&#34;
+	
+		alt=&#34;配图&#34;
+	
+	
+&gt;&lt;/p&gt;
+&lt;p&gt;&lt;strong&gt;实操方法：&lt;/strong&gt;
+如果你是 Java (Spring Boot) 技术栈，引入 &lt;code&gt;springdoc-openapi&lt;/code&gt; 几乎是零成本的；Node.js 或 Python 也有对应的 Swagger 插件。&lt;/p&gt;
+&lt;p&gt;不用搞得很复杂，哪怕只做这一步，效果也是立竿见影的：&lt;/p&gt;
+&lt;div class=&#34;highlight&#34;&gt;&lt;pre tabindex=&#34;0&#34; style=&#34;color:#f8f8f2;background-color:#272822;-moz-tab-size:4;-o-tab-size:4;tab-size:4;&#34;&gt;&lt;code class=&#34;language-java&#34; data-lang=&#34;java&#34;&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;&lt;span style=&#34;color:#75715e&#34;&gt;// 这是一个糟糕的例子&lt;/span&gt;
+&lt;/span&gt;&lt;/span&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;&lt;span style=&#34;color:#a6e22e&#34;&gt;@GetMapping&lt;/span&gt;(&lt;span style=&#34;color:#e6db74&#34;&gt;&amp;#34;/user/{id}&amp;#34;&lt;/span&gt;)
+&lt;/span&gt;&lt;/span&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;&lt;span style=&#34;color:#66d9ef&#34;&gt;public&lt;/span&gt; User &lt;span style=&#34;color:#a6e22e&#34;&gt;getUser&lt;/span&gt;(&lt;span style=&#34;color:#a6e22e&#34;&gt;@PathVariable&lt;/span&gt; &lt;span style=&#34;color:#66d9ef&#34;&gt;int&lt;/span&gt; id) { ... }
+&lt;/span&gt;&lt;/span&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;
+&lt;/span&gt;&lt;/span&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;&lt;span style=&#34;color:#75715e&#34;&gt;// 这是一个&amp;#34;治愈&amp;#34;的例子&lt;/span&gt;
+&lt;/span&gt;&lt;/span&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;&lt;span style=&#34;color:#a6e22e&#34;&gt;@Operation&lt;/span&gt;(summary &lt;span style=&#34;color:#f92672&#34;&gt;=&lt;/span&gt; &lt;span style=&#34;color:#e6db74&#34;&gt;&amp;#34;获取用户详情&amp;#34;&lt;/span&gt;, description &lt;span style=&#34;color:#f92672&#34;&gt;=&lt;/span&gt; &lt;span style=&#34;color:#e6db74&#34;&gt;&amp;#34;用于个人中心页展示，id为用户唯一标识&amp;#34;&lt;/span&gt;)
+&lt;/span&gt;&lt;/span&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;&lt;span style=&#34;color:#a6e22e&#34;&gt;@GetMapping&lt;/span&gt;(&lt;span style=&#34;color:#e6db74&#34;&gt;&amp;#34;/user/{id}&amp;#34;&lt;/span&gt;)
+&lt;/span&gt;&lt;/span&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;&lt;span style=&#34;color:#66d9ef&#34;&gt;public&lt;/span&gt; User &lt;span style=&#34;color:#a6e22e&#34;&gt;getUser&lt;/span&gt;(&lt;span style=&#34;color:#a6e22e&#34;&gt;@PathVariable&lt;/span&gt; &lt;span style=&#34;color:#66d9ef&#34;&gt;int&lt;/span&gt; id) { ... }
+&lt;/span&gt;&lt;/span&gt;&lt;/code&gt;&lt;/pre&gt;&lt;/div&gt;&lt;p&gt;&lt;strong&gt;真实收益：&lt;/strong&gt;
+当我强制团队把接口注释写在 Controller 层后，奇妙的事情发生了：&lt;/p&gt;
+&lt;ol&gt;
+&lt;li&gt;&lt;strong&gt;所见即所得：&lt;/strong&gt; 后端改了入参，重启服务，文档页面自动刷新。&lt;/li&gt;
+&lt;li&gt;&lt;strong&gt;不再需要“文档链接在哪”：&lt;/strong&gt; 只要项目跑起来，&lt;code&gt;/swagger-ui.html&lt;/code&gt; 就是唯一的真理。&lt;/li&gt;
+&lt;li&gt;&lt;strong&gt;调试更丝滑：&lt;/strong&gt; 前端不再需要对着 Wiki 猜参数，直接在 Swagger 页面点击“Try it out”，像用 Postman 一样发请求。&lt;/li&gt;
+&lt;/ol&gt;
+&lt;p&gt;我记得实施这个月后的复盘会上，前端组长说了一句让我很暖心的话：“最近对接感觉顺畅多了，不用老是去猜你们后端到底改了没。”&lt;/p&gt;
+&lt;h2 id=&#34;三-第二步用描述传递温度而不是只给冷冰冰的数据&#34;&gt;三、 第二步：用“描述”传递温度，而不是只给冷冰冰的数据
+&lt;/h2&gt;&lt;p&gt;很多团队虽然用了 Swagger，但用得很“粗糙”。打开文档，全是 &lt;code&gt;string&lt;/code&gt;, &lt;code&gt;object&lt;/code&gt;，字段名是 &lt;code&gt;status&lt;/code&gt;，描述也是 &lt;code&gt;status&lt;/code&gt;。&lt;/p&gt;
+&lt;p&gt;这种文档，依然没有解决沟通成本。&lt;/p&gt;
+&lt;p&gt;&lt;strong&gt;痛点分析：&lt;/strong&gt;
+对于前端或测试来说，他们不关心代码实现，他们焦虑的是：&lt;/p&gt;
+&lt;ul&gt;
+&lt;li&gt;这个 &lt;code&gt;status&lt;/code&gt; 到底有哪些枚举值？&lt;code&gt;0&lt;/code&gt; 是成功还是失败？&lt;/li&gt;
+&lt;li&gt;这个 &lt;code&gt;iconUrl&lt;/code&gt; 会不会返回 null？&lt;/li&gt;
+&lt;li&gt;这个时间戳是秒还是毫秒？&lt;/li&gt;
+&lt;/ul&gt;
+&lt;p&gt;&lt;strong&gt;优化建议：&lt;/strong&gt;
+我平时写代码时，会有一个习惯：&lt;strong&gt;把代码当成给未来的自己看的情书&lt;/strong&gt;。在注解里多写几个字，能省下未来无数次口舌之争。&lt;/p&gt;
+&lt;p&gt;&lt;strong&gt;具体动作：&lt;/strong&gt;&lt;/p&gt;
+&lt;ul&gt;
+&lt;li&gt;&lt;strong&gt;枚举值必标：&lt;/strong&gt; &lt;code&gt;@Schema(description = &amp;quot;订单状态：1-待支付, 2-已发货, 3-已完成&amp;quot;)&lt;/code&gt;&lt;/li&gt;
+&lt;li&gt;&lt;strong&gt;非空标记：&lt;/strong&gt; 明确标记 &lt;code&gt;@NotNull&lt;/code&gt; 或 &lt;code&gt;required = true&lt;/code&gt;。&lt;/li&gt;
+&lt;li&gt;&lt;strong&gt;示例数据：&lt;/strong&gt; 使用 &lt;code&gt;example = &amp;quot;2023-10-01&amp;quot;&lt;/code&gt;，让前端一眼看懂格式。&lt;/li&gt;
+&lt;/ul&gt;
+&lt;p&gt;这看起来增加了编码时间，但实际上，这些文字往往是你写代码时脑子里本身就在思考的。把它记录下来，是一种不需要记忆力的“外脑扩展”。&lt;/p&gt;
+&lt;h2 id=&#34;四-第三步从工具到资产的进阶&#34;&gt;四、 第三步：从“工具”到“资产”的进阶
+&lt;/h2&gt;&lt;p&gt;当你习惯了自动化文档，你会发现它不仅是文档，更是团队的&lt;strong&gt;数字资产&lt;/strong&gt;。&lt;/p&gt;
+&lt;p&gt;在之前的一个 B 端项目中，我们需要对接外部合作伙伴。以前每次都要整理一份 Word 发给对方，对方一问问题，我们就要查代码。&lt;/p&gt;
+&lt;p&gt;后来，我们直接搭建了一个网关，把 Swagger 生成的 JSON 导入到 YApi 或 Apifox 这种更高级的 API 管理平台中。&lt;/p&gt;
+&lt;p&gt;&lt;strong&gt;这样做的好处是：&lt;/strong&gt;&lt;/p&gt;
+&lt;ol&gt;
+&lt;li&gt;&lt;strong&gt;Mock 数据自动化：&lt;/strong&gt; 前端还没等后端写完代码，就可以根据定义好的 API 结构，自动生成 Mock 数据进行 UI 开发。&lt;strong&gt;并行开发&lt;/strong&gt;不再是空话。&lt;/li&gt;
+&lt;li&gt;&lt;strong&gt;测试用例复用：&lt;/strong&gt; 测试同学可以直接导入 API 定义，生成自动化测试用例，不用再手动一个个敲接口地址。&lt;/li&gt;
+&lt;/ol&gt;
+&lt;p&gt;&lt;strong&gt;趋势观察：&lt;/strong&gt;
+现在的开发模式，正在从 Code-First 向 &lt;strong&gt;API-First（接口契约优先）&lt;/strong&gt; 转变。对于中小团队，完全实现 API-First 可能太重，但至少做到“代码即文档，文档即契约”，能减少 50% 的无效沟通。&lt;/p&gt;
+&lt;hr&gt;
+&lt;h2 id=&#34;结语给焦虑做减法&#34;&gt;结语：给焦虑做减法
+&lt;/h2&gt;&lt;p&gt;&lt;img src=&#34;https://picsum.photos/800/450?random=1768449689384&#34;
+	
+	
+	
+	loading=&#34;lazy&#34;
+	
+		alt=&#34;配图&#34;
+	
+	
+&gt;&lt;/p&gt;
+&lt;p&gt;技术圈总有很多新名词，但回归本质，我们想要的无非是：&lt;strong&gt;早点下班，少点扯皮，多点成就感。&lt;/strong&gt;&lt;/p&gt;
+&lt;p&gt;API 文档自动化，不是为了向老板展示“我们有规范”，而是为了保护我们自己的注意力。当你不再需要因为一个字段的含义被打断思路时，你会发现，写代码依然是一件单纯而快乐的事。&lt;/p&gt;
+&lt;p&gt;&lt;img src=&#34;https://picsum.photos/800/450?random=1768449694715&#34;
+	
+	
+	
+	loading=&#34;lazy&#34;
+	
+		alt=&#34;配图&#34;
+	
+	
+&gt;&lt;/p&gt;
+&lt;p&gt;&lt;strong&gt;给你的落地行动清单：&lt;/strong&gt;&lt;/p&gt;
+&lt;ol&gt;
+&lt;li&gt;&lt;strong&gt;本周尝试：&lt;/strong&gt; 在你当前的一个小项目中引入 Swagger/OpenAPI 库，跑通默认页面。&lt;/li&gt;
+&lt;li&gt;&lt;strong&gt;微习惯：&lt;/strong&gt; 下次定义字段时，强迫自己多写一句 &lt;code&gt;description&lt;/code&gt;（描述它的业务含义，而不仅仅是翻译字段名）。&lt;/li&gt;
+&lt;li&gt;&lt;strong&gt;团队同步：&lt;/strong&gt; 在下次例会上，把自动生成的文档链接发给前端，告诉他们：“以后以这个为准，不准找我算账。”&lt;/li&gt;
+&lt;/ol&gt;
+&lt;p&gt;&lt;strong&gt;你在项目对接中，遇到过最离谱的“文档坑”是什么？&lt;/strong&gt; 是字段消失，还是单位搞错？欢迎在评论区吐个槽，我们一起聊聊怎么避坑。&lt;/p&gt;
+</description>
+        </item>
+        
+    </channel>
+</rss>

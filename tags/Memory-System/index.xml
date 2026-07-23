@@ -1,0 +1,170 @@
+<?xml version="1.0" encoding="utf-8" standalone="yes"?>
+<rss version="2.0" xmlns:atom="http://www.w3.org/2005/Atom">
+    <channel>
+        <title>Memory System on SelfTechHub</title>
+        <link>https://blog.irudder.me/tags/Memory-System.html</link>
+        <description>Recent content in Memory System on SelfTechHub</description>
+        <generator>Hugo -- gohugo.io</generator>
+        <language>zh-cn</language>
+        <lastBuildDate>Fri, 03 Jul 2026 00:00:00 +0000</lastBuildDate><atom:link href="https://blog.irudder.me/tags/Memory-System/index.xml" rel="self" type="application/rss+xml" /><item>
+        <title>第14章：Agent 记忆系统——如何让 AI 记得你的约定？</title>
+        <link>https://blog.irudder.me/ai/knowledge-series/14-Agent-Memory-System.html</link>
+        <pubDate>Fri, 03 Jul 2026 00:00:00 +0000</pubDate>
+        
+        <guid>https://blog.irudder.me/ai/knowledge-series/14-Agent-Memory-System.html</guid>
+        <description>&lt;h1 id=&#34;第14章agent-记忆系统如何让-ai-记得你的约定&#34;&gt;第14章：Agent 记忆系统——如何让 AI 记得你的约定？
+&lt;/h1&gt;&lt;blockquote&gt;
+&lt;p&gt;系列导读：记忆是 Agent 区别于单次对话 LLM 的核心特征之一。没有记忆，Agent 每次对话都像第一次认识。&lt;/p&gt;
+&lt;/blockquote&gt;
+&lt;hr&gt;
+&lt;h2 id=&#34;一没有记忆的-agent-有多不好用&#34;&gt;一、没有记忆的 Agent 有多不好用？
+&lt;/h2&gt;&lt;p&gt;想象这个场景：&lt;/p&gt;
+&lt;blockquote&gt;
+&lt;p&gt;你：帮我分析这份 Excel 里的销售数据，只关注华东地区。
+Agent：好的，分析完成，华东地区销售增长 12%。&lt;/p&gt;
+&lt;/blockquote&gt;
+&lt;blockquote&gt;
+&lt;p&gt;你（过了一小时，新开了一个对话）：上面的分析结果出了报告吗？
+Agent：抱歉，我不记得之前的对话&amp;hellip;&lt;/p&gt;
+&lt;/blockquote&gt;
+&lt;p&gt;&lt;strong&gt;这就是没有记忆的代价&lt;/strong&gt;——Agent 无法跨任务保持连贯性，无法积累对你的了解。&lt;/p&gt;
+&lt;h2 id=&#34;二记忆的四层架构&#34;&gt;二、记忆的四层架构
+&lt;/h2&gt;&lt;h3 id=&#34;layer-1感知记忆sensory-memory&#34;&gt;Layer 1：感知记忆（Sensory Memory）
+&lt;/h3&gt;&lt;ul&gt;
+&lt;li&gt;&lt;strong&gt;内容&lt;/strong&gt;：当前输入的原始内容（用户说的话、上传的文件、语音转文字）&lt;/li&gt;
+&lt;li&gt;&lt;strong&gt;存储&lt;/strong&gt;：内存，即时处理&lt;/li&gt;
+&lt;li&gt;&lt;strong&gt;生命周期&lt;/strong&gt;：处理完就丢弃&lt;/li&gt;
+&lt;/ul&gt;
+&lt;h3 id=&#34;layer-2短期记忆short-term-memory&#34;&gt;Layer 2：短期记忆（Short-term Memory）
+&lt;/h3&gt;&lt;ul&gt;
+&lt;li&gt;&lt;strong&gt;内容&lt;/strong&gt;：当前任务的对话历史、中间推理过程、工具执行结果&lt;/li&gt;
+&lt;li&gt;&lt;strong&gt;存储&lt;/strong&gt;：LLM 的 context window&lt;/li&gt;
+&lt;li&gt;&lt;strong&gt;生命周期&lt;/strong&gt;：当前任务结束后即可清理&lt;/li&gt;
+&lt;/ul&gt;
+&lt;h3 id=&#34;layer-3长期记忆long-term-memory&#34;&gt;Layer 3：长期记忆（Long-term Memory）
+&lt;/h3&gt;&lt;ul&gt;
+&lt;li&gt;&lt;strong&gt;内容&lt;/strong&gt;：跨会话的知识、用户偏好、历史决策、积累的经验&lt;/li&gt;
+&lt;li&gt;&lt;strong&gt;存储&lt;/strong&gt;：向量数据库、关系型数据库&lt;/li&gt;
+&lt;li&gt;&lt;strong&gt;生命周期&lt;/strong&gt;：持续存在，可更新&lt;/li&gt;
+&lt;/ul&gt;
+&lt;h3 id=&#34;layer-4实体记忆entity-memory&#34;&gt;Layer 4：实体记忆（Entity Memory）
+&lt;/h3&gt;&lt;ul&gt;
+&lt;li&gt;&lt;strong&gt;内容&lt;/strong&gt;：从对话中提炼的结构化事实（&amp;ldquo;张三喜欢 Java&amp;rdquo;、&amp;ldquo;项目预算500万&amp;rdquo;）&lt;/li&gt;
+&lt;li&gt;&lt;strong&gt;存储&lt;/strong&gt;：键值对存储、图数据库&lt;/li&gt;
+&lt;li&gt;&lt;strong&gt;生命周期&lt;/strong&gt;：持续存在，可修正和合并&lt;/li&gt;
+&lt;/ul&gt;
+&lt;h2 id=&#34;三短期记忆设计&#34;&gt;三、短期记忆设计
+&lt;/h2&gt;&lt;p&gt;短期记忆就是 context window 里维护的对话历史。核心问题是：&lt;strong&gt;context 有限，满了之后怎么办？&lt;/strong&gt;&lt;/p&gt;
+&lt;h3 id=&#34;方案1滑动窗口&#34;&gt;方案1：滑动窗口
+&lt;/h3&gt;&lt;p&gt;只保留最近的 N 轮对话，更老的丢弃。&lt;/p&gt;
+&lt;div class=&#34;highlight&#34;&gt;&lt;pre tabindex=&#34;0&#34; style=&#34;color:#f8f8f2;background-color:#272822;-moz-tab-size:4;-o-tab-size:4;tab-size:4;&#34;&gt;&lt;code class=&#34;language-python&#34; data-lang=&#34;python&#34;&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;&lt;span style=&#34;color:#66d9ef&#34;&gt;if&lt;/span&gt; len(messages) &lt;span style=&#34;color:#f92672&#34;&gt;&amp;gt;&lt;/span&gt; max_context_length:
+&lt;/span&gt;&lt;/span&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;    &lt;span style=&#34;color:#75715e&#34;&gt;# 保留系统 prompt + 最新的 N 条&lt;/span&gt;
+&lt;/span&gt;&lt;/span&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;    messages &lt;span style=&#34;color:#f92672&#34;&gt;=&lt;/span&gt; [system_message] &lt;span style=&#34;color:#f92672&#34;&gt;+&lt;/span&gt; messages[&lt;span style=&#34;color:#f92672&#34;&gt;-&lt;/span&gt;max_history:]
+&lt;/span&gt;&lt;/span&gt;&lt;/code&gt;&lt;/pre&gt;&lt;/div&gt;&lt;p&gt;&lt;strong&gt;优点&lt;/strong&gt;：简单、易实现
+&lt;strong&gt;缺点&lt;/strong&gt;：30分钟前一个技术决策说砍就砍，Agent 开始忘事&lt;/p&gt;
+&lt;h3 id=&#34;方案2摘要压缩&#34;&gt;方案2：摘要压缩
+&lt;/h3&gt;&lt;p&gt;当历史太长时，让 LLM 把旧对话摘要成简短总结。&lt;/p&gt;
+&lt;pre tabindex=&#34;0&#34;&gt;&lt;code&gt;原始历史（20轮）→ LLM 摘要 → 3句话总结
+&amp;#34;用户要求分析华东销售数据，分析了Q1-Q3增长趋势，确认重点产品线是 A 和 B&amp;#34;
+&lt;/code&gt;&lt;/pre&gt;&lt;p&gt;&lt;strong&gt;优点&lt;/strong&gt;：保留关键信息
+&lt;strong&gt;缺点&lt;/strong&gt;：摘要可能丢细节；有额外 LLM 调用成本&lt;/p&gt;
+&lt;h3 id=&#34;方案3重要性过滤&#34;&gt;方案3：重要性过滤
+&lt;/h3&gt;&lt;p&gt;给每条对话打分，只保留高重要性的。&lt;/p&gt;
+&lt;p&gt;&lt;strong&gt;打分方式&lt;/strong&gt;：&lt;/p&gt;
+&lt;ul&gt;
+&lt;li&gt;规则式：包含&amp;quot;决定&amp;quot;&amp;ldquo;确认&amp;quot;&amp;ldquo;方案&amp;quot;等关键词的权重高&lt;/li&gt;
+&lt;li&gt;模型式：用一个小模型判断某条信息的重要性&lt;/li&gt;
+&lt;/ul&gt;
+&lt;h2 id=&#34;四长期记忆设计&#34;&gt;四、长期记忆设计
+&lt;/h2&gt;&lt;h3 id=&#34;向量存储语义记忆&#34;&gt;向量存储（语义记忆）
+&lt;/h3&gt;&lt;ul&gt;
+&lt;li&gt;把有价值的信息做 embedding，存入向量库&lt;/li&gt;
+&lt;li&gt;检索时用语义匹配，召回相关历史&lt;/li&gt;
+&lt;li&gt;适合：用户偏好、通用知识、经验总结&lt;/li&gt;
+&lt;/ul&gt;
+&lt;pre tabindex=&#34;0&#34;&gt;&lt;code&gt;User: &amp;#34;我喜欢简洁风格的代码，不要过度注释&amp;#34;
+↓
+提取关键信息 → embedding → 存入向量库
+tag: &amp;#34;用户偏好&amp;#34;, &amp;#34;代码风格&amp;#34;
+&lt;/code&gt;&lt;/pre&gt;&lt;h3 id=&#34;结构化存储实体记忆&#34;&gt;结构化存储（实体记忆）
+&lt;/h3&gt;&lt;ul&gt;
+&lt;li&gt;用键值对或图数据库存储提炼的事实&lt;/li&gt;
+&lt;li&gt;适合：具体事实（&amp;ldquo;服务器 IP 是 xx&amp;rdquo;、&amp;ldquo;项目截止日期 yy&amp;rdquo;）&lt;/li&gt;
+&lt;/ul&gt;
+&lt;div class=&#34;highlight&#34;&gt;&lt;pre tabindex=&#34;0&#34; style=&#34;color:#f8f8f2;background-color:#272822;-moz-tab-size:4;-o-tab-size:4;tab-size:4;&#34;&gt;&lt;code class=&#34;language-json&#34; data-lang=&#34;json&#34;&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;{
+&lt;/span&gt;&lt;/span&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;  &lt;span style=&#34;color:#f92672&#34;&gt;&amp;#34;entities&amp;#34;&lt;/span&gt;: {
+&lt;/span&gt;&lt;/span&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;    &lt;span style=&#34;color:#f92672&#34;&gt;&amp;#34;user_preferences&amp;#34;&lt;/span&gt;: {
+&lt;/span&gt;&lt;/span&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;      &lt;span style=&#34;color:#f92672&#34;&gt;&amp;#34;coding_style&amp;#34;&lt;/span&gt;: &lt;span style=&#34;color:#e6db74&#34;&gt;&amp;#34;简洁，少注释&amp;#34;&lt;/span&gt;,
+&lt;/span&gt;&lt;/span&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;      &lt;span style=&#34;color:#f92672&#34;&gt;&amp;#34;communication&amp;#34;&lt;/span&gt;: &lt;span style=&#34;color:#e6db74&#34;&gt;&amp;#34;中文&amp;#34;&lt;/span&gt;,
+&lt;/span&gt;&lt;/span&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;      &lt;span style=&#34;color:#f92672&#34;&gt;&amp;#34;detail_level&amp;#34;&lt;/span&gt;: &lt;span style=&#34;color:#e6db74&#34;&gt;&amp;#34;high&amp;#34;&lt;/span&gt;
+&lt;/span&gt;&lt;/span&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;    },
+&lt;/span&gt;&lt;/span&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;    &lt;span style=&#34;color:#f92672&#34;&gt;&amp;#34;project_facts&amp;#34;&lt;/span&gt;: {
+&lt;/span&gt;&lt;/span&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;      &lt;span style=&#34;color:#f92672&#34;&gt;&amp;#34;server_ip&amp;#34;&lt;/span&gt;: &lt;span style=&#34;color:#e6db74&#34;&gt;&amp;#34;10.0.1.12&amp;#34;&lt;/span&gt;,
+&lt;/span&gt;&lt;/span&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;      &lt;span style=&#34;color:#f92672&#34;&gt;&amp;#34;deadline&amp;#34;&lt;/span&gt;: &lt;span style=&#34;color:#e6db74&#34;&gt;&amp;#34;2026-08-15&amp;#34;&lt;/span&gt;
+&lt;/span&gt;&lt;/span&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;    }
+&lt;/span&gt;&lt;/span&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;  }
+&lt;/span&gt;&lt;/span&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;}
+&lt;/span&gt;&lt;/span&gt;&lt;/code&gt;&lt;/pre&gt;&lt;/div&gt;&lt;h3 id=&#34;记忆的存取时机&#34;&gt;记忆的&amp;quot;存取&amp;quot;时机
+&lt;/h3&gt;&lt;p&gt;&lt;strong&gt;什么时候存？&lt;/strong&gt;&lt;/p&gt;
+&lt;ul&gt;
+&lt;li&gt;用户明确提出偏好&lt;/li&gt;
+&lt;li&gt;讨论了重要决策/结论&lt;/li&gt;
+&lt;li&gt;任务完成后总结的经验&lt;/li&gt;
+&lt;li&gt;检测到首次出现的有意义新信息&lt;/li&gt;
+&lt;/ul&gt;
+&lt;p&gt;&lt;strong&gt;什么时候取？&lt;/strong&gt;&lt;/p&gt;
+&lt;ul&gt;
+&lt;li&gt;每次新任务启动时，检索相关历史背景&lt;/li&gt;
+&lt;li&gt;任务中途遇到不确定信息时，回忆之前的约定&lt;/li&gt;
+&lt;li&gt;生成回答前，检查是否有已知的用户偏好&lt;/li&gt;
+&lt;/ul&gt;
+&lt;h2 id=&#34;五记忆系统设计核心原则&#34;&gt;五、记忆系统设计核心原则
+&lt;/h2&gt;&lt;h3 id=&#34;1-存什么取舍&#34;&gt;1. 存什么？（取舍）
+&lt;/h3&gt;&lt;ul&gt;
+&lt;li&gt;不是什么都存 → context 爆炸、检索噪音&lt;/li&gt;
+&lt;li&gt;只存&amp;quot;有长久价值的信息&amp;rdquo;：偏好、约定、事实、经验&lt;/li&gt;
+&lt;li&gt;临时中间结果（如一次搜索的中间页面）不存&lt;/li&gt;
+&lt;/ul&gt;
+&lt;h3 id=&#34;2-怎么存粒度&#34;&gt;2. 怎么存？（粒度）
+&lt;/h3&gt;&lt;ul&gt;
+&lt;li&gt;太细碎 → 检索噪音大，拿到碎片化信息&lt;/li&gt;
+&lt;li&gt;太粗略 → 关键细节丢失&lt;/li&gt;
+&lt;li&gt;推荐：以&amp;quot;一次完整交互&amp;quot;或&amp;quot;一个关键决策&amp;quot;为单位&lt;/li&gt;
+&lt;/ul&gt;
+&lt;h3 id=&#34;3-什么时候取时机&#34;&gt;3. 什么时候取？（时机）
+&lt;/h3&gt;&lt;ul&gt;
+&lt;li&gt;主动检索：任务开始前基于关键词召回&lt;/li&gt;
+&lt;li&gt;按需检索：遇到不确定信息时（&amp;ldquo;等等，用户之前好像说过&amp;hellip;&amp;quot;）&lt;/li&gt;
+&lt;li&gt;不要太勤快：每步都查记忆 → 延迟增加&lt;/li&gt;
+&lt;/ul&gt;
+&lt;h2 id=&#34;六记忆压缩技术&#34;&gt;六、记忆压缩技术
+&lt;/h2&gt;&lt;p&gt;当长期记忆库越来越大，怎么解决？&lt;/p&gt;
+&lt;h3 id=&#34;摘要聚合&#34;&gt;摘要聚合
+&lt;/h3&gt;&lt;p&gt;把一段时间内的多条记录用 LLM 摘要合并：&lt;/p&gt;
+&lt;pre tabindex=&#34;0&#34;&gt;&lt;code&gt;记录1: &amp;#34;用户喜欢 Go 语言&amp;#34;
+记录2: &amp;#34;用户用 Go 写过微服务&amp;#34;
+记录3: &amp;#34;用户说我写的 Go 代码风格不对&amp;#34;
+↓
+摘要: &amp;#34;用户是 Go 开发者，注重代码规范，可参考 gofmt 标准&amp;#34;
+&lt;/code&gt;&lt;/pre&gt;&lt;h3 id=&#34;过期遗忘&#34;&gt;过期遗忘
+&lt;/h3&gt;&lt;p&gt;给记忆设 TTL（生存时间），比如一条技能偏好半年没用到就删除。&lt;/p&gt;
+&lt;h3 id=&#34;合并去重&#34;&gt;合并去重
+&lt;/h3&gt;&lt;p&gt;新记录写进去前，先检索是否已有类似记录，有就合并更新。&lt;/p&gt;
+&lt;h2 id=&#34;七本章小结&#34;&gt;七、本章小结
+&lt;/h2&gt;&lt;ul&gt;
+&lt;li&gt;记忆系统解决 Agent 的&amp;quot;失忆&amp;quot;问题，让它能跨任务积累知识&lt;/li&gt;
+&lt;li&gt;四层记忆：感知 → 短期（context）→ 长期（向量库）→ 实体（结构化）&lt;/li&gt;
+&lt;li&gt;短期记忆要处理 context 溢出：滑动窗口、摘要、重要性过滤&lt;/li&gt;
+&lt;li&gt;长期记忆的存取是&amp;quot;存什么、怎么存、什么时候取&amp;quot;三个核心决策&lt;/li&gt;
+&lt;li&gt;记忆不是越多越好，取舍和时效管理同样重要&lt;/li&gt;
+&lt;/ul&gt;
+&lt;h2 id=&#34;思考题&#34;&gt;思考题
+&lt;/h2&gt;&lt;ol&gt;
+&lt;li&gt;如果让你设计一个&amp;quot;VIP 用户记忆系统&amp;rdquo;（要求记住优先级用户的长期偏好和行为模式），你会在哪些维度上加强？&lt;/li&gt;
+&lt;li&gt;长期记忆如果出现了矛盾信息（用户上周说喜欢 A，这周说喜欢 B），系统该怎么处理？&lt;/li&gt;
+&lt;/ol&gt;
+</description>
+        </item>
+        
+    </channel>
+</rss>

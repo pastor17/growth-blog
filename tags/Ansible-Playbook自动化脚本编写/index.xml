@@ -1,0 +1,127 @@
+<?xml version="1.0" encoding="utf-8" standalone="yes"?>
+<rss version="2.0" xmlns:atom="http://www.w3.org/2005/Atom">
+    <channel>
+        <title>Ansible Playbook：自动化脚本编写 on SelfTechHub</title>
+        <link>https://blog.irudder.me/tags/Ansible-Playbook%E8%87%AA%E5%8A%A8%E5%8C%96%E8%84%9A%E6%9C%AC%E7%BC%96%E5%86%99.html</link>
+        <description>Recent content in Ansible Playbook：自动化脚本编写 on SelfTechHub</description>
+        <generator>Hugo -- gohugo.io</generator>
+        <language>zh-cn</language>
+        <lastBuildDate>Mon, 08 Aug 2022 00:00:00 +0000</lastBuildDate><atom:link href="https://blog.irudder.me/tags/Ansible-Playbook%E8%87%AA%E5%8A%A8%E5%8C%96%E8%84%9A%E6%9C%AC%E7%BC%96%E5%86%99/index.xml" rel="self" type="application/rss+xml" /><item>
+        <title>写了三年Shell脚本，我是怎么被Ansible“打脸”救命的？</title>
+        <link>https://blog.irudder.me/tech/devopsjichugongjurumenyushicao/ansible-playbook_zidonghuajiaobenbianxie.html</link>
+        <pubDate>Mon, 08 Aug 2022 00:00:00 +0000</pubDate>
+        
+        <guid>https://blog.irudder.me/tech/devopsjichugongjurumenyushicao/ansible-playbook_zidonghuajiaobenbianxie.html</guid>
+        <description>&lt;p&gt;老实交代，以前我对自动化运维工具有点“迷之自信”。&lt;/p&gt;
+&lt;p&gt;那会儿刚入行，觉得自己那一手行云流水的Shell脚本简直无敌：&lt;code&gt;for&lt;/code&gt;循环批量操作，&lt;code&gt;sed&lt;/code&gt;正则替换配置，&lt;code&gt;awk&lt;/code&gt;处理日志，这多极客啊？直到那个凌晨两点的“事故现场”，彻底改变了我的看法。&lt;/p&gt;
+&lt;p&gt;当时我们要紧急给生产环境的50台Web服务器打一个补丁，更新Nginx配置。我自信满满地敲下了那个用来追加配置的Shell脚本回车键。结果因为网络波动，脚本在一部分机器上中断了，我下意识地按了“重试”。&lt;/p&gt;
+&lt;p&gt;悲剧发生了——脚本里用的是&lt;code&gt;echo &amp;gt;&amp;gt;&lt;/code&gt;追加写入，&lt;strong&gt;重试导致配置文件里出现了双份配置&lt;/strong&gt;，Nginx重启直接报错，全线业务挂了15分钟。&lt;/p&gt;
+&lt;p&gt;那一刻我才明白，写脚本和做工程是两码事。也是从那时候起，我开始硬着头皮啃Ansible。今天我想以一个“过来人”的身份，不讲枯燥的概念，只聊聊如果你想摆脱“人肉运维”的苦海，Ansible Playbook（剧本）到底该怎么写，以及怎么避免我当年踩过的那些坑。&lt;/p&gt;
+&lt;h2 id=&#34;告别一次性脚本拥抱幂等性&#34;&gt;告别“一次性”脚本，拥抱“幂等性”
+&lt;/h2&gt;&lt;p&gt;很多做开发或者运维刚转型的朋友，最大的思维误区就是把Ansible当成“批量执行Shell命令的工具”。如果你只是在Playbook里用&lt;code&gt;shell&lt;/code&gt;模块跑命令，那你真的亏大了。&lt;/p&gt;
+&lt;p&gt;Ansible最核心的价值在于&lt;strong&gt;幂等性（Idempotency）&lt;/strong&gt;。啥意思？就是&lt;strong&gt;同一个操作，无论你执行一次还是执行一百次，结果都是一样的，且不会产生副作用。&lt;/strong&gt;&lt;/p&gt;
+&lt;p&gt;回到我那个惨痛的Nginx案例。如果用Shell写，你需要写大量的&lt;code&gt;if&lt;/code&gt;判断来检查配置是否存在。但用Ansible的原生模块，画风是这样的：&lt;/p&gt;
+&lt;div class=&#34;highlight&#34;&gt;&lt;pre tabindex=&#34;0&#34; style=&#34;color:#f8f8f2;background-color:#272822;-moz-tab-size:4;-o-tab-size:4;tab-size:4;&#34;&gt;&lt;code class=&#34;language-yaml&#34; data-lang=&#34;yaml&#34;&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;- &lt;span style=&#34;color:#f92672&#34;&gt;name&lt;/span&gt;: &lt;span style=&#34;color:#ae81ff&#34;&gt;确保Nginx配置文件包含安全策略&lt;/span&gt;
+&lt;/span&gt;&lt;/span&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;  &lt;span style=&#34;color:#f92672&#34;&gt;blockinfile&lt;/span&gt;:
+&lt;/span&gt;&lt;/span&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;    &lt;span style=&#34;color:#f92672&#34;&gt;path&lt;/span&gt;: &lt;span style=&#34;color:#ae81ff&#34;&gt;/etc/nginx/nginx.conf&lt;/span&gt;
+&lt;/span&gt;&lt;/span&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;    &lt;span style=&#34;color:#f92672&#34;&gt;marker&lt;/span&gt;: &lt;span style=&#34;color:#e6db74&#34;&gt;&amp;#34;# {mark} ANSIBLE MANAGED BLOCK&amp;#34;&lt;/span&gt;
+&lt;/span&gt;&lt;/span&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;    &lt;span style=&#34;color:#f92672&#34;&gt;block&lt;/span&gt;: |&lt;span style=&#34;color:#e6db74&#34;&gt;
+&lt;/span&gt;&lt;/span&gt;&lt;/span&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;&lt;span style=&#34;color:#e6db74&#34;&gt;      server_tokens off;
+&lt;/span&gt;&lt;/span&gt;&lt;/span&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;&lt;span style=&#34;color:#e6db74&#34;&gt;      add_header X-Frame-Options SAMEORIGIN;&lt;/span&gt;
+&lt;/span&gt;&lt;/span&gt;&lt;/code&gt;&lt;/pre&gt;&lt;/div&gt;&lt;p&gt;&lt;strong&gt;这个写法的妙处在哪？&lt;/strong&gt;&lt;/p&gt;
+&lt;ol&gt;
+&lt;li&gt;&lt;strong&gt;自动判断&lt;/strong&gt;：它会自动检查&lt;code&gt;/etc/nginx/nginx.conf&lt;/code&gt;里有没有这段内容。&lt;/li&gt;
+&lt;li&gt;&lt;strong&gt;安全重试&lt;/strong&gt;：如果有，它就什么都不做；如果没有，它就加上；如果内容不一样，它就修正。&lt;/li&gt;
+&lt;li&gt;&lt;strong&gt;结果导向&lt;/strong&gt;：你不用管它是怎么写入的，你只需要告诉Ansible：“我要这个文件长这样”。&lt;/li&gt;
+&lt;/ol&gt;
+&lt;p&gt;我有个同事大刘，之前死活不愿意学Ansible，觉得写YAML麻烦。后来有次因断电导致脚本跑了一半，他花了一整天去排查哪台跑了哪台没跑。后来我让他试着用上面的逻辑跑了一遍Playbook，5分钟搞定。从那以后，他再也没提过用Shell批量改配置的事。&lt;/p&gt;
+&lt;h2 id=&#34;让代码像说明书一样易读&#34;&gt;让代码像“说明书”一样易读
+&lt;/h2&gt;&lt;p&gt;大家回想一下，当你接手前任留下的几百行Shell脚本时，是什么心情？&lt;/p&gt;
+&lt;p&gt;是不是充满了各种&lt;code&gt;var1&lt;/code&gt;、&lt;code&gt;temp_file&lt;/code&gt;这种莫名其妙的变量？代码逻辑像迷宫一样？我曾经接手过一个项目，光是读懂那个初始化环境的脚本就花了我整整两天。&lt;/p&gt;
+&lt;p&gt;&lt;strong&gt;Ansible Playbook 强迫你把运维操作变成文档。&lt;/strong&gt;&lt;/p&gt;
+&lt;p&gt;&lt;img src=&#34;https://picsum.photos/800/450?random=1768442334759&#34;
+	
+	
+	
+	loading=&#34;lazy&#34;
+	
+		alt=&#34;配图&#34;
+	
+	
+&gt;&lt;/p&gt;
+&lt;p&gt;这就好比做菜。Shell脚本像是那种只有大厨看得懂的“少许、适量、火候自便”；而Playbook则是标准的工业化SOP（标准作业程序）。&lt;/p&gt;
+&lt;p&gt;来看看这个对比：&lt;/p&gt;
+&lt;p&gt;&lt;strong&gt;普通脚本风格：&lt;/strong&gt;&lt;/p&gt;
+&lt;div class=&#34;highlight&#34;&gt;&lt;pre tabindex=&#34;0&#34; style=&#34;color:#f8f8f2;background-color:#272822;-moz-tab-size:4;-o-tab-size:4;tab-size:4;&#34;&gt;&lt;code class=&#34;language-bash&#34; data-lang=&#34;bash&#34;&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;&lt;span style=&#34;color:#75715e&#34;&gt;# 安装软件&lt;/span&gt;
+&lt;/span&gt;&lt;/span&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;yum install -y httpd
+&lt;/span&gt;&lt;/span&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;&lt;span style=&#34;color:#75715e&#34;&gt;# 启动&lt;/span&gt;
+&lt;/span&gt;&lt;/span&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;systemctl start httpd
+&lt;/span&gt;&lt;/span&gt;&lt;/code&gt;&lt;/pre&gt;&lt;/div&gt;&lt;p&gt;你不知道这步是为了干啥，也不知道失败了会怎样。&lt;/p&gt;
+&lt;p&gt;&lt;strong&gt;Playbook风格：&lt;/strong&gt;&lt;/p&gt;
+&lt;div class=&#34;highlight&#34;&gt;&lt;pre tabindex=&#34;0&#34; style=&#34;color:#f8f8f2;background-color:#272822;-moz-tab-size:4;-o-tab-size:4;tab-size:4;&#34;&gt;&lt;code class=&#34;language-yaml&#34; data-lang=&#34;yaml&#34;&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;- &lt;span style=&#34;color:#f92672&#34;&gt;name&lt;/span&gt;: &lt;span style=&#34;color:#ae81ff&#34;&gt;部署Web服务全流程&lt;/span&gt;
+&lt;/span&gt;&lt;/span&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;  &lt;span style=&#34;color:#f92672&#34;&gt;hosts&lt;/span&gt;: &lt;span style=&#34;color:#ae81ff&#34;&gt;webservers&lt;/span&gt;
+&lt;/span&gt;&lt;/span&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;  &lt;span style=&#34;color:#f92672&#34;&gt;tasks&lt;/span&gt;:
+&lt;/span&gt;&lt;/span&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;    - &lt;span style=&#34;color:#f92672&#34;&gt;name&lt;/span&gt;: &lt;span style=&#34;color:#ae81ff&#34;&gt;第一步：安装Apache服务&lt;/span&gt;
+&lt;/span&gt;&lt;/span&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;      &lt;span style=&#34;color:#f92672&#34;&gt;yum&lt;/span&gt;:
+&lt;/span&gt;&lt;/span&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;        &lt;span style=&#34;color:#f92672&#34;&gt;name&lt;/span&gt;: &lt;span style=&#34;color:#ae81ff&#34;&gt;httpd&lt;/span&gt;
+&lt;/span&gt;&lt;/span&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;        &lt;span style=&#34;color:#f92672&#34;&gt;state&lt;/span&gt;: &lt;span style=&#34;color:#ae81ff&#34;&gt;present&lt;/span&gt;
+&lt;/span&gt;&lt;/span&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;
+&lt;/span&gt;&lt;/span&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;    - &lt;span style=&#34;color:#f92672&#34;&gt;name&lt;/span&gt;: &lt;span style=&#34;color:#ae81ff&#34;&gt;第二步：启动服务并设置开机自启&lt;/span&gt;
+&lt;/span&gt;&lt;/span&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;      &lt;span style=&#34;color:#f92672&#34;&gt;service&lt;/span&gt;:
+&lt;/span&gt;&lt;/span&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;        &lt;span style=&#34;color:#f92672&#34;&gt;name&lt;/span&gt;: &lt;span style=&#34;color:#ae81ff&#34;&gt;httpd&lt;/span&gt;
+&lt;/span&gt;&lt;/span&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;        &lt;span style=&#34;color:#f92672&#34;&gt;state&lt;/span&gt;: &lt;span style=&#34;color:#ae81ff&#34;&gt;started&lt;/span&gt;
+&lt;/span&gt;&lt;/span&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;        &lt;span style=&#34;color:#f92672&#34;&gt;enabled&lt;/span&gt;: &lt;span style=&#34;color:#66d9ef&#34;&gt;yes&lt;/span&gt;
+&lt;/span&gt;&lt;/span&gt;&lt;/code&gt;&lt;/pre&gt;&lt;/div&gt;&lt;p&gt;&lt;img src=&#34;https://picsum.photos/800/450?random=1768442334497&#34;
+	
+	
+	
+	loading=&#34;lazy&#34;
+	
+		alt=&#34;配图&#34;
+	
+	
+&gt;&lt;/p&gt;
+&lt;p&gt;我现在的习惯是，每周五下午进行复盘时，只要把Playbook打开，对着YAML文件给新人讲一遍，他们基本就能明白整个系统的部署架构。&lt;strong&gt;代码即文档&lt;/strong&gt;，这句话真不是虚的，它能帮你省下大量写Wiki和解释的时间。&lt;/p&gt;
+&lt;h2 id=&#34;变量与模板不要把配置写死&#34;&gt;变量与模板：不要把配置“写死”
+&lt;/h2&gt;&lt;p&gt;刚开始写Playbook时，我最爱干的事就是Hardcode（硬编码）。比如把数据库IP直接写在配置文件任务里。&lt;/p&gt;
+&lt;p&gt;结果到了年底，公司做架构调整，数据库迁移了。我不得不打开十几个Playbook文件，一个个查找替换。那种绝望感，谁试谁知道。&lt;/p&gt;
+&lt;p&gt;&lt;strong&gt;真正的自动化，是把“逻辑”和“数据”剥离开。&lt;/strong&gt;&lt;/p&gt;
+&lt;p&gt;这时候，Ansible的&lt;code&gt;Jinja2&lt;/code&gt;模板引擎就派上用场了。&lt;/p&gt;
+&lt;p&gt;举个真实场景：我们要给开发环境（Dev）、测试环境（QA）和生产环境（Prod）部署同一套应用，但它们的端口和数据库地址不一样。&lt;/p&gt;
+&lt;p&gt;&lt;strong&gt;做法是这样的：&lt;/strong&gt;&lt;/p&gt;
+&lt;ol&gt;
+&lt;li&gt;
+&lt;p&gt;创建一个模板文件 &lt;code&gt;app_config.j2&lt;/code&gt;：&lt;/p&gt;
+&lt;div class=&#34;highlight&#34;&gt;&lt;pre tabindex=&#34;0&#34; style=&#34;color:#f8f8f2;background-color:#272822;-moz-tab-size:4;-o-tab-size:4;tab-size:4;&#34;&gt;&lt;code class=&#34;language-ini&#34; data-lang=&#34;ini&#34;&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;&lt;span style=&#34;color:#66d9ef&#34;&gt;[database]&lt;/span&gt;
+&lt;/span&gt;&lt;/span&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;&lt;span style=&#34;color:#a6e22e&#34;&gt;host&lt;/span&gt; &lt;span style=&#34;color:#f92672&#34;&gt;=&lt;/span&gt; 
+&lt;/span&gt;&lt;/span&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;&lt;span style=&#34;color:#a6e22e&#34;&gt;port&lt;/span&gt; &lt;span style=&#34;color:#f92672&#34;&gt;=&lt;/span&gt; 
+&lt;/span&gt;&lt;/span&gt;&lt;/code&gt;&lt;/pre&gt;&lt;/div&gt;&lt;/li&gt;
+&lt;li&gt;
+&lt;p&gt;在Playbook里调用：&lt;/p&gt;
+&lt;div class=&#34;highlight&#34;&gt;&lt;pre tabindex=&#34;0&#34; style=&#34;color:#f8f8f2;background-color:#272822;-moz-tab-size:4;-o-tab-size:4;tab-size:4;&#34;&gt;&lt;code class=&#34;language-yaml&#34; data-lang=&#34;yaml&#34;&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;- &lt;span style=&#34;color:#f92672&#34;&gt;name&lt;/span&gt;: &lt;span style=&#34;color:#ae81ff&#34;&gt;分发配置文件&lt;/span&gt;
+&lt;/span&gt;&lt;/span&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;  &lt;span style=&#34;color:#f92672&#34;&gt;template&lt;/span&gt;:
+&lt;/span&gt;&lt;/span&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;    &lt;span style=&#34;color:#f92672&#34;&gt;src&lt;/span&gt;: &lt;span style=&#34;color:#ae81ff&#34;&gt;app_config.j2&lt;/span&gt;
+&lt;/span&gt;&lt;/span&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;    &lt;span style=&#34;color:#f92672&#34;&gt;dest&lt;/span&gt;: &lt;span style=&#34;color:#ae81ff&#34;&gt;/opt/app/config.ini&lt;/span&gt;
+&lt;/span&gt;&lt;/span&gt;&lt;/code&gt;&lt;/pre&gt;&lt;/div&gt;&lt;/li&gt;
+&lt;li&gt;
+&lt;p&gt;在变量文件里定义不同环境的值。&lt;/p&gt;
+&lt;/li&gt;
+&lt;/ol&gt;
+&lt;p&gt;这套方法落地后，效果立竿见影。上个月我们做灾备演练，需要把全套环境切换到备用机房。我只需要修改&lt;code&gt;group_vars&lt;/code&gt;里的几个IP变量，运行一遍Playbook，&lt;strong&gt;10分钟内，30多个微服务的配置全部自动更新并重启完毕。&lt;/strong&gt;&lt;/p&gt;
+&lt;p&gt;要是放在以前用脚本处理，我估计得拉上整个运维组通宵加班。&lt;/p&gt;
+&lt;h2 id=&#34;别光看不练给你3个落地建议&#34;&gt;别光看不练，给你3个落地建议
+&lt;/h2&gt;&lt;p&gt;说了这么多，我知道很多朋友还在犹豫：“看起来好难，我还是用老办法吧。”&lt;/p&gt;
+&lt;p&gt;其实技术债都是这么欠下的。与其等到像我当年那样半夜炸雷，不如现在就开始填坑。Ansible其实是DevOps工具链里门槛最低的一个，不需要Agent，只要能SSH就能跑。&lt;/p&gt;
+&lt;p&gt;如果你想开始尝试，我建议你这周只做这三件事：&lt;/p&gt;
+&lt;ol&gt;
+&lt;li&gt;&lt;strong&gt;环境准备&lt;/strong&gt;：在你的笔记本或者一台跳板机上装好Ansible（&lt;code&gt;pip install ansible&lt;/code&gt; 或者 &lt;code&gt;yum install ansible&lt;/code&gt;），不需要复杂的配置。&lt;/li&gt;
+&lt;li&gt;&lt;strong&gt;写第一个Hello World&lt;/strong&gt;：不要试图上来就搞复杂的部署。写一个Playbook，只做一件事：&lt;strong&gt;在所有目标服务器的 &lt;code&gt;/tmp&lt;/code&gt; 目录下创建一个叫 &lt;code&gt;success.txt&lt;/code&gt; 的文件。&lt;/strong&gt; 跑通这个，你就理解了核心流程。&lt;/li&gt;
+&lt;li&gt;&lt;strong&gt;重构一个小脚本&lt;/strong&gt;：找一个你平时最常用的、不超过20行的Shell脚本（比如清理日志、同步时间），把它翻译成Ansible Playbook，并设定为每天自动运行。&lt;/li&gt;
+&lt;/ol&gt;
+&lt;p&gt;当你第一次看着屏幕上那一排绿色的“OK”和黄色的“Changed”滚动闪过，相信我，那种掌控感会让你上瘾的。&lt;/p&gt;
+&lt;p&gt;&lt;strong&gt;最后留个问题&lt;/strong&gt;：你们现在的日常运维中，哪一个重复性操作让你最头疼？或者如果你已经用了Ansible，踩过什么印象深刻的“坑”？欢迎在评论区聊聊，我们一起避雷。&lt;/p&gt;
+</description>
+        </item>
+        
+    </channel>
+</rss>

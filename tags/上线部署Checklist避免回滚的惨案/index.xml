@@ -1,0 +1,106 @@
+<?xml version="1.0" encoding="utf-8" standalone="yes"?>
+<rss version="2.0" xmlns:atom="http://www.w3.org/2005/Atom">
+    <channel>
+        <title>上线部署Checklist：避免回滚的惨案 on SelfTechHub</title>
+        <link>https://blog.irudder.me/tags/%E4%B8%8A%E7%BA%BF%E9%83%A8%E7%BD%B2Checklist%E9%81%BF%E5%85%8D%E5%9B%9E%E6%BB%9A%E7%9A%84%E6%83%A8%E6%A1%88.html</link>
+        <description>Recent content in 上线部署Checklist：避免回滚的惨案 on SelfTechHub</description>
+        <generator>Hugo -- gohugo.io</generator>
+        <language>zh-cn</language>
+        <lastBuildDate>Wed, 12 Jun 2024 00:00:00 +0000</lastBuildDate><atom:link href="https://blog.irudder.me/tags/%E4%B8%8A%E7%BA%BF%E9%83%A8%E7%BD%B2Checklist%E9%81%BF%E5%85%8D%E5%9B%9E%E6%BB%9A%E7%9A%84%E6%83%A8%E6%A1%88/index.xml" rel="self" type="application/rss+xml" /><item>
+        <title>凌晨3点的回滚惨案：一份救命的上线Checklist</title>
+        <link>https://blog.irudder.me/tech/danxiangmuquanliuchengchaijie10fenzhongkedu/shangxianbushuchecklist_bimianhuigundecanan.html</link>
+        <pubDate>Wed, 12 Jun 2024 00:00:00 +0000</pubDate>
+        
+        <guid>https://blog.irudder.me/tech/danxiangmuquanliuchengchaijie10fenzhongkedu/shangxianbushuchecklist_bimianhuigundecanan.html</guid>
+        <description>&lt;p&gt;不知你是否经历过这种时刻：周五下午5点，代码Merge，流水线变绿，所有人欢呼雀跃准备过周末。结果晚上10点，手机疯狂震动，报警群炸了，运维在群里咆哮，你在出租车上打开电脑，手指颤抖地敲下回滚命令。&lt;/p&gt;
+&lt;p&gt;我曾以为只要单元测试覆盖率够高，上线就一定稳。直到两年前那个深秋的凌晨，我被迫在生产环境对着一行空指针异常（NPE）排查了整整4个小时，才发现所谓的&amp;quot;技术事故&amp;quot;，90%都是&amp;quot;流程事故&amp;quot;。&lt;/p&gt;
+&lt;p&gt;对于没有专职运维（SRE）、一人身兼数职的中小团队来说，上线往往是在走钢丝。今天咱们不谈高大上的DevOps理论，就聊聊那些血淋淋的教训换来的&lt;strong&gt;实战Checklist&lt;/strong&gt;，帮你规避那些让项目经理崩溃、让开发想离职的&amp;quot;回滚惨案&amp;quot;。&lt;/p&gt;
+&lt;h2 id=&#34;痛点一环境不一致在我本地明明是好的&#34;&gt;痛点一：环境不一致，&amp;ldquo;在我本地明明是好的&amp;rdquo;
+&lt;/h2&gt;&lt;p&gt;&lt;img src=&#34;https://picsum.photos/800/450?random=1768449165932&#34;
+	
+	
+	
+	loading=&#34;lazy&#34;
+	
+		alt=&#34;配图&#34;
+	
+	
+&gt;&lt;/p&gt;
+&lt;p&gt;这是最经典，也是最容易被忽视的坑。很多团队的开发环境（Dev）、测试环境（QA）和生产环境（Prod）配置差异巨大，就像在平地上练车，考试却让你去跑山路。&lt;/p&gt;
+&lt;p&gt;&lt;strong&gt;【真实案例复盘】&lt;/strong&gt;
+去年接手过一个电商小程序项目。开发老张在本地加了一个基于Redis的地理位置计算功能，本地跑得飞起。上线当晚，直接导致整个下单链路瘫痪。&lt;/p&gt;
+&lt;p&gt;&lt;strong&gt;原因在哪？&lt;/strong&gt;
+老张本地的Redis版本是6.0，支持某些新指令，而线上阿里云的Redis实例是很久前买的4.0版本，根本不支持那个指令。更要命的是，代码里没有做版本兼容处理，直接抛错。&lt;/p&gt;
+&lt;p&gt;&lt;strong&gt;结果：&lt;/strong&gt;
+服务宕机20分钟，损失几百单交易，老张当晚就在群里做了公开检讨。&lt;/p&gt;
+&lt;p&gt;&lt;strong&gt;【避坑指南】&lt;/strong&gt;
+别指望人脑能记住所有配置差异。我建议团队必须落地一个硬性规定：&lt;strong&gt;配置即代码（Configuration as Code）&lt;/strong&gt;。&lt;/p&gt;
+&lt;ol&gt;
+&lt;li&gt;&lt;strong&gt;版本对齐&lt;/strong&gt;：开发环境的基础设施（MySQL, Redis, MQ等）版本必须与线上严格一致，连小版本号都要对齐。&lt;/li&gt;
+&lt;li&gt;&lt;strong&gt;Diff检查&lt;/strong&gt;：上线前，强制对比 &lt;code&gt;config.prod.yaml&lt;/code&gt; 和 &lt;code&gt;config.dev.yaml&lt;/code&gt; 的差异。这里推荐一个小脚本工具：&lt;/li&gt;
+&lt;/ol&gt;
+&lt;div class=&#34;highlight&#34;&gt;&lt;pre tabindex=&#34;0&#34; style=&#34;color:#f8f8f2;background-color:#272822;-moz-tab-size:4;-o-tab-size:4;tab-size:4;&#34;&gt;&lt;code class=&#34;language-bash&#34; data-lang=&#34;bash&#34;&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;&lt;span style=&#34;color:#75715e&#34;&gt;# 简单的Diff检查示例&lt;/span&gt;
+&lt;/span&gt;&lt;/span&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;&lt;span style=&#34;color:#75715e&#34;&gt;# 如果发现生产环境缺配置，直接阻断上线流程&lt;/span&gt;
+&lt;/span&gt;&lt;/span&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;diff &amp;lt;&lt;span style=&#34;color:#f92672&#34;&gt;(&lt;/span&gt;sort config.dev.keys&lt;span style=&#34;color:#f92672&#34;&gt;)&lt;/span&gt; &amp;lt;&lt;span style=&#34;color:#f92672&#34;&gt;(&lt;/span&gt;sort config.prod.keys&lt;span style=&#34;color:#f92672&#34;&gt;)&lt;/span&gt;
+&lt;/span&gt;&lt;/span&gt;&lt;/code&gt;&lt;/pre&gt;&lt;/div&gt;&lt;p&gt;&lt;strong&gt;底层逻辑&lt;/strong&gt;：环境一致性是稳定性的基石。如果你的QA环境不能模拟线上80%的情况，那你的QA环境就是个摆设。&lt;/p&gt;
+&lt;h2 id=&#34;痛点二数据库变更不仅是锁表那么简单&#34;&gt;痛点二：数据库变更，不仅是锁表那么简单
+&lt;/h2&gt;&lt;p&gt;代码回滚容易，Git reset一下也就几分钟的事。但数据一旦搞脏了，或者表结构改错了，那即使回滚了代码，数据库还得人工修数据，这才是真正的灾难。&lt;/p&gt;
+&lt;p&gt;&lt;strong&gt;【真实案例复盘】&lt;/strong&gt;
+某SaaS团队，为了做一个报表功能，需要在核心订单表里加一个字段 &lt;code&gt;user_tag&lt;/code&gt;。开发小李觉得这是个常规操作，直接写了一个 &lt;code&gt;ALTER TABLE&lt;/code&gt; 语句就在上线脚本里跑了。&lt;/p&gt;
+&lt;p&gt;当时正好是业务高峰期，这张表有几千万数据。&lt;/p&gt;
+&lt;p&gt;&lt;strong&gt;结果：&lt;/strong&gt;
+&lt;code&gt;ALTER TABLE&lt;/code&gt; 直接锁表，导致所有写入操作全部阻塞。数据库连接池瞬间被打满，Web服务因为拿不到连接全部超时，系统雪崩。虽然紧急Kill掉了SQL进程，但积压的请求还是让系统缓了十几分钟才恢复。&lt;/p&gt;
+&lt;p&gt;&lt;strong&gt;【避坑指南】&lt;/strong&gt;
+数据库变更是最危险的操作，没有之一。针对中小团队，建议执行以下&amp;quot;三板斧&amp;quot;：&lt;/p&gt;
+&lt;ul&gt;
+&lt;li&gt;&lt;strong&gt;非高峰期操作&lt;/strong&gt;：如果一定要改大表结构，请在凌晨或者低峰期做。&lt;/li&gt;
+&lt;li&gt;&lt;strong&gt;兼容性设计&lt;/strong&gt;：新增字段必须允许为NULL（或有默认值），代码逻辑要能兼容&amp;quot;旧数据没有这个字段&amp;quot;的情况。&lt;/li&gt;
+&lt;li&gt;&lt;strong&gt;DDL与DML分离&lt;/strong&gt;：&lt;/li&gt;
+&lt;/ul&gt;
+&lt;blockquote&gt;
+&lt;p&gt;行业里的最佳实践是：不要让应用程序启动时自动去修改数据库结构（Hibernate自动DDL是大忌）。数据库变更脚本应该在代码部署&lt;strong&gt;之前&lt;/strong&gt;，由DBA或资深开发人工执行并确认无误。&lt;/p&gt;
+&lt;/blockquote&gt;
+&lt;p&gt;如果你正在用类似Flyway的工具，请确保你的脚本里有&amp;quot;反向操作&amp;quot;（Rollback script），虽然我们极度不希望用到它。&lt;/p&gt;
+&lt;h2 id=&#34;痛点三验证缺失没有报错不等于功能正常&#34;&gt;痛点三：验证缺失，&amp;ldquo;没有报错&amp;quot;不等于&amp;quot;功能正常&amp;rdquo;
+&lt;/h2&gt;&lt;p&gt;很多时候，部署脚本跑完了，日志里没有Error，你就觉得上线成功了？这叫&amp;quot;假性成功&amp;quot;。&lt;/p&gt;
+&lt;p&gt;&lt;strong&gt;【真实案例复盘】&lt;/strong&gt;
+我有个朋友的公司，做在线教育的。有一次升级支付网关，代码推上去后，服务正常启动，健康检查接口（Health Check）也返回200 OK。大家开心地下班了。&lt;/p&gt;
+&lt;p&gt;第二天早上客服电话被打爆，家长们投诉无法充值。&lt;/p&gt;
+&lt;p&gt;&lt;img src=&#34;https://picsum.photos/800/450?random=1768449163154&#34;
+	
+	
+	
+	loading=&#34;lazy&#34;
+	
+		alt=&#34;配图&#34;
+	
+	
+&gt;&lt;/p&gt;
+&lt;p&gt;&lt;strong&gt;原因：&lt;/strong&gt;
+代码里把支付渠道的密钥配置读错了，虽然服务活着，但业务逻辑全是通不通的。因为没有报错日志（被try-catch吞掉了），监控也没报警。&lt;/p&gt;
+&lt;p&gt;&lt;strong&gt;【避坑指南】&lt;/strong&gt;
+上线后的**冒烟测试（Smoke Test）**必须包含核心业务逻辑，而不仅仅是看服务在不在。&lt;/p&gt;
+&lt;ol&gt;
+&lt;li&gt;&lt;strong&gt;核心路径自动化&lt;/strong&gt;：准备一套最简单的Postman脚本或Curl命令，覆盖&amp;quot;登录-下单-支付&amp;quot;这种核心链路。上线后必须跑通这套脚本。&lt;/li&gt;
+&lt;li&gt;&lt;strong&gt;灰度思维（哪怕是手动的）&lt;/strong&gt;：
+如果没条件做全链路灰度，至少可以**预发布环境（Staging）**验证。我的习惯是，预发布环境连接的就是生产数据库（但在逻辑上做数据隔离），只有在预发布环境验证通过的镜像，才允许推送到生产环境。&lt;/li&gt;
+&lt;/ol&gt;
+&lt;p&gt;不要相信&amp;quot;我的代码没问题&amp;quot;，要相信&amp;quot;看到结果才算数&amp;quot;。&lt;/p&gt;
+&lt;h2 id=&#34;结尾选择权在你&#34;&gt;结尾：选择权在你
+&lt;/h2&gt;&lt;p&gt;看了这么多&amp;quot;惨案&amp;quot;，其实核心逻辑就一句话：&lt;strong&gt;敬畏生产环境&lt;/strong&gt;。&lt;/p&gt;
+&lt;p&gt;现在，假设你下周一就要发版，面对紧张的工期，你会怎么选？
+&lt;strong&gt;A&lt;/strong&gt;：赶进度要紧，相信兄弟们的技术，直接梭哈上线。
+&lt;strong&gt;B&lt;/strong&gt;：宁可推迟半天，也要把Checklist过一遍，哪怕被老板骂效率低。&lt;/p&gt;
+&lt;p&gt;（如果你选A，建议提前买好防脱发洗发水；如果你选B，评论区握个手，咱们是一类人。）&lt;/p&gt;
+&lt;p&gt;&lt;strong&gt;最后，送给你一套我用了两年的落地行动步骤：&lt;/strong&gt;&lt;/p&gt;
+&lt;ol&gt;
+&lt;li&gt;&lt;strong&gt;建立&amp;quot;封板期&amp;quot;&lt;/strong&gt;：除了紧急Bug修复，每周五下午4点后、节假日前一天，禁止任何非必要的上线。&lt;/li&gt;
+&lt;li&gt;&lt;strong&gt;双人Review机制&lt;/strong&gt;：代码可以一个人写，但上线清单（包含SQL、配置项、回滚步骤）必须由另一个人复核签字。&lt;/li&gt;
+&lt;li&gt;&lt;strong&gt;准备&amp;quot;一键回滚&amp;quot;&lt;/strong&gt;：在CI/CD流水线里配置好&amp;quot;回滚上一版本&amp;quot;的按钮。当故障发生时，先止血（回滚），再查病因（排查）。&lt;/li&gt;
+&lt;/ol&gt;
+&lt;p&gt;哪怕团队只有3个人，流程也要有。因为我们要保护的，不仅仅是代码，还有我们那宝贵的睡眠时间和职业声誉。&lt;/p&gt;
+</description>
+        </item>
+        
+    </channel>
+</rss>

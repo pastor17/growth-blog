@@ -1,0 +1,210 @@
+<?xml version="1.0" encoding="utf-8" standalone="yes"?>
+<rss version="2.0" xmlns:atom="http://www.w3.org/2005/Atom">
+    <channel>
+        <title>Document Splitting on SelfTechHub</title>
+        <link>https://blog.irudder.me/tags/Document-Splitting.html</link>
+        <description>Recent content in Document Splitting on SelfTechHub</description>
+        <generator>Hugo -- gohugo.io</generator>
+        <language>zh-cn</language>
+        <lastBuildDate>Fri, 12 Jun 2026 00:00:00 +0000</lastBuildDate><atom:link href="https://blog.irudder.me/tags/Document-Splitting/index.xml" rel="self" type="application/rss+xml" /><item>
+        <title>第7章：文档切割——Chunking 的策略与最佳实践</title>
+        <link>https://blog.irudder.me/ai/knowledge-series/07-Chunking-Strategies-and-Best-Practices.html</link>
+        <pubDate>Fri, 12 Jun 2026 00:00:00 +0000</pubDate>
+        
+        <guid>https://blog.irudder.me/ai/knowledge-series/07-Chunking-Strategies-and-Best-Practices.html</guid>
+        <description>&lt;h1 id=&#34;第7章文档切割chunking-的策略与最佳实践&#34;&gt;第7章：文档切割——Chunking 的策略与最佳实践
+&lt;/h1&gt;&lt;blockquote&gt;
+&lt;p&gt;系列导读：本章是 RAG 的进阶篇。很多人以为 chunking 就是「切成 500 token」，但实际上它是影响检索质量最关键的工程决策之一。不好的 chunking 策略会让检索系统形同虚设——合适的内容检索不到，不合适的内容塞给 LLM，最终答案质量大打折扣。&lt;/p&gt;
+&lt;/blockquote&gt;
+&lt;h2 id=&#34;一为什么-chunking-决定-rag-生死&#34;&gt;一、为什么 chunking 决定 RAG 生死？
+&lt;/h2&gt;&lt;p&gt;RAG 系统里有一个核心事实：&lt;/p&gt;
+&lt;blockquote&gt;
+&lt;p&gt;LLM 最终回答的质量，取决于你放进 prompt 里的参考资料质量。&lt;/p&gt;
+&lt;/blockquote&gt;
+&lt;p&gt;参考资料哪来的？从向量库里检索来的。
+向量库里存的是 chunk，chunk 是切割出来的。&lt;/p&gt;
+&lt;p&gt;如果 chunk 把一段重要信息中间切断了，或者把两段无关内容塞进了一个 chunk，检索出来的就是垃圾。垃圾进，垃圾出。你放再贵的 Embedding 模型、再牛的 LLM，都救不回一块切烂的 chunk。&lt;/p&gt;
+&lt;h2 id=&#34;二chunking-的四大基础策略&#34;&gt;二、Chunking 的四大基础策略
+&lt;/h2&gt;&lt;h3 id=&#34;策略1固定大小--重叠fixed-size-with-overlap&#34;&gt;策略1：固定大小 + 重叠（Fixed Size with Overlap）
+&lt;/h3&gt;&lt;pre tabindex=&#34;0&#34;&gt;&lt;code&gt;    原文：今天天气很好，小明去公园散步。他在湖边看到一只白鹭...
+          |-------chunk1-------|--------chunk2-------|
+          今天天气很好，小明去   明去公园散步。他在湖边
+          (size=12, overlap=4)   看到一只白鹭在水面上
+                                 (size=12, overlap=4)
+&lt;/code&gt;&lt;/pre&gt;&lt;p&gt;&lt;strong&gt;适用场景&lt;/strong&gt;：通用文本，写起来最快，作为基线方案再用别的方法优化。
+&lt;strong&gt;参数建议&lt;/strong&gt;：每 chunk 500-1000 token 是常见起点；重叠 10-20% 防止信息在切分处丢失。
+&lt;strong&gt;问题&lt;/strong&gt;：机械切分会切断语义边界。一个句子被拦腰截断，LLM 收到 chunk 后理解困难。&lt;/p&gt;
+&lt;p&gt;&lt;strong&gt;优点&lt;/strong&gt;：实现极其简单，不需要解析文档结构，可移植性好。几乎所有初级 RAG 教程都用这个方案。&lt;/p&gt;
+&lt;h3 id=&#34;策略2按语义边界切割semantic-chunking&#34;&gt;策略2：按语义边界切割（Semantic Chunking）
+&lt;/h3&gt;&lt;p&gt;观察文档结构，在天然边界处切：&lt;/p&gt;
+&lt;ul&gt;
+&lt;li&gt;Markdown/HTML 的标题、段落&lt;/li&gt;
+&lt;li&gt;文档的章节层次&lt;/li&gt;
+&lt;li&gt;知识库的主题切换&lt;/li&gt;
+&lt;/ul&gt;
+&lt;pre tabindex=&#34;0&#34;&gt;&lt;code&gt;    【原文】
+    # 第一章 Java 基础
+    第一节 变量和数据类型
+    变量是程序中...
+
+    第二节 控制流
+    if 语句用于...
+
+    ### 切分点：标题边界
+    chunk1 = &amp;#34;第一节 变量和数据类型\n变量是程序中...&amp;#34;
+    chunk2 = &amp;#34;第二节 控制流\nif 语句用于...&amp;#34;
+&lt;/code&gt;&lt;/pre&gt;&lt;p&gt;&lt;strong&gt;适用场景&lt;/strong&gt;：结构化的知识库、技术文档、产品手册。
+&lt;strong&gt;优势&lt;/strong&gt;：语意完整，检索命中后 LLM 能有完整上下文。
+&lt;strong&gt;挑战&lt;/strong&gt;：不同文档格式解析不一致，需要自定义切分逻辑。比如 PDF 就没有天然的分段标记，需要先解析出文本结构再决定切割点。&lt;/p&gt;
+&lt;h3 id=&#34;策略3按代码逻辑切割&#34;&gt;策略3：按代码逻辑切割
+&lt;/h3&gt;&lt;p&gt;代码不是普通文本。函数、类、接口这些天然边界就是最合理的 chunk 粒度：&lt;/p&gt;
+&lt;div class=&#34;highlight&#34;&gt;&lt;pre tabindex=&#34;0&#34; style=&#34;color:#f8f8f2;background-color:#272822;-moz-tab-size:4;-o-tab-size:4;tab-size:4;&#34;&gt;&lt;code class=&#34;language-python&#34; data-lang=&#34;python&#34;&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;    &lt;span style=&#34;color:#66d9ef&#34;&gt;def&lt;/span&gt; &lt;span style=&#34;color:#a6e22e&#34;&gt;calculate_discount&lt;/span&gt;(price, user_type):
+&lt;/span&gt;&lt;/span&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;        &lt;span style=&#34;color:#e6db74&#34;&gt;&amp;#34;&amp;#34;&amp;#34;根据用户类型计算折扣&amp;#34;&amp;#34;&amp;#34;&lt;/span&gt;
+&lt;/span&gt;&lt;/span&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;        &lt;span style=&#34;color:#66d9ef&#34;&gt;if&lt;/span&gt; user_type &lt;span style=&#34;color:#f92672&#34;&gt;==&lt;/span&gt; &lt;span style=&#34;color:#e6db74&#34;&gt;&amp;#34;vip&amp;#34;&lt;/span&gt;:
+&lt;/span&gt;&lt;/span&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;            &lt;span style=&#34;color:#66d9ef&#34;&gt;return&lt;/span&gt; price &lt;span style=&#34;color:#f92672&#34;&gt;*&lt;/span&gt; &lt;span style=&#34;color:#ae81ff&#34;&gt;0.8&lt;/span&gt;
+&lt;/span&gt;&lt;/span&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;        &lt;span style=&#34;color:#66d9ef&#34;&gt;return&lt;/span&gt; price
+&lt;/span&gt;&lt;/span&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;
+&lt;/span&gt;&lt;/span&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;    &lt;span style=&#34;color:#66d9ef&#34;&gt;class&lt;/span&gt; &lt;span style=&#34;color:#a6e22e&#34;&gt;PaymentHandler&lt;/span&gt;:
+&lt;/span&gt;&lt;/span&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;        &lt;span style=&#34;color:#e6db74&#34;&gt;&amp;#34;&amp;#34;&amp;#34;支付处理器&amp;#34;&amp;#34;&amp;#34;&lt;/span&gt;
+&lt;/span&gt;&lt;/span&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;        &lt;span style=&#34;color:#66d9ef&#34;&gt;def&lt;/span&gt; &lt;span style=&#34;color:#a6e22e&#34;&gt;process&lt;/span&gt;(self, order_id):
+&lt;/span&gt;&lt;/span&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;            &lt;span style=&#34;color:#f92672&#34;&gt;...&lt;/span&gt;
+&lt;/span&gt;&lt;/span&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;
+&lt;/span&gt;&lt;/span&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;    chunk1 &lt;span style=&#34;color:#f92672&#34;&gt;=&lt;/span&gt; &lt;span style=&#34;color:#e6db74&#34;&gt;&amp;#34;def calculate_discount(...)&amp;#34;&lt;/span&gt;  &lt;span style=&#34;color:#75715e&#34;&gt;# 函数级&lt;/span&gt;
+&lt;/span&gt;&lt;/span&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;    chunk2 &lt;span style=&#34;color:#f92672&#34;&gt;=&lt;/span&gt; &lt;span style=&#34;color:#e6db74&#34;&gt;&amp;#34;class PaymentHandler&amp;#34;&lt;/span&gt;           &lt;span style=&#34;color:#75715e&#34;&gt;# 类级&lt;/span&gt;
+&lt;/span&gt;&lt;/span&gt;&lt;/code&gt;&lt;/pre&gt;&lt;/div&gt;&lt;p&gt;&lt;strong&gt;适用场景&lt;/strong&gt;：代码仓库的 RAG 问答。
+&lt;strong&gt;优势&lt;/strong&gt;：每个 chunk 保留了一个逻辑单元（一个函数/类），检索命中后 LLM 可以完整理解这个单元的实现。&lt;/p&gt;
+&lt;h3 id=&#34;策略4父子切割parent-child-chunking生产级推荐&#34;&gt;策略4：父子切割（Parent-Child Chunking）【生产级推荐】
+&lt;/h3&gt;&lt;p&gt;RAG 系统里有一个经典矛盾：&lt;/p&gt;
+&lt;ul&gt;
+&lt;li&gt;chunk 越小，检索匹配越精准（粒度细）&lt;/li&gt;
+&lt;li&gt;chunk 越大，LLM 阅读时上下文越完整（信息多）&lt;/li&gt;
+&lt;/ul&gt;
+&lt;p&gt;&lt;strong&gt;父子切割的解决思路&lt;/strong&gt;：&lt;/p&gt;
+&lt;ul&gt;
+&lt;li&gt;用小块做检索（精准匹配）&lt;/li&gt;
+&lt;li&gt;匹配命中后，返回这个 chunk 对应的大块（完整上下文）&lt;/li&gt;
+&lt;/ul&gt;
+&lt;pre tabindex=&#34;0&#34;&gt;&lt;code&gt;    父 chunk（大块）:
+      第3章 Python 数据类型
+      3.1 列表操作：列表是 Python 中最常用的数据类型之一...
+      [包含完整的章节内容]
+
+    子 chunk（小块）:
+      列表 append 方法使用说明
+      append(x) 在列表末尾添加元素...
+
+    检索 &amp;#34;append 怎么用&amp;#34; → 命中子 chunk → 返回父 chunk 到 LLM
+&lt;/code&gt;&lt;/pre&gt;&lt;p&gt;&lt;strong&gt;适用场景&lt;/strong&gt;：几乎所有生产级 RAG 都在用或应该用这个策略。
+&lt;strong&gt;实现要点&lt;/strong&gt;：子 chunk 需要存储指向父 chunk 的引用 ID；检索时先查子 chunk，命中后取回对应的父 chunk 全文。&lt;/p&gt;
+&lt;h2 id=&#34;三chunk-的-metadata-设计&#34;&gt;三、Chunk 的 Metadata 设计
+&lt;/h2&gt;&lt;p&gt;每个 chunk 存储时，除了 text 和 vector，还需要丰富的 metadata：&lt;/p&gt;
+&lt;div class=&#34;highlight&#34;&gt;&lt;pre tabindex=&#34;0&#34; style=&#34;color:#f8f8f2;background-color:#272822;-moz-tab-size:4;-o-tab-size:4;tab-size:4;&#34;&gt;&lt;code class=&#34;language-json&#34; data-lang=&#34;json&#34;&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;    {
+&lt;/span&gt;&lt;/span&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;      &lt;span style=&#34;color:#f92672&#34;&gt;&amp;#34;text&amp;#34;&lt;/span&gt;: &lt;span style=&#34;color:#e6db74&#34;&gt;&amp;#34;列表 append 方法使用说明...&amp;#34;&lt;/span&gt;,
+&lt;/span&gt;&lt;/span&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;      &lt;span style=&#34;color:#f92672&#34;&gt;&amp;#34;vector&amp;#34;&lt;/span&gt;: [&lt;span style=&#34;color:#ae81ff&#34;&gt;0.1&lt;/span&gt;, &lt;span style=&#34;color:#ae81ff&#34;&gt;0.02&lt;/span&gt;, &lt;span style=&#34;color:#960050;background-color:#1e0010&#34;&gt;...&lt;/span&gt;],
+&lt;/span&gt;&lt;/span&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;      &lt;span style=&#34;color:#f92672&#34;&gt;&amp;#34;metadata&amp;#34;&lt;/span&gt;: {
+&lt;/span&gt;&lt;/span&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;        &lt;span style=&#34;color:#f92672&#34;&gt;&amp;#34;source_file&amp;#34;&lt;/span&gt;: &lt;span style=&#34;color:#e6db74&#34;&gt;&amp;#34;python_guide.md&amp;#34;&lt;/span&gt;,
+&lt;/span&gt;&lt;/span&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;        &lt;span style=&#34;color:#f92672&#34;&gt;&amp;#34;chapter&amp;#34;&lt;/span&gt;: &lt;span style=&#34;color:#e6db74&#34;&gt;&amp;#34;3.1&amp;#34;&lt;/span&gt;,
+&lt;/span&gt;&lt;/span&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;        &lt;span style=&#34;color:#f92672&#34;&gt;&amp;#34;tags&amp;#34;&lt;/span&gt;: [&lt;span style=&#34;color:#e6db74&#34;&gt;&amp;#34;data_structure&amp;#34;&lt;/span&gt;, &lt;span style=&#34;color:#e6db74&#34;&gt;&amp;#34;list&amp;#34;&lt;/span&gt;],
+&lt;/span&gt;&lt;/span&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;        &lt;span style=&#34;color:#f92672&#34;&gt;&amp;#34;doc_type&amp;#34;&lt;/span&gt;: &lt;span style=&#34;color:#e6db74&#34;&gt;&amp;#34;api_reference&amp;#34;&lt;/span&gt;,
+&lt;/span&gt;&lt;/span&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;        &lt;span style=&#34;color:#f92672&#34;&gt;&amp;#34;page_number&amp;#34;&lt;/span&gt;: &lt;span style=&#34;color:#ae81ff&#34;&gt;42&lt;/span&gt;,
+&lt;/span&gt;&lt;/span&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;        &lt;span style=&#34;color:#f92672&#34;&gt;&amp;#34;created_at&amp;#34;&lt;/span&gt;: &lt;span style=&#34;color:#e6db74&#34;&gt;&amp;#34;2026-01-15&amp;#34;&lt;/span&gt;,
+&lt;/span&gt;&lt;/span&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;        &lt;span style=&#34;color:#f92672&#34;&gt;&amp;#34;parent_id&amp;#34;&lt;/span&gt;: &lt;span style=&#34;color:#e6db74&#34;&gt;&amp;#34;chunk_3_1_parent&amp;#34;&lt;/span&gt;   &lt;span style=&#34;color:#75715e&#34;&gt;// 父子切割时使用
+&lt;/span&gt;&lt;/span&gt;&lt;/span&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;&lt;span style=&#34;color:#75715e&#34;&gt;&lt;/span&gt;      }
+&lt;/span&gt;&lt;/span&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;    }
+&lt;/span&gt;&lt;/span&gt;&lt;/code&gt;&lt;/pre&gt;&lt;/div&gt;&lt;p&gt;&lt;strong&gt;Metadata 的作用&lt;/strong&gt;：&lt;/p&gt;
+&lt;ul&gt;
+&lt;li&gt;过滤：只检索某个文件类型或某个分类，缩小搜索范围&lt;/li&gt;
+&lt;li&gt;溯源：LLM 生成的答案可以标注来源出处&lt;/li&gt;
+&lt;li&gt;去重：避免同一来源的 chunk 全部进答案&lt;/li&gt;
+&lt;li&gt;父子关联：维系父子切割的关系映射&lt;/li&gt;
+&lt;/ul&gt;
+&lt;h2 id=&#34;四切分粒度的黄金法则&#34;&gt;四、切分粒度的黄金法则
+&lt;/h2&gt;&lt;p&gt;没有绝对的「最优粒度」，取决于你的检索目标：&lt;/p&gt;
+&lt;table&gt;
+  &lt;thead&gt;
+      &lt;tr&gt;
+          &lt;th&gt;检索目标&lt;/th&gt;
+          &lt;th&gt;推荐粒度&lt;/th&gt;
+          &lt;th&gt;原因&lt;/th&gt;
+      &lt;/tr&gt;
+  &lt;/thead&gt;
+  &lt;tbody&gt;
+      &lt;tr&gt;
+          &lt;td&gt;回答事实性问题&lt;/td&gt;
+          &lt;td&gt;句子/段落级&lt;/td&gt;
+          &lt;td&gt;需要精确匹配术语&lt;/td&gt;
+      &lt;/tr&gt;
+      &lt;tr&gt;
+          &lt;td&gt;回答解释性问题&lt;/td&gt;
+          &lt;td&gt;段落/章节级&lt;/td&gt;
+          &lt;td&gt;需要完整上下文才能理解&lt;/td&gt;
+      &lt;/tr&gt;
+      &lt;tr&gt;
+          &lt;td&gt;代码问答&lt;/td&gt;
+          &lt;td&gt;函数/类级&lt;/td&gt;
+          &lt;td&gt;保留逻辑单元，问答精准到函数&lt;/td&gt;
+      &lt;/tr&gt;
+      &lt;tr&gt;
+          &lt;td&gt;支持多跳推理&lt;/td&gt;
+          &lt;td&gt;父子结构&lt;/td&gt;
+          &lt;td&gt;小块检索精准，大块总结完整&lt;/td&gt;
+      &lt;/tr&gt;
+  &lt;/tbody&gt;
+&lt;/table&gt;
+&lt;p&gt;&lt;strong&gt;经验法则&lt;/strong&gt;：先按合理的中等粒度（500-1000 token）做基线，然后通过检索日志分析「有没有该命中没命中」「命中的是否相关」，再逐步调优。不要盲目追求小粒度——检索精度提升了，但 LLM 理解难度可能增加了。&lt;/p&gt;
+&lt;h2 id=&#34;五常见-bad-case-及解决&#34;&gt;五、常见 bad case 及解决
+&lt;/h2&gt;&lt;table&gt;
+  &lt;thead&gt;
+      &lt;tr&gt;
+          &lt;th&gt;问题&lt;/th&gt;
+          &lt;th&gt;表现&lt;/th&gt;
+          &lt;th&gt;解决&lt;/th&gt;
+      &lt;/tr&gt;
+  &lt;/thead&gt;
+  &lt;tbody&gt;
+      &lt;tr&gt;
+          &lt;td&gt;语义被切断&lt;/td&gt;
+          &lt;td&gt;切在句子中间，LLM 收到后理解出错&lt;/td&gt;
+          &lt;td&gt;以语义边界为切分优先&lt;/td&gt;
+      &lt;/tr&gt;
+      &lt;tr&gt;
+          &lt;td&gt;信息密度不均匀&lt;/td&gt;
+          &lt;td&gt;有些 chunk 太空泛，有些太密集&lt;/td&gt;
+          &lt;td&gt;混合策略，或过滤短 chunk&lt;/td&gt;
+      &lt;/tr&gt;
+      &lt;tr&gt;
+          &lt;td&gt;多语言混合&lt;/td&gt;
+          &lt;td&gt;中英混杂切分点不准确&lt;/td&gt;
+          &lt;td&gt;按 tokenizer 的 token 计数而非字符数&lt;/td&gt;
+      &lt;/tr&gt;
+      &lt;tr&gt;
+          &lt;td&gt;过细噪音多&lt;/td&gt;
+          &lt;td&gt;切太小导致检索到很多无关碎片&lt;/td&gt;
+          &lt;td&gt;加最低长度阈值或使用父子结构&lt;/td&gt;
+      &lt;/tr&gt;
+      &lt;tr&gt;
+          &lt;td&gt;过粗精度低&lt;/td&gt;
+          &lt;td&gt;切太大细节信息被「平均掉」&lt;/td&gt;
+          &lt;td&gt;减小 chunk 大小或加摘要&lt;/td&gt;
+      &lt;/tr&gt;
+  &lt;/tbody&gt;
+&lt;/table&gt;
+&lt;p&gt;PDF 文档的 chunking 特别难：解析出来的文本往往丧失段落结构，表格和代码块混在一起。对于这类文档，通常需要先做一次结构解析（用 PDF 解析器提取段落、表格、列表信息），然后再做语义 chunking。&lt;/p&gt;
+&lt;h2 id=&#34;六本章小结&#34;&gt;六、本章小结
+&lt;/h2&gt;&lt;ul&gt;
+&lt;li&gt;Chunking 是 RAG 系统里最关键也最被低估的工程决策&lt;/li&gt;
+&lt;li&gt;四大策略：固定大小（基线）、语义边界（结构化文档）、代码逻辑（代码库）、父子结构（兼顾精度+完整上下文）&lt;/li&gt;
+&lt;li&gt;Metadata 设计能让你在检索时做精准过滤、溯源和去重&lt;/li&gt;
+&lt;li&gt;没有统一的「最好粒度」，先跑基线、有数据再优化，比一把梭效果更稳定&lt;/li&gt;
+&lt;li&gt;生产级推荐：父子切割（小块检索 + 大块返回），解决精度与完整性的天然矛盾&lt;/li&gt;
+&lt;/ul&gt;
+&lt;h2 id=&#34;思考题&#34;&gt;思考题
+&lt;/h2&gt;&lt;ol&gt;
+&lt;li&gt;父子切割虽然好用，但实现上需要做父-子映射关系管理。你怎么设计这个映射系统，让它既高效又容错？&lt;/li&gt;
+&lt;li&gt;对于 PDF 解析出来的文本（排版丢失、表格混乱），你有什么 chunking 策略？&lt;/li&gt;
+&lt;/ol&gt;
+</description>
+        </item>
+        
+    </channel>
+</rss>

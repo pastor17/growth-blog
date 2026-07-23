@@ -1,0 +1,198 @@
+<?xml version="1.0" encoding="utf-8" standalone="yes"?>
+<rss version="2.0" xmlns:atom="http://www.w3.org/2005/Atom">
+    <channel>
+        <title>Retrieval Augmented Generation on SelfTechHub</title>
+        <link>https://blog.irudder.me/tags/Retrieval-Augmented-Generation.html</link>
+        <description>Recent content in Retrieval Augmented Generation on SelfTechHub</description>
+        <generator>Hugo -- gohugo.io</generator>
+        <language>zh-cn</language>
+        <lastBuildDate>Tue, 02 Jun 2026 00:00:00 +0000</lastBuildDate><atom:link href="https://blog.irudder.me/tags/Retrieval-Augmented-Generation/index.xml" rel="self" type="application/rss+xml" /><item>
+        <title>第6章：RAG——给大模型一本「开卷考试」的参考资料</title>
+        <link>https://blog.irudder.me/ai/knowledge-series/06-What-is-RAG.html</link>
+        <pubDate>Tue, 02 Jun 2026 00:00:00 +0000</pubDate>
+        
+        <guid>https://blog.irudder.me/ai/knowledge-series/06-What-is-RAG.html</guid>
+        <description>&lt;h1 id=&#34;第6章rag给大模型一本开卷考试的参考资料&#34;&gt;第6章：RAG——给大模型一本「开卷考试」的参考资料
+&lt;/h1&gt;&lt;blockquote&gt;
+&lt;p&gt;系列导读：RAG 是 LLM 工程中最主流、最有实现价值的系统方案。从本章开始，建议认真跟完 RAG 模块（第6-11章），这是把 LLM 做成靠谱产品最关键的技术栈。&lt;/p&gt;
+&lt;/blockquote&gt;
+&lt;hr&gt;
+&lt;h2 id=&#34;一rag-的定位解决-llm-的知识冻结问题&#34;&gt;一、RAG 的定位：解决 LLM 的知识冻结问题
+&lt;/h2&gt;&lt;p&gt;LLM 最大的硬伤是什么？&lt;strong&gt;知识被冻结在训练截止日期&lt;/strong&gt;。&lt;/p&gt;
+&lt;p&gt;你问它：「我们公司上个月发布了什么新功能？」它不知道。
+你问它：「我的私人笔记里关于算法的那部分内容是什么？」它不知道。&lt;/p&gt;
+&lt;p&gt;RAG 全称 &lt;strong&gt;Retrieval-Augmented Generation（检索增强生成）&lt;/strong&gt;，核心思路是：&lt;/p&gt;
+&lt;blockquote&gt;
+&lt;p&gt;&lt;strong&gt;在 LLM 生成答案之前，先从一个外部知识库里检索相关内容，把检索结果作为上下文喂给 LLM，让它基于这些参考资料来回答。&lt;/strong&gt;&lt;/p&gt;
+&lt;/blockquote&gt;
+&lt;p&gt;这就好比把闭卷考试改成了开卷考试——LLM 不需要背诵所有知识，考试时现场翻资料就行了。&lt;/p&gt;
+&lt;h2 id=&#34;二rag-完整工作流一句话--一张图&#34;&gt;二、RAG 完整工作流（一句话 + 一张图）
+&lt;/h2&gt;&lt;pre tabindex=&#34;0&#34;&gt;&lt;code&gt;用户提问 → 预处理/改写 → 向量化 → 向量数据库检索 →
+粗排/精排 → 拼装 Prompt → LLM 基于参考资料生成答案 → 答案
+&lt;/code&gt;&lt;/pre&gt;&lt;p&gt;整个过程分两条线：&lt;/p&gt;
+&lt;ul&gt;
+&lt;li&gt;&lt;strong&gt;离线线&lt;/strong&gt;：文档 → 切割 → 向量化 → 存入向量数据库（一次性预处理）&lt;/li&gt;
+&lt;li&gt;&lt;strong&gt;在线线&lt;/strong&gt;：用户提问 → 检索 → 生成答案（每次用户提问都走）&lt;/li&gt;
+&lt;/ul&gt;
+&lt;h2 id=&#34;三离线阶段把文档变成可检索的向量&#34;&gt;三、离线阶段：把文档变成可检索的向量
+&lt;/h2&gt;&lt;h3 id=&#34;步骤1文档切割chunking&#34;&gt;步骤1：文档切割（Chunking）
+&lt;/h3&gt;&lt;p&gt;原始文档不能整篇直接存入向量库，因为：&lt;/p&gt;
+&lt;ul&gt;
+&lt;li&gt;Embedding 模型有输入长度限制（通常几百到几千 token）&lt;/li&gt;
+&lt;li&gt;长文档压缩成一个向量会「平均掉」细节，检索精度极低&lt;/li&gt;
+&lt;/ul&gt;
+&lt;p&gt;所以必须**切成小块（chunk）**存储。&lt;/p&gt;
+&lt;p&gt;&lt;strong&gt;常见切割策略&lt;/strong&gt;：&lt;/p&gt;
+&lt;table&gt;
+  &lt;thead&gt;
+      &lt;tr&gt;
+          &lt;th&gt;策略&lt;/th&gt;
+          &lt;th&gt;适用场景&lt;/th&gt;
+          &lt;th&gt;优缺点&lt;/th&gt;
+      &lt;/tr&gt;
+  &lt;/thead&gt;
+  &lt;tbody&gt;
+      &lt;tr&gt;
+          &lt;td&gt;固定大小 + 重叠&lt;/td&gt;
+          &lt;td&gt;通用文本&lt;/td&gt;
+          &lt;td&gt;简单，可能切到句中&lt;/td&gt;
+      &lt;/tr&gt;
+      &lt;tr&gt;
+          &lt;td&gt;按语义边界切&lt;/td&gt;
+          &lt;td&gt;有章节结构的文档&lt;/td&gt;
+          &lt;td&gt;语意完整，实现稍复杂&lt;/td&gt;
+      &lt;/tr&gt;
+      &lt;tr&gt;
+          &lt;td&gt;按函数/类切&lt;/td&gt;
+          &lt;td&gt;代码文件&lt;/td&gt;
+          &lt;td&gt;保持代码逻辑单元完整&lt;/td&gt;
+      &lt;/tr&gt;
+      &lt;tr&gt;
+          &lt;td&gt;父子切割&lt;/td&gt;
+          &lt;td&gt;精度+全文都要&lt;/td&gt;
+          &lt;td&gt;小块检索，大块返回&lt;/td&gt;
+      &lt;/tr&gt;
+  &lt;/tbody&gt;
+&lt;/table&gt;
+&lt;p&gt;每条 chunk 包含三部分：&lt;/p&gt;
+&lt;ul&gt;
+&lt;li&gt;&lt;strong&gt;向量&lt;/strong&gt;：用于相似度检索&lt;/li&gt;
+&lt;li&gt;&lt;strong&gt;原始文本&lt;/strong&gt;：检索命中后塞给 LLM 读的内容&lt;/li&gt;
+&lt;li&gt;&lt;strong&gt;Metadata&lt;/strong&gt;：来源文件、页码、分类等附加信息&lt;/li&gt;
+&lt;/ul&gt;
+&lt;h3 id=&#34;步骤2embedding-向量化&#34;&gt;步骤2：Embedding 向量化
+&lt;/h3&gt;&lt;p&gt;Embedding 是一种「语义压缩」——把文本映射成一个固定长度的浮点数向量。&lt;/p&gt;
+&lt;p&gt;核心性质：&lt;strong&gt;语义相近的文本，向量距离就相近&lt;/strong&gt;（通常用余弦相似度衡量）。&lt;/p&gt;
+&lt;p&gt;举个例子：&lt;/p&gt;
+&lt;ul&gt;
+&lt;li&gt;&amp;ldquo;猫坐在垫子上&amp;rdquo; 和 &amp;ldquo;小猫趴在毯子上面&amp;rdquo; → 向量距离很近&lt;/li&gt;
+&lt;li&gt;&amp;ldquo;猫坐在垫子上&amp;rdquo; 和 &amp;ldquo;股票价格今日大涨&amp;rdquo; → 向量距离很远&lt;/li&gt;
+&lt;/ul&gt;
+&lt;p&gt;选择 Embedding 模型的关键考量：&lt;/p&gt;
+&lt;ol&gt;
+&lt;li&gt;&lt;strong&gt;语言支持&lt;/strong&gt;：中文场景首选 BGE 系列、M3E、智谱 Embedding&lt;/li&gt;
+&lt;li&gt;&lt;strong&gt;向量维度&lt;/strong&gt;：维度越高精度越好，但存储成本也越大（常见 384-4096 维）&lt;/li&gt;
+&lt;li&gt;&lt;strong&gt;最大输入长度&lt;/strong&gt;：决定能处理多长的 chunk（常见 512-8192 token）&lt;/li&gt;
+&lt;li&gt;&lt;strong&gt;评估&lt;/strong&gt;：不要只看排行榜，要在&lt;strong&gt;你自己的数据&lt;/strong&gt;上测召回率（Hit@K、NDCG@K）&lt;/li&gt;
+&lt;/ol&gt;
+&lt;h3 id=&#34;步骤3存入向量数据库&#34;&gt;步骤3：存入向量数据库
+&lt;/h3&gt;&lt;p&gt;向量数据库是专门存储和检索高维向量的数据库，核心能力是&lt;strong&gt;近似最近邻搜索（ANN）&lt;/strong&gt;。&lt;/p&gt;
+&lt;p&gt;在大规模（百万甚至亿级）向量中，它能在毫秒级找出最相似的几条。&lt;/p&gt;
+&lt;p&gt;&lt;strong&gt;不是「在 MySQL 里加个 float 数组」，也不是用 LIKE 字符串匹配&lt;/strong&gt;——向量相似度搜索在算法层（HNSW、IVF-PQ）和硬件层（SIMD 指令、GPU 加速）专门做了优化。&lt;/p&gt;
+&lt;h2 id=&#34;四在线阶段从用户提问到最终答案&#34;&gt;四、在线阶段：从用户提问到最终答案
+&lt;/h2&gt;&lt;h3 id=&#34;步骤1query-预处理&#34;&gt;步骤1：Query 预处理
+&lt;/h3&gt;&lt;p&gt;用户问「这个功能怎么用」，知识库里写的是「XX 模块操作指南」。&lt;/p&gt;
+&lt;p&gt;口语化的问题和正式文档表述之间存在&lt;strong&gt;语义鸿沟&lt;/strong&gt;，直接检索效果很差。&lt;/p&gt;
+&lt;p&gt;解决方案：Query Rewrite（查询改写）。方法包括：&lt;/p&gt;
+&lt;ul&gt;
+&lt;li&gt;&lt;strong&gt;直接改写&lt;/strong&gt;：让 LLM 把口语问题转成规范表述&lt;/li&gt;
+&lt;li&gt;&lt;strong&gt;Query 扩展&lt;/strong&gt;：补充相关关键词&lt;/li&gt;
+&lt;li&gt;&lt;strong&gt;HyDE（假设文档嵌入）&lt;/strong&gt;：让 LLM 先假设一个答案，用这个答案的向量去检索（隐性扩展匹配面）&lt;/li&gt;
+&lt;li&gt;&lt;strong&gt;Step-back Prompting&lt;/strong&gt;：把具体问题抽象一层，检索更通用的背景知识&lt;/li&gt;
+&lt;/ul&gt;
+&lt;h3 id=&#34;步骤2向量检索&#34;&gt;步骤2：向量检索
+&lt;/h3&gt;&lt;p&gt;把改写后的查询向量化，去向量库中搜索最相似的 Top-K 个 chunk。&lt;/p&gt;
+&lt;p&gt;这一步叫 &lt;strong&gt;粗排（Retrieval）&lt;/strong&gt;，目标是「尽可能多地把相关内容召回来」（召回优先）。&lt;/p&gt;
+&lt;h3 id=&#34;步骤3重排序rerank&#34;&gt;步骤3：重排序（Rerank）
+&lt;/h3&gt;&lt;p&gt;粗排召回的 Top-K 中可能包含很多不相关的内容（噪音）。&lt;/p&gt;
+&lt;p&gt;Rerank（重排序）用更精确的模型（如 BGE-Reranker）对粗排结果打分，只保留最相关的几条，把参数量降低同时提高精度。&lt;/p&gt;
+&lt;h3 id=&#34;步骤4prompt-拼装与生成&#34;&gt;步骤4：Prompt 拼装与生成
+&lt;/h3&gt;&lt;p&gt;把筛选后的 chunk 和用户问题一起拼成 prompt：&lt;/p&gt;
+&lt;pre tabindex=&#34;0&#34;&gt;&lt;code&gt;请基于以下参考资料回答问题：
+
+[参考资料1]
+...
+
+[参考资料2]
+...
+
+问题是：用户的问题是什么？
+
+请只基于以上参考资料作答。如果资料中找不到答案，请明确说明&amp;#34;无法从已有资料中找到相关信息&amp;#34;。
+&lt;/code&gt;&lt;/pre&gt;&lt;p&gt;&lt;strong&gt;关键设计&lt;/strong&gt;：强制要求模型只基于参考资料回答，有效防止幻觉和编造。&lt;/p&gt;
+&lt;h2 id=&#34;五rag-vs-微调fine-tuning&#34;&gt;五、RAG vs 微调（Fine-tuning）
+&lt;/h2&gt;&lt;table&gt;
+  &lt;thead&gt;
+      &lt;tr&gt;
+          &lt;th&gt;维度&lt;/th&gt;
+          &lt;th&gt;RAG&lt;/th&gt;
+          &lt;th&gt;微调&lt;/th&gt;
+      &lt;/tr&gt;
+  &lt;/thead&gt;
+  &lt;tbody&gt;
+      &lt;tr&gt;
+          &lt;td&gt;原理&lt;/td&gt;
+          &lt;td&gt;动态检索外部知识&lt;/td&gt;
+          &lt;td&gt;修改模型参数&lt;/td&gt;
+      &lt;/tr&gt;
+      &lt;tr&gt;
+          &lt;td&gt;知识更新&lt;/td&gt;
+          &lt;td&gt;即时替换文档即可&lt;/td&gt;
+          &lt;td&gt;需要重新训练&lt;/td&gt;
+      &lt;/tr&gt;
+      &lt;tr&gt;
+          &lt;td&gt;成本&lt;/td&gt;
+          &lt;td&gt;低（向量库查询+LLM调用）&lt;/td&gt;
+          &lt;td&gt;高（训练计算+标注数据）&lt;/td&gt;
+      &lt;/tr&gt;
+      &lt;tr&gt;
+          &lt;td&gt;通用效果&lt;/td&gt;
+          &lt;td&gt;适合知识密集型任务&lt;/td&gt;
+          &lt;td&gt;适合风格/格式适应&lt;/td&gt;
+      &lt;/tr&gt;
+      &lt;tr&gt;
+          &lt;td&gt;可解释性&lt;/td&gt;
+          &lt;td&gt;好（可追溯来源）&lt;/td&gt;
+          &lt;td&gt;差（参数变化不可见）&lt;/td&gt;
+      &lt;/tr&gt;
+  &lt;/tbody&gt;
+&lt;/table&gt;
+&lt;p&gt;&lt;strong&gt;经验法则&lt;/strong&gt;：先上 RAG，RAG 真不够用再考虑微调。90% 的知识问答场景用 RAG 就够了。&lt;/p&gt;
+&lt;h2 id=&#34;六知识问答场景的-rag-六边形&#34;&gt;六、知识问答场景的 RAG 六边形
+&lt;/h2&gt;&lt;p&gt;一个成熟的 RAG 系统至少要考虑：&lt;/p&gt;
+&lt;ol&gt;
+&lt;li&gt;&lt;strong&gt;文档解析&lt;/strong&gt;：PDF/Word/Excel/网页等各种格式的读取&lt;/li&gt;
+&lt;li&gt;&lt;strong&gt;切割策略&lt;/strong&gt;：用什么粒度、什么策略切 chunk&lt;/li&gt;
+&lt;li&gt;&lt;strong&gt;Embedding 选型&lt;/strong&gt;：用什么模型、什么维度&lt;/li&gt;
+&lt;li&gt;&lt;strong&gt;向量库选型&lt;/strong&gt;：规模多大、需要实时更新吗&lt;/li&gt;
+&lt;li&gt;&lt;strong&gt;检索优化&lt;/strong&gt;：粗排+Rerank+多路召回&lt;/li&gt;
+&lt;li&gt;&lt;strong&gt;生成控制&lt;/strong&gt;：Prompt 设计、幻觉规避、引用来源&lt;/li&gt;
+&lt;/ol&gt;
+&lt;h2 id=&#34;七本章小结&#34;&gt;七、本章小结
+&lt;/h2&gt;&lt;ul&gt;
+&lt;li&gt;RAG = 检索 + 生成，解决 LLM 知识冻结问题&lt;/li&gt;
+&lt;li&gt;离线线：切分 → Embedding → 存向量库&lt;/li&gt;
+&lt;li&gt;在线线：Query改写 → 向量检索 → Rerank精排 → Prompt拼装 → LLM生成&lt;/li&gt;
+&lt;li&gt;选 RAG 还是微调：先 RAG，真的不行再上微调&lt;/li&gt;
+&lt;li&gt;RAG 的本质是给 LLM 提供有据可查的上下文，把闭卷考试改成开卷考试→减少幻觉、增加可解释性、知识实时更新&lt;/li&gt;
+&lt;/ul&gt;
+&lt;h2 id=&#34;思考题&#34;&gt;思考题
+&lt;/h2&gt;&lt;ol&gt;
+&lt;li&gt;为什么 Embedding 模型在通用数据集上的排行榜分数不能直接代表你的业务场景效果？&lt;/li&gt;
+&lt;li&gt;如果你要构建一个企业内部文档问答系统，哪些环节最可能拖慢你的开发进度？&lt;/li&gt;
+&lt;/ol&gt;
+</description>
+        </item>
+        
+    </channel>
+</rss>

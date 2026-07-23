@@ -1,0 +1,487 @@
+<!DOCTYPE html>
+<html lang="zh-cn" dir="ltr">
+    <head><meta charset='utf-8'>
+<meta name='viewport' content='width=device-width, initial-scale=1'><meta name='description' content="两年前，我接手过一个烂摊子。\n当时那个创业团队只有5个后端开发，却维护着一套复杂的Kubernetes集群。前任架构师为了追求&quot;技术先进性&quot;，把原本简单的电商SaaS拆成了几十个微服务。结果呢？业务代码没写多少，大家每天都在折腾Pod驱逐、网络插件冲突和证书过期。\n这其实是很多中小团队的缩影：陷入了&quot;简历驱动开发&quot;的陷阱，用屠龙刀去切土豆。\n在没有专职运维（Ops）的情况下，对于大多数日活（DAU）在10万以下、服务器规模在10台以内的项目，Docker Compose 配合合理的架构设计，不仅够用，而且真香。\n今天咱们不聊那些花里胡哨的概念，就聊聊我是如何用 Docker Compose 帮那个团队把架构&quot;降级&quot;，反而让系统稳定性提升了 99.9% 的实战经验。\n一、 摆脱&quot;环境玄学&quot;，把基础设施代码化\r很多资深开发都经历过这种绝望时刻：代码在本地跑得欢，一部署到测试环境就崩，到了生产环境直接报错 Connection Refused。然后大家聚在一起排查半天，发现是测试环境的 Redis 版本低了，或者生产环境的防火墙没开。\nDocker Compose 的核心价值，不仅仅是启动容器，而是&quot;基础设施即代码&quot;（IaC）的最简化落地。\n在重构那个项目时，我发现他们每个人的本地开发环境都不一样，有人用 Mac 的 Docker Desktop，有人直接在物理机装 MySQL。\n落地动作： 我强制要求项目根目录必须包含一份标准化的 docker-compose.yml，并且配合 .env 文件管理差异。\nversion: &#39;3.8&#39; services: api_server: image: myapp/backend:${TAG:-latest} restart: always environment: - DB_HOST=db - REDIS_HOST=cache # 关键点：用Healthcheck保证依赖就绪 healthcheck: test: [&#34;CMD&#34;, &#34;curl&#34;, &#34;-f&#34;, &#34;http://localhost:8080/health&#34;] interval: 30s timeout: 10s retries: 3 depends_on: db: condition: service_healthy db: image: mysql:5.7 # 生产环境挂载数据卷，别直接用容器内存储 volumes: - ./data/mysql:/var/lib/mysql healthcheck: test: [&#34;CMD&#34;, &#34;mysqladmin&#34; ,&#34;ping&#34;, &#34;-h&#34;, &#34;localhost&#34;] timeout: 20s retries: 10 效果立竿见影： 新来的实习生，以前配置环境要花一天，现在 git clone 下来，敲一行 docker-compose up -d，5分钟内就能开始写业务代码。环境一致性带来的效率提升，远比你想象的要大。\n">
+<title>别上K8s！中小项目用Docker Compose构建高可用架构实战</title>
+
+<link rel='canonical' href='https://blog.irudder.me/tech/zhongxiaoxingxiangmujiagoushejizhinan/rongqihuagaizao_docker-composerumenshizhan.html'>
+
+<link rel="stylesheet" href="/scss/style.min.b9e9128fec450ebccecc4ec9900157f32b85d0609bcd5ee3293968bcaa1235f2.css"><meta property='og:title' content="别上K8s！中小项目用Docker Compose构建高可用架构实战">
+<meta property='og:description' content="两年前，我接手过一个烂摊子。\n当时那个创业团队只有5个后端开发，却维护着一套复杂的Kubernetes集群。前任架构师为了追求&quot;技术先进性&quot;，把原本简单的电商SaaS拆成了几十个微服务。结果呢？业务代码没写多少，大家每天都在折腾Pod驱逐、网络插件冲突和证书过期。\n这其实是很多中小团队的缩影：陷入了&quot;简历驱动开发&quot;的陷阱，用屠龙刀去切土豆。\n在没有专职运维（Ops）的情况下，对于大多数日活（DAU）在10万以下、服务器规模在10台以内的项目，Docker Compose 配合合理的架构设计，不仅够用，而且真香。\n今天咱们不聊那些花里胡哨的概念，就聊聊我是如何用 Docker Compose 帮那个团队把架构&quot;降级&quot;，反而让系统稳定性提升了 99.9% 的实战经验。\n一、 摆脱&quot;环境玄学&quot;，把基础设施代码化\r很多资深开发都经历过这种绝望时刻：代码在本地跑得欢，一部署到测试环境就崩，到了生产环境直接报错 Connection Refused。然后大家聚在一起排查半天，发现是测试环境的 Redis 版本低了，或者生产环境的防火墙没开。\nDocker Compose 的核心价值，不仅仅是启动容器，而是&quot;基础设施即代码&quot;（IaC）的最简化落地。\n在重构那个项目时，我发现他们每个人的本地开发环境都不一样，有人用 Mac 的 Docker Desktop，有人直接在物理机装 MySQL。\n落地动作： 我强制要求项目根目录必须包含一份标准化的 docker-compose.yml，并且配合 .env 文件管理差异。\nversion: &#39;3.8&#39; services: api_server: image: myapp/backend:${TAG:-latest} restart: always environment: - DB_HOST=db - REDIS_HOST=cache # 关键点：用Healthcheck保证依赖就绪 healthcheck: test: [&#34;CMD&#34;, &#34;curl&#34;, &#34;-f&#34;, &#34;http://localhost:8080/health&#34;] interval: 30s timeout: 10s retries: 3 depends_on: db: condition: service_healthy db: image: mysql:5.7 # 生产环境挂载数据卷，别直接用容器内存储 volumes: - ./data/mysql:/var/lib/mysql healthcheck: test: [&#34;CMD&#34;, &#34;mysqladmin&#34; ,&#34;ping&#34;, &#34;-h&#34;, &#34;localhost&#34;] timeout: 20s retries: 10 效果立竿见影： 新来的实习生，以前配置环境要花一天，现在 git clone 下来，敲一行 docker-compose up -d，5分钟内就能开始写业务代码。环境一致性带来的效率提升，远比你想象的要大。\n">
+<meta property='og:url' content='https://blog.irudder.me/tech/zhongxiaoxingxiangmujiagoushejizhinan/rongqihuagaizao_docker-composerumenshizhan.html'>
+<meta property='og:site_name' content='SelfTechHub'>
+<meta property='og:type' content='article'><meta property='article:section' content='Tech' /><meta property='article:tag' content='容器化改造：Docker Compose入门实战' /><meta property='article:published_time' content='2023-05-13T00:00:00&#43;00:00'/><meta property='article:modified_time' content='2023-05-13T00:00:00&#43;00:00'/>
+<meta name="twitter:title" content="别上K8s！中小项目用Docker Compose构建高可用架构实战">
+<meta name="twitter:description" content="两年前，我接手过一个烂摊子。\n当时那个创业团队只有5个后端开发，却维护着一套复杂的Kubernetes集群。前任架构师为了追求&quot;技术先进性&quot;，把原本简单的电商SaaS拆成了几十个微服务。结果呢？业务代码没写多少，大家每天都在折腾Pod驱逐、网络插件冲突和证书过期。\n这其实是很多中小团队的缩影：陷入了&quot;简历驱动开发&quot;的陷阱，用屠龙刀去切土豆。\n在没有专职运维（Ops）的情况下，对于大多数日活（DAU）在10万以下、服务器规模在10台以内的项目，Docker Compose 配合合理的架构设计，不仅够用，而且真香。\n今天咱们不聊那些花里胡哨的概念，就聊聊我是如何用 Docker Compose 帮那个团队把架构&quot;降级&quot;，反而让系统稳定性提升了 99.9% 的实战经验。\n一、 摆脱&quot;环境玄学&quot;，把基础设施代码化\r很多资深开发都经历过这种绝望时刻：代码在本地跑得欢，一部署到测试环境就崩，到了生产环境直接报错 Connection Refused。然后大家聚在一起排查半天，发现是测试环境的 Redis 版本低了，或者生产环境的防火墙没开。\nDocker Compose 的核心价值，不仅仅是启动容器，而是&quot;基础设施即代码&quot;（IaC）的最简化落地。\n在重构那个项目时，我发现他们每个人的本地开发环境都不一样，有人用 Mac 的 Docker Desktop，有人直接在物理机装 MySQL。\n落地动作： 我强制要求项目根目录必须包含一份标准化的 docker-compose.yml，并且配合 .env 文件管理差异。\nversion: &#39;3.8&#39; services: api_server: image: myapp/backend:${TAG:-latest} restart: always environment: - DB_HOST=db - REDIS_HOST=cache # 关键点：用Healthcheck保证依赖就绪 healthcheck: test: [&#34;CMD&#34;, &#34;curl&#34;, &#34;-f&#34;, &#34;http://localhost:8080/health&#34;] interval: 30s timeout: 10s retries: 3 depends_on: db: condition: service_healthy db: image: mysql:5.7 # 生产环境挂载数据卷，别直接用容器内存储 volumes: - ./data/mysql:/var/lib/mysql healthcheck: test: [&#34;CMD&#34;, &#34;mysqladmin&#34; ,&#34;ping&#34;, &#34;-h&#34;, &#34;localhost&#34;] timeout: 20s retries: 10 效果立竿见影： 新来的实习生，以前配置环境要花一天，现在 git clone 下来，敲一行 docker-compose up -d，5分钟内就能开始写业务代码。环境一致性带来的效率提升，远比你想象的要大。\n">
+    </head>
+    <body class="
+    article-page
+    ">
+    <script>
+        (function() {
+            const colorSchemeKey = 'StackColorScheme';
+            if(!localStorage.getItem(colorSchemeKey)){
+                localStorage.setItem(colorSchemeKey, "auto");
+            }
+        })();
+    </script><script>
+    (function() {
+        const colorSchemeKey = 'StackColorScheme';
+        const colorSchemeItem = localStorage.getItem(colorSchemeKey);
+        const supportDarkMode = window.matchMedia('(prefers-color-scheme: dark)').matches === true;
+
+        if (colorSchemeItem == 'dark' || colorSchemeItem === 'auto' && supportDarkMode) {
+            
+
+            document.documentElement.dataset.scheme = 'dark';
+        } else {
+            document.documentElement.dataset.scheme = 'light';
+        }
+    })();
+</script>
+<div class="container main-container flex on-phone--column compact"><aside class="sidebar left-sidebar sticky ">
+    <button class="hamburger hamburger--spin" type="button" id="toggle-menu" aria-label="切换菜单">
+        <span class="hamburger-box">
+            <span class="hamburger-inner"></span>
+        </span>
+    </button>
+
+    <header>
+        
+            
+            <figure class="site-avatar">
+                <a href="/">
+                
+                    
+                    
+                    
+                        
+                        <img src="/img/avatar_hu_8588ce14af1147e2.png" width="300"
+                            height="286" class="site-logo" loading="lazy" alt="Avatar">
+                    
+                
+                </a>
+                
+            </figure>
+            
+        
+        
+        <div class="site-meta">
+            <h1 class="site-name"><a href="/">SelfTechHub</a></h1>
+            <h2 class="site-description"></h2>
+        </div>
+    </header><ol class="menu" id="main-menu">
+        
+        
+        <li class="menu-bottom-section">
+            <ol class="menu">
+
+                
+                    <li id="dark-mode-toggle">
+                        <svg xmlns="http://www.w3.org/2000/svg" class="icon icon-tabler icon-tabler-toggle-left" width="24" height="24" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor" fill="none" stroke-linecap="round" stroke-linejoin="round">
+  <path stroke="none" d="M0 0h24v24H0z"/>
+  <circle cx="8" cy="12" r="2" />
+  <rect x="2" y="6" width="20" height="12" rx="6" />
+</svg>
+
+
+
+                        <svg xmlns="http://www.w3.org/2000/svg" class="icon icon-tabler icon-tabler-toggle-right" width="24" height="24" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor" fill="none" stroke-linecap="round" stroke-linejoin="round">
+  <path stroke="none" d="M0 0h24v24H0z"/>
+  <circle cx="16" cy="12" r="2" />
+  <rect x="2" y="6" width="20" height="12" rx="6" />
+</svg>
+
+
+
+                        <span>暗色模式</span>
+                    </li>
+                
+            </ol>
+        </li>
+    </ol>
+</aside>
+
+    
+
+            <main class="main full-width">
+    <article class="main-article">
+    <header class="article-header">
+
+    <div class="article-details">
+    
+    <header class="article-category">
+        
+            <a href="/categories/%E6%8A%80%E6%9C%AF.html" >
+                技术精进
+            </a>
+        
+    </header>
+    
+
+    <div class="article-title-wrapper">
+        <h2 class="article-title">
+            <a href="/tech/zhongxiaoxingxiangmujiagoushejizhinan/rongqihuagaizao_docker-composerumenshizhan.html">别上K8s！中小项目用Docker Compose构建高可用架构实战</a>
+        </h2>
+    
+        
+    </div>
+
+    
+    
+    
+    
+    <footer class="article-time">
+        
+            <div>
+                <svg xmlns="http://www.w3.org/2000/svg" class="icon icon-tabler icon-tabler-calendar-time" width="56" height="56" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor" fill="none" stroke-linecap="round" stroke-linejoin="round">
+  <path stroke="none" d="M0 0h24v24H0z"/>
+  <path d="M11.795 21h-6.795a2 2 0 0 1 -2 -2v-12a2 2 0 0 1 2 -2h12a2 2 0 0 1 2 2v4" />
+  <circle cx="18" cy="18" r="4" />
+  <path d="M15 3v4" />
+  <path d="M7 3v4" />
+  <path d="M3 11h16" />
+  <path d="M18 16.496v1.504l1 1" />
+</svg>
+                <time class="article-time--published" datetime='2023-05-13T00:00:00Z'>May 13, 2023</time>
+            </div>
+        
+
+        
+            <div>
+                <svg xmlns="http://www.w3.org/2000/svg" class="icon icon-tabler icon-tabler-clock" width="24" height="24" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor" fill="none" stroke-linecap="round" stroke-linejoin="round">
+  <path stroke="none" d="M0 0h24v24H0z"/>
+  <circle cx="12" cy="12" r="9" />
+  <polyline points="12 7 12 12 15 15" />
+</svg>
+
+
+
+                <time class="article-time--reading">
+                    阅读时长: 2 分钟
+                </time>
+            </div>
+        
+    </footer>
+    
+
+    
+</div>
+
+</header>
+
+    <section class="article-content">
+    
+    
+    <p>两年前，我接手过一个烂摊子。</p>
+<p>当时那个创业团队只有5个后端开发，却维护着一套复杂的Kubernetes集群。前任架构师为了追求&quot;技术先进性&quot;，把原本简单的电商SaaS拆成了几十个微服务。结果呢？<strong>业务代码没写多少，大家每天都在折腾Pod驱逐、网络插件冲突和证书过期。</strong></p>
+<p>这其实是很多中小团队的缩影：<strong>陷入了&quot;简历驱动开发&quot;的陷阱，用屠龙刀去切土豆。</strong></p>
+<p>在没有专职运维（Ops）的情况下，对于大多数日活（DAU）在10万以下、服务器规模在10台以内的项目，Docker Compose 配合合理的架构设计，不仅够用，而且<strong>真香</strong>。</p>
+<p>今天咱们不聊那些花里胡哨的概念，就聊聊我是如何用 Docker Compose 帮那个团队把架构&quot;降级&quot;，反而让系统稳定性提升了 99.9% 的实战经验。</p>
+<h2 id="一-摆脱环境玄学把基础设施代码化">一、 摆脱&quot;环境玄学&quot;，把基础设施代码化
+</h2><p>很多资深开发都经历过这种绝望时刻：代码在本地跑得欢，一部署到测试环境就崩，到了生产环境直接报错 <code>Connection Refused</code>。然后大家聚在一起排查半天，发现是测试环境的 Redis 版本低了，或者生产环境的防火墙没开。</p>
+<p><strong>Docker Compose 的核心价值，不仅仅是启动容器，而是&quot;基础设施即代码&quot;（IaC）的最简化落地。</strong></p>
+<p>在重构那个项目时，我发现他们每个人的本地开发环境都不一样，有人用 Mac 的 Docker Desktop，有人直接在物理机装 MySQL。</p>
+<p><strong>落地动作：</strong>
+我强制要求项目根目录必须包含一份标准化的 <code>docker-compose.yml</code>，并且配合 <code>.env</code> 文件管理差异。</p>
+<p><img src="https://picsum.photos/800/450?random=1768456041035"
+	
+	
+	
+	loading="lazy"
+	
+		alt="配图"
+	
+	
+></p>
+<div class="highlight"><pre tabindex="0" style="color:#f8f8f2;background-color:#272822;-moz-tab-size:4;-o-tab-size:4;tab-size:4;"><code class="language-yaml" data-lang="yaml"><span style="display:flex;"><span><span style="color:#f92672">version</span>: <span style="color:#e6db74">&#39;3.8&#39;</span>
+</span></span><span style="display:flex;"><span><span style="color:#f92672">services</span>:
+</span></span><span style="display:flex;"><span>  <span style="color:#f92672">api_server</span>:
+</span></span><span style="display:flex;"><span>    <span style="color:#f92672">image</span>: <span style="color:#ae81ff">myapp/backend:${TAG:-latest}</span>
+</span></span><span style="display:flex;"><span>    <span style="color:#f92672">restart</span>: <span style="color:#ae81ff">always</span>
+</span></span><span style="display:flex;"><span>    <span style="color:#f92672">environment</span>:
+</span></span><span style="display:flex;"><span>      - <span style="color:#ae81ff">DB_HOST=db</span>
+</span></span><span style="display:flex;"><span>      - <span style="color:#ae81ff">REDIS_HOST=cache</span>
+</span></span><span style="display:flex;"><span>    <span style="color:#75715e"># 关键点：用Healthcheck保证依赖就绪</span>
+</span></span><span style="display:flex;"><span>    <span style="color:#f92672">healthcheck</span>:
+</span></span><span style="display:flex;"><span>      <span style="color:#f92672">test</span>: [<span style="color:#e6db74">&#34;CMD&#34;</span>, <span style="color:#e6db74">&#34;curl&#34;</span>, <span style="color:#e6db74">&#34;-f&#34;</span>, <span style="color:#e6db74">&#34;http://localhost:8080/health&#34;</span>]
+</span></span><span style="display:flex;"><span>      <span style="color:#f92672">interval</span>: <span style="color:#ae81ff">30s</span>
+</span></span><span style="display:flex;"><span>      <span style="color:#f92672">timeout</span>: <span style="color:#ae81ff">10s</span>
+</span></span><span style="display:flex;"><span>      <span style="color:#f92672">retries</span>: <span style="color:#ae81ff">3</span>
+</span></span><span style="display:flex;"><span>    <span style="color:#f92672">depends_on</span>:
+</span></span><span style="display:flex;"><span>      <span style="color:#f92672">db</span>:
+</span></span><span style="display:flex;"><span>        <span style="color:#f92672">condition</span>: <span style="color:#ae81ff">service_healthy</span>
+</span></span><span style="display:flex;"><span>  
+</span></span><span style="display:flex;"><span>  <span style="color:#f92672">db</span>:
+</span></span><span style="display:flex;"><span>    <span style="color:#f92672">image</span>: <span style="color:#ae81ff">mysql:5.7</span>
+</span></span><span style="display:flex;"><span>    <span style="color:#75715e"># 生产环境挂载数据卷，别直接用容器内存储</span>
+</span></span><span style="display:flex;"><span>    <span style="color:#f92672">volumes</span>:
+</span></span><span style="display:flex;"><span>      - <span style="color:#ae81ff">./data/mysql:/var/lib/mysql</span>
+</span></span><span style="display:flex;"><span>    <span style="color:#f92672">healthcheck</span>:
+</span></span><span style="display:flex;"><span>      <span style="color:#f92672">test</span>: [<span style="color:#e6db74">&#34;CMD&#34;</span>, <span style="color:#e6db74">&#34;mysqladmin&#34;</span> ,<span style="color:#e6db74">&#34;ping&#34;</span>, <span style="color:#e6db74">&#34;-h&#34;</span>, <span style="color:#e6db74">&#34;localhost&#34;</span>]
+</span></span><span style="display:flex;"><span>      <span style="color:#f92672">timeout</span>: <span style="color:#ae81ff">20s</span>
+</span></span><span style="display:flex;"><span>      <span style="color:#f92672">retries</span>: <span style="color:#ae81ff">10</span>
+</span></span></code></pre></div><p><strong>效果立竿见影：</strong> 新来的实习生，以前配置环境要花一天，现在 <code>git clone</code> 下来，敲一行 <code>docker-compose up -d</code>，5分钟内就能开始写业务代码。<strong>环境一致性带来的效率提升，远比你想象的要大。</strong></p>
+<h2 id="二-单机部署也能做高可用">二、 单机部署也能做&quot;高可用&quot;
+</h2><p>有人会反驳我：&ldquo;Docker Compose 只是单机编排，生产环境单点故障怎么办？&rdquo;</p>
+<p>这是个误区。对于中小项目，<strong>真正的可用性瓶颈通常不在于服务器挂了，而在于发布时的服务中断，或者内存泄漏导致的进程崩溃。</strong></p>
+<p>我之前带过一个营销活动项目，流量突增。因为代码里有个低级 Bug 导致内存泄漏，服务每隔几小时就 OOM（内存溢出）挂掉。</p>
+<p>在没法立即修复代码的情况下，我在 <code>docker-compose.yml</code> 里加了两行配置，硬是扛过了那次活动：</p>
+<ol>
+<li><strong>资源限制（Deploy Resources）：</strong> 既然会泄露，就限制它最大只能吃 1G 内存，别把宿主机拖死。</li>
+<li><strong>重启策略（Restart Policy）：</strong> 挂了立刻自动重启。</li>
+</ol>
+<div class="highlight"><pre tabindex="0" style="color:#f8f8f2;background-color:#272822;-moz-tab-size:4;-o-tab-size:4;tab-size:4;"><code class="language-yaml" data-lang="yaml"><span style="display:flex;"><span><span style="color:#f92672">services</span>:
+</span></span><span style="display:flex;"><span>  <span style="color:#f92672">campaign_service</span>:
+</span></span><span style="display:flex;"><span>    <span style="color:#f92672">deploy</span>:
+</span></span><span style="display:flex;"><span>      <span style="color:#f92672">resources</span>:
+</span></span><span style="display:flex;"><span>        <span style="color:#f92672">limits</span>:
+</span></span><span style="display:flex;"><span>          <span style="color:#f92672">cpus</span>: <span style="color:#e6db74">&#39;0.50&#39;</span>
+</span></span><span style="display:flex;"><span>          <span style="color:#f92672">memory</span>: <span style="color:#ae81ff">1G</span>
+</span></span><span style="display:flex;"><span>    <span style="color:#f92672">restart</span>: <span style="color:#ae81ff">always</span> <span style="color:#75715e"># 哪怕进程崩了，Docker守护进程也会秒级拉起它</span>
+</span></span></code></pre></div><p><strong>关于&quot;零宕机&quot;发布的实操：</strong></p>
+<p><img src="https://picsum.photos/800/450?random=1768456042042"
+	
+	
+	
+	loading="lazy"
+	
+		alt="配图"
+	
+	
+></p>
+<p>很多团队用 Compose 发布是直接 <code>down</code> 掉再 <code>up</code>，这中间会有几秒甚至几十秒的服务中断。</p>
+<p>我常用的一个土办法，非常有效：<strong>蓝绿部署的&quot;乞丐版&quot;实现</strong>。</p>
+<p>在同一台机器上，我准备两套配置 <code>docker-compose-blue.yml</code> 和 <code>docker-compose-green.yml</code>，它们共用数据库，但监听不同的端口（比如 8081 和 8082）。前端挂一个 Nginx 做反向代理。</p>
+<p>发布流程变成了：</p>
+<ol>
+<li>启动 Green 容器；</li>
+<li>脚本自动检测 Green 端口是否健康；</li>
+<li>修改 Nginx 配置，把流量切到 Green；</li>
+<li>停掉 Blue 容器。</li>
+</ol>
+<p>这个脚本我写完用了两年，至今还在那家公司的 Jenkins 里跑着，稳得一匹。</p>
+<h2 id="三-日志与监控别等到报警才抓瞎">三、 日志与监控：别等到报警才抓瞎
+</h2><p><img src="https://picsum.photos/800/450?random=1768456043757"
+	
+	
+	
+	loading="lazy"
+	
+		alt="配图"
+	
+	
+></p>
+<p>容器化改造最怕的是&quot;黑盒化&quot;。以前应用跑在宿主机上，我要看日志，直接 <code>tail -f</code> 完事。容器化后，日志散落在各个 Container 里，一旦出问题，排查起来非常痛苦。</p>
+<p>踩过几次坑后，我总结了一条铁律：<strong>中小团队别碰 ELK（Elasticsearch, Logstash, Kibana），那玩意儿维护成本太高。</strong></p>
+<p>我推荐一个轻量级组合：<strong>Loki + Promtail + Grafana</strong>。</p>
+<p>这也是我在上个项目中落地的方案。Promtail 极其轻量，通过 Docker Compose 部署成 DaemonSet（或者直接作为服务运行），去采集 <code>/var/lib/docker/containers</code> 下的 JSON 日志，直接推给 Loki。</p>
+<p><strong>真实场景复盘：</strong>
+有次周五下午（往往是事故高发期），客服反馈用户登录慢。我没登服务器，直接打开 Grafana 看板，通过 Loki 聚合的日志，1分钟内定位到是某个 SQL 查询在 Docker 容器内超时了。</p>
+<p>如果当时我要去 5 台服务器上分别 grep 日志，估计晚饭就得在公司吃了。</p>
+<h2 id="写在最后">写在最后
+</h2><p>技术圈有个怪象，好像不用 K8s、不搞微服务就不够&quot;架构&quot;。但对于大多数中小团队的架构师来说，<strong>技术的 ROI（投入产出比）才是最重要的衡量标准。</strong></p>
+<p>Docker Compose 也许不够&quot;高大上&quot;，但它简单、直观、易于调试。在业务快速迭代、人员变动频繁的早期阶段，<strong>&ldquo;简单&quot;本身就是最大的&quot;稳健&rdquo;。</strong></p>
+<p><strong>关于容器化选型，你更倾向于哪种？</strong>
+A. 一步到位上 K8s，为未来扩容做准备。
+B. 先用 Docker Compose 跑通，业务量大了再迁移。
+<strong>（欢迎在评论区告诉我你的选择）</strong></p>
+<p>最后，如果你想在团队落地这套方案，建议从这 3 个动作开始：</p>
+<ol>
+<li><strong>盘点现状：</strong> 找出目前最容易因为环境不一致导致 Bug 的服务，作为试点。</li>
+<li><strong>标准化配置：</strong> 编写通用的 <code>Dockerfile</code> 基础镜像，和一份包含 Healthcheck 的 <code>docker-compose.yml</code> 模板。</li>
+<li><strong>脚本化发布：</strong> 写一个简单的 Shell 脚本，把 <code>docker-compose up -d</code> 和健康检查串联起来，接入 Jenkins 或 GitLab CI。</li>
+</ol>
+
+</section>
+
+
+    <footer class="article-footer">
+    
+    <section class="article-tags">
+        
+            <a href="/tags/%E5%AE%B9%E5%99%A8%E5%8C%96%E6%94%B9%E9%80%A0Docker-Compose%E5%85%A5%E9%97%A8%E5%AE%9E%E6%88%98.html">容器化改造：Docker Compose入门实战</a>
+        
+    </section>
+
+
+    </footer>
+
+
+    
+</article>
+
+    
+
+    
+
+     
+    
+        
+    <script
+    src="https://giscus.app/client.js"
+    data-repo="pastor17/bloggiscus"
+    data-repo-id="R_kgDOQ6H9qQ"
+    data-category=""
+    data-category-id="DIC_kwDOQ6H9qc4C0-T8"
+    data-mapping="pathname"
+    data-strict="0"
+    data-reactions-enabled="1"
+    data-emit-metadata="0"
+    data-input-position="bottom"
+    data-theme="light"
+    data-lang="zh-CN"
+    data-loading="lazy"
+    crossorigin="anonymous"
+    async
+></script>
+<script>
+    function setGiscusTheme(theme) {
+        let giscus = document.querySelector("iframe.giscus-frame");
+        if (giscus) {
+            giscus.contentWindow.postMessage(
+                {
+                    giscus: {
+                        setConfig: {
+                            theme: theme,
+                        },
+                    },
+                },
+                "https://giscus.app"
+            );
+        }
+    }
+
+    (function () {
+        addEventListener("message", (e) => {
+            if (event.origin !== "https://giscus.app") return;
+            handler();
+        });
+        window.addEventListener("onColorSchemeChange", handler);
+
+        function handler() {
+            if (document.documentElement.dataset.scheme === "light") {
+                setGiscusTheme('light');
+            } else {
+                setGiscusTheme('dark_dimmed');
+            }
+        }
+    })();
+</script>
+
+    
+
+    <footer class="site-footer">
+    <section class="copyright">
+        &copy; 
+        
+        2026 SelfTechHub
+    </section>
+    
+    <section class="powerby">
+        
+
+    </section>
+</footer>
+
+
+    
+<div class="pswp" tabindex="-1" role="dialog" aria-hidden="true">
+
+    
+    <div class="pswp__bg"></div>
+
+    
+    <div class="pswp__scroll-wrap">
+
+        
+        <div class="pswp__container">
+            <div class="pswp__item"></div>
+            <div class="pswp__item"></div>
+            <div class="pswp__item"></div>
+        </div>
+
+        
+        <div class="pswp__ui pswp__ui--hidden">
+
+            <div class="pswp__top-bar">
+
+                
+
+                <div class="pswp__counter"></div>
+
+                <button class="pswp__button pswp__button--close" title="Close (Esc)"></button>
+
+                <button class="pswp__button pswp__button--share" title="Share"></button>
+
+                <button class="pswp__button pswp__button--fs" title="Toggle fullscreen"></button>
+
+                <button class="pswp__button pswp__button--zoom" title="Zoom in/out"></button>
+
+                
+                
+                <div class="pswp__preloader">
+                    <div class="pswp__preloader__icn">
+                        <div class="pswp__preloader__cut">
+                            <div class="pswp__preloader__donut"></div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <div class="pswp__share-modal pswp__share-modal--hidden pswp__single-tap">
+                <div class="pswp__share-tooltip"></div>
+            </div>
+
+            <button class="pswp__button pswp__button--arrow--left" title="Previous (arrow left)">
+            </button>
+
+            <button class="pswp__button pswp__button--arrow--right" title="Next (arrow right)">
+            </button>
+
+            <div class="pswp__caption">
+                <div class="pswp__caption__center"></div>
+            </div>
+
+        </div>
+
+    </div>
+
+</div><script 
+                src="https://cdn.jsdelivr.net/npm/photoswipe@4.1.3/dist/photoswipe.min.js"integrity="sha256-ePwmChbbvXbsO02lbM3HoHbSHTHFAeChekF1xKJdleo="crossorigin="anonymous"
+                defer
+                >
+            </script><script 
+                src="https://cdn.jsdelivr.net/npm/photoswipe@4.1.3/dist/photoswipe-ui-default.min.js"integrity="sha256-UKkzOn/w1mBxRmLLGrSeyB4e1xbrp4xylgAWb3M42pU="crossorigin="anonymous"
+                defer
+                >
+            </script><link 
+                rel="stylesheet" 
+                href="https://cdn.jsdelivr.net/npm/photoswipe@4.1.3/dist/default-skin/default-skin.min.css"crossorigin="anonymous"
+            ><link 
+                rel="stylesheet" 
+                href="https://cdn.jsdelivr.net/npm/photoswipe@4.1.3/dist/photoswipe.min.css"crossorigin="anonymous"
+            >
+    
+
+            </main>
+        </div>
+        <script 
+                src="https://cdn.jsdelivr.net/npm/node-vibrant@3.1.6/dist/vibrant.min.js"integrity="sha256-awcR2jno4kI5X0zL8ex0vi2z&#43;KMkF24hUW8WePSA9HM="crossorigin="anonymous"
+                
+                >
+            </script><script type="text/javascript" src="/ts/main.c922af694cc257bf1ecc41c0dd7b0430f9114ec280ccf67cd2c6ad55f5316c4e.js" defer></script>
+<script>
+    (function () {
+        const customFont = document.createElement('link');
+        customFont.href = "https://fonts.googleapis.com/css2?family=Lato:wght@300;400;700&display=swap";
+
+        customFont.type = "text/css";
+        customFont.rel = "stylesheet";
+
+        document.head.appendChild(customFont);
+    }());
+</script>
+
+    </body>
+</html>

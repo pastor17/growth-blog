@@ -1,0 +1,150 @@
+<?xml version="1.0" encoding="utf-8" standalone="yes"?>
+<rss version="2.0" xmlns:atom="http://www.w3.org/2005/Atom">
+    <channel>
+        <title>DevOps落地：从0到1的三步法 on SelfTechHub</title>
+        <link>https://blog.irudder.me/tags/DevOps%E8%90%BD%E5%9C%B0%E4%BB%8E0%E5%88%B01%E7%9A%84%E4%B8%89%E6%AD%A5%E6%B3%95.html</link>
+        <description>Recent content in DevOps落地：从0到1的三步法 on SelfTechHub</description>
+        <generator>Hugo -- gohugo.io</generator>
+        <language>zh-cn</language>
+        <lastBuildDate>Wed, 03 Mar 2021 00:00:00 +0000</lastBuildDate><atom:link href="https://blog.irudder.me/tags/DevOps%E8%90%BD%E5%9C%B0%E4%BB%8E0%E5%88%B01%E7%9A%84%E4%B8%89%E6%AD%A5%E6%B3%95/index.xml" rel="self" type="application/rss+xml" /><item>
+        <title>别盲目上Jenkins：中小团队DevOps落地的三步法</title>
+        <link>https://blog.irudder.me/tech/zhongxiaoxingtuanduidevopsluodifangan/devopsluodi_cong0dao1desanbufa.html</link>
+        <pubDate>Wed, 03 Mar 2021 00:00:00 +0000</pubDate>
+        
+        <guid>https://blog.irudder.me/tech/zhongxiaoxingtuanduidevopsluodifangan/devopsluodi_cong0dao1desanbufa.html</guid>
+        <description>&lt;p&gt;很多技术负责人或者CTO在接手一个十来人的中小团队时，往往会面临一个尴尬的局面：代码上线全靠吼，回滚全靠手，环境配置在每个人电脑上都不一样。&lt;/p&gt;
+&lt;p&gt;为了解决这个问题，我曾见过不少团队陷入“工具崇拜”的怪圈。他们一上来就搭建庞大的Jenkins集群，甚至在只有单体应用的时候就强上K8s。结果呢？&lt;strong&gt;因为没有专职运维，开发人员每天要花20%的时间去维护这些“自动化工具”，效率反倒不如以前手动传包。&lt;/strong&gt;&lt;/p&gt;
+&lt;p&gt;我曾在一家B轮创业公司带过两年的技术团队，接手时只有8个开发，没有运维。那时候每逢周五下午发版，我心跳都会加速，生怕那个手动打包的JAR文件少传了配置文件。&lt;/p&gt;
+&lt;p&gt;经过几轮血泪教训，我摸索出了一套适合中小团队（特别是无专职运维团队）的DevOps落地路径。这里的核心逻辑不是“引入大厂工具”，而是**“将重复动作标准化”**。&lt;/p&gt;
+&lt;p&gt;DevOps不应该是负担，而应该是像呼吸一样自然的基础设施。以下是三个具体的落地阶段。&lt;/p&gt;
+&lt;h2 id=&#34;阶段一脚本化把人工操作翻译成代码&#34;&gt;阶段一：脚本化——把“人工操作”翻译成代码
+&lt;/h2&gt;&lt;p&gt;很多团队所谓的“部署”，其实是依赖某个核心开发的“肌肉记忆”。比如，“先连VPN，再SSH到服务器，杀掉进程，上传包，重启”。这种流程极度脆弱。&lt;/p&gt;
+&lt;p&gt;&lt;img src=&#34;https://picsum.photos/800/450?random=1768389899625&#34;
+	
+	
+	
+	loading=&#34;lazy&#34;
+	
+		alt=&#34;配图&#34;
+	
+	
+&gt;&lt;/p&gt;
+&lt;p&gt;&lt;strong&gt;DevOps落地的第一步，绝不是搭建CI/CD平台，而是写脚本。&lt;/strong&gt;&lt;/p&gt;
+&lt;h3 id=&#34;真实案例&#34;&gt;真实案例
+&lt;/h3&gt;&lt;p&gt;我之前带过一个电商SaaS团队，最开始发布流程非常原始：后端把WAR包发给前端，前端用FTP上传。有一次，因为负责上传的同事感冒头晕，把测试环境的数据库配置带到了生产环境，导致所有支付接口报错，直接损失了几万块的流水。&lt;/p&gt;
+&lt;h3 id=&#34;落地方法&#34;&gt;落地方法
+&lt;/h3&gt;&lt;p&gt;在那次事故后，我没有引入任何复杂的平台，只是强制推行了一个规则：&lt;strong&gt;“所有操作，必须通过脚本执行”&lt;/strong&gt;。&lt;/p&gt;
+&lt;p&gt;我们在项目根目录下建立了一个 &lt;code&gt;ops/&lt;/code&gt; 文件夹，里面只有三个Shell脚本：&lt;/p&gt;
+&lt;ol&gt;
+&lt;li&gt;&lt;code&gt;build.sh&lt;/code&gt;：负责编译、打包；&lt;/li&gt;
+&lt;li&gt;&lt;code&gt;deploy_test.sh&lt;/code&gt;：一键部署到测试机；&lt;/li&gt;
+&lt;li&gt;&lt;code&gt;deploy_prod.sh&lt;/code&gt;：一键部署到生产机（包含备份逻辑）。&lt;/li&gt;
+&lt;/ol&gt;
+&lt;p&gt;&lt;img src=&#34;https://picsum.photos/800/450?random=1768389904729&#34;
+	
+	
+	
+	loading=&#34;lazy&#34;
+	
+		alt=&#34;配图&#34;
+	
+	
+&gt;&lt;/p&gt;
+&lt;p&gt;我们约定，任何人不得手动SSH上去敲命令，必须在本地运行这些脚本。&lt;/p&gt;
+&lt;blockquote&gt;
+&lt;p&gt;&lt;strong&gt;硬核建议&lt;/strong&gt;：如果你连一个能在本地稳定运行的 &lt;code&gt;deploy.sh&lt;/code&gt; 都写不出来，千万别去碰Jenkins。自动化只是把脚本搬到了服务器上跑，脚本本身的质量决定了自动化的成败。&lt;/p&gt;
+&lt;/blockquote&gt;
+&lt;h2 id=&#34;阶段二容器化与标准化消灭在我电脑上是好的&#34;&gt;阶段二：容器化与标准化——消灭“在我电脑上是好的”
+&lt;/h2&gt;&lt;p&gt;脚本化解决的是操作流程的一致性，但解决不了环境的一致性。中小团队最痛苦的莫过于：开发环境用Java 17，服务器上却是Java 8；本地装了ImageMagick，服务器上没装。&lt;/p&gt;
+&lt;h3 id=&#34;真实案例-1&#34;&gt;真实案例
+&lt;/h3&gt;&lt;p&gt;这是一个发生在我朋友公司的惨案。他们为了省钱，生产服务器用了几台配置不一的云主机。某次上线，代码在A服务器运行正常，在B服务器疯狂报错。排查了一整晚，发现是B服务器的系统时区设置错了，导致定时任务触发时间混乱。&lt;/p&gt;
+&lt;h3 id=&#34;落地方法-1&#34;&gt;落地方法
+&lt;/h3&gt;&lt;p&gt;这时候，Docker就是你的救命稻草。对于中小团队，&lt;strong&gt;不要去搞复杂的K8s编排，Docker Compose足矣。&lt;/strong&gt;&lt;/p&gt;
+&lt;p&gt;我们的做法是：&lt;/p&gt;
+&lt;ol&gt;
+&lt;li&gt;&lt;strong&gt;强制Dockerfile交付&lt;/strong&gt;：代码库里必须包含Dockerfile，开发交付的不再是代码，而是镜像。&lt;/li&gt;
+&lt;li&gt;&lt;strong&gt;环境配置代码化&lt;/strong&gt;：利用 &lt;code&gt;docker-compose.yml&lt;/code&gt; 来定义运行环境。数据库、Redis、应用服务，全部写在文件里。&lt;/li&gt;
+&lt;/ol&gt;
+&lt;p&gt;这样做的最大好处是，新来的实习生，只需要一句 &lt;code&gt;docker-compose up&lt;/code&gt;，就能在本地拉起一套和生产环境一模一样的系统。&lt;/p&gt;
+&lt;p&gt;这里分享一段我用了很久的 &lt;code&gt;Makefile&lt;/code&gt; 片段，我习惯把它放在项目根目录，通过简单的命令屏蔽复杂的Docker指令：&lt;/p&gt;
+&lt;div class=&#34;highlight&#34;&gt;&lt;pre tabindex=&#34;0&#34; style=&#34;color:#f8f8f2;background-color:#272822;-moz-tab-size:4;-o-tab-size:4;tab-size:4;&#34;&gt;&lt;code class=&#34;language-makefile&#34; data-lang=&#34;makefile&#34;&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;&lt;span style=&#34;color:#75715e&#34;&gt;# Makefile 示例
+&lt;/span&gt;&lt;/span&gt;&lt;/span&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;&lt;span style=&#34;color:#75715e&#34;&gt;&lt;/span&gt;&lt;span style=&#34;color:#a6e22e&#34;&gt;.PHONY&lt;/span&gt;&lt;span style=&#34;color:#f92672&#34;&gt;:&lt;/span&gt; build deploy
+&lt;/span&gt;&lt;/span&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;
+&lt;/span&gt;&lt;/span&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;IMAGE_NAME &lt;span style=&#34;color:#f92672&#34;&gt;=&lt;/span&gt; my-app
+&lt;/span&gt;&lt;/span&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;VERSION &lt;span style=&#34;color:#f92672&#34;&gt;=&lt;/span&gt; &lt;span style=&#34;color:#66d9ef&#34;&gt;$(&lt;/span&gt;shell git rev-parse --short HEAD&lt;span style=&#34;color:#66d9ef&#34;&gt;)&lt;/span&gt;
+&lt;/span&gt;&lt;/span&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;
+&lt;/span&gt;&lt;/span&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;&lt;span style=&#34;color:#a6e22e&#34;&gt;build&lt;/span&gt;&lt;span style=&#34;color:#f92672&#34;&gt;:&lt;/span&gt;
+&lt;/span&gt;&lt;/span&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;    @echo &lt;span style=&#34;color:#e6db74&#34;&gt;&amp;#34;Building Docker image...&amp;#34;&lt;/span&gt;
+&lt;/span&gt;&lt;/span&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;    docker build -t &lt;span style=&#34;color:#66d9ef&#34;&gt;$(&lt;/span&gt;IMAGE_NAME&lt;span style=&#34;color:#66d9ef&#34;&gt;)&lt;/span&gt;:&lt;span style=&#34;color:#66d9ef&#34;&gt;$(&lt;/span&gt;VERSION&lt;span style=&#34;color:#66d9ef&#34;&gt;)&lt;/span&gt; .
+&lt;/span&gt;&lt;/span&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;
+&lt;/span&gt;&lt;/span&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;&lt;span style=&#34;color:#a6e22e&#34;&gt;![配图](https&lt;/span&gt;&lt;span style=&#34;color:#f92672&#34;&gt;:&lt;/span&gt;//picsum.photos/800/450?random=1768389901005)
+&lt;/span&gt;&lt;/span&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;
+&lt;/span&gt;&lt;/span&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;&lt;span style=&#34;color:#a6e22e&#34;&gt;deploy&lt;/span&gt;&lt;span style=&#34;color:#f92672&#34;&gt;:&lt;/span&gt;
+&lt;/span&gt;&lt;/span&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;    @echo &lt;span style=&#34;color:#e6db74&#34;&gt;&amp;#34;Deploying to remote server...&amp;#34;&lt;/span&gt;
+&lt;/span&gt;&lt;/span&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;    &lt;span style=&#34;color:#75715e&#34;&gt;# 这里的逻辑是：构建镜像 -&amp;gt; 保存镜像 -&amp;gt; 传输到服务器 -&amp;gt; 加载镜像 -&amp;gt; 重启容器&lt;/span&gt;
+&lt;/span&gt;&lt;/span&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;    docker save &lt;span style=&#34;color:#66d9ef&#34;&gt;$(&lt;/span&gt;IMAGE_NAME&lt;span style=&#34;color:#66d9ef&#34;&gt;)&lt;/span&gt;:&lt;span style=&#34;color:#66d9ef&#34;&gt;$(&lt;/span&gt;VERSION&lt;span style=&#34;color:#66d9ef&#34;&gt;)&lt;/span&gt; | ssh user@remote-server &lt;span style=&#34;color:#e6db74&#34;&gt;&amp;#39;docker load &amp;amp;&amp;amp; docker-compose up -d --no-deps --build app&amp;#39;&lt;/span&gt;
+&lt;/span&gt;&lt;/span&gt;&lt;/code&gt;&lt;/pre&gt;&lt;/div&gt;&lt;h2 id=&#34;阶段三轻量级流水线让机器代替人熬夜&#34;&gt;阶段三：轻量级流水线——让机器代替人熬夜
+&lt;/h2&gt;&lt;p&gt;当你有了脚本，也有了标准化的容器环境，这时候才轮到CI/CD工具登场。&lt;/p&gt;
+&lt;p&gt;但我强烈建议：&lt;strong&gt;除非由于安全合规要求必须内网部署，否则中小团队请直接使用SaaS版的CI工具（如GitHub Actions, GitLab SaaS, 阿里云效）。&lt;/strong&gt; 自己维护一套Jenkins或者GitLab Runner，光是磁盘清理、插件升级、节点掉线这些破事，就足够消耗掉你一个高级开发的半个人力。&lt;/p&gt;
+&lt;h3 id=&#34;真实案例-2&#34;&gt;真实案例
+&lt;/h3&gt;&lt;p&gt;我在2021年接手的一个项目，前任负责人搭了一套非常复杂的Jenkins，配置了十几个插件。结果由于插件版本冲突，导致整个构建服务瘫痪了两天，全员无法合并代码。&lt;/p&gt;
+&lt;p&gt;后来我们花了一周时间，把所有流程迁移到了GitHub Actions。没有运维成本，不仅免费额度够用，而且配置文件直接放在代码库里（&lt;code&gt;.github/workflows&lt;/code&gt;），开发人员自己就能看懂改懂。&lt;/p&gt;
+&lt;h3 id=&#34;落地方法-2&#34;&gt;落地方法
+&lt;/h3&gt;&lt;p&gt;对于中小团队，一个合格的流水线只需要做三件事：&lt;/p&gt;
+&lt;ol&gt;
+&lt;li&gt;&lt;strong&gt;代码提交自动跑单元测试&lt;/strong&gt;（哪怕只有核心业务的几个测试用例）；&lt;/li&gt;
+&lt;li&gt;&lt;strong&gt;合并到主分支自动构建Docker镜像&lt;/strong&gt;；&lt;/li&gt;
+&lt;li&gt;&lt;strong&gt;调用SSH推送到服务器&lt;/strong&gt;（或者触发Webhook让服务器自己拉取）。&lt;/li&gt;
+&lt;/ol&gt;
+&lt;p&gt;这种“极简主义”的流水线，稳定性远高于那些花哨的仪表盘。&lt;/p&gt;
+&lt;h2 id=&#34;拿来即用的落地工具箱&#34;&gt;拿来即用的落地工具箱
+&lt;/h2&gt;&lt;p&gt;DevOps的本质不是工具，而是&lt;strong&gt;文化和纪律&lt;/strong&gt;。对于中小团队，能跑通流程的方案就是好方案。&lt;/p&gt;
+&lt;p&gt;最后，分享一个我个人常用的 &lt;strong&gt;“GitLab CI 极简部署模板”&lt;/strong&gt;。如果你正在用GitLab，直接把这个文件复制到项目根目录命名为 &lt;code&gt;.gitlab-ci.yml&lt;/code&gt;，配合上面的Shell脚本思路，半天就能搭起一套自动化发布系统。&lt;/p&gt;
+&lt;div class=&#34;highlight&#34;&gt;&lt;pre tabindex=&#34;0&#34; style=&#34;color:#f8f8f2;background-color:#272822;-moz-tab-size:4;-o-tab-size:4;tab-size:4;&#34;&gt;&lt;code class=&#34;language-yaml&#34; data-lang=&#34;yaml&#34;&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;&lt;span style=&#34;color:#f92672&#34;&gt;stages&lt;/span&gt;:
+&lt;/span&gt;&lt;/span&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;  - &lt;span style=&#34;color:#ae81ff&#34;&gt;build&lt;/span&gt;
+&lt;/span&gt;&lt;/span&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;  - &lt;span style=&#34;color:#ae81ff&#34;&gt;deploy&lt;/span&gt;
+&lt;/span&gt;&lt;/span&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;
+&lt;/span&gt;&lt;/span&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;&lt;span style=&#34;color:#f92672&#34;&gt;variables&lt;/span&gt;:
+&lt;/span&gt;&lt;/span&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;  &lt;span style=&#34;color:#75715e&#34;&gt;# 建议在GitLab后台设置变量，不要明文写在代码里&lt;/span&gt;
+&lt;/span&gt;&lt;/span&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;  &lt;span style=&#34;color:#f92672&#34;&gt;IMAGE_TAG&lt;/span&gt;: &lt;span style=&#34;color:#ae81ff&#34;&gt;$CI_REGISTRY_IMAGE:$CI_COMMIT_SHORT_SHA&lt;/span&gt;
+&lt;/span&gt;&lt;/span&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;
+&lt;/span&gt;&lt;/span&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;&lt;span style=&#34;color:#f92672&#34;&gt;build_image&lt;/span&gt;:
+&lt;/span&gt;&lt;/span&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;  &lt;span style=&#34;color:#f92672&#34;&gt;stage&lt;/span&gt;: &lt;span style=&#34;color:#ae81ff&#34;&gt;build&lt;/span&gt;
+&lt;/span&gt;&lt;/span&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;  &lt;span style=&#34;color:#f92672&#34;&gt;image&lt;/span&gt;: &lt;span style=&#34;color:#ae81ff&#34;&gt;docker:latest&lt;/span&gt;
+&lt;/span&gt;&lt;/span&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;  &lt;span style=&#34;color:#f92672&#34;&gt;services&lt;/span&gt;:
+&lt;/span&gt;&lt;/span&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;    - &lt;span style=&#34;color:#ae81ff&#34;&gt;docker:dind&lt;/span&gt;
+&lt;/span&gt;&lt;/span&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;  &lt;span style=&#34;color:#f92672&#34;&gt;script&lt;/span&gt;:
+&lt;/span&gt;&lt;/span&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;    - &lt;span style=&#34;color:#ae81ff&#34;&gt;docker login -u $CI_REGISTRY_USER -p $CI_REGISTRY_PASSWORD $CI_REGISTRY&lt;/span&gt;
+&lt;/span&gt;&lt;/span&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;    - &lt;span style=&#34;color:#ae81ff&#34;&gt;docker build -t $IMAGE_TAG .&lt;/span&gt;
+&lt;/span&gt;&lt;/span&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;    - &lt;span style=&#34;color:#ae81ff&#34;&gt;docker push $IMAGE_TAG&lt;/span&gt;
+&lt;/span&gt;&lt;/span&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;  &lt;span style=&#34;color:#f92672&#34;&gt;only&lt;/span&gt;:
+&lt;/span&gt;&lt;/span&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;    - &lt;span style=&#34;color:#ae81ff&#34;&gt;master&lt;/span&gt;
+&lt;/span&gt;&lt;/span&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;
+&lt;/span&gt;&lt;/span&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;&lt;span style=&#34;color:#f92672&#34;&gt;deploy_prod&lt;/span&gt;:
+&lt;/span&gt;&lt;/span&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;  &lt;span style=&#34;color:#f92672&#34;&gt;stage&lt;/span&gt;: &lt;span style=&#34;color:#ae81ff&#34;&gt;deploy&lt;/span&gt;
+&lt;/span&gt;&lt;/span&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;  &lt;span style=&#34;color:#f92672&#34;&gt;image&lt;/span&gt;: &lt;span style=&#34;color:#ae81ff&#34;&gt;alpine:latest&lt;/span&gt;
+&lt;/span&gt;&lt;/span&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;  &lt;span style=&#34;color:#f92672&#34;&gt;before_script&lt;/span&gt;:
+&lt;/span&gt;&lt;/span&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;    &lt;span style=&#34;color:#75715e&#34;&gt;# 配置SSH免密登录&lt;/span&gt;
+&lt;/span&gt;&lt;/span&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;    - &lt;span style=&#34;color:#ae81ff&#34;&gt;apk add --no-cache openssh-client&lt;/span&gt;
+&lt;/span&gt;&lt;/span&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;    - &lt;span style=&#34;color:#ae81ff&#34;&gt;eval $(ssh-agent -s)&lt;/span&gt;
+&lt;/span&gt;&lt;/span&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;    - &lt;span style=&#34;color:#ae81ff&#34;&gt;echo &amp;#34;$SSH_PRIVATE_KEY&amp;#34; | tr -d &amp;#39;\r&amp;#39; | ssh-add -&lt;/span&gt;
+&lt;/span&gt;&lt;/span&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;    - &lt;span style=&#34;color:#ae81ff&#34;&gt;mkdir -p ~/.ssh&lt;/span&gt;
+&lt;/span&gt;&lt;/span&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;    - &lt;span style=&#34;color:#ae81ff&#34;&gt;chmod 700 ~/.ssh&lt;/span&gt;
+&lt;/span&gt;&lt;/span&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;    - &lt;span style=&#34;color:#ae81ff&#34;&gt;echo -e &amp;#34;Host *\n\tStrictHostKeyChecking no\n\n&amp;#34; &amp;gt; ~/.ssh/config&lt;/span&gt;
+&lt;/span&gt;&lt;/span&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;  &lt;span style=&#34;color:#f92672&#34;&gt;script&lt;/span&gt;:
+&lt;/span&gt;&lt;/span&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;    &lt;span style=&#34;color:#75715e&#34;&gt;# 远程执行部署命令&lt;/span&gt;
+&lt;/span&gt;&lt;/span&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;    - &lt;span style=&#34;color:#ae81ff&#34;&gt;ssh $SERVER_USER@$SERVER_IP &amp;#34;cd /opt/app &amp;amp;&amp;amp; export IMAGE_TAG=$IMAGE_TAG &amp;amp;&amp;amp; docker-compose up -d&amp;#34;&lt;/span&gt;
+&lt;/span&gt;&lt;/span&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;  &lt;span style=&#34;color:#f92672&#34;&gt;only&lt;/span&gt;:
+&lt;/span&gt;&lt;/span&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;    - &lt;span style=&#34;color:#ae81ff&#34;&gt;master&lt;/span&gt;
+&lt;/span&gt;&lt;/span&gt;&lt;/code&gt;&lt;/pre&gt;&lt;/div&gt;&lt;h3 id=&#34;接下来你可以做的3个具体行动&#34;&gt;接下来你可以做的3个具体行动：
+&lt;/h3&gt;&lt;ol&gt;
+&lt;li&gt;&lt;strong&gt;盘点现状&lt;/strong&gt;：把你现在的发布流程写在白板上，圈出所有需要“手动输入命令”或“手动修改配置”的环节。&lt;/li&gt;
+&lt;li&gt;&lt;strong&gt;脚本化改造&lt;/strong&gt;：挑选最痛的一个环节（通常是打包或上传），在本周内用Shell脚本或Python脚本替代，并提交到代码库。&lt;/li&gt;
+&lt;li&gt;&lt;strong&gt;容器化尝试&lt;/strong&gt;：找一个非核心边缘服务，尝试为其编写Dockerfile，并确保能用Docker运行起来。&lt;/li&gt;
+&lt;/ol&gt;
+&lt;p&gt;DevOps是一场长跑，不要试图一步登天。从写好第一个脚本开始，你就已经在路上了。&lt;/p&gt;
+</description>
+        </item>
+        
+    </channel>
+</rss>

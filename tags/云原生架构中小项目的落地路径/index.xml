@@ -1,0 +1,112 @@
+<?xml version="1.0" encoding="utf-8" standalone="yes"?>
+<rss version="2.0" xmlns:atom="http://www.w3.org/2005/Atom">
+    <channel>
+        <title>云原生架构：中小项目的落地路径 on SelfTechHub</title>
+        <link>https://blog.irudder.me/tags/%E4%BA%91%E5%8E%9F%E7%94%9F%E6%9E%B6%E6%9E%84%E4%B8%AD%E5%B0%8F%E9%A1%B9%E7%9B%AE%E7%9A%84%E8%90%BD%E5%9C%B0%E8%B7%AF%E5%BE%84.html</link>
+        <description>Recent content in 云原生架构：中小项目的落地路径 on SelfTechHub</description>
+        <generator>Hugo -- gohugo.io</generator>
+        <language>zh-cn</language>
+        <lastBuildDate>Thu, 04 Jul 2024 00:00:00 +0000</lastBuildDate><atom:link href="https://blog.irudder.me/tags/%E4%BA%91%E5%8E%9F%E7%94%9F%E6%9E%B6%E6%9E%84%E4%B8%AD%E5%B0%8F%E9%A1%B9%E7%9B%AE%E7%9A%84%E8%90%BD%E5%9C%B0%E8%B7%AF%E5%BE%84/index.xml" rel="self" type="application/rss+xml" /><item>
+        <title>中小团队别碰K8s？云原生落地的3个血泪真相</title>
+        <link>https://blog.irudder.me/tech/zhongxiaoxingxiangmujiagoushejizhinan/yunyuanshengjiagou_zhongxiaoxiangmudiluodilujing.html</link>
+        <pubDate>Thu, 04 Jul 2024 00:00:00 +0000</pubDate>
+        
+        <guid>https://blog.irudder.me/tech/zhongxiaoxingxiangmujiagoushejizhinan/yunyuanshengjiagou_zhongxiaoxiangmudiluodilujing.html</guid>
+        <description>&lt;p&gt;&lt;img src=&#34;https://picsum.photos/800/450?random=1768456897994&#34;
+	
+	
+	
+	loading=&#34;lazy&#34;
+	
+		alt=&#34;配图&#34;
+	
+	
+&gt;&lt;/p&gt;
+&lt;p&gt;我曾以为把应用打进 Docker 镜像，再推到 Kubernetes 上跑起来，就叫&amp;quot;云原生&amp;quot;了。&lt;/p&gt;
+&lt;p&gt;直到两年前，我带着一个 8 人的技术团队，在那场惨痛的&amp;quot;双十一&amp;quot;备战里摔得鼻青脸肿。当时我们为了追求所谓的&amp;quot;极致弹性&amp;quot;，强行把原本运行良好的单体应用拆成了 15 个微服务，还自建了一套 K8s 集群。结果大促当晚，流量才刚上来，服务间调用链路就超时熔断，而我们盯着满屏的报错日志，居然花了 40 分钟才定位到是某个中间件的配置没对齐。&lt;/p&gt;
+&lt;p&gt;那次复盘会开到了凌晨三点。我深刻意识到：&lt;strong&gt;对于中小团队，脱离业务规模谈架构，就是耍流氓。&lt;/strong&gt;&lt;/p&gt;
+&lt;p&gt;很多架构师（包括当年的我）容易陷入一个误区：觉得大厂的方案就是标准答案。其实，中小项目的云原生落地路径，和大厂完全是两个物种。今天想和大家聊聊，我是如何把一个虚胖的架构&amp;quot;减肥&amp;quot;成功的，以及这中间踩过的坑。&lt;/p&gt;
+&lt;h2 id=&#34;坑位一自建集群的高大上陷阱&#34;&gt;坑位一：自建集群的&amp;quot;高大上&amp;quot;陷阱
+&lt;/h2&gt;&lt;p&gt;很多兄弟可能都有过这种冲动：买几台 ECS（云服务器），照着网上的教程 &lt;code&gt;kubeadm init&lt;/code&gt; 一把梭，觉得这样既省钱又能掌控底层。&lt;/p&gt;
+&lt;p&gt;&lt;strong&gt;这是个巨大的幻觉。&lt;/strong&gt;&lt;/p&gt;
+&lt;p&gt;&lt;img src=&#34;https://picsum.photos/800/450?random=1768456901000&#34;
+	
+	
+	
+	loading=&#34;lazy&#34;
+	
+		alt=&#34;配图&#34;
+	
+	
+&gt;&lt;/p&gt;
+&lt;p&gt;我那个项目起初为了省那点托管费，坚持自建 K8s。结果是什么？我的核心开发人员每周五下午原本该做代码 Review 的时间，全在折腾网络插件（CNI）不通、存储卷（CSI）挂载失败、或者证书过期的问题。&lt;/p&gt;
+&lt;p&gt;&lt;strong&gt;真实案例：&lt;/strong&gt;
+当时我们的核心支付服务偶尔会出现 502 错误。为了查这个问题，我们最好的后端工程师花了整整 3 天去排查 Calico 的网络路由表。而这 3 天，如果用来做业务功能迭代，可能新的一期活动都上线了。&lt;/p&gt;
+&lt;p&gt;&lt;strong&gt;落地方法论：用金钱换时间&lt;/strong&gt;
+后来我做了一个决定：全线迁移到云厂商的托管 K8s（如 TKE/ACK/EKS）。&lt;/p&gt;
+&lt;p&gt;一个月虽然多花了千把块钱的管理费，但效果立竿见影：&lt;/p&gt;
+&lt;ul&gt;
+&lt;li&gt;Master 节点的高可用不用管了；&lt;/li&gt;
+&lt;li&gt;节点的自动扩缩容（Autoscaler）变成了配置项，而不是脚本；&lt;/li&gt;
+&lt;li&gt;&lt;strong&gt;最重要的是，团队心智负担降维了。&lt;/strong&gt;&lt;/li&gt;
+&lt;/ul&gt;
+&lt;p&gt;如果你团队里没有专职的运维专家（SRE），&lt;strong&gt;请务必使用托管服务&lt;/strong&gt;。对于中小团队，SaaS &amp;gt; PaaS &amp;gt; IaaS &amp;gt; 自建。你的核心竞争力是业务交付速度，而不是运维底层基础设施的能力。&lt;/p&gt;
+&lt;h2 id=&#34;坑位二微服务拆分的过度洁癖&#34;&gt;坑位二：微服务拆分的&amp;quot;过度洁癖&amp;quot;
+&lt;/h2&gt;&lt;p&gt;&amp;ldquo;单体应用是落后的，微服务才是未来。&amp;rdquo; 这句话害人不浅。&lt;/p&gt;
+&lt;p&gt;在那个项目里，我们只有 6 个后端开发，却维护了 12 个微服务。加上前端 BFF 层、网关、定时任务，总共有 20 多个部署单元。
+这就导致了一个极其荒谬的场景：&lt;strong&gt;加一个简单的&amp;quot;用户积分展示&amp;quot;字段，需要改 3 个服务的代码，发 3 次版，还得协调上线顺序。&lt;/strong&gt;&lt;/p&gt;
+&lt;p&gt;&lt;strong&gt;真实案例：&lt;/strong&gt;
+有次上线，因为 A 服务先发了，B 服务没发，接口契约不兼容，直接导致线上报错 15 分钟。那个月，我们的研发效能（从需求到上线的时间）反而比单体时期下降了 40%。&lt;/p&gt;
+&lt;p&gt;&lt;strong&gt;落地方法论：模块化单体（Modular Monolith）&lt;/strong&gt;
+痛定思痛，我们开始了架构&amp;quot;回缩&amp;quot;。
+我们并没有完全退回到&amp;quot;一坨大泥球&amp;quot;，而是采用了&lt;strong&gt;模块化单体&lt;/strong&gt;的策略：&lt;/p&gt;
+&lt;ol&gt;
+&lt;li&gt;&lt;strong&gt;物理统一，逻辑隔离&lt;/strong&gt;：代码还是在一个 Repo 里，部署也是一个镜像，但在代码结构上严格划分 &lt;code&gt;Order&lt;/code&gt;、&lt;code&gt;User&lt;/code&gt;、&lt;code&gt;Payment&lt;/code&gt; 模块。&lt;/li&gt;
+&lt;li&gt;&lt;strong&gt;进程内调用&lt;/strong&gt;：模块间调用走本地方法，而不是 HTTP/RPC，性能提升了，排查问题也简单了（不用链路追踪）。&lt;/li&gt;
+&lt;li&gt;&lt;strong&gt;甚至用了简单的代码约束&lt;/strong&gt;：&lt;/li&gt;
+&lt;/ol&gt;
+&lt;div class=&#34;highlight&#34;&gt;&lt;pre tabindex=&#34;0&#34; style=&#34;color:#f8f8f2;background-color:#272822;-moz-tab-size:4;-o-tab-size:4;tab-size:4;&#34;&gt;&lt;code class=&#34;language-java&#34; data-lang=&#34;java&#34;&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;&lt;span style=&#34;color:#75715e&#34;&gt;// 禁止跨模块直接数据库访问，必须通过 Service 接口&lt;/span&gt;
+&lt;/span&gt;&lt;/span&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;&lt;span style=&#34;color:#75715e&#34;&gt;// 这种简单的架构守护测试，比拆分服务管用得多&lt;/span&gt;
+&lt;/span&gt;&lt;/span&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;&lt;span style=&#34;color:#a6e22e&#34;&gt;@ArchTest&lt;/span&gt;
+&lt;/span&gt;&lt;/span&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;&lt;span style=&#34;color:#66d9ef&#34;&gt;public&lt;/span&gt; &lt;span style=&#34;color:#66d9ef&#34;&gt;static&lt;/span&gt; &lt;span style=&#34;color:#66d9ef&#34;&gt;final&lt;/span&gt; ArchRule modules_should_respect_boundaries &lt;span style=&#34;color:#f92672&#34;&gt;=&lt;/span&gt;
+&lt;/span&gt;&lt;/span&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;    slices().&lt;span style=&#34;color:#a6e22e&#34;&gt;matching&lt;/span&gt;(&lt;span style=&#34;color:#e6db74&#34;&gt;&amp;#34;com.myapp.modules.(*)..&amp;#34;&lt;/span&gt;)
+&lt;/span&gt;&lt;/span&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;            .&lt;span style=&#34;color:#a6e22e&#34;&gt;should&lt;/span&gt;().&lt;span style=&#34;color:#a6e22e&#34;&gt;beFreeOfCycles&lt;/span&gt;();
+&lt;/span&gt;&lt;/span&gt;&lt;/code&gt;&lt;/pre&gt;&lt;/div&gt;&lt;p&gt;现在的原则是：&lt;strong&gt;除非某个模块需要独立的扩展能力（比如瞬时高并发）或者独立的团队维护（超过 5-8 人），否则不要拆分微服务。&lt;/strong&gt;&lt;/p&gt;
+&lt;h2 id=&#34;坑位三又聋又瞎的黑盒运行&#34;&gt;坑位三：又聋又瞎的&amp;quot;黑盒运行&amp;quot;
+&lt;/h2&gt;&lt;p&gt;云原生环境下，容器随时可能飘移重启。以前那种&amp;quot;SSH 到服务器上去 tail 日志&amp;quot;的土办法，在多副本环境下完全失效了。&lt;/p&gt;
+&lt;p&gt;我遇到过最抓狂的情况是：用户反馈报错，我去查日志，发现容器已经重启了，本地磁盘上的日志文件随风而去。那一刻，我就像个盲人一样无助。&lt;/p&gt;
+&lt;p&gt;&lt;strong&gt;真实案例：&lt;/strong&gt;
+某次内存泄露导致 OOM，容器被 K8s 杀掉重启。因为没有持久化日志和监控指标，我们根本不知道是哪个接口导致的，只能守着屏幕等它下一次崩溃。&lt;/p&gt;
+&lt;p&gt;&lt;strong&gt;落地方法论：可观测性是生命线&lt;/strong&gt;
+不要搞复杂的 ELK（Elasticsearch对于小团队太重了），我推荐一套轻量级组合拳：&lt;strong&gt;Prometheus + Grafana + Loki&lt;/strong&gt;。&lt;/p&gt;
+&lt;ul&gt;
+&lt;li&gt;&lt;strong&gt;Loki&lt;/strong&gt;：它是日志界的&amp;quot;轻骑兵&amp;quot;，不建索引，只对标签索引，资源占用极低。&lt;/li&gt;
+&lt;li&gt;&lt;strong&gt;标准输出&lt;/strong&gt;：应用日志别写文件了，全部打到 &lt;code&gt;Stdout&lt;/code&gt;（标准输出），让 Docker 引擎去收集。&lt;/li&gt;
+&lt;/ul&gt;
+&lt;p&gt;我现在的团队有一个硬性规定：&lt;strong&gt;任何报错日志，必须包含 TraceID。&lt;/strong&gt;&lt;/p&gt;
+&lt;p&gt;我们花了两周时间封装了日志库，确保所有请求入口生成一个 ID，并透传到所有层级。现在查问题，只需要在 Grafana 里输入 ID，整个链路的日志清清楚楚。&lt;/p&gt;
+&lt;blockquote&gt;
+&lt;p&gt;&amp;ldquo;在这个系统里，如果我不能在 3 次点击内找到报错原因，那就是架构设计的失败。&amp;rdquo; —— 这成了我们架构组的座右铭。&lt;/p&gt;
+&lt;/blockquote&gt;
+&lt;h2 id=&#34;总结与行动&#34;&gt;总结与行动
+&lt;/h2&gt;&lt;p&gt;云原生不是为了炫技，而是为了&lt;strong&gt;更稳定、更快的交付&lt;/strong&gt;。对于中小团队，&amp;ldquo;够用&amp;quot;远比&amp;quot;完美&amp;quot;重要。&lt;/p&gt;
+&lt;p&gt;回顾这两年的&amp;quot;填坑&amp;quot;之路，我总结出的&lt;strong&gt;中小项目云原生黄金法则&lt;/strong&gt;是：&lt;/p&gt;
+&lt;ol&gt;
+&lt;li&gt;&lt;strong&gt;基建外包&lt;/strong&gt;：能买托管服务，绝不自己运维。&lt;/li&gt;
+&lt;li&gt;&lt;strong&gt;架构从简&lt;/strong&gt;：优先单体，逻辑拆分，等到痛得不行了再拆微服务。&lt;/li&gt;
+&lt;li&gt;&lt;strong&gt;监控先行&lt;/strong&gt;：没有可观测性，就别谈云原生。&lt;/li&gt;
+&lt;/ol&gt;
+&lt;p&gt;&lt;strong&gt;最后，做个小调查：&lt;/strong&gt;
+如果在资源有限的情况下，必须二选一，你会优先选择 &lt;strong&gt;A. 完善的自动化CI/CD流水线&lt;/strong&gt; 还是 &lt;strong&gt;B. 全面的微服务治理体系&lt;/strong&gt;？&lt;/p&gt;
+&lt;p&gt;如果你正准备或者正在进行云原生改造，建议明天上班就可以做这 3 件事：&lt;/p&gt;
+&lt;ol&gt;
+&lt;li&gt;&lt;strong&gt;检查你的日志&lt;/strong&gt;：是不是还在写本地文件？尝试改成标准输出并接入一个轻量级日志系统。&lt;/li&gt;
+&lt;li&gt;&lt;strong&gt;计算一下TCO&lt;/strong&gt;：把你团队花在运维自建组件上的时间折算成工资，对比一下云厂商托管服务的价格。&lt;/li&gt;
+&lt;li&gt;&lt;strong&gt;封锁边界&lt;/strong&gt;：在单体应用里，开始尝试用包结构或者模块工具强制隔离业务逻辑，为未来可能的（虽然不一定发生）拆分做准备。&lt;/li&gt;
+&lt;/ol&gt;
+&lt;p&gt;评论区告诉我你的选择，或者你遇到过的最奇葩的&amp;quot;架构坑&amp;rdquo;，咱们一起避雷。&lt;/p&gt;
+</description>
+        </item>
+        
+    </channel>
+</rss>

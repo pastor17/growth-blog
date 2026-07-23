@@ -1,0 +1,136 @@
+<?xml version="1.0" encoding="utf-8" standalone="yes"?>
+<rss version="2.0" xmlns:atom="http://www.w3.org/2005/Atom">
+    <channel>
+        <title>DevOps文化：从小处着手的落地技巧 on SelfTechHub</title>
+        <link>https://blog.irudder.me/tags/DevOps%E6%96%87%E5%8C%96%E4%BB%8E%E5%B0%8F%E5%A4%84%E7%9D%80%E6%89%8B%E7%9A%84%E8%90%BD%E5%9C%B0%E6%8A%80%E5%B7%A7.html</link>
+        <description>Recent content in DevOps文化：从小处着手的落地技巧 on SelfTechHub</description>
+        <generator>Hugo -- gohugo.io</generator>
+        <language>zh-cn</language>
+        <lastBuildDate>Tue, 17 Jan 2023 00:00:00 +0000</lastBuildDate><atom:link href="https://blog.irudder.me/tags/DevOps%E6%96%87%E5%8C%96%E4%BB%8E%E5%B0%8F%E5%A4%84%E7%9D%80%E6%89%8B%E7%9A%84%E8%90%BD%E5%9C%B0%E6%8A%80%E5%B7%A7/index.xml" rel="self" type="application/rss+xml" /><item>
+        <title>没专职运维？我们靠这3招把发布时间缩短了80%</title>
+        <link>https://blog.irudder.me/tech/zhongxiaoxingtuanduidevopsluodifangan/devopswenhua_congxiaochuzhuoshoudeluodijiqiao.html</link>
+        <pubDate>Tue, 17 Jan 2023 00:00:00 +0000</pubDate>
+        
+        <guid>https://blog.irudder.me/tech/zhongxiaoxingtuanduidevopsluodifangan/devopswenhua_congxiaochuzhuoshoudeluodijiqiao.html</guid>
+        <description>&lt;p&gt;记得三年前我刚接手现在的团队时，情况那是相当&amp;quot;刺激&amp;quot;。&lt;/p&gt;
+&lt;p&gt;那时候我们团队不到10个人，没有专职运维。每次发版简直就是一场豪赌：我得亲自登录服务器，手动停止服务，备份jar包（还得记得加上时间戳，虽然经常忘），然后SCP上传新包，再重启。&lt;/p&gt;
+&lt;p&gt;最惨的一次，因为我在本地编译时少打了一个Profile参数，导致生产环境连上了测试库。虽然发现得早，但那个周五晚上，我和两个核心开发吓出了一身冷汗，在那儿人肉回滚数据搞到凌晨两点。&lt;/p&gt;
+&lt;p&gt;那时候我就在想：&lt;strong&gt;我们这种&amp;quot;草台班子&amp;quot;，是不是就不配谈DevOps？&lt;/strong&gt;&lt;/p&gt;
+&lt;p&gt;后来我发现，我们都被大厂那些高大上的PPT给忽悠了。对于中小团队，DevOps绝对不是搞一套复杂的Kubernetes集群，也不是买昂贵的商业平台。&lt;/p&gt;
+&lt;p&gt;这几年摸爬滚打下来，我总结出了一套&amp;quot;穷人版&amp;quot;DevOps落地法。不讲大道理，只聊怎么让我们即使没有运维，也能到点下班。&lt;/p&gt;
+&lt;h2 id=&#34;01-别整大平台先给你的脚本穿层衣&#34;&gt;01 别整&amp;quot;大平台&amp;quot;，先给你的脚本&amp;quot;穿层衣&amp;quot;
+&lt;/h2&gt;&lt;p&gt;&lt;img src=&#34;https://picsum.photos/800/450?random=1768442430341&#34;
+	
+	
+	
+	loading=&#34;lazy&#34;
+	
+		alt=&#34;配图&#34;
+	
+	
+&gt;&lt;/p&gt;
+&lt;p&gt;很多兄弟一上来就想搭建Jenkins或者GitLab CI的一整套流水线，结果配环境就花了一周，最后发现团队成员根本不愿意用，觉得太繁琐。&lt;/p&gt;
+&lt;p&gt;其实，DevOps的第一步，是&lt;strong&gt;把&amp;quot;靠人脑记&amp;quot;的操作变成&amp;quot;靠代码跑&amp;quot;&lt;/strong&gt;。&lt;/p&gt;
+&lt;p&gt;&lt;strong&gt;真实案例：&lt;/strong&gt;
+我们团队有个后端小张，技术挺好，但就是马虎。有次更新前端静态资源，他把&lt;code&gt;dist&lt;/code&gt;目录传错了路径，导致官网样式全乱了。虽然只需一条&lt;code&gt;mv&lt;/code&gt;命令就能修复，但当时客户群里已经炸锅了。&lt;/p&gt;
+&lt;p&gt;&lt;strong&gt;我的落地路子：&lt;/strong&gt;
+我没急着上CI系统，而是花半天写了个&lt;code&gt;Makefile&lt;/code&gt;。&lt;/p&gt;
+&lt;p&gt;不要小看这个古老的工具。我在项目根目录下放了个文件，里面只写了三行逻辑：打包、压缩、通过SSH传到指定目录。&lt;/p&gt;
+&lt;p&gt;以后大家上线，只需要在群里喊一声，然后敲一个命令：
+&lt;code&gt;make deploy-prod&lt;/code&gt;&lt;/p&gt;
+&lt;p&gt;这就够了。真的，初期这就够了。&lt;/p&gt;
+&lt;blockquote&gt;
+&lt;p&gt;&lt;strong&gt;踩坑经验：&lt;/strong&gt; 千万别让开发人员直接SSH连服务器操作。只要人能接触到生产环境的Shell，误操作就是时间问题。用脚本把命令封装起来，就是给服务器穿了一层防弹衣。&lt;/p&gt;
+&lt;/blockquote&gt;
+&lt;h2 id=&#34;02-全链路监控太贵搞定trace-id就赢了一半&#34;&gt;02 &amp;ldquo;全链路监控&amp;quot;太贵？搞定Trace ID就赢了一半
+&lt;/h2&gt;&lt;p&gt;以前系统出问题，最头大的就是&amp;quot;甩锅&amp;rdquo;。
+前端说接口报错，后端说日志没异常，最后发现是网关层拦截了。排查一个问题，要在Nginx日志、应用日志、数据库慢查询之间来回切窗口，眼睛都花了。&lt;/p&gt;
+&lt;p&gt;&lt;strong&gt;真实案例：&lt;/strong&gt;
+有次用户反馈下单失败，但我们查了半天后端日志全是&amp;quot;Success&amp;quot;。后来才发现是中间件超时。因为没有统一的标记，我们根本不知道用户的那次请求对应哪条日志，只能靠&amp;quot;猜时间点&amp;quot;来对齐，效率极低。&lt;/p&gt;
+&lt;p&gt;&lt;strong&gt;我的落地路子：&lt;/strong&gt;
+引入&lt;strong&gt;Trace ID（链路追踪ID）&lt;/strong&gt;。&lt;/p&gt;
+&lt;p&gt;别被这个词吓到了，不需要上SkyWalking或Zipkin这种重型武器。我只做了一件事：&lt;/p&gt;
+&lt;ol&gt;
+&lt;li&gt;在Nginx层生成一个随机UUID，放到Header里。&lt;/li&gt;
+&lt;li&gt;后端代码加个拦截器，读到这个ID就塞进ThreadLocal（或者MDC）。&lt;/li&gt;
+&lt;li&gt;修改Logback配置，每行日志都自动带上这个ID。&lt;/li&gt;
+&lt;/ol&gt;
+&lt;p&gt;现在只要客服把报错截图（上面有我们将ID透传回前端的编码）发给我，我由&lt;code&gt;grep&lt;/code&gt;一下这个ID，这请求经过了哪些服务、在哪一步报错、参数是什么，一清二楚。&lt;/p&gt;
+&lt;p&gt;&lt;strong&gt;效果对比：&lt;/strong&gt;
+以前排查一个跨服务Bug平均需要30分钟，现在通常只要3分钟。&lt;/p&gt;
+&lt;h2 id=&#34;03-把报警群变成聊天室而不是垃圾场&#34;&gt;03 把报警群变成&amp;quot;聊天室&amp;quot;，而不是&amp;quot;垃圾场&amp;quot;
+&lt;/h2&gt;&lt;p&gt;很多团队都有报警群，但大部分都变成了&amp;quot;静音群&amp;quot;。为什么？因为无效信息太多了。CPU稍微抖一下就报警，磁盘占用60%也报警，一天响几百次，真的&amp;quot;狼来了&amp;quot;也没人看。&lt;/p&gt;
+&lt;p&gt;&lt;img src=&#34;https://picsum.photos/800/450?random=1768442435992&#34;
+	
+	
+	
+	loading=&#34;lazy&#34;
+	
+		alt=&#34;配图&#34;
+	
+	
+&gt;&lt;/p&gt;
+&lt;p&gt;&lt;strong&gt;真实案例：&lt;/strong&gt;
+刚开始我们也接了报警机器人。结果有一天晚上，数据库主从同步延迟了，报警群响了一晚上。大家以为又是常规的CPU波动，谁都没看。结果第二天发现数据不一致，处理起来那个酸爽……&lt;/p&gt;
+&lt;p&gt;&lt;strong&gt;我的落地路子：&lt;/strong&gt;
+我定了个死规矩：&lt;strong&gt;报警必须可执行（Actionable）。&lt;/strong&gt;&lt;/p&gt;
+&lt;p&gt;我把所有&amp;quot;单纯告知&amp;quot;类的报警全部关掉，只保留需要&amp;quot;马上有人去处理&amp;quot;的报警。
+比如：CPU高不要紧，但&amp;quot;CPU持续5分钟100%且响应时间超过1秒&amp;quot;才报警。&lt;/p&gt;
+&lt;p&gt;此外，我还做了一个小改动：**ChatOps（聊天即运维）**的雏形。
+我们将GitLab的Webhook接到了飞书/钉钉群。但不是发一堆看不懂的代码提交记录，而是经过过滤的：&lt;/p&gt;
+&lt;ul&gt;
+&lt;li&gt;&lt;strong&gt;谁&lt;/strong&gt;（Who）&lt;/li&gt;
+&lt;li&gt;&lt;strong&gt;发布了什么版本&lt;/strong&gt;（Which Version）&lt;/li&gt;
+&lt;li&gt;&lt;strong&gt;到了什么环境&lt;/strong&gt;（Where）&lt;/li&gt;
+&lt;li&gt;&lt;strong&gt;成功了没&lt;/strong&gt;（Result）&lt;/li&gt;
+&lt;/ul&gt;
+&lt;p&gt;现在，每当群里弹出&amp;quot;构建成功&amp;quot;的绿色卡片，测试同学就知道可以介入了；如果是红色的&amp;quot;构建失败&amp;quot;，开发同学自己就会默默去修，根本不用我催。&lt;/p&gt;
+&lt;hr&gt;
+&lt;h2 id=&#34;抄作业时间给中小团队的落地工具包&#34;&gt;抄作业时间：给中小团队的落地工具包
+&lt;/h2&gt;&lt;p&gt;说了这么多，如果你想明天就开始改变，这里有一份我目前在用的&lt;strong&gt;极简部署脚本模板&lt;/strong&gt;，你可以直接复制改改就能用。&lt;/p&gt;
+&lt;p&gt;这不是什么高深的CICD配置，就是一个让你可以安心喝咖啡的Shell脚本逻辑：&lt;/p&gt;
+&lt;div class=&#34;highlight&#34;&gt;&lt;pre tabindex=&#34;0&#34; style=&#34;color:#f8f8f2;background-color:#272822;-moz-tab-size:4;-o-tab-size:4;tab-size:4;&#34;&gt;&lt;code class=&#34;language-bash&#34; data-lang=&#34;bash&#34;&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;&lt;span style=&#34;color:#75715e&#34;&gt;#!/bin/bash
+&lt;/span&gt;&lt;/span&gt;&lt;/span&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;&lt;span style=&#34;color:#75715e&#34;&gt;&lt;/span&gt;&lt;span style=&#34;color:#75715e&#34;&gt;# 这是一个极其简单的部署脚本示例&lt;/span&gt;
+&lt;/span&gt;&lt;/span&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;&lt;span style=&#34;color:#75715e&#34;&gt;# 核心逻辑：备份 -&amp;gt; 构建 -&amp;gt; 传输 -&amp;gt; 重启 -&amp;gt; 检查&lt;/span&gt;
+&lt;/span&gt;&lt;/span&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;
+&lt;/span&gt;&lt;/span&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;APP_NAME&lt;span style=&#34;color:#f92672&#34;&gt;=&lt;/span&gt;&lt;span style=&#34;color:#e6db74&#34;&gt;&amp;#34;my-awesome-app&amp;#34;&lt;/span&gt;
+&lt;/span&gt;&lt;/span&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;REMOTE_HOST&lt;span style=&#34;color:#f92672&#34;&gt;=&lt;/span&gt;&lt;span style=&#34;color:#e6db74&#34;&gt;&amp;#34;192.168.1.100&amp;#34;&lt;/span&gt;
+&lt;/span&gt;&lt;/span&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;REMOTE_DIR&lt;span style=&#34;color:#f92672&#34;&gt;=&lt;/span&gt;&lt;span style=&#34;color:#e6db74&#34;&gt;&amp;#34;/opt/apps/&lt;/span&gt;&lt;span style=&#34;color:#e6db74&#34;&gt;${&lt;/span&gt;APP_NAME&lt;span style=&#34;color:#e6db74&#34;&gt;}&lt;/span&gt;&lt;span style=&#34;color:#e6db74&#34;&gt;&amp;#34;&lt;/span&gt;
+&lt;/span&gt;&lt;/span&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;DATE&lt;span style=&#34;color:#f92672&#34;&gt;=&lt;/span&gt;&lt;span style=&#34;color:#66d9ef&#34;&gt;$(&lt;/span&gt;date +%Y%m%d-%H%M%S&lt;span style=&#34;color:#66d9ef&#34;&gt;)&lt;/span&gt;
+&lt;/span&gt;&lt;/span&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;
+&lt;/span&gt;&lt;/span&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;echo &lt;span style=&#34;color:#e6db74&#34;&gt;&amp;#34;&amp;gt;&amp;gt;&amp;gt; 1. 开始构建...&amp;#34;&lt;/span&gt;
+&lt;/span&gt;&lt;/span&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;&lt;span style=&#34;color:#75715e&#34;&gt;# 这里替换成你的构建命令，比如 npm run build 或 mvn clean package&lt;/span&gt;
+&lt;/span&gt;&lt;/span&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;./build_script.sh 
+&lt;/span&gt;&lt;/span&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;&lt;span style=&#34;color:#66d9ef&#34;&gt;if&lt;/span&gt; &lt;span style=&#34;color:#f92672&#34;&gt;[&lt;/span&gt; $? -ne &lt;span style=&#34;color:#ae81ff&#34;&gt;0&lt;/span&gt; &lt;span style=&#34;color:#f92672&#34;&gt;]&lt;/span&gt;; &lt;span style=&#34;color:#66d9ef&#34;&gt;then&lt;/span&gt;
+&lt;/span&gt;&lt;/span&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;    echo &lt;span style=&#34;color:#e6db74&#34;&gt;&amp;#34;!!! 构建失败，终止发布！&amp;#34;&lt;/span&gt;
+&lt;/span&gt;&lt;/span&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;    exit &lt;span style=&#34;color:#ae81ff&#34;&gt;1&lt;/span&gt;
+&lt;/span&gt;&lt;/span&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;&lt;span style=&#34;color:#66d9ef&#34;&gt;fi&lt;/span&gt;
+&lt;/span&gt;&lt;/span&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;
+&lt;/span&gt;&lt;/span&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;echo &lt;span style=&#34;color:#e6db74&#34;&gt;&amp;#34;&amp;gt;&amp;gt;&amp;gt; 2. 备份远程应用...&amp;#34;&lt;/span&gt;
+&lt;/span&gt;&lt;/span&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;ssh user@&lt;span style=&#34;color:#e6db74&#34;&gt;${&lt;/span&gt;REMOTE_HOST&lt;span style=&#34;color:#e6db74&#34;&gt;}&lt;/span&gt; &lt;span style=&#34;color:#e6db74&#34;&gt;&amp;#34;cp &lt;/span&gt;&lt;span style=&#34;color:#e6db74&#34;&gt;${&lt;/span&gt;REMOTE_DIR&lt;span style=&#34;color:#e6db74&#34;&gt;}&lt;/span&gt;&lt;span style=&#34;color:#e6db74&#34;&gt;/app.jar &lt;/span&gt;&lt;span style=&#34;color:#e6db74&#34;&gt;${&lt;/span&gt;REMOTE_DIR&lt;span style=&#34;color:#e6db74&#34;&gt;}&lt;/span&gt;&lt;span style=&#34;color:#e6db74&#34;&gt;/backup/app.jar.&lt;/span&gt;&lt;span style=&#34;color:#e6db74&#34;&gt;${&lt;/span&gt;DATE&lt;span style=&#34;color:#e6db74&#34;&gt;}&lt;/span&gt;&lt;span style=&#34;color:#e6db74&#34;&gt;&amp;#34;&lt;/span&gt;
+&lt;/span&gt;&lt;/span&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;
+&lt;/span&gt;&lt;/span&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;echo &lt;span style=&#34;color:#e6db74&#34;&gt;&amp;#34;&amp;gt;&amp;gt;&amp;gt; 3. 上传新版本...&amp;#34;&lt;/span&gt;
+&lt;/span&gt;&lt;/span&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;scp target/app.jar user@&lt;span style=&#34;color:#e6db74&#34;&gt;${&lt;/span&gt;REMOTE_HOST&lt;span style=&#34;color:#e6db74&#34;&gt;}&lt;/span&gt;:&lt;span style=&#34;color:#e6db74&#34;&gt;${&lt;/span&gt;REMOTE_DIR&lt;span style=&#34;color:#e6db74&#34;&gt;}&lt;/span&gt;/app.jar.new
+&lt;/span&gt;&lt;/span&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;
+&lt;/span&gt;&lt;/span&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;echo &lt;span style=&#34;color:#e6db74&#34;&gt;&amp;#34;&amp;gt;&amp;gt;&amp;gt; 4. 替换并重启...&amp;#34;&lt;/span&gt;
+&lt;/span&gt;&lt;/span&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;&lt;span style=&#34;color:#75715e&#34;&gt;# 使用原子操作替换文件，防止文件传输一半被读取&lt;/span&gt;
+&lt;/span&gt;&lt;/span&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;ssh user@&lt;span style=&#34;color:#e6db74&#34;&gt;${&lt;/span&gt;REMOTE_HOST&lt;span style=&#34;color:#e6db74&#34;&gt;}&lt;/span&gt; &lt;span style=&#34;color:#e6db74&#34;&gt;&amp;#34;mv &lt;/span&gt;&lt;span style=&#34;color:#e6db74&#34;&gt;${&lt;/span&gt;REMOTE_DIR&lt;span style=&#34;color:#e6db74&#34;&gt;}&lt;/span&gt;&lt;span style=&#34;color:#e6db74&#34;&gt;/app.jar.new &lt;/span&gt;&lt;span style=&#34;color:#e6db74&#34;&gt;${&lt;/span&gt;REMOTE_DIR&lt;span style=&#34;color:#e6db74&#34;&gt;}&lt;/span&gt;&lt;span style=&#34;color:#e6db74&#34;&gt;/app.jar &amp;amp;&amp;amp; systemctl restart &lt;/span&gt;&lt;span style=&#34;color:#e6db74&#34;&gt;${&lt;/span&gt;APP_NAME&lt;span style=&#34;color:#e6db74&#34;&gt;}&lt;/span&gt;&lt;span style=&#34;color:#e6db74&#34;&gt;&amp;#34;&lt;/span&gt;
+&lt;/span&gt;&lt;/span&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;
+&lt;/span&gt;&lt;/span&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;echo &lt;span style=&#34;color:#e6db74&#34;&gt;&amp;#34;&amp;gt;&amp;gt;&amp;gt; 5. 简单的健康检查...&amp;#34;&lt;/span&gt;
+&lt;/span&gt;&lt;/span&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;&lt;span style=&#34;color:#75715e&#34;&gt;# 等待几秒后检查端口是否存活&lt;/span&gt;
+&lt;/span&gt;&lt;/span&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;sleep &lt;span style=&#34;color:#ae81ff&#34;&gt;10&lt;/span&gt;
+&lt;/span&gt;&lt;/span&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;ssh user@&lt;span style=&#34;color:#e6db74&#34;&gt;${&lt;/span&gt;REMOTE_HOST&lt;span style=&#34;color:#e6db74&#34;&gt;}&lt;/span&gt; &lt;span style=&#34;color:#e6db74&#34;&gt;&amp;#34;curl -s localhost:8080/health || echo &amp;#39;WARNING: 服务未启动!&amp;#39;&amp;#34;&lt;/span&gt;
+&lt;/span&gt;&lt;/span&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;
+&lt;/span&gt;&lt;/span&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;echo &lt;span style=&#34;color:#e6db74&#34;&gt;&amp;#34;✅ 发布完成！&amp;#34;&lt;/span&gt;
+&lt;/span&gt;&lt;/span&gt;&lt;/code&gt;&lt;/pre&gt;&lt;/div&gt;&lt;h3 id=&#34;给你的3个行动建议&#34;&gt;给你的3个行动建议：
+&lt;/h3&gt;&lt;ol&gt;
+&lt;li&gt;&lt;strong&gt;本周内&lt;/strong&gt;：挑一个你们团队最重复、最容易出错的手工操作（比如打包、比如同步配置），写一个脚本把它固化下来。&lt;/li&gt;
+&lt;li&gt;&lt;strong&gt;下个迭代&lt;/strong&gt;：尝试在日志中引入Trace ID，哪怕只是在入口处生成并打印出来，对日后的排查帮助都是巨大的。&lt;/li&gt;
+&lt;li&gt;&lt;strong&gt;心态调整&lt;/strong&gt;：别想着一步到位。DevOps是一种文化，不是一个工具。&lt;strong&gt;如果你能让团队成员在犯错时不再害怕被责骂，而是想着&amp;quot;怎么改流程避免下次再犯&amp;quot;，你的DevOps就已经成功了一半。&lt;/strong&gt;&lt;/li&gt;
+&lt;/ol&gt;
+&lt;p&gt;我也还在路上，咱们一起加油。&lt;/p&gt;
+</description>
+        </item>
+        
+    </channel>
+</rss>

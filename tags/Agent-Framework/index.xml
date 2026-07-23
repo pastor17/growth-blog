@@ -1,0 +1,220 @@
+<?xml version="1.0" encoding="utf-8" standalone="yes"?>
+<rss version="2.0" xmlns:atom="http://www.w3.org/2005/Atom">
+    <channel>
+        <title>Agent Framework on SelfTechHub</title>
+        <link>https://blog.irudder.me/tags/Agent-Framework.html</link>
+        <description>Recent content in Agent Framework on SelfTechHub</description>
+        <generator>Hugo -- gohugo.io</generator>
+        <language>zh-cn</language>
+        <lastBuildDate>Fri, 10 Jul 2026 00:00:00 +0000</lastBuildDate><atom:link href="https://blog.irudder.me/tags/Agent-Framework/index.xml" rel="self" type="application/rss+xml" /><item>
+        <title>第15章：LangChain 框架——Agent 开发的瑞士军刀</title>
+        <link>https://blog.irudder.me/ai/knowledge-series/15-LangChain-Framework-Practical-Guide.html</link>
+        <pubDate>Fri, 10 Jul 2026 00:00:00 +0000</pubDate>
+        
+        <guid>https://blog.irudder.me/ai/knowledge-series/15-LangChain-Framework-Practical-Guide.html</guid>
+        <description>&lt;h1 id=&#34;第15章langchain-框架agent-开发的瑞士军刀&#34;&gt;第15章：LangChain 框架——Agent 开发的瑞士军刀
+&lt;/h1&gt;&lt;blockquote&gt;
+&lt;p&gt;系列导读：LangChain 是 Agent 开发的主流框架。本章讲框架架构、核心概念和实战决策——&amp;ldquo;什么时候用 LangChain，什么时候应该甩开它&amp;rdquo;。&lt;/p&gt;
+&lt;/blockquote&gt;
+&lt;hr&gt;
+&lt;h2 id=&#34;一langchain-要解决的问题&#34;&gt;一、LangChain 要解决的问题
+&lt;/h2&gt;&lt;p&gt;手工实现一个 Agent，你需要写：&lt;/p&gt;
+&lt;ul&gt;
+&lt;li&gt;Tool 注册与解析&lt;/li&gt;
+&lt;li&gt;Prompt 模板管理&lt;/li&gt;
+&lt;li&gt;Memory 存储维护&lt;/li&gt;
+&lt;li&gt;Agent 循环逻辑（ReAct / Plan-and-Execute）&lt;/li&gt;
+&lt;li&gt;错误处理和重试&lt;/li&gt;
+&lt;li&gt;多 Agent 协作（如果需要）&lt;/li&gt;
+&lt;/ul&gt;
+&lt;p&gt;LangChain 把这些都封装成了可复用的组件和链式工具，让 Agent 开发从&amp;quot;从零搭建&amp;quot;变成&amp;quot;组装积木&amp;quot;。&lt;/p&gt;
+&lt;h2 id=&#34;二langchain-核心概念&#34;&gt;二、LangChain 核心概念
+&lt;/h2&gt;&lt;h3 id=&#34;1-chain链&#34;&gt;1. Chain（链）
+&lt;/h3&gt;&lt;p&gt;将多个组件按顺序串起来执行：&lt;/p&gt;
+&lt;div class=&#34;highlight&#34;&gt;&lt;pre tabindex=&#34;0&#34; style=&#34;color:#f8f8f2;background-color:#272822;-moz-tab-size:4;-o-tab-size:4;tab-size:4;&#34;&gt;&lt;code class=&#34;language-python&#34; data-lang=&#34;python&#34;&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;chain &lt;span style=&#34;color:#f92672&#34;&gt;=&lt;/span&gt; prompt_template &lt;span style=&#34;color:#f92672&#34;&gt;|&lt;/span&gt; llm &lt;span style=&#34;color:#f92672&#34;&gt;|&lt;/span&gt; output_parser
+&lt;/span&gt;&lt;/span&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;result &lt;span style=&#34;color:#f92672&#34;&gt;=&lt;/span&gt; chain&lt;span style=&#34;color:#f92672&#34;&gt;.&lt;/span&gt;invoke({&lt;span style=&#34;color:#e6db74&#34;&gt;&amp;#34;input&amp;#34;&lt;/span&gt;: &lt;span style=&#34;color:#e6db74&#34;&gt;&amp;#34;分析这份数据&amp;#34;&lt;/span&gt;})
+&lt;/span&gt;&lt;/span&gt;&lt;/code&gt;&lt;/pre&gt;&lt;/div&gt;&lt;p&gt;每个 | 表示前一个组件的输出经过变换传给下一个组件。&lt;/p&gt;
+&lt;h3 id=&#34;2-agent&#34;&gt;2. Agent
+&lt;/h3&gt;&lt;p&gt;预先封装好的 Agent 循环：&lt;/p&gt;
+&lt;div class=&#34;highlight&#34;&gt;&lt;pre tabindex=&#34;0&#34; style=&#34;color:#f8f8f2;background-color:#272822;-moz-tab-size:4;-o-tab-size:4;tab-size:4;&#34;&gt;&lt;code class=&#34;language-python&#34; data-lang=&#34;python&#34;&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;agent &lt;span style=&#34;color:#f92672&#34;&gt;=&lt;/span&gt; create_react_agent(
+&lt;/span&gt;&lt;/span&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;    tools&lt;span style=&#34;color:#f92672&#34;&gt;=&lt;/span&gt;tools,
+&lt;/span&gt;&lt;/span&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;    llm&lt;span style=&#34;color:#f92672&#34;&gt;=&lt;/span&gt;llm,
+&lt;/span&gt;&lt;/span&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;    prompt&lt;span style=&#34;color:#f92672&#34;&gt;=&lt;/span&gt;prompt
+&lt;/span&gt;&lt;/span&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;)
+&lt;/span&gt;&lt;/span&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;agent_executor &lt;span style=&#34;color:#f92672&#34;&gt;=&lt;/span&gt; AgentExecutor(agent&lt;span style=&#34;color:#f92672&#34;&gt;=&lt;/span&gt;agent, tools&lt;span style=&#34;color:#f92672&#34;&gt;=&lt;/span&gt;tools, max_iterations&lt;span style=&#34;color:#f92672&#34;&gt;=&lt;/span&gt;&lt;span style=&#34;color:#ae81ff&#34;&gt;10&lt;/span&gt;)
+&lt;/span&gt;&lt;/span&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;result &lt;span style=&#34;color:#f92672&#34;&gt;=&lt;/span&gt; agent_executor&lt;span style=&#34;color:#f92672&#34;&gt;.&lt;/span&gt;invoke({&lt;span style=&#34;color:#e6db74&#34;&gt;&amp;#34;input&amp;#34;&lt;/span&gt;: &lt;span style=&#34;color:#e6db74&#34;&gt;&amp;#34;帮我查天气&amp;#34;&lt;/span&gt;})
+&lt;/span&gt;&lt;/span&gt;&lt;/code&gt;&lt;/pre&gt;&lt;/div&gt;&lt;p&gt;预置的 Agent 类型：&lt;/p&gt;
+&lt;ul&gt;
+&lt;li&gt;ReAct Agent：Thought → Action → Observation 循环&lt;/li&gt;
+&lt;li&gt;Plan-and-Execute Agent：先规划计划，再按步骤执行&lt;/li&gt;
+&lt;li&gt;Structured Chat Agent：支持多参数工具调用&lt;/li&gt;
+&lt;li&gt;Conversational Agent：带记忆的对话型 Agent&lt;/li&gt;
+&lt;/ul&gt;
+&lt;h3 id=&#34;3-tool&#34;&gt;3. Tool
+&lt;/h3&gt;&lt;div class=&#34;highlight&#34;&gt;&lt;pre tabindex=&#34;0&#34; style=&#34;color:#f8f8f2;background-color:#272822;-moz-tab-size:4;-o-tab-size:4;tab-size:4;&#34;&gt;&lt;code class=&#34;language-python&#34; data-lang=&#34;python&#34;&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;&lt;span style=&#34;color:#f92672&#34;&gt;from&lt;/span&gt; langchain.tools &lt;span style=&#34;color:#f92672&#34;&gt;import&lt;/span&gt; tool
+&lt;/span&gt;&lt;/span&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;
+&lt;/span&gt;&lt;/span&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;&lt;span style=&#34;color:#a6e22e&#34;&gt;@tool&lt;/span&gt;
+&lt;/span&gt;&lt;/span&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;&lt;span style=&#34;color:#66d9ef&#34;&gt;def&lt;/span&gt; &lt;span style=&#34;color:#a6e22e&#34;&gt;get_weather&lt;/span&gt;(city: str) &lt;span style=&#34;color:#f92672&#34;&gt;-&amp;gt;&lt;/span&gt; str:
+&lt;/span&gt;&lt;/span&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;    &lt;span style=&#34;color:#e6db74&#34;&gt;&amp;#34;&amp;#34;&amp;#34;查询指定城市的天气信息。&amp;#34;&amp;#34;&amp;#34;&lt;/span&gt;
+&lt;/span&gt;&lt;/span&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;    &lt;span style=&#34;color:#66d9ef&#34;&gt;return&lt;/span&gt; &lt;span style=&#34;color:#e6db74&#34;&gt;f&lt;/span&gt;&lt;span style=&#34;color:#e6db74&#34;&gt;&amp;#34;&lt;/span&gt;&lt;span style=&#34;color:#e6db74&#34;&gt;{&lt;/span&gt;city&lt;span style=&#34;color:#e6db74&#34;&gt;}&lt;/span&gt;&lt;span style=&#34;color:#e6db74&#34;&gt;今天天气晴朗，25度&amp;#34;&lt;/span&gt;
+&lt;/span&gt;&lt;/span&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;
+&lt;/span&gt;&lt;/span&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;tools &lt;span style=&#34;color:#f92672&#34;&gt;=&lt;/span&gt; [get_weather]
+&lt;/span&gt;&lt;/span&gt;&lt;/code&gt;&lt;/pre&gt;&lt;/div&gt;&lt;p&gt;装饰自动提取函数签名和 docstring 作为 tool schema，非常简洁。&lt;/p&gt;
+&lt;h3 id=&#34;4-memory&#34;&gt;4. Memory
+&lt;/h3&gt;&lt;div class=&#34;highlight&#34;&gt;&lt;pre tabindex=&#34;0&#34; style=&#34;color:#f8f8f2;background-color:#272822;-moz-tab-size:4;-o-tab-size:4;tab-size:4;&#34;&gt;&lt;code class=&#34;language-python&#34; data-lang=&#34;python&#34;&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;&lt;span style=&#34;color:#f92672&#34;&gt;from&lt;/span&gt; langchain.memory &lt;span style=&#34;color:#f92672&#34;&gt;import&lt;/span&gt; ConversationBufferMemory
+&lt;/span&gt;&lt;/span&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;
+&lt;/span&gt;&lt;/span&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;memory &lt;span style=&#34;color:#f92672&#34;&gt;=&lt;/span&gt; ConversationBufferMemory()
+&lt;/span&gt;&lt;/span&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;memory&lt;span style=&#34;color:#f92672&#34;&gt;.&lt;/span&gt;save_context({&lt;span style=&#34;color:#e6db74&#34;&gt;&amp;#34;input&amp;#34;&lt;/span&gt;: &lt;span style=&#34;color:#e6db74&#34;&gt;&amp;#34;我喜欢简洁风格&amp;#34;&lt;/span&gt;}, {&lt;span style=&#34;color:#e6db74&#34;&gt;&amp;#34;output&amp;#34;&lt;/span&gt;: &lt;span style=&#34;color:#e6db74&#34;&gt;&amp;#34;好的，我会注意&amp;#34;&lt;/span&gt;})
+&lt;/span&gt;&lt;/span&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;&lt;span style=&#34;color:#75715e&#34;&gt;# memory 会自动维护对话历史，在 Agent 调用时作为 context 注入&lt;/span&gt;
+&lt;/span&gt;&lt;/span&gt;&lt;/code&gt;&lt;/pre&gt;&lt;/div&gt;&lt;h3 id=&#34;5-retriever检索器&#34;&gt;5. Retriever（检索器）
+&lt;/h3&gt;&lt;p&gt;把 RAG 的检索部分封装好：&lt;/p&gt;
+&lt;div class=&#34;highlight&#34;&gt;&lt;pre tabindex=&#34;0&#34; style=&#34;color:#f8f8f2;background-color:#272822;-moz-tab-size:4;-o-tab-size:4;tab-size:4;&#34;&gt;&lt;code class=&#34;language-python&#34; data-lang=&#34;python&#34;&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;retriever &lt;span style=&#34;color:#f92672&#34;&gt;=&lt;/span&gt; Chroma&lt;span style=&#34;color:#f92672&#34;&gt;.&lt;/span&gt;from_documents(docs, embeddings)&lt;span style=&#34;color:#f92672&#34;&gt;.&lt;/span&gt;as_retriever()
+&lt;/span&gt;&lt;/span&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;result &lt;span style=&#34;color:#f92672&#34;&gt;=&lt;/span&gt; retriever&lt;span style=&#34;color:#f92672&#34;&gt;.&lt;/span&gt;invoke(&lt;span style=&#34;color:#e6db74&#34;&gt;&amp;#34;什么是 RAG？&amp;#34;&lt;/span&gt;)
+&lt;/span&gt;&lt;/span&gt;&lt;/code&gt;&lt;/pre&gt;&lt;/div&gt;&lt;h2 id=&#34;三langchain-的优势&#34;&gt;三、LangChain 的优势
+&lt;/h2&gt;&lt;ol&gt;
+&lt;li&gt;&lt;strong&gt;快速原型&lt;/strong&gt;：组装积木的方式，几小时就能跑通一个 Agent&lt;/li&gt;
+&lt;li&gt;&lt;strong&gt;生态丰富&lt;/strong&gt;：内置大量 ready-to-use 的 tools、retrievers、memory 模块&lt;/li&gt;
+&lt;li&gt;&lt;strong&gt;标准接口&lt;/strong&gt;：统一的 invoke/stream/batch 接口，切换底层模型无痛&lt;/li&gt;
+&lt;li&gt;&lt;strong&gt;调试友好&lt;/strong&gt;：链式调用的中间步骤都能打印出来&lt;/li&gt;
+&lt;/ol&gt;
+&lt;h2 id=&#34;四langchain-的天坑&#34;&gt;四、LangChain 的天坑
+&lt;/h2&gt;&lt;h3 id=&#34;坑1过度封装&#34;&gt;坑1：过度封装
+&lt;/h3&gt;&lt;p&gt;LangChain 的链式抽象堆了太多层，理解一个简单调用背后实际发生了什么，需要追踪好几层源码。&lt;/p&gt;
+&lt;h3 id=&#34;坑2性能问题&#34;&gt;坑2：性能问题
+&lt;/h3&gt;&lt;p&gt;链式调用每层都有类型转换、验证、异常捕获，对高频场景来说有不可忽视的 overhead。&lt;/p&gt;
+&lt;h3 id=&#34;坑3版本迭代快&#34;&gt;坑3：版本迭代快
+&lt;/h3&gt;&lt;p&gt;API 变动频繁，一个用 v0.1 写的项目，几个月后 v0.2 就 break。&lt;/p&gt;
+&lt;h3 id=&#34;坑4不适合深度定制&#34;&gt;坑4：不适合深度定制
+&lt;/h3&gt;&lt;p&gt;你要做一个高度定制的推理流程，LangChain 的约束框架可能碍手碍脚。&lt;/p&gt;
+&lt;h2 id=&#34;五什么时候用-langchain什么时候手搓&#34;&gt;五、&amp;ldquo;什么时候用 LangChain，什么时候手搓？&amp;rdquo;
+&lt;/h2&gt;&lt;table&gt;
+  &lt;thead&gt;
+      &lt;tr&gt;
+          &lt;th&gt;场景&lt;/th&gt;
+          &lt;th&gt;推荐方案&lt;/th&gt;
+      &lt;/tr&gt;
+  &lt;/thead&gt;
+  &lt;tbody&gt;
+      &lt;tr&gt;
+          &lt;td&gt;快速原型验证 / MVP&lt;/td&gt;
+          &lt;td&gt;用 LangChain&lt;/td&gt;
+      &lt;/tr&gt;
+      &lt;tr&gt;
+          &lt;td&gt;标准 Agent 模式（ReAct、工具调用）&lt;/td&gt;
+          &lt;td&gt;用 LangChain&lt;/td&gt;
+      &lt;/tr&gt;
+      &lt;tr&gt;
+          &lt;td&gt;内部工具/低频应用&lt;/td&gt;
+          &lt;td&gt;用 LangChain&lt;/td&gt;
+      &lt;/tr&gt;
+      &lt;tr&gt;
+          &lt;td&gt;高并发生产服务&lt;/td&gt;
+          &lt;td&gt;手搓核心关键路径&lt;/td&gt;
+      &lt;/tr&gt;
+      &lt;tr&gt;
+          &lt;td&gt;极度定制化的推理流程&lt;/td&gt;
+          &lt;td&gt;手搓&lt;/td&gt;
+      &lt;/tr&gt;
+      &lt;tr&gt;
+          &lt;td&gt;需要极致性能优化&lt;/td&gt;
+          &lt;td&gt;手搓&lt;/td&gt;
+      &lt;/tr&gt;
+      &lt;tr&gt;
+          &lt;td&gt;大规模 Multi-Agent 系统&lt;/td&gt;
+          &lt;td&gt;手搓核心编排，局部用框架&lt;/td&gt;
+      &lt;/tr&gt;
+  &lt;/tbody&gt;
+&lt;/table&gt;
+&lt;p&gt;&lt;strong&gt;最务实的做法&lt;/strong&gt;：用 LangChain 快速做出 MVP，验证业务价值后再决定哪些部分需要重写。&lt;/p&gt;
+&lt;h2 id=&#34;六langchain-实战一个完整的-rag-agent&#34;&gt;六、LangChain 实战：一个完整的 RAG Agent
+&lt;/h2&gt;&lt;div class=&#34;highlight&#34;&gt;&lt;pre tabindex=&#34;0&#34; style=&#34;color:#f8f8f2;background-color:#272822;-moz-tab-size:4;-o-tab-size:4;tab-size:4;&#34;&gt;&lt;code class=&#34;language-python&#34; data-lang=&#34;python&#34;&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;&lt;span style=&#34;color:#f92672&#34;&gt;from&lt;/span&gt; langchain &lt;span style=&#34;color:#f92672&#34;&gt;import&lt;/span&gt; hub
+&lt;/span&gt;&lt;/span&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;&lt;span style=&#34;color:#f92672&#34;&gt;from&lt;/span&gt; langchain_openai &lt;span style=&#34;color:#f92672&#34;&gt;import&lt;/span&gt; ChatOpenAI, OpenAIEmbeddings
+&lt;/span&gt;&lt;/span&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;&lt;span style=&#34;color:#f92672&#34;&gt;from&lt;/span&gt; langchain_chroma &lt;span style=&#34;color:#f92672&#34;&gt;import&lt;/span&gt; Chroma
+&lt;/span&gt;&lt;/span&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;&lt;span style=&#34;color:#f92672&#34;&gt;from&lt;/span&gt; langchain_community.document_loaders &lt;span style=&#34;color:#f92672&#34;&gt;import&lt;/span&gt; WebBaseLoader
+&lt;/span&gt;&lt;/span&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;&lt;span style=&#34;color:#f92672&#34;&gt;from&lt;/span&gt; langchain_text_splitters &lt;span style=&#34;color:#f92672&#34;&gt;import&lt;/span&gt; RecursiveCharacterTextSplitter
+&lt;/span&gt;&lt;/span&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;&lt;span style=&#34;color:#f92672&#34;&gt;from&lt;/span&gt; langchain_core.runnables &lt;span style=&#34;color:#f92672&#34;&gt;import&lt;/span&gt; RunnablePassthrough
+&lt;/span&gt;&lt;/span&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;&lt;span style=&#34;color:#f92672&#34;&gt;from&lt;/span&gt; langchain_core.output_parsers &lt;span style=&#34;color:#f92672&#34;&gt;import&lt;/span&gt; StrOutputParser
+&lt;/span&gt;&lt;/span&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;
+&lt;/span&gt;&lt;/span&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;&lt;span style=&#34;color:#75715e&#34;&gt;# 1. 加载文档&lt;/span&gt;
+&lt;/span&gt;&lt;/span&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;loader &lt;span style=&#34;color:#f92672&#34;&gt;=&lt;/span&gt; WebBaseLoader(&lt;span style=&#34;color:#e6db74&#34;&gt;&amp;#34;https://docs.python.org/3/&amp;#34;&lt;/span&gt;)
+&lt;/span&gt;&lt;/span&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;docs &lt;span style=&#34;color:#f92672&#34;&gt;=&lt;/span&gt; loader&lt;span style=&#34;color:#f92672&#34;&gt;.&lt;/span&gt;load()
+&lt;/span&gt;&lt;/span&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;
+&lt;/span&gt;&lt;/span&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;&lt;span style=&#34;color:#75715e&#34;&gt;# 2. 切割&lt;/span&gt;
+&lt;/span&gt;&lt;/span&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;text_splitter &lt;span style=&#34;color:#f92672&#34;&gt;=&lt;/span&gt; RecursiveCharacterTextSplitter(chunk_size&lt;span style=&#34;color:#f92672&#34;&gt;=&lt;/span&gt;&lt;span style=&#34;color:#ae81ff&#34;&gt;500&lt;/span&gt;, chunk_overlap&lt;span style=&#34;color:#f92672&#34;&gt;=&lt;/span&gt;&lt;span style=&#34;color:#ae81ff&#34;&gt;50&lt;/span&gt;)
+&lt;/span&gt;&lt;/span&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;splits &lt;span style=&#34;color:#f92672&#34;&gt;=&lt;/span&gt; text_splitter&lt;span style=&#34;color:#f92672&#34;&gt;.&lt;/span&gt;split_documents(docs)
+&lt;/span&gt;&lt;/span&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;
+&lt;/span&gt;&lt;/span&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;&lt;span style=&#34;color:#75715e&#34;&gt;# 3. 存入向量库&lt;/span&gt;
+&lt;/span&gt;&lt;/span&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;vectorstore &lt;span style=&#34;color:#f92672&#34;&gt;=&lt;/span&gt; Chroma&lt;span style=&#34;color:#f92672&#34;&gt;.&lt;/span&gt;from_documents(documents&lt;span style=&#34;color:#f92672&#34;&gt;=&lt;/span&gt;splits, embedding&lt;span style=&#34;color:#f92672&#34;&gt;=&lt;/span&gt;OpenAIEmbeddings())
+&lt;/span&gt;&lt;/span&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;retriever &lt;span style=&#34;color:#f92672&#34;&gt;=&lt;/span&gt; vectorstore&lt;span style=&#34;color:#f92672&#34;&gt;.&lt;/span&gt;as_retriever()
+&lt;/span&gt;&lt;/span&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;
+&lt;/span&gt;&lt;/span&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;&lt;span style=&#34;color:#75715e&#34;&gt;# 4. 构建 RAG Chain&lt;/span&gt;
+&lt;/span&gt;&lt;/span&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;prompt &lt;span style=&#34;color:#f92672&#34;&gt;=&lt;/span&gt; hub&lt;span style=&#34;color:#f92672&#34;&gt;.&lt;/span&gt;pull(&lt;span style=&#34;color:#e6db74&#34;&gt;&amp;#34;rlm/rag-prompt&amp;#34;&lt;/span&gt;)
+&lt;/span&gt;&lt;/span&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;llm &lt;span style=&#34;color:#f92672&#34;&gt;=&lt;/span&gt; ChatOpenAI(model&lt;span style=&#34;color:#f92672&#34;&gt;=&lt;/span&gt;&lt;span style=&#34;color:#e6db74&#34;&gt;&amp;#34;gpt-4o&amp;#34;&lt;/span&gt;)
+&lt;/span&gt;&lt;/span&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;
+&lt;/span&gt;&lt;/span&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;&lt;span style=&#34;color:#66d9ef&#34;&gt;def&lt;/span&gt; &lt;span style=&#34;color:#a6e22e&#34;&gt;format_docs&lt;/span&gt;(docs):
+&lt;/span&gt;&lt;/span&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;    &lt;span style=&#34;color:#66d9ef&#34;&gt;return&lt;/span&gt; &lt;span style=&#34;color:#e6db74&#34;&gt;&amp;#34;&lt;/span&gt;&lt;span style=&#34;color:#ae81ff&#34;&gt;\n\n&lt;/span&gt;&lt;span style=&#34;color:#e6db74&#34;&gt;&amp;#34;&lt;/span&gt;&lt;span style=&#34;color:#f92672&#34;&gt;.&lt;/span&gt;join(doc&lt;span style=&#34;color:#f92672&#34;&gt;.&lt;/span&gt;page_content &lt;span style=&#34;color:#66d9ef&#34;&gt;for&lt;/span&gt; doc &lt;span style=&#34;color:#f92672&#34;&gt;in&lt;/span&gt; docs)
+&lt;/span&gt;&lt;/span&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;
+&lt;/span&gt;&lt;/span&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;rag_chain &lt;span style=&#34;color:#f92672&#34;&gt;=&lt;/span&gt; (
+&lt;/span&gt;&lt;/span&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;    {&lt;span style=&#34;color:#e6db74&#34;&gt;&amp;#34;context&amp;#34;&lt;/span&gt;: retriever &lt;span style=&#34;color:#f92672&#34;&gt;|&lt;/span&gt; format_docs, &lt;span style=&#34;color:#e6db74&#34;&gt;&amp;#34;question&amp;#34;&lt;/span&gt;: RunnablePassthrough()}
+&lt;/span&gt;&lt;/span&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;    &lt;span style=&#34;color:#f92672&#34;&gt;|&lt;/span&gt; prompt
+&lt;/span&gt;&lt;/span&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;    &lt;span style=&#34;color:#f92672&#34;&gt;|&lt;/span&gt; llm
+&lt;/span&gt;&lt;/span&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;    &lt;span style=&#34;color:#f92672&#34;&gt;|&lt;/span&gt; StrOutputParser()
+&lt;/span&gt;&lt;/span&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;)
+&lt;/span&gt;&lt;/span&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;
+&lt;/span&gt;&lt;/span&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;&lt;span style=&#34;color:#75715e&#34;&gt;# 5. 使用&lt;/span&gt;
+&lt;/span&gt;&lt;/span&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;response &lt;span style=&#34;color:#f92672&#34;&gt;=&lt;/span&gt; rag_chain&lt;span style=&#34;color:#f92672&#34;&gt;.&lt;/span&gt;invoke(&lt;span style=&#34;color:#e6db74&#34;&gt;&amp;#34;Python 的 GIL 是什么？&amp;#34;&lt;/span&gt;)
+&lt;/span&gt;&lt;/span&gt;&lt;/code&gt;&lt;/pre&gt;&lt;/div&gt;&lt;h2 id=&#34;七langchain-的替代者&#34;&gt;七、LangChain 的替代者
+&lt;/h2&gt;&lt;table&gt;
+  &lt;thead&gt;
+      &lt;tr&gt;
+          &lt;th&gt;框架&lt;/th&gt;
+          &lt;th&gt;特点&lt;/th&gt;
+          &lt;th&gt;适用场景&lt;/th&gt;
+      &lt;/tr&gt;
+  &lt;/thead&gt;
+  &lt;tbody&gt;
+      &lt;tr&gt;
+          &lt;td&gt;&lt;strong&gt;LangGraph&lt;/strong&gt;&lt;/td&gt;
+          &lt;td&gt;LangChain 官方出的图编排工具，比链更灵活&lt;/td&gt;
+          &lt;td&gt;复杂 Multi-Agent 编排&lt;/td&gt;
+      &lt;/tr&gt;
+      &lt;tr&gt;
+          &lt;td&gt;&lt;strong&gt;LlamaIndex&lt;/strong&gt;&lt;/td&gt;
+          &lt;td&gt;专注 RAG，文档加载和索引更强&lt;/td&gt;
+          &lt;td&gt;知识库/文档问答&lt;/td&gt;
+      &lt;/tr&gt;
+      &lt;tr&gt;
+          &lt;td&gt;&lt;strong&gt;CrewAI&lt;/strong&gt;&lt;/td&gt;
+          &lt;td&gt;专注 Multi-Agent 协作场景&lt;/td&gt;
+          &lt;td&gt;多智能体项目&lt;/td&gt;
+      &lt;/tr&gt;
+      &lt;tr&gt;
+          &lt;td&gt;&lt;strong&gt;AutoGen&lt;/strong&gt;&lt;/td&gt;
+          &lt;td&gt;微软出的 Multi-Agent 对话框架&lt;/td&gt;
+          &lt;td&gt;研究/多轮讨论&lt;/td&gt;
+      &lt;/tr&gt;
+      &lt;tr&gt;
+          &lt;td&gt;&lt;strong&gt;直接 SDK&lt;/strong&gt;&lt;/td&gt;
+          &lt;td&gt;不用框架，直接调 OpenAI/Anthropic SDK&lt;/td&gt;
+          &lt;td&gt;简单/高性能场景&lt;/td&gt;
+      &lt;/tr&gt;
+  &lt;/tbody&gt;
+&lt;/table&gt;
+&lt;h2 id=&#34;八本章小结&#34;&gt;八、本章小结
+&lt;/h2&gt;&lt;ul&gt;
+&lt;li&gt;LangChain 是 Agent/RAG 快速开发和原型验证的首选框架&lt;/li&gt;
+&lt;li&gt;核心概念：Chain、Agent、Tool、Memory、Retriever&lt;/li&gt;
+&lt;li&gt;优势是组装敏捷和生态丰富，劣势是过度封装和性能开销&lt;/li&gt;
+&lt;li&gt;选型建议：MVP 用 LangChain，生产级核心路径可重写&lt;/li&gt;
+&lt;li&gt;LlamaIndex（RAG 更强）、CrewAI（Multi-Agent 更强）是重要替代方案&lt;/li&gt;
+&lt;/ul&gt;
+&lt;h2 id=&#34;思考题&#34;&gt;思考题
+&lt;/h2&gt;&lt;ol&gt;
+&lt;li&gt;你在什么情况下会用 LlamaIndex 而不是 LangChain？两个框架的核心差异在哪？&lt;/li&gt;
+&lt;li&gt;如果你的 Agent 需要同时走 &amp;ldquo;向量检索 + API 调用 + 代码执行 + 最终报告生成&amp;rdquo; 四条路径，LangChain 的链式抽象够用吗？你会怎么设计架构？&lt;/li&gt;
+&lt;/ol&gt;
+</description>
+        </item>
+        
+    </channel>
+</rss>

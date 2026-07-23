@@ -1,0 +1,503 @@
+<!DOCTYPE html>
+<html lang="zh-cn" dir="ltr">
+    <head><meta charset='utf-8'>
+<meta name='viewport' content='width=device-width, initial-scale=1'><meta name='description' content="凌晨3点，手机屏幕上刺眼的Zabbix报警红光把我和运维老张从睡梦中拽了起来——主库磁盘使用率飙升至92%，慢查询日志像雪花一样堆满了屏幕。\n那一刻，我除了机械地建议“先扩容吧”，心里涌上一股深深的无力感。我们总以为随着业务增长，加配置、换SSD是万能解药，直到预算审批被CTO打回，并在邮件里冷冷地问了一句：“为什么我们的存储成本比业务增速快了三倍？”\n这句话像根刺，扎了我很久。\n如果你也正对着日益膨胀的表空间发愁，或者看着云厂商的账单心惊肉跳，请相信，你不是一个人在战斗。这几年，我从“无脑扩容”到“精打细算”，踩过不少坑，也总结出了一些关于冷热数据分离的实战心得。今天不讲大道理，只想和你聊聊，怎么让数据“瘦身”，也让我们这些技术人能睡个安稳觉。\n01. 别被“总有一天会用到”的念头绑架\r很多开发同学（包括当年的我）都有个“松鼠症”心态：数据进了数据库，就觉得它是神圣不可侵犯的，哪怕是三年前的日志，也觉得“万一哪天要查呢？”\n观点：存储优化的第一步，不是技术选型，而是和业务方的一场“断舍离”。\n2020年，我负责一个电商中台项目。订单表 orders 在两年内膨胀到了8亿行，单表体积破了300GB。每次做DDL（数据库定义语言）操作都像是在走钢丝，查询性能更是断崖式下跌。\n当时我们试图通过分库分表来解决，但那是“重症猛药”，开发周期太长。\n后来，我拉着产品经理和运营做了一次数据盘点，我们发现了一个惊人的事实：95%的查询请求，都集中在最近3个月的订单上。 超过半年的订单，除了财务对账和极少数用户回溯，几乎无人问津。\n于是，我们制定了第一条“冷热边界”：\n热数据：最近3个月的订单，保留在高性能MySQL集群（SSD盘）。 冷数据：3个月-1年前的订单，迁移到低成本的MySQL归档库（HDD盘）。 冰数据：1年前的订单，直接转存到对象存储（OSS）或大数据平台（Hive），仅供离线分析。 结果是立竿见影的：主库数据量瞬间下降了80%，磁盘IOPS（每秒读写次数）降低了60%，那个让我们提心吊胆的报警群，终于安静了下来。\n02. 迁移就像搬家，别搞“暴力拆迁”\r定好了策略，怎么搬运数据是个精细活。我见过最惨的案例，是一个新来的小兄弟写了个脚本，在一个大事务里把冷数据 INSERT 进归档表，然后直接 DELETE 原表数据。\n结果可想而知：主从延迟飙升，锁表导致线上交易卡顿，差点酿成P0级事故。\n观点：数据迁移的核心是“温和”与“可逆”，永远给线上业务留呼吸口。\n我现在的习惯是，每周五下午抽出一点时间检查迁移任务的健康度，而这个任务本身，我是用这套逻辑实现的：\n双写与校验（可选但推荐）：如果业务极其敏感，可以在代码层做双写，但对于存量数据，我更推荐基于时间戳的滚动归档。 分批次“蚂蚁搬家”：千万不要一次性操作大量数据。 物理删除的滞后性：别指望 DELETE 后空间立马释放，特别是MySQL，你需要后续的 OPTIMIZE TABLE（要在低峰期做！）。 这是一个我常用的、比较温和的归档逻辑伪代码，供你参考：\ndef archive_cold_data(batch_size=1000): # 每次只处理一小批，避免长事务 while True: # 1. 查出符合冷数据条件的ID列表（利用索引） cold_ids = db.query(&#34;SELECT id FROM orders WHERE create_time &lt; &#39;2023-01-01&#39; LIMIT %s&#34;, batch_size) if not cold_ids: break # 2. 开启事务：写入归档库 try: archive_db.insert(fetch_data(cold_ids)) # 3. 再次校验（防止在读取期间数据发生变更，虽少见但要求稳） verify_data_consistency(cold_ids) # 4. 从主库删除 source_db.delete(cold_ids) # 5. 提交事务 commit() # 6. *关键*：休息一下，给数据库喘息时间 time.sleep(0.5) except Exception as e: rollback() log_error(e) # 遇到错误要有报警，但不要死循环重试 break 小贴士：对于海量数据，利用 pt-archiver 这类成熟工具往往比自己写脚本更稳妥，它自动处理了分批、休眠和重试，是我工具箱里的常备神器。\n">
+<title>数据库报警的那夜：我是如何把存储成本砍半的？</title>
+
+<link rel='canonical' href='https://blog.irudder.me/tech/jiagouyouhuashizhananlijiexi/cunchuyouhua_lengreshujufenlideshixian.html'>
+
+<link rel="stylesheet" href="/scss/style.min.b9e9128fec450ebccecc4ec9900157f32b85d0609bcd5ee3293968bcaa1235f2.css"><meta property='og:title' content="数据库报警的那夜：我是如何把存储成本砍半的？">
+<meta property='og:description' content="凌晨3点，手机屏幕上刺眼的Zabbix报警红光把我和运维老张从睡梦中拽了起来——主库磁盘使用率飙升至92%，慢查询日志像雪花一样堆满了屏幕。\n那一刻，我除了机械地建议“先扩容吧”，心里涌上一股深深的无力感。我们总以为随着业务增长，加配置、换SSD是万能解药，直到预算审批被CTO打回，并在邮件里冷冷地问了一句：“为什么我们的存储成本比业务增速快了三倍？”\n这句话像根刺，扎了我很久。\n如果你也正对着日益膨胀的表空间发愁，或者看着云厂商的账单心惊肉跳，请相信，你不是一个人在战斗。这几年，我从“无脑扩容”到“精打细算”，踩过不少坑，也总结出了一些关于冷热数据分离的实战心得。今天不讲大道理，只想和你聊聊，怎么让数据“瘦身”，也让我们这些技术人能睡个安稳觉。\n01. 别被“总有一天会用到”的念头绑架\r很多开发同学（包括当年的我）都有个“松鼠症”心态：数据进了数据库，就觉得它是神圣不可侵犯的，哪怕是三年前的日志，也觉得“万一哪天要查呢？”\n观点：存储优化的第一步，不是技术选型，而是和业务方的一场“断舍离”。\n2020年，我负责一个电商中台项目。订单表 orders 在两年内膨胀到了8亿行，单表体积破了300GB。每次做DDL（数据库定义语言）操作都像是在走钢丝，查询性能更是断崖式下跌。\n当时我们试图通过分库分表来解决，但那是“重症猛药”，开发周期太长。\n后来，我拉着产品经理和运营做了一次数据盘点，我们发现了一个惊人的事实：95%的查询请求，都集中在最近3个月的订单上。 超过半年的订单，除了财务对账和极少数用户回溯，几乎无人问津。\n于是，我们制定了第一条“冷热边界”：\n热数据：最近3个月的订单，保留在高性能MySQL集群（SSD盘）。 冷数据：3个月-1年前的订单，迁移到低成本的MySQL归档库（HDD盘）。 冰数据：1年前的订单，直接转存到对象存储（OSS）或大数据平台（Hive），仅供离线分析。 结果是立竿见影的：主库数据量瞬间下降了80%，磁盘IOPS（每秒读写次数）降低了60%，那个让我们提心吊胆的报警群，终于安静了下来。\n02. 迁移就像搬家，别搞“暴力拆迁”\r定好了策略，怎么搬运数据是个精细活。我见过最惨的案例，是一个新来的小兄弟写了个脚本，在一个大事务里把冷数据 INSERT 进归档表，然后直接 DELETE 原表数据。\n结果可想而知：主从延迟飙升，锁表导致线上交易卡顿，差点酿成P0级事故。\n观点：数据迁移的核心是“温和”与“可逆”，永远给线上业务留呼吸口。\n我现在的习惯是，每周五下午抽出一点时间检查迁移任务的健康度，而这个任务本身，我是用这套逻辑实现的：\n双写与校验（可选但推荐）：如果业务极其敏感，可以在代码层做双写，但对于存量数据，我更推荐基于时间戳的滚动归档。 分批次“蚂蚁搬家”：千万不要一次性操作大量数据。 物理删除的滞后性：别指望 DELETE 后空间立马释放，特别是MySQL，你需要后续的 OPTIMIZE TABLE（要在低峰期做！）。 这是一个我常用的、比较温和的归档逻辑伪代码，供你参考：\ndef archive_cold_data(batch_size=1000): # 每次只处理一小批，避免长事务 while True: # 1. 查出符合冷数据条件的ID列表（利用索引） cold_ids = db.query(&#34;SELECT id FROM orders WHERE create_time &lt; &#39;2023-01-01&#39; LIMIT %s&#34;, batch_size) if not cold_ids: break # 2. 开启事务：写入归档库 try: archive_db.insert(fetch_data(cold_ids)) # 3. 再次校验（防止在读取期间数据发生变更，虽少见但要求稳） verify_data_consistency(cold_ids) # 4. 从主库删除 source_db.delete(cold_ids) # 5. 提交事务 commit() # 6. *关键*：休息一下，给数据库喘息时间 time.sleep(0.5) except Exception as e: rollback() log_error(e) # 遇到错误要有报警，但不要死循环重试 break 小贴士：对于海量数据，利用 pt-archiver 这类成熟工具往往比自己写脚本更稳妥，它自动处理了分批、休眠和重试，是我工具箱里的常备神器。\n">
+<meta property='og:url' content='https://blog.irudder.me/tech/jiagouyouhuashizhananlijiexi/cunchuyouhua_lengreshujufenlideshixian.html'>
+<meta property='og:site_name' content='SelfTechHub'>
+<meta property='og:type' content='article'><meta property='article:section' content='Tech' /><meta property='article:tag' content='存储优化：冷热数据分离的实现' /><meta property='article:published_time' content='2020-06-20T00:00:00&#43;00:00'/><meta property='article:modified_time' content='2020-06-20T00:00:00&#43;00:00'/>
+<meta name="twitter:title" content="数据库报警的那夜：我是如何把存储成本砍半的？">
+<meta name="twitter:description" content="凌晨3点，手机屏幕上刺眼的Zabbix报警红光把我和运维老张从睡梦中拽了起来——主库磁盘使用率飙升至92%，慢查询日志像雪花一样堆满了屏幕。\n那一刻，我除了机械地建议“先扩容吧”，心里涌上一股深深的无力感。我们总以为随着业务增长，加配置、换SSD是万能解药，直到预算审批被CTO打回，并在邮件里冷冷地问了一句：“为什么我们的存储成本比业务增速快了三倍？”\n这句话像根刺，扎了我很久。\n如果你也正对着日益膨胀的表空间发愁，或者看着云厂商的账单心惊肉跳，请相信，你不是一个人在战斗。这几年，我从“无脑扩容”到“精打细算”，踩过不少坑，也总结出了一些关于冷热数据分离的实战心得。今天不讲大道理，只想和你聊聊，怎么让数据“瘦身”，也让我们这些技术人能睡个安稳觉。\n01. 别被“总有一天会用到”的念头绑架\r很多开发同学（包括当年的我）都有个“松鼠症”心态：数据进了数据库，就觉得它是神圣不可侵犯的，哪怕是三年前的日志，也觉得“万一哪天要查呢？”\n观点：存储优化的第一步，不是技术选型，而是和业务方的一场“断舍离”。\n2020年，我负责一个电商中台项目。订单表 orders 在两年内膨胀到了8亿行，单表体积破了300GB。每次做DDL（数据库定义语言）操作都像是在走钢丝，查询性能更是断崖式下跌。\n当时我们试图通过分库分表来解决，但那是“重症猛药”，开发周期太长。\n后来，我拉着产品经理和运营做了一次数据盘点，我们发现了一个惊人的事实：95%的查询请求，都集中在最近3个月的订单上。 超过半年的订单，除了财务对账和极少数用户回溯，几乎无人问津。\n于是，我们制定了第一条“冷热边界”：\n热数据：最近3个月的订单，保留在高性能MySQL集群（SSD盘）。 冷数据：3个月-1年前的订单，迁移到低成本的MySQL归档库（HDD盘）。 冰数据：1年前的订单，直接转存到对象存储（OSS）或大数据平台（Hive），仅供离线分析。 结果是立竿见影的：主库数据量瞬间下降了80%，磁盘IOPS（每秒读写次数）降低了60%，那个让我们提心吊胆的报警群，终于安静了下来。\n02. 迁移就像搬家，别搞“暴力拆迁”\r定好了策略，怎么搬运数据是个精细活。我见过最惨的案例，是一个新来的小兄弟写了个脚本，在一个大事务里把冷数据 INSERT 进归档表，然后直接 DELETE 原表数据。\n结果可想而知：主从延迟飙升，锁表导致线上交易卡顿，差点酿成P0级事故。\n观点：数据迁移的核心是“温和”与“可逆”，永远给线上业务留呼吸口。\n我现在的习惯是，每周五下午抽出一点时间检查迁移任务的健康度，而这个任务本身，我是用这套逻辑实现的：\n双写与校验（可选但推荐）：如果业务极其敏感，可以在代码层做双写，但对于存量数据，我更推荐基于时间戳的滚动归档。 分批次“蚂蚁搬家”：千万不要一次性操作大量数据。 物理删除的滞后性：别指望 DELETE 后空间立马释放，特别是MySQL，你需要后续的 OPTIMIZE TABLE（要在低峰期做！）。 这是一个我常用的、比较温和的归档逻辑伪代码，供你参考：\ndef archive_cold_data(batch_size=1000): # 每次只处理一小批，避免长事务 while True: # 1. 查出符合冷数据条件的ID列表（利用索引） cold_ids = db.query(&#34;SELECT id FROM orders WHERE create_time &lt; &#39;2023-01-01&#39; LIMIT %s&#34;, batch_size) if not cold_ids: break # 2. 开启事务：写入归档库 try: archive_db.insert(fetch_data(cold_ids)) # 3. 再次校验（防止在读取期间数据发生变更，虽少见但要求稳） verify_data_consistency(cold_ids) # 4. 从主库删除 source_db.delete(cold_ids) # 5. 提交事务 commit() # 6. *关键*：休息一下，给数据库喘息时间 time.sleep(0.5) except Exception as e: rollback() log_error(e) # 遇到错误要有报警，但不要死循环重试 break 小贴士：对于海量数据，利用 pt-archiver 这类成熟工具往往比自己写脚本更稳妥，它自动处理了分批、休眠和重试，是我工具箱里的常备神器。\n">
+    </head>
+    <body class="
+    article-page
+    ">
+    <script>
+        (function() {
+            const colorSchemeKey = 'StackColorScheme';
+            if(!localStorage.getItem(colorSchemeKey)){
+                localStorage.setItem(colorSchemeKey, "auto");
+            }
+        })();
+    </script><script>
+    (function() {
+        const colorSchemeKey = 'StackColorScheme';
+        const colorSchemeItem = localStorage.getItem(colorSchemeKey);
+        const supportDarkMode = window.matchMedia('(prefers-color-scheme: dark)').matches === true;
+
+        if (colorSchemeItem == 'dark' || colorSchemeItem === 'auto' && supportDarkMode) {
+            
+
+            document.documentElement.dataset.scheme = 'dark';
+        } else {
+            document.documentElement.dataset.scheme = 'light';
+        }
+    })();
+</script>
+<div class="container main-container flex on-phone--column compact"><aside class="sidebar left-sidebar sticky ">
+    <button class="hamburger hamburger--spin" type="button" id="toggle-menu" aria-label="切换菜单">
+        <span class="hamburger-box">
+            <span class="hamburger-inner"></span>
+        </span>
+    </button>
+
+    <header>
+        
+            
+            <figure class="site-avatar">
+                <a href="/">
+                
+                    
+                    
+                    
+                        
+                        <img src="/img/avatar_hu_8588ce14af1147e2.png" width="300"
+                            height="286" class="site-logo" loading="lazy" alt="Avatar">
+                    
+                
+                </a>
+                
+            </figure>
+            
+        
+        
+        <div class="site-meta">
+            <h1 class="site-name"><a href="/">SelfTechHub</a></h1>
+            <h2 class="site-description"></h2>
+        </div>
+    </header><ol class="menu" id="main-menu">
+        
+        
+        <li class="menu-bottom-section">
+            <ol class="menu">
+
+                
+                    <li id="dark-mode-toggle">
+                        <svg xmlns="http://www.w3.org/2000/svg" class="icon icon-tabler icon-tabler-toggle-left" width="24" height="24" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor" fill="none" stroke-linecap="round" stroke-linejoin="round">
+  <path stroke="none" d="M0 0h24v24H0z"/>
+  <circle cx="8" cy="12" r="2" />
+  <rect x="2" y="6" width="20" height="12" rx="6" />
+</svg>
+
+
+
+                        <svg xmlns="http://www.w3.org/2000/svg" class="icon icon-tabler icon-tabler-toggle-right" width="24" height="24" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor" fill="none" stroke-linecap="round" stroke-linejoin="round">
+  <path stroke="none" d="M0 0h24v24H0z"/>
+  <circle cx="16" cy="12" r="2" />
+  <rect x="2" y="6" width="20" height="12" rx="6" />
+</svg>
+
+
+
+                        <span>暗色模式</span>
+                    </li>
+                
+            </ol>
+        </li>
+    </ol>
+</aside>
+
+    
+
+            <main class="main full-width">
+    <article class="main-article">
+    <header class="article-header">
+
+    <div class="article-details">
+    
+    <header class="article-category">
+        
+            <a href="/categories/%E6%8A%80%E6%9C%AF.html" >
+                技术精进
+            </a>
+        
+    </header>
+    
+
+    <div class="article-title-wrapper">
+        <h2 class="article-title">
+            <a href="/tech/jiagouyouhuashizhananlijiexi/cunchuyouhua_lengreshujufenlideshixian.html">数据库报警的那夜：我是如何把存储成本砍半的？</a>
+        </h2>
+    
+        
+    </div>
+
+    
+    
+    
+    
+    <footer class="article-time">
+        
+            <div>
+                <svg xmlns="http://www.w3.org/2000/svg" class="icon icon-tabler icon-tabler-calendar-time" width="56" height="56" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor" fill="none" stroke-linecap="round" stroke-linejoin="round">
+  <path stroke="none" d="M0 0h24v24H0z"/>
+  <path d="M11.795 21h-6.795a2 2 0 0 1 -2 -2v-12a2 2 0 0 1 2 -2h12a2 2 0 0 1 2 2v4" />
+  <circle cx="18" cy="18" r="4" />
+  <path d="M15 3v4" />
+  <path d="M7 3v4" />
+  <path d="M3 11h16" />
+  <path d="M18 16.496v1.504l1 1" />
+</svg>
+                <time class="article-time--published" datetime='2020-06-20T00:00:00Z'>Jun 20, 2020</time>
+            </div>
+        
+
+        
+            <div>
+                <svg xmlns="http://www.w3.org/2000/svg" class="icon icon-tabler icon-tabler-clock" width="24" height="24" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor" fill="none" stroke-linecap="round" stroke-linejoin="round">
+  <path stroke="none" d="M0 0h24v24H0z"/>
+  <circle cx="12" cy="12" r="9" />
+  <polyline points="12 7 12 12 15 15" />
+</svg>
+
+
+
+                <time class="article-time--reading">
+                    阅读时长: 1 分钟
+                </time>
+            </div>
+        
+    </footer>
+    
+
+    
+</div>
+
+</header>
+
+    <section class="article-content">
+    
+    
+    <p>凌晨3点，手机屏幕上刺眼的Zabbix报警红光把我和运维老张从睡梦中拽了起来——主库磁盘使用率飙升至92%，慢查询日志像雪花一样堆满了屏幕。</p>
+<p>那一刻，我除了机械地建议“先扩容吧”，心里涌上一股深深的无力感。我们总以为随着业务增长，加配置、换SSD是万能解药，直到预算审批被CTO打回，并在邮件里冷冷地问了一句：“为什么我们的存储成本比业务增速快了三倍？”</p>
+<p>这句话像根刺，扎了我很久。</p>
+<p>如果你也正对着日益膨胀的表空间发愁，或者看着云厂商的账单心惊肉跳，请相信，你不是一个人在战斗。这几年，我从“无脑扩容”到“精打细算”，踩过不少坑，也总结出了一些关于<strong>冷热数据分离</strong>的实战心得。今天不讲大道理，只想和你聊聊，怎么让数据“瘦身”，也让我们这些技术人能睡个安稳觉。</p>
+<h2 id="01-别被总有一天会用到的念头绑架">01. 别被“总有一天会用到”的念头绑架
+</h2><p>很多开发同学（包括当年的我）都有个“松鼠症”心态：数据进了数据库，就觉得它是神圣不可侵犯的，哪怕是三年前的日志，也觉得“万一哪天要查呢？”</p>
+<p><img src="https://picsum.photos/800/450?random=1768531691302"
+	
+	
+	
+	loading="lazy"
+	
+		alt="配图"
+	
+	
+></p>
+<p><strong>观点：存储优化的第一步，不是技术选型，而是和业务方的一场“断舍离”。</strong></p>
+<p>2020年，我负责一个电商中台项目。订单表 <code>orders</code> 在两年内膨胀到了8亿行，单表体积破了300GB。每次做DDL（数据库定义语言）操作都像是在走钢丝，查询性能更是断崖式下跌。</p>
+<p>当时我们试图通过分库分表来解决，但那是“重症猛药”，开发周期太长。</p>
+<p>后来，我拉着产品经理和运营做了一次数据盘点，我们发现了一个惊人的事实：<strong>95%的查询请求，都集中在最近3个月的订单上。</strong> 超过半年的订单，除了财务对账和极少数用户回溯，几乎无人问津。</p>
+<p>于是，我们制定了第一条“冷热边界”：</p>
+<ul>
+<li><strong>热数据</strong>：最近3个月的订单，保留在高性能MySQL集群（SSD盘）。</li>
+<li><strong>冷数据</strong>：3个月-1年前的订单，迁移到低成本的MySQL归档库（HDD盘）。</li>
+<li><strong>冰数据</strong>：1年前的订单，直接转存到对象存储（OSS）或大数据平台（Hive），仅供离线分析。</li>
+</ul>
+<p><strong>结果是立竿见影的</strong>：主库数据量瞬间下降了80%，磁盘IOPS（每秒读写次数）降低了60%，那个让我们提心吊胆的报警群，终于安静了下来。</p>
+<h2 id="02-迁移就像搬家别搞暴力拆迁">02. 迁移就像搬家，别搞“暴力拆迁”
+</h2><p><img src="https://picsum.photos/800/450?random=1768531695031"
+	
+	
+	
+	loading="lazy"
+	
+		alt="配图"
+	
+	
+></p>
+<p>定好了策略，怎么搬运数据是个精细活。我见过最惨的案例，是一个新来的小兄弟写了个脚本，在一个大事务里把冷数据 <code>INSERT</code> 进归档表，然后直接 <code>DELETE</code> 原表数据。</p>
+<p>结果可想而知：主从延迟飙升，锁表导致线上交易卡顿，差点酿成P0级事故。</p>
+<p><strong>观点：数据迁移的核心是“温和”与“可逆”，永远给线上业务留呼吸口。</strong></p>
+<p>我现在的习惯是，每周五下午抽出一点时间检查迁移任务的健康度，而这个任务本身，我是用这套逻辑实现的：</p>
+<ol>
+<li><strong>双写与校验（可选但推荐）</strong>：如果业务极其敏感，可以在代码层做双写，但对于存量数据，我更推荐<strong>基于时间戳的滚动归档</strong>。</li>
+<li><strong>分批次“蚂蚁搬家”</strong>：千万不要一次性操作大量数据。</li>
+<li><strong>物理删除的滞后性</strong>：别指望 <code>DELETE</code> 后空间立马释放，特别是MySQL，你需要后续的 <code>OPTIMIZE TABLE</code>（要在低峰期做！）。</li>
+</ol>
+<p>这是一个我常用的、比较温和的归档逻辑伪代码，供你参考：</p>
+<div class="highlight"><pre tabindex="0" style="color:#f8f8f2;background-color:#272822;-moz-tab-size:4;-o-tab-size:4;tab-size:4;"><code class="language-python" data-lang="python"><span style="display:flex;"><span><span style="color:#66d9ef">def</span> <span style="color:#a6e22e">archive_cold_data</span>(batch_size<span style="color:#f92672">=</span><span style="color:#ae81ff">1000</span>):
+</span></span><span style="display:flex;"><span>    <span style="color:#75715e"># 每次只处理一小批，避免长事务</span>
+</span></span><span style="display:flex;"><span>    <span style="color:#66d9ef">while</span> <span style="color:#66d9ef">True</span>:
+</span></span><span style="display:flex;"><span>        <span style="color:#75715e"># 1. 查出符合冷数据条件的ID列表（利用索引）</span>
+</span></span><span style="display:flex;"><span>        cold_ids <span style="color:#f92672">=</span> db<span style="color:#f92672">.</span>query(<span style="color:#e6db74">&#34;SELECT id FROM orders WHERE create_time &lt; &#39;2023-01-01&#39; LIMIT </span><span style="color:#e6db74">%s</span><span style="color:#e6db74">&#34;</span>, batch_size)
+</span></span><span style="display:flex;"><span>        
+</span></span><span style="display:flex;"><span>        <span style="color:#66d9ef">if</span> <span style="color:#f92672">not</span> cold_ids:
+</span></span><span style="display:flex;"><span>            <span style="color:#66d9ef">break</span>
+</span></span><span style="display:flex;"><span>            
+</span></span><span style="display:flex;"><span>        <span style="color:#75715e"># 2. 开启事务：写入归档库</span>
+</span></span><span style="display:flex;"><span>        <span style="color:#66d9ef">try</span>:
+</span></span><span style="display:flex;"><span>            archive_db<span style="color:#f92672">.</span>insert(fetch_data(cold_ids))
+</span></span><span style="display:flex;"><span>            
+</span></span><span style="display:flex;"><span>            <span style="color:#75715e"># 3. 再次校验（防止在读取期间数据发生变更，虽少见但要求稳）</span>
+</span></span><span style="display:flex;"><span>            verify_data_consistency(cold_ids)
+</span></span><span style="display:flex;"><span>            
+</span></span><span style="display:flex;"><span>            <span style="color:#75715e"># 4. 从主库删除</span>
+</span></span><span style="display:flex;"><span>            source_db<span style="color:#f92672">.</span>delete(cold_ids)
+</span></span><span style="display:flex;"><span>            
+</span></span><span style="display:flex;"><span>            <span style="color:#75715e"># 5. 提交事务</span>
+</span></span><span style="display:flex;"><span>            commit()
+</span></span><span style="display:flex;"><span>            
+</span></span><span style="display:flex;"><span>            <span style="color:#75715e"># 6. *关键*：休息一下，给数据库喘息时间</span>
+</span></span><span style="display:flex;"><span>            time<span style="color:#f92672">.</span>sleep(<span style="color:#ae81ff">0.5</span>) 
+</span></span><span style="display:flex;"><span>            
+</span></span><span style="display:flex;"><span>        <span style="color:#66d9ef">except</span> <span style="color:#a6e22e">Exception</span> <span style="color:#66d9ef">as</span> e:
+</span></span><span style="display:flex;"><span>            rollback()
+</span></span><span style="display:flex;"><span>            log_error(e)
+</span></span><span style="display:flex;"><span>            <span style="color:#75715e"># 遇到错误要有报警，但不要死循环重试</span>
+</span></span><span style="display:flex;"><span>            <span style="color:#66d9ef">break</span>
+</span></span></code></pre></div><p><strong>小贴士</strong>：对于海量数据，利用 <code>pt-archiver</code> 这类成熟工具往往比自己写脚本更稳妥，它自动处理了分批、休眠和重试，是我工具箱里的常备神器。</p>
+<h2 id="03-哪怕是冷数据也要能找得到家">03. 哪怕是冷数据，也要能“找得到家”
+</h2><p>做了冷热分离，最怕的就是业务方跑来问：“我的数据去哪了？”如果你的回答是“在冷库里，你去提个工单我给你导出来”，那你离挨骂就不远了。</p>
+<p><strong>观点：架构的复杂性由技术人员承担，对用户必须透明。</strong></p>
+<p>在之前的金融项目里，我们遇到过这个问题。客服经常需要查询一年前的交易记录来处理投诉。如果冷热数据完全割裂，客服系统的体验会非常糟糕。</p>
+<p>我们当时的解决方案是做一个<strong>轻量级的数据路由层（Proxy）</strong>：</p>
+<ol>
+<li><strong>统一入口</strong>：业务代码依然查的是“订单服务”。</li>
+<li><strong>自动路由</strong>：
+<ul>
+<li>如果查询条件带时间且在3个月内，直查热库。</li>
+<li>如果查询条件带时间且是老数据，路由到归档库（或者ES）。</li>
+<li>如果只按ID查（不知道时间），先查热库，查不到再查冷库（虽然多了一次IO，但这种情况占比不高）。</li>
+</ul>
+</li>
+<li><strong>降级体验</strong>：明确告知用户，查询3个月前的数据可能会有1-2秒的延迟，通常用户对于“翻旧账”的等待容忍度是比较高的。</li>
+</ol>
+<p>后来，我们引入了Elasticsearch作为冷数据的索引层。虽然ES存储成本不低，但我们只存索引字段，具体详情还是去冷存储（如HBase或压缩后的MySQL归档）里拿。这种“索引在ES，详情在冷存”的组合拳，既保证了检索速度，又控制了成本。</p>
+<h2 id="结语给焦虑降温给架构减负">结语：给焦虑降温，给架构减负
+</h2><p>回看这些年的架构演进，<strong>冷热分离</strong>不仅仅是一个技术方案，更是一种<strong>资源管理的智慧</strong>。它让我们明白，不是所有数据都生而平等，把好钢用在刀刃上，才是对公司成本负责，也是对我们自己的运维压力负责。</p>
+<p>如果此刻你正面对着海量数据的压力，别慌。先去喝杯咖啡，拉出你的表结构和访问日志，按下面的步骤试试看。</p>
+<h3 id="给你的落地工具包">给你的落地工具包
+</h3><p>最后，分享一个我常用的<strong>冷热数据定义模板</strong>，你可以直接复制到你的技术方案文档里：</p>
+<blockquote>
+<p><strong>XX系统冷热数据分离策略表</strong></p>
+<ul>
+<li><strong>表名</strong>：<code>t_order_record</code></li>
+<li><strong>热数据定义</strong>：<code>create_time</code> &gt;= N-90天</li>
+<li><strong>触发归档条件</strong>：每日凌晨 02:00 触发 Job</li>
+<li><strong>归档目标</strong>：
+<ul>
+<li>Level 1 (热): MySQL Cluster A (SSD)</li>
+<li>Level 2 (冷): MySQL Cluster B (HDD) / TiDB</li>
+<li>Level 3 (冰): S3 + Hive External Table</li>
+</ul>
+</li>
+<li><strong>数据找回路径</strong>：用户前端可查近1年，1年以上需申请离线报表。</li>
+<li><strong>预期收益</strong>：释放主库空间 40%，备份时间缩短 1.5小时。</li>
+</ul>
+</blockquote>
+<h3 id="接下来你可以做的3件事">接下来你可以做的3件事：
+</h3><p><img src="https://picsum.photos/800/450?random=1768531688997"
+	
+	
+	
+	loading="lazy"
+	
+		alt="配图"
+	
+	
+></p>
+<ol>
+<li><strong>Top 3 大表分析</strong>：哪怕只找出系统里最大的3张表，分析它们的访问频次，你大概率能找到优化的突破口。</li>
+<li><strong>加上时间戳</strong>：如果你的表里还没有 <code>create_time</code> 或 <code>update_time</code> 索引，今晚发布窗口就加上吧，这是分离的基础。</li>
+<li><strong>模拟演练</strong>：在测试环境模拟一次“归档+删除”流程，计算一下耗时，这能让你在面对老板询问时底气十足。</li>
+</ol>
+<p>愿你的数据库永远轻盈，报警群永远安静。加油！</p>
+
+</section>
+
+
+    <footer class="article-footer">
+    
+    <section class="article-tags">
+        
+            <a href="/tags/%E5%AD%98%E5%82%A8%E4%BC%98%E5%8C%96%E5%86%B7%E7%83%AD%E6%95%B0%E6%8D%AE%E5%88%86%E7%A6%BB%E7%9A%84%E5%AE%9E%E7%8E%B0.html">存储优化：冷热数据分离的实现</a>
+        
+    </section>
+
+
+    </footer>
+
+
+    
+</article>
+
+    
+
+    
+
+     
+    
+        
+    <script
+    src="https://giscus.app/client.js"
+    data-repo="pastor17/bloggiscus"
+    data-repo-id="R_kgDOQ6H9qQ"
+    data-category=""
+    data-category-id="DIC_kwDOQ6H9qc4C0-T8"
+    data-mapping="pathname"
+    data-strict="0"
+    data-reactions-enabled="1"
+    data-emit-metadata="0"
+    data-input-position="bottom"
+    data-theme="light"
+    data-lang="zh-CN"
+    data-loading="lazy"
+    crossorigin="anonymous"
+    async
+></script>
+<script>
+    function setGiscusTheme(theme) {
+        let giscus = document.querySelector("iframe.giscus-frame");
+        if (giscus) {
+            giscus.contentWindow.postMessage(
+                {
+                    giscus: {
+                        setConfig: {
+                            theme: theme,
+                        },
+                    },
+                },
+                "https://giscus.app"
+            );
+        }
+    }
+
+    (function () {
+        addEventListener("message", (e) => {
+            if (event.origin !== "https://giscus.app") return;
+            handler();
+        });
+        window.addEventListener("onColorSchemeChange", handler);
+
+        function handler() {
+            if (document.documentElement.dataset.scheme === "light") {
+                setGiscusTheme('light');
+            } else {
+                setGiscusTheme('dark_dimmed');
+            }
+        }
+    })();
+</script>
+
+    
+
+    <footer class="site-footer">
+    <section class="copyright">
+        &copy; 
+        
+        2026 SelfTechHub
+    </section>
+    
+    <section class="powerby">
+        
+
+    </section>
+</footer>
+
+
+    
+<div class="pswp" tabindex="-1" role="dialog" aria-hidden="true">
+
+    
+    <div class="pswp__bg"></div>
+
+    
+    <div class="pswp__scroll-wrap">
+
+        
+        <div class="pswp__container">
+            <div class="pswp__item"></div>
+            <div class="pswp__item"></div>
+            <div class="pswp__item"></div>
+        </div>
+
+        
+        <div class="pswp__ui pswp__ui--hidden">
+
+            <div class="pswp__top-bar">
+
+                
+
+                <div class="pswp__counter"></div>
+
+                <button class="pswp__button pswp__button--close" title="Close (Esc)"></button>
+
+                <button class="pswp__button pswp__button--share" title="Share"></button>
+
+                <button class="pswp__button pswp__button--fs" title="Toggle fullscreen"></button>
+
+                <button class="pswp__button pswp__button--zoom" title="Zoom in/out"></button>
+
+                
+                
+                <div class="pswp__preloader">
+                    <div class="pswp__preloader__icn">
+                        <div class="pswp__preloader__cut">
+                            <div class="pswp__preloader__donut"></div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <div class="pswp__share-modal pswp__share-modal--hidden pswp__single-tap">
+                <div class="pswp__share-tooltip"></div>
+            </div>
+
+            <button class="pswp__button pswp__button--arrow--left" title="Previous (arrow left)">
+            </button>
+
+            <button class="pswp__button pswp__button--arrow--right" title="Next (arrow right)">
+            </button>
+
+            <div class="pswp__caption">
+                <div class="pswp__caption__center"></div>
+            </div>
+
+        </div>
+
+    </div>
+
+</div><script 
+                src="https://cdn.jsdelivr.net/npm/photoswipe@4.1.3/dist/photoswipe.min.js"integrity="sha256-ePwmChbbvXbsO02lbM3HoHbSHTHFAeChekF1xKJdleo="crossorigin="anonymous"
+                defer
+                >
+            </script><script 
+                src="https://cdn.jsdelivr.net/npm/photoswipe@4.1.3/dist/photoswipe-ui-default.min.js"integrity="sha256-UKkzOn/w1mBxRmLLGrSeyB4e1xbrp4xylgAWb3M42pU="crossorigin="anonymous"
+                defer
+                >
+            </script><link 
+                rel="stylesheet" 
+                href="https://cdn.jsdelivr.net/npm/photoswipe@4.1.3/dist/default-skin/default-skin.min.css"crossorigin="anonymous"
+            ><link 
+                rel="stylesheet" 
+                href="https://cdn.jsdelivr.net/npm/photoswipe@4.1.3/dist/photoswipe.min.css"crossorigin="anonymous"
+            >
+    
+
+            </main>
+        </div>
+        <script 
+                src="https://cdn.jsdelivr.net/npm/node-vibrant@3.1.6/dist/vibrant.min.js"integrity="sha256-awcR2jno4kI5X0zL8ex0vi2z&#43;KMkF24hUW8WePSA9HM="crossorigin="anonymous"
+                
+                >
+            </script><script type="text/javascript" src="/ts/main.c922af694cc257bf1ecc41c0dd7b0430f9114ec280ccf67cd2c6ad55f5316c4e.js" defer></script>
+<script>
+    (function () {
+        const customFont = document.createElement('link');
+        customFont.href = "https://fonts.googleapis.com/css2?family=Lato:wght@300;400;700&display=swap";
+
+        customFont.type = "text/css";
+        customFont.rel = "stylesheet";
+
+        document.head.appendChild(customFont);
+    }());
+</script>
+
+    </body>
+</html>

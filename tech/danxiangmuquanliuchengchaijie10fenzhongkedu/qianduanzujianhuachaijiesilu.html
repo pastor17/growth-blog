@@ -1,0 +1,512 @@
+<!DOCTYPE html>
+<html lang="zh-cn" dir="ltr">
+    <head><meta charset='utf-8'>
+<meta name='viewport' content='width=device-width, initial-scale=1'><meta name='description' content="两年前接手过一个后台管理系统，那简直是一场灾难。\n当时有个需求很简单：把所有页面的“导出Excel”按钮颜色从蓝色改成绿色。结果，团队里的两个小伙伴整整改了一天半。为什么？因为这个按钮在40多个页面里是直接复制粘贴的代码，而且有的页面写死在HTML里，有的封装了一半，有的甚至跟具体的业务接口绑死在一起。\n那时我才深刻意识到：很多中小团队所谓的“组件化”，其实只是“把代码挪个位置”而已。\n如果你觉得组件化就是为了“复用”，那你大概率还在踩坑。对于中小团队，组件化的核心价值只有两个：降低认知负荷和隔离变更风险。\n今天分享我在一线“填坑”多年总结的拆解思路，不整虚头巴脑的理论，只聊怎么落地。\n一、 警惕“上帝组件”：别把配置项当万能药\r这是新手最容易犯的错，也是我每周五代码Review时“杀”得最狠的一类代码。\n观点： 组件的灵活性不是靠无限增加 Props（属性）来实现的，而是靠组合。\n真实案例： 去年我们组招了个挺机灵的小伙子，叫小张。他为了体现“封装能力”，搞了一个通用的 ListTable 组件。起初挺好用，只需传个数据数组进去。\n两周后，噩梦开始了：\n需求A：有的列要加红，小张加了 renderRed 属性； 需求B：表头要支持点击排序，小张加了 sortable 和 onSort； 需求C：第一列要加复选框，但有时候是单选，他又加了 selectionType&hellip; 三个月后，这个 ListTable 变成了拥有 30多个 Props、内部充满 if-else 判断的“上帝组件”。任何人都没法维护，因为改一个属性，可能会炸掉其他五个页面的展示。\n硬核解法：控制反转（Inversion of Control）\n别试图在组件内部预判所有场景。把“怎么展示”的权利交还给调用者。\n思考题： 你的项目里有没有那种超过200行代码、Props 超过10个的基础组件？如果有，它就是那个随时会爆的雷。\n代码对比：\n❌ 错误的上帝模式：\n// 这种组件写出来就是为了折磨队友的 &lt;ListTable data={list} showCheckbox={true} checkboxType=&#34;radio&#34; enableSort={true} headerColor=&#34;blue&#34; // ...后面还有20个属性 /&gt; ✅ 推荐的组合模式（Slot/Children）：\n// 基础组件只管布局和样式，内容由外部决定 &lt;Table&gt; &lt;TableHead&gt; &lt;Checkbox /&gt; &lt;SortIcon /&gt; &lt;/TableHead&gt; &lt;TableBody&gt; {list.map(item =&gt; ( &lt;Row&gt; &lt;Cell&gt;{item.name}&lt;/Cell&gt; {/* 特殊逻辑直接在这里写，不用侵入组件内部 */} &lt;Cell style=&gt; {item.status} &lt;/Cell&gt; &lt;/Row&gt; ))} &lt;/TableBody&gt; &lt;/Table&gt; 当你发现一个组件需要传 styleObject 或者 className 进去覆盖默认样式时，通常说明拆解粒度不够，或者封装得太死了。\n">
+<title>重构火葬场？3个原则，把前端组件拆解效率提50%</title>
+
+<link rel='canonical' href='https://blog.irudder.me/tech/danxiangmuquanliuchengchaijie10fenzhongkedu/qianduanzujianhuachaijiesilu.html'>
+
+<link rel="stylesheet" href="/scss/style.min.b9e9128fec450ebccecc4ec9900157f32b85d0609bcd5ee3293968bcaa1235f2.css"><meta property='og:title' content="重构火葬场？3个原则，把前端组件拆解效率提50%">
+<meta property='og:description' content="两年前接手过一个后台管理系统，那简直是一场灾难。\n当时有个需求很简单：把所有页面的“导出Excel”按钮颜色从蓝色改成绿色。结果，团队里的两个小伙伴整整改了一天半。为什么？因为这个按钮在40多个页面里是直接复制粘贴的代码，而且有的页面写死在HTML里，有的封装了一半，有的甚至跟具体的业务接口绑死在一起。\n那时我才深刻意识到：很多中小团队所谓的“组件化”，其实只是“把代码挪个位置”而已。\n如果你觉得组件化就是为了“复用”，那你大概率还在踩坑。对于中小团队，组件化的核心价值只有两个：降低认知负荷和隔离变更风险。\n今天分享我在一线“填坑”多年总结的拆解思路，不整虚头巴脑的理论，只聊怎么落地。\n一、 警惕“上帝组件”：别把配置项当万能药\r这是新手最容易犯的错，也是我每周五代码Review时“杀”得最狠的一类代码。\n观点： 组件的灵活性不是靠无限增加 Props（属性）来实现的，而是靠组合。\n真实案例： 去年我们组招了个挺机灵的小伙子，叫小张。他为了体现“封装能力”，搞了一个通用的 ListTable 组件。起初挺好用，只需传个数据数组进去。\n两周后，噩梦开始了：\n需求A：有的列要加红，小张加了 renderRed 属性； 需求B：表头要支持点击排序，小张加了 sortable 和 onSort； 需求C：第一列要加复选框，但有时候是单选，他又加了 selectionType&hellip; 三个月后，这个 ListTable 变成了拥有 30多个 Props、内部充满 if-else 判断的“上帝组件”。任何人都没法维护，因为改一个属性，可能会炸掉其他五个页面的展示。\n硬核解法：控制反转（Inversion of Control）\n别试图在组件内部预判所有场景。把“怎么展示”的权利交还给调用者。\n思考题： 你的项目里有没有那种超过200行代码、Props 超过10个的基础组件？如果有，它就是那个随时会爆的雷。\n代码对比：\n❌ 错误的上帝模式：\n// 这种组件写出来就是为了折磨队友的 &lt;ListTable data={list} showCheckbox={true} checkboxType=&#34;radio&#34; enableSort={true} headerColor=&#34;blue&#34; // ...后面还有20个属性 /&gt; ✅ 推荐的组合模式（Slot/Children）：\n// 基础组件只管布局和样式，内容由外部决定 &lt;Table&gt; &lt;TableHead&gt; &lt;Checkbox /&gt; &lt;SortIcon /&gt; &lt;/TableHead&gt; &lt;TableBody&gt; {list.map(item =&gt; ( &lt;Row&gt; &lt;Cell&gt;{item.name}&lt;/Cell&gt; {/* 特殊逻辑直接在这里写，不用侵入组件内部 */} &lt;Cell style=&gt; {item.status} &lt;/Cell&gt; &lt;/Row&gt; ))} &lt;/TableBody&gt; &lt;/Table&gt; 当你发现一个组件需要传 styleObject 或者 className 进去覆盖默认样式时，通常说明拆解粒度不够，或者封装得太死了。\n">
+<meta property='og:url' content='https://blog.irudder.me/tech/danxiangmuquanliuchengchaijie10fenzhongkedu/qianduanzujianhuachaijiesilu.html'>
+<meta property='og:site_name' content='SelfTechHub'>
+<meta property='og:type' content='article'><meta property='article:section' content='Tech' /><meta property='article:tag' content='前端组件化拆解思路' /><meta property='article:published_time' content='2025-02-16T00:00:00&#43;00:00'/><meta property='article:modified_time' content='2025-02-16T00:00:00&#43;00:00'/>
+<meta name="twitter:title" content="重构火葬场？3个原则，把前端组件拆解效率提50%">
+<meta name="twitter:description" content="两年前接手过一个后台管理系统，那简直是一场灾难。\n当时有个需求很简单：把所有页面的“导出Excel”按钮颜色从蓝色改成绿色。结果，团队里的两个小伙伴整整改了一天半。为什么？因为这个按钮在40多个页面里是直接复制粘贴的代码，而且有的页面写死在HTML里，有的封装了一半，有的甚至跟具体的业务接口绑死在一起。\n那时我才深刻意识到：很多中小团队所谓的“组件化”，其实只是“把代码挪个位置”而已。\n如果你觉得组件化就是为了“复用”，那你大概率还在踩坑。对于中小团队，组件化的核心价值只有两个：降低认知负荷和隔离变更风险。\n今天分享我在一线“填坑”多年总结的拆解思路，不整虚头巴脑的理论，只聊怎么落地。\n一、 警惕“上帝组件”：别把配置项当万能药\r这是新手最容易犯的错，也是我每周五代码Review时“杀”得最狠的一类代码。\n观点： 组件的灵活性不是靠无限增加 Props（属性）来实现的，而是靠组合。\n真实案例： 去年我们组招了个挺机灵的小伙子，叫小张。他为了体现“封装能力”，搞了一个通用的 ListTable 组件。起初挺好用，只需传个数据数组进去。\n两周后，噩梦开始了：\n需求A：有的列要加红，小张加了 renderRed 属性； 需求B：表头要支持点击排序，小张加了 sortable 和 onSort； 需求C：第一列要加复选框，但有时候是单选，他又加了 selectionType&hellip; 三个月后，这个 ListTable 变成了拥有 30多个 Props、内部充满 if-else 判断的“上帝组件”。任何人都没法维护，因为改一个属性，可能会炸掉其他五个页面的展示。\n硬核解法：控制反转（Inversion of Control）\n别试图在组件内部预判所有场景。把“怎么展示”的权利交还给调用者。\n思考题： 你的项目里有没有那种超过200行代码、Props 超过10个的基础组件？如果有，它就是那个随时会爆的雷。\n代码对比：\n❌ 错误的上帝模式：\n// 这种组件写出来就是为了折磨队友的 &lt;ListTable data={list} showCheckbox={true} checkboxType=&#34;radio&#34; enableSort={true} headerColor=&#34;blue&#34; // ...后面还有20个属性 /&gt; ✅ 推荐的组合模式（Slot/Children）：\n// 基础组件只管布局和样式，内容由外部决定 &lt;Table&gt; &lt;TableHead&gt; &lt;Checkbox /&gt; &lt;SortIcon /&gt; &lt;/TableHead&gt; &lt;TableBody&gt; {list.map(item =&gt; ( &lt;Row&gt; &lt;Cell&gt;{item.name}&lt;/Cell&gt; {/* 特殊逻辑直接在这里写，不用侵入组件内部 */} &lt;Cell style=&gt; {item.status} &lt;/Cell&gt; &lt;/Row&gt; ))} &lt;/TableBody&gt; &lt;/Table&gt; 当你发现一个组件需要传 styleObject 或者 className 进去覆盖默认样式时，通常说明拆解粒度不够，或者封装得太死了。\n">
+    </head>
+    <body class="
+    article-page
+    ">
+    <script>
+        (function() {
+            const colorSchemeKey = 'StackColorScheme';
+            if(!localStorage.getItem(colorSchemeKey)){
+                localStorage.setItem(colorSchemeKey, "auto");
+            }
+        })();
+    </script><script>
+    (function() {
+        const colorSchemeKey = 'StackColorScheme';
+        const colorSchemeItem = localStorage.getItem(colorSchemeKey);
+        const supportDarkMode = window.matchMedia('(prefers-color-scheme: dark)').matches === true;
+
+        if (colorSchemeItem == 'dark' || colorSchemeItem === 'auto' && supportDarkMode) {
+            
+
+            document.documentElement.dataset.scheme = 'dark';
+        } else {
+            document.documentElement.dataset.scheme = 'light';
+        }
+    })();
+</script>
+<div class="container main-container flex on-phone--column compact"><aside class="sidebar left-sidebar sticky ">
+    <button class="hamburger hamburger--spin" type="button" id="toggle-menu" aria-label="切换菜单">
+        <span class="hamburger-box">
+            <span class="hamburger-inner"></span>
+        </span>
+    </button>
+
+    <header>
+        
+            
+            <figure class="site-avatar">
+                <a href="/">
+                
+                    
+                    
+                    
+                        
+                        <img src="/img/avatar_hu_8588ce14af1147e2.png" width="300"
+                            height="286" class="site-logo" loading="lazy" alt="Avatar">
+                    
+                
+                </a>
+                
+            </figure>
+            
+        
+        
+        <div class="site-meta">
+            <h1 class="site-name"><a href="/">SelfTechHub</a></h1>
+            <h2 class="site-description"></h2>
+        </div>
+    </header><ol class="menu" id="main-menu">
+        
+        
+        <li class="menu-bottom-section">
+            <ol class="menu">
+
+                
+                    <li id="dark-mode-toggle">
+                        <svg xmlns="http://www.w3.org/2000/svg" class="icon icon-tabler icon-tabler-toggle-left" width="24" height="24" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor" fill="none" stroke-linecap="round" stroke-linejoin="round">
+  <path stroke="none" d="M0 0h24v24H0z"/>
+  <circle cx="8" cy="12" r="2" />
+  <rect x="2" y="6" width="20" height="12" rx="6" />
+</svg>
+
+
+
+                        <svg xmlns="http://www.w3.org/2000/svg" class="icon icon-tabler icon-tabler-toggle-right" width="24" height="24" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor" fill="none" stroke-linecap="round" stroke-linejoin="round">
+  <path stroke="none" d="M0 0h24v24H0z"/>
+  <circle cx="16" cy="12" r="2" />
+  <rect x="2" y="6" width="20" height="12" rx="6" />
+</svg>
+
+
+
+                        <span>暗色模式</span>
+                    </li>
+                
+            </ol>
+        </li>
+    </ol>
+</aside>
+
+    
+
+            <main class="main full-width">
+    <article class="main-article">
+    <header class="article-header">
+
+    <div class="article-details">
+    
+    <header class="article-category">
+        
+            <a href="/categories/%E6%8A%80%E6%9C%AF.html" >
+                技术精进
+            </a>
+        
+    </header>
+    
+
+    <div class="article-title-wrapper">
+        <h2 class="article-title">
+            <a href="/tech/danxiangmuquanliuchengchaijie10fenzhongkedu/qianduanzujianhuachaijiesilu.html">重构火葬场？3个原则，把前端组件拆解效率提50%</a>
+        </h2>
+    
+        
+    </div>
+
+    
+    
+    
+    
+    <footer class="article-time">
+        
+            <div>
+                <svg xmlns="http://www.w3.org/2000/svg" class="icon icon-tabler icon-tabler-calendar-time" width="56" height="56" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor" fill="none" stroke-linecap="round" stroke-linejoin="round">
+  <path stroke="none" d="M0 0h24v24H0z"/>
+  <path d="M11.795 21h-6.795a2 2 0 0 1 -2 -2v-12a2 2 0 0 1 2 -2h12a2 2 0 0 1 2 2v4" />
+  <circle cx="18" cy="18" r="4" />
+  <path d="M15 3v4" />
+  <path d="M7 3v4" />
+  <path d="M3 11h16" />
+  <path d="M18 16.496v1.504l1 1" />
+</svg>
+                <time class="article-time--published" datetime='2025-02-16T00:00:00Z'>Feb 16, 2025</time>
+            </div>
+        
+
+        
+            <div>
+                <svg xmlns="http://www.w3.org/2000/svg" class="icon icon-tabler icon-tabler-clock" width="24" height="24" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor" fill="none" stroke-linecap="round" stroke-linejoin="round">
+  <path stroke="none" d="M0 0h24v24H0z"/>
+  <circle cx="12" cy="12" r="9" />
+  <polyline points="12 7 12 12 15 15" />
+</svg>
+
+
+
+                <time class="article-time--reading">
+                    阅读时长: 1 分钟
+                </time>
+            </div>
+        
+    </footer>
+    
+
+    
+</div>
+
+</header>
+
+    <section class="article-content">
+    
+    
+    <p>两年前接手过一个后台管理系统，那简直是一场灾难。</p>
+<p>当时有个需求很简单：把所有页面的“导出Excel”按钮颜色从蓝色改成绿色。结果，团队里的两个小伙伴整整改了一天半。为什么？因为这个按钮在40多个页面里是直接复制粘贴的代码，而且有的页面写死在HTML里，有的封装了一半，有的甚至跟具体的业务接口绑死在一起。</p>
+<p>那时我才深刻意识到：<strong>很多中小团队所谓的“组件化”，其实只是“把代码挪个位置”而已。</strong></p>
+<p>如果你觉得组件化就是为了“复用”，那你大概率还在踩坑。对于中小团队，组件化的核心价值只有两个：<strong>降低认知负荷</strong>和<strong>隔离变更风险</strong>。</p>
+<p>今天分享我在一线“填坑”多年总结的拆解思路，不整虚头巴脑的理论，只聊怎么落地。</p>
+<h2 id="一-警惕上帝组件别把配置项当万能药">一、 警惕“上帝组件”：别把配置项当万能药
+</h2><p>这是新手最容易犯的错，也是我每周五代码Review时“杀”得最狠的一类代码。</p>
+<p><strong>观点：</strong> 组件的灵活性不是靠无限增加 Props（属性）来实现的，而是靠组合。</p>
+<p><strong>真实案例：</strong>
+去年我们组招了个挺机灵的小伙子，叫小张。他为了体现“封装能力”，搞了一个通用的 <code>ListTable</code> 组件。起初挺好用，只需传个数据数组进去。</p>
+<p>两周后，噩梦开始了：</p>
+<ul>
+<li>需求A：有的列要加红，小张加了 <code>renderRed</code> 属性；</li>
+<li>需求B：表头要支持点击排序，小张加了 <code>sortable</code> 和 <code>onSort</code>；</li>
+<li>需求C：第一列要加复选框，但有时候是单选，他又加了 <code>selectionType</code>&hellip;</li>
+</ul>
+<p>三个月后，这个 <code>ListTable</code> 变成了拥有 <strong>30多个 Props、内部充满 <code>if-else</code> 判断的“上帝组件”</strong>。任何人都没法维护，因为改一个属性，可能会炸掉其他五个页面的展示。</p>
+<p><strong>硬核解法：控制反转（Inversion of Control）</strong></p>
+<p>别试图在组件内部预判所有场景。把“怎么展示”的权利交还给调用者。</p>
+<blockquote>
+<p><strong>思考题：</strong> 你的项目里有没有那种超过200行代码、Props 超过10个的基础组件？如果有，它就是那个随时会爆的雷。</p>
+</blockquote>
+<p><strong>代码对比：</strong></p>
+<p>❌ <strong>错误的上帝模式：</strong></p>
+<div class="highlight"><pre tabindex="0" style="color:#f8f8f2;background-color:#272822;-moz-tab-size:4;-o-tab-size:4;tab-size:4;"><code class="language-javascript" data-lang="javascript"><span style="display:flex;"><span><span style="color:#75715e">// 这种组件写出来就是为了折磨队友的
+</span></span></span><span style="display:flex;"><span><span style="color:#75715e"></span><span style="color:#f92672">&lt;</span><span style="color:#a6e22e">ListTable</span>
+</span></span><span style="display:flex;"><span>  <span style="color:#a6e22e">data</span><span style="color:#f92672">=</span>{<span style="color:#a6e22e">list</span>}
+</span></span><span style="display:flex;"><span>  <span style="color:#a6e22e">showCheckbox</span><span style="color:#f92672">=</span>{<span style="color:#66d9ef">true</span>}
+</span></span><span style="display:flex;"><span>  <span style="color:#a6e22e">checkboxType</span><span style="color:#f92672">=</span><span style="color:#e6db74">&#34;radio&#34;</span>
+</span></span><span style="display:flex;"><span>  <span style="color:#a6e22e">enableSort</span><span style="color:#f92672">=</span>{<span style="color:#66d9ef">true</span>}
+</span></span><span style="display:flex;"><span>  <span style="color:#a6e22e">headerColor</span><span style="color:#f92672">=</span><span style="color:#e6db74">&#34;blue&#34;</span>
+</span></span><span style="display:flex;"><span>  <span style="color:#75715e">// ...后面还有20个属性
+</span></span></span><span style="display:flex;"><span><span style="color:#75715e"></span><span style="color:#960050;background-color:#1e0010">/&gt;</span>
+</span></span></code></pre></div><p>✅ <strong>推荐的组合模式（Slot/Children）：</strong></p>
+<div class="highlight"><pre tabindex="0" style="color:#f8f8f2;background-color:#272822;-moz-tab-size:4;-o-tab-size:4;tab-size:4;"><code class="language-javascript" data-lang="javascript"><span style="display:flex;"><span><span style="color:#75715e">// 基础组件只管布局和样式，内容由外部决定
+</span></span></span><span style="display:flex;"><span><span style="color:#75715e"></span><span style="color:#f92672">&lt;</span><span style="color:#a6e22e">Table</span><span style="color:#f92672">&gt;</span>
+</span></span><span style="display:flex;"><span>  <span style="color:#f92672">&lt;</span><span style="color:#a6e22e">TableHead</span><span style="color:#f92672">&gt;</span>
+</span></span><span style="display:flex;"><span>    <span style="color:#f92672">&lt;</span><span style="color:#a6e22e">Checkbox</span> <span style="color:#f92672">/&gt;</span>
+</span></span><span style="display:flex;"><span>    <span style="color:#f92672">&lt;</span><span style="color:#a6e22e">SortIcon</span> <span style="color:#f92672">/&gt;</span>
+</span></span><span style="display:flex;"><span>  <span style="color:#f92672">&lt;</span><span style="color:#960050;background-color:#1e0010">/TableHead&gt;</span>
+</span></span><span style="display:flex;"><span>  <span style="color:#f92672">&lt;</span><span style="color:#a6e22e">TableBody</span><span style="color:#f92672">&gt;</span>
+</span></span><span style="display:flex;"><span>    {<span style="color:#a6e22e">list</span>.<span style="color:#a6e22e">map</span>(<span style="color:#a6e22e">item</span> =&gt; (
+</span></span><span style="display:flex;"><span>       <span style="color:#f92672">&lt;</span><span style="color:#a6e22e">Row</span><span style="color:#f92672">&gt;</span>
+</span></span><span style="display:flex;"><span>         <span style="color:#f92672">&lt;</span><span style="color:#a6e22e">Cell</span><span style="color:#f92672">&gt;</span>{<span style="color:#a6e22e">item</span>.<span style="color:#a6e22e">name</span>}<span style="color:#f92672">&lt;</span><span style="color:#960050;background-color:#1e0010">/Cell&gt;</span>
+</span></span><span style="display:flex;"><span>         {<span style="color:#75715e">/* 特殊逻辑直接在这里写，不用侵入组件内部 */</span>}
+</span></span><span style="display:flex;"><span>         <span style="color:#f92672">&lt;</span><span style="color:#a6e22e">Cell</span> <span style="color:#a6e22e">style</span>=&gt;
+</span></span><span style="display:flex;"><span>            {<span style="color:#a6e22e">item</span>.<span style="color:#a6e22e">status</span>}
+</span></span><span style="display:flex;"><span>         <span style="color:#f92672">&lt;</span><span style="color:#960050;background-color:#1e0010">/Cell&gt;</span>
+</span></span><span style="display:flex;"><span>       <span style="color:#f92672">&lt;</span><span style="color:#960050;background-color:#1e0010">/Row&gt;</span>
+</span></span><span style="display:flex;"><span>    ))}
+</span></span><span style="display:flex;"><span>  <span style="color:#f92672">&lt;</span><span style="color:#960050;background-color:#1e0010">/TableBody&gt;</span>
+</span></span><span style="display:flex;"><span><span style="color:#f92672">&lt;</span><span style="color:#960050;background-color:#1e0010">/Table&gt;</span>
+</span></span></code></pre></div><p>当你发现一个组件需要传 <code>styleObject</code> 或者 <code>className</code> 进去覆盖默认样式时，通常说明拆解粒度不够，或者封装得太死了。</p>
+<h2 id="二-拒绝业务入侵让ui组件变哑巴">二、 拒绝“业务入侵”：让UI组件变“哑巴”
+</h2><p>这是造成项目难以维护的头号杀手。很多项目经理抱怨：“为什么换个接口，前端要改两天？”多半是因为业务逻辑渗透到了UI组件里。</p>
+<p><strong>观点：</strong> UI组件应该是“哑巴”，只负责“画图”和“喊话”（触发事件），绝对不能知道数据是从哪里来的。</p>
+<p><strong>真实案例：</strong>
+我们曾经有个“用户卡片”组件。最开始是在CRM系统里用的，代码里直接引入了 <code>fetchUserDetail(id)</code> 这个API请求。</p>
+<p>后来做营销活动页，产品经理想复用这个卡片样式，展示中奖用户信息。结果发现复用不了——因为营销活动的数据结构跟CRM完全不一样，而且不需要调那个API。</p>
+<p>结果就是：前端不得不Ctrl+C、Ctrl+V，复制了一份代码改名叫 <code>WinnerCard</code>。随着版本迭代，两份代码样式逐渐不一致，UI走查天天报Bug。</p>
+<p><strong>硬核解法：容器组件 vs 展示组件</strong></p>
+<p>这个方法我用了3年，百试百灵。强制要求团队把组件分为两类：</p>
+<ol>
+<li>
+<p><strong>展示组件（Dumb Component）：</strong></p>
+<ul>
+<li><strong>只收数据（Props），不调接口。</strong></li>
+<li>不知道业务逻辑，只负责长得好看。</li>
+<li>放在 <code>components/ui</code> 目录下。</li>
+</ul>
+</li>
+<li>
+<p><strong>容器组件（Smart Component）：</strong></p>
+<ul>
+<li><strong>负责调接口、处理数据转换。</strong></li>
+<li>把处理好的纯数据传给展示组件。</li>
+<li>放在 <code>components/features</code> 或 <code>pages</code> 目录下。</li>
+</ul>
+</li>
+</ol>
+<p><img src="https://picsum.photos/800/450?random=1768448999982"
+	
+	
+	
+	loading="lazy"
+	
+		alt="配图"
+	
+	
+></p>
+<p><strong>实操步骤：</strong>
+当你写代码时，如果发现在一个通用按钮里引入了 <code>store</code> 或者 <code>axios</code>，请立刻停手。你应该在外面包一层，把点击事件抛出来。</p>
+<blockquote>
+<p>“展示组件就像个没头脑的画师，容器组件才是那个操心的管家。”</p>
+</blockquote>
+<h2 id="三-别做预言家遵循三次法则">三、 别做“预言家”：遵循“三次法则”
+</h2><p>很多有追求的开发人员（包括曾经的我）都有洁癖，写第一遍代码时就想把它封装得完美无缺，支持未来可能出现的各种需求。</p>
+<p><img src="https://picsum.photos/800/450?random=1768449002596"
+	
+	
+	
+	loading="lazy"
+	
+		alt="配图"
+	
+	
+></p>
+<p><strong>观点：</strong> 过早优化是万恶之源。在重复出现第三次之前，允许复制粘贴。</p>
+<p><strong>真实案例：</strong>
+去年做个活动页，有个倒计时功能。有个兄弟觉得以后肯定常用，于是花了半天时间封装了一个巨牛逼的 <code>CountDown</code>：支持毫秒级、支持服务器时间校准、支持自定义格式化字符串、支持倒计时结束回调&hellip;</p>
+<p>结果呢？那个活动上线3天就下线了。那个巨复杂的倒计时组件再也没人用过，还留在那占体积。反而是后来另一个活动需要简单的“天:时:分”，大家嫌那个组件太重，又重写了一个。</p>
+<p><strong>硬核解法：Rule of Three（三次法则）</strong></p>
+<ol>
+<li><strong>第一次：</strong> 只管写业务，代码直接写在页面文件里，怎么快怎么来。</li>
+<li><strong>第二次：</strong> 当遇到相似场景，允许复制粘贴（Copy-Paste），稍微改改。</li>
+<li><strong>第三次：</strong> 当你发现自己在复制第三次时，这时候你已经非常清楚共性是什么、差异是什么了。<strong>此刻，才是重构和提取组件的最佳时机。</strong></li>
+</ol>
+<p><img src="https://picsum.photos/800/450?random=1768449002620"
+	
+	
+	
+	loading="lazy"
+	
+		alt="配图"
+	
+	
+></p>
+<p>不要为了“可能”的需求去写代码，只为“当前”的痛点去封装。</p>
+<h2 id="总结与行动">总结与行动
+</h2><p>组件化拆解不是为了炫技，而是为了<strong>让队友少骂你两句</strong>，为了<strong>下班能准时走</strong>。</p>
+<p>回顾一下核心思路：</p>
+<ol>
+<li><strong>别搞上帝组件</strong>：用组合替代配置，属性越少越好。</li>
+<li><strong>别让业务入侵</strong>：UI归UI，数据归数据，把API请求从UI组件里踢出去。</li>
+<li><strong>别做预言家</strong>：忍住封装的冲动，直到代码重复了三次。</li>
+</ol>
+<p><strong>给你的落地建议（Action Plan）：</strong></p>
+<ol>
+<li><strong>本周自查：</strong> 打开你的项目，找到那个Props最多的组件，尝试用“组合模式”重写一个简单的Demo，对比一下灵活性。</li>
+<li><strong>清理逻辑：</strong> 检查公共组件库，凡是里面包含 <code>axios</code>、<code>fetch</code> 或者特定业务状态判断的，标记出来，下次迭代计划拆分。</li>
+<li><strong>制定红线：</strong> 在团队里定个死规矩——通用UI组件禁止包含任何业务接口调用。</li>
+</ol>
+<p><strong>最后想问问你：</strong>
+在你现在的项目里，修改一个通用的顶部导航栏，需要改动几个文件？如果超过1个，或许你该试试上面的方法了。</p>
+
+</section>
+
+
+    <footer class="article-footer">
+    
+    <section class="article-tags">
+        
+            <a href="/tags/%E5%89%8D%E7%AB%AF%E7%BB%84%E4%BB%B6%E5%8C%96%E6%8B%86%E8%A7%A3%E6%80%9D%E8%B7%AF.html">前端组件化拆解思路</a>
+        
+    </section>
+
+
+    </footer>
+
+
+    
+</article>
+
+    
+
+    
+
+     
+    
+        
+    <script
+    src="https://giscus.app/client.js"
+    data-repo="pastor17/bloggiscus"
+    data-repo-id="R_kgDOQ6H9qQ"
+    data-category=""
+    data-category-id="DIC_kwDOQ6H9qc4C0-T8"
+    data-mapping="pathname"
+    data-strict="0"
+    data-reactions-enabled="1"
+    data-emit-metadata="0"
+    data-input-position="bottom"
+    data-theme="light"
+    data-lang="zh-CN"
+    data-loading="lazy"
+    crossorigin="anonymous"
+    async
+></script>
+<script>
+    function setGiscusTheme(theme) {
+        let giscus = document.querySelector("iframe.giscus-frame");
+        if (giscus) {
+            giscus.contentWindow.postMessage(
+                {
+                    giscus: {
+                        setConfig: {
+                            theme: theme,
+                        },
+                    },
+                },
+                "https://giscus.app"
+            );
+        }
+    }
+
+    (function () {
+        addEventListener("message", (e) => {
+            if (event.origin !== "https://giscus.app") return;
+            handler();
+        });
+        window.addEventListener("onColorSchemeChange", handler);
+
+        function handler() {
+            if (document.documentElement.dataset.scheme === "light") {
+                setGiscusTheme('light');
+            } else {
+                setGiscusTheme('dark_dimmed');
+            }
+        }
+    })();
+</script>
+
+    
+
+    <footer class="site-footer">
+    <section class="copyright">
+        &copy; 
+        
+        2026 SelfTechHub
+    </section>
+    
+    <section class="powerby">
+        
+
+    </section>
+</footer>
+
+
+    
+<div class="pswp" tabindex="-1" role="dialog" aria-hidden="true">
+
+    
+    <div class="pswp__bg"></div>
+
+    
+    <div class="pswp__scroll-wrap">
+
+        
+        <div class="pswp__container">
+            <div class="pswp__item"></div>
+            <div class="pswp__item"></div>
+            <div class="pswp__item"></div>
+        </div>
+
+        
+        <div class="pswp__ui pswp__ui--hidden">
+
+            <div class="pswp__top-bar">
+
+                
+
+                <div class="pswp__counter"></div>
+
+                <button class="pswp__button pswp__button--close" title="Close (Esc)"></button>
+
+                <button class="pswp__button pswp__button--share" title="Share"></button>
+
+                <button class="pswp__button pswp__button--fs" title="Toggle fullscreen"></button>
+
+                <button class="pswp__button pswp__button--zoom" title="Zoom in/out"></button>
+
+                
+                
+                <div class="pswp__preloader">
+                    <div class="pswp__preloader__icn">
+                        <div class="pswp__preloader__cut">
+                            <div class="pswp__preloader__donut"></div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <div class="pswp__share-modal pswp__share-modal--hidden pswp__single-tap">
+                <div class="pswp__share-tooltip"></div>
+            </div>
+
+            <button class="pswp__button pswp__button--arrow--left" title="Previous (arrow left)">
+            </button>
+
+            <button class="pswp__button pswp__button--arrow--right" title="Next (arrow right)">
+            </button>
+
+            <div class="pswp__caption">
+                <div class="pswp__caption__center"></div>
+            </div>
+
+        </div>
+
+    </div>
+
+</div><script 
+                src="https://cdn.jsdelivr.net/npm/photoswipe@4.1.3/dist/photoswipe.min.js"integrity="sha256-ePwmChbbvXbsO02lbM3HoHbSHTHFAeChekF1xKJdleo="crossorigin="anonymous"
+                defer
+                >
+            </script><script 
+                src="https://cdn.jsdelivr.net/npm/photoswipe@4.1.3/dist/photoswipe-ui-default.min.js"integrity="sha256-UKkzOn/w1mBxRmLLGrSeyB4e1xbrp4xylgAWb3M42pU="crossorigin="anonymous"
+                defer
+                >
+            </script><link 
+                rel="stylesheet" 
+                href="https://cdn.jsdelivr.net/npm/photoswipe@4.1.3/dist/default-skin/default-skin.min.css"crossorigin="anonymous"
+            ><link 
+                rel="stylesheet" 
+                href="https://cdn.jsdelivr.net/npm/photoswipe@4.1.3/dist/photoswipe.min.css"crossorigin="anonymous"
+            >
+    
+
+            </main>
+        </div>
+        <script 
+                src="https://cdn.jsdelivr.net/npm/node-vibrant@3.1.6/dist/vibrant.min.js"integrity="sha256-awcR2jno4kI5X0zL8ex0vi2z&#43;KMkF24hUW8WePSA9HM="crossorigin="anonymous"
+                
+                >
+            </script><script type="text/javascript" src="/ts/main.c922af694cc257bf1ecc41c0dd7b0430f9114ec280ccf67cd2c6ad55f5316c4e.js" defer></script>
+<script>
+    (function () {
+        const customFont = document.createElement('link');
+        customFont.href = "https://fonts.googleapis.com/css2?family=Lato:wght@300;400;700&display=swap";
+
+        customFont.type = "text/css";
+        customFont.rel = "stylesheet";
+
+        document.head.appendChild(customFont);
+    }());
+</script>
+
+    </body>
+</html>

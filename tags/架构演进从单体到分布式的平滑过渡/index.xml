@@ -1,0 +1,114 @@
+<?xml version="1.0" encoding="utf-8" standalone="yes"?>
+<rss version="2.0" xmlns:atom="http://www.w3.org/2005/Atom">
+    <channel>
+        <title>架构演进：从单体到分布式的平滑过渡 on SelfTechHub</title>
+        <link>https://blog.irudder.me/tags/%E6%9E%B6%E6%9E%84%E6%BC%94%E8%BF%9B%E4%BB%8E%E5%8D%95%E4%BD%93%E5%88%B0%E5%88%86%E5%B8%83%E5%BC%8F%E7%9A%84%E5%B9%B3%E6%BB%91%E8%BF%87%E6%B8%A1.html</link>
+        <description>Recent content in 架构演进：从单体到分布式的平滑过渡 on SelfTechHub</description>
+        <generator>Hugo -- gohugo.io</generator>
+        <language>zh-cn</language>
+        <lastBuildDate>Sat, 24 Feb 2024 00:00:00 +0000</lastBuildDate><atom:link href="https://blog.irudder.me/tags/%E6%9E%B6%E6%9E%84%E6%BC%94%E8%BF%9B%E4%BB%8E%E5%8D%95%E4%BD%93%E5%88%B0%E5%88%86%E5%B8%83%E5%BC%8F%E7%9A%84%E5%B9%B3%E6%BB%91%E8%BF%87%E6%B8%A1/index.xml" rel="self" type="application/rss+xml" /><item>
+        <title>单体硬拆必挂？3个低成本过渡分布式的实战心法</title>
+        <link>https://blog.irudder.me/tech/zhongxiaoxingxiangmujiagoushejizhinan/jiagouyanjin_congdantidaofenbushidepinghuaguodu.html</link>
+        <pubDate>Sat, 24 Feb 2024 00:00:00 +0000</pubDate>
+        
+        <guid>https://blog.irudder.me/tech/zhongxiaoxingxiangmujiagoushejizhinan/jiagouyanjin_congdantidaofenbushidepinghuaguodu.html</guid>
+        <description>&lt;p&gt;还记得2019年，我作为架构师接手过一个B2B电商重构项目。当时团队里大家热情高涨，觉得单体架构（Monolith）太土了，必须上微服务。结果我们花了3个月把一个运行良好的单体应用强行拆成了8个微服务。&lt;/p&gt;
+&lt;p&gt;上线第一周，噩梦开始了：原本内网调用变成了RPC，网络延迟让页面响应慢了2秒；为了查一个“订单状态不一致”的Bug，我和两个骨干开发在服务器日志里“游泳”了整整6个小时，最后发现是因为没有分布式事务机制，导致数据在两个服务间烂尾了。&lt;/p&gt;
+&lt;p&gt;这次惨痛的教训让我明白了一个反常识的道理：&lt;strong&gt;对于中小团队，过早追求“完美的分布式架构”，往往是项目猝死的开始。&lt;/strong&gt;&lt;/p&gt;
+&lt;p&gt;架构不是为了炫技，而是为了解决具体问题。如果你正面临单体架构臃肿、维护困难的痛点，但又不敢轻易动刀，下面这三个“平滑过渡”的实战心法，也许能帮你省下几个通宵加班的夜晚。&lt;/p&gt;
+&lt;p&gt;&lt;img src=&#34;https://picsum.photos/800/450?random=1768456613574&#34;
+	
+	
+	
+	loading=&#34;lazy&#34;
+	
+		alt=&#34;配图&#34;
+	
+	
+&gt;&lt;/p&gt;
+&lt;h2 id=&#34;一-别急着拆进程先拆代码边界&#34;&gt;一、 别急着拆进程，先拆“代码边界”
+&lt;/h2&gt;&lt;p&gt;很多团队在做架构演进时，最大的误区就是觉得“拆分=物理隔离”。不管三七二十一，先把订单模块新建一个Git仓库，部署成一个独立Jar包再说。&lt;/p&gt;
+&lt;p&gt;其实，&lt;strong&gt;混乱的单体拆分后，只会变成混乱的分布式。&lt;/strong&gt; 如果你的代码里，订单Service直接通过SQL Join查询了用户表，或者在Controller层随意调用库存逻辑，这时候物理拆分只会带来无穷无尽的“跨服务调用”灾难。&lt;/p&gt;
+&lt;p&gt;&lt;strong&gt;实战案例：&lt;/strong&gt;&lt;/p&gt;
+&lt;p&gt;在我负责的另一个SaaS项目中，核心业务代码耦合极重。我们没有急着新建服务，而是花了两个月时间在&lt;strong&gt;单体内部&lt;/strong&gt;做“逻辑拆分”。&lt;/p&gt;
+&lt;p&gt;我们把项目强行划分为 &lt;code&gt;OrderContext&lt;/code&gt;（订单上下文）、&lt;code&gt;UserContext&lt;/code&gt;（用户上下文）等独立模块（Maven Module）。&lt;/p&gt;
+&lt;p&gt;这时候我定了一条死规矩：&lt;strong&gt;模块之间禁止直接互相依赖，必须通过定义好的Interface（接口）交互。&lt;/strong&gt;&lt;/p&gt;
+&lt;blockquote&gt;
+&lt;p&gt;“哪怕是在同一个JVM进程里，也要假装我们在进行远程调用。”&lt;/p&gt;
+&lt;/blockquote&gt;
+&lt;p&gt;&lt;strong&gt;避坑指南：&lt;/strong&gt;&lt;/p&gt;
+&lt;p&gt;不要指望靠开发人员的自觉。我当时引入了 &lt;strong&gt;ArchUnit&lt;/strong&gt; 这样的架构守护工具，在单元测试阶段就拦截违规依赖。只要有人试图在订单模块里 &lt;code&gt;import com.user.dao.*&lt;/code&gt;，构建直接报错。&lt;/p&gt;
+&lt;div class=&#34;highlight&#34;&gt;&lt;pre tabindex=&#34;0&#34; style=&#34;color:#f8f8f2;background-color:#272822;-moz-tab-size:4;-o-tab-size:4;tab-size:4;&#34;&gt;&lt;code class=&#34;language-java&#34; data-lang=&#34;java&#34;&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;&lt;span style=&#34;color:#75715e&#34;&gt;// 简单的ArchUnit示例，防止架构腐化&lt;/span&gt;
+&lt;/span&gt;&lt;/span&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;&lt;span style=&#34;color:#a6e22e&#34;&gt;@AnalyzeClasses&lt;/span&gt;(packages &lt;span style=&#34;color:#f92672&#34;&gt;=&lt;/span&gt; &lt;span style=&#34;color:#e6db74&#34;&gt;&amp;#34;com.company.app&amp;#34;&lt;/span&gt;)
+&lt;/span&gt;&lt;/span&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;&lt;span style=&#34;color:#66d9ef&#34;&gt;public&lt;/span&gt; &lt;span style=&#34;color:#66d9ef&#34;&gt;class&lt;/span&gt; &lt;span style=&#34;color:#a6e22e&#34;&gt;ArchitectureTest&lt;/span&gt; {
+&lt;/span&gt;&lt;/span&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;    &lt;span style=&#34;color:#a6e22e&#34;&gt;@ArchTest&lt;/span&gt;
+&lt;/span&gt;&lt;/span&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;    &lt;span style=&#34;color:#66d9ef&#34;&gt;public&lt;/span&gt; &lt;span style=&#34;color:#66d9ef&#34;&gt;static&lt;/span&gt; &lt;span style=&#34;color:#66d9ef&#34;&gt;final&lt;/span&gt; ArchRule order_should_not_access_user_db &lt;span style=&#34;color:#f92672&#34;&gt;=&lt;/span&gt;
+&lt;/span&gt;&lt;/span&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;        noClasses().&lt;span style=&#34;color:#a6e22e&#34;&gt;that&lt;/span&gt;().&lt;span style=&#34;color:#a6e22e&#34;&gt;resideInAPackage&lt;/span&gt;(&lt;span style=&#34;color:#e6db74&#34;&gt;&amp;#34;..order..&amp;#34;&lt;/span&gt;)
+&lt;/span&gt;&lt;/span&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;        .&lt;span style=&#34;color:#a6e22e&#34;&gt;should&lt;/span&gt;().&lt;span style=&#34;color:#a6e22e&#34;&gt;accessClassesThat&lt;/span&gt;().&lt;span style=&#34;color:#a6e22e&#34;&gt;resideInAPackage&lt;/span&gt;(&lt;span style=&#34;color:#e6db74&#34;&gt;&amp;#34;..user.dao..&amp;#34;&lt;/span&gt;);
+&lt;/span&gt;&lt;/span&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;}
+&lt;/span&gt;&lt;/span&gt;&lt;/code&gt;&lt;/pre&gt;&lt;/div&gt;&lt;p&gt;通过这种方式，我们在不增加运维成本（不用部署K8s、不用搞Service Mesh）的前提下，理清了90%的业务边界。这一步做好了，后面物理拆分只是“复制粘贴”几分钟的事。&lt;/p&gt;
+&lt;h2 id=&#34;二-找准坏邻居用绞杀者模式定向爆破&#34;&gt;二、 找准“坏邻居”，用绞杀者模式定向爆破
+&lt;/h2&gt;&lt;p&gt;当你理清了代码边界，是不是就要把所有模块一次性全拆出去？&lt;/p&gt;
+&lt;p&gt;&lt;img src=&#34;https://picsum.photos/800/450?random=1768456616098&#34;
+	
+	
+	
+	loading=&#34;lazy&#34;
+	
+		alt=&#34;配图&#34;
+	
+	
+&gt;&lt;/p&gt;
+&lt;p&gt;千万别。对于中小团队，资源有限，&lt;strong&gt;全面开花等于全面风险。&lt;/strong&gt; 我们需要找到系统里的那个“坏邻居”。&lt;/p&gt;
+&lt;p&gt;&lt;strong&gt;实战案例：&lt;/strong&gt;&lt;/p&gt;
+&lt;p&gt;2021年，我们的主系统一到周五下午4点就卡顿，甚至OOM（内存溢出）重启。经过排查，发现是财务部门在这个时间点由于要通过“报表导出功能”拉取一周的数据，巨大的内存消耗拖垮了正常的交易业务。&lt;/p&gt;
+&lt;p&gt;在这个场景下，“报表模块”就是那个“坏邻居”。&lt;/p&gt;
+&lt;p&gt;我们的做法是采用&lt;strong&gt;绞杀者模式（Strangler Fig Pattern）&lt;/strong&gt;：&lt;/p&gt;
+&lt;ol&gt;
+&lt;li&gt;&lt;strong&gt;独立部署：&lt;/strong&gt; 把报表模块的代码单独拎出来，启动一个新的服务，配置较低的资源（甚至为了省事，暂时连数据库都还是共用主库，只做读操作）。&lt;/li&gt;
+&lt;li&gt;&lt;strong&gt;网关分流：&lt;/strong&gt; 在Nginx层配置规则，将 &lt;code&gt;/api/report/*&lt;/code&gt; 的请求转发到新服务，其他请求依然走老单体。&lt;/li&gt;
+&lt;/ol&gt;
+&lt;p&gt;&lt;strong&gt;落地效果：&lt;/strong&gt;&lt;/p&gt;
+&lt;p&gt;周五下午，报表服务再次因为内存打满挂掉了。但是，&lt;strong&gt;主交易系统稳如泰山，完全没受影响。&lt;/strong&gt; 财务同事虽然抱怨导出失败，但公司核心的下单业务没有停摆。&lt;/p&gt;
+&lt;p&gt;这种“定向爆破”的方式，风险最小，收益最大。通过不断地把边缘、高耗能、非核心的模块剥离，单体应用会逐渐瘦身，最终自然演进到分布式形态。&lt;/p&gt;
+&lt;h2 id=&#34;三-没有痕迹追踪分布式就是裸奔&#34;&gt;三、 没有“痕迹追踪”，分布式就是裸奔
+&lt;/h2&gt;&lt;p&gt;这是中小团队最容易忽视的一点。单体时代，出错了看一个日志文件就行；分布式时代，一个请求可能经过了 网关 -&amp;gt; 订单服务 -&amp;gt; 库存服务 -&amp;gt; 数据库。&lt;/p&gt;
+&lt;p&gt;如果没有&lt;strong&gt;全链路追踪（Traceability）&lt;/strong&gt;，一旦用户反馈“我付了钱但没显示订单”，你会发现你根本不知道请求断在哪一环。&lt;/p&gt;
+&lt;p&gt;&lt;strong&gt;实战案例：&lt;/strong&gt;&lt;/p&gt;
+&lt;p&gt;我们曾经遇到一个“幽灵订单”Bug，客服转过来的工单堆积如山。开发人员每个人都说“我这边的日志是正常的”。最后发现是网关层超时截断了，但后端服务还在执行。&lt;/p&gt;
+&lt;p&gt;在那之后，我强制要求所有服务接入 Trace ID。&lt;/p&gt;
+&lt;p&gt;你不一定非要上SkyWalking或Zipkin这种全套重型监控（维护它们也需要成本）。对于中小团队，一个低成本的方案是：&lt;strong&gt;利用MDC（Mapped Diagnostic Context）&lt;/strong&gt;。&lt;/p&gt;
+&lt;p&gt;&lt;strong&gt;落地方法：&lt;/strong&gt;&lt;/p&gt;
+&lt;p&gt;&lt;img src=&#34;https://picsum.photos/800/450?random=1768456617033&#34;
+	
+	
+	
+	loading=&#34;lazy&#34;
+	
+		alt=&#34;配图&#34;
+	
+	
+&gt;&lt;/p&gt;
+&lt;p&gt;在请求进入网关或第一个服务时，生成一个唯一的 &lt;code&gt;traceId&lt;/code&gt;，并在所有后续的HTTP Header、MQ消息体中透传这个ID。&lt;/p&gt;
+&lt;p&gt;在日志配置文件中，把这个ID打印出来。&lt;/p&gt;
+&lt;div class=&#34;highlight&#34;&gt;&lt;pre tabindex=&#34;0&#34; style=&#34;color:#f8f8f2;background-color:#272822;-moz-tab-size:4;-o-tab-size:4;tab-size:4;&#34;&gt;&lt;code class=&#34;language-xml&#34; data-lang=&#34;xml&#34;&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;&lt;span style=&#34;color:#75715e&#34;&gt;&amp;lt;!-- Logback 配置示例 --&amp;gt;&lt;/span&gt;
+&lt;/span&gt;&lt;/span&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;&lt;span style=&#34;color:#f92672&#34;&gt;&amp;lt;pattern&amp;gt;&lt;/span&gt;%d{HH:mm:ss} [%thread] [%X{traceId}] %-5level %logger{36} - %msg%n&lt;span style=&#34;color:#f92672&#34;&gt;&amp;lt;/pattern&amp;gt;&lt;/span&gt;
+&lt;/span&gt;&lt;/span&gt;&lt;/code&gt;&lt;/pre&gt;&lt;/div&gt;&lt;p&gt;我个人的习惯是，&lt;strong&gt;哪怕项目只有两个微服务，我也会在第一天就把这套机制配好。&lt;/strong&gt;&lt;/p&gt;
+&lt;p&gt;当线上出现故障，我只需要在ELK或者日志文件里 &lt;code&gt;grep&lt;/code&gt; 一下这个ID，整条业务链路的日志清清楚楚地展示在眼前。这一个小小的改动，将我们的平均故障排查时间（MTTR）从4小时压缩到了15分钟。&lt;/p&gt;
+&lt;h2 id=&#34;总结与行动建议&#34;&gt;总结与行动建议
+&lt;/h2&gt;&lt;p&gt;从单体到分布式，不是一场非黑即白的革命，而是一次温和的改良。&lt;/p&gt;
+&lt;p&gt;很多时候，我们不需要Netflix那样复杂的架构。&lt;strong&gt;对于中小项目，架构的每一次演进都必须为了“降本增效”服务，而不是为了满足技术人员的虚荣心。&lt;/strong&gt;&lt;/p&gt;
+&lt;p&gt;如果你正在为是否重构而纠结，不妨从本周开始，尝试以下3个具体行动：&lt;/p&gt;
+&lt;ol&gt;
+&lt;li&gt;&lt;strong&gt;代码体检：&lt;/strong&gt; 运行一次依赖分析工具（如IntelliJ IDEA自带的Analyze Dependency），找出那些“由于循环依赖导致无法拆分”的上帝类（God Class），把它们列入重构黑名单。&lt;/li&gt;
+&lt;li&gt;&lt;strong&gt;添加路标：&lt;/strong&gt; 不管现在是否拆分，先在现有的单体应用中加上 &lt;code&gt;Trace ID&lt;/code&gt; 机制，这会让你未来的排查工作事半功倍。&lt;/li&gt;
+&lt;li&gt;&lt;strong&gt;寻找切口：&lt;/strong&gt; 观察你的服务器监控，找出那个最占CPU或内存的非核心模块（通常是导出、定时任务、图片处理），把它作为你第一个“微服务”拆分的试点对象。&lt;/li&gt;
+&lt;/ol&gt;
+&lt;p&gt;&lt;strong&gt;最后，想问问大家：&lt;/strong&gt;&lt;/p&gt;
+&lt;p&gt;在你经历过的项目中，有没有遇到过因为“过度设计”或“拆分过细”导致项目延期甚至失败的经历？你在那个至暗时刻是怎么填坑的？&lt;/p&gt;
+&lt;p&gt;欢迎在评论区分享你的故事，让我们一起避开架构路上的那些坑。&lt;/p&gt;
+</description>
+        </item>
+        
+    </channel>
+</rss>

@@ -1,0 +1,482 @@
+<!DOCTYPE html>
+<html lang="zh-cn" dir="ltr">
+    <head><meta charset='utf-8'>
+<meta name='viewport' content='width=device-width, initial-scale=1'><meta name='description' content="以前我总觉得，一个正规的项目，文档必须“大而全”。\n记得几年前带那个电商重构项目时，我曾逼着团队在开发前写完了120页的详细设计文档。那天凌晨两点，我看着排版精美的Word文档，心里充满了虚幻的安全感，觉得这次项目肯定稳了。\n结果呢？\n上线前两周，需求变更了三次，代码改得面目全非。那份120页的文档？早就没人看了，甚至因为里面的接口定义和实际代码不一致，误导了前端同学，导致联调整整延期了三天。\n那一刻我才明白：在中小团队，过度的文档不是资产，是负债。\n这种焦虑我太熟悉了：不写文档心里发慌，怕以后没法维护；写了文档又不仅没人看，维护起来比写代码还累。\n其实，我们不需要那个完美的“百科全书”。对于大多数快速迭代的中小项目，我们只需要几页真正有用的“核心文档”。今天我想和你聊聊，如何把文档从“负担”变成“工具”，希望能治愈你的“文档焦虑症”。\n一、 警惕“写完即死”：文档的生命周期比你想象的短\r很多项目经理（包括以前的我）都有个误区：试图用文档去“固化”还在流动的需求。\n在那个电商项目的惨痛教训后，我复盘发现：80%的详细设计文档，在代码写下第一行时就已经过时了。\n我们当时为了追求“规范”，连数据库字段的每一个枚举值都写进了文档里。后来业务调整，增加了一个状态码，后端改了代码，但忘了改文档。结果新来的测试同学拿着旧文档去提Bug，开发和测试为了“是不是Bug”吵了一下午。\n如果不具备实时同步更新的人力（通常中小团队都不具备），就不要写这种颗粒度的文档。\n我现在坚持一个原则：“三日原则”。如果一个逻辑或流程在未来三天内极有可能变动，或者即便写下来也没人会去查阅，那就别写。\n取而代之的是，不管是需求还是设计，我更倾向于用**“快照”**的形式存在。比如一张白板上的草图，拍个照发到群里，这比写一堆文字描述有效得多。\n甚至有位前辈曾对我说：“最好的文档是代码本身，次好的文档是代码里的注释，最差的文档就是那些独立于代码之外、还要单独打开Word才能看到的‘废纸’。”\n二、 拒绝“幽灵文档”：离代码越近，存活率越高\r你有没有遇到过这种情况：新同事入职，你丢给他一个Wiki链接，让他照着搭建开发环境。半小时后他一脸无助地找你：“哥，这步npm install报错，而且数据库配置的IP好像也连不上了。”\n你去一看，尴尬地发现那个Wiki还是半年前写的，中间项目架构早就升级了。这就是典型的“幽灵文档”——它看着在那，其实早就死了。\n为了解决这个问题，我强推**“文档即代码”（Docs as Code）**的理念。\n在这个理念下，我强制要求团队把核心技术文档直接写在项目的README.md里，或者放在代码仓库的/docs目录下。\n这样做有个巨大的好处：文档和代码在一起。\n当你提交代码修改了环境变量时，你顺手就能改掉README。这比登录Wiki系统、找到页面、点击编辑、保存要顺手得多。\n真实案例： 去年接手一个二手交易平台的小程序，之前的交接文档是一堆散落在钉钉群里的文件。接手第一周，我们不仅不知道怎么跑起来，连测试环境的账号都找不到。\n后来我们花了一天时间，把所有散落的信息整理进了一个README.md。不仅如此，我们在Git提交的Hook里加了规则：如果修改了核心配置文件，必须确认是否更新了文档。\n三个月后，再有新人进来，Checkout代码后，照着README，10分钟内就能把项目跑起来。那种顺畅感，真的能极大地降低团队的焦虑。\n三、 只写“核心三件套”：做减法，留精华\r既然不写大而全的文档，那到底写什么？\n经过这几年的摸索和删减，我发现对于90%的中小项目，只要维护好这“核心三件套”，就能保命：\n1. 全局业务流程图（解决“我们在做什么”）\r不要写文字版的“用户点击登录，然后跳转&hellip;”，没人爱看。 用Mermaid或者简单的流程图，画出核心业务的数据流向。\n关键点： 哪怕只画那一条“黄金流程”（Happy Path）。 比如那个电商项目，我们最后只保留了一张图：用户下单 -&gt; 扣库存 -&gt; 支付回调 -&gt; 发货通知。这就够了。当线上出故障时，这张图能让我们迅速定位是哪个环节断了。\n2. 接口契约（解决“前后端怎么配合”）\r千万不要手写API文档！千万不要！ 手写API文档是世界上最反人类的事情，因为永远跟不上代码变化。\n建议做法： 强制使用 Swagger/YApi/Apifox 这类工具。代码注解生成文档。如果后端改了参数类型，文档自动更新。这不仅仅是省事，这是为了“保真”。\n3. 运维部署手册（解决“怎么活下去”）\r这是唯一需要写得像“保姆级教程”的文档。 包含：\n环境依赖（Node版本、JDK版本、数据库版本） 配置项说明（哪个是数据库地址，哪个是密钥） 紧急回滚步骤（这行字建议加粗标红） 我有个习惯，每周五下午花10分钟，假装自己是一个完全不懂这个项目的新人，读一遍部署手册。如果发现哪一步我犹豫了，我就把它改得更清楚。\n四、 给你一个“拿来即用”的模板\r最后，我想分享一个我目前在用的README.md模板。你可以直接复制到你们的项目里，填空即可。这就是一个中小项目最核心的文档资产。\n">
+<title>别再写没人看的文档了：中小团队只需这3类“救命文档”</title>
+
+<link rel='canonical' href='https://blog.irudder.me/tech/danxiangmuquanliuchengchaijie10fenzhongkedu/xiangmuwendang_zhixieyouyongdehexinwendang.html'>
+
+<link rel="stylesheet" href="/scss/style.min.b9e9128fec450ebccecc4ec9900157f32b85d0609bcd5ee3293968bcaa1235f2.css"><meta property='og:title' content="别再写没人看的文档了：中小团队只需这3类“救命文档”">
+<meta property='og:description' content="以前我总觉得，一个正规的项目，文档必须“大而全”。\n记得几年前带那个电商重构项目时，我曾逼着团队在开发前写完了120页的详细设计文档。那天凌晨两点，我看着排版精美的Word文档，心里充满了虚幻的安全感，觉得这次项目肯定稳了。\n结果呢？\n上线前两周，需求变更了三次，代码改得面目全非。那份120页的文档？早就没人看了，甚至因为里面的接口定义和实际代码不一致，误导了前端同学，导致联调整整延期了三天。\n那一刻我才明白：在中小团队，过度的文档不是资产，是负债。\n这种焦虑我太熟悉了：不写文档心里发慌，怕以后没法维护；写了文档又不仅没人看，维护起来比写代码还累。\n其实，我们不需要那个完美的“百科全书”。对于大多数快速迭代的中小项目，我们只需要几页真正有用的“核心文档”。今天我想和你聊聊，如何把文档从“负担”变成“工具”，希望能治愈你的“文档焦虑症”。\n一、 警惕“写完即死”：文档的生命周期比你想象的短\r很多项目经理（包括以前的我）都有个误区：试图用文档去“固化”还在流动的需求。\n在那个电商项目的惨痛教训后，我复盘发现：80%的详细设计文档，在代码写下第一行时就已经过时了。\n我们当时为了追求“规范”，连数据库字段的每一个枚举值都写进了文档里。后来业务调整，增加了一个状态码，后端改了代码，但忘了改文档。结果新来的测试同学拿着旧文档去提Bug，开发和测试为了“是不是Bug”吵了一下午。\n如果不具备实时同步更新的人力（通常中小团队都不具备），就不要写这种颗粒度的文档。\n我现在坚持一个原则：“三日原则”。如果一个逻辑或流程在未来三天内极有可能变动，或者即便写下来也没人会去查阅，那就别写。\n取而代之的是，不管是需求还是设计，我更倾向于用**“快照”**的形式存在。比如一张白板上的草图，拍个照发到群里，这比写一堆文字描述有效得多。\n甚至有位前辈曾对我说：“最好的文档是代码本身，次好的文档是代码里的注释，最差的文档就是那些独立于代码之外、还要单独打开Word才能看到的‘废纸’。”\n二、 拒绝“幽灵文档”：离代码越近，存活率越高\r你有没有遇到过这种情况：新同事入职，你丢给他一个Wiki链接，让他照着搭建开发环境。半小时后他一脸无助地找你：“哥，这步npm install报错，而且数据库配置的IP好像也连不上了。”\n你去一看，尴尬地发现那个Wiki还是半年前写的，中间项目架构早就升级了。这就是典型的“幽灵文档”——它看着在那，其实早就死了。\n为了解决这个问题，我强推**“文档即代码”（Docs as Code）**的理念。\n在这个理念下，我强制要求团队把核心技术文档直接写在项目的README.md里，或者放在代码仓库的/docs目录下。\n这样做有个巨大的好处：文档和代码在一起。\n当你提交代码修改了环境变量时，你顺手就能改掉README。这比登录Wiki系统、找到页面、点击编辑、保存要顺手得多。\n真实案例： 去年接手一个二手交易平台的小程序，之前的交接文档是一堆散落在钉钉群里的文件。接手第一周，我们不仅不知道怎么跑起来，连测试环境的账号都找不到。\n后来我们花了一天时间，把所有散落的信息整理进了一个README.md。不仅如此，我们在Git提交的Hook里加了规则：如果修改了核心配置文件，必须确认是否更新了文档。\n三个月后，再有新人进来，Checkout代码后，照着README，10分钟内就能把项目跑起来。那种顺畅感，真的能极大地降低团队的焦虑。\n三、 只写“核心三件套”：做减法，留精华\r既然不写大而全的文档，那到底写什么？\n经过这几年的摸索和删减，我发现对于90%的中小项目，只要维护好这“核心三件套”，就能保命：\n1. 全局业务流程图（解决“我们在做什么”）\r不要写文字版的“用户点击登录，然后跳转&hellip;”，没人爱看。 用Mermaid或者简单的流程图，画出核心业务的数据流向。\n关键点： 哪怕只画那一条“黄金流程”（Happy Path）。 比如那个电商项目，我们最后只保留了一张图：用户下单 -&gt; 扣库存 -&gt; 支付回调 -&gt; 发货通知。这就够了。当线上出故障时，这张图能让我们迅速定位是哪个环节断了。\n2. 接口契约（解决“前后端怎么配合”）\r千万不要手写API文档！千万不要！ 手写API文档是世界上最反人类的事情，因为永远跟不上代码变化。\n建议做法： 强制使用 Swagger/YApi/Apifox 这类工具。代码注解生成文档。如果后端改了参数类型，文档自动更新。这不仅仅是省事，这是为了“保真”。\n3. 运维部署手册（解决“怎么活下去”）\r这是唯一需要写得像“保姆级教程”的文档。 包含：\n环境依赖（Node版本、JDK版本、数据库版本） 配置项说明（哪个是数据库地址，哪个是密钥） 紧急回滚步骤（这行字建议加粗标红） 我有个习惯，每周五下午花10分钟，假装自己是一个完全不懂这个项目的新人，读一遍部署手册。如果发现哪一步我犹豫了，我就把它改得更清楚。\n四、 给你一个“拿来即用”的模板\r最后，我想分享一个我目前在用的README.md模板。你可以直接复制到你们的项目里，填空即可。这就是一个中小项目最核心的文档资产。\n">
+<meta property='og:url' content='https://blog.irudder.me/tech/danxiangmuquanliuchengchaijie10fenzhongkedu/xiangmuwendang_zhixieyouyongdehexinwendang.html'>
+<meta property='og:site_name' content='SelfTechHub'>
+<meta property='og:type' content='article'><meta property='article:section' content='Tech' /><meta property='article:tag' content='项目文档：只写有用的核心文档' /><meta property='article:published_time' content='2021-06-11T00:00:00&#43;00:00'/><meta property='article:modified_time' content='2021-06-11T00:00:00&#43;00:00'/>
+<meta name="twitter:title" content="别再写没人看的文档了：中小团队只需这3类“救命文档”">
+<meta name="twitter:description" content="以前我总觉得，一个正规的项目，文档必须“大而全”。\n记得几年前带那个电商重构项目时，我曾逼着团队在开发前写完了120页的详细设计文档。那天凌晨两点，我看着排版精美的Word文档，心里充满了虚幻的安全感，觉得这次项目肯定稳了。\n结果呢？\n上线前两周，需求变更了三次，代码改得面目全非。那份120页的文档？早就没人看了，甚至因为里面的接口定义和实际代码不一致，误导了前端同学，导致联调整整延期了三天。\n那一刻我才明白：在中小团队，过度的文档不是资产，是负债。\n这种焦虑我太熟悉了：不写文档心里发慌，怕以后没法维护；写了文档又不仅没人看，维护起来比写代码还累。\n其实，我们不需要那个完美的“百科全书”。对于大多数快速迭代的中小项目，我们只需要几页真正有用的“核心文档”。今天我想和你聊聊，如何把文档从“负担”变成“工具”，希望能治愈你的“文档焦虑症”。\n一、 警惕“写完即死”：文档的生命周期比你想象的短\r很多项目经理（包括以前的我）都有个误区：试图用文档去“固化”还在流动的需求。\n在那个电商项目的惨痛教训后，我复盘发现：80%的详细设计文档，在代码写下第一行时就已经过时了。\n我们当时为了追求“规范”，连数据库字段的每一个枚举值都写进了文档里。后来业务调整，增加了一个状态码，后端改了代码，但忘了改文档。结果新来的测试同学拿着旧文档去提Bug，开发和测试为了“是不是Bug”吵了一下午。\n如果不具备实时同步更新的人力（通常中小团队都不具备），就不要写这种颗粒度的文档。\n我现在坚持一个原则：“三日原则”。如果一个逻辑或流程在未来三天内极有可能变动，或者即便写下来也没人会去查阅，那就别写。\n取而代之的是，不管是需求还是设计，我更倾向于用**“快照”**的形式存在。比如一张白板上的草图，拍个照发到群里，这比写一堆文字描述有效得多。\n甚至有位前辈曾对我说：“最好的文档是代码本身，次好的文档是代码里的注释，最差的文档就是那些独立于代码之外、还要单独打开Word才能看到的‘废纸’。”\n二、 拒绝“幽灵文档”：离代码越近，存活率越高\r你有没有遇到过这种情况：新同事入职，你丢给他一个Wiki链接，让他照着搭建开发环境。半小时后他一脸无助地找你：“哥，这步npm install报错，而且数据库配置的IP好像也连不上了。”\n你去一看，尴尬地发现那个Wiki还是半年前写的，中间项目架构早就升级了。这就是典型的“幽灵文档”——它看着在那，其实早就死了。\n为了解决这个问题，我强推**“文档即代码”（Docs as Code）**的理念。\n在这个理念下，我强制要求团队把核心技术文档直接写在项目的README.md里，或者放在代码仓库的/docs目录下。\n这样做有个巨大的好处：文档和代码在一起。\n当你提交代码修改了环境变量时，你顺手就能改掉README。这比登录Wiki系统、找到页面、点击编辑、保存要顺手得多。\n真实案例： 去年接手一个二手交易平台的小程序，之前的交接文档是一堆散落在钉钉群里的文件。接手第一周，我们不仅不知道怎么跑起来，连测试环境的账号都找不到。\n后来我们花了一天时间，把所有散落的信息整理进了一个README.md。不仅如此，我们在Git提交的Hook里加了规则：如果修改了核心配置文件，必须确认是否更新了文档。\n三个月后，再有新人进来，Checkout代码后，照着README，10分钟内就能把项目跑起来。那种顺畅感，真的能极大地降低团队的焦虑。\n三、 只写“核心三件套”：做减法，留精华\r既然不写大而全的文档，那到底写什么？\n经过这几年的摸索和删减，我发现对于90%的中小项目，只要维护好这“核心三件套”，就能保命：\n1. 全局业务流程图（解决“我们在做什么”）\r不要写文字版的“用户点击登录，然后跳转&hellip;”，没人爱看。 用Mermaid或者简单的流程图，画出核心业务的数据流向。\n关键点： 哪怕只画那一条“黄金流程”（Happy Path）。 比如那个电商项目，我们最后只保留了一张图：用户下单 -&gt; 扣库存 -&gt; 支付回调 -&gt; 发货通知。这就够了。当线上出故障时，这张图能让我们迅速定位是哪个环节断了。\n2. 接口契约（解决“前后端怎么配合”）\r千万不要手写API文档！千万不要！ 手写API文档是世界上最反人类的事情，因为永远跟不上代码变化。\n建议做法： 强制使用 Swagger/YApi/Apifox 这类工具。代码注解生成文档。如果后端改了参数类型，文档自动更新。这不仅仅是省事，这是为了“保真”。\n3. 运维部署手册（解决“怎么活下去”）\r这是唯一需要写得像“保姆级教程”的文档。 包含：\n环境依赖（Node版本、JDK版本、数据库版本） 配置项说明（哪个是数据库地址，哪个是密钥） 紧急回滚步骤（这行字建议加粗标红） 我有个习惯，每周五下午花10分钟，假装自己是一个完全不懂这个项目的新人，读一遍部署手册。如果发现哪一步我犹豫了，我就把它改得更清楚。\n四、 给你一个“拿来即用”的模板\r最后，我想分享一个我目前在用的README.md模板。你可以直接复制到你们的项目里，填空即可。这就是一个中小项目最核心的文档资产。\n">
+    </head>
+    <body class="
+    article-page
+    ">
+    <script>
+        (function() {
+            const colorSchemeKey = 'StackColorScheme';
+            if(!localStorage.getItem(colorSchemeKey)){
+                localStorage.setItem(colorSchemeKey, "auto");
+            }
+        })();
+    </script><script>
+    (function() {
+        const colorSchemeKey = 'StackColorScheme';
+        const colorSchemeItem = localStorage.getItem(colorSchemeKey);
+        const supportDarkMode = window.matchMedia('(prefers-color-scheme: dark)').matches === true;
+
+        if (colorSchemeItem == 'dark' || colorSchemeItem === 'auto' && supportDarkMode) {
+            
+
+            document.documentElement.dataset.scheme = 'dark';
+        } else {
+            document.documentElement.dataset.scheme = 'light';
+        }
+    })();
+</script>
+<div class="container main-container flex on-phone--column compact"><aside class="sidebar left-sidebar sticky ">
+    <button class="hamburger hamburger--spin" type="button" id="toggle-menu" aria-label="切换菜单">
+        <span class="hamburger-box">
+            <span class="hamburger-inner"></span>
+        </span>
+    </button>
+
+    <header>
+        
+            
+            <figure class="site-avatar">
+                <a href="/">
+                
+                    
+                    
+                    
+                        
+                        <img src="/img/avatar_hu_8588ce14af1147e2.png" width="300"
+                            height="286" class="site-logo" loading="lazy" alt="Avatar">
+                    
+                
+                </a>
+                
+            </figure>
+            
+        
+        
+        <div class="site-meta">
+            <h1 class="site-name"><a href="/">SelfTechHub</a></h1>
+            <h2 class="site-description"></h2>
+        </div>
+    </header><ol class="menu" id="main-menu">
+        
+        
+        <li class="menu-bottom-section">
+            <ol class="menu">
+
+                
+                    <li id="dark-mode-toggle">
+                        <svg xmlns="http://www.w3.org/2000/svg" class="icon icon-tabler icon-tabler-toggle-left" width="24" height="24" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor" fill="none" stroke-linecap="round" stroke-linejoin="round">
+  <path stroke="none" d="M0 0h24v24H0z"/>
+  <circle cx="8" cy="12" r="2" />
+  <rect x="2" y="6" width="20" height="12" rx="6" />
+</svg>
+
+
+
+                        <svg xmlns="http://www.w3.org/2000/svg" class="icon icon-tabler icon-tabler-toggle-right" width="24" height="24" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor" fill="none" stroke-linecap="round" stroke-linejoin="round">
+  <path stroke="none" d="M0 0h24v24H0z"/>
+  <circle cx="16" cy="12" r="2" />
+  <rect x="2" y="6" width="20" height="12" rx="6" />
+</svg>
+
+
+
+                        <span>暗色模式</span>
+                    </li>
+                
+            </ol>
+        </li>
+    </ol>
+</aside>
+
+    
+
+            <main class="main full-width">
+    <article class="main-article">
+    <header class="article-header">
+
+    <div class="article-details">
+    
+    <header class="article-category">
+        
+            <a href="/categories/%E6%8A%80%E6%9C%AF.html" >
+                技术精进
+            </a>
+        
+    </header>
+    
+
+    <div class="article-title-wrapper">
+        <h2 class="article-title">
+            <a href="/tech/danxiangmuquanliuchengchaijie10fenzhongkedu/xiangmuwendang_zhixieyouyongdehexinwendang.html">别再写没人看的文档了：中小团队只需这3类“救命文档”</a>
+        </h2>
+    
+        
+    </div>
+
+    
+    
+    
+    
+    <footer class="article-time">
+        
+            <div>
+                <svg xmlns="http://www.w3.org/2000/svg" class="icon icon-tabler icon-tabler-calendar-time" width="56" height="56" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor" fill="none" stroke-linecap="round" stroke-linejoin="round">
+  <path stroke="none" d="M0 0h24v24H0z"/>
+  <path d="M11.795 21h-6.795a2 2 0 0 1 -2 -2v-12a2 2 0 0 1 2 -2h12a2 2 0 0 1 2 2v4" />
+  <circle cx="18" cy="18" r="4" />
+  <path d="M15 3v4" />
+  <path d="M7 3v4" />
+  <path d="M3 11h16" />
+  <path d="M18 16.496v1.504l1 1" />
+</svg>
+                <time class="article-time--published" datetime='2021-06-11T00:00:00Z'>Jun 11, 2021</time>
+            </div>
+        
+
+        
+            <div>
+                <svg xmlns="http://www.w3.org/2000/svg" class="icon icon-tabler icon-tabler-clock" width="24" height="24" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor" fill="none" stroke-linecap="round" stroke-linejoin="round">
+  <path stroke="none" d="M0 0h24v24H0z"/>
+  <circle cx="12" cy="12" r="9" />
+  <polyline points="12 7 12 12 15 15" />
+</svg>
+
+
+
+                <time class="article-time--reading">
+                    阅读时长: 1 分钟
+                </time>
+            </div>
+        
+    </footer>
+    
+
+    
+</div>
+
+</header>
+
+    <section class="article-content">
+    
+    
+    <p>以前我总觉得，一个正规的项目，文档必须“大而全”。</p>
+<p>记得几年前带那个电商重构项目时，我曾逼着团队在开发前写完了120页的详细设计文档。那天凌晨两点，我看着排版精美的Word文档，心里充满了虚幻的安全感，觉得这次项目肯定稳了。</p>
+<p>结果呢？</p>
+<p>上线前两周，需求变更了三次，代码改得面目全非。那份120页的文档？早就没人看了，甚至因为里面的接口定义和实际代码不一致，误导了前端同学，导致联调整整延期了三天。</p>
+<p><strong>那一刻我才明白：在中小团队，过度的文档不是资产，是负债。</strong></p>
+<p>这种焦虑我太熟悉了：不写文档心里发慌，怕以后没法维护；写了文档又不仅没人看，维护起来比写代码还累。</p>
+<p>其实，我们不需要那个完美的“百科全书”。对于大多数快速迭代的中小项目，我们只需要几页真正有用的“核心文档”。今天我想和你聊聊，如何把文档从“负担”变成“工具”，希望能治愈你的“文档焦虑症”。</p>
+<h2 id="一-警惕写完即死文档的生命周期比你想象的短">一、 警惕“写完即死”：文档的生命周期比你想象的短
+</h2><p>很多项目经理（包括以前的我）都有个误区：试图用文档去“固化”还在流动的需求。</p>
+<p>在那个电商项目的惨痛教训后，我复盘发现：<strong>80%的详细设计文档，在代码写下第一行时就已经过时了。</strong></p>
+<p><img src="https://picsum.photos/800/450?random=1768449506129"
+	
+	
+	
+	loading="lazy"
+	
+		alt="配图"
+	
+	
+></p>
+<p>我们当时为了追求“规范”，连数据库字段的每一个枚举值都写进了文档里。后来业务调整，增加了一个状态码，后端改了代码，但忘了改文档。结果新来的测试同学拿着旧文档去提Bug，开发和测试为了“是不是Bug”吵了一下午。</p>
+<p><strong>如果不具备实时同步更新的人力（通常中小团队都不具备），就不要写这种颗粒度的文档。</strong></p>
+<p>我现在坚持一个原则：<strong>“三日原则”</strong>。如果一个逻辑或流程在未来三天内极有可能变动，或者即便写下来也没人会去查阅，那就别写。</p>
+<p>取而代之的是，不管是需求还是设计，我更倾向于用**“快照”**的形式存在。比如一张白板上的草图，拍个照发到群里，这比写一堆文字描述有效得多。</p>
+<blockquote>
+<p>甚至有位前辈曾对我说：“最好的文档是代码本身，次好的文档是代码里的注释，最差的文档就是那些独立于代码之外、还要单独打开Word才能看到的‘废纸’。”</p>
+</blockquote>
+<h2 id="二-拒绝幽灵文档离代码越近存活率越高">二、 拒绝“幽灵文档”：离代码越近，存活率越高
+</h2><p>你有没有遇到过这种情况：新同事入职，你丢给他一个Wiki链接，让他照着搭建开发环境。半小时后他一脸无助地找你：“哥，这步<code>npm install</code>报错，而且数据库配置的IP好像也连不上了。”</p>
+<p>你去一看，尴尬地发现那个Wiki还是半年前写的，中间项目架构早就升级了。这就是典型的“幽灵文档”——它看着在那，其实早就死了。</p>
+<p>为了解决这个问题，我强推**“文档即代码”（Docs as Code）**的理念。</p>
+<p>在这个理念下，我强制要求团队把核心技术文档直接写在项目的<code>README.md</code>里，或者放在代码仓库的<code>/docs</code>目录下。</p>
+<p>这样做有个巨大的好处：<strong>文档和代码在一起。</strong></p>
+<p>当你提交代码修改了环境变量时，你顺手就能改掉<code>README</code>。这比登录Wiki系统、找到页面、点击编辑、保存要顺手得多。</p>
+<p><strong>真实案例：</strong>
+去年接手一个二手交易平台的小程序，之前的交接文档是一堆散落在钉钉群里的文件。接手第一周，我们不仅不知道怎么跑起来，连测试环境的账号都找不到。</p>
+<p>后来我们花了一天时间，把所有散落的信息整理进了一个<code>README.md</code>。不仅如此，我们在Git提交的Hook里加了规则：如果修改了核心配置文件，必须确认是否更新了文档。</p>
+<p>三个月后，再有新人进来，Checkout代码后，照着README，10分钟内就能把项目跑起来。那种顺畅感，真的能极大地降低团队的焦虑。</p>
+<h2 id="三-只写核心三件套做减法留精华">三、 只写“核心三件套”：做减法，留精华
+</h2><p>既然不写大而全的文档，那到底写什么？</p>
+<p><img src="https://picsum.photos/800/450?random=1768449503149"
+	
+	
+	
+	loading="lazy"
+	
+		alt="配图"
+	
+	
+></p>
+<p>经过这几年的摸索和删减，我发现对于90%的中小项目，只要维护好这“核心三件套”，就能保命：</p>
+<h3 id="1-全局业务流程图解决我们在做什么">1. 全局业务流程图（解决“我们在做什么”）
+</h3><p>不要写文字版的“用户点击登录，然后跳转&hellip;”，没人爱看。
+用Mermaid或者简单的流程图，画出<strong>核心业务的数据流向</strong>。</p>
+<p><strong>关键点：</strong> 哪怕只画那一条“黄金流程”（Happy Path）。
+比如那个电商项目，我们最后只保留了一张图：用户下单 -&gt; 扣库存 -&gt; 支付回调 -&gt; 发货通知。这就够了。当线上出故障时，这张图能让我们迅速定位是哪个环节断了。</p>
+<h3 id="2-接口契约解决前后端怎么配合">2. 接口契约（解决“前后端怎么配合”）
+</h3><p>千万不要手写API文档！千万不要！
+手写API文档是世界上最反人类的事情，因为永远跟不上代码变化。</p>
+<p><strong>建议做法：</strong> 强制使用 Swagger/YApi/Apifox 这类工具。代码注解生成文档。如果后端改了参数类型，文档自动更新。这不仅仅是省事，这是为了“保真”。</p>
+<h3 id="3-运维部署手册解决怎么活下去">3. 运维部署手册（解决“怎么活下去”）
+</h3><p>这是唯一需要写得像“保姆级教程”的文档。
+包含：</p>
+<ul>
+<li>环境依赖（Node版本、JDK版本、数据库版本）</li>
+<li>配置项说明（哪个是数据库地址，哪个是密钥）</li>
+<li>紧急回滚步骤（这行字建议加粗标红）</li>
+</ul>
+<p>我有个习惯，<strong>每周五下午</strong>花10分钟，假装自己是一个完全不懂这个项目的新人，读一遍部署手册。如果发现哪一步我犹豫了，我就把它改得更清楚。</p>
+<h2 id="四-给你一个拿来即用的模板">四、 给你一个“拿来即用”的模板
+</h2><p>最后，我想分享一个我目前在用的<code>README.md</code>模板。你可以直接复制到你们的项目里，填空即可。这就是一个中小项目最核心的文档资产。</p>
+<div class="highlight"><pre tabindex="0" style="color:#f8f8f2;background-color:#272822;-moz-tab-size:4;-o-tab-size:4;tab-size:4;"><code class="language-markdown" data-lang="markdown"><span style="display:flex;"><span># [项目名称] 核心文档
+</span></span><span style="display:flex;"><span>
+</span></span><span style="display:flex;"><span><span style="color:#75715e">## 1. 项目简介
+</span></span></span><span style="display:flex;"><span><span style="color:#75715e"></span><span style="color:#66d9ef">&gt; </span><span style="font-style:italic">一句话解释这个项目是干嘛的，给谁用的。
+</span></span></span><span style="display:flex;"><span><span style="font-style:italic"></span><span style="color:#66d9ef">&gt; </span><span style="font-style:italic">示例：这是一个为XX门店提供的iPad端收银系统。
+</span></span></span><span style="display:flex;"><span><span style="font-style:italic"></span>
+</span></span><span style="display:flex;"><span><span style="color:#75715e">## 2. 快速开始 (3分钟跑起来)
+</span></span></span><span style="display:flex;"><span><span style="color:#75715e">### 环境要求
+</span></span></span><span style="display:flex;"><span><span style="color:#75715e"></span><span style="color:#66d9ef">-</span> Node.js &gt;= 16.0
+</span></span><span style="display:flex;"><span><span style="color:#66d9ef">-</span> MySQL &gt;= 5.7
+</span></span><span style="display:flex;"><span>
+</span></span><span style="display:flex;"><span><span style="color:#75715e">### 启动步骤
+</span></span></span><span style="display:flex;"><span><span style="color:#75715e"></span><span style="color:#66d9ef">1.</span> 克隆代码: <span style="color:#e6db74">`git clone xxx`</span>
+</span></span><span style="display:flex;"><span><span style="color:#66d9ef">2.</span> 安装依赖: <span style="color:#e6db74">`npm install`</span>
+</span></span><span style="display:flex;"><span><span style="color:#66d9ef">3.</span> 配置环境: 复制 <span style="color:#e6db74">`.env.example`</span> 为 <span style="color:#e6db74">`.env`</span>，修改数据库配置
+</span></span><span style="display:flex;"><span><span style="color:#66d9ef">4.</span> 启动服务: <span style="color:#e6db74">`npm run dev`</span>
+</span></span><span style="display:flex;"><span>
+</span></span><span style="display:flex;"><span><span style="color:#75715e">## 3. 核心架构与业务
+</span></span></span><span style="display:flex;"><span><span style="color:#75715e">### 业务流程图
+</span></span></span><span style="display:flex;"><span><span style="color:#75715e"></span><span style="color:#66d9ef">&gt; </span><span style="font-style:italic">这里放一张Mermaid流程图或图片链接，展示最核心的业务流。
+</span></span></span><span style="display:flex;"><span><span style="font-style:italic"></span>
+</span></span><span style="display:flex;"><span><span style="color:#75715e">### 关键目录说明
+</span></span></span><span style="display:flex;"><span><span style="color:#75715e"></span><span style="color:#66d9ef">-</span> /src/biz: 核心业务逻辑
+</span></span><span style="display:flex;"><span><span style="color:#66d9ef">-</span> /src/utils: 通用工具
+</span></span><span style="display:flex;"><span>
+</span></span><span style="display:flex;"><span><span style="color:#75715e">## 4. 接口文档地址
+</span></span></span><span style="display:flex;"><span><span style="color:#75715e"></span><span style="color:#66d9ef">&gt; </span><span style="font-style:italic">贴上Swagger或YApi的自动生成地址，不要手动写在这里。
+</span></span></span><span style="display:flex;"><span><span style="font-style:italic"></span>
+</span></span><span style="display:flex;"><span><span style="color:#75715e">## 5. 常见问题 (踩坑记录)
+</span></span></span><span style="display:flex;"><span><span style="color:#75715e"></span><span style="color:#66d9ef">-</span> **问题**: 启动报错 <span style="color:#e6db74">`ERR_OSSL_EVP_UNSUPPORTED`</span>
+</span></span><span style="display:flex;"><span><span style="color:#66d9ef">-</span> **解决**: Node版本过高，请降级到16或设置 <span style="color:#e6db74">`SET NODE_OPTIONS=...`</span>
+</span></span><span style="display:flex;"><span>
+</span></span><span style="display:flex;"><span><span style="color:#75715e">## 6. 维护人
+</span></span></span><span style="display:flex;"><span><span style="color:#75715e"></span><span style="color:#66d9ef">-</span> 负责人: @你的名字
+</span></span></code></pre></div><h2 id="写在最后行动建议">写在最后：行动建议
+</h2><p>文档的目的不是为了“证明工作量”，而是为了“传递上下文”。</p>
+<p>如果你现在正看着手里那几十页的文档发愁，或者对着空白的文档感到焦虑，不妨试试这样做：</p>
+<ol>
+<li><strong>做一次大扫除</strong>：把你项目Wiki里超过6个月没更新、且没人看的文档，统统归档到一个叫“历史遗迹”的文件夹里。你会发现，世界瞬间清净了。</li>
+<li><strong>落地README</strong>：明天就把上面那个模板复制到你的代码仓库里，花30分钟填满它。</li>
+<li><strong>培养“微习惯”</strong>：下次解决了一个折腾你超过1小时的Bug（比如环境配置问题），别只顾着开心，把解决方案用一句话记在<code>README</code>的“常见问题”里。</li>
+</ol>
+<p>开发已经很累了，别让无效的文档再消耗你的热情。希望能帮到你，祝你的项目文档“少而精”，下班时间“早而稳”。</p>
+
+</section>
+
+
+    <footer class="article-footer">
+    
+    <section class="article-tags">
+        
+            <a href="/tags/%E9%A1%B9%E7%9B%AE%E6%96%87%E6%A1%A3%E5%8F%AA%E5%86%99%E6%9C%89%E7%94%A8%E7%9A%84%E6%A0%B8%E5%BF%83%E6%96%87%E6%A1%A3.html">项目文档：只写有用的核心文档</a>
+        
+    </section>
+
+
+    </footer>
+
+
+    
+</article>
+
+    
+
+    
+
+     
+    
+        
+    <script
+    src="https://giscus.app/client.js"
+    data-repo="pastor17/bloggiscus"
+    data-repo-id="R_kgDOQ6H9qQ"
+    data-category=""
+    data-category-id="DIC_kwDOQ6H9qc4C0-T8"
+    data-mapping="pathname"
+    data-strict="0"
+    data-reactions-enabled="1"
+    data-emit-metadata="0"
+    data-input-position="bottom"
+    data-theme="light"
+    data-lang="zh-CN"
+    data-loading="lazy"
+    crossorigin="anonymous"
+    async
+></script>
+<script>
+    function setGiscusTheme(theme) {
+        let giscus = document.querySelector("iframe.giscus-frame");
+        if (giscus) {
+            giscus.contentWindow.postMessage(
+                {
+                    giscus: {
+                        setConfig: {
+                            theme: theme,
+                        },
+                    },
+                },
+                "https://giscus.app"
+            );
+        }
+    }
+
+    (function () {
+        addEventListener("message", (e) => {
+            if (event.origin !== "https://giscus.app") return;
+            handler();
+        });
+        window.addEventListener("onColorSchemeChange", handler);
+
+        function handler() {
+            if (document.documentElement.dataset.scheme === "light") {
+                setGiscusTheme('light');
+            } else {
+                setGiscusTheme('dark_dimmed');
+            }
+        }
+    })();
+</script>
+
+    
+
+    <footer class="site-footer">
+    <section class="copyright">
+        &copy; 
+        
+        2026 SelfTechHub
+    </section>
+    
+    <section class="powerby">
+        
+
+    </section>
+</footer>
+
+
+    
+<div class="pswp" tabindex="-1" role="dialog" aria-hidden="true">
+
+    
+    <div class="pswp__bg"></div>
+
+    
+    <div class="pswp__scroll-wrap">
+
+        
+        <div class="pswp__container">
+            <div class="pswp__item"></div>
+            <div class="pswp__item"></div>
+            <div class="pswp__item"></div>
+        </div>
+
+        
+        <div class="pswp__ui pswp__ui--hidden">
+
+            <div class="pswp__top-bar">
+
+                
+
+                <div class="pswp__counter"></div>
+
+                <button class="pswp__button pswp__button--close" title="Close (Esc)"></button>
+
+                <button class="pswp__button pswp__button--share" title="Share"></button>
+
+                <button class="pswp__button pswp__button--fs" title="Toggle fullscreen"></button>
+
+                <button class="pswp__button pswp__button--zoom" title="Zoom in/out"></button>
+
+                
+                
+                <div class="pswp__preloader">
+                    <div class="pswp__preloader__icn">
+                        <div class="pswp__preloader__cut">
+                            <div class="pswp__preloader__donut"></div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <div class="pswp__share-modal pswp__share-modal--hidden pswp__single-tap">
+                <div class="pswp__share-tooltip"></div>
+            </div>
+
+            <button class="pswp__button pswp__button--arrow--left" title="Previous (arrow left)">
+            </button>
+
+            <button class="pswp__button pswp__button--arrow--right" title="Next (arrow right)">
+            </button>
+
+            <div class="pswp__caption">
+                <div class="pswp__caption__center"></div>
+            </div>
+
+        </div>
+
+    </div>
+
+</div><script 
+                src="https://cdn.jsdelivr.net/npm/photoswipe@4.1.3/dist/photoswipe.min.js"integrity="sha256-ePwmChbbvXbsO02lbM3HoHbSHTHFAeChekF1xKJdleo="crossorigin="anonymous"
+                defer
+                >
+            </script><script 
+                src="https://cdn.jsdelivr.net/npm/photoswipe@4.1.3/dist/photoswipe-ui-default.min.js"integrity="sha256-UKkzOn/w1mBxRmLLGrSeyB4e1xbrp4xylgAWb3M42pU="crossorigin="anonymous"
+                defer
+                >
+            </script><link 
+                rel="stylesheet" 
+                href="https://cdn.jsdelivr.net/npm/photoswipe@4.1.3/dist/default-skin/default-skin.min.css"crossorigin="anonymous"
+            ><link 
+                rel="stylesheet" 
+                href="https://cdn.jsdelivr.net/npm/photoswipe@4.1.3/dist/photoswipe.min.css"crossorigin="anonymous"
+            >
+    
+
+            </main>
+        </div>
+        <script 
+                src="https://cdn.jsdelivr.net/npm/node-vibrant@3.1.6/dist/vibrant.min.js"integrity="sha256-awcR2jno4kI5X0zL8ex0vi2z&#43;KMkF24hUW8WePSA9HM="crossorigin="anonymous"
+                
+                >
+            </script><script type="text/javascript" src="/ts/main.c922af694cc257bf1ecc41c0dd7b0430f9114ec280ccf67cd2c6ad55f5316c4e.js" defer></script>
+<script>
+    (function () {
+        const customFont = document.createElement('link');
+        customFont.href = "https://fonts.googleapis.com/css2?family=Lato:wght@300;400;700&display=swap";
+
+        customFont.type = "text/css";
+        customFont.rel = "stylesheet";
+
+        document.head.appendChild(customFont);
+    }());
+</script>
+
+    </body>
+</html>

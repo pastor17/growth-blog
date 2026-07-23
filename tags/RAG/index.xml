@@ -1,0 +1,1367 @@
+<?xml version="1.0" encoding="utf-8" standalone="yes"?>
+<rss version="2.0" xmlns:atom="http://www.w3.org/2005/Atom">
+    <channel>
+        <title>RAG on SelfTechHub</title>
+        <link>https://blog.irudder.me/tags/RAG.html</link>
+        <description>Recent content in RAG on SelfTechHub</description>
+        <generator>Hugo -- gohugo.io</generator>
+        <language>zh-cn</language>
+        <lastBuildDate>Mon, 15 Jun 2026 00:00:00 +0000</lastBuildDate><atom:link href="https://blog.irudder.me/tags/RAG/index.xml" rel="self" type="application/rss+xml" /><item>
+        <title>第9章：RAG 检索优化全攻略——从召回率到答案质量</title>
+        <link>https://blog.irudder.me/ai/knowledge-series/09-RAG-Retrieval-Optimization-Guide.html</link>
+        <pubDate>Mon, 15 Jun 2026 00:00:00 +0000</pubDate>
+        
+        <guid>https://blog.irudder.me/ai/knowledge-series/09-RAG-Retrieval-Optimization-Guide.html</guid>
+        <description>&lt;h1 id=&#34;第9章rag-检索优化全攻略从召回率到答案质量&#34;&gt;第9章：RAG 检索优化全攻略——从召回率到答案质量
+&lt;/h1&gt;&lt;blockquote&gt;
+&lt;p&gt;系列导读：检索是 RAG 的命脉，召回的内容质量决定了 LLM 回答的天花板。本章系统讲解检索优化的四维框架。&lt;/p&gt;
+&lt;/blockquote&gt;
+&lt;hr&gt;
+&lt;h2 id=&#34;一为什么要系统优化检索&#34;&gt;一、为什么要系统优化检索？
+&lt;/h2&gt;&lt;p&gt;先看三个现实问题：&lt;/p&gt;
+&lt;ol&gt;
+&lt;li&gt;用户问&amp;quot;退款政策&amp;quot;，召回的第一步是&amp;quot;配送说明&amp;quot;，第二步才是&amp;quot;退款政策&amp;quot;——漏召回&lt;/li&gt;
+&lt;li&gt;用户问&amp;quot;这个功能怎么用？&amp;quot;，召回的 10 个 chunk 里有 3 个完全无关——召回噪音大&lt;/li&gt;
+&lt;li&gt;用户问了一个涉及两个不同知识点的复合问题，检索只找到了其中一个——覆盖不全&lt;/li&gt;
+&lt;/ol&gt;
+&lt;p&gt;这三个问题对应的分别是：&lt;/p&gt;
+&lt;ul&gt;
+&lt;li&gt;召回精度的优化&lt;/li&gt;
+&lt;li&gt;召回噪音的优化&lt;/li&gt;
+&lt;li&gt;多路召回的优化&lt;/li&gt;
+&lt;/ul&gt;
+&lt;h2 id=&#34;二四层检索优化框架&#34;&gt;二、四层检索优化框架
+&lt;/h2&gt;&lt;h3 id=&#34;第一层索引层知识怎么存&#34;&gt;第一层：索引层——知识怎么存
+&lt;/h3&gt;&lt;p&gt;&lt;strong&gt;切割策略优化&lt;/strong&gt;：&lt;/p&gt;
+&lt;ul&gt;
+&lt;li&gt;第7章讲过的四种策略按需选择和组合&lt;/li&gt;
+&lt;li&gt;父子结构不过分零碎也不过分庞大&lt;/li&gt;
+&lt;/ul&gt;
+&lt;p&gt;&lt;strong&gt;metadata 索引&lt;/strong&gt;：&lt;/p&gt;
+&lt;ul&gt;
+&lt;li&gt;为每个 chunk 打上分类标签、文档类型、版本号、创建时间&lt;/li&gt;
+&lt;li&gt;检索时做前置过滤，缩小搜索范围&lt;/li&gt;
+&lt;/ul&gt;
+&lt;p&gt;&lt;strong&gt;向量索引参数调优&lt;/strong&gt;：&lt;/p&gt;
+&lt;ul&gt;
+&lt;li&gt;HNSW 的 ef_construction：构建时越精细，搜索越准，但构建越慢&lt;/li&gt;
+&lt;li&gt;HNSW 的 ef_search：搜索时额外探索更多候选，提高召回率但增加延迟&lt;/li&gt;
+&lt;/ul&gt;
+&lt;h3 id=&#34;第二层查询层问题怎么转换&#34;&gt;第二层：查询层——问题怎么转换
+&lt;/h3&gt;&lt;p&gt;&lt;strong&gt;Query Rewrite 四大方法&lt;/strong&gt;（详见第6章总结）：&lt;/p&gt;
+&lt;table&gt;
+  &lt;thead&gt;
+      &lt;tr&gt;
+          &lt;th&gt;方法&lt;/th&gt;
+          &lt;th&gt;核心思想&lt;/th&gt;
+          &lt;th&gt;解决的问题&lt;/th&gt;
+      &lt;/tr&gt;
+  &lt;/thead&gt;
+  &lt;tbody&gt;
+      &lt;tr&gt;
+          &lt;td&gt;直接改写&lt;/td&gt;
+          &lt;td&gt;口语 → 书面语&lt;/td&gt;
+          &lt;td&gt;用户提问随意&lt;/td&gt;
+      &lt;/tr&gt;
+      &lt;tr&gt;
+          &lt;td&gt;查询扩展&lt;/td&gt;
+          &lt;td&gt;加相关关键词&lt;/td&gt;
+          &lt;td&gt;术语不匹配&lt;/td&gt;
+      &lt;/tr&gt;
+      &lt;tr&gt;
+          &lt;td&gt;HyDE&lt;/td&gt;
+          &lt;td&gt;LLM 假设答案 → 用答案向量检索&lt;/td&gt;
+          &lt;td&gt;用户问题表述匮乏&lt;/td&gt;
+      &lt;/tr&gt;
+      &lt;tr&gt;
+          &lt;td&gt;Step-back&lt;/td&gt;
+          &lt;td&gt;抽象具体问题&lt;/td&gt;
+          &lt;td&gt;需要更广泛背景&lt;/td&gt;
+      &lt;/tr&gt;
+  &lt;/tbody&gt;
+&lt;/table&gt;
+&lt;p&gt;&lt;strong&gt;应用场景举例&lt;/strong&gt;：&lt;/p&gt;
+&lt;ul&gt;
+&lt;li&gt;用户问&amp;quot;这东西坏了咋整&amp;quot;→ 直接改写成&amp;quot;产品故障排查指南&amp;quot;&lt;/li&gt;
+&lt;li&gt;用户问&amp;quot;张三是谁&amp;quot;→ 扩展&amp;quot;张三 | 人物 | 简介 | 生平&amp;quot;&lt;/li&gt;
+&lt;li&gt;用户只有一个缩写词&amp;quot;OKR&amp;quot;→ Step-back 到&amp;quot;目标管理体系&amp;quot;&lt;/li&gt;
+&lt;/ul&gt;
+&lt;h3 id=&#34;第三层召回层从哪些路径找&#34;&gt;第三层：召回层——从哪些路径找
+&lt;/h3&gt;&lt;p&gt;&lt;strong&gt;多路召回&lt;/strong&gt;：不走单一检索路径，而是从多个角度同时找，然后把结果合并：&lt;/p&gt;
+&lt;div class=&#34;highlight&#34;&gt;&lt;pre tabindex=&#34;0&#34; style=&#34;color:#f8f8f2;background-color:#272822;-moz-tab-size:4;-o-tab-size:4;tab-size:4;&#34;&gt;&lt;code class=&#34;language-text&#34; data-lang=&#34;text&#34;&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;┌─ 向量检索（语义匹配） → Top-K1 结果
+&lt;/span&gt;&lt;/span&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;├─ BM25/全文检索（关键词匹配） → Top-K2 结果
+&lt;/span&gt;&lt;/span&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;├─ 结构化查询（metadata过滤 + 精确匹配） → Top-K3 结果
+&lt;/span&gt;&lt;/span&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;└─ 混合融合 → 去重 → 合并排序 → 进入 Rerank
+&lt;/span&gt;&lt;/span&gt;&lt;/code&gt;&lt;/pre&gt;&lt;/div&gt;&lt;p&gt;&lt;strong&gt;每种召回方法有不同的优势&lt;/strong&gt;：&lt;/p&gt;
+&lt;ul&gt;
+&lt;li&gt;&lt;strong&gt;向量检索&lt;/strong&gt;：语义相近但用词不同的内容&lt;/li&gt;
+&lt;li&gt;&lt;strong&gt;BM25&lt;/strong&gt;：精确的关键词匹配、术语命中&lt;/li&gt;
+&lt;li&gt;&lt;strong&gt;Structured Query&lt;/strong&gt;：条件查找（某版本、某产品的文档）&lt;/li&gt;
+&lt;/ul&gt;
+&lt;p&gt;&lt;strong&gt;融合策略&lt;/strong&gt;：&lt;/p&gt;
+&lt;ul&gt;
+&lt;li&gt;&lt;strong&gt;加权融合&lt;/strong&gt;：weight_vector × score_vector + weight_bm25 × score_bm25&lt;/li&gt;
+&lt;li&gt;&lt;strong&gt;RRF（Reciprocal Rank Fusion）&lt;/strong&gt;：不关心绝对分数，只关心排名位置&lt;/li&gt;
+&lt;/ul&gt;
+&lt;h3 id=&#34;第四层重排序层哪些给-llm&#34;&gt;第四层：重排序层——哪些给 LLM
+&lt;/h3&gt;&lt;p&gt;粗招召回的结果数量通常远超过 LLM context 能容纳的。Rerank 的作用：&lt;/p&gt;
+&lt;blockquote&gt;
+&lt;p&gt;用更精确的模型重新打分，选最相关的 Top-N 传给 LLM&lt;/p&gt;
+&lt;/blockquote&gt;
+&lt;p&gt;&lt;strong&gt;常见 Rerank 方案&lt;/strong&gt;：&lt;/p&gt;
+&lt;ol&gt;
+&lt;li&gt;&lt;strong&gt;Cross-Encoder Reranker&lt;/strong&gt;：问题和每个 chunk 拼接一起送进模型，输出一个相关性分数。比双塔（bi-encoder）更准但计算更慢&lt;/li&gt;
+&lt;li&gt;&lt;strong&gt;LLM-as-Judge&lt;/strong&gt;：让 LLM 对每个召回 chunk 打分（慢但效果最好，适合少量结果）&lt;/li&gt;
+&lt;li&gt;&lt;strong&gt;规则过滤&lt;/strong&gt;：按 metadata 排除明显不相关的&lt;/li&gt;
+&lt;/ol&gt;
+&lt;h2 id=&#34;三系统性优化流程&#34;&gt;三、系统性优化流程
+&lt;/h2&gt;&lt;p&gt;不要东一榔头西一棒槌，按以下流程来：&lt;/p&gt;
+&lt;pre tabindex=&#34;0&#34;&gt;&lt;code&gt;步骤1：建立评估基准
+  └─ 标注 50-100 组&amp;#34;问题/期望答案&amp;#34;，称为 golden set
+
+步骤2：跑基线
+  └─ 用最简单的 chunking + 默认模型 + 向量检索，测召回率和答案质量
+
+步骤3：逐层优化
+  └─ 先看召回层：调整 chunking、换 Embedding 模型、加多路召回
+  └─ 再看查询层：加 Query Rewrite，看是否能召回原本漏掉的内容
+  └─ 最后看重排序层：加 Reranker，提高精度、降低噪音
+
+步骤4：回归验证
+  └─ 每次改动后跑 full golden set，确保没有 regression
+&lt;/code&gt;&lt;/pre&gt;&lt;h2 id=&#34;四常见检索-bad-case-速查表&#34;&gt;四、常见检索 bad case 速查表
+&lt;/h2&gt;&lt;table&gt;
+  &lt;thead&gt;
+      &lt;tr&gt;
+          &lt;th&gt;现象&lt;/th&gt;
+          &lt;th&gt;根因&lt;/th&gt;
+          &lt;th&gt;解法&lt;/th&gt;
+      &lt;/tr&gt;
+  &lt;/thead&gt;
+  &lt;tbody&gt;
+      &lt;tr&gt;
+          &lt;td&gt;问题措辞不同就检索不到&lt;/td&gt;
+          &lt;td&gt;Embedding 语义映射不够&lt;/td&gt;
+          &lt;td&gt;换模型 / 加 Query Rewrite&lt;/td&gt;
+      &lt;/tr&gt;
+      &lt;tr&gt;
+          &lt;td&gt;专有名词搜不到&lt;/td&gt;
+          &lt;td&gt;语义匹配 + 精确匹配不足&lt;/td&gt;
+          &lt;td&gt;加 BM25 / 结构化索引&lt;/td&gt;
+      &lt;/tr&gt;
+      &lt;tr&gt;
+          &lt;td&gt;召回很多无关内容&lt;/td&gt;
+          &lt;td&gt;粗排粒度太粗&lt;/td&gt;
+          &lt;td&gt;加 Reranker / 缩小 Top-K&lt;/td&gt;
+      &lt;/tr&gt;
+      &lt;tr&gt;
+          &lt;td&gt;需要跨文档关联才能回答&lt;/td&gt;
+          &lt;td&gt;单路召回覆盖不全&lt;/td&gt;
+          &lt;td&gt;多路召回 + 多跳检索&lt;/td&gt;
+      &lt;/tr&gt;
+      &lt;tr&gt;
+          &lt;td&gt;召回内容正确但太碎片化&lt;/td&gt;
+          &lt;td&gt;Chunk 太小&lt;/td&gt;
+          &lt;td&gt;父子结构 / 增大 chunk&lt;/td&gt;
+      &lt;/tr&gt;
+  &lt;/tbody&gt;
+&lt;/table&gt;
+&lt;h2 id=&#34;五本章小结&#34;&gt;五、本章小结
+&lt;/h2&gt;&lt;ul&gt;
+&lt;li&gt;检索优化的目标：不漏（召回率）、不杂（精确度）、够用（覆盖度）&lt;/li&gt;
+&lt;li&gt;四层框架：索引层 → 查询层 → 召回层 → 重排序层&lt;/li&gt;
+&lt;li&gt;黄金法则：先建评估基准（golden set），再逐层优化，每次改动都跑回归&lt;/li&gt;
+&lt;li&gt;RAG 系统的上限在检索层，搜索做得越好，LLM 回答的天花板越高&lt;/li&gt;
+&lt;/ul&gt;
+&lt;h2 id=&#34;思考题&#34;&gt;思考题
+&lt;/h2&gt;&lt;ol&gt;
+&lt;li&gt;多路召回中，向量检索和 BM25 的分数范围不同，直接加权融合可能不公平。你除了 RRF 之外还有什么融合策略？&lt;/li&gt;
+&lt;li&gt;如果你的 golden set 只有 20 条，怎么防止过拟合评估集？&lt;/li&gt;
+&lt;/ol&gt;
+</description>
+        </item>
+        <item>
+        <title>第8章：Embedding 与向量数据库——RAG 的技术底座</title>
+        <link>https://blog.irudder.me/ai/knowledge-series/08-Embedding-and-Vector-Database-Selection.html</link>
+        <pubDate>Sat, 13 Jun 2026 00:00:00 +0000</pubDate>
+        
+        <guid>https://blog.irudder.me/ai/knowledge-series/08-Embedding-and-Vector-Database-Selection.html</guid>
+        <description>&lt;h1 id=&#34;第8章embedding-与向量数据库rag-的技术底座&#34;&gt;第8章：Embedding 与向量数据库——RAG 的技术底座
+&lt;/h1&gt;&lt;blockquote&gt;
+&lt;p&gt;系列导读：本章讲 RAG 的&amp;quot;底层基础设施&amp;quot;。选对了 Embedding 模型和向量数据库，后面的优化事半功倍；选错了，上层做再多也救不回来。&lt;/p&gt;
+&lt;/blockquote&gt;
+&lt;hr&gt;
+&lt;h2 id=&#34;一embedding-到底做了一件什么事&#34;&gt;一、Embedding 到底做了一件什么事？
+&lt;/h2&gt;&lt;p&gt;Embedding（嵌入）做的事情本质上只有一件：&lt;/p&gt;
+&lt;blockquote&gt;
+&lt;p&gt;&lt;strong&gt;把一段文本，映射成一个固定长度的浮点数向量。&lt;/strong&gt;&lt;/p&gt;
+&lt;/blockquote&gt;
+&lt;p&gt;比如把 &amp;ldquo;今天天气很好&amp;rdquo; 转成：[0.023, -0.145, 0.778, &amp;hellip;]，长度比如 768 或 1024。&lt;/p&gt;
+&lt;p&gt;这个映射最关键的性质：&lt;strong&gt;语义相近的文本，向量在空间中距离相近&lt;/strong&gt;。&lt;/p&gt;
+&lt;p&gt;度量方式通常用&lt;strong&gt;余弦相似度&lt;/strong&gt;：&lt;/p&gt;
+&lt;pre tabindex=&#34;0&#34;&gt;&lt;code&gt;cos(A, B) = (A·B) / (||A|| × ||B||)
+&lt;/code&gt;&lt;/pre&gt;&lt;p&gt;值接近 1 表示高度相似，接近 0 表示无关。&lt;/p&gt;
+&lt;h2 id=&#34;二如何选择-embedding-模型&#34;&gt;二、如何选择 Embedding 模型？
+&lt;/h2&gt;&lt;h3 id=&#34;维度&#34;&gt;维度
+&lt;/h3&gt;&lt;ul&gt;
+&lt;li&gt;&lt;strong&gt;384 维&lt;/strong&gt;：轻量，存储省，适合简单场景&lt;/li&gt;
+&lt;li&gt;&lt;strong&gt;768-1024 维&lt;/strong&gt;：最常用，精度够用&lt;/li&gt;
+&lt;li&gt;&lt;strong&gt;4096+ 维&lt;/strong&gt;：高精度，适合专业检索&lt;/li&gt;
+&lt;/ul&gt;
+&lt;h3 id=&#34;语言&#34;&gt;语言
+&lt;/h3&gt;&lt;ul&gt;
+&lt;li&gt;&lt;strong&gt;纯中文&lt;/strong&gt;：BGE 系列（推荐 v1.5 或 M3E 通用版）、智谱 embedding&lt;/li&gt;
+&lt;li&gt;&lt;strong&gt;中英混合&lt;/strong&gt;：BGE 系列、GTE 系列&lt;/li&gt;
+&lt;li&gt;&lt;strong&gt;多语言&lt;/strong&gt;：OpenAI text-embedding-3, E5 multilang, GTE multilang&lt;/li&gt;
+&lt;/ul&gt;
+&lt;h3 id=&#34;评估方式&#34;&gt;评估方式
+&lt;/h3&gt;&lt;p&gt;千万不要只看 MTEB 排行榜！&lt;/p&gt;
+&lt;p&gt;&lt;strong&gt;在自己的数据上跑模拟测试&lt;/strong&gt;：&lt;/p&gt;
+&lt;ol&gt;
+&lt;li&gt;标注一组 &amp;ldquo;问题 | 期望答案文档&amp;rdquo; 的配对&lt;/li&gt;
+&lt;li&gt;用候选 Embedding 模型向量化问题和文档&lt;/li&gt;
+&lt;li&gt;计算 Top-K 召回率、NDCG&lt;/li&gt;
+&lt;li&gt;选实际效果最好的，不要迷信榜单第一&lt;/li&gt;
+&lt;/ol&gt;
+&lt;p&gt;&lt;strong&gt;关键指标&lt;/strong&gt;：&lt;/p&gt;
+&lt;ul&gt;
+&lt;li&gt;&lt;strong&gt;Hit@K&lt;/strong&gt;：正确结果在 Top-K 中的占比&lt;/li&gt;
+&lt;li&gt;&lt;strong&gt;NDCG@K&lt;/strong&gt;：不仅看命没命中，还看命中位置的排名质量&lt;/li&gt;
+&lt;/ul&gt;
+&lt;h2 id=&#34;三向量数据库为什么不是普通的字典&#34;&gt;三、向量数据库：为什么不是普通的字典？
+&lt;/h2&gt;&lt;p&gt;向量数据库和普通数据库的根本区别：&lt;/p&gt;
+&lt;table&gt;
+  &lt;thead&gt;
+      &lt;tr&gt;
+          &lt;th&gt;特性&lt;/th&gt;
+          &lt;th&gt;普通数据库&lt;/th&gt;
+          &lt;th&gt;向量数据库&lt;/th&gt;
+      &lt;/tr&gt;
+  &lt;/thead&gt;
+  &lt;tbody&gt;
+      &lt;tr&gt;
+          &lt;td&gt;查询方式&lt;/td&gt;
+          &lt;td&gt;精确匹配 / 范围查询&lt;/td&gt;
+          &lt;td&gt;近似最近邻搜索（ANN）&lt;/td&gt;
+      &lt;/tr&gt;
+      &lt;tr&gt;
+          &lt;td&gt;索引结构&lt;/td&gt;
+          &lt;td&gt;B+ Tree / 哈希&lt;/td&gt;
+          &lt;td&gt;HNSW / IVF / DiskANN&lt;/td&gt;
+      &lt;/tr&gt;
+      &lt;tr&gt;
+          &lt;td&gt;数据维度&lt;/td&gt;
+          &lt;td&gt;低维（几十列）&lt;/td&gt;
+          &lt;td&gt;高维（几百到几千列）&lt;/td&gt;
+      &lt;/tr&gt;
+      &lt;tr&gt;
+          &lt;td&gt;准确率&lt;/td&gt;
+          &lt;td&gt;100%&lt;/td&gt;
+          &lt;td&gt;可接受的近似误差（99%+）&lt;/td&gt;
+      &lt;/tr&gt;
+      &lt;tr&gt;
+          &lt;td&gt;速度目标&lt;/td&gt;
+          &lt;td&gt;毫秒级精确查询&lt;/td&gt;
+          &lt;td&gt;毫秒级近似搜索（百万级数据）&lt;/td&gt;
+      &lt;/tr&gt;
+  &lt;/tbody&gt;
+&lt;/table&gt;
+&lt;p&gt;在高维空间里，最近邻搜索的复杂度是 O(n)。百万级数据全量扫描太慢了，所以必须做近似搜索。&lt;/p&gt;
+&lt;h3 id=&#34;索引算法简述&#34;&gt;索引算法简述
+&lt;/h3&gt;&lt;table&gt;
+  &lt;thead&gt;
+      &lt;tr&gt;
+          &lt;th&gt;算法&lt;/th&gt;
+          &lt;th&gt;核心思想&lt;/th&gt;
+          &lt;th&gt;适用场景&lt;/th&gt;
+      &lt;/tr&gt;
+  &lt;/thead&gt;
+  &lt;tbody&gt;
+      &lt;tr&gt;
+          &lt;td&gt;&lt;strong&gt;HNSW&lt;/strong&gt;&lt;/td&gt;
+          &lt;td&gt;构建多层图结构，像跳表一样逐层搜索&lt;/td&gt;
+          &lt;td&gt;内存充足、追求最高召回率&lt;/td&gt;
+      &lt;/tr&gt;
+      &lt;tr&gt;
+          &lt;td&gt;&lt;strong&gt;IVF-PQ&lt;/strong&gt;&lt;/td&gt;
+          &lt;td&gt;先聚类分桶，粗过滤后精计算&lt;/td&gt;
+          &lt;td&gt;磁盘存储、数据量极大&lt;/td&gt;
+      &lt;/tr&gt;
+      &lt;tr&gt;
+          &lt;td&gt;&lt;strong&gt;DiskANN&lt;/strong&gt;&lt;/td&gt;
+          &lt;td&gt;HNSW 的磁盘友好版本，压缩存入 SSD&lt;/td&gt;
+          &lt;td&gt;十亿级数据&lt;/td&gt;
+      &lt;/tr&gt;
+  &lt;/tbody&gt;
+&lt;/table&gt;
+&lt;h2 id=&#34;四向量数据库选型矩阵&#34;&gt;四、向量数据库选型矩阵
+&lt;/h2&gt;&lt;table&gt;
+  &lt;thead&gt;
+      &lt;tr&gt;
+          &lt;th&gt;产品&lt;/th&gt;
+          &lt;th&gt;类型&lt;/th&gt;
+          &lt;th&gt;适用规模&lt;/th&gt;
+          &lt;th&gt;特点&lt;/th&gt;
+      &lt;/tr&gt;
+  &lt;/thead&gt;
+  &lt;tbody&gt;
+      &lt;tr&gt;
+          &lt;td&gt;&lt;strong&gt;Chroma&lt;/strong&gt;&lt;/td&gt;
+          &lt;td&gt;开源嵌入式&lt;/td&gt;
+          &lt;td&gt;开发/小项目&lt;/td&gt;
+          &lt;td&gt;零配置上手，嵌入式&lt;/td&gt;
+      &lt;/tr&gt;
+      &lt;tr&gt;
+          &lt;td&gt;&lt;strong&gt;Qdrant&lt;/strong&gt;&lt;/td&gt;
+          &lt;td&gt;开源服务端&lt;/td&gt;
+          &lt;td&gt;中小规模生产&lt;/td&gt;
+          &lt;td&gt;Rust 高性能，API 简洁&lt;/td&gt;
+      &lt;/tr&gt;
+      &lt;tr&gt;
+          &lt;td&gt;&lt;strong&gt;Milvus/Zilliz&lt;/strong&gt;&lt;/td&gt;
+          &lt;td&gt;开源 + 云&lt;/td&gt;
+          &lt;td&gt;大规模/超大规模&lt;/td&gt;
+          &lt;td&gt;云原生设计，字节/阿里在用&lt;/td&gt;
+      &lt;/tr&gt;
+      &lt;tr&gt;
+          &lt;td&gt;&lt;strong&gt;Pinecone&lt;/strong&gt;&lt;/td&gt;
+          &lt;td&gt;全托管云&lt;/td&gt;
+          &lt;td&gt;不想运维&lt;/td&gt;
+          &lt;td&gt;成本稍高，API 极简&lt;/td&gt;
+      &lt;/tr&gt;
+      &lt;tr&gt;
+          &lt;td&gt;&lt;strong&gt;pgvector&lt;/strong&gt;&lt;/td&gt;
+          &lt;td&gt;PostgreSQL 插件&lt;/td&gt;
+          &lt;td&gt;已有 PG 架构&lt;/td&gt;
+          &lt;td&gt;无需引入新组件&lt;/td&gt;
+      &lt;/tr&gt;
+      &lt;tr&gt;
+          &lt;td&gt;&lt;strong&gt;Elasticsearch&lt;/strong&gt;&lt;/td&gt;
+          &lt;td&gt;搜索引擎&lt;/td&gt;
+          &lt;td&gt;ES 集群已有&lt;/td&gt;
+          &lt;td&gt;向量检索是后来补的，性能一般&lt;/td&gt;
+      &lt;/tr&gt;
+  &lt;/tbody&gt;
+&lt;/table&gt;
+&lt;p&gt;&lt;strong&gt;选型建议&lt;/strong&gt;：&lt;/p&gt;
+&lt;ul&gt;
+&lt;li&gt;本地开发/原型阶段：Chroma（零配置）&lt;/li&gt;
+&lt;li&gt;生产中小规模：Qdrant / pgvector&lt;/li&gt;
+&lt;li&gt;大规模/云上：Milvus / Pinecone&lt;/li&gt;
+&lt;li&gt;已有搜索架构扩展：在现有系统（ES/MeiliSearch）外挂向量能力&lt;/li&gt;
+&lt;/ul&gt;
+&lt;h2 id=&#34;五embedding--向量库的完整链路&#34;&gt;五、Embedding + 向量库的完整链路
+&lt;/h2&gt;&lt;div class=&#34;highlight&#34;&gt;&lt;pre tabindex=&#34;0&#34; style=&#34;color:#f8f8f2;background-color:#272822;-moz-tab-size:4;-o-tab-size:4;tab-size:4;&#34;&gt;&lt;code class=&#34;language-text&#34; data-lang=&#34;text&#34;&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;文档 → 切割 → Chunking → Embedding 模型 → 向量 [v1, v2, ...] → 向量数据库写入
+&lt;/span&gt;&lt;/span&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;                                          ↓
+&lt;/span&gt;&lt;/span&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;问题 → Embedding 模型（同一个！） → 查询向量 q → 向量库 ANN 搜索 → Top-K 结果 → Rerank → LLM
+&lt;/span&gt;&lt;/span&gt;&lt;/code&gt;&lt;/pre&gt;&lt;/div&gt;&lt;p&gt;&lt;strong&gt;关键注意&lt;/strong&gt;：离线存储和在线查询&lt;strong&gt;必须&lt;/strong&gt;用&lt;strong&gt;同一个 Embedding 模型&lt;/strong&gt;。不同模型映射的向量空间不同，交叉使用会导致检索完全失败。&lt;/p&gt;
+&lt;h2 id=&#34;六生产环境中的高级话题&#34;&gt;六、生产环境中的高级话题
+&lt;/h2&gt;&lt;h3 id=&#34;1-动态更新&#34;&gt;1. 动态更新
+&lt;/h3&gt;&lt;p&gt;知识库内容更新了怎么办？&lt;/p&gt;
+&lt;ul&gt;
+&lt;li&gt;增量写入：新文档 chunk → embedding → 插入&lt;/li&gt;
+&lt;li&gt;删除：按 metadata 标识清理过期 chunk&lt;/li&gt;
+&lt;li&gt;替换：先删后插（需要事务或软删除策略）&lt;/li&gt;
+&lt;/ul&gt;
+&lt;h3 id=&#34;2-混合搜索&#34;&gt;2. 混合搜索
+&lt;/h3&gt;&lt;p&gt;纯向量检索有局限（比如精确匹配产品型号时）。混合搜索 = 向量语义搜索 + 关键词全文搜索，两种结果融合：&lt;/p&gt;
+&lt;pre tabindex=&#34;0&#34;&gt;&lt;code&gt;最终得分 = α × 向量相似度 + β × BM25 分数
+&lt;/code&gt;&lt;/pre&gt;&lt;h3 id=&#34;3-多模态-embedding&#34;&gt;3. 多模态 Embedding
+&lt;/h3&gt;&lt;p&gt;不仅有文本 embedding，还有图片 embedding、音频 embedding。同一语义空间内，&amp;ldquo;一段描述&amp;rdquo; 和 &amp;ldquo;一张图片&amp;rdquo; 可以互相检索。这就是多模态 RAG 的基础。&lt;/p&gt;
+&lt;h2 id=&#34;七本章小结&#34;&gt;七、本章小结
+&lt;/h2&gt;&lt;ul&gt;
+&lt;li&gt;Embedding 是&amp;quot;语义压缩&amp;quot;，让文本变成数学可度量&lt;/li&gt;
+&lt;li&gt;选模型：以&lt;strong&gt;自己业务数据上的召回测试结果&lt;/strong&gt;为准，不是排行榜&lt;/li&gt;
+&lt;li&gt;向量库的核心是 ANN 近似搜索，不是精确匹配&lt;/li&gt;
+&lt;li&gt;选型矩阵覆盖从开发到生产的全链路需求&lt;/li&gt;
+&lt;li&gt;同一个模型贯穿离线和在线链路是基本原则&lt;/li&gt;
+&lt;/ul&gt;
+&lt;h2 id=&#34;思考题&#34;&gt;思考题
+&lt;/h2&gt;&lt;ol&gt;
+&lt;li&gt;为什么在高维空间里，传统数据结构（B+树、哈希）对最近邻搜索失效？这和高维空间的几何特性有什么关系？&lt;/li&gt;
+&lt;li&gt;你设计一个 RAG 系统时，会怎么安排 Embedding 模型更新的灰度策略（避免在线查询和离线存储用的模型版本不一致）？&lt;/li&gt;
+&lt;/ol&gt;
+</description>
+        </item>
+        <item>
+        <title>第7章：文档切割——Chunking 的策略与最佳实践</title>
+        <link>https://blog.irudder.me/ai/knowledge-series/07-Chunking-Strategies-and-Best-Practices.html</link>
+        <pubDate>Fri, 12 Jun 2026 00:00:00 +0000</pubDate>
+        
+        <guid>https://blog.irudder.me/ai/knowledge-series/07-Chunking-Strategies-and-Best-Practices.html</guid>
+        <description>&lt;h1 id=&#34;第7章文档切割chunking-的策略与最佳实践&#34;&gt;第7章：文档切割——Chunking 的策略与最佳实践
+&lt;/h1&gt;&lt;blockquote&gt;
+&lt;p&gt;系列导读：本章是 RAG 的进阶篇。很多人以为 chunking 就是「切成 500 token」，但实际上它是影响检索质量最关键的工程决策之一。不好的 chunking 策略会让检索系统形同虚设——合适的内容检索不到，不合适的内容塞给 LLM，最终答案质量大打折扣。&lt;/p&gt;
+&lt;/blockquote&gt;
+&lt;h2 id=&#34;一为什么-chunking-决定-rag-生死&#34;&gt;一、为什么 chunking 决定 RAG 生死？
+&lt;/h2&gt;&lt;p&gt;RAG 系统里有一个核心事实：&lt;/p&gt;
+&lt;blockquote&gt;
+&lt;p&gt;LLM 最终回答的质量，取决于你放进 prompt 里的参考资料质量。&lt;/p&gt;
+&lt;/blockquote&gt;
+&lt;p&gt;参考资料哪来的？从向量库里检索来的。
+向量库里存的是 chunk，chunk 是切割出来的。&lt;/p&gt;
+&lt;p&gt;如果 chunk 把一段重要信息中间切断了，或者把两段无关内容塞进了一个 chunk，检索出来的就是垃圾。垃圾进，垃圾出。你放再贵的 Embedding 模型、再牛的 LLM，都救不回一块切烂的 chunk。&lt;/p&gt;
+&lt;h2 id=&#34;二chunking-的四大基础策略&#34;&gt;二、Chunking 的四大基础策略
+&lt;/h2&gt;&lt;h3 id=&#34;策略1固定大小--重叠fixed-size-with-overlap&#34;&gt;策略1：固定大小 + 重叠（Fixed Size with Overlap）
+&lt;/h3&gt;&lt;pre tabindex=&#34;0&#34;&gt;&lt;code&gt;    原文：今天天气很好，小明去公园散步。他在湖边看到一只白鹭...
+          |-------chunk1-------|--------chunk2-------|
+          今天天气很好，小明去   明去公园散步。他在湖边
+          (size=12, overlap=4)   看到一只白鹭在水面上
+                                 (size=12, overlap=4)
+&lt;/code&gt;&lt;/pre&gt;&lt;p&gt;&lt;strong&gt;适用场景&lt;/strong&gt;：通用文本，写起来最快，作为基线方案再用别的方法优化。
+&lt;strong&gt;参数建议&lt;/strong&gt;：每 chunk 500-1000 token 是常见起点；重叠 10-20% 防止信息在切分处丢失。
+&lt;strong&gt;问题&lt;/strong&gt;：机械切分会切断语义边界。一个句子被拦腰截断，LLM 收到 chunk 后理解困难。&lt;/p&gt;
+&lt;p&gt;&lt;strong&gt;优点&lt;/strong&gt;：实现极其简单，不需要解析文档结构，可移植性好。几乎所有初级 RAG 教程都用这个方案。&lt;/p&gt;
+&lt;h3 id=&#34;策略2按语义边界切割semantic-chunking&#34;&gt;策略2：按语义边界切割（Semantic Chunking）
+&lt;/h3&gt;&lt;p&gt;观察文档结构，在天然边界处切：&lt;/p&gt;
+&lt;ul&gt;
+&lt;li&gt;Markdown/HTML 的标题、段落&lt;/li&gt;
+&lt;li&gt;文档的章节层次&lt;/li&gt;
+&lt;li&gt;知识库的主题切换&lt;/li&gt;
+&lt;/ul&gt;
+&lt;pre tabindex=&#34;0&#34;&gt;&lt;code&gt;    【原文】
+    # 第一章 Java 基础
+    第一节 变量和数据类型
+    变量是程序中...
+
+    第二节 控制流
+    if 语句用于...
+
+    ### 切分点：标题边界
+    chunk1 = &amp;#34;第一节 变量和数据类型\n变量是程序中...&amp;#34;
+    chunk2 = &amp;#34;第二节 控制流\nif 语句用于...&amp;#34;
+&lt;/code&gt;&lt;/pre&gt;&lt;p&gt;&lt;strong&gt;适用场景&lt;/strong&gt;：结构化的知识库、技术文档、产品手册。
+&lt;strong&gt;优势&lt;/strong&gt;：语意完整，检索命中后 LLM 能有完整上下文。
+&lt;strong&gt;挑战&lt;/strong&gt;：不同文档格式解析不一致，需要自定义切分逻辑。比如 PDF 就没有天然的分段标记，需要先解析出文本结构再决定切割点。&lt;/p&gt;
+&lt;h3 id=&#34;策略3按代码逻辑切割&#34;&gt;策略3：按代码逻辑切割
+&lt;/h3&gt;&lt;p&gt;代码不是普通文本。函数、类、接口这些天然边界就是最合理的 chunk 粒度：&lt;/p&gt;
+&lt;div class=&#34;highlight&#34;&gt;&lt;pre tabindex=&#34;0&#34; style=&#34;color:#f8f8f2;background-color:#272822;-moz-tab-size:4;-o-tab-size:4;tab-size:4;&#34;&gt;&lt;code class=&#34;language-python&#34; data-lang=&#34;python&#34;&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;    &lt;span style=&#34;color:#66d9ef&#34;&gt;def&lt;/span&gt; &lt;span style=&#34;color:#a6e22e&#34;&gt;calculate_discount&lt;/span&gt;(price, user_type):
+&lt;/span&gt;&lt;/span&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;        &lt;span style=&#34;color:#e6db74&#34;&gt;&amp;#34;&amp;#34;&amp;#34;根据用户类型计算折扣&amp;#34;&amp;#34;&amp;#34;&lt;/span&gt;
+&lt;/span&gt;&lt;/span&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;        &lt;span style=&#34;color:#66d9ef&#34;&gt;if&lt;/span&gt; user_type &lt;span style=&#34;color:#f92672&#34;&gt;==&lt;/span&gt; &lt;span style=&#34;color:#e6db74&#34;&gt;&amp;#34;vip&amp;#34;&lt;/span&gt;:
+&lt;/span&gt;&lt;/span&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;            &lt;span style=&#34;color:#66d9ef&#34;&gt;return&lt;/span&gt; price &lt;span style=&#34;color:#f92672&#34;&gt;*&lt;/span&gt; &lt;span style=&#34;color:#ae81ff&#34;&gt;0.8&lt;/span&gt;
+&lt;/span&gt;&lt;/span&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;        &lt;span style=&#34;color:#66d9ef&#34;&gt;return&lt;/span&gt; price
+&lt;/span&gt;&lt;/span&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;
+&lt;/span&gt;&lt;/span&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;    &lt;span style=&#34;color:#66d9ef&#34;&gt;class&lt;/span&gt; &lt;span style=&#34;color:#a6e22e&#34;&gt;PaymentHandler&lt;/span&gt;:
+&lt;/span&gt;&lt;/span&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;        &lt;span style=&#34;color:#e6db74&#34;&gt;&amp;#34;&amp;#34;&amp;#34;支付处理器&amp;#34;&amp;#34;&amp;#34;&lt;/span&gt;
+&lt;/span&gt;&lt;/span&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;        &lt;span style=&#34;color:#66d9ef&#34;&gt;def&lt;/span&gt; &lt;span style=&#34;color:#a6e22e&#34;&gt;process&lt;/span&gt;(self, order_id):
+&lt;/span&gt;&lt;/span&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;            &lt;span style=&#34;color:#f92672&#34;&gt;...&lt;/span&gt;
+&lt;/span&gt;&lt;/span&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;
+&lt;/span&gt;&lt;/span&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;    chunk1 &lt;span style=&#34;color:#f92672&#34;&gt;=&lt;/span&gt; &lt;span style=&#34;color:#e6db74&#34;&gt;&amp;#34;def calculate_discount(...)&amp;#34;&lt;/span&gt;  &lt;span style=&#34;color:#75715e&#34;&gt;# 函数级&lt;/span&gt;
+&lt;/span&gt;&lt;/span&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;    chunk2 &lt;span style=&#34;color:#f92672&#34;&gt;=&lt;/span&gt; &lt;span style=&#34;color:#e6db74&#34;&gt;&amp;#34;class PaymentHandler&amp;#34;&lt;/span&gt;           &lt;span style=&#34;color:#75715e&#34;&gt;# 类级&lt;/span&gt;
+&lt;/span&gt;&lt;/span&gt;&lt;/code&gt;&lt;/pre&gt;&lt;/div&gt;&lt;p&gt;&lt;strong&gt;适用场景&lt;/strong&gt;：代码仓库的 RAG 问答。
+&lt;strong&gt;优势&lt;/strong&gt;：每个 chunk 保留了一个逻辑单元（一个函数/类），检索命中后 LLM 可以完整理解这个单元的实现。&lt;/p&gt;
+&lt;h3 id=&#34;策略4父子切割parent-child-chunking生产级推荐&#34;&gt;策略4：父子切割（Parent-Child Chunking）【生产级推荐】
+&lt;/h3&gt;&lt;p&gt;RAG 系统里有一个经典矛盾：&lt;/p&gt;
+&lt;ul&gt;
+&lt;li&gt;chunk 越小，检索匹配越精准（粒度细）&lt;/li&gt;
+&lt;li&gt;chunk 越大，LLM 阅读时上下文越完整（信息多）&lt;/li&gt;
+&lt;/ul&gt;
+&lt;p&gt;&lt;strong&gt;父子切割的解决思路&lt;/strong&gt;：&lt;/p&gt;
+&lt;ul&gt;
+&lt;li&gt;用小块做检索（精准匹配）&lt;/li&gt;
+&lt;li&gt;匹配命中后，返回这个 chunk 对应的大块（完整上下文）&lt;/li&gt;
+&lt;/ul&gt;
+&lt;pre tabindex=&#34;0&#34;&gt;&lt;code&gt;    父 chunk（大块）:
+      第3章 Python 数据类型
+      3.1 列表操作：列表是 Python 中最常用的数据类型之一...
+      [包含完整的章节内容]
+
+    子 chunk（小块）:
+      列表 append 方法使用说明
+      append(x) 在列表末尾添加元素...
+
+    检索 &amp;#34;append 怎么用&amp;#34; → 命中子 chunk → 返回父 chunk 到 LLM
+&lt;/code&gt;&lt;/pre&gt;&lt;p&gt;&lt;strong&gt;适用场景&lt;/strong&gt;：几乎所有生产级 RAG 都在用或应该用这个策略。
+&lt;strong&gt;实现要点&lt;/strong&gt;：子 chunk 需要存储指向父 chunk 的引用 ID；检索时先查子 chunk，命中后取回对应的父 chunk 全文。&lt;/p&gt;
+&lt;h2 id=&#34;三chunk-的-metadata-设计&#34;&gt;三、Chunk 的 Metadata 设计
+&lt;/h2&gt;&lt;p&gt;每个 chunk 存储时，除了 text 和 vector，还需要丰富的 metadata：&lt;/p&gt;
+&lt;div class=&#34;highlight&#34;&gt;&lt;pre tabindex=&#34;0&#34; style=&#34;color:#f8f8f2;background-color:#272822;-moz-tab-size:4;-o-tab-size:4;tab-size:4;&#34;&gt;&lt;code class=&#34;language-json&#34; data-lang=&#34;json&#34;&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;    {
+&lt;/span&gt;&lt;/span&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;      &lt;span style=&#34;color:#f92672&#34;&gt;&amp;#34;text&amp;#34;&lt;/span&gt;: &lt;span style=&#34;color:#e6db74&#34;&gt;&amp;#34;列表 append 方法使用说明...&amp;#34;&lt;/span&gt;,
+&lt;/span&gt;&lt;/span&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;      &lt;span style=&#34;color:#f92672&#34;&gt;&amp;#34;vector&amp;#34;&lt;/span&gt;: [&lt;span style=&#34;color:#ae81ff&#34;&gt;0.1&lt;/span&gt;, &lt;span style=&#34;color:#ae81ff&#34;&gt;0.02&lt;/span&gt;, &lt;span style=&#34;color:#960050;background-color:#1e0010&#34;&gt;...&lt;/span&gt;],
+&lt;/span&gt;&lt;/span&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;      &lt;span style=&#34;color:#f92672&#34;&gt;&amp;#34;metadata&amp;#34;&lt;/span&gt;: {
+&lt;/span&gt;&lt;/span&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;        &lt;span style=&#34;color:#f92672&#34;&gt;&amp;#34;source_file&amp;#34;&lt;/span&gt;: &lt;span style=&#34;color:#e6db74&#34;&gt;&amp;#34;python_guide.md&amp;#34;&lt;/span&gt;,
+&lt;/span&gt;&lt;/span&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;        &lt;span style=&#34;color:#f92672&#34;&gt;&amp;#34;chapter&amp;#34;&lt;/span&gt;: &lt;span style=&#34;color:#e6db74&#34;&gt;&amp;#34;3.1&amp;#34;&lt;/span&gt;,
+&lt;/span&gt;&lt;/span&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;        &lt;span style=&#34;color:#f92672&#34;&gt;&amp;#34;tags&amp;#34;&lt;/span&gt;: [&lt;span style=&#34;color:#e6db74&#34;&gt;&amp;#34;data_structure&amp;#34;&lt;/span&gt;, &lt;span style=&#34;color:#e6db74&#34;&gt;&amp;#34;list&amp;#34;&lt;/span&gt;],
+&lt;/span&gt;&lt;/span&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;        &lt;span style=&#34;color:#f92672&#34;&gt;&amp;#34;doc_type&amp;#34;&lt;/span&gt;: &lt;span style=&#34;color:#e6db74&#34;&gt;&amp;#34;api_reference&amp;#34;&lt;/span&gt;,
+&lt;/span&gt;&lt;/span&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;        &lt;span style=&#34;color:#f92672&#34;&gt;&amp;#34;page_number&amp;#34;&lt;/span&gt;: &lt;span style=&#34;color:#ae81ff&#34;&gt;42&lt;/span&gt;,
+&lt;/span&gt;&lt;/span&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;        &lt;span style=&#34;color:#f92672&#34;&gt;&amp;#34;created_at&amp;#34;&lt;/span&gt;: &lt;span style=&#34;color:#e6db74&#34;&gt;&amp;#34;2026-01-15&amp;#34;&lt;/span&gt;,
+&lt;/span&gt;&lt;/span&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;        &lt;span style=&#34;color:#f92672&#34;&gt;&amp;#34;parent_id&amp;#34;&lt;/span&gt;: &lt;span style=&#34;color:#e6db74&#34;&gt;&amp;#34;chunk_3_1_parent&amp;#34;&lt;/span&gt;   &lt;span style=&#34;color:#75715e&#34;&gt;// 父子切割时使用
+&lt;/span&gt;&lt;/span&gt;&lt;/span&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;&lt;span style=&#34;color:#75715e&#34;&gt;&lt;/span&gt;      }
+&lt;/span&gt;&lt;/span&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;    }
+&lt;/span&gt;&lt;/span&gt;&lt;/code&gt;&lt;/pre&gt;&lt;/div&gt;&lt;p&gt;&lt;strong&gt;Metadata 的作用&lt;/strong&gt;：&lt;/p&gt;
+&lt;ul&gt;
+&lt;li&gt;过滤：只检索某个文件类型或某个分类，缩小搜索范围&lt;/li&gt;
+&lt;li&gt;溯源：LLM 生成的答案可以标注来源出处&lt;/li&gt;
+&lt;li&gt;去重：避免同一来源的 chunk 全部进答案&lt;/li&gt;
+&lt;li&gt;父子关联：维系父子切割的关系映射&lt;/li&gt;
+&lt;/ul&gt;
+&lt;h2 id=&#34;四切分粒度的黄金法则&#34;&gt;四、切分粒度的黄金法则
+&lt;/h2&gt;&lt;p&gt;没有绝对的「最优粒度」，取决于你的检索目标：&lt;/p&gt;
+&lt;table&gt;
+  &lt;thead&gt;
+      &lt;tr&gt;
+          &lt;th&gt;检索目标&lt;/th&gt;
+          &lt;th&gt;推荐粒度&lt;/th&gt;
+          &lt;th&gt;原因&lt;/th&gt;
+      &lt;/tr&gt;
+  &lt;/thead&gt;
+  &lt;tbody&gt;
+      &lt;tr&gt;
+          &lt;td&gt;回答事实性问题&lt;/td&gt;
+          &lt;td&gt;句子/段落级&lt;/td&gt;
+          &lt;td&gt;需要精确匹配术语&lt;/td&gt;
+      &lt;/tr&gt;
+      &lt;tr&gt;
+          &lt;td&gt;回答解释性问题&lt;/td&gt;
+          &lt;td&gt;段落/章节级&lt;/td&gt;
+          &lt;td&gt;需要完整上下文才能理解&lt;/td&gt;
+      &lt;/tr&gt;
+      &lt;tr&gt;
+          &lt;td&gt;代码问答&lt;/td&gt;
+          &lt;td&gt;函数/类级&lt;/td&gt;
+          &lt;td&gt;保留逻辑单元，问答精准到函数&lt;/td&gt;
+      &lt;/tr&gt;
+      &lt;tr&gt;
+          &lt;td&gt;支持多跳推理&lt;/td&gt;
+          &lt;td&gt;父子结构&lt;/td&gt;
+          &lt;td&gt;小块检索精准，大块总结完整&lt;/td&gt;
+      &lt;/tr&gt;
+  &lt;/tbody&gt;
+&lt;/table&gt;
+&lt;p&gt;&lt;strong&gt;经验法则&lt;/strong&gt;：先按合理的中等粒度（500-1000 token）做基线，然后通过检索日志分析「有没有该命中没命中」「命中的是否相关」，再逐步调优。不要盲目追求小粒度——检索精度提升了，但 LLM 理解难度可能增加了。&lt;/p&gt;
+&lt;h2 id=&#34;五常见-bad-case-及解决&#34;&gt;五、常见 bad case 及解决
+&lt;/h2&gt;&lt;table&gt;
+  &lt;thead&gt;
+      &lt;tr&gt;
+          &lt;th&gt;问题&lt;/th&gt;
+          &lt;th&gt;表现&lt;/th&gt;
+          &lt;th&gt;解决&lt;/th&gt;
+      &lt;/tr&gt;
+  &lt;/thead&gt;
+  &lt;tbody&gt;
+      &lt;tr&gt;
+          &lt;td&gt;语义被切断&lt;/td&gt;
+          &lt;td&gt;切在句子中间，LLM 收到后理解出错&lt;/td&gt;
+          &lt;td&gt;以语义边界为切分优先&lt;/td&gt;
+      &lt;/tr&gt;
+      &lt;tr&gt;
+          &lt;td&gt;信息密度不均匀&lt;/td&gt;
+          &lt;td&gt;有些 chunk 太空泛，有些太密集&lt;/td&gt;
+          &lt;td&gt;混合策略，或过滤短 chunk&lt;/td&gt;
+      &lt;/tr&gt;
+      &lt;tr&gt;
+          &lt;td&gt;多语言混合&lt;/td&gt;
+          &lt;td&gt;中英混杂切分点不准确&lt;/td&gt;
+          &lt;td&gt;按 tokenizer 的 token 计数而非字符数&lt;/td&gt;
+      &lt;/tr&gt;
+      &lt;tr&gt;
+          &lt;td&gt;过细噪音多&lt;/td&gt;
+          &lt;td&gt;切太小导致检索到很多无关碎片&lt;/td&gt;
+          &lt;td&gt;加最低长度阈值或使用父子结构&lt;/td&gt;
+      &lt;/tr&gt;
+      &lt;tr&gt;
+          &lt;td&gt;过粗精度低&lt;/td&gt;
+          &lt;td&gt;切太大细节信息被「平均掉」&lt;/td&gt;
+          &lt;td&gt;减小 chunk 大小或加摘要&lt;/td&gt;
+      &lt;/tr&gt;
+  &lt;/tbody&gt;
+&lt;/table&gt;
+&lt;p&gt;PDF 文档的 chunking 特别难：解析出来的文本往往丧失段落结构，表格和代码块混在一起。对于这类文档，通常需要先做一次结构解析（用 PDF 解析器提取段落、表格、列表信息），然后再做语义 chunking。&lt;/p&gt;
+&lt;h2 id=&#34;六本章小结&#34;&gt;六、本章小结
+&lt;/h2&gt;&lt;ul&gt;
+&lt;li&gt;Chunking 是 RAG 系统里最关键也最被低估的工程决策&lt;/li&gt;
+&lt;li&gt;四大策略：固定大小（基线）、语义边界（结构化文档）、代码逻辑（代码库）、父子结构（兼顾精度+完整上下文）&lt;/li&gt;
+&lt;li&gt;Metadata 设计能让你在检索时做精准过滤、溯源和去重&lt;/li&gt;
+&lt;li&gt;没有统一的「最好粒度」，先跑基线、有数据再优化，比一把梭效果更稳定&lt;/li&gt;
+&lt;li&gt;生产级推荐：父子切割（小块检索 + 大块返回），解决精度与完整性的天然矛盾&lt;/li&gt;
+&lt;/ul&gt;
+&lt;h2 id=&#34;思考题&#34;&gt;思考题
+&lt;/h2&gt;&lt;ol&gt;
+&lt;li&gt;父子切割虽然好用，但实现上需要做父-子映射关系管理。你怎么设计这个映射系统，让它既高效又容错？&lt;/li&gt;
+&lt;li&gt;对于 PDF 解析出来的文本（排版丢失、表格混乱），你有什么 chunking 策略？&lt;/li&gt;
+&lt;/ol&gt;
+</description>
+        </item>
+        <item>
+        <title>第6章：RAG——给大模型一本「开卷考试」的参考资料</title>
+        <link>https://blog.irudder.me/ai/knowledge-series/06-What-is-RAG.html</link>
+        <pubDate>Tue, 02 Jun 2026 00:00:00 +0000</pubDate>
+        
+        <guid>https://blog.irudder.me/ai/knowledge-series/06-What-is-RAG.html</guid>
+        <description>&lt;h1 id=&#34;第6章rag给大模型一本开卷考试的参考资料&#34;&gt;第6章：RAG——给大模型一本「开卷考试」的参考资料
+&lt;/h1&gt;&lt;blockquote&gt;
+&lt;p&gt;系列导读：RAG 是 LLM 工程中最主流、最有实现价值的系统方案。从本章开始，建议认真跟完 RAG 模块（第6-11章），这是把 LLM 做成靠谱产品最关键的技术栈。&lt;/p&gt;
+&lt;/blockquote&gt;
+&lt;hr&gt;
+&lt;h2 id=&#34;一rag-的定位解决-llm-的知识冻结问题&#34;&gt;一、RAG 的定位：解决 LLM 的知识冻结问题
+&lt;/h2&gt;&lt;p&gt;LLM 最大的硬伤是什么？&lt;strong&gt;知识被冻结在训练截止日期&lt;/strong&gt;。&lt;/p&gt;
+&lt;p&gt;你问它：「我们公司上个月发布了什么新功能？」它不知道。
+你问它：「我的私人笔记里关于算法的那部分内容是什么？」它不知道。&lt;/p&gt;
+&lt;p&gt;RAG 全称 &lt;strong&gt;Retrieval-Augmented Generation（检索增强生成）&lt;/strong&gt;，核心思路是：&lt;/p&gt;
+&lt;blockquote&gt;
+&lt;p&gt;&lt;strong&gt;在 LLM 生成答案之前，先从一个外部知识库里检索相关内容，把检索结果作为上下文喂给 LLM，让它基于这些参考资料来回答。&lt;/strong&gt;&lt;/p&gt;
+&lt;/blockquote&gt;
+&lt;p&gt;这就好比把闭卷考试改成了开卷考试——LLM 不需要背诵所有知识，考试时现场翻资料就行了。&lt;/p&gt;
+&lt;h2 id=&#34;二rag-完整工作流一句话--一张图&#34;&gt;二、RAG 完整工作流（一句话 + 一张图）
+&lt;/h2&gt;&lt;pre tabindex=&#34;0&#34;&gt;&lt;code&gt;用户提问 → 预处理/改写 → 向量化 → 向量数据库检索 →
+粗排/精排 → 拼装 Prompt → LLM 基于参考资料生成答案 → 答案
+&lt;/code&gt;&lt;/pre&gt;&lt;p&gt;整个过程分两条线：&lt;/p&gt;
+&lt;ul&gt;
+&lt;li&gt;&lt;strong&gt;离线线&lt;/strong&gt;：文档 → 切割 → 向量化 → 存入向量数据库（一次性预处理）&lt;/li&gt;
+&lt;li&gt;&lt;strong&gt;在线线&lt;/strong&gt;：用户提问 → 检索 → 生成答案（每次用户提问都走）&lt;/li&gt;
+&lt;/ul&gt;
+&lt;h2 id=&#34;三离线阶段把文档变成可检索的向量&#34;&gt;三、离线阶段：把文档变成可检索的向量
+&lt;/h2&gt;&lt;h3 id=&#34;步骤1文档切割chunking&#34;&gt;步骤1：文档切割（Chunking）
+&lt;/h3&gt;&lt;p&gt;原始文档不能整篇直接存入向量库，因为：&lt;/p&gt;
+&lt;ul&gt;
+&lt;li&gt;Embedding 模型有输入长度限制（通常几百到几千 token）&lt;/li&gt;
+&lt;li&gt;长文档压缩成一个向量会「平均掉」细节，检索精度极低&lt;/li&gt;
+&lt;/ul&gt;
+&lt;p&gt;所以必须**切成小块（chunk）**存储。&lt;/p&gt;
+&lt;p&gt;&lt;strong&gt;常见切割策略&lt;/strong&gt;：&lt;/p&gt;
+&lt;table&gt;
+  &lt;thead&gt;
+      &lt;tr&gt;
+          &lt;th&gt;策略&lt;/th&gt;
+          &lt;th&gt;适用场景&lt;/th&gt;
+          &lt;th&gt;优缺点&lt;/th&gt;
+      &lt;/tr&gt;
+  &lt;/thead&gt;
+  &lt;tbody&gt;
+      &lt;tr&gt;
+          &lt;td&gt;固定大小 + 重叠&lt;/td&gt;
+          &lt;td&gt;通用文本&lt;/td&gt;
+          &lt;td&gt;简单，可能切到句中&lt;/td&gt;
+      &lt;/tr&gt;
+      &lt;tr&gt;
+          &lt;td&gt;按语义边界切&lt;/td&gt;
+          &lt;td&gt;有章节结构的文档&lt;/td&gt;
+          &lt;td&gt;语意完整，实现稍复杂&lt;/td&gt;
+      &lt;/tr&gt;
+      &lt;tr&gt;
+          &lt;td&gt;按函数/类切&lt;/td&gt;
+          &lt;td&gt;代码文件&lt;/td&gt;
+          &lt;td&gt;保持代码逻辑单元完整&lt;/td&gt;
+      &lt;/tr&gt;
+      &lt;tr&gt;
+          &lt;td&gt;父子切割&lt;/td&gt;
+          &lt;td&gt;精度+全文都要&lt;/td&gt;
+          &lt;td&gt;小块检索，大块返回&lt;/td&gt;
+      &lt;/tr&gt;
+  &lt;/tbody&gt;
+&lt;/table&gt;
+&lt;p&gt;每条 chunk 包含三部分：&lt;/p&gt;
+&lt;ul&gt;
+&lt;li&gt;&lt;strong&gt;向量&lt;/strong&gt;：用于相似度检索&lt;/li&gt;
+&lt;li&gt;&lt;strong&gt;原始文本&lt;/strong&gt;：检索命中后塞给 LLM 读的内容&lt;/li&gt;
+&lt;li&gt;&lt;strong&gt;Metadata&lt;/strong&gt;：来源文件、页码、分类等附加信息&lt;/li&gt;
+&lt;/ul&gt;
+&lt;h3 id=&#34;步骤2embedding-向量化&#34;&gt;步骤2：Embedding 向量化
+&lt;/h3&gt;&lt;p&gt;Embedding 是一种「语义压缩」——把文本映射成一个固定长度的浮点数向量。&lt;/p&gt;
+&lt;p&gt;核心性质：&lt;strong&gt;语义相近的文本，向量距离就相近&lt;/strong&gt;（通常用余弦相似度衡量）。&lt;/p&gt;
+&lt;p&gt;举个例子：&lt;/p&gt;
+&lt;ul&gt;
+&lt;li&gt;&amp;ldquo;猫坐在垫子上&amp;rdquo; 和 &amp;ldquo;小猫趴在毯子上面&amp;rdquo; → 向量距离很近&lt;/li&gt;
+&lt;li&gt;&amp;ldquo;猫坐在垫子上&amp;rdquo; 和 &amp;ldquo;股票价格今日大涨&amp;rdquo; → 向量距离很远&lt;/li&gt;
+&lt;/ul&gt;
+&lt;p&gt;选择 Embedding 模型的关键考量：&lt;/p&gt;
+&lt;ol&gt;
+&lt;li&gt;&lt;strong&gt;语言支持&lt;/strong&gt;：中文场景首选 BGE 系列、M3E、智谱 Embedding&lt;/li&gt;
+&lt;li&gt;&lt;strong&gt;向量维度&lt;/strong&gt;：维度越高精度越好，但存储成本也越大（常见 384-4096 维）&lt;/li&gt;
+&lt;li&gt;&lt;strong&gt;最大输入长度&lt;/strong&gt;：决定能处理多长的 chunk（常见 512-8192 token）&lt;/li&gt;
+&lt;li&gt;&lt;strong&gt;评估&lt;/strong&gt;：不要只看排行榜，要在&lt;strong&gt;你自己的数据&lt;/strong&gt;上测召回率（Hit@K、NDCG@K）&lt;/li&gt;
+&lt;/ol&gt;
+&lt;h3 id=&#34;步骤3存入向量数据库&#34;&gt;步骤3：存入向量数据库
+&lt;/h3&gt;&lt;p&gt;向量数据库是专门存储和检索高维向量的数据库，核心能力是&lt;strong&gt;近似最近邻搜索（ANN）&lt;/strong&gt;。&lt;/p&gt;
+&lt;p&gt;在大规模（百万甚至亿级）向量中，它能在毫秒级找出最相似的几条。&lt;/p&gt;
+&lt;p&gt;&lt;strong&gt;不是「在 MySQL 里加个 float 数组」，也不是用 LIKE 字符串匹配&lt;/strong&gt;——向量相似度搜索在算法层（HNSW、IVF-PQ）和硬件层（SIMD 指令、GPU 加速）专门做了优化。&lt;/p&gt;
+&lt;h2 id=&#34;四在线阶段从用户提问到最终答案&#34;&gt;四、在线阶段：从用户提问到最终答案
+&lt;/h2&gt;&lt;h3 id=&#34;步骤1query-预处理&#34;&gt;步骤1：Query 预处理
+&lt;/h3&gt;&lt;p&gt;用户问「这个功能怎么用」，知识库里写的是「XX 模块操作指南」。&lt;/p&gt;
+&lt;p&gt;口语化的问题和正式文档表述之间存在&lt;strong&gt;语义鸿沟&lt;/strong&gt;，直接检索效果很差。&lt;/p&gt;
+&lt;p&gt;解决方案：Query Rewrite（查询改写）。方法包括：&lt;/p&gt;
+&lt;ul&gt;
+&lt;li&gt;&lt;strong&gt;直接改写&lt;/strong&gt;：让 LLM 把口语问题转成规范表述&lt;/li&gt;
+&lt;li&gt;&lt;strong&gt;Query 扩展&lt;/strong&gt;：补充相关关键词&lt;/li&gt;
+&lt;li&gt;&lt;strong&gt;HyDE（假设文档嵌入）&lt;/strong&gt;：让 LLM 先假设一个答案，用这个答案的向量去检索（隐性扩展匹配面）&lt;/li&gt;
+&lt;li&gt;&lt;strong&gt;Step-back Prompting&lt;/strong&gt;：把具体问题抽象一层，检索更通用的背景知识&lt;/li&gt;
+&lt;/ul&gt;
+&lt;h3 id=&#34;步骤2向量检索&#34;&gt;步骤2：向量检索
+&lt;/h3&gt;&lt;p&gt;把改写后的查询向量化，去向量库中搜索最相似的 Top-K 个 chunk。&lt;/p&gt;
+&lt;p&gt;这一步叫 &lt;strong&gt;粗排（Retrieval）&lt;/strong&gt;，目标是「尽可能多地把相关内容召回来」（召回优先）。&lt;/p&gt;
+&lt;h3 id=&#34;步骤3重排序rerank&#34;&gt;步骤3：重排序（Rerank）
+&lt;/h3&gt;&lt;p&gt;粗排召回的 Top-K 中可能包含很多不相关的内容（噪音）。&lt;/p&gt;
+&lt;p&gt;Rerank（重排序）用更精确的模型（如 BGE-Reranker）对粗排结果打分，只保留最相关的几条，把参数量降低同时提高精度。&lt;/p&gt;
+&lt;h3 id=&#34;步骤4prompt-拼装与生成&#34;&gt;步骤4：Prompt 拼装与生成
+&lt;/h3&gt;&lt;p&gt;把筛选后的 chunk 和用户问题一起拼成 prompt：&lt;/p&gt;
+&lt;pre tabindex=&#34;0&#34;&gt;&lt;code&gt;请基于以下参考资料回答问题：
+
+[参考资料1]
+...
+
+[参考资料2]
+...
+
+问题是：用户的问题是什么？
+
+请只基于以上参考资料作答。如果资料中找不到答案，请明确说明&amp;#34;无法从已有资料中找到相关信息&amp;#34;。
+&lt;/code&gt;&lt;/pre&gt;&lt;p&gt;&lt;strong&gt;关键设计&lt;/strong&gt;：强制要求模型只基于参考资料回答，有效防止幻觉和编造。&lt;/p&gt;
+&lt;h2 id=&#34;五rag-vs-微调fine-tuning&#34;&gt;五、RAG vs 微调（Fine-tuning）
+&lt;/h2&gt;&lt;table&gt;
+  &lt;thead&gt;
+      &lt;tr&gt;
+          &lt;th&gt;维度&lt;/th&gt;
+          &lt;th&gt;RAG&lt;/th&gt;
+          &lt;th&gt;微调&lt;/th&gt;
+      &lt;/tr&gt;
+  &lt;/thead&gt;
+  &lt;tbody&gt;
+      &lt;tr&gt;
+          &lt;td&gt;原理&lt;/td&gt;
+          &lt;td&gt;动态检索外部知识&lt;/td&gt;
+          &lt;td&gt;修改模型参数&lt;/td&gt;
+      &lt;/tr&gt;
+      &lt;tr&gt;
+          &lt;td&gt;知识更新&lt;/td&gt;
+          &lt;td&gt;即时替换文档即可&lt;/td&gt;
+          &lt;td&gt;需要重新训练&lt;/td&gt;
+      &lt;/tr&gt;
+      &lt;tr&gt;
+          &lt;td&gt;成本&lt;/td&gt;
+          &lt;td&gt;低（向量库查询+LLM调用）&lt;/td&gt;
+          &lt;td&gt;高（训练计算+标注数据）&lt;/td&gt;
+      &lt;/tr&gt;
+      &lt;tr&gt;
+          &lt;td&gt;通用效果&lt;/td&gt;
+          &lt;td&gt;适合知识密集型任务&lt;/td&gt;
+          &lt;td&gt;适合风格/格式适应&lt;/td&gt;
+      &lt;/tr&gt;
+      &lt;tr&gt;
+          &lt;td&gt;可解释性&lt;/td&gt;
+          &lt;td&gt;好（可追溯来源）&lt;/td&gt;
+          &lt;td&gt;差（参数变化不可见）&lt;/td&gt;
+      &lt;/tr&gt;
+  &lt;/tbody&gt;
+&lt;/table&gt;
+&lt;p&gt;&lt;strong&gt;经验法则&lt;/strong&gt;：先上 RAG，RAG 真不够用再考虑微调。90% 的知识问答场景用 RAG 就够了。&lt;/p&gt;
+&lt;h2 id=&#34;六知识问答场景的-rag-六边形&#34;&gt;六、知识问答场景的 RAG 六边形
+&lt;/h2&gt;&lt;p&gt;一个成熟的 RAG 系统至少要考虑：&lt;/p&gt;
+&lt;ol&gt;
+&lt;li&gt;&lt;strong&gt;文档解析&lt;/strong&gt;：PDF/Word/Excel/网页等各种格式的读取&lt;/li&gt;
+&lt;li&gt;&lt;strong&gt;切割策略&lt;/strong&gt;：用什么粒度、什么策略切 chunk&lt;/li&gt;
+&lt;li&gt;&lt;strong&gt;Embedding 选型&lt;/strong&gt;：用什么模型、什么维度&lt;/li&gt;
+&lt;li&gt;&lt;strong&gt;向量库选型&lt;/strong&gt;：规模多大、需要实时更新吗&lt;/li&gt;
+&lt;li&gt;&lt;strong&gt;检索优化&lt;/strong&gt;：粗排+Rerank+多路召回&lt;/li&gt;
+&lt;li&gt;&lt;strong&gt;生成控制&lt;/strong&gt;：Prompt 设计、幻觉规避、引用来源&lt;/li&gt;
+&lt;/ol&gt;
+&lt;h2 id=&#34;七本章小结&#34;&gt;七、本章小结
+&lt;/h2&gt;&lt;ul&gt;
+&lt;li&gt;RAG = 检索 + 生成，解决 LLM 知识冻结问题&lt;/li&gt;
+&lt;li&gt;离线线：切分 → Embedding → 存向量库&lt;/li&gt;
+&lt;li&gt;在线线：Query改写 → 向量检索 → Rerank精排 → Prompt拼装 → LLM生成&lt;/li&gt;
+&lt;li&gt;选 RAG 还是微调：先 RAG，真的不行再上微调&lt;/li&gt;
+&lt;li&gt;RAG 的本质是给 LLM 提供有据可查的上下文，把闭卷考试改成开卷考试→减少幻觉、增加可解释性、知识实时更新&lt;/li&gt;
+&lt;/ul&gt;
+&lt;h2 id=&#34;思考题&#34;&gt;思考题
+&lt;/h2&gt;&lt;ol&gt;
+&lt;li&gt;为什么 Embedding 模型在通用数据集上的排行榜分数不能直接代表你的业务场景效果？&lt;/li&gt;
+&lt;li&gt;如果你要构建一个企业内部文档问答系统，哪些环节最可能拖慢你的开发进度？&lt;/li&gt;
+&lt;/ol&gt;
+</description>
+        </item>
+        <item>
+        <title>第3章：大模型幻觉——它为什么胡说八道？如何让它老实？</title>
+        <link>https://blog.irudder.me/ai/knowledge-series/03-Hallucination-and-Controllability.html</link>
+        <pubDate>Fri, 29 May 2026 00:00:00 +0000</pubDate>
+        
+        <guid>https://blog.irudder.me/ai/knowledge-series/03-Hallucination-and-Controllability.html</guid>
+        <description>&lt;h1 id=&#34;第3章大模型幻觉它为什么胡说八道如何让它老实&#34;&gt;第3章：大模型幻觉——它为什么胡说八道？如何让它老实？
+&lt;/h1&gt;&lt;blockquote&gt;
+&lt;p&gt;系列导读：从本章开始，我们从「原理认知」转向「工程控制」。理解幻觉的成因，是构建可靠 AI 系统的第一步。&lt;/p&gt;
+&lt;/blockquote&gt;
+&lt;h2 id=&#34;一什么是幻觉&#34;&gt;一、什么是幻觉？
+&lt;/h2&gt;&lt;p&gt;当你问 GPT-4：「鲁迅和周树人是什么关系？」&lt;/p&gt;
+&lt;p&gt;它可能回答：「鲁迅和周树人是两位不同的现代作家。」——这是不折不扣的【事实性幻觉】。&lt;/p&gt;
+&lt;p&gt;幻觉的精确定义是：模型生成了听起来合理、语法正确、但实际上不符合事实的内容。&lt;/p&gt;
+&lt;p&gt;它不是 bug，是 LLM 概率生成机制的【固有特性】。&lt;/p&gt;
+&lt;p&gt;要理解幻觉，先得承认一个事实：LLM 不是数据库，它是概率续写器。你给它一个问题，它做的不是「查询正确答案」，而是「猜测下一个最可能发生的内容」。这个区分是解决幻觉问题的认知基础。&lt;/p&gt;
+&lt;h2 id=&#34;二幻觉的三大根源&#34;&gt;二、幻觉的三大根源
+&lt;/h2&gt;&lt;h3 id=&#34;第一层训练数据&#34;&gt;第一层：训练数据
+&lt;/h3&gt;&lt;p&gt;互联网语料本身就有错误、矛盾、过时信息。模型把它们全部「学进去」当作事实。比如：&lt;/p&gt;
+&lt;ul&gt;
+&lt;li&gt;某个错误知识在网上流传甚广 → 模型学得深&lt;/li&gt;
+&lt;li&gt;互相矛盾的信息并存（比如不同国家对同一历史事件的描述不同）→ 模型学到两种说法轮流出现&lt;/li&gt;
+&lt;li&gt;训练截止日期之后的事件 → 模型一无所知，面对这类问题只能靠概率推断&lt;/li&gt;
+&lt;/ul&gt;
+&lt;p&gt;训练数据的问题还包括「重复偏见」——如果某个错误信息出现了很多次（比如某个谣言被广泛传播），模型会认为它更可信。这是训练机制本身的副作用：语料出现频率高 → 权重被放大。&lt;/p&gt;
+&lt;h3 id=&#34;第二层生成机制最本质&#34;&gt;第二层：生成机制（最本质）
+&lt;/h3&gt;&lt;p&gt;LLM 的工作方式是：给定前面的文本，按概率分布选下一个词。&lt;/p&gt;
+&lt;p&gt;问题在于：概率最高 ≠ 事实正确。&lt;/p&gt;
+&lt;p&gt;你问「鲁迅是谁的笔名」→ 正确答案「周树人」在概率分布中排名第一，模型答对。
+你问一个模型从未见过的问题 → 概率分布中排名第一的，可能是一个【编造出来的、看起来最合理的答案】。&lt;/p&gt;
+&lt;p&gt;模型的训练目标是「生成看起来最连贯、最像人话的文本」，不是「输出真实信息」。当它不知道怎么答的时候，它会「编造一个最合理的答案」，因为这是它的本职工作。&lt;/p&gt;
+&lt;p&gt;把 Temperature 调到0也不能消除幻觉——概率最高的那条路径本身可能就是错的。Temperature 控制的是随机性，不是「知不知道」。模型不知道的时候，即使不随机，也会沿着最像真的那条路径走到一个错误答案。&lt;/p&gt;
+&lt;h3 id=&#34;第三层对齐训练alignment&#34;&gt;第三层：对齐训练（Alignment）
+&lt;/h3&gt;&lt;p&gt;这是最容易被忽略的一层。SFT（监督微调）和 RLHF（基于人类反馈的强化学习）有一个隐藏的副作用：训练数据中的偏好是「自信地给出答案」比「诚实地说我不知道」得分更高。&lt;/p&gt;
+&lt;p&gt;标注者通常更喜欢完整、自信的答案，而不是简短、不确定的回答。模型被这个奖励信号训练成了【不会拒绝回答】的角色。即使它不知道答案，也会尝试输出一大段说服力强但不保证正确的话，而不是说「抱歉，我不确定」。&lt;/p&gt;
+&lt;h2 id=&#34;三幻觉的三类形态&#34;&gt;三、幻觉的三类形态
+&lt;/h2&gt;&lt;table&gt;
+  &lt;thead&gt;
+      &lt;tr&gt;
+          &lt;th&gt;类型&lt;/th&gt;
+          &lt;th&gt;描述&lt;/th&gt;
+          &lt;th&gt;例子&lt;/th&gt;
+      &lt;/tr&gt;
+  &lt;/thead&gt;
+  &lt;tbody&gt;
+      &lt;tr&gt;
+          &lt;td&gt;事实性幻觉&lt;/td&gt;
+          &lt;td&gt;编造不存在的事实&lt;/td&gt;
+          &lt;td&gt;「张爱玲获得过诺贝尔文学奖」&lt;/td&gt;
+      &lt;/tr&gt;
+      &lt;tr&gt;
+          &lt;td&gt;推理性幻觉&lt;/td&gt;
+          &lt;td&gt;逻辑链条断裂或自相矛盾&lt;/td&gt;
+          &lt;td&gt;「A&amp;gt;B，B&amp;gt;C，所以C&amp;gt;A」&lt;/td&gt;
+      &lt;/tr&gt;
+      &lt;tr&gt;
+          &lt;td&gt;上下文不一致&lt;/td&gt;
+          &lt;td&gt;违背用户给出的明确条件&lt;/td&gt;
+          &lt;td&gt;用户说「主角名叫李明」，模型后面说「张明的经历」&lt;/td&gt;
+      &lt;/tr&gt;
+  &lt;/tbody&gt;
+&lt;/table&gt;
+&lt;p&gt;事实性幻觉最容易被发现——只要跟真实数据一对就知道。推理性幻觉更隐蔽，因为模型可能每一步看起来都有道理，但整体链条是断裂的。上下文不一致是在长对话里最恼人的——模型忘了你前面说过什么。&lt;/p&gt;
+&lt;h2 id=&#34;四如何缓解幻觉三层组合拳&#34;&gt;四、如何缓解幻觉？三层组合拳
+&lt;/h2&gt;&lt;h3 id=&#34;训练层治本&#34;&gt;训练层（治本）
+&lt;/h3&gt;&lt;ul&gt;
+&lt;li&gt;拒答能力训练：在 SFT 数据里专门加入「不知道就说不知道」的样本，让模型学会在必要时拒绝回答&lt;/li&gt;
+&lt;li&gt;校准（Calibration）：让模型学会输出概率分数，表示对答案的信心度。用户可以根据置信度决定是否采信&lt;/li&gt;
+&lt;li&gt;幻觉检测预训练：用外部知识库自动标注训练数据中的错误内容，在预训练阶段过滤低质来源&lt;/li&gt;
+&lt;/ul&gt;
+&lt;h3 id=&#34;推理层治标&#34;&gt;推理层（治标）
+&lt;/h3&gt;&lt;ul&gt;
+&lt;li&gt;分步推理（CoT）：让模型先分析再结论，错误推理更容易暴露&lt;/li&gt;
+&lt;li&gt;低 Temperature + Top-P 采样：减少随机偏差，让输出更稳定&lt;/li&gt;
+&lt;li&gt;Self-Consistency：对同一问题采样多次，投票取众数。错误答案不一定能稳定重复&lt;/li&gt;
+&lt;li&gt;约束解码：限制输出只能在特定词汇表内（如只能输出数字 1/2/3），防止创造性胡编&lt;/li&gt;
+&lt;/ul&gt;
+&lt;h3 id=&#34;系统层工程首选&#34;&gt;系统层（工程首选）
+&lt;/h3&gt;&lt;ul&gt;
+&lt;li&gt;RAG（检索增强生成）：让模型「看着资料答」而不是「凭记忆答」——这是工业界最主流的解法&lt;/li&gt;
+&lt;li&gt;答案后处理核查：用外部工具（如搜索引擎、数据库查询）验证关键事实&lt;/li&gt;
+&lt;li&gt;强制带引用来源：要求模型在回答时标注信息来源，既方便追溯也方便人工核验&lt;/li&gt;
+&lt;li&gt;知识蒸馏 + 事实编辑：在已有大模型基础上，用少量事实数据做局部参数修正&lt;/li&gt;
+&lt;/ul&gt;
+&lt;h2 id=&#34;五致命认知误区&#34;&gt;五、致命认知误区
+&lt;/h2&gt;&lt;p&gt;&lt;strong&gt;误区1：「幻觉是数据问题，数据干净了就行了」&lt;/strong&gt;
+→ 不完全是。即使训练数据100%正确，模型在没见过的问题上仍会依赖概率推断。LLM 的概率生成机制本身就是幻觉的土壤。&lt;/p&gt;
+&lt;p&gt;&lt;strong&gt;误区2：「用 RAG 就能消除幻觉」&lt;/strong&gt;
+→ RAG 只是把幻觉风险从「编造知识」转移到「编造引用」和「断章取义」。如果检索回来的内容本身就错了，或者模型把引用张冠李戴了，结果还是幻觉。RAG 降低幻觉率，但不是灵丹妙药。&lt;/p&gt;
+&lt;p&gt;&lt;strong&gt;误区3：「越大越好的模型越不会幻觉」&lt;/strong&gt;
+→ 规模增大确实能减少常识性幻觉（见过更多），但在小众知识领域幻觉反而可能更严重。大模型更「自信」，它对自己的错误回答也更有把握，更不容易说「我不知道」。&lt;/p&gt;
+&lt;h2 id=&#34;六工程启示如何跟一个会撒谎的系统打交道&#34;&gt;六、工程启示：如何跟一个会撒谎的系统打交道？
+&lt;/h2&gt;&lt;p&gt;核心原则：系统级别的不信任校验机制。&lt;/p&gt;
+&lt;ol&gt;
+&lt;li&gt;关键信息强制引用来源——回答必须带出处，出处可人工核验&lt;/li&gt;
+&lt;li&gt;置信度透出——让用户知道模型对答案的不确定性，高置信采信、低置信核实&lt;/li&gt;
+&lt;li&gt;关键领域人机配合——医疗、法律、金融等场景，模型只提供初步信息，最终判断由人类做&lt;/li&gt;
+&lt;li&gt;设计可验证的交互——不是让模型直接给结论，而是让它推荐检索关键词，由用户确认后再查&lt;/li&gt;
+&lt;/ol&gt;
+&lt;p&gt;一句话总结：幻觉不可消灭，只能工程化收敛到「可接受风险」。&lt;/p&gt;
+&lt;h2 id=&#34;七本章小结&#34;&gt;七、本章小结
+&lt;/h2&gt;&lt;ul&gt;
+&lt;li&gt;幻觉是 LLM 概率生成机制的固有副产品，不是 bug&lt;/li&gt;
+&lt;li&gt;根源分三层：训练数据污染、生成机制缺陷（概率最优≠事实）、对齐奖励鼓励「自信回答」&lt;/li&gt;
+&lt;li&gt;三类幻觉：事实性、推理性、上下文不一致&lt;/li&gt;
+&lt;li&gt;缓解需训练层+推理层+系统层三层组合拳，缺一不可&lt;/li&gt;
+&lt;li&gt;最低成本的工程方案：RAG + 强制引用来源 + 置信度透出&lt;/li&gt;
+&lt;/ul&gt;
+&lt;h2 id=&#34;思考题&#34;&gt;思考题
+&lt;/h2&gt;&lt;ol&gt;
+&lt;li&gt;如果模型知道自己不知道某件事，它应该怎么做最优？是「编造一个最接近的答案」还是「直接说不知道」？这取决于什么场景？&lt;/li&gt;
+&lt;li&gt;为什么 LLM 在数学问题上也可能幻觉？代码领域幻觉和事实幻觉有什么不同？&lt;/li&gt;
+&lt;/ol&gt;
+</description>
+        </item>
+        <item>
+        <title>第7章 AI技术基础与工具选型</title>
+        <link>https://blog.irudder.me/ai/ped/Chapter07-AI-Tech-Fundamentals-and-Tool-Selection.html</link>
+        <pubDate>Thu, 12 Feb 2026 00:00:00 +0000</pubDate>
+        
+        <guid>https://blog.irudder.me/ai/ped/Chapter07-AI-Tech-Fundamentals-and-Tool-Selection.html</guid>
+        <description>&lt;h1 id=&#34;第7章-ai技术基础与工具选型&#34;&gt;第7章 AI技术基础与工具选型
+&lt;/h1&gt;&lt;blockquote&gt;
+&lt;p&gt;&lt;strong&gt;本章导读&lt;/strong&gt;&lt;/p&gt;
+&lt;p&gt;第4章扫盲了术语，本章把术语背后的技术逻辑讲透，并落到FDE最实际的决策——工具选型。FDE不必写底层代码，但必须懂技术原理，才能判断&amp;quot;什么场景用什么工具&amp;quot;。本章图解大模型调用、Prompt工程、RAG检索、工作流编排四项核心技术的原理；盘点主流工具；给出以落地效果为核心的选型方法论。读完本章，你应当能根据业务场景，快速匹配合适的工具组合。&lt;/p&gt;
+&lt;/blockquote&gt;
+&lt;hr&gt;
+&lt;h2 id=&#34;71-fde要懂的技术深度&#34;&gt;§7.1 FDE要懂的技术深度
+&lt;/h2&gt;&lt;p&gt;先校准一个认知：FDE要懂技术，但不必要懂到能写底层算法。&lt;/p&gt;
+&lt;p&gt;FDE的技术深度标准是**&amp;ldquo;能判断、能配置、能排查&amp;rdquo;**：&lt;/p&gt;
+&lt;ul&gt;
+&lt;li&gt;&lt;strong&gt;能判断&lt;/strong&gt;：知道什么场景该用什么技术、什么技术做不了什么。&lt;/li&gt;
+&lt;li&gt;&lt;strong&gt;能配置&lt;/strong&gt;：能在零代码平台配置Prompt、RAG、工作流。&lt;/li&gt;
+&lt;li&gt;&lt;strong&gt;能排查&lt;/strong&gt;：出问题能定位是Prompt、数据、还是接口的问题。&lt;/li&gt;
+&lt;/ul&gt;
+&lt;p&gt;不要求&amp;quot;能开发&amp;quot;——开发底层是算法工程师与平台团队的事。FDE的技术价值在应用层判断，不在底层实现。&lt;/p&gt;
+&lt;hr&gt;
+&lt;h2 id=&#34;72-核心技术逻辑图解&#34;&gt;§7.2 核心技术逻辑图解
+&lt;/h2&gt;&lt;h3 id=&#34;721-大模型调用&#34;&gt;7.2.1 大模型调用
+&lt;/h3&gt;&lt;p&gt;&lt;strong&gt;原理&lt;/strong&gt;：FDE通过API向大模型发送一段文本（Prompt），模型返回生成的文本（Response）。整个过程是&amp;quot;输入文本→模型预测→输出文本&amp;quot;。&lt;/p&gt;
+&lt;blockquote&gt;
+&lt;p&gt;&lt;strong&gt;图7-1：大模型调用流程&lt;/strong&gt;
+（建议呈现：横向流程图。Prompt组装→API请求→模型推理→Response返回→结果解析。）&lt;/p&gt;
+&lt;/blockquote&gt;
+&lt;p&gt;&lt;strong&gt;FDE要懂的关键点&lt;/strong&gt;：&lt;/p&gt;
+&lt;ul&gt;
+&lt;li&gt;&lt;strong&gt;Token计费&lt;/strong&gt;：输入与输出都按Token计费，长Prompt成本高。&lt;/li&gt;
+&lt;li&gt;&lt;strong&gt;上下文窗口&lt;/strong&gt;：超过窗口的输入会被截断，影响效果。&lt;/li&gt;
+&lt;li&gt;&lt;strong&gt;温度（Temperature）&lt;/strong&gt;：控制输出随机性，0最确定、1较随机。事实性任务用低温度，创意性任务用高温度。&lt;/li&gt;
+&lt;li&gt;&lt;strong&gt;超时与重试&lt;/strong&gt;：API可能超时或失败，调用逻辑要设计重试。&lt;/li&gt;
+&lt;/ul&gt;
+&lt;h3 id=&#34;722-prompt工程&#34;&gt;7.2.2 Prompt工程
+&lt;/h3&gt;&lt;p&gt;&lt;strong&gt;原理&lt;/strong&gt;：Prompt是给大模型的指令。同样的模型，不同Prompt效果天差地别。Prompt工程就是设计能稳定产出预期结果的指令。&lt;/p&gt;
+&lt;p&gt;&lt;strong&gt;核心要素&lt;/strong&gt;：&lt;/p&gt;
+&lt;ul&gt;
+&lt;li&gt;&lt;strong&gt;角色设定&lt;/strong&gt;：告诉模型&amp;quot;你是谁&amp;quot;（&amp;ldquo;你是一位资深客服主管&amp;rdquo;）。&lt;/li&gt;
+&lt;li&gt;&lt;strong&gt;任务描述&lt;/strong&gt;：明确要做什么（&amp;ldquo;请根据以下客户问题，生成回复&amp;rdquo;）。&lt;/li&gt;
+&lt;li&gt;&lt;strong&gt;约束条件&lt;/strong&gt;：限定输出（&amp;ldquo;不超过200字&amp;quot;&amp;ldquo;不承诺具体赔偿&amp;rdquo;）。&lt;/li&gt;
+&lt;li&gt;&lt;strong&gt;输出格式&lt;/strong&gt;：指定结构（JSON、表格、Markdown）。&lt;/li&gt;
+&lt;li&gt;&lt;strong&gt;Few-Shot示例&lt;/strong&gt;：给几个输入输出范例，引导模型学习模式。&lt;/li&gt;
+&lt;/ul&gt;
+&lt;blockquote&gt;
+&lt;p&gt;&lt;strong&gt;方法论框7-1：Prompt五要素检查&lt;/strong&gt;
+写完一个Prompt，逐项检查：&lt;/p&gt;
+&lt;ol&gt;
+&lt;li&gt;角色设定了吗？&lt;/li&gt;
+&lt;li&gt;任务说清了吗？&lt;/li&gt;
+&lt;li&gt;约束给了吗？&lt;/li&gt;
+&lt;li&gt;输出格式定了吗？&lt;/li&gt;
+&lt;li&gt;需要Few-Shot吗？
+五项想清楚再写，比写完返工快。&lt;/li&gt;
+&lt;/ol&gt;
+&lt;/blockquote&gt;
+&lt;h3 id=&#34;723-rag检索&#34;&gt;7.2.3 RAG检索
+&lt;/h3&gt;&lt;p&gt;&lt;strong&gt;原理&lt;/strong&gt;：见第4章§4.5。RAG的核心是&amp;quot;先检索相关片段，再让模型基于片段回答&amp;rdquo;。&lt;/p&gt;
+&lt;p&gt;&lt;strong&gt;FDE要懂的调优点&lt;/strong&gt;：&lt;/p&gt;
+&lt;ul&gt;
+&lt;li&gt;&lt;strong&gt;切片策略&lt;/strong&gt;：文档怎么切（按段落、按字数、按语义）影响检索质量。&lt;/li&gt;
+&lt;li&gt;&lt;strong&gt;向量模型选择&lt;/strong&gt;：不同向量模型对中文、专业术语的支持不同。&lt;/li&gt;
+&lt;li&gt;&lt;strong&gt;检索Top-K&lt;/strong&gt;：每次取几条最相似片段，太少漏信息、太多噪声多。&lt;/li&gt;
+&lt;li&gt;&lt;strong&gt;重排序（Rerank）&lt;/strong&gt;：对检索结果二次排序，提升相关性。&lt;/li&gt;
+&lt;li&gt;&lt;strong&gt;混合检索&lt;/strong&gt;：向量检索+关键词检索结合，兼顾语义与精确匹配。&lt;/li&gt;
+&lt;/ul&gt;
+&lt;blockquote&gt;
+&lt;p&gt;&lt;strong&gt;图7-2：RAG调优关键点&lt;/strong&gt;
+（建议呈现：流程图，在标准RAG流程上标注切片、向量模型、Top-K、Rerank、混合检索五个调优点。）&lt;/p&gt;
+&lt;/blockquote&gt;
+&lt;h3 id=&#34;724-工作流编排&#34;&gt;7.2.4 工作流编排
+&lt;/h3&gt;&lt;p&gt;&lt;strong&gt;原理&lt;/strong&gt;：把复杂任务拆成多个节点，每个节点用一个AI能力或工具，按顺序/条件串联，自动完成。&lt;/p&gt;
+&lt;p&gt;&lt;strong&gt;节点类型&lt;/strong&gt;：&lt;/p&gt;
+&lt;ul&gt;
+&lt;li&gt;&lt;strong&gt;大模型节点&lt;/strong&gt;：调用LLM做生成/分析/分类。&lt;/li&gt;
+&lt;li&gt;&lt;strong&gt;工具节点&lt;/strong&gt;：调用API、查数据库、发邮件。&lt;/li&gt;
+&lt;li&gt;&lt;strong&gt;条件节点&lt;/strong&gt;：根据上游输出分支。&lt;/li&gt;
+&lt;li&gt;&lt;strong&gt;循环节点&lt;/strong&gt;：对列表数据逐条处理。&lt;/li&gt;
+&lt;/ul&gt;
+&lt;blockquote&gt;
+&lt;p&gt;&lt;strong&gt;图7-3：工作流编排示例&lt;/strong&gt;
+（建议呈现：节点流程图。输入→LLM分类→条件分支（A/B）→A分支调工具+LLM生成→B分支直接LLM生成→合并输出。）&lt;/p&gt;
+&lt;/blockquote&gt;
+&lt;p&gt;&lt;strong&gt;FDE要懂的设计点&lt;/strong&gt;：&lt;/p&gt;
+&lt;ul&gt;
+&lt;li&gt;&lt;strong&gt;节点粒度&lt;/strong&gt;：每个节点做一件事，不要塞太多逻辑。&lt;/li&gt;
+&lt;li&gt;&lt;strong&gt;错误处理&lt;/strong&gt;：每个节点都可能失败，要有降级方案。&lt;/li&gt;
+&lt;li&gt;&lt;strong&gt;数据流转&lt;/strong&gt;：上游节点的输出如何作为下游输入，要设计清楚。&lt;/li&gt;
+&lt;/ul&gt;
+&lt;hr&gt;
+&lt;h2 id=&#34;73-主流工具盘点&#34;&gt;§7.3 主流工具盘点
+&lt;/h2&gt;&lt;blockquote&gt;
+&lt;p&gt;&lt;strong&gt;说明&lt;/strong&gt;：工具市场变化快，本节盘点为撰写时主流选择，读者应以最新市场情况为准。本书不替任何工具背书，仅做分类参考。&lt;/p&gt;
+&lt;/blockquote&gt;
+&lt;h3 id=&#34;731-大模型平台&#34;&gt;7.3.1 大模型平台
+&lt;/h3&gt;&lt;p&gt;提供模型调用能力。选型关注：能力、价格、稳定性、合规性。&lt;/p&gt;
+&lt;ul&gt;
+&lt;li&gt;&lt;strong&gt;海外&lt;/strong&gt;：GPT系列、Claude系列、Gemini系列（国内使用需注意合规）。&lt;/li&gt;
+&lt;li&gt;&lt;strong&gt;国内&lt;/strong&gt;：通义、文心、智谱、月之暗面、DeepSeek、豆包等，各有侧重。&lt;/li&gt;
+&lt;/ul&gt;
+&lt;p&gt;FDE建议至少熟悉2-3个，因为不同模型在不同任务上表现差异大。&lt;/p&gt;
+&lt;h3 id=&#34;732-零代码agent搭建平台&#34;&gt;7.3.2 零代码Agent搭建平台
+&lt;/h3&gt;&lt;p&gt;提供Agent/Skill/工作流的可视化搭建。选型关注：易用性、扩展性、生态、价格。&lt;/p&gt;
+&lt;p&gt;主流方向：&lt;/p&gt;
+&lt;ul&gt;
+&lt;li&gt;&lt;strong&gt;大厂生态平台&lt;/strong&gt;：与自家模型深度集成，适合深度用户。&lt;/li&gt;
+&lt;li&gt;&lt;strong&gt;独立Agent平台&lt;/strong&gt;：支持多家模型，灵活度高。&lt;/li&gt;
+&lt;li&gt;&lt;strong&gt;工作流自动化平台&lt;/strong&gt;：偏自动化集成，适合跨系统串联。&lt;/li&gt;
+&lt;/ul&gt;
+&lt;h3 id=&#34;733-工作流自动化工具&#34;&gt;7.3.3 工作流自动化工具
+&lt;/h3&gt;&lt;p&gt;用于跨系统串联、触发与执行。关注：连接器丰富度、稳定性、触发方式。&lt;/p&gt;
+&lt;h3 id=&#34;734-数据处理工具&#34;&gt;7.3.4 数据处理工具
+&lt;/h3&gt;&lt;p&gt;用于清洗、转换、分析数据。关注：处理量、易用性、与AI能力的衔接。&lt;/p&gt;
+&lt;hr&gt;
+&lt;h2 id=&#34;74-工具选型方法论&#34;&gt;§7.4 工具选型方法论
+&lt;/h2&gt;&lt;p&gt;工具多到眼花，FDE怎么选？核心原则一句话：&lt;strong&gt;以落地效果为核心，不是以技术先进性为核心。&lt;/strong&gt;&lt;/p&gt;
+&lt;h3 id=&#34;选型四步法&#34;&gt;选型四步法
+&lt;/h3&gt;&lt;blockquote&gt;
+&lt;p&gt;&lt;strong&gt;方法论框7-2：工具选型四步法&lt;/strong&gt;&lt;/p&gt;
+&lt;ol&gt;
+&lt;li&gt;&lt;strong&gt;先定场景&lt;/strong&gt;：要解决什么业务问题？输出什么效果？&lt;/li&gt;
+&lt;li&gt;&lt;strong&gt;再定能力&lt;/strong&gt;：完成这个场景需要哪些AI能力（生成/检索/分类/编排）？&lt;/li&gt;
+&lt;li&gt;&lt;strong&gt;匹配工具&lt;/strong&gt;：哪些工具能提供这些能力？列候选清单。&lt;/li&gt;
+&lt;li&gt;&lt;strong&gt;实测对比&lt;/strong&gt;：用真实数据测2-3个候选，选效果最好且成本可控的。&lt;/li&gt;
+&lt;/ol&gt;
+&lt;/blockquote&gt;
+&lt;h3 id=&#34;选型的常见误区&#34;&gt;选型的常见误区
+&lt;/h3&gt;&lt;p&gt;&lt;strong&gt;误区一：追新。&lt;/strong&gt; 新工具层出不穷，追新会陷入&amp;quot;工具焦虑&amp;quot;。原则：能用现有工具解决的，不换新。&lt;/p&gt;
+&lt;p&gt;&lt;strong&gt;误区二：贪全。&lt;/strong&gt; 想用一个工具解决所有问题。现实是每个工具都有强项弱项，组合使用更合理。&lt;/p&gt;
+&lt;p&gt;&lt;strong&gt;误区三：只看Demo。&lt;/strong&gt; 工具Demo都很漂亮，真实业务数据下表现可能差很多。必须用客户真实数据测。&lt;/p&gt;
+&lt;p&gt;&lt;strong&gt;误区四：忽视成本。&lt;/strong&gt; 光看效果不看成本，上线后发现Token费用爆表。选型必须算成本。&lt;/p&gt;
+&lt;p&gt;&lt;strong&gt;误区五：忽视合规。&lt;/strong&gt; 客户数据敏感度不同，选型要考虑私有化部署、数据脱敏、合规通道。&lt;/p&gt;
+&lt;h3 id=&#34;选型决策表&#34;&gt;选型决策表
+&lt;/h3&gt;&lt;p&gt;建议FDE维护一张自己的选型决策表，每次选型填一遍：&lt;/p&gt;
+&lt;table&gt;
+  &lt;thead&gt;
+      &lt;tr&gt;
+          &lt;th&gt;维度&lt;/th&gt;
+          &lt;th&gt;权重&lt;/th&gt;
+          &lt;th&gt;候选A&lt;/th&gt;
+          &lt;th&gt;候选B&lt;/th&gt;
+          &lt;th&gt;候选C&lt;/th&gt;
+      &lt;/tr&gt;
+  &lt;/thead&gt;
+  &lt;tbody&gt;
+      &lt;tr&gt;
+          &lt;td&gt;效果（实测）&lt;/td&gt;
+          &lt;td&gt;30%&lt;/td&gt;
+          &lt;td&gt;&lt;/td&gt;
+          &lt;td&gt;&lt;/td&gt;
+          &lt;td&gt;&lt;/td&gt;
+      &lt;/tr&gt;
+      &lt;tr&gt;
+          &lt;td&gt;成本&lt;/td&gt;
+          &lt;td&gt;20%&lt;/td&gt;
+          &lt;td&gt;&lt;/td&gt;
+          &lt;td&gt;&lt;/td&gt;
+          &lt;td&gt;&lt;/td&gt;
+      &lt;/tr&gt;
+      &lt;tr&gt;
+          &lt;td&gt;稳定性&lt;/td&gt;
+          &lt;td&gt;15%&lt;/td&gt;
+          &lt;td&gt;&lt;/td&gt;
+          &lt;td&gt;&lt;/td&gt;
+          &lt;td&gt;&lt;/td&gt;
+      &lt;/tr&gt;
+      &lt;tr&gt;
+          &lt;td&gt;易用性&lt;/td&gt;
+          &lt;td&gt;10%&lt;/td&gt;
+          &lt;td&gt;&lt;/td&gt;
+          &lt;td&gt;&lt;/td&gt;
+          &lt;td&gt;&lt;/td&gt;
+      &lt;/tr&gt;
+      &lt;tr&gt;
+          &lt;td&gt;合规性&lt;/td&gt;
+          &lt;td&gt;15%&lt;/td&gt;
+          &lt;td&gt;&lt;/td&gt;
+          &lt;td&gt;&lt;/td&gt;
+          &lt;td&gt;&lt;/td&gt;
+      &lt;/tr&gt;
+      &lt;tr&gt;
+          &lt;td&gt;生态扩展&lt;/td&gt;
+          &lt;td&gt;10%&lt;/td&gt;
+          &lt;td&gt;&lt;/td&gt;
+          &lt;td&gt;&lt;/td&gt;
+          &lt;td&gt;&lt;/td&gt;
+      &lt;/tr&gt;
+      &lt;tr&gt;
+          &lt;td&gt;&lt;strong&gt;加权总分&lt;/strong&gt;&lt;/td&gt;
+          &lt;td&gt;&lt;/td&gt;
+          &lt;td&gt;&lt;/td&gt;
+          &lt;td&gt;&lt;/td&gt;
+          &lt;td&gt;&lt;/td&gt;
+      &lt;/tr&gt;
+  &lt;/tbody&gt;
+&lt;/table&gt;
+&lt;p&gt;填完表，选型决策有据可依，不再是拍脑袋。&lt;/p&gt;
+&lt;hr&gt;
+&lt;h2 id=&#34;75-场景与工具的匹配速查&#34;&gt;§7.5 场景与工具的匹配速查
+&lt;/h2&gt;&lt;p&gt;把四类典型场景（第4章§4.9）与工具匹配，给一张速查表。&lt;/p&gt;
+&lt;table&gt;
+  &lt;thead&gt;
+      &lt;tr&gt;
+          &lt;th&gt;场景类型&lt;/th&gt;
+          &lt;th&gt;核心能力&lt;/th&gt;
+          &lt;th&gt;推荐工具组合&lt;/th&gt;
+          &lt;th&gt;关键调优点&lt;/th&gt;
+      &lt;/tr&gt;
+  &lt;/thead&gt;
+  &lt;tbody&gt;
+      &lt;tr&gt;
+          &lt;td&gt;信息整理&lt;/td&gt;
+          &lt;td&gt;分类/摘要&lt;/td&gt;
+          &lt;td&gt;大模型 + Prompt&lt;/td&gt;
+          &lt;td&gt;Prompt约束输出格式&lt;/td&gt;
+      &lt;/tr&gt;
+      &lt;tr&gt;
+          &lt;td&gt;内容生成&lt;/td&gt;
+          &lt;td&gt;生成&lt;/td&gt;
+          &lt;td&gt;大模型 + Prompt + Few-Shot&lt;/td&gt;
+          &lt;td&gt;角色设定与Few-Shot&lt;/td&gt;
+      &lt;/tr&gt;
+      &lt;tr&gt;
+          &lt;td&gt;知识问答&lt;/td&gt;
+          &lt;td&gt;检索+生成&lt;/td&gt;
+          &lt;td&gt;大模型 + RAG + 向量库&lt;/td&gt;
+          &lt;td&gt;切片与Top-K&lt;/td&gt;
+      &lt;/tr&gt;
+      &lt;tr&gt;
+          &lt;td&gt;流程自动化&lt;/td&gt;
+          &lt;td&gt;编排+集成&lt;/td&gt;
+          &lt;td&gt;工作流平台 + 大模型 + 工具&lt;/td&gt;
+          &lt;td&gt;节点粒度与错误处理&lt;/td&gt;
+      &lt;/tr&gt;
+  &lt;/tbody&gt;
+&lt;/table&gt;
+&lt;p&gt;这张表是入门速查，复杂场景需组合多种能力，第三篇会深入。&lt;/p&gt;
+&lt;hr&gt;
+&lt;h2 id=&#34;本章小结&#34;&gt;本章小结
+&lt;/h2&gt;&lt;ol&gt;
+&lt;li&gt;&lt;strong&gt;技术深度标准&lt;/strong&gt;：能判断、能配置、能排查，不要求能开发底层。&lt;/li&gt;
+&lt;li&gt;&lt;strong&gt;四项核心技术&lt;/strong&gt;：大模型调用、Prompt工程、RAG检索、工作流编排，各有调优点。&lt;/li&gt;
+&lt;li&gt;&lt;strong&gt;工具盘点&lt;/strong&gt;：大模型平台、Agent平台、工作流工具、数据处理工具四类。&lt;/li&gt;
+&lt;li&gt;&lt;strong&gt;选型方法论&lt;/strong&gt;：先定场景→再定能力→匹配工具→实测对比，以落地效果为核心。&lt;/li&gt;
+&lt;li&gt;&lt;strong&gt;选型误区&lt;/strong&gt;：追新、贪全、只看Demo、忽视成本、忽视合规。&lt;/li&gt;
+&lt;li&gt;&lt;strong&gt;场景速查&lt;/strong&gt;：四类场景对应不同工具组合与调优点。&lt;/li&gt;
+&lt;/ol&gt;
+&lt;hr&gt;
+&lt;h2 id=&#34;思考题&#34;&gt;思考题
+&lt;/h2&gt;&lt;ol&gt;
+&lt;li&gt;选一个你熟悉的工作任务，判断它属于四类场景的哪类，匹配对应工具组合。&lt;/li&gt;
+&lt;li&gt;用方法论框7-2，为这个任务做一次工具选型，填出选型决策表。&lt;/li&gt;
+&lt;li&gt;找两个大模型，用同一组Prompt测试同一任务，对比效果差异并分析原因。&lt;/li&gt;
+&lt;li&gt;用零代码平台搭一个简单RAG，调整切片策略与Top-K，观察检索效果变化。&lt;/li&gt;
+&lt;/ol&gt;
+&lt;hr&gt;
+&lt;h2 id=&#34;延伸阅读&#34;&gt;延伸阅读
+&lt;/h2&gt;&lt;ul&gt;
+&lt;li&gt;本书第8章深入Prompt工程与Skill搭建，是本章7.2.2的延伸。&lt;/li&gt;
+&lt;li&gt;第9章讲工作流自动化落地，是7.2.4的延伸。&lt;/li&gt;
+&lt;li&gt;各工具官方文档（用于刷新能力边界与最新功能）。&lt;/li&gt;
+&lt;/ul&gt;
+</description>
+        </item>
+        <item>
+        <title>第4章 AI落地基础术语扫盲</title>
+        <link>https://blog.irudder.me/ai/ped/Chapter04-AI-Implementation-Basic-Terms.html</link>
+        <pubDate>Thu, 22 Jan 2026 00:00:00 +0000</pubDate>
+        
+        <guid>https://blog.irudder.me/ai/ped/Chapter04-AI-Implementation-Basic-Terms.html</guid>
+        <description>&lt;h1 id=&#34;第4章-ai落地基础术语扫盲&#34;&gt;第4章 AI落地基础术语扫盲
+&lt;/h1&gt;&lt;blockquote&gt;
+&lt;p&gt;&lt;strong&gt;本章导读&lt;/strong&gt;&lt;/p&gt;
+&lt;p&gt;前三章建立了FDE的行业与路径认知。但许多读者卡在一个具体障碍上：术语听不懂。大模型、Agent、Skill、Tool、RAG、工作流、API、微调、向量数据库……这些词在方案文档里密密麻麻，让非技术背景者望而却步。&lt;/p&gt;
+&lt;p&gt;本章用图解+生活化类比，系统扫盲FDE工作中最常遇到的核心术语。每个术语都给出&amp;quot;通俗解释+技术原理+与FDE的关系&amp;quot;，确保你既能听懂、又能用对。读完本章，你应当能看懂基础方案文档，能在客户沟通中把技术术语翻译成客户语言。&lt;/p&gt;
+&lt;/blockquote&gt;
+&lt;hr&gt;
+&lt;h2 id=&#34;41-术语是工具不是门槛&#34;&gt;§4.1 术语是工具，不是门槛
+&lt;/h2&gt;&lt;p&gt;先破一个心态：术语不可怕，它只是行业里的&amp;quot;简称工具&amp;quot;。就像装修行业的&amp;quot;找平&amp;quot;&amp;ldquo;批腻子&amp;quot;&amp;ldquo;开槽&amp;rdquo;，外人听着陌生，本质都是具体动作。AI术语同理——每个词背后都是具体的功能或机制。&lt;/p&gt;
+&lt;p&gt;学术语的正确方式不是死记定义，而是&lt;strong&gt;理解它解决的问题+它的工作机制+它在FDE工作中怎么用&lt;/strong&gt;。本章就按这个三段式来讲。&lt;/p&gt;
+&lt;hr&gt;
+&lt;h2 id=&#34;42-大模型large-language-model-llm&#34;&gt;§4.2 大模型（Large Language Model, LLM）
+&lt;/h2&gt;&lt;h3 id=&#34;通俗解释&#34;&gt;通俗解释
+&lt;/h3&gt;&lt;p&gt;大模型像一个读了海量书、什么都能聊两句的&amp;quot;博学助手&amp;rdquo;。你问它问题，它根据读过的内容生成回答。但它有几个天生毛病：有时会一本正经地胡说（幻觉）、不知道你公司的内部事（无私有知识）、记不住太长的对话（上下文有限）。&lt;/p&gt;
+&lt;h3 id=&#34;技术原理&#34;&gt;技术原理
+&lt;/h3&gt;&lt;p&gt;大模型是基于Transformer架构、用海量文本训练出的统计预测模型。它的本质是&amp;quot;根据上文预测下一个词&amp;quot;。这个简单机制在海量数据与巨大参数量下，涌现出了语言理解、推理、生成等能力。&lt;/p&gt;
+&lt;p&gt;大模型的能力边界由三方面决定：&lt;/p&gt;
+&lt;ul&gt;
+&lt;li&gt;&lt;strong&gt;训练数据&lt;/strong&gt;：决定了它知道什么。&lt;/li&gt;
+&lt;li&gt;&lt;strong&gt;参数规模&lt;/strong&gt;：影响理解与推理的精细度。&lt;/li&gt;
+&lt;li&gt;&lt;strong&gt;对齐方式&lt;/strong&gt;：决定它回答的风格与边界。&lt;/li&gt;
+&lt;/ul&gt;
+&lt;h3 id=&#34;与fde的关系&#34;&gt;与FDE的关系
+&lt;/h3&gt;&lt;p&gt;FDE几乎每天都在调用大模型。理解大模型的能力边界，是判断&amp;quot;哪些任务能交给AI、哪些不能&amp;quot;的前提。FDE的核心工作之一，就是把客户需求拆解到大模型能力边界之内。&lt;/p&gt;
+&lt;blockquote&gt;
+&lt;p&gt;&lt;strong&gt;图4-1：大模型能力边界&lt;/strong&gt;
+（建议呈现：同心圆图。内圈&amp;quot;擅长&amp;quot;：文本生成、总结、分类、翻译、简单推理；外圈&amp;quot;不擅长&amp;quot;：实时信息、私有知识、精确计算、多步复杂逻辑、长时记忆。）&lt;/p&gt;
+&lt;/blockquote&gt;
+&lt;hr&gt;
+&lt;h2 id=&#34;43-幻觉时效隐私大模型三大局限&#34;&gt;§4.3 幻觉、时效、隐私：大模型三大局限
+&lt;/h2&gt;&lt;p&gt;大模型有三大局限，是FDE落地必须直面的。&lt;/p&gt;
+&lt;p&gt;&lt;strong&gt;局限一：幻觉（Hallucination）。&lt;/strong&gt; 大模型会编造看起来合理但实际错误的内容。比如被问&amp;quot;某公司2024年财报数据&amp;quot;，它可能编出一组数字。原因是它本质是预测下一个词，不是查数据库。应对：用RAG接入真实资料、用Prompt约束&amp;quot;不知道就说不知道&amp;quot;、关键信息人工复核。&lt;/p&gt;
+&lt;p&gt;&lt;strong&gt;局限二：时效性。&lt;/strong&gt; 大模型的训练数据有截止时间，之后发生的事它不知道。应对：用联网搜索能力、用RAG接入最新资料。&lt;/p&gt;
+&lt;p&gt;&lt;strong&gt;局限三：隐私与数据安全。&lt;/strong&gt; 直接把客户敏感数据发给公有模型有泄露风险。应对：用私有化部署、用数据脱敏、用合规的API通道。&lt;/p&gt;
+&lt;blockquote&gt;
+&lt;p&gt;&lt;strong&gt;方法论框4-1：大模型局限的FDE应对清单&lt;/strong&gt;&lt;/p&gt;
+&lt;table&gt;
+  &lt;thead&gt;
+      &lt;tr&gt;
+          &lt;th&gt;局限&lt;/th&gt;
+          &lt;th&gt;应对手段&lt;/th&gt;
+      &lt;/tr&gt;
+  &lt;/thead&gt;
+  &lt;tbody&gt;
+      &lt;tr&gt;
+          &lt;td&gt;幻觉&lt;/td&gt;
+          &lt;td&gt;RAG + Prompt约束 + 人工复核&lt;/td&gt;
+      &lt;/tr&gt;
+      &lt;tr&gt;
+          &lt;td&gt;时效&lt;/td&gt;
+          &lt;td&gt;联网搜索 + RAG接入最新资料&lt;/td&gt;
+      &lt;/tr&gt;
+      &lt;tr&gt;
+          &lt;td&gt;隐私&lt;/td&gt;
+          &lt;td&gt;私有化部署 + 数据脱敏 + 合规通道&lt;/td&gt;
+      &lt;/tr&gt;
+  &lt;/tbody&gt;
+&lt;/table&gt;
+&lt;/blockquote&gt;
+&lt;hr&gt;
+&lt;h2 id=&#34;44-agentskilltool&#34;&gt;§4.4 Agent、Skill、Tool
+&lt;/h2&gt;&lt;p&gt;这三个词是FDE工作的高频术语，三者关系常被混淆。&lt;/p&gt;
+&lt;h3 id=&#34;通俗解释-1&#34;&gt;通俗解释
+&lt;/h3&gt;&lt;p&gt;用一个&amp;quot;厨房团队&amp;quot;类比：&lt;/p&gt;
+&lt;ul&gt;
+&lt;li&gt;&lt;strong&gt;Agent（智能体）&lt;/strong&gt; = 厨师。能听懂&amp;quot;做一桌川菜&amp;quot;的指令，自己规划做菜流程并执行。&lt;/li&gt;
+&lt;li&gt;&lt;strong&gt;Skill（技能）&lt;/strong&gt; = 菜谱技能。比如&amp;quot;回锅肉技能&amp;quot;&amp;ldquo;麻婆豆腐技能&amp;rdquo;，是厨师会做的具体菜。&lt;/li&gt;
+&lt;li&gt;&lt;strong&gt;Tool（工具）&lt;/strong&gt; = 厨具。锅、刀、灶，是技能执行时调用的工具。&lt;/li&gt;
+&lt;/ul&gt;
+&lt;h3 id=&#34;三者关系&#34;&gt;三者关系
+&lt;/h3&gt;&lt;p&gt;Agent是大模型加上了&amp;quot;规划+执行&amp;quot;能力的封装。它接到任务后，会自主选择调用哪个Skill；Skill在执行时，会调用需要的Tool。&lt;/p&gt;
+&lt;blockquote&gt;
+&lt;p&gt;&lt;strong&gt;图4-2：Agent / Skill / Tool 层级关系&lt;/strong&gt;
+（建议呈现：树状图。顶层Agent，下挂多个Skill节点，每个Skill下挂若干Tool叶子。）&lt;/p&gt;
+&lt;/blockquote&gt;
+&lt;p&gt;用一次客户服务场景说明：&lt;/p&gt;
+&lt;ul&gt;
+&lt;li&gt;客户问&amp;quot;我的订单到哪了&amp;quot;。&lt;/li&gt;
+&lt;li&gt;Agent判断这是&amp;quot;订单查询&amp;quot;任务，调用&amp;quot;订单查询Skill&amp;quot;。&lt;/li&gt;
+&lt;li&gt;订单查询Skill调用&amp;quot;订单系统API&amp;quot;这个Tool，获取物流信息。&lt;/li&gt;
+&lt;li&gt;Agent把信息整理后回复客户。&lt;/li&gt;
+&lt;/ul&gt;
+&lt;h3 id=&#34;与fde的关系-1&#34;&gt;与FDE的关系
+&lt;/h3&gt;&lt;p&gt;FDE搭建AI能力模块，本质上就是在搭Agent、Skill、Tool的组合。本书第二篇会详细讲Skill设计与搭建。&lt;/p&gt;
+&lt;hr&gt;
+&lt;h2 id=&#34;45-rag检索增强生成&#34;&gt;§4.5 RAG（检索增强生成）
+&lt;/h2&gt;&lt;h3 id=&#34;通俗解释-2&#34;&gt;通俗解释
+&lt;/h3&gt;&lt;p&gt;RAG像一个&amp;quot;允许翻书的考试&amp;quot;。大模型本身不知道你公司的内部知识（没学过），直接问它会幻觉。RAG的做法是：先把你的内部资料切片存进知识库，客户提问时先去知识库检索相关片段，再把片段喂给大模型，让它基于真实资料回答。&lt;/p&gt;
+&lt;h3 id=&#34;技术原理-1&#34;&gt;技术原理
+&lt;/h3&gt;&lt;p&gt;RAG的核心流程：&lt;/p&gt;
+&lt;ol&gt;
+&lt;li&gt;&lt;strong&gt;入库&lt;/strong&gt;：把文档切成小块（chunk），用向量化模型转成向量，存入向量数据库。&lt;/li&gt;
+&lt;li&gt;&lt;strong&gt;检索&lt;/strong&gt;：用户提问时，把问题也向量化，在数据库里找最相似的片段。&lt;/li&gt;
+&lt;li&gt;&lt;strong&gt;生成&lt;/strong&gt;：把检索到的片段作为上下文，连同问题一起发给大模型，让它生成回答。&lt;/li&gt;
+&lt;/ol&gt;
+&lt;blockquote&gt;
+&lt;p&gt;&lt;strong&gt;图4-3：RAG工作流程&lt;/strong&gt;
+（建议呈现：横向流程图。文档→切片→向量化→向量库；用户问题→向量化→检索→片段+问题→大模型→回答。）&lt;/p&gt;
+&lt;/blockquote&gt;
+&lt;h3 id=&#34;与fde的关系-2&#34;&gt;与FDE的关系
+&lt;/h3&gt;&lt;p&gt;RAG是FDE落地最常用的技术之一，几乎所有&amp;quot;企业知识库&amp;quot;&amp;ldquo;智能客服&amp;quot;&amp;ldquo;文档问答&amp;quot;类项目都基于RAG。FDE要会配置RAG（切片策略、向量模型选择、检索调优），但不必自己写底层算法。&lt;/p&gt;
+&lt;hr&gt;
+&lt;h2 id=&#34;46-工作流workflow&#34;&gt;§4.6 工作流（Workflow）
+&lt;/h2&gt;&lt;h3 id=&#34;通俗解释-3&#34;&gt;通俗解释
+&lt;/h3&gt;&lt;p&gt;工作流像一条&amp;quot;AI流水线&amp;rdquo;。把一个复杂任务拆成多个环节，每个环节用对应的AI能力或工具处理，串联起来自动完成。&lt;/p&gt;
+&lt;h3 id=&#34;与单次大模型调用的区别&#34;&gt;与单次大模型调用的区别
+&lt;/h3&gt;&lt;p&gt;单次大模型调用是&amp;quot;一问一答&amp;rdquo;，适合简单任务。工作流是&amp;quot;多步串联&amp;quot;，适合需要多个环节协同的复杂任务。&lt;/p&gt;
+&lt;p&gt;举个例子，&amp;ldquo;自动生成客户跟进邮件&amp;rdquo;：&lt;/p&gt;
+&lt;ul&gt;
+&lt;li&gt;单次调用：把客户信息直接喂给大模型，让它写邮件。质量一般，缺个性化。&lt;/li&gt;
+&lt;li&gt;工作流：①查询客户历史互动→②大模型分析客户偏好→③大模型生成邮件草稿→④大模型润色→⑤发送。每步专注一件事，质量更高。&lt;/li&gt;
+&lt;/ul&gt;
+&lt;h3 id=&#34;与fde的关系-3&#34;&gt;与FDE的关系
+&lt;/h3&gt;&lt;p&gt;工作流编排是FDE的核心技能之一。本书第9章会详细讲工作流自动化落地。&lt;/p&gt;
+&lt;hr&gt;
+&lt;h2 id=&#34;47-api应用程序接口&#34;&gt;§4.7 API（应用程序接口）
+&lt;/h2&gt;&lt;h3 id=&#34;通俗解释-4&#34;&gt;通俗解释
+&lt;/h3&gt;&lt;p&gt;API像一个&amp;quot;插座&amp;quot;。你想用电，不需要自己发电，把插头插进插座就行。大模型厂商提供API，你不需要自己训练模型，调用API就能用上它的能力。&lt;/p&gt;
+&lt;h3 id=&#34;关键概念&#34;&gt;关键概念
+&lt;/h3&gt;&lt;ul&gt;
+&lt;li&gt;&lt;strong&gt;调用&lt;/strong&gt;：通过API发送请求，获取模型响应。&lt;/li&gt;
+&lt;li&gt;&lt;strong&gt;Token&lt;/strong&gt;：大模型计费与上下文计量的单位，大约1个汉字≈1.5-2个token。&lt;/li&gt;
+&lt;li&gt;&lt;strong&gt;上下文窗口&lt;/strong&gt;：模型一次能处理的文本长度上限，超出需截断或分段。&lt;/li&gt;
+&lt;li&gt;&lt;strong&gt;Rate Limit&lt;/strong&gt;：调用频率限制，超限会被限流。&lt;/li&gt;
+&lt;/ul&gt;
+&lt;h3 id=&#34;与fde的关系-4&#34;&gt;与FDE的关系
+&lt;/h3&gt;&lt;p&gt;FDE用零代码平台时，平台已经封装了API调用，FDE不直接写代码调API。但理解API、Token、上下文这些概念，对估算成本、设计Prompt、排查问题至关重要。&lt;/p&gt;
+&lt;blockquote&gt;
+&lt;p&gt;&lt;strong&gt;方法论框4-2：FDE必须懂的API基础概念&lt;/strong&gt;&lt;/p&gt;
+&lt;ul&gt;
+&lt;li&gt;调用：发请求得响应&lt;/li&gt;
+&lt;li&gt;Token：计费与计量单位&lt;/li&gt;
+&lt;li&gt;上下文窗口：单次处理上限&lt;/li&gt;
+&lt;li&gt;Rate Limit：调用频率限制&lt;/li&gt;
+&lt;li&gt;这四个概念直接影响成本估算、Prompt设计与方案可行性判断。&lt;/li&gt;
+&lt;/ul&gt;
+&lt;/blockquote&gt;
+&lt;hr&gt;
+&lt;h2 id=&#34;48-微调fine-tuning与向量数据库&#34;&gt;§4.8 微调（Fine-tuning）与向量数据库
+&lt;/h2&gt;&lt;p&gt;这两个术语FDE未必直接操作，但常在方案讨论中出现，需要听懂。&lt;/p&gt;
+&lt;h3 id=&#34;微调&#34;&gt;微调
+&lt;/h3&gt;&lt;p&gt;微调是在通用大模型基础上，用特定领域数据继续训练，让它在某领域表现更好。类比：大模型是大学毕业生，微调是给他做岗前培训。&lt;/p&gt;
+&lt;p&gt;&lt;strong&gt;与RAG的区别&lt;/strong&gt;：RAG是&amp;quot;翻书&amp;quot;（临时查资料），微调是&amp;quot;上学&amp;quot;（长期改变模型本身）。RAG适合频繁变化的知识，微调适合稳定的风格或领域特性。FDE落地以RAG为主，微调较少（成本高、周期长）。&lt;/p&gt;
+&lt;h3 id=&#34;向量数据库&#34;&gt;向量数据库
+&lt;/h3&gt;&lt;p&gt;向量数据库是专门存储与检索向量的数据库，是RAG的存储基础设施。常见产品有Milvus、Pinecone、Chroma等。FDE通常不直接运维向量数据库，但要知道它在RAG里的角色，以便与算法团队沟通。&lt;/p&gt;
+&lt;hr&gt;
+&lt;h2 id=&#34;49-ai落地的四类典型场景&#34;&gt;§4.9 AI落地的四类典型场景
+&lt;/h2&gt;&lt;p&gt;把上述术语串起来，看AI落地的四类典型场景。FDE的绝大多数项目都属于这四类之一。&lt;/p&gt;
+&lt;blockquote&gt;
+&lt;p&gt;&lt;strong&gt;图4-4：AI落地四类场景&lt;/strong&gt;
+（建议呈现：四象限图。横轴&amp;quot;输入结构化程度&amp;quot;，纵轴&amp;quot;输出自由度&amp;quot;。四象限分别标注四类场景。）&lt;/p&gt;
+&lt;/blockquote&gt;
+&lt;p&gt;&lt;strong&gt;第一类：信息整理类。&lt;/strong&gt; 输入结构化、输出受限。如：会议纪要生成、文档摘要、数据分类。难度低，适合入门。&lt;/p&gt;
+&lt;p&gt;&lt;strong&gt;第二类：内容生成类。&lt;/strong&gt; 输入结构化、输出自由。如：营销文案生成、邮件草稿、报告初稿。难度中，Prompt工程是关键。&lt;/p&gt;
+&lt;p&gt;&lt;strong&gt;第三类：知识问答类。&lt;/strong&gt; 输入半结构化、输出受限。如：企业知识库问答、客服FAQ、合规咨询。RAG是核心技术。&lt;/p&gt;
+&lt;p&gt;&lt;strong&gt;第四类：流程自动化类。&lt;/strong&gt; 多环节串联、跨系统协同。如：获客工作流、报表自动化、工单分类与派单。工作流编排是核心。&lt;/p&gt;
+&lt;p&gt;FDE入门通常从第一类做起，逐步进阶到第四类。&lt;/p&gt;
+&lt;hr&gt;
+&lt;h2 id=&#34;410-术语转译fde的必备能力&#34;&gt;§4.10 术语转译：FDE的必备能力
+&lt;/h2&gt;&lt;p&gt;光懂术语不够，FDE还要能把术语翻译成客户能懂的话。这是一项被低估的核心能力。&lt;/p&gt;
+&lt;blockquote&gt;
+&lt;p&gt;&lt;strong&gt;方法论框4-3：术语转译三步法&lt;/strong&gt;&lt;/p&gt;
+&lt;ol&gt;
+&lt;li&gt;&lt;strong&gt;去术语&lt;/strong&gt;：把技术名词换成生活名词（如&amp;quot;RAG&amp;quot;→&amp;ldquo;给AI配个可翻的资料库&amp;rdquo;）。&lt;/li&gt;
+&lt;li&gt;&lt;strong&gt;接场景&lt;/strong&gt;：用客户自己的业务场景举例（如对零售客户说&amp;quot;就像你店员遇到不熟悉的商品，先翻库存表再回答顾客&amp;quot;）。&lt;/li&gt;
+&lt;li&gt;&lt;strong&gt;说价值&lt;/strong&gt;：最后落到对客户的价值（如&amp;quot;这样AI就不会乱编，回答都基于你的真实资料&amp;quot;）。&lt;/li&gt;
+&lt;/ol&gt;
+&lt;/blockquote&gt;
+&lt;p&gt;举一个转译实例：&lt;/p&gt;
+&lt;ul&gt;
+&lt;li&gt;技术话：&amp;ldquo;我们用RAG接入您的知识库，通过向量检索召回相关片段，再由大模型生成回答，降低幻觉风险。&amp;rdquo;&lt;/li&gt;
+&lt;li&gt;转译后：&amp;ldquo;我们会把您公司的资料整理成一个AI能随时翻阅的资料库。客户提问时，AI先去资料库找相关内容，再基于真实资料回答，不会胡编。&amp;rdquo;&lt;/li&gt;
+&lt;/ul&gt;
+&lt;p&gt;后者客户听得懂、记得住、愿意付费。这就是术语转译的价值。&lt;/p&gt;
+&lt;hr&gt;
+&lt;h2 id=&#34;本章小结&#34;&gt;本章小结
+&lt;/h2&gt;&lt;ol&gt;
+&lt;li&gt;&lt;strong&gt;大模型&lt;/strong&gt;：博学但有幻觉、时效、隐私三大局限，FDE要用RAG、Prompt约束、私有化部署应对。&lt;/li&gt;
+&lt;li&gt;&lt;strong&gt;Agent/Skill/Tool&lt;/strong&gt;：Agent是厨师、Skill是菜谱技能、Tool是厨具，三者层级关系清晰。&lt;/li&gt;
+&lt;li&gt;&lt;strong&gt;RAG&lt;/strong&gt;：允许翻书的考试，企业知识库类项目的核心技术。&lt;/li&gt;
+&lt;li&gt;&lt;strong&gt;工作流&lt;/strong&gt;：AI流水线，多步串联处理复杂任务。&lt;/li&gt;
+&lt;li&gt;&lt;strong&gt;API&lt;/strong&gt;：AI的插座，Token与上下文是成本与设计的关键概念。&lt;/li&gt;
+&lt;li&gt;&lt;strong&gt;四类场景&lt;/strong&gt;：信息整理、内容生成、知识问答、流程自动化，FDE项目基本归属其一。&lt;/li&gt;
+&lt;li&gt;&lt;strong&gt;术语转译&lt;/strong&gt;：去术语+接场景+说价值，是FDE的核心能力。&lt;/li&gt;
+&lt;/ol&gt;
+&lt;hr&gt;
+&lt;h2 id=&#34;思考题&#34;&gt;思考题
+&lt;/h2&gt;&lt;ol&gt;
+&lt;li&gt;用自己的类比重新解释Agent/Skill/Tool，确保一个完全不懂技术的人能听懂。&lt;/li&gt;
+&lt;li&gt;找一份真实AI方案文档，标注其中的术语，用术语转译三步法把其中3句技术话翻译成客户话。&lt;/li&gt;
+&lt;li&gt;观察你工作中一个重复任务，判断它属于四类场景的哪类，说明理由。&lt;/li&gt;
+&lt;li&gt;解释RAG与微调的区别，并说明什么场景该用哪个。&lt;/li&gt;
+&lt;/ol&gt;
+&lt;hr&gt;
+&lt;h2 id=&#34;延伸阅读&#34;&gt;延伸阅读
+&lt;/h2&gt;&lt;ul&gt;
+&lt;li&gt;本书第7章将深入AI技术基础与工具选型，是本章的进阶延伸。&lt;/li&gt;
+&lt;li&gt;第8章讲Prompt工程与Skill搭建，可与本章Agent/Skill部分对照。&lt;/li&gt;
+&lt;li&gt;各大模型厂商的官方文档（用于刷新术语的最新定义与能力边界）。&lt;/li&gt;
+&lt;/ul&gt;
+&lt;hr&gt;
+&lt;blockquote&gt;
+&lt;p&gt;&lt;strong&gt;第一篇结束。&lt;/strong&gt; 完成本篇四章，你已建立FDE的行业认知、岗位边界、入行路径与术语基础。第二篇将进入实战，从工作方法论开始，逐步掌握FDE的基础工作流。&lt;/p&gt;
+&lt;/blockquote&gt;
+</description>
+        </item>
+        
+    </channel>
+</rss>

@@ -1,0 +1,460 @@
+<!DOCTYPE html>
+<html lang="zh-cn" dir="ltr">
+    <head><meta charset='utf-8'>
+<meta name='viewport' content='width=device-width, initial-scale=1'><meta name='description' content="这周三下午两点，我又在茶水间碰到了满脸愁容的产品经理小A。手里捏着刚打印好的需求文档，他叹了口气说：“一想到下午的PRD评审我就胃疼。上次评审，开发老张的一个逻辑漏洞追问，让我在全组面前挂了十分钟黑板，太窒息了。”\n这种窒息感，相信很多做产品或者技术的朋友都不陌生。\n在这个行业摸爬滚打这么多年，我曾一度以为，评审会即使不是战场，也是某种意义上的“法庭”——产品经理是被告，技术是原告，而在场的其他人是陪审团。只要文档写得够细、逻辑够严密，就能赢得这场“官司”。\n直到踩过无数个“文档很完美，上线就崩盘”的大坑，我才意识到：评审会的本质不是“找茬”，而是一次集体对齐认知的过程。\n如果你也在这场协作游戏中感到心累，不妨停下来，看看这几个能让你从焦虑中解脱出来的底层逻辑。\n什么是「隐形信息」的诅咒？\r很多时候，评审会上的争执，并不是因为你写得不够好，而是因为“知识诅咒”。你脑海中理所应当的逻辑，在别人眼里可能是完全陌生的黑洞。\n我们来看一个真实的惨案：\n去年双十一前夕，电商团队要做一个“满减凑单页”。需求文档写得很漂亮：“用户在购物车勾选商品，若不满300元，点击凑单按钮，跳转至凑单推荐页。”\n评审时大家一片祥和，前端说没问题，后端说接口现成的。\n结果上线前一天，测试测出了一个Blocking级别的Bug：如果用户购物车里什么都没勾选，点击“凑单”会发生什么？文档里没写。前端默认置灰不可点，后端默认跳转推荐页（但参数为空报错）。\n就为了这个极其细小的交互差异，两个组在发布窗口期吵了半小时，最后不得不临时加了一个Toast提示，代码重新打包，所有人陪着熬夜到凌晨三点。\n如何破解？\n我这几年坚持用一个笨办法：「伪代码+状态图」前置。\n文字是有欺骗性的，但逻辑图不会。在评审会之前，不要只讲“用户做什么”，要讲“数据怎么流转”。\n对于关键逻辑，哪怕你是产品经理，也可以尝试用简单的伪代码逻辑来表述：\nIF (用户勾选商品总金额 &gt; 0 AND &lt; 300) { 跳转凑单页(带入当前差额参数); } ELSE IF (用户勾选商品总金额 == 0) { 弹出提示(&#34;请先勾选商品&#34;); } ELSE { // 满额情况 跳转结算页; } 当你把逻辑具象化到这种程度，技术人员感受到的不是“被指挥”，而是“被理解”。这种安全感，是高效评审的基础。\n沉默不代表同意，可能是「防御性接受」\r你有没有遇到过这种情况：评审会上你问“大家有疑问吗？”，全场鸦雀无声。你以为万事大吉，结果开发排期出来——原本预估3天的工作量，对方报了7天。\n这时候你才发现，沉默背后藏着巨大的雷。\n这就是典型的“防御性接受”。\n我曾带过一个做CRM系统的项目。那是周五下午四点的评审会，大家都急着下班。由于涉及到底层权限重构，逻辑非常绕。\n当时的后端Tech Lead老李一直没说话，只是偶尔点头。我以为他懂了。结果周一开工，老李直接找过来说：“那个权限逻辑如果你坚持要按文档做，所有历史数据得洗一遍，风险极大，至少两周。”\n那一刻我才明白，他在评审会上的沉默，是因为他当时也没想清楚怎么反驳，或者单纯不想在周五下午泼冷水。\n我的建议是：把「技术预审」变成标准动作。\n不要试图在几十人的大会上解决核心矛盾。我现在的习惯是，在正式评审前1-2天，单独拉上核心开发和测试，开一个15-20分钟的“小灶会”。\n话术很简单：“这个功能有点复杂，我不确定现在的方案是不是最优的，想请你们先帮我把把关，看看有没有技术硬伤。”\n这样做有两个好处：\n面子问题：如果你真的有逻辑漏洞，他们在私下指出来，你改了就好，不用当众出丑。 参与感：当方案有了他们的建议，正式评审时，他们就成了你的“盟友”，会主动帮你解释技术难点，而不是站在对面挑刺。 别让「范围蔓延」毁了你的排期\r评审会最怕的不是吵架，而是“灵感爆发”。\n往往是讲到某个功能点，运营突然插一句：“哎，这里能不能顺便加个分享按钮？”或者老板随口说：“这个报表能不能支持导出Excel？”\n出于“顺手”的心态，或者迫于压力，很多人当场就答应了：“行，这个简单，加上。”\n这就是噩梦的开始。\n记得三年前做一个社区APP的改版。评审会上，UI设计师提了一嘴：“这个点赞动画如果能做成类似Twitter那种爆炸效果就好了。”\n当时的iOS小哥觉得挺酷，没多想就应下来了。结果那个动画库的兼容性极差，为了这就这一个“顺手”的需求，他在适配低版本机型上耗了整整两天，导致核心功能的联调延期，整个项目组的周末都搭进去了。\n现在的我会使用「停车场（Parking Lot）」机制。\n">
+<title>告别「撕逼」现场：PRD评审避坑的3个底层逻辑</title>
+
+<link rel='canonical' href='https://blog.irudder.me/tech/kuabumenxiezuogaopinwentijiejueqingdan/xuqiupingshenhuiprd-reviewdebikengzhinan.html'>
+
+<link rel="stylesheet" href="/scss/style.min.b9e9128fec450ebccecc4ec9900157f32b85d0609bcd5ee3293968bcaa1235f2.css"><meta property='og:title' content="告别「撕逼」现场：PRD评审避坑的3个底层逻辑">
+<meta property='og:description' content="这周三下午两点，我又在茶水间碰到了满脸愁容的产品经理小A。手里捏着刚打印好的需求文档，他叹了口气说：“一想到下午的PRD评审我就胃疼。上次评审，开发老张的一个逻辑漏洞追问，让我在全组面前挂了十分钟黑板，太窒息了。”\n这种窒息感，相信很多做产品或者技术的朋友都不陌生。\n在这个行业摸爬滚打这么多年，我曾一度以为，评审会即使不是战场，也是某种意义上的“法庭”——产品经理是被告，技术是原告，而在场的其他人是陪审团。只要文档写得够细、逻辑够严密，就能赢得这场“官司”。\n直到踩过无数个“文档很完美，上线就崩盘”的大坑，我才意识到：评审会的本质不是“找茬”，而是一次集体对齐认知的过程。\n如果你也在这场协作游戏中感到心累，不妨停下来，看看这几个能让你从焦虑中解脱出来的底层逻辑。\n什么是「隐形信息」的诅咒？\r很多时候，评审会上的争执，并不是因为你写得不够好，而是因为“知识诅咒”。你脑海中理所应当的逻辑，在别人眼里可能是完全陌生的黑洞。\n我们来看一个真实的惨案：\n去年双十一前夕，电商团队要做一个“满减凑单页”。需求文档写得很漂亮：“用户在购物车勾选商品，若不满300元，点击凑单按钮，跳转至凑单推荐页。”\n评审时大家一片祥和，前端说没问题，后端说接口现成的。\n结果上线前一天，测试测出了一个Blocking级别的Bug：如果用户购物车里什么都没勾选，点击“凑单”会发生什么？文档里没写。前端默认置灰不可点，后端默认跳转推荐页（但参数为空报错）。\n就为了这个极其细小的交互差异，两个组在发布窗口期吵了半小时，最后不得不临时加了一个Toast提示，代码重新打包，所有人陪着熬夜到凌晨三点。\n如何破解？\n我这几年坚持用一个笨办法：「伪代码+状态图」前置。\n文字是有欺骗性的，但逻辑图不会。在评审会之前，不要只讲“用户做什么”，要讲“数据怎么流转”。\n对于关键逻辑，哪怕你是产品经理，也可以尝试用简单的伪代码逻辑来表述：\nIF (用户勾选商品总金额 &gt; 0 AND &lt; 300) { 跳转凑单页(带入当前差额参数); } ELSE IF (用户勾选商品总金额 == 0) { 弹出提示(&#34;请先勾选商品&#34;); } ELSE { // 满额情况 跳转结算页; } 当你把逻辑具象化到这种程度，技术人员感受到的不是“被指挥”，而是“被理解”。这种安全感，是高效评审的基础。\n沉默不代表同意，可能是「防御性接受」\r你有没有遇到过这种情况：评审会上你问“大家有疑问吗？”，全场鸦雀无声。你以为万事大吉，结果开发排期出来——原本预估3天的工作量，对方报了7天。\n这时候你才发现，沉默背后藏着巨大的雷。\n这就是典型的“防御性接受”。\n我曾带过一个做CRM系统的项目。那是周五下午四点的评审会，大家都急着下班。由于涉及到底层权限重构，逻辑非常绕。\n当时的后端Tech Lead老李一直没说话，只是偶尔点头。我以为他懂了。结果周一开工，老李直接找过来说：“那个权限逻辑如果你坚持要按文档做，所有历史数据得洗一遍，风险极大，至少两周。”\n那一刻我才明白，他在评审会上的沉默，是因为他当时也没想清楚怎么反驳，或者单纯不想在周五下午泼冷水。\n我的建议是：把「技术预审」变成标准动作。\n不要试图在几十人的大会上解决核心矛盾。我现在的习惯是，在正式评审前1-2天，单独拉上核心开发和测试，开一个15-20分钟的“小灶会”。\n话术很简单：“这个功能有点复杂，我不确定现在的方案是不是最优的，想请你们先帮我把把关，看看有没有技术硬伤。”\n这样做有两个好处：\n面子问题：如果你真的有逻辑漏洞，他们在私下指出来，你改了就好，不用当众出丑。 参与感：当方案有了他们的建议，正式评审时，他们就成了你的“盟友”，会主动帮你解释技术难点，而不是站在对面挑刺。 别让「范围蔓延」毁了你的排期\r评审会最怕的不是吵架，而是“灵感爆发”。\n往往是讲到某个功能点，运营突然插一句：“哎，这里能不能顺便加个分享按钮？”或者老板随口说：“这个报表能不能支持导出Excel？”\n出于“顺手”的心态，或者迫于压力，很多人当场就答应了：“行，这个简单，加上。”\n这就是噩梦的开始。\n记得三年前做一个社区APP的改版。评审会上，UI设计师提了一嘴：“这个点赞动画如果能做成类似Twitter那种爆炸效果就好了。”\n当时的iOS小哥觉得挺酷，没多想就应下来了。结果那个动画库的兼容性极差，为了这就这一个“顺手”的需求，他在适配低版本机型上耗了整整两天，导致核心功能的联调延期，整个项目组的周末都搭进去了。\n现在的我会使用「停车场（Parking Lot）」机制。\n">
+<meta property='og:url' content='https://blog.irudder.me/tech/kuabumenxiezuogaopinwentijiejueqingdan/xuqiupingshenhuiprd-reviewdebikengzhinan.html'>
+<meta property='og:site_name' content='SelfTechHub'>
+<meta property='og:type' content='article'><meta property='article:section' content='Tech' /><meta property='article:tag' content='需求评审会（PRD Review）的避坑指南' /><meta property='article:published_time' content='2023-01-26T00:00:00&#43;00:00'/><meta property='article:modified_time' content='2023-01-26T00:00:00&#43;00:00'/>
+<meta name="twitter:title" content="告别「撕逼」现场：PRD评审避坑的3个底层逻辑">
+<meta name="twitter:description" content="这周三下午两点，我又在茶水间碰到了满脸愁容的产品经理小A。手里捏着刚打印好的需求文档，他叹了口气说：“一想到下午的PRD评审我就胃疼。上次评审，开发老张的一个逻辑漏洞追问，让我在全组面前挂了十分钟黑板，太窒息了。”\n这种窒息感，相信很多做产品或者技术的朋友都不陌生。\n在这个行业摸爬滚打这么多年，我曾一度以为，评审会即使不是战场，也是某种意义上的“法庭”——产品经理是被告，技术是原告，而在场的其他人是陪审团。只要文档写得够细、逻辑够严密，就能赢得这场“官司”。\n直到踩过无数个“文档很完美，上线就崩盘”的大坑，我才意识到：评审会的本质不是“找茬”，而是一次集体对齐认知的过程。\n如果你也在这场协作游戏中感到心累，不妨停下来，看看这几个能让你从焦虑中解脱出来的底层逻辑。\n什么是「隐形信息」的诅咒？\r很多时候，评审会上的争执，并不是因为你写得不够好，而是因为“知识诅咒”。你脑海中理所应当的逻辑，在别人眼里可能是完全陌生的黑洞。\n我们来看一个真实的惨案：\n去年双十一前夕，电商团队要做一个“满减凑单页”。需求文档写得很漂亮：“用户在购物车勾选商品，若不满300元，点击凑单按钮，跳转至凑单推荐页。”\n评审时大家一片祥和，前端说没问题，后端说接口现成的。\n结果上线前一天，测试测出了一个Blocking级别的Bug：如果用户购物车里什么都没勾选，点击“凑单”会发生什么？文档里没写。前端默认置灰不可点，后端默认跳转推荐页（但参数为空报错）。\n就为了这个极其细小的交互差异，两个组在发布窗口期吵了半小时，最后不得不临时加了一个Toast提示，代码重新打包，所有人陪着熬夜到凌晨三点。\n如何破解？\n我这几年坚持用一个笨办法：「伪代码+状态图」前置。\n文字是有欺骗性的，但逻辑图不会。在评审会之前，不要只讲“用户做什么”，要讲“数据怎么流转”。\n对于关键逻辑，哪怕你是产品经理，也可以尝试用简单的伪代码逻辑来表述：\nIF (用户勾选商品总金额 &gt; 0 AND &lt; 300) { 跳转凑单页(带入当前差额参数); } ELSE IF (用户勾选商品总金额 == 0) { 弹出提示(&#34;请先勾选商品&#34;); } ELSE { // 满额情况 跳转结算页; } 当你把逻辑具象化到这种程度，技术人员感受到的不是“被指挥”，而是“被理解”。这种安全感，是高效评审的基础。\n沉默不代表同意，可能是「防御性接受」\r你有没有遇到过这种情况：评审会上你问“大家有疑问吗？”，全场鸦雀无声。你以为万事大吉，结果开发排期出来——原本预估3天的工作量，对方报了7天。\n这时候你才发现，沉默背后藏着巨大的雷。\n这就是典型的“防御性接受”。\n我曾带过一个做CRM系统的项目。那是周五下午四点的评审会，大家都急着下班。由于涉及到底层权限重构，逻辑非常绕。\n当时的后端Tech Lead老李一直没说话，只是偶尔点头。我以为他懂了。结果周一开工，老李直接找过来说：“那个权限逻辑如果你坚持要按文档做，所有历史数据得洗一遍，风险极大，至少两周。”\n那一刻我才明白，他在评审会上的沉默，是因为他当时也没想清楚怎么反驳，或者单纯不想在周五下午泼冷水。\n我的建议是：把「技术预审」变成标准动作。\n不要试图在几十人的大会上解决核心矛盾。我现在的习惯是，在正式评审前1-2天，单独拉上核心开发和测试，开一个15-20分钟的“小灶会”。\n话术很简单：“这个功能有点复杂，我不确定现在的方案是不是最优的，想请你们先帮我把把关，看看有没有技术硬伤。”\n这样做有两个好处：\n面子问题：如果你真的有逻辑漏洞，他们在私下指出来，你改了就好，不用当众出丑。 参与感：当方案有了他们的建议，正式评审时，他们就成了你的“盟友”，会主动帮你解释技术难点，而不是站在对面挑刺。 别让「范围蔓延」毁了你的排期\r评审会最怕的不是吵架，而是“灵感爆发”。\n往往是讲到某个功能点，运营突然插一句：“哎，这里能不能顺便加个分享按钮？”或者老板随口说：“这个报表能不能支持导出Excel？”\n出于“顺手”的心态，或者迫于压力，很多人当场就答应了：“行，这个简单，加上。”\n这就是噩梦的开始。\n记得三年前做一个社区APP的改版。评审会上，UI设计师提了一嘴：“这个点赞动画如果能做成类似Twitter那种爆炸效果就好了。”\n当时的iOS小哥觉得挺酷，没多想就应下来了。结果那个动画库的兼容性极差，为了这就这一个“顺手”的需求，他在适配低版本机型上耗了整整两天，导致核心功能的联调延期，整个项目组的周末都搭进去了。\n现在的我会使用「停车场（Parking Lot）」机制。\n">
+    </head>
+    <body class="
+    article-page
+    ">
+    <script>
+        (function() {
+            const colorSchemeKey = 'StackColorScheme';
+            if(!localStorage.getItem(colorSchemeKey)){
+                localStorage.setItem(colorSchemeKey, "auto");
+            }
+        })();
+    </script><script>
+    (function() {
+        const colorSchemeKey = 'StackColorScheme';
+        const colorSchemeItem = localStorage.getItem(colorSchemeKey);
+        const supportDarkMode = window.matchMedia('(prefers-color-scheme: dark)').matches === true;
+
+        if (colorSchemeItem == 'dark' || colorSchemeItem === 'auto' && supportDarkMode) {
+            
+
+            document.documentElement.dataset.scheme = 'dark';
+        } else {
+            document.documentElement.dataset.scheme = 'light';
+        }
+    })();
+</script>
+<div class="container main-container flex on-phone--column compact"><aside class="sidebar left-sidebar sticky ">
+    <button class="hamburger hamburger--spin" type="button" id="toggle-menu" aria-label="切换菜单">
+        <span class="hamburger-box">
+            <span class="hamburger-inner"></span>
+        </span>
+    </button>
+
+    <header>
+        
+            
+            <figure class="site-avatar">
+                <a href="/">
+                
+                    
+                    
+                    
+                        
+                        <img src="/img/avatar_hu_8588ce14af1147e2.png" width="300"
+                            height="286" class="site-logo" loading="lazy" alt="Avatar">
+                    
+                
+                </a>
+                
+            </figure>
+            
+        
+        
+        <div class="site-meta">
+            <h1 class="site-name"><a href="/">SelfTechHub</a></h1>
+            <h2 class="site-description"></h2>
+        </div>
+    </header><ol class="menu" id="main-menu">
+        
+        
+        <li class="menu-bottom-section">
+            <ol class="menu">
+
+                
+                    <li id="dark-mode-toggle">
+                        <svg xmlns="http://www.w3.org/2000/svg" class="icon icon-tabler icon-tabler-toggle-left" width="24" height="24" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor" fill="none" stroke-linecap="round" stroke-linejoin="round">
+  <path stroke="none" d="M0 0h24v24H0z"/>
+  <circle cx="8" cy="12" r="2" />
+  <rect x="2" y="6" width="20" height="12" rx="6" />
+</svg>
+
+
+
+                        <svg xmlns="http://www.w3.org/2000/svg" class="icon icon-tabler icon-tabler-toggle-right" width="24" height="24" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor" fill="none" stroke-linecap="round" stroke-linejoin="round">
+  <path stroke="none" d="M0 0h24v24H0z"/>
+  <circle cx="16" cy="12" r="2" />
+  <rect x="2" y="6" width="20" height="12" rx="6" />
+</svg>
+
+
+
+                        <span>暗色模式</span>
+                    </li>
+                
+            </ol>
+        </li>
+    </ol>
+</aside>
+
+    
+
+            <main class="main full-width">
+    <article class="main-article">
+    <header class="article-header">
+
+    <div class="article-details">
+    
+    <header class="article-category">
+        
+            <a href="/categories/%E6%8A%80%E6%9C%AF.html" >
+                技术精进
+            </a>
+        
+    </header>
+    
+
+    <div class="article-title-wrapper">
+        <h2 class="article-title">
+            <a href="/tech/kuabumenxiezuogaopinwentijiejueqingdan/xuqiupingshenhuiprd-reviewdebikengzhinan.html">告别「撕逼」现场：PRD评审避坑的3个底层逻辑</a>
+        </h2>
+    
+        
+    </div>
+
+    
+    
+    
+    
+    <footer class="article-time">
+        
+            <div>
+                <svg xmlns="http://www.w3.org/2000/svg" class="icon icon-tabler icon-tabler-calendar-time" width="56" height="56" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor" fill="none" stroke-linecap="round" stroke-linejoin="round">
+  <path stroke="none" d="M0 0h24v24H0z"/>
+  <path d="M11.795 21h-6.795a2 2 0 0 1 -2 -2v-12a2 2 0 0 1 2 -2h12a2 2 0 0 1 2 2v4" />
+  <circle cx="18" cy="18" r="4" />
+  <path d="M15 3v4" />
+  <path d="M7 3v4" />
+  <path d="M3 11h16" />
+  <path d="M18 16.496v1.504l1 1" />
+</svg>
+                <time class="article-time--published" datetime='2023-01-26T00:00:00Z'>Jan 26, 2023</time>
+            </div>
+        
+
+        
+            <div>
+                <svg xmlns="http://www.w3.org/2000/svg" class="icon icon-tabler icon-tabler-clock" width="24" height="24" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor" fill="none" stroke-linecap="round" stroke-linejoin="round">
+  <path stroke="none" d="M0 0h24v24H0z"/>
+  <circle cx="12" cy="12" r="9" />
+  <polyline points="12 7 12 12 15 15" />
+</svg>
+
+
+
+                <time class="article-time--reading">
+                    阅读时长: 1 分钟
+                </time>
+            </div>
+        
+    </footer>
+    
+
+    
+</div>
+
+</header>
+
+    <section class="article-content">
+    
+    
+    <p>这周三下午两点，我又在茶水间碰到了满脸愁容的产品经理小A。手里捏着刚打印好的需求文档，他叹了口气说：“一想到下午的PRD评审我就胃疼。上次评审，开发老张的一个逻辑漏洞追问，让我在全组面前挂了十分钟黑板，太窒息了。”</p>
+<p>这种窒息感，相信很多做产品或者技术的朋友都不陌生。</p>
+<p>在这个行业摸爬滚打这么多年，我曾一度以为，评审会即使不是战场，也是某种意义上的“法庭”——产品经理是被告，技术是原告，而在场的其他人是陪审团。只要文档写得够细、逻辑够严密，就能赢得这场“官司”。</p>
+<p><strong>直到踩过无数个“文档很完美，上线就崩盘”的大坑，我才意识到：评审会的本质不是“找茬”，而是一次集体对齐认知的过程。</strong></p>
+<p><img src="https://picsum.photos/800/450?random=1768450584481"
+	
+	
+	
+	loading="lazy"
+	
+		alt="配图"
+	
+	
+></p>
+<p>如果你也在这场协作游戏中感到心累，不妨停下来，看看这几个能让你从焦虑中解脱出来的底层逻辑。</p>
+<h2 id="什么是隐形信息的诅咒">什么是「隐形信息」的诅咒？
+</h2><p>很多时候，评审会上的争执，并不是因为你写得不够好，而是因为“知识诅咒”。你脑海中理所应当的逻辑，在别人眼里可能是完全陌生的黑洞。</p>
+<p><strong>我们来看一个真实的惨案：</strong></p>
+<p>去年双十一前夕，电商团队要做一个“满减凑单页”。需求文档写得很漂亮：“用户在购物车勾选商品，若不满300元，点击凑单按钮，跳转至凑单推荐页。”</p>
+<p>评审时大家一片祥和，前端说没问题，后端说接口现成的。</p>
+<p>结果上线前一天，测试测出了一个Blocking级别的Bug：如果用户购物车里什么都没勾选，点击“凑单”会发生什么？文档里没写。前端默认置灰不可点，后端默认跳转推荐页（但参数为空报错）。</p>
+<p>就为了这个极其细小的交互差异，两个组在发布窗口期吵了半小时，最后不得不临时加了一个Toast提示，代码重新打包，所有人陪着熬夜到凌晨三点。</p>
+<p><strong>如何破解？</strong></p>
+<p>我这几年坚持用一个笨办法：<strong>「伪代码+状态图」前置</strong>。</p>
+<p>文字是有欺骗性的，但逻辑图不会。在评审会之前，不要只讲“用户做什么”，要讲“数据怎么流转”。</p>
+<p>对于关键逻辑，哪怕你是产品经理，也可以尝试用简单的伪代码逻辑来表述：</p>
+<div class="highlight"><pre tabindex="0" style="color:#f8f8f2;background-color:#272822;-moz-tab-size:4;-o-tab-size:4;tab-size:4;"><code class="language-text" data-lang="text"><span style="display:flex;"><span>IF (用户勾选商品总金额 &gt; 0 AND &lt; 300) {
+</span></span><span style="display:flex;"><span>    跳转凑单页(带入当前差额参数);
+</span></span><span style="display:flex;"><span>} ELSE IF (用户勾选商品总金额 == 0) {
+</span></span><span style="display:flex;"><span>    弹出提示(&#34;请先勾选商品&#34;);
+</span></span><span style="display:flex;"><span>} ELSE {
+</span></span><span style="display:flex;"><span>    // 满额情况
+</span></span><span style="display:flex;"><span>    跳转结算页;
+</span></span><span style="display:flex;"><span>}
+</span></span></code></pre></div><p><img src="https://picsum.photos/800/450?random=1768450580635"
+	
+	
+	
+	loading="lazy"
+	
+		alt="配图"
+	
+	
+></p>
+<p>当你把逻辑具象化到这种程度，技术人员感受到的不是“被指挥”，而是“被理解”。这种安全感，是高效评审的基础。</p>
+<h2 id="沉默不代表同意可能是防御性接受">沉默不代表同意，可能是「防御性接受」
+</h2><p>你有没有遇到过这种情况：评审会上你问“大家有疑问吗？”，全场鸦雀无声。你以为万事大吉，结果开发排期出来——原本预估3天的工作量，对方报了7天。</p>
+<p>这时候你才发现，沉默背后藏着巨大的雷。</p>
+<p><strong>这就是典型的“防御性接受”。</strong></p>
+<p>我曾带过一个做CRM系统的项目。那是周五下午四点的评审会，大家都急着下班。由于涉及到底层权限重构，逻辑非常绕。</p>
+<p>当时的后端Tech Lead老李一直没说话，只是偶尔点头。我以为他懂了。结果周一开工，老李直接找过来说：“那个权限逻辑如果你坚持要按文档做，所有历史数据得洗一遍，风险极大，至少两周。”</p>
+<p>那一刻我才明白，他在评审会上的沉默，是因为他当时也没想清楚怎么反驳，或者单纯不想在周五下午泼冷水。</p>
+<p><strong>我的建议是：把「技术预审」变成标准动作。</strong></p>
+<p>不要试图在几十人的大会上解决核心矛盾。我现在的习惯是，在正式评审前1-2天，单独拉上核心开发和测试，开一个15-20分钟的“小灶会”。</p>
+<p>话术很简单：“这个功能有点复杂，我不确定现在的方案是不是最优的，想请你们先帮我把把关，看看有没有技术硬伤。”</p>
+<p><strong>这样做有两个好处：</strong></p>
+<ol>
+<li><strong>面子问题</strong>：如果你真的有逻辑漏洞，他们在私下指出来，你改了就好，不用当众出丑。</li>
+<li><strong>参与感</strong>：当方案有了他们的建议，正式评审时，他们就成了你的“盟友”，会主动帮你解释技术难点，而不是站在对面挑刺。</li>
+</ol>
+<h2 id="别让范围蔓延毁了你的排期">别让「范围蔓延」毁了你的排期
+</h2><p>评审会最怕的不是吵架，而是“灵感爆发”。</p>
+<p>往往是讲到某个功能点，运营突然插一句：“哎，这里能不能顺便加个分享按钮？”或者老板随口说：“这个报表能不能支持导出Excel？”</p>
+<p>出于“顺手”的心态，或者迫于压力，很多人当场就答应了：“行，这个简单，加上。”</p>
+<p><strong>这就是噩梦的开始。</strong></p>
+<p>记得三年前做一个社区APP的改版。评审会上，UI设计师提了一嘴：“这个点赞动画如果能做成类似Twitter那种爆炸效果就好了。”</p>
+<p>当时的iOS小哥觉得挺酷，没多想就应下来了。结果那个动画库的兼容性极差，为了这就这一个“顺手”的需求，他在适配低版本机型上耗了整整两天，导致核心功能的联调延期，整个项目组的周末都搭进去了。</p>
+<p><strong>现在的我会使用「停车场（Parking Lot）」机制。</strong></p>
+<p>在会议室白板的一角，专门画个框，写上“停车场”三个字。</p>
+<p>当有人提出文档之外的新想法，无论多诱人、多简单，我都会温和但坚定地说：</p>
+<blockquote>
+<p>“这个想法很棒，但为了保证咱们核心功能如期上线，我先把它记在停车场里。等评审完核心流程，我们再看有没有余量做这个，或者放到下个版本迭代。”</p>
+</blockquote>
+<p>这不仅保护了开发资源，也维护了评审会的严肃性。你会发现，90%被记在“停车场”里的需求，最后其实都没那么重要。</p>
+<h2 id="写在最后">写在最后
+</h2><p>做需求评审，其实就像是一场为了达成共识的“翻译”工作。</p>
+<p>我们把商业诉求翻译成功能逻辑，技术把逻辑翻译成代码实现。在这个过程中，出现误解、摩擦、焦虑都是极其正常的。</p>
+<p><strong>别因为一次评审的争执就否定自己，也别因为对方的质疑就觉得被针对。大家都是坐在同一条船上，想把船划得更快一点的人。</strong></p>
+<p>下次走进会议室前，试着深呼吸，带上你的逻辑图，提前做好“私下勾兑”，准备好你的“停车场”。你会发现，那个曾经让你胃疼的战场，也能变成一个高效协作的工作坊。</p>
+<hr>
+<p><strong>那么，关于评审会，你更倾向于哪种风格？</strong></p>
+<ul>
+<li>A. 速战速决派：核心逻辑过一遍，细节执行时再对，效率优先。</li>
+<li>B. 极致细节派：每个字段、报错都要定义清楚，哪怕评审一下午，也要规避风险。</li>
+</ul>
+<p><strong>欢迎在评论区告诉我你的选择。</strong></p>
+<p><strong>最后送给正在焦虑的你3个立刻能用的行动清单：</strong></p>
+<ol>
+<li><strong>明天就试：</strong> 找核心开发聊聊下周要评的需求，只聊10分钟，听听他们的“直觉反应”。</li>
+<li><strong>画一张图：</strong> 尝试把全是文字的文档，转成一张状态流转图，哪怕画在草稿纸上。</li>
+<li><strong>准备一句挡箭牌：</strong> 遇到临时加需求，笑着说“好主意，先记在Parking Lot，会后评估”。</li>
+</ol>
+
+</section>
+
+
+    <footer class="article-footer">
+    
+    <section class="article-tags">
+        
+            <a href="/tags/%E9%9C%80%E6%B1%82%E8%AF%84%E5%AE%A1%E4%BC%9APRD-Review%E7%9A%84%E9%81%BF%E5%9D%91%E6%8C%87%E5%8D%97.html">需求评审会（PRD Review）的避坑指南</a>
+        
+    </section>
+
+
+    </footer>
+
+
+    
+</article>
+
+    
+
+    
+
+     
+    
+        
+    <script
+    src="https://giscus.app/client.js"
+    data-repo="pastor17/bloggiscus"
+    data-repo-id="R_kgDOQ6H9qQ"
+    data-category=""
+    data-category-id="DIC_kwDOQ6H9qc4C0-T8"
+    data-mapping="pathname"
+    data-strict="0"
+    data-reactions-enabled="1"
+    data-emit-metadata="0"
+    data-input-position="bottom"
+    data-theme="light"
+    data-lang="zh-CN"
+    data-loading="lazy"
+    crossorigin="anonymous"
+    async
+></script>
+<script>
+    function setGiscusTheme(theme) {
+        let giscus = document.querySelector("iframe.giscus-frame");
+        if (giscus) {
+            giscus.contentWindow.postMessage(
+                {
+                    giscus: {
+                        setConfig: {
+                            theme: theme,
+                        },
+                    },
+                },
+                "https://giscus.app"
+            );
+        }
+    }
+
+    (function () {
+        addEventListener("message", (e) => {
+            if (event.origin !== "https://giscus.app") return;
+            handler();
+        });
+        window.addEventListener("onColorSchemeChange", handler);
+
+        function handler() {
+            if (document.documentElement.dataset.scheme === "light") {
+                setGiscusTheme('light');
+            } else {
+                setGiscusTheme('dark_dimmed');
+            }
+        }
+    })();
+</script>
+
+    
+
+    <footer class="site-footer">
+    <section class="copyright">
+        &copy; 
+        
+        2026 SelfTechHub
+    </section>
+    
+    <section class="powerby">
+        
+
+    </section>
+</footer>
+
+
+    
+<div class="pswp" tabindex="-1" role="dialog" aria-hidden="true">
+
+    
+    <div class="pswp__bg"></div>
+
+    
+    <div class="pswp__scroll-wrap">
+
+        
+        <div class="pswp__container">
+            <div class="pswp__item"></div>
+            <div class="pswp__item"></div>
+            <div class="pswp__item"></div>
+        </div>
+
+        
+        <div class="pswp__ui pswp__ui--hidden">
+
+            <div class="pswp__top-bar">
+
+                
+
+                <div class="pswp__counter"></div>
+
+                <button class="pswp__button pswp__button--close" title="Close (Esc)"></button>
+
+                <button class="pswp__button pswp__button--share" title="Share"></button>
+
+                <button class="pswp__button pswp__button--fs" title="Toggle fullscreen"></button>
+
+                <button class="pswp__button pswp__button--zoom" title="Zoom in/out"></button>
+
+                
+                
+                <div class="pswp__preloader">
+                    <div class="pswp__preloader__icn">
+                        <div class="pswp__preloader__cut">
+                            <div class="pswp__preloader__donut"></div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <div class="pswp__share-modal pswp__share-modal--hidden pswp__single-tap">
+                <div class="pswp__share-tooltip"></div>
+            </div>
+
+            <button class="pswp__button pswp__button--arrow--left" title="Previous (arrow left)">
+            </button>
+
+            <button class="pswp__button pswp__button--arrow--right" title="Next (arrow right)">
+            </button>
+
+            <div class="pswp__caption">
+                <div class="pswp__caption__center"></div>
+            </div>
+
+        </div>
+
+    </div>
+
+</div><script 
+                src="https://cdn.jsdelivr.net/npm/photoswipe@4.1.3/dist/photoswipe.min.js"integrity="sha256-ePwmChbbvXbsO02lbM3HoHbSHTHFAeChekF1xKJdleo="crossorigin="anonymous"
+                defer
+                >
+            </script><script 
+                src="https://cdn.jsdelivr.net/npm/photoswipe@4.1.3/dist/photoswipe-ui-default.min.js"integrity="sha256-UKkzOn/w1mBxRmLLGrSeyB4e1xbrp4xylgAWb3M42pU="crossorigin="anonymous"
+                defer
+                >
+            </script><link 
+                rel="stylesheet" 
+                href="https://cdn.jsdelivr.net/npm/photoswipe@4.1.3/dist/default-skin/default-skin.min.css"crossorigin="anonymous"
+            ><link 
+                rel="stylesheet" 
+                href="https://cdn.jsdelivr.net/npm/photoswipe@4.1.3/dist/photoswipe.min.css"crossorigin="anonymous"
+            >
+    
+
+            </main>
+        </div>
+        <script 
+                src="https://cdn.jsdelivr.net/npm/node-vibrant@3.1.6/dist/vibrant.min.js"integrity="sha256-awcR2jno4kI5X0zL8ex0vi2z&#43;KMkF24hUW8WePSA9HM="crossorigin="anonymous"
+                
+                >
+            </script><script type="text/javascript" src="/ts/main.c922af694cc257bf1ecc41c0dd7b0430f9114ec280ccf67cd2c6ad55f5316c4e.js" defer></script>
+<script>
+    (function () {
+        const customFont = document.createElement('link');
+        customFont.href = "https://fonts.googleapis.com/css2?family=Lato:wght@300;400;700&display=swap";
+
+        customFont.type = "text/css";
+        customFont.rel = "stylesheet";
+
+        document.head.appendChild(customFont);
+    }());
+</script>
+
+    </body>
+</html>

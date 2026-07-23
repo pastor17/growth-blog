@@ -1,0 +1,117 @@
+<?xml version="1.0" encoding="utf-8" standalone="yes"?>
+<rss version="2.0" xmlns:atom="http://www.w3.org/2005/Atom">
+    <channel>
+        <title>架构安全：中小项目的防护重点 on SelfTechHub</title>
+        <link>https://blog.irudder.me/tags/%E6%9E%B6%E6%9E%84%E5%AE%89%E5%85%A8%E4%B8%AD%E5%B0%8F%E9%A1%B9%E7%9B%AE%E7%9A%84%E9%98%B2%E6%8A%A4%E9%87%8D%E7%82%B9.html</link>
+        <description>Recent content in 架构安全：中小项目的防护重点 on SelfTechHub</description>
+        <generator>Hugo -- gohugo.io</generator>
+        <language>zh-cn</language>
+        <lastBuildDate>Thu, 09 Nov 2023 00:00:00 +0000</lastBuildDate><atom:link href="https://blog.irudder.me/tags/%E6%9E%B6%E6%9E%84%E5%AE%89%E5%85%A8%E4%B8%AD%E5%B0%8F%E9%A1%B9%E7%9B%AE%E7%9A%84%E9%98%B2%E6%8A%A4%E9%87%8D%E7%82%B9/index.xml" rel="self" type="application/rss+xml" /><item>
+        <title>没钱没人？中小项目死守这3条安全红线</title>
+        <link>https://blog.irudder.me/tech/zhongxiaoxingxiangmujiagoushejizhinan/jiagouanquan_zhongxiaoxiangmudifanghuzhongdian.html</link>
+        <pubDate>Thu, 09 Nov 2023 00:00:00 +0000</pubDate>
+        
+        <guid>https://blog.irudder.me/tech/zhongxiaoxingxiangmujiagoushejizhinan/jiagouanquan_zhongxiaoxiangmudifanghuzhongdian.html</guid>
+        <description>&lt;p&gt;2018年的一个深夜，我盯着服务器监控大屏，心率飙到了120。&lt;/p&gt;
+&lt;p&gt;当时我负责的一个电商SaaS项目（典型的中小团队，5个后端，1个运维），因为一次大促活动被黑产盯上了。对方没用什么高深的0-day漏洞，仅仅是用脚本遍历了我们的订单ID，就扒走了三万多条用户敏感数据。&lt;/p&gt;
+&lt;p&gt;我也曾天真地以为，安全是大厂才需要考虑的“富贵病”，中小项目只要业务跑得通、功能上线快就是王道。直到那次事故，不仅赔了客户一大笔钱，核心开发团队还因此背了处分，士气低落了整整半年。&lt;/p&gt;
+&lt;p&gt;也就是从那时起，我开始反思：&lt;strong&gt;在资源有限、没有专职安全团队的情况下，中小项目到底该怎么做架构防御？&lt;/strong&gt;&lt;/p&gt;
+&lt;p&gt;如果你也正身处几十人的研发团队，既不想过度设计拖慢开发节奏，又不想每天提心吊胆，那么这篇复盘或许能帮你避开我踩过的坑。&lt;/p&gt;
+&lt;h2 id=&#34;越权访问90的数据泄露源头&#34;&gt;越权访问：90%的数据泄露源头
+&lt;/h2&gt;&lt;p&gt;很多中小团队的架构师把精力全花在了防SQL注入和XSS上，却忽略了逻辑漏洞中最致命的“越权访问”（IDOR）。&lt;/p&gt;
+&lt;p&gt;我曾在接手一个旧项目时，发现了一个惊人的逻辑：前端请求里只要把 &lt;code&gt;userId=1001&lt;/code&gt; 改成 &lt;code&gt;userId=1002&lt;/code&gt;，就能直接查看别人的收货地址。开发同学的理由是：“前端已经做了隐藏，正常用户点不到那里。”&lt;/p&gt;
+&lt;p&gt;&lt;strong&gt;千万别相信“正常用户”。&lt;/strong&gt;&lt;/p&gt;
+&lt;p&gt;在2020年的一次代码审计中，我们发现某模块的API完全信任前端传来的参数。攻击者不需要任何技术门槛，只需要一个抓包工具。&lt;/p&gt;
+&lt;p&gt;&lt;strong&gt;我的避坑方案：&lt;/strong&gt;&lt;/p&gt;
+&lt;p&gt;不要在URL或请求体中直接暴露自增ID。一旦你使用了 &lt;code&gt;order/1001&lt;/code&gt;，黑客就知道下一个是 &lt;code&gt;1002&lt;/code&gt;。&lt;/p&gt;
+&lt;p&gt;更重要的是，&lt;strong&gt;在架构层面强制进行所有权的“双重校验”。&lt;/strong&gt; 我现在要求团队所有涉及资源操作的接口，必须在Middleware（中间件）层做如下校验：&lt;/p&gt;
+&lt;div class=&#34;highlight&#34;&gt;&lt;pre tabindex=&#34;0&#34; style=&#34;color:#f8f8f2;background-color:#272822;-moz-tab-size:4;-o-tab-size:4;tab-size:4;&#34;&gt;&lt;code class=&#34;language-javascript&#34; data-lang=&#34;javascript&#34;&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;&lt;span style=&#34;color:#75715e&#34;&gt;// 错误示范：直接信任前端传来的ID
+&lt;/span&gt;&lt;/span&gt;&lt;/span&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;&lt;span style=&#34;color:#75715e&#34;&gt;&lt;/span&gt;&lt;span style=&#34;color:#66d9ef&#34;&gt;const&lt;/span&gt; &lt;span style=&#34;color:#a6e22e&#34;&gt;targetUserId&lt;/span&gt; &lt;span style=&#34;color:#f92672&#34;&gt;=&lt;/span&gt; &lt;span style=&#34;color:#a6e22e&#34;&gt;req&lt;/span&gt;.&lt;span style=&#34;color:#a6e22e&#34;&gt;body&lt;/span&gt;.&lt;span style=&#34;color:#a6e22e&#34;&gt;userId&lt;/span&gt;; 
+&lt;/span&gt;&lt;/span&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;&lt;span style=&#34;color:#66d9ef&#34;&gt;const&lt;/span&gt; &lt;span style=&#34;color:#a6e22e&#34;&gt;data&lt;/span&gt; &lt;span style=&#34;color:#f92672&#34;&gt;=&lt;/span&gt; &lt;span style=&#34;color:#66d9ef&#34;&gt;await&lt;/span&gt; &lt;span style=&#34;color:#a6e22e&#34;&gt;db&lt;/span&gt;.&lt;span style=&#34;color:#a6e22e&#34;&gt;find&lt;/span&gt;({ &lt;span style=&#34;color:#a6e22e&#34;&gt;userId&lt;/span&gt;&lt;span style=&#34;color:#f92672&#34;&gt;:&lt;/span&gt; &lt;span style=&#34;color:#a6e22e&#34;&gt;targetUserId&lt;/span&gt; });
+&lt;/span&gt;&lt;/span&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;
+&lt;/span&gt;&lt;/span&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;&lt;span style=&#34;color:#75715e&#34;&gt;// 正确示范：从经过验证的Session/Token中获取当前用户
+&lt;/span&gt;&lt;/span&gt;&lt;/span&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;&lt;span style=&#34;color:#75715e&#34;&gt;&lt;/span&gt;&lt;span style=&#34;color:#66d9ef&#34;&gt;const&lt;/span&gt; &lt;span style=&#34;color:#a6e22e&#34;&gt;currentUserId&lt;/span&gt; &lt;span style=&#34;color:#f92672&#34;&gt;=&lt;/span&gt; &lt;span style=&#34;color:#a6e22e&#34;&gt;req&lt;/span&gt;.&lt;span style=&#34;color:#a6e22e&#34;&gt;user&lt;/span&gt;.&lt;span style=&#34;color:#a6e22e&#34;&gt;id&lt;/span&gt;; &lt;span style=&#34;color:#75715e&#34;&gt;// 从JWT或Session解析
+&lt;/span&gt;&lt;/span&gt;&lt;/span&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;&lt;span style=&#34;color:#75715e&#34;&gt;&lt;/span&gt;&lt;span style=&#34;color:#66d9ef&#34;&gt;const&lt;/span&gt; &lt;span style=&#34;color:#a6e22e&#34;&gt;resourceId&lt;/span&gt; &lt;span style=&#34;color:#f92672&#34;&gt;=&lt;/span&gt; &lt;span style=&#34;color:#a6e22e&#34;&gt;req&lt;/span&gt;.&lt;span style=&#34;color:#a6e22e&#34;&gt;params&lt;/span&gt;.&lt;span style=&#34;color:#a6e22e&#34;&gt;id&lt;/span&gt;;
+&lt;/span&gt;&lt;/span&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;
+&lt;/span&gt;&lt;/span&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;&lt;span style=&#34;color:#75715e&#34;&gt;// 必须校验资源归属权
+&lt;/span&gt;&lt;/span&gt;&lt;/span&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;&lt;span style=&#34;color:#75715e&#34;&gt;&lt;/span&gt;&lt;span style=&#34;color:#66d9ef&#34;&gt;const&lt;/span&gt; &lt;span style=&#34;color:#a6e22e&#34;&gt;resource&lt;/span&gt; &lt;span style=&#34;color:#f92672&#34;&gt;=&lt;/span&gt; &lt;span style=&#34;color:#66d9ef&#34;&gt;await&lt;/span&gt; &lt;span style=&#34;color:#a6e22e&#34;&gt;db&lt;/span&gt;.&lt;span style=&#34;color:#a6e22e&#34;&gt;find&lt;/span&gt;({ &lt;span style=&#34;color:#a6e22e&#34;&gt;id&lt;/span&gt;&lt;span style=&#34;color:#f92672&#34;&gt;:&lt;/span&gt; &lt;span style=&#34;color:#a6e22e&#34;&gt;resourceId&lt;/span&gt; });
+&lt;/span&gt;&lt;/span&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;&lt;span style=&#34;color:#66d9ef&#34;&gt;if&lt;/span&gt; (&lt;span style=&#34;color:#a6e22e&#34;&gt;resource&lt;/span&gt;.&lt;span style=&#34;color:#a6e22e&#34;&gt;ownerId&lt;/span&gt; &lt;span style=&#34;color:#f92672&#34;&gt;!==&lt;/span&gt; &lt;span style=&#34;color:#a6e22e&#34;&gt;currentUserId&lt;/span&gt;) {
+&lt;/span&gt;&lt;/span&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;  &lt;span style=&#34;color:#66d9ef&#34;&gt;throw&lt;/span&gt; &lt;span style=&#34;color:#66d9ef&#34;&gt;new&lt;/span&gt; Error(&lt;span style=&#34;color:#e6db74&#34;&gt;&amp;#39;403 Forbidden: 你无权操作此资源&amp;#39;&lt;/span&gt;);
+&lt;/span&gt;&lt;/span&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;}
+&lt;/span&gt;&lt;/span&gt;&lt;/code&gt;&lt;/pre&gt;&lt;/div&gt;&lt;p&gt;把这个逻辑下沉到Service层或DAO层的基类中，让开发人员“无感”地遵守安全规范，比开十次安全培训会都管用。&lt;/p&gt;
+&lt;p&gt;&lt;img src=&#34;https://picsum.photos/800/450?random=1768456743919&#34;
+	
+	
+	
+	loading=&#34;lazy&#34;
+	
+		alt=&#34;配图&#34;
+	
+	
+&gt;&lt;/p&gt;
+&lt;h2 id=&#34;依赖地狱你引入的代码比你写的代码危险&#34;&gt;依赖地狱：你引入的代码比你写的代码危险
+&lt;/h2&gt;&lt;p&gt;中小项目为了求快，通常是“拿来主义”。npm install一敲，maven一引，功能就有了。&lt;/p&gt;
+&lt;p&gt;但你有没有想过，你引入的一个用来格式化日期的不到100行代码的小库，背后可能依赖了深层嵌套的几十个包？&lt;/p&gt;
+&lt;p&gt;&lt;img src=&#34;https://picsum.photos/800/450?random=1768456743992&#34;
+	
+	
+	
+	loading=&#34;lazy&#34;
+	
+		alt=&#34;配图&#34;
+	
+	
+&gt;&lt;/p&gt;
+&lt;p&gt;2021年Log4j2漏洞爆发的那个周末，应该是所有Java架构师的噩梦。但我印象更深的是另一次“小事故”。我们的前端项目引入了一个很冷门的图表库，结果这个库的维护者账号被盗，发了一个带挖矿脚本的新版本。我们的CI/CD流水线没有任何检查，直接把这个版本推到了生产环境，导致用户CPU飙升。&lt;/p&gt;
+&lt;p&gt;&lt;strong&gt;对于中小团队，供应链安全是性价比最高的防护手段。&lt;/strong&gt;&lt;/p&gt;
+&lt;p&gt;我现在每周五下午Review代码时，都会雷打不动地检查 &lt;code&gt;package.json&lt;/code&gt; 或 &lt;code&gt;pom.xml&lt;/code&gt; 的变动。&lt;/p&gt;
+&lt;p&gt;&lt;strong&gt;建议落地的低成本动作：&lt;/strong&gt;&lt;/p&gt;
+&lt;ol&gt;
+&lt;li&gt;&lt;strong&gt;锁定版本&lt;/strong&gt;：在生产环境，必须使用 &lt;code&gt;package-lock.json&lt;/code&gt; 或固定的Maven版本号，严禁出现 &lt;code&gt;^1.0.0&lt;/code&gt; 这种模糊版本，除非你做好了随时炸雷的准备。&lt;/li&gt;
+&lt;li&gt;&lt;strong&gt;引入自动化扫描&lt;/strong&gt;：不要指望人眼去看。GitHub自带的 Dependabot，或者免费版的 Snyk，完全够用了。配置到你的CI流程里，如果有高危漏洞依赖，直接阻断构建。&lt;/li&gt;
+&lt;/ol&gt;
+&lt;blockquote&gt;
+&lt;p&gt;这一点不需要你花一分钱，只需要改变一下配置习惯，就能拦住30%的潜在风险。&lt;/p&gt;
+&lt;/blockquote&gt;
+&lt;h2 id=&#34;接口滥用别让你的api成为提款机&#34;&gt;接口滥用：别让你的API成为提款机
+&lt;/h2&gt;&lt;p&gt;中小项目最容易被薅羊毛。&lt;/p&gt;
+&lt;p&gt;我有过一次惨痛教训：当时我们要上线一个“短信验证码登录”功能。开发同学为了省事，只在前端做了“60秒倒计时”的按钮置灰。&lt;/p&gt;
+&lt;p&gt;结果上线第二天，短信服务商打来电话预警，说我们的账户余额欠费了。原来有人写了个脚本，绕过前端直接调后端API，一晚上刷了我们几千块钱的短信费。这还是小事，如果对方是用来做短信轰炸，我们的IP可能直接被运营商拉黑。&lt;/p&gt;
+&lt;p&gt;&lt;strong&gt;很多架构师觉得上WAF（Web应用防火墙）太贵，配置太麻烦。其实很多时候，我们要防的不是顶级黑客，而是无聊的脚本小子。&lt;/strong&gt;&lt;/p&gt;
+&lt;p&gt;对于中小项目，我在网关层（Nginx或Spring Cloud Gateway）会强制实施两层限流策略：&lt;/p&gt;
+&lt;ol&gt;
+&lt;li&gt;&lt;strong&gt;IP级限流&lt;/strong&gt;：针对非核心业务接口，单个IP每分钟请求超过50次直接429。&lt;/li&gt;
+&lt;li&gt;&lt;strong&gt;业务级风控&lt;/strong&gt;：对于短信、邮件、抽奖等“这就全是钱”的接口，必须加上图形验证码（现在很多免费的滑动验证）或者Token令牌桶。&lt;/li&gt;
+&lt;/ol&gt;
+&lt;p&gt;这是我在Nginx层常用的一个极简配置，成本为零，效果立竿见影：&lt;/p&gt;
+&lt;div class=&#34;highlight&#34;&gt;&lt;pre tabindex=&#34;0&#34; style=&#34;color:#f8f8f2;background-color:#272822;-moz-tab-size:4;-o-tab-size:4;tab-size:4;&#34;&gt;&lt;code class=&#34;language-nginx&#34; data-lang=&#34;nginx&#34;&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;&lt;span style=&#34;color:#75715e&#34;&gt;# 定义限流区域，以IP为key，开辟10m内存存储状态，限制每秒1次请求
+&lt;/span&gt;&lt;/span&gt;&lt;/span&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;&lt;span style=&#34;color:#75715e&#34;&gt;&lt;/span&gt;&lt;span style=&#34;color:#66d9ef&#34;&gt;limit_req_zone&lt;/span&gt; $binary_remote_addr &lt;span style=&#34;color:#e6db74&#34;&gt;zone=one:10m&lt;/span&gt; &lt;span style=&#34;color:#e6db74&#34;&gt;rate=1r/s&lt;/span&gt;;
+&lt;/span&gt;&lt;/span&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;
+&lt;/span&gt;&lt;/span&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;&lt;span style=&#34;color:#66d9ef&#34;&gt;server&lt;/span&gt; {
+&lt;/span&gt;&lt;/span&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;    &lt;span style=&#34;color:#f92672&#34;&gt;location&lt;/span&gt; &lt;span style=&#34;color:#e6db74&#34;&gt;/api/send-sms&lt;/span&gt; {
+&lt;/span&gt;&lt;/span&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;        &lt;span style=&#34;color:#75715e&#34;&gt;# 应用限流，允许突发5个请求，超过则排队或拒绝
+&lt;/span&gt;&lt;/span&gt;&lt;/span&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;&lt;span style=&#34;color:#75715e&#34;&gt;&lt;/span&gt;        &lt;span style=&#34;color:#f92672&#34;&gt;limit_req&lt;/span&gt; &lt;span style=&#34;color:#e6db74&#34;&gt;zone=one&lt;/span&gt; &lt;span style=&#34;color:#e6db74&#34;&gt;burst=5&lt;/span&gt; &lt;span style=&#34;color:#e6db74&#34;&gt;nodelay&lt;/span&gt;;
+&lt;/span&gt;&lt;/span&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;        
+&lt;/span&gt;&lt;/span&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;        &lt;span style=&#34;color:#f92672&#34;&gt;proxy_pass&lt;/span&gt; &lt;span style=&#34;color:#e6db74&#34;&gt;http://backend&lt;/span&gt;;
+&lt;/span&gt;&lt;/span&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;    }
+&lt;/span&gt;&lt;/span&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;}
+&lt;/span&gt;&lt;/span&gt;&lt;/code&gt;&lt;/pre&gt;&lt;/div&gt;&lt;h2 id=&#34;写在最后&#34;&gt;写在最后
+&lt;/h2&gt;&lt;p&gt;架构安全从来不是买一个昂贵的防火墙就能高枕无忧的，特别是对于我们这些预算有限的中小团队。它更多时候考验的是架构师的&lt;strong&gt;底线思维&lt;/strong&gt;和&lt;strong&gt;代码洁癖&lt;/strong&gt;。&lt;/p&gt;
+&lt;p&gt;回顾这几年的架构生涯，我发现那些真正搞垮项目的，往往不是什么惊天动地的黑客攻击，而是那些被我们以“赶进度”为由忽略的越权漏洞、随意升级的依赖包，以及裸奔的高频接口。&lt;/p&gt;
+&lt;p&gt;最后，我想做一个小调查：
+&lt;strong&gt;如果目前你的项目人力极度紧缺，只能先做一件事来提升安全，你会选择？&lt;/strong&gt;
+A. 全面排查代码中的越权逻辑
+B. 在CI流水线中加入依赖漏洞扫描
+C. 给所有敏感接口加上限流和监控&lt;/p&gt;
+&lt;p&gt;欢迎在评论区告诉我你的选择。&lt;/p&gt;
+&lt;p&gt;&lt;strong&gt;给你的3个落地行动建议：&lt;/strong&gt;&lt;/p&gt;
+&lt;ol&gt;
+&lt;li&gt;&lt;strong&gt;明天就做&lt;/strong&gt;：去检查你的代码库，把所有涉及“查询/修改/删除”的接口，看看是不是只依赖了前端传来的ID。&lt;/li&gt;
+&lt;li&gt;&lt;strong&gt;下周落地&lt;/strong&gt;：在你的Git仓库里开启免费的漏洞扫描提醒（如Dependabot），并修复所有High级别的警告。&lt;/li&gt;
+&lt;li&gt;&lt;strong&gt;长期坚持&lt;/strong&gt;：将“安全检查”加入到Code Review的Checklist中，不通过不合并。&lt;/li&gt;
+&lt;/ol&gt;
+</description>
+        </item>
+        
+    </channel>
+</rss>

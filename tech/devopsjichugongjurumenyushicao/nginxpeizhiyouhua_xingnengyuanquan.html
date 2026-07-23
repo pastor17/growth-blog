@@ -1,0 +1,493 @@
+<!DOCTYPE html>
+<html lang="zh-cn" dir="ltr">
+    <head><meta charset='utf-8'>
+<meta name='viewport' content='width=device-width, initial-scale=1'><meta name='description' content="引言\r你是否经历过这样的时刻：辛辛苦苦写好的代码，在本地运行健步如飞，一部署到线上，只要并发稍微高一点，页面就开始转圈圈，甚至直接甩给你一个冷冰冰的 502 Bad Gateway？\n那一刻，作为新手的你可能第一反应是：“是不是我代码写得太烂了？”或者“是不是服务器买小了？”\n先别急着自责，也别急着花钱升级服务器。\n我刚入行做运维那会儿，也曾因为同样的问题焦虑失眠。直到踩过无数个坑后，我才发现：很多时候，锅不在代码，而在那个默默无闻的守门员——Nginx 身上。它默认的配置，往往是“能跑就行”，而不是“跑得快、跑得稳”。\n今天，我们不谈深奥的底层原理，我就想用这几年攒下的“血泪经验”，带你手把手调整几个关键参数。哪怕你对Linux命令还不熟练，也能跟着做，给你的服务来一次“温柔的性能手术”。\n一、 别让你的服务器“单腿蹦”：解锁并发能力\r很多新手（包括当年的我）安装完 Nginx 后，直接就启动了。大家往往忽略了一个最反常识的事实：Nginx 的默认配置，可能只用到了你服务器 10% 的能力。\n真实案例：一次双十一前的惊魂\r两年前，我帮一个创业团队做技术顾问。他们的服务器是 4核 8G 的配置，按理说支撑每天几万的访问量绰绰有余。但在一次小型促销活动开始前，压测数据显示：只要并发超过 500，服务器响应就迅速变慢。\n我看了一眼他们的 nginx.conf，发现第一行赫然写着： worker_processes 1;\n这意味着，无论服务器有几个核，Nginx 只派了一个“工人”在干活，其他三个核都在围观。就像你去超市，明明开了4个收银台，却只有一个收银员在慢悠悠地扫码，排队能不长吗？\n避坑方法\r打开你的配置文件（通常在 /etc/nginx/nginx.conf），我们需要修改两个参数：\nworker_processes：改成 auto。这会让 Nginx 自动检测 CPU 核心数，有几个核就派几个工人，榨干服务器性能。 worker_connections：默认通常是 1024。对于现在的硬件来说，太保守了。 修改建议：\nevents { # 既然有能力，就多承担点。 # 每个工人能同时处理的连接数，建议调整到 10240 甚至更高 worker_connections 10240; # 开启这个参数，让多个工人轮流接客，防止惊群效应 multi_accept on; } # 自动匹配CPU核心数 worker_processes auto; 调整结果： 修改并重启后，那台服务器的并发处理能力瞬间提升了 3倍 以上，促销活动期间 CPU 负载均衡，稳如老狗。\n二、 给你的门卫戴上口罩：隐藏敏感信息\r作为开发人员，我们总想把所有细节都展示出来，但在安全领域，“沉默”才是最好的保护。\n真实案例：被扫描器“盯上”的测试服\r我有次在查看日志时，发现有一堆奇怪的请求在尝试攻击服务器的特定版本漏洞。原来，Nginx 默认会在 HTTP 头里告诉全世界：“嘿，我是 Nginx，版本是 1.18.0。”\n">
+<title>Nginx配置避坑指南：小白也能懂的性能与安全急救包</title>
+
+<link rel='canonical' href='https://blog.irudder.me/tech/devopsjichugongjurumenyushicao/nginxpeizhiyouhua_xingnengyuanquan.html'>
+
+<link rel="stylesheet" href="/scss/style.min.b9e9128fec450ebccecc4ec9900157f32b85d0609bcd5ee3293968bcaa1235f2.css"><meta property='og:title' content="Nginx配置避坑指南：小白也能懂的性能与安全急救包">
+<meta property='og:description' content="引言\r你是否经历过这样的时刻：辛辛苦苦写好的代码，在本地运行健步如飞，一部署到线上，只要并发稍微高一点，页面就开始转圈圈，甚至直接甩给你一个冷冰冰的 502 Bad Gateway？\n那一刻，作为新手的你可能第一反应是：“是不是我代码写得太烂了？”或者“是不是服务器买小了？”\n先别急着自责，也别急着花钱升级服务器。\n我刚入行做运维那会儿，也曾因为同样的问题焦虑失眠。直到踩过无数个坑后，我才发现：很多时候，锅不在代码，而在那个默默无闻的守门员——Nginx 身上。它默认的配置，往往是“能跑就行”，而不是“跑得快、跑得稳”。\n今天，我们不谈深奥的底层原理，我就想用这几年攒下的“血泪经验”，带你手把手调整几个关键参数。哪怕你对Linux命令还不熟练，也能跟着做，给你的服务来一次“温柔的性能手术”。\n一、 别让你的服务器“单腿蹦”：解锁并发能力\r很多新手（包括当年的我）安装完 Nginx 后，直接就启动了。大家往往忽略了一个最反常识的事实：Nginx 的默认配置，可能只用到了你服务器 10% 的能力。\n真实案例：一次双十一前的惊魂\r两年前，我帮一个创业团队做技术顾问。他们的服务器是 4核 8G 的配置，按理说支撑每天几万的访问量绰绰有余。但在一次小型促销活动开始前，压测数据显示：只要并发超过 500，服务器响应就迅速变慢。\n我看了一眼他们的 nginx.conf，发现第一行赫然写着： worker_processes 1;\n这意味着，无论服务器有几个核，Nginx 只派了一个“工人”在干活，其他三个核都在围观。就像你去超市，明明开了4个收银台，却只有一个收银员在慢悠悠地扫码，排队能不长吗？\n避坑方法\r打开你的配置文件（通常在 /etc/nginx/nginx.conf），我们需要修改两个参数：\nworker_processes：改成 auto。这会让 Nginx 自动检测 CPU 核心数，有几个核就派几个工人，榨干服务器性能。 worker_connections：默认通常是 1024。对于现在的硬件来说，太保守了。 修改建议：\nevents { # 既然有能力，就多承担点。 # 每个工人能同时处理的连接数，建议调整到 10240 甚至更高 worker_connections 10240; # 开启这个参数，让多个工人轮流接客，防止惊群效应 multi_accept on; } # 自动匹配CPU核心数 worker_processes auto; 调整结果： 修改并重启后，那台服务器的并发处理能力瞬间提升了 3倍 以上，促销活动期间 CPU 负载均衡，稳如老狗。\n二、 给你的门卫戴上口罩：隐藏敏感信息\r作为开发人员，我们总想把所有细节都展示出来，但在安全领域，“沉默”才是最好的保护。\n真实案例：被扫描器“盯上”的测试服\r我有次在查看日志时，发现有一堆奇怪的请求在尝试攻击服务器的特定版本漏洞。原来，Nginx 默认会在 HTTP 头里告诉全世界：“嘿，我是 Nginx，版本是 1.18.0。”\n">
+<meta property='og:url' content='https://blog.irudder.me/tech/devopsjichugongjurumenyushicao/nginxpeizhiyouhua_xingnengyuanquan.html'>
+<meta property='og:site_name' content='SelfTechHub'>
+<meta property='og:type' content='article'><meta property='article:section' content='Tech' /><meta property='article:tag' content='Nginx配置优化：性能与安全' /><meta property='article:published_time' content='2022-03-11T00:00:00&#43;00:00'/><meta property='article:modified_time' content='2022-03-11T00:00:00&#43;00:00'/>
+<meta name="twitter:title" content="Nginx配置避坑指南：小白也能懂的性能与安全急救包">
+<meta name="twitter:description" content="引言\r你是否经历过这样的时刻：辛辛苦苦写好的代码，在本地运行健步如飞，一部署到线上，只要并发稍微高一点，页面就开始转圈圈，甚至直接甩给你一个冷冰冰的 502 Bad Gateway？\n那一刻，作为新手的你可能第一反应是：“是不是我代码写得太烂了？”或者“是不是服务器买小了？”\n先别急着自责，也别急着花钱升级服务器。\n我刚入行做运维那会儿，也曾因为同样的问题焦虑失眠。直到踩过无数个坑后，我才发现：很多时候，锅不在代码，而在那个默默无闻的守门员——Nginx 身上。它默认的配置，往往是“能跑就行”，而不是“跑得快、跑得稳”。\n今天，我们不谈深奥的底层原理，我就想用这几年攒下的“血泪经验”，带你手把手调整几个关键参数。哪怕你对Linux命令还不熟练，也能跟着做，给你的服务来一次“温柔的性能手术”。\n一、 别让你的服务器“单腿蹦”：解锁并发能力\r很多新手（包括当年的我）安装完 Nginx 后，直接就启动了。大家往往忽略了一个最反常识的事实：Nginx 的默认配置，可能只用到了你服务器 10% 的能力。\n真实案例：一次双十一前的惊魂\r两年前，我帮一个创业团队做技术顾问。他们的服务器是 4核 8G 的配置，按理说支撑每天几万的访问量绰绰有余。但在一次小型促销活动开始前，压测数据显示：只要并发超过 500，服务器响应就迅速变慢。\n我看了一眼他们的 nginx.conf，发现第一行赫然写着： worker_processes 1;\n这意味着，无论服务器有几个核，Nginx 只派了一个“工人”在干活，其他三个核都在围观。就像你去超市，明明开了4个收银台，却只有一个收银员在慢悠悠地扫码，排队能不长吗？\n避坑方法\r打开你的配置文件（通常在 /etc/nginx/nginx.conf），我们需要修改两个参数：\nworker_processes：改成 auto。这会让 Nginx 自动检测 CPU 核心数，有几个核就派几个工人，榨干服务器性能。 worker_connections：默认通常是 1024。对于现在的硬件来说，太保守了。 修改建议：\nevents { # 既然有能力，就多承担点。 # 每个工人能同时处理的连接数，建议调整到 10240 甚至更高 worker_connections 10240; # 开启这个参数，让多个工人轮流接客，防止惊群效应 multi_accept on; } # 自动匹配CPU核心数 worker_processes auto; 调整结果： 修改并重启后，那台服务器的并发处理能力瞬间提升了 3倍 以上，促销活动期间 CPU 负载均衡，稳如老狗。\n二、 给你的门卫戴上口罩：隐藏敏感信息\r作为开发人员，我们总想把所有细节都展示出来，但在安全领域，“沉默”才是最好的保护。\n真实案例：被扫描器“盯上”的测试服\r我有次在查看日志时，发现有一堆奇怪的请求在尝试攻击服务器的特定版本漏洞。原来，Nginx 默认会在 HTTP 头里告诉全世界：“嘿，我是 Nginx，版本是 1.18.0。”\n">
+    </head>
+    <body class="
+    article-page
+    ">
+    <script>
+        (function() {
+            const colorSchemeKey = 'StackColorScheme';
+            if(!localStorage.getItem(colorSchemeKey)){
+                localStorage.setItem(colorSchemeKey, "auto");
+            }
+        })();
+    </script><script>
+    (function() {
+        const colorSchemeKey = 'StackColorScheme';
+        const colorSchemeItem = localStorage.getItem(colorSchemeKey);
+        const supportDarkMode = window.matchMedia('(prefers-color-scheme: dark)').matches === true;
+
+        if (colorSchemeItem == 'dark' || colorSchemeItem === 'auto' && supportDarkMode) {
+            
+
+            document.documentElement.dataset.scheme = 'dark';
+        } else {
+            document.documentElement.dataset.scheme = 'light';
+        }
+    })();
+</script>
+<div class="container main-container flex on-phone--column compact"><aside class="sidebar left-sidebar sticky ">
+    <button class="hamburger hamburger--spin" type="button" id="toggle-menu" aria-label="切换菜单">
+        <span class="hamburger-box">
+            <span class="hamburger-inner"></span>
+        </span>
+    </button>
+
+    <header>
+        
+            
+            <figure class="site-avatar">
+                <a href="/">
+                
+                    
+                    
+                    
+                        
+                        <img src="/img/avatar_hu_8588ce14af1147e2.png" width="300"
+                            height="286" class="site-logo" loading="lazy" alt="Avatar">
+                    
+                
+                </a>
+                
+            </figure>
+            
+        
+        
+        <div class="site-meta">
+            <h1 class="site-name"><a href="/">SelfTechHub</a></h1>
+            <h2 class="site-description"></h2>
+        </div>
+    </header><ol class="menu" id="main-menu">
+        
+        
+        <li class="menu-bottom-section">
+            <ol class="menu">
+
+                
+                    <li id="dark-mode-toggle">
+                        <svg xmlns="http://www.w3.org/2000/svg" class="icon icon-tabler icon-tabler-toggle-left" width="24" height="24" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor" fill="none" stroke-linecap="round" stroke-linejoin="round">
+  <path stroke="none" d="M0 0h24v24H0z"/>
+  <circle cx="8" cy="12" r="2" />
+  <rect x="2" y="6" width="20" height="12" rx="6" />
+</svg>
+
+
+
+                        <svg xmlns="http://www.w3.org/2000/svg" class="icon icon-tabler icon-tabler-toggle-right" width="24" height="24" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor" fill="none" stroke-linecap="round" stroke-linejoin="round">
+  <path stroke="none" d="M0 0h24v24H0z"/>
+  <circle cx="16" cy="12" r="2" />
+  <rect x="2" y="6" width="20" height="12" rx="6" />
+</svg>
+
+
+
+                        <span>暗色模式</span>
+                    </li>
+                
+            </ol>
+        </li>
+    </ol>
+</aside>
+
+    
+
+            <main class="main full-width">
+    <article class="main-article">
+    <header class="article-header">
+
+    <div class="article-details">
+    
+    <header class="article-category">
+        
+            <a href="/categories/%E6%8A%80%E6%9C%AF.html" >
+                技术精进
+            </a>
+        
+    </header>
+    
+
+    <div class="article-title-wrapper">
+        <h2 class="article-title">
+            <a href="/tech/devopsjichugongjurumenyushicao/nginxpeizhiyouhua_xingnengyuanquan.html">Nginx配置避坑指南：小白也能懂的性能与安全急救包</a>
+        </h2>
+    
+        
+    </div>
+
+    
+    
+    
+    
+    <footer class="article-time">
+        
+            <div>
+                <svg xmlns="http://www.w3.org/2000/svg" class="icon icon-tabler icon-tabler-calendar-time" width="56" height="56" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor" fill="none" stroke-linecap="round" stroke-linejoin="round">
+  <path stroke="none" d="M0 0h24v24H0z"/>
+  <path d="M11.795 21h-6.795a2 2 0 0 1 -2 -2v-12a2 2 0 0 1 2 -2h12a2 2 0 0 1 2 2v4" />
+  <circle cx="18" cy="18" r="4" />
+  <path d="M15 3v4" />
+  <path d="M7 3v4" />
+  <path d="M3 11h16" />
+  <path d="M18 16.496v1.504l1 1" />
+</svg>
+                <time class="article-time--published" datetime='2022-03-11T00:00:00Z'>Mar 11, 2022</time>
+            </div>
+        
+
+        
+            <div>
+                <svg xmlns="http://www.w3.org/2000/svg" class="icon icon-tabler icon-tabler-clock" width="24" height="24" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor" fill="none" stroke-linecap="round" stroke-linejoin="round">
+  <path stroke="none" d="M0 0h24v24H0z"/>
+  <circle cx="12" cy="12" r="9" />
+  <polyline points="12 7 12 12 15 15" />
+</svg>
+
+
+
+                <time class="article-time--reading">
+                    阅读时长: 1 分钟
+                </time>
+            </div>
+        
+    </footer>
+    
+
+    
+</div>
+
+</header>
+
+    <section class="article-content">
+    
+    
+    <h2 id="引言">引言
+</h2><p>你是否经历过这样的时刻：辛辛苦苦写好的代码，在本地运行健步如飞，一部署到线上，只要并发稍微高一点，页面就开始转圈圈，甚至直接甩给你一个冷冰冰的 <strong>502 Bad Gateway</strong>？</p>
+<p>那一刻，作为新手的你可能第一反应是：“是不是我代码写得太烂了？”或者“是不是服务器买小了？”</p>
+<p><strong>先别急着自责，也别急着花钱升级服务器。</strong></p>
+<p>我刚入行做运维那会儿，也曾因为同样的问题焦虑失眠。直到踩过无数个坑后，我才发现：很多时候，锅不在代码，而在那个默默无闻的守门员——<strong>Nginx</strong> 身上。它默认的配置，往往是“能跑就行”，而不是“跑得快、跑得稳”。</p>
+<p>今天，我们不谈深奥的底层原理，我就想用这几年攒下的“血泪经验”，带你手把手调整几个关键参数。哪怕你对Linux命令还不熟练，也能跟着做，给你的服务来一次“温柔的性能手术”。</p>
+<hr>
+<h2 id="一-别让你的服务器单腿蹦解锁并发能力">一、 别让你的服务器“单腿蹦”：解锁并发能力
+</h2><p>很多新手（包括当年的我）安装完 Nginx 后，直接就启动了。大家往往忽略了一个最反常识的事实：<strong>Nginx 的默认配置，可能只用到了你服务器 10% 的能力。</strong></p>
+<h3 id="真实案例一次双十一前的惊魂">真实案例：一次双十一前的惊魂
+</h3><p>两年前，我帮一个创业团队做技术顾问。他们的服务器是 4核 8G 的配置，按理说支撑每天几万的访问量绰绰有余。但在一次小型促销活动开始前，压测数据显示：只要并发超过 500，服务器响应就迅速变慢。</p>
+<p>我看了一眼他们的 <code>nginx.conf</code>，发现第一行赫然写着：
+<code>worker_processes 1;</code></p>
+<p>这意味着，无论服务器有几个核，Nginx 只派了一个“工人”在干活，其他三个核都在围观。就像你去超市，明明开了4个收银台，却只有一个收银员在慢悠悠地扫码，排队能不长吗？</p>
+<h3 id="避坑方法">避坑方法
+</h3><p>打开你的配置文件（通常在 <code>/etc/nginx/nginx.conf</code>），我们需要修改两个参数：</p>
+<ol>
+<li><strong>worker_processes</strong>：改成 <code>auto</code>。这会让 Nginx 自动检测 CPU 核心数，有几个核就派几个工人，榨干服务器性能。</li>
+<li><strong>worker_connections</strong>：默认通常是 1024。对于现在的硬件来说，太保守了。</li>
+</ol>
+<p><strong>修改建议：</strong></p>
+<div class="highlight"><pre tabindex="0" style="color:#f8f8f2;background-color:#272822;-moz-tab-size:4;-o-tab-size:4;tab-size:4;"><code class="language-nginx" data-lang="nginx"><span style="display:flex;"><span><span style="color:#66d9ef">events</span> {
+</span></span><span style="display:flex;"><span>    <span style="color:#75715e"># 既然有能力，就多承担点。
+</span></span></span><span style="display:flex;"><span><span style="color:#75715e"></span>    <span style="color:#75715e"># 每个工人能同时处理的连接数，建议调整到 10240 甚至更高
+</span></span></span><span style="display:flex;"><span><span style="color:#75715e"></span>    <span style="color:#f92672">worker_connections</span> <span style="color:#ae81ff">10240</span>; 
+</span></span><span style="display:flex;"><span>    
+</span></span><span style="display:flex;"><span>    <span style="color:#75715e"># 开启这个参数，让多个工人轮流接客，防止惊群效应
+</span></span></span><span style="display:flex;"><span><span style="color:#75715e"></span>    <span style="color:#f92672">multi_accept</span> <span style="color:#66d9ef">on</span>; 
+</span></span><span style="display:flex;"><span>}
+</span></span><span style="display:flex;"><span>
+</span></span><span style="display:flex;"><span><span style="color:#75715e"># 自动匹配CPU核心数
+</span></span></span><span style="display:flex;"><span><span style="color:#75715e"></span><span style="color:#66d9ef">worker_processes</span> <span style="color:#e6db74">auto</span>;
+</span></span></code></pre></div><p><strong>调整结果：</strong> 修改并重启后，那台服务器的并发处理能力瞬间提升了 <strong>3倍</strong> 以上，促销活动期间 CPU 负载均衡，稳如老狗。</p>
+<hr>
+<h2 id="二-给你的门卫戴上口罩隐藏敏感信息">二、 给你的门卫戴上口罩：隐藏敏感信息
+</h2><p>作为开发人员，我们总想把所有细节都展示出来，但在安全领域，<strong>“沉默”才是最好的保护。</strong></p>
+<h3 id="真实案例被扫描器盯上的测试服">真实案例：被扫描器“盯上”的测试服
+</h3><p>我有次在查看日志时，发现有一堆奇怪的请求在尝试攻击服务器的特定版本漏洞。原来，Nginx 默认会在 HTTP 头里告诉全世界：“嘿，我是 Nginx，版本是 1.18.0。”</p>
+<p>这就像是你把家里的防盗门品牌和锁芯型号贴在了大门上。黑客甚至不需要高超的技术，只要搜一下这个版本的已知漏洞，就能拿着现成的脚本来试探你。</p>
+<h3 id="避坑方法-1">避坑方法
+</h3><p>我们需要做一个极小但极重要的动作：<strong>隐藏版本号</strong>。</p>
+<p>此外，很多新手容易忽略文件上传的限制。如果你的接口没有限制大小，恶意用户上传几个 10GB 的文件，瞬间就能把你的磁盘塞满，导致服务瘫痪。</p>
+<p><strong>配置示例：</strong></p>
+<div class="highlight"><pre tabindex="0" style="color:#f8f8f2;background-color:#272822;-moz-tab-size:4;-o-tab-size:4;tab-size:4;"><code class="language-nginx" data-lang="nginx"><span style="display:flex;"><span><span style="color:#66d9ef">http</span> {
+</span></span><span style="display:flex;"><span>    <span style="color:#75715e"># 安全第一步：闭嘴。隐藏版本号
+</span></span></span><span style="display:flex;"><span><span style="color:#75715e"></span>    <span style="color:#f92672">server_tokens</span> <span style="color:#66d9ef">off</span>; 
+</span></span><span style="display:flex;"><span>    
+</span></span><span style="display:flex;"><span>    <span style="color:#75715e"># 限制上传文件大小。
+</span></span></span><span style="display:flex;"><span><span style="color:#75715e"></span>    <span style="color:#75715e"># 默认是1M，根据业务调整，但别给太大，防止恶意塞满硬盘
+</span></span></span><span style="display:flex;"><span><span style="color:#75715e"></span>    <span style="color:#f92672">client_max_body_size</span> <span style="color:#e6db74">10M</span>;
+</span></span><span style="display:flex;"><span>
+</span></span><span style="display:flex;"><span>    <span style="color:#75715e"># ... 其他配置
+</span></span></span><span style="display:flex;"><span><span style="color:#75715e"></span>}
+</span></span></code></pre></div><blockquote>
+<p><strong>小贴士</strong>：我有一个习惯，每次修改完配置，都会习惯性地运行 <code>nginx -t</code> 来检查语法。这个命令救了我无数次，避免了因为漏写一个分号导致整个线上服务挂掉的尴尬。</p>
+</blockquote>
+<p><img src="https://picsum.photos/800/450?random=1768389007264"
+	
+	
+	
+	loading="lazy"
+	
+		alt="配图"
+	
+	
+></p>
+<hr>
+<h2 id="三-别让带宽成为瓶颈开启压缩魔法">三、 别让带宽成为瓶颈：开启“压缩魔法”
+</h2><p>你有没有遇到过这种情况：服务器 CPU 和内存都很空闲，但网页加载就是慢，特别是图片和 CSS/JS 文件多的时候？</p>
+<h3 id="真实案例为了省钱而做的优化">真实案例：为了省钱而做的优化
+</h3><p>去年，我自己的一个小博客项目，因为用的云服务器带宽只有 1Mbps（穷人的痛），首页加载需要 5-6 秒。我当时甚至想关站了，觉得这带宽根本没法玩。</p>
+<p>后来我检查网络传输，发现一个 <code>app.js</code> 文件就有 800KB。在 1M 的带宽下，光传这个文件就要好几秒。</p>
+<p>其实，文本类的文件（HTML, CSS, JS, JSON）由于重复字符多，非常适合压缩。Nginx 自带的 Gzip 就像一个压缩袋，能在传输前把文件体积压扁。</p>
+<h3 id="避坑方法-2">避坑方法
+</h3><p>开启 Gzip 压缩。这几乎是<strong>性价比最高</strong>的优化手段，没有任何副作用，只是稍微消耗一点点 CPU（几乎可以忽略不计），但能节省 40%-70% 的流量。</p>
+<p><strong>配置示例：</strong></p>
+<div class="highlight"><pre tabindex="0" style="color:#f8f8f2;background-color:#272822;-moz-tab-size:4;-o-tab-size:4;tab-size:4;"><code class="language-nginx" data-lang="nginx"><span style="display:flex;"><span><span style="color:#66d9ef">http</span> {
+</span></span><span style="display:flex;"><span>    <span style="color:#75715e"># 开启gzip压缩魔法
+</span></span></span><span style="display:flex;"><span><span style="color:#75715e"></span>    <span style="color:#f92672">gzip</span> <span style="color:#66d9ef">on</span>;
+</span></span><span style="display:flex;"><span>    
+</span></span><span style="display:flex;"><span>    <span style="color:#75715e"># 小于1k的文件就不压了，压缩也要时间，得不偿失
+</span></span></span><span style="display:flex;"><span><span style="color:#75715e"></span>    <span style="color:#f92672">gzip_min_length</span> <span style="color:#ae81ff">1k</span>;
+</span></span><span style="display:flex;"><span>    
+</span></span><span style="display:flex;"><span>    <span style="color:#75715e"># 压缩级别1-9，建议4-6，平衡CPU消耗和压缩率
+</span></span></span><span style="display:flex;"><span><span style="color:#75715e"></span>    <span style="color:#f92672">gzip_comp_level</span> <span style="color:#ae81ff">5</span>;
+</span></span><span style="display:flex;"><span>    
+</span></span><span style="display:flex;"><span>    <span style="color:#75715e"># 需要压缩的文件类型，别忘了加上 json 和 xml
+</span></span></span><span style="display:flex;"><span><span style="color:#75715e"></span>    <span style="color:#f92672">gzip_types</span> <span style="color:#e6db74">text/plain</span> <span style="color:#e6db74">application/javascript</span> <span style="color:#e6db74">application/x-javascript</span> <span style="color:#e6db74">text/css</span> <span style="color:#e6db74">application/xml</span> <span style="color:#e6db74">text/javascript</span> <span style="color:#e6db74">application/json</span>;
+</span></span><span style="display:flex;"><span>    
+</span></span><span style="display:flex;"><span>    <span style="color:#75715e"># 让代理服务器也缓存压缩后的版本
+</span></span></span><span style="display:flex;"><span><span style="color:#75715e"></span>    <span style="color:#f92672">gzip_vary</span> <span style="color:#66d9ef">on</span>;
+</span></span><span style="display:flex;"><span>}
+</span></span></code></pre></div><p><strong>调整结果：</strong> 加上这段配置后，我的博客首页加载时间从 6 秒降到了 2 秒以内。那个 800KB 的 JS 文件，被压缩到了 200KB 左右。<strong>不用花钱升级带宽，速度提升了3倍。</strong></p>
+<hr>
+<h2 id="结尾给焦虑降降温">结尾：给焦虑降降温
+</h2><p>读到这里，<strong>你有没有发现自己其实一直守着一座金矿，却只用了把铁锹在挖？</strong></p>
+<p>很多人不敢动 Nginx 配置，是因为觉得它“太底层”、“太复杂”，生怕改坏了。但实际上，只要我们做好备份，每一次优化都是对系统掌控力的提升。</p>
+<p><strong>这里有 3 个立刻能做的小行动，建议你关掉文章后马上试试：</strong></p>
+<p><img src="https://picsum.photos/800/450?random=1768389007803"
+	
+	
+	
+	loading="lazy"
+	
+		alt="配图"
+	
+	
+></p>
+<ol>
+<li><strong>备份现状</strong>：登录你的服务器，执行 <code>cp /etc/nginx/nginx.conf /etc/nginx/nginx.conf.bak</code>。这是你的“后悔药”，有了它，你可以大胆尝试。</li>
+<li><strong>体检一次</strong>：执行 <code>nginx -V</code> 看看现在的版本，检查 <code>nginx.conf</code> 里是不是还留着 <code>worker_processes 1;</code> 这种“出厂设置”。</li>
+<li><strong>落地一项</strong>：哪怕只开启 <code>gzip</code> 或者 <code>server_tokens off</code>，也是一次巨大的进步。</li>
+</ol>
+<p><img src="https://picsum.photos/800/450?random=1768389009738"
+	
+	
+	
+	loading="lazy"
+	
+		alt="配图"
+	
+	
+></p>
+<p>技术不仅是冰冷的代码，更是为了让我们哪怕在深夜也能睡个安稳觉。别让默认配置偷走你的性能，也别让未知的恐惧阻挡你探索的脚步。</p>
+<p>咱们一起，把服务器调教得更顺手一点。加油！</p>
+
+</section>
+
+
+    <footer class="article-footer">
+    
+    <section class="article-tags">
+        
+            <a href="/tags/Nginx%E9%85%8D%E7%BD%AE%E4%BC%98%E5%8C%96%E6%80%A7%E8%83%BD%E4%B8%8E%E5%AE%89%E5%85%A8.html">Nginx配置优化：性能与安全</a>
+        
+    </section>
+
+
+    </footer>
+
+
+    
+</article>
+
+    
+
+    
+
+     
+    
+        
+    <script
+    src="https://giscus.app/client.js"
+    data-repo="pastor17/bloggiscus"
+    data-repo-id="R_kgDOQ6H9qQ"
+    data-category=""
+    data-category-id="DIC_kwDOQ6H9qc4C0-T8"
+    data-mapping="pathname"
+    data-strict="0"
+    data-reactions-enabled="1"
+    data-emit-metadata="0"
+    data-input-position="bottom"
+    data-theme="light"
+    data-lang="zh-CN"
+    data-loading="lazy"
+    crossorigin="anonymous"
+    async
+></script>
+<script>
+    function setGiscusTheme(theme) {
+        let giscus = document.querySelector("iframe.giscus-frame");
+        if (giscus) {
+            giscus.contentWindow.postMessage(
+                {
+                    giscus: {
+                        setConfig: {
+                            theme: theme,
+                        },
+                    },
+                },
+                "https://giscus.app"
+            );
+        }
+    }
+
+    (function () {
+        addEventListener("message", (e) => {
+            if (event.origin !== "https://giscus.app") return;
+            handler();
+        });
+        window.addEventListener("onColorSchemeChange", handler);
+
+        function handler() {
+            if (document.documentElement.dataset.scheme === "light") {
+                setGiscusTheme('light');
+            } else {
+                setGiscusTheme('dark_dimmed');
+            }
+        }
+    })();
+</script>
+
+    
+
+    <footer class="site-footer">
+    <section class="copyright">
+        &copy; 
+        
+        2026 SelfTechHub
+    </section>
+    
+    <section class="powerby">
+        
+
+    </section>
+</footer>
+
+
+    
+<div class="pswp" tabindex="-1" role="dialog" aria-hidden="true">
+
+    
+    <div class="pswp__bg"></div>
+
+    
+    <div class="pswp__scroll-wrap">
+
+        
+        <div class="pswp__container">
+            <div class="pswp__item"></div>
+            <div class="pswp__item"></div>
+            <div class="pswp__item"></div>
+        </div>
+
+        
+        <div class="pswp__ui pswp__ui--hidden">
+
+            <div class="pswp__top-bar">
+
+                
+
+                <div class="pswp__counter"></div>
+
+                <button class="pswp__button pswp__button--close" title="Close (Esc)"></button>
+
+                <button class="pswp__button pswp__button--share" title="Share"></button>
+
+                <button class="pswp__button pswp__button--fs" title="Toggle fullscreen"></button>
+
+                <button class="pswp__button pswp__button--zoom" title="Zoom in/out"></button>
+
+                
+                
+                <div class="pswp__preloader">
+                    <div class="pswp__preloader__icn">
+                        <div class="pswp__preloader__cut">
+                            <div class="pswp__preloader__donut"></div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <div class="pswp__share-modal pswp__share-modal--hidden pswp__single-tap">
+                <div class="pswp__share-tooltip"></div>
+            </div>
+
+            <button class="pswp__button pswp__button--arrow--left" title="Previous (arrow left)">
+            </button>
+
+            <button class="pswp__button pswp__button--arrow--right" title="Next (arrow right)">
+            </button>
+
+            <div class="pswp__caption">
+                <div class="pswp__caption__center"></div>
+            </div>
+
+        </div>
+
+    </div>
+
+</div><script 
+                src="https://cdn.jsdelivr.net/npm/photoswipe@4.1.3/dist/photoswipe.min.js"integrity="sha256-ePwmChbbvXbsO02lbM3HoHbSHTHFAeChekF1xKJdleo="crossorigin="anonymous"
+                defer
+                >
+            </script><script 
+                src="https://cdn.jsdelivr.net/npm/photoswipe@4.1.3/dist/photoswipe-ui-default.min.js"integrity="sha256-UKkzOn/w1mBxRmLLGrSeyB4e1xbrp4xylgAWb3M42pU="crossorigin="anonymous"
+                defer
+                >
+            </script><link 
+                rel="stylesheet" 
+                href="https://cdn.jsdelivr.net/npm/photoswipe@4.1.3/dist/default-skin/default-skin.min.css"crossorigin="anonymous"
+            ><link 
+                rel="stylesheet" 
+                href="https://cdn.jsdelivr.net/npm/photoswipe@4.1.3/dist/photoswipe.min.css"crossorigin="anonymous"
+            >
+    
+
+            </main>
+        </div>
+        <script 
+                src="https://cdn.jsdelivr.net/npm/node-vibrant@3.1.6/dist/vibrant.min.js"integrity="sha256-awcR2jno4kI5X0zL8ex0vi2z&#43;KMkF24hUW8WePSA9HM="crossorigin="anonymous"
+                
+                >
+            </script><script type="text/javascript" src="/ts/main.c922af694cc257bf1ecc41c0dd7b0430f9114ec280ccf67cd2c6ad55f5316c4e.js" defer></script>
+<script>
+    (function () {
+        const customFont = document.createElement('link');
+        customFont.href = "https://fonts.googleapis.com/css2?family=Lato:wght@300;400;700&display=swap";
+
+        customFont.type = "text/css";
+        customFont.rel = "stylesheet";
+
+        document.head.appendChild(customFont);
+    }());
+</script>
+
+    </body>
+</html>

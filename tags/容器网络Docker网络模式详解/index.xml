@@ -1,0 +1,113 @@
+<?xml version="1.0" encoding="utf-8" standalone="yes"?>
+<rss version="2.0" xmlns:atom="http://www.w3.org/2005/Atom">
+    <channel>
+        <title>容器网络：Docker网络模式详解 on SelfTechHub</title>
+        <link>https://blog.irudder.me/tags/%E5%AE%B9%E5%99%A8%E7%BD%91%E7%BB%9CDocker%E7%BD%91%E7%BB%9C%E6%A8%A1%E5%BC%8F%E8%AF%A6%E8%A7%A3.html</link>
+        <description>Recent content in 容器网络：Docker网络模式详解 on SelfTechHub</description>
+        <generator>Hugo -- gohugo.io</generator>
+        <language>zh-cn</language>
+        <lastBuildDate>Sat, 03 May 2025 00:00:00 +0000</lastBuildDate><atom:link href="https://blog.irudder.me/tags/%E5%AE%B9%E5%99%A8%E7%BD%91%E7%BB%9CDocker%E7%BD%91%E7%BB%9C%E6%A8%A1%E5%BC%8F%E8%AF%A6%E8%A7%A3/index.xml" rel="self" type="application/rss+xml" /><item>
+        <title>容器连不通？别只会重启，揭秘Docker网络三大深坑</title>
+        <link>https://blog.irudder.me/tech/devopsjichugongjurumenyushicao/rongqiwangluo_dockerwangluomoshixiangjie.html</link>
+        <pubDate>Sat, 03 May 2025 00:00:00 +0000</pubDate>
+        
+        <guid>https://blog.irudder.me/tech/devopsjichugongjurumenyushicao/rongqiwangluo_dockerwangluomoshixiangjie.html</guid>
+        <description>&lt;p&gt;还记得两年前的一个周五下午，那个令我至今心有余悸的&amp;quot;发布日&amp;quot;。&lt;/p&gt;
+&lt;p&gt;当时我们将一套微服务系统从单体迁移到Docker环境。开发在本地跑得欢快无比，拍着胸脯说没问题。结果上线不到十分钟，监控报警群炸了：&lt;strong&gt;服务间调用全线超时，数据库连接数甚至诡异归零。&lt;/strong&gt;&lt;/p&gt;
+&lt;p&gt;运维小哥的第一反应是：&amp;ldquo;重启试试？&amp;rdquo;&lt;/p&gt;
+&lt;p&gt;重启确实短暂恢复了，但五分钟后故障重现。那一晚，我们排查了防火墙、SELinux、路由表，最后才发现，&lt;strong&gt;根本原因在于我们对Docker网络模式的理解依然停留在&amp;quot;能上网就行&amp;quot;的浅层阶段&lt;/strong&gt;。&lt;/p&gt;
+&lt;p&gt;很多兄弟在入门DevOps时，往往只关注镜像怎么打、容器怎么起，却忽略了容器的&amp;quot;血管&amp;quot;——网络。今天，我想结合那些年我踩过的坑，不讲枯燥的概念，只聊聊在实战中怎么选对网络模式。&lt;/p&gt;
+&lt;h2 id=&#34;坑一默认bridge模式ip变动引发的失联案&#34;&gt;坑一：默认Bridge模式，IP变动引发的&amp;quot;失联&amp;quot;案
+&lt;/h2&gt;&lt;p&gt;刚开始接触Docker时，大家最习惯直接敲 &lt;code&gt;docker run -d my-app&lt;/code&gt;。这时候，Docker使用的是默认的 &lt;code&gt;bridge&lt;/code&gt; 网络。&lt;/p&gt;
+&lt;p&gt;&lt;strong&gt;这有个致命的大坑：容器IP是不固定的。&lt;/strong&gt;&lt;/p&gt;
+&lt;p&gt;&lt;strong&gt;真实案例：&lt;/strong&gt;
+当时我们的支付服务（Payment）配置里写死了用户服务（User）的容器IP &lt;code&gt;172.17.0.3&lt;/code&gt;。那天上线，因为某个Bug导致User服务崩溃重启。
+Docker重启容器后，IP按顺序重新分配，User服务变成了 &lt;code&gt;172.17.0.4&lt;/code&gt;，而 &lt;code&gt;172.17.0.3&lt;/code&gt; 被分配给了一个刚启动的日志收集容器。
+结果显而易见：支付服务拿着钱，疯狂地往日志容器里&amp;quot;塞&amp;quot;，导致全线报错。&lt;/p&gt;
+&lt;p&gt;&lt;strong&gt;硬核解法：抛弃默认Bridge，使用自定义Bridge&lt;/strong&gt;&lt;/p&gt;
+&lt;p&gt;千万别依赖容器IP通信，也别指望 &lt;code&gt;/etc/hosts&lt;/code&gt; 能自动维护。
+Docker自带的DNS解析功能，只有在&lt;strong&gt;自定义网络&lt;/strong&gt;下才生效。&lt;/p&gt;
+&lt;p&gt;&lt;strong&gt;实操步骤：&lt;/strong&gt;&lt;/p&gt;
+&lt;ol&gt;
+&lt;li&gt;创建一个自定义网络：
+&lt;div class=&#34;highlight&#34;&gt;&lt;pre tabindex=&#34;0&#34; style=&#34;color:#f8f8f2;background-color:#272822;-moz-tab-size:4;-o-tab-size:4;tab-size:4;&#34;&gt;&lt;code class=&#34;language-bash&#34; data-lang=&#34;bash&#34;&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;docker network create app_net
+&lt;/span&gt;&lt;/span&gt;&lt;/code&gt;&lt;/pre&gt;&lt;/div&gt;&lt;/li&gt;
+&lt;li&gt;启动容器时加入该网络：
+&lt;div class=&#34;highlight&#34;&gt;&lt;pre tabindex=&#34;0&#34; style=&#34;color:#f8f8f2;background-color:#272822;-moz-tab-size:4;-o-tab-size:4;tab-size:4;&#34;&gt;&lt;code class=&#34;language-bash&#34; data-lang=&#34;bash&#34;&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;&lt;span style=&#34;color:#75715e&#34;&gt;# 启动User服务，指定容器名&lt;/span&gt;
+&lt;/span&gt;&lt;/span&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;docker run -d --name user-service --network app_net user:v1
+&lt;/span&gt;&lt;/span&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;
+&lt;/span&gt;&lt;/span&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;&lt;span style=&#34;color:#75715e&#34;&gt;# 启动Payment服务，直接用容器名访问&lt;/span&gt;
+&lt;/span&gt;&lt;/span&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;docker run -d --name payment-service --network app_net payment:v1
+&lt;/span&gt;&lt;/span&gt;&lt;/code&gt;&lt;/pre&gt;&lt;/div&gt;&lt;/li&gt;
+&lt;/ol&gt;
+&lt;p&gt;现在，无论User服务重启多少次，IP怎么变，Payment服务只需要访问 &lt;code&gt;ping user-service&lt;/code&gt;，Docker内置DNS会自动解析到正确的IP。&lt;strong&gt;这招让我们彻底告别了写死IP的愚蠢做法。&lt;/strong&gt;&lt;/p&gt;
+&lt;h2 id=&#34;坑二host模式高性能背后的端口噩梦&#34;&gt;坑二：Host模式，高性能背后的端口噩梦
+&lt;/h2&gt;&lt;p&gt;在解决掉服务发现问题后，我们遇到了一次性能瓶颈。某个高并发网关服务，在压测时吞吐量死活上不去，CPU占用极高。&lt;/p&gt;
+&lt;p&gt;排查发现，Bridge模式下的NAT（网络地址转换）消耗了大量资源。每经过一层NAT，就像过安检一样，是有成本的。&lt;/p&gt;
+&lt;p&gt;于是，我大手一挥：&amp;ldquo;改用 Host 模式！&amp;rdquo;&lt;/p&gt;
+&lt;p&gt;&lt;strong&gt;真实案例：&lt;/strong&gt;
+加上 &lt;code&gt;--network host&lt;/code&gt; 后，网关性能确实提升了近 15%，甚至接近裸机。
+但第二天早会，监控组的同事就找上门了：&amp;ldquo;这台机器上的Zabbix Agent怎么挂了？&amp;rdquo;
+原来，网关服务占用了80端口，而这台宿主机上本来跑着的一个Nginx也占用了80端口，两者直接冲突，导致旧服务直接起不来。
+Host模式下，容器和宿主机共用一个网络栈，&lt;strong&gt;没有隔离，全是裸奔&lt;/strong&gt;。&lt;/p&gt;
+&lt;p&gt;&lt;strong&gt;硬核解法：按需分配，别一把梭&lt;/strong&gt;&lt;/p&gt;
+&lt;p&gt;Host模式虽然快，但端口管理是地狱难度。我建议只在以下两种场景使用：&lt;/p&gt;
+&lt;ol&gt;
+&lt;li&gt;&lt;strong&gt;对网络性能极度敏感&lt;/strong&gt;（如负载均衡器、VoIP服务）。&lt;/li&gt;
+&lt;li&gt;&lt;strong&gt;端口范围极广且不固定&lt;/strong&gt;（如FTP被动模式、RTP流媒体）。&lt;/li&gt;
+&lt;/ol&gt;
+&lt;p&gt;如果你只是跑个普通的Web应用，老老实实优化Bridge或者上Kubernetes的CNI插件，别为了那点性能牺牲隔离性。&lt;/p&gt;
+&lt;div class=&#34;highlight&#34;&gt;&lt;pre tabindex=&#34;0&#34; style=&#34;color:#f8f8f2;background-color:#272822;-moz-tab-size:4;-o-tab-size:4;tab-size:4;&#34;&gt;&lt;code class=&#34;language-bash&#34; data-lang=&#34;bash&#34;&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;&lt;span style=&#34;color:#75715e&#34;&gt;# 只有在明确知道不会冲突，且追求极致性能时使用&lt;/span&gt;
+&lt;/span&gt;&lt;/span&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;docker run -d --network host my-high-perf-gateway
+&lt;/span&gt;&lt;/span&gt;&lt;/code&gt;&lt;/pre&gt;&lt;/div&gt;&lt;h2 id=&#34;坑三container模式调试排错的上帝视角&#34;&gt;坑三：Container模式，调试排错的&amp;quot;上帝视角&amp;quot;
+&lt;/h2&gt;&lt;p&gt;这是我个人最喜欢，也最常被大家忽略的模式。&lt;/p&gt;
+&lt;p&gt;很多时候，为了保持镜像精简（如Alpine版），容器里连 &lt;code&gt;curl&lt;/code&gt;、&lt;code&gt;ping&lt;/code&gt;、&lt;code&gt;telnet&lt;/code&gt; 都没有。一旦服务不通，你想进去抓个包或者测试连通性，简直两眼一抹黑。&lt;/p&gt;
+&lt;p&gt;&lt;img src=&#34;https://picsum.photos/800/450?random=1768388450901&#34;
+	
+	
+	
+	loading=&#34;lazy&#34;
+	
+		alt=&#34;配图&#34;
+	
+	
+&gt;&lt;/p&gt;
+&lt;p&gt;&lt;strong&gt;真实案例：&lt;/strong&gt;
+有一次，生产环境的一个Java容器连不上Redis，容器里只有JRE环境，啥工具都没装。开发甚至提议：&amp;ldquo;要不重新打个带工具的镜像上去？&amp;rdquo;
+开什么玩笑，生产环境随便换镜像？&lt;/p&gt;
+&lt;p&gt;这时候，&lt;code&gt;container&lt;/code&gt; 模式救了大命。它的原理是：&lt;strong&gt;让一个新容器共享另一个已存在容器的网络栈。&lt;/strong&gt; 它们就像连体婴儿，IP一样，端口一样，甚至能看到对方的 &lt;code&gt;localhost&lt;/code&gt;。&lt;/p&gt;
+&lt;p&gt;&lt;strong&gt;硬核解法：外挂&amp;quot;特种兵&amp;quot;容器&lt;/strong&gt;&lt;/p&gt;
+&lt;p&gt;我常备一个装满网络工具（net-tools, curl, tcpdump, iproute2）的&amp;quot;瑞士军刀&amp;quot;镜像。遇到疑难杂症，直接&amp;quot;寄生&amp;quot;上去：&lt;/p&gt;
+&lt;div class=&#34;highlight&#34;&gt;&lt;pre tabindex=&#34;0&#34; style=&#34;color:#f8f8f2;background-color:#272822;-moz-tab-size:4;-o-tab-size:4;tab-size:4;&#34;&gt;&lt;code class=&#34;language-bash&#34; data-lang=&#34;bash&#34;&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;&lt;span style=&#34;color:#75715e&#34;&gt;# 假设故障容器ID是 a1b2c3d4&lt;/span&gt;
+&lt;/span&gt;&lt;/span&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;&lt;span style=&#34;color:#75715e&#34;&gt;# 启动我的工具容器，并依附在故障容器的网络上&lt;/span&gt;
+&lt;/span&gt;&lt;/span&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;docker run -it --rm --network container:a1b2c3d4 nicolaka/netshoot /bin/bash
+&lt;/span&gt;&lt;/span&gt;&lt;/code&gt;&lt;/pre&gt;&lt;/div&gt;&lt;p&gt;&lt;img src=&#34;https://picsum.photos/800/450?random=1768388456419&#34;
+	
+	
+	
+	loading=&#34;lazy&#34;
+	
+		alt=&#34;配图&#34;
+	
+	
+&gt;&lt;/p&gt;
+&lt;p&gt;进入这个工具容器后，我敲下 &lt;code&gt;localhost:8080&lt;/code&gt;，直接就能访问那个故障Java应用的服务。在这个容器里抓包，抓到的就是那个Java容器的流量。&lt;/p&gt;
+&lt;p&gt;这个技巧，我用了三年，帮我解决了无数次&amp;quot;玄学&amp;quot;网络故障。它也是Kubernetes中Pod概念（Sidecar模式）的雏形。&lt;/p&gt;
+&lt;h2 id=&#34;避坑指南与行动建议&#34;&gt;避坑指南与行动建议
+&lt;/h2&gt;&lt;p&gt;容器网络不是魔法，它只是Linux内核功能的封装。当你觉得网络&amp;quot;不稳定&amp;quot;时，99%是因为选错了模式或配置不当。&lt;/p&gt;
+&lt;p&gt;&lt;strong&gt;你更倾向于哪种解决方案？&lt;/strong&gt;
+A. 追求极致性能，哪怕管理麻烦点也愿意上Host模式。
+B. 稳定压倒一切，宁愿多一层NAT也要用自定义Bridge隔离。
+&lt;strong&gt;(请在评论区告诉我你的选择)&lt;/strong&gt;&lt;/p&gt;
+&lt;p&gt;最后，给各位还在踩坑路上的朋友3个落地建议：&lt;/p&gt;
+&lt;ol&gt;
+&lt;li&gt;&lt;strong&gt;立刻检查你的Docker命令&lt;/strong&gt;：如果还在用默认网络（没写 &lt;code&gt;--network&lt;/code&gt;）且依赖IP通信，请这周内改为 &lt;code&gt;docker network create&lt;/code&gt; 自定义网络，这能规避掉80%的连通性问题。&lt;/li&gt;
+&lt;li&gt;&lt;strong&gt;制作你的&amp;quot;瑞士军刀&amp;quot;镜像&lt;/strong&gt;：不要在业务镜像里装 &lt;code&gt;ping&lt;/code&gt; 或 &lt;code&gt;telnet&lt;/code&gt;，保持业务纯净。需要调试时，用 &lt;code&gt;Container&lt;/code&gt; 模式挂载工具容器。&lt;/li&gt;
+&lt;li&gt;&lt;strong&gt;要有网络拓扑意识&lt;/strong&gt;：在单机Docker环境下，画一张草图，搞清楚流量是走了NAT还是走了Host，这比盲目修改 &lt;code&gt;sysctl.conf&lt;/code&gt; 有用得多。&lt;/li&gt;
+&lt;/ol&gt;
+&lt;p&gt;别让网络成为你DevOps路上的拦路虎，把它变成你手中的利剑。&lt;/p&gt;
+</description>
+        </item>
+        
+    </channel>
+</rss>

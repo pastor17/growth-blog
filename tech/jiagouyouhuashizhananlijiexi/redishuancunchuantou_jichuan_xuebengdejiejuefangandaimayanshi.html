@@ -1,0 +1,531 @@
+<!DOCTYPE html>
+<html lang="zh-cn" dir="ltr">
+    <head><meta charset='utf-8'>
+<meta name='viewport' content='width=device-width, initial-scale=1'><meta name='description' content="那是一个周五的凌晨，我正准备合上电脑享受周末，钉钉的报警群突然像疯了一样炸锅。\n&ldquo;DB CPU Util &gt; 90%&rdquo; &ldquo;Redis Connection Timeout&rdquo;\n作为那家电商公司的技术顾问，我眼睁睁看着Grafana监控大屏上的曲线，从平滑的波浪线变成了垂直的峭壁。在那之后的72小时里，我们重构了整个缓存层。\n很多开发同学在面试时能把缓存穿透、击穿、雪崩背得滚瓜烂熟，但在写代码时，往往只写一句 redisTemplate.get(key) 就觉得万事大吉。真实的高并发战场，往往就是死在这些&quot;以为没问题&quot;的细节里。\n今天不讲教科书理论，直接复盘那次事故中，我们是如何用代码填上这三个深坑的。\n一、缓存穿透：当黑客盯上了不存在的ID\r在那次事故中，第一波攻击来自一个竞品的爬虫。他们写了一个脚本，疯狂请求ID为 -1 到 -999999 的商品详情。\nRedis里显然没有这些负数ID的缓存，于是流量像洪水一样全部打到了MySQL。数据库连接池瞬间被占满，正常的商品查询也进不来了。这就是典型的缓存穿透——请求直通数据库，缓存成了摆设。\n当时团队里的新人小张提议：“把这些不存在的key也存进Redis，值设为null不就行了？”\n我摇摇头。对方如果随机生成一亿个不重复的UUID来请求呢？你的Redis内存瞬间就会被这些垃圾数据撑爆。\n我们最终上线的方案是：布隆过滤器（Bloom Filter）。\n你可以把它理解为一个内存占用极小的&quot;黑名单/白名单&quot;机制。在请求到达Redis之前，先问问布隆过滤器：“这个ID可能存在吗？”如果它说不存在，直接返回，连Redis都不用查。\n这是一个基于Redisson的落地代码示例，比手写Bitmap稳健得多：\n// 初始化布隆过滤器，预计插入100万元素，误判率0.01 RBloomFilter&lt;String&gt; bloomFilter = redisson.getBloomFilter(&#34;productIdList&#34;); bloomFilter.tryInit(1000000L, 0.01); // 业务代码逻辑 public Product getProductDetail(String productId) { // 1. 先过布隆过滤器（第一道防线） // 注意：布隆过滤器说不存在，那一定不存在；说存在，可能不存在（误判） if (!bloomFilter.contains(productId)) { return null; // 直接拦截，DB安全了 } // 2. 查询Redis Product cacheProduct = redisTemplate.opsForValue().get(&#34;prod:&#34; + productId); if (cacheProduct != null) { return cacheProduct; } // 3. 查询DB Product dbProduct = productMapper.selectById(productId); // 4. 回写缓存（如果DB也没有，这里可以配合缓存空对象策略，但设置极短TTL） if (dbProduct != null) { redisTemplate.opsForValue().set(&#34;prod:&#34; + productId, dbProduct, 1, TimeUnit.HOURS); } else { //以此应对布隆过滤器的误判情况 redisTemplate.opsForValue().set(&#34;prod:&#34; + productId, &#34;EMPTY&#34;, 5, TimeUnit.MINUTES); } return dbProduct; } 实战复盘： 上线布隆过滤器后，那波爬虫流量的99%在进入Redis前就被拦截了，数据库CPU瞬间回落到10%以下。\n">
+<title>半夜3点报警：Redis崩溃后的72小时与3行救命代码</title>
+
+<link rel='canonical' href='https://blog.irudder.me/tech/jiagouyouhuashizhananlijiexi/redishuancunchuantou_jichuan_xuebengdejiejuefangandaimayanshi.html'>
+
+<link rel="stylesheet" href="/scss/style.min.b9e9128fec450ebccecc4ec9900157f32b85d0609bcd5ee3293968bcaa1235f2.css"><meta property='og:title' content="半夜3点报警：Redis崩溃后的72小时与3行救命代码">
+<meta property='og:description' content="那是一个周五的凌晨，我正准备合上电脑享受周末，钉钉的报警群突然像疯了一样炸锅。\n&ldquo;DB CPU Util &gt; 90%&rdquo; &ldquo;Redis Connection Timeout&rdquo;\n作为那家电商公司的技术顾问，我眼睁睁看着Grafana监控大屏上的曲线，从平滑的波浪线变成了垂直的峭壁。在那之后的72小时里，我们重构了整个缓存层。\n很多开发同学在面试时能把缓存穿透、击穿、雪崩背得滚瓜烂熟，但在写代码时，往往只写一句 redisTemplate.get(key) 就觉得万事大吉。真实的高并发战场，往往就是死在这些&quot;以为没问题&quot;的细节里。\n今天不讲教科书理论，直接复盘那次事故中，我们是如何用代码填上这三个深坑的。\n一、缓存穿透：当黑客盯上了不存在的ID\r在那次事故中，第一波攻击来自一个竞品的爬虫。他们写了一个脚本，疯狂请求ID为 -1 到 -999999 的商品详情。\nRedis里显然没有这些负数ID的缓存，于是流量像洪水一样全部打到了MySQL。数据库连接池瞬间被占满，正常的商品查询也进不来了。这就是典型的缓存穿透——请求直通数据库，缓存成了摆设。\n当时团队里的新人小张提议：“把这些不存在的key也存进Redis，值设为null不就行了？”\n我摇摇头。对方如果随机生成一亿个不重复的UUID来请求呢？你的Redis内存瞬间就会被这些垃圾数据撑爆。\n我们最终上线的方案是：布隆过滤器（Bloom Filter）。\n你可以把它理解为一个内存占用极小的&quot;黑名单/白名单&quot;机制。在请求到达Redis之前，先问问布隆过滤器：“这个ID可能存在吗？”如果它说不存在，直接返回，连Redis都不用查。\n这是一个基于Redisson的落地代码示例，比手写Bitmap稳健得多：\n// 初始化布隆过滤器，预计插入100万元素，误判率0.01 RBloomFilter&lt;String&gt; bloomFilter = redisson.getBloomFilter(&#34;productIdList&#34;); bloomFilter.tryInit(1000000L, 0.01); // 业务代码逻辑 public Product getProductDetail(String productId) { // 1. 先过布隆过滤器（第一道防线） // 注意：布隆过滤器说不存在，那一定不存在；说存在，可能不存在（误判） if (!bloomFilter.contains(productId)) { return null; // 直接拦截，DB安全了 } // 2. 查询Redis Product cacheProduct = redisTemplate.opsForValue().get(&#34;prod:&#34; + productId); if (cacheProduct != null) { return cacheProduct; } // 3. 查询DB Product dbProduct = productMapper.selectById(productId); // 4. 回写缓存（如果DB也没有，这里可以配合缓存空对象策略，但设置极短TTL） if (dbProduct != null) { redisTemplate.opsForValue().set(&#34;prod:&#34; + productId, dbProduct, 1, TimeUnit.HOURS); } else { //以此应对布隆过滤器的误判情况 redisTemplate.opsForValue().set(&#34;prod:&#34; + productId, &#34;EMPTY&#34;, 5, TimeUnit.MINUTES); } return dbProduct; } 实战复盘： 上线布隆过滤器后，那波爬虫流量的99%在进入Redis前就被拦截了，数据库CPU瞬间回落到10%以下。\n">
+<meta property='og:url' content='https://blog.irudder.me/tech/jiagouyouhuashizhananlijiexi/redishuancunchuantou_jichuan_xuebengdejiejuefangandaimayanshi.html'>
+<meta property='og:site_name' content='SelfTechHub'>
+<meta property='og:type' content='article'><meta property='article:section' content='Tech' /><meta property='article:tag' content='Redis缓存穿透/击穿/雪崩的解决方案代码演示' /><meta property='article:published_time' content='2025-08-01T00:00:00&#43;00:00'/><meta property='article:modified_time' content='2025-08-01T00:00:00&#43;00:00'/>
+<meta name="twitter:title" content="半夜3点报警：Redis崩溃后的72小时与3行救命代码">
+<meta name="twitter:description" content="那是一个周五的凌晨，我正准备合上电脑享受周末，钉钉的报警群突然像疯了一样炸锅。\n&ldquo;DB CPU Util &gt; 90%&rdquo; &ldquo;Redis Connection Timeout&rdquo;\n作为那家电商公司的技术顾问，我眼睁睁看着Grafana监控大屏上的曲线，从平滑的波浪线变成了垂直的峭壁。在那之后的72小时里，我们重构了整个缓存层。\n很多开发同学在面试时能把缓存穿透、击穿、雪崩背得滚瓜烂熟，但在写代码时，往往只写一句 redisTemplate.get(key) 就觉得万事大吉。真实的高并发战场，往往就是死在这些&quot;以为没问题&quot;的细节里。\n今天不讲教科书理论，直接复盘那次事故中，我们是如何用代码填上这三个深坑的。\n一、缓存穿透：当黑客盯上了不存在的ID\r在那次事故中，第一波攻击来自一个竞品的爬虫。他们写了一个脚本，疯狂请求ID为 -1 到 -999999 的商品详情。\nRedis里显然没有这些负数ID的缓存，于是流量像洪水一样全部打到了MySQL。数据库连接池瞬间被占满，正常的商品查询也进不来了。这就是典型的缓存穿透——请求直通数据库，缓存成了摆设。\n当时团队里的新人小张提议：“把这些不存在的key也存进Redis，值设为null不就行了？”\n我摇摇头。对方如果随机生成一亿个不重复的UUID来请求呢？你的Redis内存瞬间就会被这些垃圾数据撑爆。\n我们最终上线的方案是：布隆过滤器（Bloom Filter）。\n你可以把它理解为一个内存占用极小的&quot;黑名单/白名单&quot;机制。在请求到达Redis之前，先问问布隆过滤器：“这个ID可能存在吗？”如果它说不存在，直接返回，连Redis都不用查。\n这是一个基于Redisson的落地代码示例，比手写Bitmap稳健得多：\n// 初始化布隆过滤器，预计插入100万元素，误判率0.01 RBloomFilter&lt;String&gt; bloomFilter = redisson.getBloomFilter(&#34;productIdList&#34;); bloomFilter.tryInit(1000000L, 0.01); // 业务代码逻辑 public Product getProductDetail(String productId) { // 1. 先过布隆过滤器（第一道防线） // 注意：布隆过滤器说不存在，那一定不存在；说存在，可能不存在（误判） if (!bloomFilter.contains(productId)) { return null; // 直接拦截，DB安全了 } // 2. 查询Redis Product cacheProduct = redisTemplate.opsForValue().get(&#34;prod:&#34; + productId); if (cacheProduct != null) { return cacheProduct; } // 3. 查询DB Product dbProduct = productMapper.selectById(productId); // 4. 回写缓存（如果DB也没有，这里可以配合缓存空对象策略，但设置极短TTL） if (dbProduct != null) { redisTemplate.opsForValue().set(&#34;prod:&#34; + productId, dbProduct, 1, TimeUnit.HOURS); } else { //以此应对布隆过滤器的误判情况 redisTemplate.opsForValue().set(&#34;prod:&#34; + productId, &#34;EMPTY&#34;, 5, TimeUnit.MINUTES); } return dbProduct; } 实战复盘： 上线布隆过滤器后，那波爬虫流量的99%在进入Redis前就被拦截了，数据库CPU瞬间回落到10%以下。\n">
+    </head>
+    <body class="
+    article-page
+    ">
+    <script>
+        (function() {
+            const colorSchemeKey = 'StackColorScheme';
+            if(!localStorage.getItem(colorSchemeKey)){
+                localStorage.setItem(colorSchemeKey, "auto");
+            }
+        })();
+    </script><script>
+    (function() {
+        const colorSchemeKey = 'StackColorScheme';
+        const colorSchemeItem = localStorage.getItem(colorSchemeKey);
+        const supportDarkMode = window.matchMedia('(prefers-color-scheme: dark)').matches === true;
+
+        if (colorSchemeItem == 'dark' || colorSchemeItem === 'auto' && supportDarkMode) {
+            
+
+            document.documentElement.dataset.scheme = 'dark';
+        } else {
+            document.documentElement.dataset.scheme = 'light';
+        }
+    })();
+</script>
+<div class="container main-container flex on-phone--column compact"><aside class="sidebar left-sidebar sticky ">
+    <button class="hamburger hamburger--spin" type="button" id="toggle-menu" aria-label="切换菜单">
+        <span class="hamburger-box">
+            <span class="hamburger-inner"></span>
+        </span>
+    </button>
+
+    <header>
+        
+            
+            <figure class="site-avatar">
+                <a href="/">
+                
+                    
+                    
+                    
+                        
+                        <img src="/img/avatar_hu_8588ce14af1147e2.png" width="300"
+                            height="286" class="site-logo" loading="lazy" alt="Avatar">
+                    
+                
+                </a>
+                
+            </figure>
+            
+        
+        
+        <div class="site-meta">
+            <h1 class="site-name"><a href="/">SelfTechHub</a></h1>
+            <h2 class="site-description"></h2>
+        </div>
+    </header><ol class="menu" id="main-menu">
+        
+        
+        <li class="menu-bottom-section">
+            <ol class="menu">
+
+                
+                    <li id="dark-mode-toggle">
+                        <svg xmlns="http://www.w3.org/2000/svg" class="icon icon-tabler icon-tabler-toggle-left" width="24" height="24" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor" fill="none" stroke-linecap="round" stroke-linejoin="round">
+  <path stroke="none" d="M0 0h24v24H0z"/>
+  <circle cx="8" cy="12" r="2" />
+  <rect x="2" y="6" width="20" height="12" rx="6" />
+</svg>
+
+
+
+                        <svg xmlns="http://www.w3.org/2000/svg" class="icon icon-tabler icon-tabler-toggle-right" width="24" height="24" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor" fill="none" stroke-linecap="round" stroke-linejoin="round">
+  <path stroke="none" d="M0 0h24v24H0z"/>
+  <circle cx="16" cy="12" r="2" />
+  <rect x="2" y="6" width="20" height="12" rx="6" />
+</svg>
+
+
+
+                        <span>暗色模式</span>
+                    </li>
+                
+            </ol>
+        </li>
+    </ol>
+</aside>
+
+    
+
+            <main class="main full-width">
+    <article class="main-article">
+    <header class="article-header">
+
+    <div class="article-details">
+    
+    <header class="article-category">
+        
+            <a href="/categories/%E6%8A%80%E6%9C%AF.html" >
+                技术精进
+            </a>
+        
+    </header>
+    
+
+    <div class="article-title-wrapper">
+        <h2 class="article-title">
+            <a href="/tech/jiagouyouhuashizhananlijiexi/redishuancunchuantou_jichuan_xuebengdejiejuefangandaimayanshi.html">半夜3点报警：Redis崩溃后的72小时与3行救命代码</a>
+        </h2>
+    
+        
+    </div>
+
+    
+    
+    
+    
+    <footer class="article-time">
+        
+            <div>
+                <svg xmlns="http://www.w3.org/2000/svg" class="icon icon-tabler icon-tabler-calendar-time" width="56" height="56" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor" fill="none" stroke-linecap="round" stroke-linejoin="round">
+  <path stroke="none" d="M0 0h24v24H0z"/>
+  <path d="M11.795 21h-6.795a2 2 0 0 1 -2 -2v-12a2 2 0 0 1 2 -2h12a2 2 0 0 1 2 2v4" />
+  <circle cx="18" cy="18" r="4" />
+  <path d="M15 3v4" />
+  <path d="M7 3v4" />
+  <path d="M3 11h16" />
+  <path d="M18 16.496v1.504l1 1" />
+</svg>
+                <time class="article-time--published" datetime='2025-08-01T00:00:00Z'>Aug 01, 2025</time>
+            </div>
+        
+
+        
+            <div>
+                <svg xmlns="http://www.w3.org/2000/svg" class="icon icon-tabler icon-tabler-clock" width="24" height="24" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor" fill="none" stroke-linecap="round" stroke-linejoin="round">
+  <path stroke="none" d="M0 0h24v24H0z"/>
+  <circle cx="12" cy="12" r="9" />
+  <polyline points="12 7 12 12 15 15" />
+</svg>
+
+
+
+                <time class="article-time--reading">
+                    阅读时长: 2 分钟
+                </time>
+            </div>
+        
+    </footer>
+    
+
+    
+</div>
+
+</header>
+
+    <section class="article-content">
+    
+    
+    <p>那是一个周五的凌晨，我正准备合上电脑享受周末，钉钉的报警群突然像疯了一样炸锅。</p>
+<p><strong>&ldquo;DB CPU Util &gt; 90%&rdquo;</strong>
+<strong>&ldquo;Redis Connection Timeout&rdquo;</strong></p>
+<p>作为那家电商公司的技术顾问，我眼睁睁看着Grafana监控大屏上的曲线，从平滑的波浪线变成了垂直的峭壁。在那之后的72小时里，我们重构了整个缓存层。</p>
+<p>很多开发同学在面试时能把缓存穿透、击穿、雪崩背得滚瓜烂熟，但在写代码时，往往只写一句 <code>redisTemplate.get(key)</code> 就觉得万事大吉。<strong>真实的高并发战场，往往就是死在这些&quot;以为没问题&quot;的细节里。</strong></p>
+<p>今天不讲教科书理论，直接复盘那次事故中，我们是如何用代码填上这三个深坑的。</p>
+<h2 id="一缓存穿透当黑客盯上了不存在的id">一、缓存穿透：当黑客盯上了不存在的ID
+</h2><p>在那次事故中，第一波攻击来自一个竞品的爬虫。他们写了一个脚本，疯狂请求ID为 <code>-1</code> 到 <code>-999999</code> 的商品详情。</p>
+<p>Redis里显然没有这些负数ID的缓存，于是流量像洪水一样全部打到了MySQL。数据库连接池瞬间被占满，正常的商品查询也进不来了。这就是典型的<strong>缓存穿透</strong>——请求直通数据库，缓存成了摆设。</p>
+<p>当时团队里的新人小张提议：“把这些不存在的key也存进Redis，值设为null不就行了？”</p>
+<p>我摇摇头。对方如果随机生成一亿个不重复的UUID来请求呢？你的Redis内存瞬间就会被这些垃圾数据撑爆。</p>
+<p><strong>我们最终上线的方案是：布隆过滤器（Bloom Filter）。</strong></p>
+<p>你可以把它理解为一个内存占用极小的&quot;黑名单/白名单&quot;机制。在请求到达Redis之前，先问问布隆过滤器：“这个ID可能存在吗？”如果它说不存在，直接返回，连Redis都不用查。</p>
+<p>这是一个基于Redisson的落地代码示例，比手写Bitmap稳健得多：</p>
+<p><img src="https://picsum.photos/800/450?random=1768531929627"
+	
+	
+	
+	loading="lazy"
+	
+		alt="配图"
+	
+	
+></p>
+<div class="highlight"><pre tabindex="0" style="color:#f8f8f2;background-color:#272822;-moz-tab-size:4;-o-tab-size:4;tab-size:4;"><code class="language-java" data-lang="java"><span style="display:flex;"><span><span style="color:#75715e">// 初始化布隆过滤器，预计插入100万元素，误判率0.01</span>
+</span></span><span style="display:flex;"><span>RBloomFilter<span style="color:#f92672">&lt;</span>String<span style="color:#f92672">&gt;</span> bloomFilter <span style="color:#f92672">=</span> redisson.<span style="color:#a6e22e">getBloomFilter</span>(<span style="color:#e6db74">&#34;productIdList&#34;</span>);
+</span></span><span style="display:flex;"><span>bloomFilter.<span style="color:#a6e22e">tryInit</span>(1000000L, 0.<span style="color:#a6e22e">01</span>);
+</span></span><span style="display:flex;"><span>
+</span></span><span style="display:flex;"><span><span style="color:#75715e">// 业务代码逻辑</span>
+</span></span><span style="display:flex;"><span><span style="color:#66d9ef">public</span> Product <span style="color:#a6e22e">getProductDetail</span>(String productId) {
+</span></span><span style="display:flex;"><span>    <span style="color:#75715e">// 1. 先过布隆过滤器（第一道防线）</span>
+</span></span><span style="display:flex;"><span>    <span style="color:#75715e">// 注意：布隆过滤器说不存在，那一定不存在；说存在，可能不存在（误判）</span>
+</span></span><span style="display:flex;"><span>    <span style="color:#66d9ef">if</span> (<span style="color:#f92672">!</span>bloomFilter.<span style="color:#a6e22e">contains</span>(productId)) {
+</span></span><span style="display:flex;"><span>        <span style="color:#66d9ef">return</span> <span style="color:#66d9ef">null</span>; <span style="color:#75715e">// 直接拦截，DB安全了</span>
+</span></span><span style="display:flex;"><span>    }
+</span></span><span style="display:flex;"><span>
+</span></span><span style="display:flex;"><span>    <span style="color:#75715e">// 2. 查询Redis</span>
+</span></span><span style="display:flex;"><span>    Product cacheProduct <span style="color:#f92672">=</span> redisTemplate.<span style="color:#a6e22e">opsForValue</span>().<span style="color:#a6e22e">get</span>(<span style="color:#e6db74">&#34;prod:&#34;</span> <span style="color:#f92672">+</span> productId);
+</span></span><span style="display:flex;"><span>    <span style="color:#66d9ef">if</span> (cacheProduct <span style="color:#f92672">!=</span> <span style="color:#66d9ef">null</span>) {
+</span></span><span style="display:flex;"><span>        <span style="color:#66d9ef">return</span> cacheProduct;
+</span></span><span style="display:flex;"><span>    }
+</span></span><span style="display:flex;"><span>
+</span></span><span style="display:flex;"><span>    <span style="color:#75715e">// 3. 查询DB</span>
+</span></span><span style="display:flex;"><span>    Product dbProduct <span style="color:#f92672">=</span> productMapper.<span style="color:#a6e22e">selectById</span>(productId);
+</span></span><span style="display:flex;"><span>    
+</span></span><span style="display:flex;"><span>    <span style="color:#75715e">// 4. 回写缓存（如果DB也没有，这里可以配合缓存空对象策略，但设置极短TTL）</span>
+</span></span><span style="display:flex;"><span>    <span style="color:#66d9ef">if</span> (dbProduct <span style="color:#f92672">!=</span> <span style="color:#66d9ef">null</span>) {
+</span></span><span style="display:flex;"><span>        redisTemplate.<span style="color:#a6e22e">opsForValue</span>().<span style="color:#a6e22e">set</span>(<span style="color:#e6db74">&#34;prod:&#34;</span> <span style="color:#f92672">+</span> productId, dbProduct, 1, TimeUnit.<span style="color:#a6e22e">HOURS</span>);
+</span></span><span style="display:flex;"><span>    } <span style="color:#66d9ef">else</span> {
+</span></span><span style="display:flex;"><span>        <span style="color:#75715e">//以此应对布隆过滤器的误判情况</span>
+</span></span><span style="display:flex;"><span>        redisTemplate.<span style="color:#a6e22e">opsForValue</span>().<span style="color:#a6e22e">set</span>(<span style="color:#e6db74">&#34;prod:&#34;</span> <span style="color:#f92672">+</span> productId, <span style="color:#e6db74">&#34;EMPTY&#34;</span>, 5, TimeUnit.<span style="color:#a6e22e">MINUTES</span>);
+</span></span><span style="display:flex;"><span>    }
+</span></span><span style="display:flex;"><span>    
+</span></span><span style="display:flex;"><span>    <span style="color:#66d9ef">return</span> dbProduct;
+</span></span><span style="display:flex;"><span>}
+</span></span></code></pre></div><p><strong>实战复盘：</strong> 上线布隆过滤器后，那波爬虫流量的99%在进入Redis前就被拦截了，数据库CPU瞬间回落到10%以下。</p>
+<h2 id="二缓存击穿热点key失效的瞬时暴击">二、缓存击穿：热点Key失效的&quot;瞬时暴击&quot;
+</h2><p>穿透的问题刚解决，第二天上午10点，秒杀活动开始了。</p>
+<p>一款爆款显卡，缓存在10:05分准时过期。就在这一秒，数千个并发请求同时发现缓存没了，同时涌入数据库去查这个显卡的信息。</p>
+<p>数据库刚刚喘口气，又被瞬间打趴。这就是<strong>缓存击穿</strong>——针对某个<strong>热点Key</strong>，在过期的瞬间，大并发击穿缓存。</p>
+<p>我也曾见过很多&quot;老司机&quot;使用<code>synchronized</code>关键字来解决。但在微服务集群部署下，本地锁锁住的只是当前这台机器的线程，几十台机器加起来，依然有几十个并发打到数据库。</p>
+<p><strong>硬核解法：分布式互斥锁（Mutex Lock）。</strong></p>
+<p>逻辑很简单：谁拿到了锁，谁去查DB并回写缓存；没拿到的，在门口等着（自旋）。</p>
+<div class="highlight"><pre tabindex="0" style="color:#f8f8f2;background-color:#272822;-moz-tab-size:4;-o-tab-size:4;tab-size:4;"><code class="language-java" data-lang="java"><span style="display:flex;"><span><span style="color:#66d9ef">public</span> Product <span style="color:#a6e22e">getHotProduct</span>(String productId) {
+</span></span><span style="display:flex;"><span>    String cacheKey <span style="color:#f92672">=</span> <span style="color:#e6db74">&#34;prod:&#34;</span> <span style="color:#f92672">+</span> productId;
+</span></span><span style="display:flex;"><span>    
+</span></span><span style="display:flex;"><span>    <span style="color:#75715e">// 1. 查缓存</span>
+</span></span><span style="display:flex;"><span>    Product product <span style="color:#f92672">=</span> (Product) redisTemplate.<span style="color:#a6e22e">opsForValue</span>().<span style="color:#a6e22e">get</span>(cacheKey);
+</span></span><span style="display:flex;"><span>    <span style="color:#66d9ef">if</span> (product <span style="color:#f92672">!=</span> <span style="color:#66d9ef">null</span>) {
+</span></span><span style="display:flex;"><span>        <span style="color:#66d9ef">return</span> product;
+</span></span><span style="display:flex;"><span>    }
+</span></span><span style="display:flex;"><span>
+</span></span><span style="display:flex;"><span>    <span style="color:#75715e">// 2. 缓存未命中，尝试获取分布式锁</span>
+</span></span><span style="display:flex;"><span>    String lockKey <span style="color:#f92672">=</span> <span style="color:#e6db74">&#34;lock:prod:&#34;</span> <span style="color:#f92672">+</span> productId;
+</span></span><span style="display:flex;"><span>    <span style="color:#75715e">// 使用setIfAbsent (SETNX) 原子操作</span>
+</span></span><span style="display:flex;"><span>    Boolean isLocked <span style="color:#f92672">=</span> redisTemplate.<span style="color:#a6e22e">opsForValue</span>().<span style="color:#a6e22e">setIfAbsent</span>(lockKey, <span style="color:#e6db74">&#34;1&#34;</span>, 10, TimeUnit.<span style="color:#a6e22e">SECONDS</span>);
+</span></span><span style="display:flex;"><span>
+</span></span><span style="display:flex;"><span>    <span style="color:#66d9ef">if</span> (isLocked) {
+</span></span><span style="display:flex;"><span>        <span style="color:#66d9ef">try</span> {
+</span></span><span style="display:flex;"><span>            <span style="color:#75715e">// 3. 获取锁成功，再次检查缓存（双重检查锁 DCL）</span>
+</span></span><span style="display:flex;"><span>            <span style="color:#75715e">// 防止在获取锁的过程中，已经有别的线程重建了缓存</span>
+</span></span><span style="display:flex;"><span>            product <span style="color:#f92672">=</span> (Product) redisTemplate.<span style="color:#a6e22e">opsForValue</span>().<span style="color:#a6e22e">get</span>(cacheKey);
+</span></span><span style="display:flex;"><span>            <span style="color:#66d9ef">if</span> (product <span style="color:#f92672">!=</span> <span style="color:#66d9ef">null</span>) {
+</span></span><span style="display:flex;"><span>                <span style="color:#66d9ef">return</span> product;
+</span></span><span style="display:flex;"><span>            }
+</span></span><span style="display:flex;"><span>
+</span></span><span style="display:flex;"><span>            <span style="color:#75715e">// 4. 真正查询DB</span>
+</span></span><span style="display:flex;"><span>            product <span style="color:#f92672">=</span> productMapper.<span style="color:#a6e22e">selectById</span>(productId);
+</span></span><span style="display:flex;"><span>            
+</span></span><span style="display:flex;"><span>            <span style="color:#75715e">// 5. 重建缓存</span>
+</span></span><span style="display:flex;"><span>            redisTemplate.<span style="color:#a6e22e">opsForValue</span>().<span style="color:#a6e22e">set</span>(cacheKey, product, 1, TimeUnit.<span style="color:#a6e22e">HOURS</span>);
+</span></span><span style="display:flex;"><span>        } <span style="color:#66d9ef">finally</span> {
+</span></span><span style="display:flex;"><span>            <span style="color:#75715e">// 6. 释放锁</span>
+</span></span><span style="display:flex;"><span>            redisTemplate.<span style="color:#a6e22e">delete</span>(lockKey);
+</span></span><span style="display:flex;"><span>        }
+</span></span><span style="display:flex;"><span>    } <span style="color:#66d9ef">else</span> {
+</span></span><span style="display:flex;"><span>        <span style="color:#75715e">// 7. 获取锁失败，休眠一会再重试（自旋）</span>
+</span></span><span style="display:flex;"><span>        <span style="color:#66d9ef">try</span> {
+</span></span><span style="display:flex;"><span>            Thread.<span style="color:#a6e22e">sleep</span>(50);
+</span></span><span style="display:flex;"><span>        } <span style="color:#66d9ef">catch</span> (InterruptedException e) {
+</span></span><span style="display:flex;"><span>            e.<span style="color:#a6e22e">printStackTrace</span>();
+</span></span><span style="display:flex;"><span>        }
+</span></span><span style="display:flex;"><span>        <span style="color:#66d9ef">return</span> getHotProduct(productId);
+</span></span><span style="display:flex;"><span>    }
+</span></span><span style="display:flex;"><span>    
+</span></span><span style="display:flex;"><span>    <span style="color:#66d9ef">return</span> product;
+</span></span><span style="display:flex;"><span>}
+</span></span></code></pre></div><p><img src="https://picsum.photos/800/450?random=1768531932344"
+	
+	
+	
+	loading="lazy"
+	
+		alt="配图"
+	
+	
+></p>
+<p>这段代码看似简单，但有三个细节救了命：</p>
+<ol>
+<li><strong>锁要加过期时间</strong>：防止拿到锁的服务挂了，导致死锁。</li>
+<li><strong>双重检查（Double Check）</strong>：拿到锁后必须再查一次Redis，否则会重复查库。</li>
+<li><strong>自旋机制</strong>：没抢到锁的线程不能直接报错，要等一会再试。</li>
+</ol>
+<h2 id="三缓存雪崩定时任务引发的多米诺骨牌">三、缓存雪崩：定时任务引发的&quot;多米诺骨牌&quot;
+</h2><p>最后也是最壮观的一次崩溃，发生在凌晨3点。</p>
+<p>为了保证数据一致性，当时的业务逻辑是：每天凌晨2点半，由批处理任务把所有商品的缓存全部刷新一遍，过期时间统一设为12小时。</p>
+<p>结果到了下午2点半（14:30），所有缓存<strong>集体同时失效</strong>。这时候正是下午的流量高峰，Redis瞬间变空，所有流量全部砸向数据库。数据库直接宕机，重启都起不来，因为一起动就被流量打死。</p>
+<p>这就是<strong>缓存雪崩</strong>——大量Key同时过期。</p>
+<p>解决这个问题，不需要复杂的分布式锁，只需要一个简单的数学技巧：<strong>随机值</strong>。</p>
+<p>我们在重构代码时，给每个Key的过期时间加了一个随机的抖动因子。</p>
+<div class="highlight"><pre tabindex="0" style="color:#f8f8f2;background-color:#272822;-moz-tab-size:4;-o-tab-size:4;tab-size:4;"><code class="language-java" data-lang="java"><span style="display:flex;"><span><span style="color:#75715e">// 原始逻辑：固定12小时</span>
+</span></span><span style="display:flex;"><span><span style="color:#75715e">// long expireTime = 12 * 60 * 60; </span>
+</span></span><span style="display:flex;"><span>
+</span></span><span style="display:flex;"><span><span style="color:#75715e">// 优化后逻辑：12小时 + 随机0-60分钟</span>
+</span></span><span style="display:flex;"><span><span style="color:#66d9ef">public</span> <span style="color:#66d9ef">void</span> <span style="color:#a6e22e">refreshCache</span>(String key, Object value) {
+</span></span><span style="display:flex;"><span>    <span style="color:#66d9ef">long</span> baseTime <span style="color:#f92672">=</span> 12 <span style="color:#f92672">*</span> 60 <span style="color:#f92672">*</span> 60;
+</span></span><span style="display:flex;"><span>    <span style="color:#75715e">// 生成一个随机数，比如 0 到 3600秒</span>
+</span></span><span style="display:flex;"><span>    <span style="color:#66d9ef">long</span> randomDelta <span style="color:#f92672">=</span> <span style="color:#66d9ef">new</span> Random().<span style="color:#a6e22e">nextInt</span>(3600);
+</span></span><span style="display:flex;"><span>    
+</span></span><span style="display:flex;"><span>    <span style="color:#66d9ef">long</span> finalExpire <span style="color:#f92672">=</span> baseTime <span style="color:#f92672">+</span> randomDelta;
+</span></span><span style="display:flex;"><span>    
+</span></span><span style="display:flex;"><span>    redisTemplate.<span style="color:#a6e22e">opsForValue</span>().<span style="color:#a6e22e">set</span>(key, value, finalExpire, TimeUnit.<span style="color:#a6e22e">SECONDS</span>);
+</span></span><span style="display:flex;"><span>}
+</span></span></code></pre></div><p>除了随机TTL，我还强烈建议在运维层面做隔离：</p>
+<ul>
+<li><strong>启用Sentinel或Cluster集群</strong>：防止Redis单点故障导致的雪崩。</li>
+<li><strong>开启限流降级</strong>：如果数据库真的扛不住了，Hystrix或Sentinel（阿里的那个组件）直接熔断，返回默认值或者&quot;系统繁忙&quot;，保住数据库这条命。</li>
+</ul>
+<h2 id="这种代码值得写在简历里">这种代码，值得写在简历里
+</h2><p>经历了那次72小时的救援，我深刻体会到：<strong>架构的稳定性，往往不取决于你用了多牛的框架，而在于你对边缘情况（Edge Case）的处理。</strong></p>
+<p>很多人觉得为了那1%的极端情况，写这么复杂的锁逻辑不值得。但当系统用户量突破十万、百万量级时，正是这1%的疏忽，会毁掉整个系统的99%。</p>
+<p>针对以上三种场景，我的落地建议如下：</p>
+<ol>
+<li><strong>排查现有代码</strong>：全局搜索 <code>set</code> 操作，检查是否有固定的过期时间，加上随机数。</li>
+<li><strong>引入保护层</strong>：对于核心高并发接口（如商品详情、库存查询），不要裸奔，务必加上互斥锁机制。</li>
+<li><strong>数据预热</strong>：对于已知的热点数据（如大促商品），提前手动加载到缓存，不要等用户来触发。</li>
+</ol>
+<p>最后，我想做一个小调查：
+<strong>在你的生产环境中，遇到过最棘手的缓存问题是哪一种？</strong>
+A. 莫名其妙的缓存穿透（被爬虫搞死）
+B. 热点Key失效导致的瞬间卡顿
+C. 还没遇到过，但我现在开始慌了</p>
+<p>欢迎在评论区告诉我你的经历，或者转发给那个这周五要上线代码的同事。</p>
+
+</section>
+
+
+    <footer class="article-footer">
+    
+    <section class="article-tags">
+        
+            <a href="/tags/Redis%E7%BC%93%E5%AD%98%E7%A9%BF%E9%80%8F/%E5%87%BB%E7%A9%BF/%E9%9B%AA%E5%B4%A9%E7%9A%84%E8%A7%A3%E5%86%B3%E6%96%B9%E6%A1%88%E4%BB%A3%E7%A0%81%E6%BC%94%E7%A4%BA.html">Redis缓存穿透/击穿/雪崩的解决方案代码演示</a>
+        
+    </section>
+
+
+    </footer>
+
+
+    
+</article>
+
+    
+
+    
+
+     
+    
+        
+    <script
+    src="https://giscus.app/client.js"
+    data-repo="pastor17/bloggiscus"
+    data-repo-id="R_kgDOQ6H9qQ"
+    data-category=""
+    data-category-id="DIC_kwDOQ6H9qc4C0-T8"
+    data-mapping="pathname"
+    data-strict="0"
+    data-reactions-enabled="1"
+    data-emit-metadata="0"
+    data-input-position="bottom"
+    data-theme="light"
+    data-lang="zh-CN"
+    data-loading="lazy"
+    crossorigin="anonymous"
+    async
+></script>
+<script>
+    function setGiscusTheme(theme) {
+        let giscus = document.querySelector("iframe.giscus-frame");
+        if (giscus) {
+            giscus.contentWindow.postMessage(
+                {
+                    giscus: {
+                        setConfig: {
+                            theme: theme,
+                        },
+                    },
+                },
+                "https://giscus.app"
+            );
+        }
+    }
+
+    (function () {
+        addEventListener("message", (e) => {
+            if (event.origin !== "https://giscus.app") return;
+            handler();
+        });
+        window.addEventListener("onColorSchemeChange", handler);
+
+        function handler() {
+            if (document.documentElement.dataset.scheme === "light") {
+                setGiscusTheme('light');
+            } else {
+                setGiscusTheme('dark_dimmed');
+            }
+        }
+    })();
+</script>
+
+    
+
+    <footer class="site-footer">
+    <section class="copyright">
+        &copy; 
+        
+        2026 SelfTechHub
+    </section>
+    
+    <section class="powerby">
+        
+
+    </section>
+</footer>
+
+
+    
+<div class="pswp" tabindex="-1" role="dialog" aria-hidden="true">
+
+    
+    <div class="pswp__bg"></div>
+
+    
+    <div class="pswp__scroll-wrap">
+
+        
+        <div class="pswp__container">
+            <div class="pswp__item"></div>
+            <div class="pswp__item"></div>
+            <div class="pswp__item"></div>
+        </div>
+
+        
+        <div class="pswp__ui pswp__ui--hidden">
+
+            <div class="pswp__top-bar">
+
+                
+
+                <div class="pswp__counter"></div>
+
+                <button class="pswp__button pswp__button--close" title="Close (Esc)"></button>
+
+                <button class="pswp__button pswp__button--share" title="Share"></button>
+
+                <button class="pswp__button pswp__button--fs" title="Toggle fullscreen"></button>
+
+                <button class="pswp__button pswp__button--zoom" title="Zoom in/out"></button>
+
+                
+                
+                <div class="pswp__preloader">
+                    <div class="pswp__preloader__icn">
+                        <div class="pswp__preloader__cut">
+                            <div class="pswp__preloader__donut"></div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <div class="pswp__share-modal pswp__share-modal--hidden pswp__single-tap">
+                <div class="pswp__share-tooltip"></div>
+            </div>
+
+            <button class="pswp__button pswp__button--arrow--left" title="Previous (arrow left)">
+            </button>
+
+            <button class="pswp__button pswp__button--arrow--right" title="Next (arrow right)">
+            </button>
+
+            <div class="pswp__caption">
+                <div class="pswp__caption__center"></div>
+            </div>
+
+        </div>
+
+    </div>
+
+</div><script 
+                src="https://cdn.jsdelivr.net/npm/photoswipe@4.1.3/dist/photoswipe.min.js"integrity="sha256-ePwmChbbvXbsO02lbM3HoHbSHTHFAeChekF1xKJdleo="crossorigin="anonymous"
+                defer
+                >
+            </script><script 
+                src="https://cdn.jsdelivr.net/npm/photoswipe@4.1.3/dist/photoswipe-ui-default.min.js"integrity="sha256-UKkzOn/w1mBxRmLLGrSeyB4e1xbrp4xylgAWb3M42pU="crossorigin="anonymous"
+                defer
+                >
+            </script><link 
+                rel="stylesheet" 
+                href="https://cdn.jsdelivr.net/npm/photoswipe@4.1.3/dist/default-skin/default-skin.min.css"crossorigin="anonymous"
+            ><link 
+                rel="stylesheet" 
+                href="https://cdn.jsdelivr.net/npm/photoswipe@4.1.3/dist/photoswipe.min.css"crossorigin="anonymous"
+            >
+    
+
+            </main>
+        </div>
+        <script 
+                src="https://cdn.jsdelivr.net/npm/node-vibrant@3.1.6/dist/vibrant.min.js"integrity="sha256-awcR2jno4kI5X0zL8ex0vi2z&#43;KMkF24hUW8WePSA9HM="crossorigin="anonymous"
+                
+                >
+            </script><script type="text/javascript" src="/ts/main.c922af694cc257bf1ecc41c0dd7b0430f9114ec280ccf67cd2c6ad55f5316c4e.js" defer></script>
+<script>
+    (function () {
+        const customFont = document.createElement('link');
+        customFont.href = "https://fonts.googleapis.com/css2?family=Lato:wght@300;400;700&display=swap";
+
+        customFont.type = "text/css";
+        customFont.rel = "stylesheet";
+
+        document.head.appendChild(customFont);
+    }());
+</script>
+
+    </body>
+</html>

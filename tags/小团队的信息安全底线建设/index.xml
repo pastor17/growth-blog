@@ -1,0 +1,137 @@
+<?xml version="1.0" encoding="utf-8" standalone="yes"?>
+<rss version="2.0" xmlns:atom="http://www.w3.org/2005/Atom">
+    <channel>
+        <title>小团队的信息安全底线建设 on SelfTechHub</title>
+        <link>https://blog.irudder.me/tags/%E5%B0%8F%E5%9B%A2%E9%98%9F%E7%9A%84%E4%BF%A1%E6%81%AF%E5%AE%89%E5%85%A8%E5%BA%95%E7%BA%BF%E5%BB%BA%E8%AE%BE.html</link>
+        <description>Recent content in 小团队的信息安全底线建设 on SelfTechHub</description>
+        <generator>Hugo -- gohugo.io</generator>
+        <language>zh-cn</language>
+        <lastBuildDate>Tue, 21 Jan 2020 00:00:00 +0000</lastBuildDate><atom:link href="https://blog.irudder.me/tags/%E5%B0%8F%E5%9B%A2%E9%98%9F%E7%9A%84%E4%BF%A1%E6%81%AF%E5%AE%89%E5%85%A8%E5%BA%95%E7%BA%BF%E5%BB%BA%E8%AE%BE/index.xml" rel="self" type="application/rss+xml" /><item>
+        <title>裸奔三年，那次“删库惊魂”逼出的安全底线</title>
+        <link>https://blog.irudder.me/tech/zhongxiaoxingtuanduidevopsluodifangan/xiaotuanduidexinxianquandixianjianshe.html</link>
+        <pubDate>Tue, 21 Jan 2020 00:00:00 +0000</pubDate>
+        
+        <guid>https://blog.irudder.me/tech/zhongxiaoxingtuanduidevopsluodifangan/xiaotuanduidexinxianquandixianjianshe.html</guid>
+        <description>&lt;p&gt;很多初创团队的技术负责人（包括当年的我）都有一个根深蒂固的误区：“我们要快，安全是富贵病，等做大了再说。”&lt;/p&gt;
+&lt;p&gt;直到2019年那个周五的下午，我正准备收拾东西过周末，监控群突然炸了。不是流量激增的喜讯，而是核心数据库被删除了。那一刻，背后的冷汗瞬间浸透了衬衫。原因令人啼笑皆非：一名实习生为了测试本地脚本，把生产环境的数据库地址当成了测试环境配置了进去，而他手里，竟然拥有全量的读写权限。&lt;/p&gt;
+&lt;p&gt;这次事故导致业务停摆了整整6个小时，我们三个合伙人轮流给客户打电话赔罪。从那以后，我彻底戒掉了“裸奔”的习惯。&lt;/p&gt;
+&lt;p&gt;在这几年的技术管理复盘中，我发现小团队做安全，最忌讳照搬大厂那套复杂的流程。我们需要的是&lt;strong&gt;低成本、低摩擦、不阻碍发布速度&lt;/strong&gt;的“底线建设”。&lt;/p&gt;
+&lt;p&gt;以下是我用惨痛教训换来的三个关键防线。&lt;/p&gt;
+&lt;h2 id=&#34;权限管理告别一把钥匙开万把锁&#34;&gt;权限管理：告别“一把钥匙开万把锁”
+&lt;/h2&gt;&lt;p&gt;在很长一段时间里，为了图省事，我们团队5个后端开发共用一个 &lt;code&gt;root&lt;/code&gt; 账号，服务器 PEM 密钥文件直接在钉钉群里传来传去。这看似高效，实则是悬在头顶的达摩克利斯之剑。&lt;/p&gt;
+&lt;p&gt;&lt;strong&gt;观点：&lt;/strong&gt;
+人的不可靠性是安全最大的漏洞。&lt;strong&gt;权限收敛不是不信任队友，而是保护队友。&lt;/strong&gt; 当每个人都有“核按钮”时，谁都有可能成为那个无意中毁灭世界的人。&lt;/p&gt;
+&lt;p&gt;&lt;strong&gt;真实案例：&lt;/strong&gt;
+就在那次“删库惊魂”后，我并没有立刻买昂贵的堡垒机。因为对于只有十几台服务器的我们来说，商业堡垒机动辄几万的年费太贵了。但我做了一个决定：回收所有人的直连权限。&lt;/p&gt;
+&lt;p&gt;&lt;strong&gt;落地方法：&lt;/strong&gt;
+我们采用了一套“穷人版”零信任方案，这套方案我现在依然在用：&lt;/p&gt;
+&lt;ol&gt;
+&lt;li&gt;&lt;strong&gt;物理隔离&lt;/strong&gt;：搭建一个 OpenVPN 服务（现在的 WireGuard 更轻量），只允许内网 IP 访问 SSH 端口和数据库端口。这一步直接挡住了99%的公网扫描。&lt;/li&gt;
+&lt;li&gt;&lt;strong&gt;开源堡垒机&lt;/strong&gt;：我们部署了开源版的 JumpServer。它不仅免费，而且支持录屏审计。&lt;/li&gt;
+&lt;li&gt;&lt;strong&gt;账号实名化&lt;/strong&gt;：给每个开发人员分配独立的账号。
+&lt;ul&gt;
+&lt;li&gt;普通开发：只读权限（Read-Only）。&lt;/li&gt;
+&lt;li&gt;资深开发/运维：只在申请窗口期内开放写权限（Write）。&lt;/li&gt;
+&lt;/ul&gt;
+&lt;/li&gt;
+&lt;/ol&gt;
+&lt;blockquote&gt;
+&lt;p&gt;你有没有发现，团队里经常出现“谁动了我的配置”这种罗生门？实施账号隔离后，这类扯皮瞬间消失了。&lt;/p&gt;
+&lt;/blockquote&gt;
+&lt;h2 id=&#34;代码安全别把家底写在代码里&#34;&gt;代码安全：别把“家底”写在代码里
+&lt;/h2&gt;&lt;p&gt;很多小团队的代码仓库，简直就是黑客的“藏宝图”。&lt;/p&gt;
+&lt;p&gt;&lt;strong&gt;观点：&lt;/strong&gt;
+代码仓库（Git）是用来存逻辑的，绝对不是用来存密码、密钥（AK/SK）或私钥的。代码一旦泄漏（比如误把私有库设为公开，或离职员工带走源码），硬编码的密钥就是给黑客递上的“万能钥匙”。&lt;/p&gt;
+&lt;p&gt;&lt;strong&gt;真实案例：&lt;/strong&gt;
+2021年，我的一位朋友公司遭遇勒索病毒，勒索信里附上了他们阿里云的 AccessKey。排查发现，是一个离职半年的前端在 GitHub 上开源了自己的练习项目，里面无意中包含了一个测试用的配置文件，而这个文件里竟然硬编码了生产环境的 OSS 上传密钥。&lt;/p&gt;
+&lt;p&gt;&lt;strong&gt;落地方法：&lt;/strong&gt;
+这是 DevOps 从 0 到 1 建设中最容易落地的一环：&lt;strong&gt;配置与代码分离&lt;/strong&gt;。&lt;/p&gt;
+&lt;ol&gt;
+&lt;li&gt;&lt;strong&gt;环境变量化&lt;/strong&gt;：遵循 &amp;ldquo;12-Factor App&amp;rdquo; 原则，所有敏感信息（DB密码、API Key）全部改为从环境变量读取，代码中只保留 &lt;code&gt;os.getenv(&#39;DB_PASSWORD&#39;)&lt;/code&gt;。&lt;/li&gt;
+&lt;li&gt;&lt;strong&gt;CI/CD 注入&lt;/strong&gt;：利用 GitLab CI 或 GitHub Actions 的 &amp;ldquo;Secrets&amp;rdquo; 功能。
+&lt;ul&gt;
+&lt;li&gt;在 GitLab 中：&lt;code&gt;Settings&lt;/code&gt; -&amp;gt; &lt;code&gt;CI/CD&lt;/code&gt; -&amp;gt; &lt;code&gt;Variables&lt;/code&gt;。&lt;/li&gt;
+&lt;li&gt;将密码填入后，CI 跑流水线时会自动注入，且日志中会自动由 &lt;code&gt;******&lt;/code&gt; 掩盖，开发人员根本接触不到明文密码。&lt;/li&gt;
+&lt;/ul&gt;
+&lt;/li&gt;
+&lt;/ol&gt;
+&lt;div class=&#34;highlight&#34;&gt;&lt;pre tabindex=&#34;0&#34; style=&#34;color:#f8f8f2;background-color:#272822;-moz-tab-size:4;-o-tab-size:4;tab-size:4;&#34;&gt;&lt;code class=&#34;language-python&#34; data-lang=&#34;python&#34;&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;&lt;span style=&#34;color:#75715e&#34;&gt;# 错误示范 (Don&amp;#39;t do this)&lt;/span&gt;
+&lt;/span&gt;&lt;/span&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;db_config &lt;span style=&#34;color:#f92672&#34;&gt;=&lt;/span&gt; {
+&lt;/span&gt;&lt;/span&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;    &lt;span style=&#34;color:#e6db74&#34;&gt;&amp;#34;host&amp;#34;&lt;/span&gt;: &lt;span style=&#34;color:#e6db74&#34;&gt;&amp;#34;192.168.1.10&amp;#34;&lt;/span&gt;,
+&lt;/span&gt;&lt;/span&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;    &lt;span style=&#34;color:#e6db74&#34;&gt;&amp;#34;password&amp;#34;&lt;/span&gt;: &lt;span style=&#34;color:#e6db74&#34;&gt;&amp;#34;MySuperSecretPassword123&amp;#34;&lt;/span&gt; 
+&lt;/span&gt;&lt;/span&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;}
+&lt;/span&gt;&lt;/span&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;
+&lt;/span&gt;&lt;/span&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;&lt;span style=&#34;color:#75715e&#34;&gt;# 正确姿势 (Do this)&lt;/span&gt;
+&lt;/span&gt;&lt;/span&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;&lt;span style=&#34;color:#f92672&#34;&gt;import&lt;/span&gt; os
+&lt;/span&gt;&lt;/span&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;db_config &lt;span style=&#34;color:#f92672&#34;&gt;=&lt;/span&gt; {
+&lt;/span&gt;&lt;/span&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;    &lt;span style=&#34;color:#e6db74&#34;&gt;&amp;#34;host&amp;#34;&lt;/span&gt;: os&lt;span style=&#34;color:#f92672&#34;&gt;.&lt;/span&gt;getenv(&lt;span style=&#34;color:#e6db74&#34;&gt;&amp;#34;DB_HOST&amp;#34;&lt;/span&gt;),
+&lt;/span&gt;&lt;/span&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;    &lt;span style=&#34;color:#e6db74&#34;&gt;&amp;#34;password&amp;#34;&lt;/span&gt;: os&lt;span style=&#34;color:#f92672&#34;&gt;.&lt;/span&gt;getenv(&lt;span style=&#34;color:#e6db74&#34;&gt;&amp;#34;DB_PASSWORD&amp;#34;&lt;/span&gt;)
+&lt;/span&gt;&lt;/span&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;}
+&lt;/span&gt;&lt;/span&gt;&lt;/code&gt;&lt;/pre&gt;&lt;/div&gt;&lt;p&gt;有个小细节我坚持了两年：&lt;strong&gt;每周五下午&lt;/strong&gt; review 代码合并请求时，我会专门用关键词（如 &lt;code&gt;key&lt;/code&gt;, &lt;code&gt;token&lt;/code&gt;, &lt;code&gt;password&lt;/code&gt;）全局搜索一下当周的代码变更，这花不了5分钟，但至少拦截过3次实习生提交明文密码的行为。&lt;/p&gt;
+&lt;h2 id=&#34;供应链安全免费的守门员&#34;&gt;供应链安全：免费的“守门员”
+&lt;/h2&gt;&lt;p&gt;对于没有专职安全运维的小团队，我们最大的风险往往来自于“引用”。你写的代码可能没问题，但你引用的 &lt;code&gt;npm&lt;/code&gt; 包或者 &lt;code&gt;docker&lt;/code&gt; 镜像可能早就被挂马了。&lt;/p&gt;
+&lt;p&gt;&lt;strong&gt;观点：&lt;/strong&gt;
+既然雇不起年薪百万的安全专家，那就让机器替我们打工。在 DevOps 流水线中嵌入自动扫描，是性价比最高的安全投资。&lt;/p&gt;
+&lt;p&gt;&lt;strong&gt;真实案例：&lt;/strong&gt;
+Log4j2 漏洞爆发那段时间，很多大公司连夜加班修补。而我们当时因为在流水线里集成了自动化扫描工具，早在漏洞公布的第二天早上，CI 系统就阻断了包含漏洞版本的构建任务，并给对应的开发发了邮件。我们没有经历通宵救火的慌乱，只是简单升级了依赖版本就搞定了。&lt;/p&gt;
+&lt;p&gt;&lt;img src=&#34;https://picsum.photos/800/450?random=1768389613740&#34;
+	
+	
+	
+	loading=&#34;lazy&#34;
+	
+		alt=&#34;配图&#34;
+	
+	
+&gt;&lt;/p&gt;
+&lt;p&gt;&lt;strong&gt;落地方法：&lt;/strong&gt;
+不需要采购昂贵的商业扫描器，开源工具完全够用：&lt;/p&gt;
+&lt;p&gt;&lt;img src=&#34;https://picsum.photos/800/450?random=1768389613308&#34;
+	
+	
+	
+	loading=&#34;lazy&#34;
+	
+		alt=&#34;配图&#34;
+	
+	
+&gt;&lt;/p&gt;
+&lt;ol&gt;
+&lt;li&gt;&lt;strong&gt;代码依赖扫描&lt;/strong&gt;：
+&lt;ul&gt;
+&lt;li&gt;如果你用 GitHub，直接开启 Dependabot。&lt;/li&gt;
+&lt;li&gt;如果你用 GitLab，可以在 &lt;code&gt;.gitlab-ci.yml&lt;/code&gt; 中加入 Trivy 扫描步骤。&lt;/li&gt;
+&lt;/ul&gt;
+&lt;/li&gt;
+&lt;li&gt;&lt;strong&gt;镜像扫描&lt;/strong&gt;：
+&lt;ul&gt;
+&lt;li&gt;在 Docker 镜像构建完成后，运行 Trivy 扫描镜像漏洞。&lt;/li&gt;
+&lt;/ul&gt;
+&lt;/li&gt;
+&lt;/ol&gt;
+&lt;div class=&#34;highlight&#34;&gt;&lt;pre tabindex=&#34;0&#34; style=&#34;color:#f8f8f2;background-color:#272822;-moz-tab-size:4;-o-tab-size:4;tab-size:4;&#34;&gt;&lt;code class=&#34;language-yaml&#34; data-lang=&#34;yaml&#34;&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;&lt;span style=&#34;color:#75715e&#34;&gt;# GitLab CI 示例片段：集成 Trivy 扫描&lt;/span&gt;
+&lt;/span&gt;&lt;/span&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;&lt;span style=&#34;color:#f92672&#34;&gt;security_scan&lt;/span&gt;:
+&lt;/span&gt;&lt;/span&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;  &lt;span style=&#34;color:#f92672&#34;&gt;stage&lt;/span&gt;: &lt;span style=&#34;color:#ae81ff&#34;&gt;test&lt;/span&gt;
+&lt;/span&gt;&lt;/span&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;  &lt;span style=&#34;color:#f92672&#34;&gt;image&lt;/span&gt;: 
+&lt;/span&gt;&lt;/span&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;    &lt;span style=&#34;color:#f92672&#34;&gt;name&lt;/span&gt;: &lt;span style=&#34;color:#ae81ff&#34;&gt;aquasec/trivy:latest&lt;/span&gt;
+&lt;/span&gt;&lt;/span&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;    &lt;span style=&#34;color:#f92672&#34;&gt;entrypoint&lt;/span&gt;: [&lt;span style=&#34;color:#e6db74&#34;&gt;&amp;#34;&amp;#34;&lt;/span&gt;]
+&lt;/span&gt;&lt;/span&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;  &lt;span style=&#34;color:#f92672&#34;&gt;script&lt;/span&gt;:
+&lt;/span&gt;&lt;/span&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;    - &lt;span style=&#34;color:#ae81ff&#34;&gt;trivy filesystem --exit-code 1 --severity HIGH,CRITICAL .&lt;/span&gt;
+&lt;/span&gt;&lt;/span&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;  &lt;span style=&#34;color:#f92672&#34;&gt;allow_failure&lt;/span&gt;: &lt;span style=&#34;color:#66d9ef&#34;&gt;true&lt;/span&gt; &lt;span style=&#34;color:#75715e&#34;&gt;# 刚开始建议设为true，避免阻塞发布，后期再强制阻断&lt;/span&gt;
+&lt;/span&gt;&lt;/span&gt;&lt;/code&gt;&lt;/pre&gt;&lt;/div&gt;&lt;p&gt;建议尝试一下：现在就去跑一下 Trivy 扫描你的主干分支，大概率你会发现十几个 &lt;code&gt;HIGH&lt;/code&gt; 级别的漏洞。别慌，先修补那些有现成 Fix 版本的。&lt;/p&gt;
+&lt;h2 id=&#34;结语&#34;&gt;结语
+&lt;/h2&gt;&lt;p&gt;回顾这几年的“填坑”之路，我深刻意识到：&lt;strong&gt;小团队的安全建设，不是为了追求“绝对安全”，而是为了提高攻击者的“成本”。&lt;/strong&gt;&lt;/p&gt;
+&lt;p&gt;只要我们做到了以上三点基础底线——收敛权限、隐藏密钥、自动扫描，我们就已经超过了市面上 80% 的中小团队。&lt;/p&gt;
+&lt;p&gt;&lt;strong&gt;最后，留给大家一个小思考：&lt;/strong&gt;
+如果此刻，你公司的核心数据库突然被物理删除了，你多久能通过备份恢复业务？是 1 小时，还是 1 天，还是“根本没验证过备份文件能不能用”？&lt;/p&gt;
+&lt;p&gt;&lt;strong&gt;建议立刻采取的 3 个行动：&lt;/strong&gt;&lt;/p&gt;
+&lt;ol&gt;
+&lt;li&gt;&lt;strong&gt;盘点账号&lt;/strong&gt;：明天上班第一件事，检查服务器和数据库的所有账号，删除离职人员账号，收回非必要的 &lt;code&gt;Write&lt;/code&gt; 权限。&lt;/li&gt;
+&lt;li&gt;&lt;strong&gt;搜索明文&lt;/strong&gt;：在你的代码仓库里全局搜索 &lt;code&gt;password&lt;/code&gt;、&lt;code&gt;secret&lt;/code&gt;、&lt;code&gt;key&lt;/code&gt;，发现硬编码立刻整改。&lt;/li&gt;
+&lt;li&gt;&lt;strong&gt;验证备份&lt;/strong&gt;：找一台测试机，真的去下载昨晚的数据库备份文件，尝试恢复一次。&lt;strong&gt;未经验证的备份 = 没有备份。&lt;/strong&gt;&lt;/li&gt;
+&lt;/ol&gt;
+</description>
+        </item>
+        
+    </channel>
+</rss>

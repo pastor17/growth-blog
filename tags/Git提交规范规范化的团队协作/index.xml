@@ -1,0 +1,118 @@
+<?xml version="1.0" encoding="utf-8" standalone="yes"?>
+<rss version="2.0" xmlns:atom="http://www.w3.org/2005/Atom">
+    <channel>
+        <title>Git提交规范：规范化的团队协作 on SelfTechHub</title>
+        <link>https://blog.irudder.me/tags/Git%E6%8F%90%E4%BA%A4%E8%A7%84%E8%8C%83%E8%A7%84%E8%8C%83%E5%8C%96%E7%9A%84%E5%9B%A2%E9%98%9F%E5%8D%8F%E4%BD%9C.html</link>
+        <description>Recent content in Git提交规范：规范化的团队协作 on SelfTechHub</description>
+        <generator>Hugo -- gohugo.io</generator>
+        <language>zh-cn</language>
+        <lastBuildDate>Sun, 18 Jul 2021 00:00:00 +0000</lastBuildDate><atom:link href="https://blog.irudder.me/tags/Git%E6%8F%90%E4%BA%A4%E8%A7%84%E8%8C%83%E8%A7%84%E8%8C%83%E5%8C%96%E7%9A%84%E5%9B%A2%E9%98%9F%E5%8D%8F%E4%BD%9C/index.xml" rel="self" type="application/rss+xml" /><item>
+        <title>拒绝“fix bug”刷屏！3招让团队Git提交规范化</title>
+        <link>https://blog.irudder.me/tech/devopsjichugongjurumenyushicao/gittijiaoguifan_guifanhuadetuanduixiezuo.html</link>
+        <pubDate>Sun, 18 Jul 2021 00:00:00 +0000</pubDate>
+        
+        <guid>https://blog.irudder.me/tech/devopsjichugongjurumenyushicao/gittijiaoguifan_guifanhuadetuanduixiezuo.html</guid>
+        <description>&lt;p&gt;你有没有经历过这种绝望时刻：&lt;/p&gt;
+&lt;p&gt;周五临下班，线上环境突然报了个莫名其妙的错。你火急火燎地打开 Git Log，想看看最近谁动了核心代码，结果映入眼帘的是一整屏的：&lt;/p&gt;
+&lt;blockquote&gt;
+&lt;p&gt;update
+fix bug
+fix again
+temp
+.&lt;/p&gt;
+&lt;/blockquote&gt;
+&lt;p&gt;那一刻，真的想顺着网线过去掐人。&lt;/p&gt;
+&lt;p&gt;我曾经也觉得，写代码才是正经事，Commit Message（提交信息）随便写写得了，只要自己能看懂就行。直到两年前，我带的一个三人小项目因为一次“回滚灾难”彻底教我做人：我们不仅回滚错了版本，还因为代码冲突覆盖了别的同事刚修好的逻辑，直接导致加班到凌晨三点。&lt;/p&gt;
+&lt;p&gt;从那以后，我成了团队里的“Git 洁癖”患者。&lt;/p&gt;
+&lt;p&gt;今天不讲大道理，就聊聊我亲测有效的几个“土方子”，怎么在不增加大家工作负担的前提下，把 Git 提交规范这事儿给彻底落地。&lt;/p&gt;
+&lt;h2 id=&#34;一-别让-log-变成天书统一暗号&#34;&gt;一、 别让 Log 变成天书：统一“暗号”
+&lt;/h2&gt;&lt;p&gt;很多中小团队最大的痛点不是不懂技术，而是**“方言”太多**。&lt;/p&gt;
+&lt;p&gt;张三喜欢用 &lt;code&gt;[增加]&lt;/code&gt;，李四喜欢用 &lt;code&gt;Add:&lt;/code&gt;，王五干脆只写 &lt;code&gt;update&lt;/code&gt;。这种混乱在平时还没事，一旦需要 Review 代码或者排查问题，效率极低。&lt;/p&gt;
+&lt;p&gt;我当时的做法是，直接照搬业界最成熟的 &lt;strong&gt;Angular 规范&lt;/strong&gt;，但做了简化。没必要搞几十种类型，对于我们这种十来人的技术团队，只要记住这 5 个关键词就够了：&lt;/p&gt;
+&lt;ul&gt;
+&lt;li&gt;&lt;strong&gt;feat&lt;/strong&gt;: 新功能（feature）&lt;/li&gt;
+&lt;li&gt;&lt;strong&gt;fix&lt;/strong&gt;: 修补 bug&lt;/li&gt;
+&lt;li&gt;&lt;strong&gt;docs&lt;/strong&gt;: 仅文档变动&lt;/li&gt;
+&lt;li&gt;&lt;strong&gt;style&lt;/strong&gt;: 格式（不影响代码运行的变动）&lt;/li&gt;
+&lt;li&gt;&lt;strong&gt;refactor&lt;/strong&gt;: 重构（即不是新增功能，也不是修改 bug 的代码变动）&lt;/li&gt;
+&lt;/ul&gt;
+&lt;p&gt;&lt;strong&gt;真实案例：&lt;/strong&gt;&lt;/p&gt;
+&lt;p&gt;我们组有个实习生小林，刚来的时候提交代码特别随意。有一次通过 &lt;code&gt;git blame&lt;/code&gt; 查到一段有问题的代码是他写的，但我问他为什么这么改，他看着自己写的 &lt;code&gt;fix error&lt;/code&gt; 也懵了，完全想不起来当时的场景。&lt;/p&gt;
+&lt;p&gt;后来我们强制要求格式为：&lt;code&gt;type(scope): subject&lt;/code&gt;。&lt;/p&gt;
+&lt;p&gt;比如：&lt;code&gt;fix(用户登录): 修复手机号正则校验错误的bug&lt;/code&gt;。&lt;/p&gt;
+&lt;p&gt;两个月后，我们在做季度复盘时，都不用专门去翻文档，直接看 Git 提交记录，就能清晰地知道这个季度修复了多少个登录模块的 bug，上线了多少个支付相关的功能。数据摆在那里，老板看得也开心。&lt;/p&gt;
+&lt;h2 id=&#34;二-靠人不如靠工具把规范硬编码&#34;&gt;二、 靠人不如靠工具：把规范“硬编码”
+&lt;/h2&gt;&lt;p&gt;&lt;img src=&#34;https://picsum.photos/800/450?random=1768388713715&#34;
+	
+	
+	
+	loading=&#34;lazy&#34;
+	
+		alt=&#34;配图&#34;
+	
+	
+&gt;&lt;/p&gt;
+&lt;p&gt;靠嘴巴喊“大家注意规范啊”，大概率是没用的。&lt;/p&gt;
+&lt;p&gt;人性本懒，忙起来谁还管格式？我以前每周五下午都会花半小时检查代码库，发现不规范就在群里吼一声，结果大家觉得我这人特事儿妈，我自己也累。&lt;/p&gt;
+&lt;p&gt;后来我学乖了，&lt;strong&gt;把规范交给工具去拦截&lt;/strong&gt;。&lt;/p&gt;
+&lt;p&gt;如果你是前端或 Node.js 项目，强烈推荐 &lt;strong&gt;Commitizen&lt;/strong&gt; + &lt;strong&gt;Husky&lt;/strong&gt; 这一套组合拳；如果是 Java 或 Go 项目，也有对应的 Git Hooks 方案。&lt;/p&gt;
+&lt;p&gt;&lt;strong&gt;实操步骤（以前端为例）：&lt;/strong&gt;&lt;/p&gt;
+&lt;ol&gt;
+&lt;li&gt;
+&lt;p&gt;&lt;strong&gt;Commitizen&lt;/strong&gt;：这是一个命令行工具，它会像填问卷一样引导你提交代码。你不需要手敲 &lt;code&gt;feat: ...&lt;/code&gt;，它会给你选项让你选。&lt;/p&gt;
+&lt;/li&gt;
+&lt;li&gt;
+&lt;p&gt;&lt;strong&gt;Husky + Commitlint&lt;/strong&gt;：这是守门员。当你在终端输入 &lt;code&gt;git commit&lt;/code&gt; 时，Husky 会触发钩子，Commitlint 会检查你的输入格式。&lt;/p&gt;
+&lt;/li&gt;
+&lt;/ol&gt;
+&lt;p&gt;在 &lt;code&gt;package.json&lt;/code&gt; 里配置好之后，效果是这样的：&lt;/p&gt;
+&lt;div class=&#34;highlight&#34;&gt;&lt;pre tabindex=&#34;0&#34; style=&#34;color:#f8f8f2;background-color:#272822;-moz-tab-size:4;-o-tab-size:4;tab-size:4;&#34;&gt;&lt;code class=&#34;language-json&#34; data-lang=&#34;json&#34;&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;&lt;span style=&#34;color:#e6db74&#34;&gt;&amp;#34;husky&amp;#34;&lt;/span&gt;&lt;span style=&#34;color:#960050;background-color:#1e0010&#34;&gt;:&lt;/span&gt; {
+&lt;/span&gt;&lt;/span&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;  &lt;span style=&#34;color:#f92672&#34;&gt;&amp;#34;hooks&amp;#34;&lt;/span&gt;: {
+&lt;/span&gt;&lt;/span&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;    &lt;span style=&#34;color:#f92672&#34;&gt;&amp;#34;commit-msg&amp;#34;&lt;/span&gt;: &lt;span style=&#34;color:#e6db74&#34;&gt;&amp;#34;commitlint -E HUSKY_GIT_PARAMS&amp;#34;&lt;/span&gt;
+&lt;/span&gt;&lt;/span&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;  }
+&lt;/span&gt;&lt;/span&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;}
+&lt;/span&gt;&lt;/span&gt;&lt;/code&gt;&lt;/pre&gt;&lt;/div&gt;&lt;p&gt;如果有人试图提交一个叫 &lt;code&gt;haha&lt;/code&gt; 的 Commit，终端会直接报错，拒绝提交，并提示正确的格式。&lt;/p&gt;
+&lt;p&gt;&lt;strong&gt;落地效果：&lt;/strong&gt;&lt;/p&gt;
+&lt;p&gt;这套机制上线第一周，群里骂声一片，大家都说“太麻烦了”。但我顶住了压力，没松口。&lt;/p&gt;
+&lt;p&gt;到了第二周，大家习惯了这种“填空题”式的提交方式，反而觉得不用绞尽脑汁想文案了。现在，哪怕是新入职的同事，只要拉下代码，都不用我教，工具会教他怎么做人。&lt;/p&gt;
+&lt;h2 id=&#34;三-意外的红利自动生成-changelog&#34;&gt;三、 意外的红利：自动生成 Changelog
+&lt;/h2&gt;&lt;p&gt;当你把前两步做好了，你会发现一个巨大的隐藏彩蛋：&lt;strong&gt;写周报和更新日志（Changelog）变得极其简单。&lt;/strong&gt;&lt;/p&gt;
+&lt;p&gt;以前每次发版，我都要痛苦地回忆过去两周到底干了啥，或者去翻那堆乱七八糟的 Commit 记录，手动摘抄。&lt;/p&gt;
+&lt;p&gt;&lt;img src=&#34;https://picsum.photos/800/450?random=1768388718032&#34;
+	
+	
+	
+	loading=&#34;lazy&#34;
+	
+		alt=&#34;配图&#34;
+	
+	
+&gt;&lt;/p&gt;
+&lt;p&gt;现在，因为我们的 Commit 都是规范的（机器可读的），我配置了 &lt;code&gt;standard-version&lt;/code&gt; 工具。&lt;/p&gt;
+&lt;p&gt;&lt;strong&gt;我现在的发版流程是这样的：&lt;/strong&gt;&lt;/p&gt;
+&lt;p&gt;我在终端输入一行命令：&lt;/p&gt;
+&lt;div class=&#34;highlight&#34;&gt;&lt;pre tabindex=&#34;0&#34; style=&#34;color:#f8f8f2;background-color:#272822;-moz-tab-size:4;-o-tab-size:4;tab-size:4;&#34;&gt;&lt;code class=&#34;language-bash&#34; data-lang=&#34;bash&#34;&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;npm run release
+&lt;/span&gt;&lt;/span&gt;&lt;/code&gt;&lt;/pre&gt;&lt;/div&gt;&lt;p&gt;系统会自动做以下事情：&lt;/p&gt;
+&lt;ol&gt;
+&lt;li&gt;抓取上个版本到现在的 log；&lt;/li&gt;
+&lt;li&gt;过滤出 &lt;code&gt;feat&lt;/code&gt; 和 &lt;code&gt;fix&lt;/code&gt;；&lt;/li&gt;
+&lt;li&gt;自动生成 &lt;code&gt;CHANGELOG.md&lt;/code&gt; 文件，分门别类地列好新增功能和修复的 Bug；&lt;/li&gt;
+&lt;li&gt;自动打上 Git Tag（版本号）。&lt;/li&gt;
+&lt;/ol&gt;
+&lt;p&gt;整个过程不到 10 秒钟。&lt;/p&gt;
+&lt;p&gt;有一次给客户交付项目，对方技术负责人看到我们在 README 里维护得整整齐齐的 Changelog，直接夸我们“专业”。其实天知道，那都是脚本自动生成的。&lt;/p&gt;
+&lt;h2 id=&#34;总结与行动指南&#34;&gt;总结与行动指南
+&lt;/h2&gt;&lt;p&gt;规范化提交，初看是束缚，长远看是自由。它让我们从无意义的“猜代码”和“手动文档”中解放出来，把精力花在真正有价值的业务逻辑上。&lt;/p&gt;
+&lt;p&gt;如果你想在团队里落地这套东西，千万别试图一步到位。我建议的&lt;strong&gt;落地三部曲&lt;/strong&gt;是：&lt;/p&gt;
+&lt;ol&gt;
+&lt;li&gt;&lt;strong&gt;先共识&lt;/strong&gt;：本周开会，拉上核心开发，定下最简单的 3-5 个 Tag（feat/fix 等），打印出来贴在工位旁；&lt;/li&gt;
+&lt;li&gt;&lt;strong&gt;后工具&lt;/strong&gt;：找个不忙的下午，在开发分支引入 Husky，先跑通流程，不要急着推到主分支；&lt;/li&gt;
+&lt;li&gt;&lt;strong&gt;尝甜头&lt;/strong&gt;：在一个小版本发布时，用工具自动生成一份漂亮的 Changelog 发给团队看，让大家看到规范带来的直接好处。&lt;/li&gt;
+&lt;/ol&gt;
+&lt;p&gt;&lt;strong&gt;最后，留个话题：&lt;/strong&gt;&lt;/p&gt;
+&lt;p&gt;在你的职业生涯中，见过最奇葩的 Git 提交信息是什么？（我见过最离谱的是有人写了中午的菜单&amp;hellip;）欢迎在评论区聊聊你的遭遇。&lt;/p&gt;
+</description>
+        </item>
+        
+    </channel>
+</rss>

@@ -1,0 +1,119 @@
+<?xml version="1.0" encoding="utf-8" standalone="yes"?>
+<rss version="2.0" xmlns:atom="http://www.w3.org/2005/Atom">
+    <channel>
+        <title>架构设计的YAGNI原则：不要过度设计 on SelfTechHub</title>
+        <link>https://blog.irudder.me/tags/%E6%9E%B6%E6%9E%84%E8%AE%BE%E8%AE%A1%E7%9A%84YAGNI%E5%8E%9F%E5%88%99%E4%B8%8D%E8%A6%81%E8%BF%87%E5%BA%A6%E8%AE%BE%E8%AE%A1.html</link>
+        <description>Recent content in 架构设计的YAGNI原则：不要过度设计 on SelfTechHub</description>
+        <generator>Hugo -- gohugo.io</generator>
+        <language>zh-cn</language>
+        <lastBuildDate>Tue, 13 Oct 2020 00:00:00 +0000</lastBuildDate><atom:link href="https://blog.irudder.me/tags/%E6%9E%B6%E6%9E%84%E8%AE%BE%E8%AE%A1%E7%9A%84YAGNI%E5%8E%9F%E5%88%99%E4%B8%8D%E8%A6%81%E8%BF%87%E5%BA%A6%E8%AE%BE%E8%AE%A1/index.xml" rel="self" type="application/rss+xml" /><item>
+        <title>为了&#34;未来扩展&#34;我白烧半年预算：架构YAGNI实战复盘</title>
+        <link>https://blog.irudder.me/tech/zhongxiaoxingxiangmujiagoushejizhinan/jiagoushejideyagniyuanze_buyaoguodusheji.html</link>
+        <pubDate>Tue, 13 Oct 2020 00:00:00 +0000</pubDate>
+        
+        <guid>https://blog.irudder.me/tech/zhongxiaoxingxiangmujiagoushejizhinan/jiagoushejideyagniyuanze_buyaoguodusheji.html</guid>
+        <description>&lt;p&gt;2018年，我负责重构一家B轮电商公司的核心交易系统。当时团队斗志昂扬，我也急于证明技术实力，在设计文档里写满了&amp;quot;高并发&amp;quot;、&amp;ldquo;解耦&amp;rdquo;、&amp;ldquo;未来支撑千万级用户&amp;rdquo;。&lt;/p&gt;
+&lt;p&gt;为了所谓的&amp;quot;极致扩展性&amp;quot;，我们在没有一个真实用户下单前，就引入了全套微服务、分布式事务（Seata）、以及一套极其复杂的规则引擎。&lt;/p&gt;
+&lt;p&gt;结果呢？上线半年，日均订单量不到2000单。那套为&amp;quot;千万级用户&amp;quot;准备的架构，不仅每个月白白烧掉3万多的云服务器成本，更致命的是，每开发一个简单的&amp;quot;满减活动&amp;quot;，都需要跨越4个服务、修改3个代码库。团队疲于奔命，业务方怨声载道。&lt;/p&gt;
+&lt;p&gt;&lt;img src=&#34;https://picsum.photos/800/450?random=1768456657498&#34;
+	
+	
+	
+	loading=&#34;lazy&#34;
+	
+		alt=&#34;配图&#34;
+	
+	
+&gt;&lt;/p&gt;
+&lt;p&gt;这就是典型的**YAGNI（You Aren&amp;rsquo;t Gonna Need It - 你不需要它）**违例。&lt;/p&gt;
+&lt;p&gt;这几年做架构咨询，我发现不仅是我，80%的中小团队架构师都容易陷入&amp;quot;简历驱动开发&amp;quot;或&amp;quot;防御性设计&amp;quot;的误区。今天，我想结合这几次惨痛的教训，聊聊如何在架构设计中真正落地YAGNI原则。&lt;/p&gt;
+&lt;h2 id=&#34;一-别被微服务绑架模块化单体才是真香&#34;&gt;一、 别被&amp;quot;微服务&amp;quot;绑架，模块化单体才是真香
+&lt;/h2&gt;&lt;p&gt;很多技术负责人在项目初期，容易产生一种幻觉：不用微服务，架构就不够先进。&lt;/p&gt;
+&lt;p&gt;在那个电商项目中，我们团队只有6个后端开发，却拆出了用户、商品、订单、支付、营销等12个微服务。&lt;/p&gt;
+&lt;p&gt;&lt;strong&gt;真实痛点：&lt;/strong&gt;&lt;/p&gt;
+&lt;ul&gt;
+&lt;li&gt;&lt;strong&gt;排查困难：&lt;/strong&gt; 一个简单的报错，我要在ELK里搜集4个服务的日志才能拼凑出真相。&lt;/li&gt;
+&lt;li&gt;&lt;strong&gt;基建拖累：&lt;/strong&gt; 为了这套架构，我们不得不维护一套复杂的CI/CD流水线，每次全量部署需要40分钟。&lt;/li&gt;
+&lt;li&gt;&lt;strong&gt;数据一致性噩梦：&lt;/strong&gt; 分布式事务带来的复杂度，远超业务本身的逻辑复杂度。&lt;/li&gt;
+&lt;/ul&gt;
+&lt;p&gt;&lt;strong&gt;修正方案：&lt;/strong&gt;
+一年后，我们不得不进行&amp;quot;架构降级&amp;quot;。我并没有一步退回到大泥球（Big Ball of Mud），而是采用了&lt;strong&gt;模块化单体（Modular Monolith）&lt;/strong&gt;。&lt;/p&gt;
+&lt;p&gt;我们把12个服务合并回一个SpringBoot工程，但严格通过Maven Module进行物理隔离：&lt;/p&gt;
+&lt;div class=&#34;highlight&#34;&gt;&lt;pre tabindex=&#34;0&#34; style=&#34;color:#f8f8f2;background-color:#272822;-moz-tab-size:4;-o-tab-size:4;tab-size:4;&#34;&gt;&lt;code class=&#34;language-java&#34; data-lang=&#34;java&#34;&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;&lt;span style=&#34;color:#75715e&#34;&gt;// 错误示范：在单体里随意穿透&lt;/span&gt;
+&lt;/span&gt;&lt;/span&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;userService.&lt;span style=&#34;color:#a6e22e&#34;&gt;getUserById&lt;/span&gt;(id); &lt;span style=&#34;color:#75715e&#34;&gt;// 订单模块直接调用用户Service实现类&lt;/span&gt;
+&lt;/span&gt;&lt;/span&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;
+&lt;/span&gt;&lt;/span&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;&lt;span style=&#34;color:#75715e&#34;&gt;// 正确示范：模块化单体，通过明确的Public API交互&lt;/span&gt;
+&lt;/span&gt;&lt;/span&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;&lt;span style=&#34;color:#75715e&#34;&gt;// Order Module -&amp;gt; User Module API -&amp;gt; User Module Implementation&lt;/span&gt;
+&lt;/span&gt;&lt;/span&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;&lt;span style=&#34;color:#66d9ef&#34;&gt;public&lt;/span&gt; &lt;span style=&#34;color:#66d9ef&#34;&gt;interface&lt;/span&gt; &lt;span style=&#34;color:#a6e22e&#34;&gt;UserApi&lt;/span&gt; {
+&lt;/span&gt;&lt;/span&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;    UserDTO &lt;span style=&#34;color:#a6e22e&#34;&gt;getUserInfo&lt;/span&gt;(Long userId);
+&lt;/span&gt;&lt;/span&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;}
+&lt;/span&gt;&lt;/span&gt;&lt;/code&gt;&lt;/pre&gt;&lt;/div&gt;&lt;p&gt;&lt;strong&gt;结果：&lt;/strong&gt;
+合并后，部署时间缩短到5分钟，服务器成本下降了60%。更重要的是，因为都在一个进程内，方法调用代替了RPC网络调用，系统响应速度反而提升了。&lt;/p&gt;
+&lt;p&gt;&lt;strong&gt;给架构师的建议：&lt;/strong&gt;
+只有当你的团队规模超过&amp;quot;两个披萨&amp;quot;（约10-12人），或者某个模块需要独立的扩缩容策略（如秒杀模块）时，再考虑拆分微服务。在此之前，&lt;strong&gt;定义好边界比物理拆分更重要。&lt;/strong&gt;&lt;/p&gt;
+&lt;h2 id=&#34;二-警惕通用性陷阱拒绝过度抽象&#34;&gt;二、 警惕&amp;quot;通用性&amp;quot;陷阱，拒绝过度抽象
+&lt;/h2&gt;&lt;p&gt;我曾在代码评审中见过一位资深开发写的&amp;quot;通用报表导出引擎&amp;quot;。&lt;/p&gt;
+&lt;p&gt;起因是业务方提了两个Excel导出需求。这位兄弟觉得：&amp;ldquo;以后肯定还有几百个导出需求，不如写个通用的配置化引擎。&amp;rdquo;&lt;/p&gt;
+&lt;p&gt;他花了整整两周，设计了一套基于XML配置SQL、反射处理字段映射、甚至支持动态策略模式的框架。&lt;/p&gt;
+&lt;p&gt;&lt;strong&gt;现实打脸：&lt;/strong&gt;
+接下来的两年里，业务方统共只提了5个导出需求，而且每个需求都有极其怪异的定制逻辑（比如：某些行要标红，某些列要合并），那个&amp;quot;通用引擎&amp;quot;根本配置不出来，最后还得硬编码。&lt;/p&gt;
+&lt;p&gt;&lt;strong&gt;我的反思：&lt;/strong&gt;
+这便是为了&amp;quot;可能存在&amp;quot;的未来，牺牲了&amp;quot;当下确定&amp;quot;的效率。&lt;/p&gt;
+&lt;p&gt;我现在遵循&lt;strong&gt;Rule of Three（事不过三原则）&lt;/strong&gt;。在代码中，我允许适度的重复。&lt;/p&gt;
+&lt;ul&gt;
+&lt;li&gt;&lt;strong&gt;第一次：&lt;/strong&gt; 直接硬编码实现功能，越快越好。&lt;/li&gt;
+&lt;li&gt;&lt;strong&gt;第二次：&lt;/strong&gt; 复制粘贴代码，做少量修改。是的，你没看错，Ctrl+C/V在早期是最高效的解耦。&lt;/li&gt;
+&lt;li&gt;&lt;strong&gt;第三次：&lt;/strong&gt; 当我也在写第三块类似逻辑时，我才会停下来，寻找共性，进行重构和抽象。&lt;/li&gt;
+&lt;/ul&gt;
+&lt;blockquote&gt;
+&lt;p&gt;&amp;ldquo;过早的抽象是万恶之源。一段重复的代码容易修改，但一个错误的抽象很难被移除。&amp;rdquo;&lt;/p&gt;
+&lt;/blockquote&gt;
+&lt;p&gt;&lt;strong&gt;落地技巧：&lt;/strong&gt;
+下次当你听到团队里有人说&amp;quot;为了以后方便扩展，我加了一层&amp;hellip;&amp;ldquo;时，请让他停下来。除非他能拿出具体的、在这个迭代就会发生的扩展场景，否则请坚持&lt;strong&gt;简单直接&lt;/strong&gt;的实现。&lt;/p&gt;
+&lt;h2 id=&#34;三-别让技术选型成为运维灾难&#34;&gt;三、 别让&amp;quot;技术选型&amp;quot;成为运维灾难
+&lt;/h2&gt;&lt;p&gt;2020年，我接手过一个物联网（IoT）初创项目。前任架构师引入了Kafka、HBase、ClickHouse、Kubernetes全家桶。&lt;/p&gt;
+&lt;p&gt;但他忽略了一个关键事实：公司并没有专门的运维团队，甚至连一个专职DBA都没有。&lt;/p&gt;
+&lt;p&gt;&lt;strong&gt;真实场景：&lt;/strong&gt;
+某天深夜，线上系统突然崩了。原因是Zookeeper集群的一个节点磁盘满了，导致Kafka不可用，进而阻塞了整个业务流程。&lt;/p&gt;
+&lt;p&gt;因为团队里没人精通ZK和Kafka的底层原理，大家围着屏幕查了4个小时Google，最后只能暴力重启服务器。那晚我们损失了约20%的客户数据。&lt;/p&gt;
+&lt;p&gt;对于中小团队，&lt;strong&gt;&amp;ldquo;可运维性&amp;quot;远比&amp;quot;性能上限&amp;quot;重要&lt;/strong&gt;。&lt;/p&gt;
+&lt;p&gt;&lt;strong&gt;修正方案：&lt;/strong&gt;
+我们后来把Kafka换成了Redis List（对于当时的吞吐量完全够用），把HBase换成了MySQL（分表），虽然在理论性能上降级了，但系统的稳定性却大幅提升了。因为MySQL和Redis是每个开发都会用的组件，出了问题谁都能修。&lt;/p&gt;
+&lt;p&gt;&lt;strong&gt;架构决策卡：&lt;/strong&gt;
+每当我需要引入新技术栈时，我会强迫自己填写一张&amp;quot;引入理由卡&amp;rdquo;：&lt;/p&gt;
+&lt;ol&gt;
+&lt;li&gt;&lt;strong&gt;必须要解决的问题是什么？&lt;/strong&gt;&lt;/li&gt;
+&lt;li&gt;&lt;strong&gt;现有的技术栈真的解决不了吗？&lt;/strong&gt;&lt;/li&gt;
+&lt;li&gt;&lt;strong&gt;如果这个组件半夜挂了，团队里有几个人能修？&lt;/strong&gt;&lt;/li&gt;
+&lt;/ol&gt;
+&lt;p&gt;&lt;img src=&#34;https://picsum.photos/800/450?random=1768456663559&#34;
+	
+	
+	
+	loading=&#34;lazy&#34;
+	
+		alt=&#34;配图&#34;
+	
+	
+&gt;&lt;/p&gt;
+&lt;p&gt;如果第3题的答案少于2人，无论这个技术多牛，我都不会通过。&lt;/p&gt;
+&lt;h2 id=&#34;写在最后&#34;&gt;写在最后
+&lt;/h2&gt;&lt;p&gt;架构设计不是搭积木，而是一场关于资源的博弈。&lt;/p&gt;
+&lt;p&gt;YAGNI原则的核心，不是让你写烂代码，而是让你保持&lt;strong&gt;专注&lt;/strong&gt;。专注于解决当下的业务痛点，专注于让系统尽早交付价值，而不是为了感动自己去设计一座空中楼阁。&lt;/p&gt;
+&lt;p&gt;作为架构师，我们要有承认&amp;quot;我无法预测未来&amp;quot;的勇气。&lt;/p&gt;
+&lt;p&gt;&lt;strong&gt;互动时刻：&lt;/strong&gt;
+在你目前的系统中，有没有那种&amp;quot;设计得很精妙，但从来没被用过&amp;quot;的功能或代码？
+A. 有，而且很多，看着头疼。
+B. 没有，我们都是一把梭，全是硬编码（这可能是另一个极端）。&lt;/p&gt;
+&lt;p&gt;欢迎在评论区告诉我你的现状。&lt;/p&gt;
+&lt;p&gt;&lt;strong&gt;行动建议：&lt;/strong&gt;&lt;/p&gt;
+&lt;ol&gt;
+&lt;li&gt;&lt;strong&gt;本周五下午进行一次&amp;quot;代码扫除&amp;rdquo;：&lt;/strong&gt; 找出项目中那个最复杂的&amp;quot;通用工具类&amp;quot;或&amp;quot;中间件&amp;quot;，检查它的实际引用率。如果低于2处，标记为&amp;quot;待移除&amp;quot;。&lt;/li&gt;
+&lt;li&gt;&lt;strong&gt;建立&amp;quot;技术黑名单&amp;quot;：&lt;/strong&gt; 明确规定在当前阶段，哪些&amp;quot;高大上&amp;quot;的技术栈（如K8s、Service Mesh）严禁引入，直到业务量达到特定阈值。&lt;/li&gt;
+&lt;li&gt;&lt;strong&gt;拥抱Copy-Paste：&lt;/strong&gt; 在下一次Code Review中，不要急着批评重复代码，先问问：&amp;ldquo;如果把它抽象出来，维护成本会变低还是变高？&amp;rdquo;&lt;/li&gt;
+&lt;/ol&gt;
+</description>
+        </item>
+        
+    </channel>
+</rss>

@@ -1,0 +1,169 @@
+<?xml version="1.0" encoding="utf-8" standalone="yes"?>
+<rss version="2.0" xmlns:atom="http://www.w3.org/2005/Atom">
+    <channel>
+        <title>建立跨部门的技术接口文档规范 on SelfTechHub</title>
+        <link>https://blog.irudder.me/tags/%E5%BB%BA%E7%AB%8B%E8%B7%A8%E9%83%A8%E9%97%A8%E7%9A%84%E6%8A%80%E6%9C%AF%E6%8E%A5%E5%8F%A3%E6%96%87%E6%A1%A3%E8%A7%84%E8%8C%83.html</link>
+        <description>Recent content in 建立跨部门的技术接口文档规范 on SelfTechHub</description>
+        <generator>Hugo -- gohugo.io</generator>
+        <language>zh-cn</language>
+        <lastBuildDate>Wed, 07 Oct 2020 00:00:00 +0000</lastBuildDate><atom:link href="https://blog.irudder.me/tags/%E5%BB%BA%E7%AB%8B%E8%B7%A8%E9%83%A8%E9%97%A8%E7%9A%84%E6%8A%80%E6%9C%AF%E6%8E%A5%E5%8F%A3%E6%96%87%E6%A1%A3%E8%A7%84%E8%8C%83/index.xml" rel="self" type="application/rss+xml" /><item>
+        <title>吵了5次架后，我才懂接口文档不只是为了写代码</title>
+        <link>https://blog.irudder.me/tech/kuabumenxiezuogaopinwentijiejueqingdan/jianlikuabumendejishujiekouwendangguifan.html</link>
+        <pubDate>Wed, 07 Oct 2020 00:00:00 +0000</pubDate>
+        
+        <guid>https://blog.irudder.me/tech/kuabumenxiezuogaopinwentijiejueqingdan/jianlikuabumendejishujiekouwendangguifan.html</guid>
+        <description>&lt;p&gt;还记得刚做后端开发的第二年，某个周五的晚上十点，由于一个字段类型的定义偏差，App端的活动页直接白屏。&lt;/p&gt;
+&lt;p&gt;当时测试群里的消息像炸弹一样弹个不停：
+“为什么文档写的是String，返回的是Number？”
+“安卓端 crash 了，谁改的接口没通知？”
+“产品经理在问，这个锅谁背？”&lt;/p&gt;
+&lt;p&gt;那一刻，我看着屏幕上冷冰冰的代码，手里捧着已经凉透的拿铁，心里只有深深的无力感。我曾经天真地以为，只要技术过硬，代码写得漂亮，跨部门协作就是顺水推舟的事。直到踩了无数个坑，和前端、测试、产品吵过无数次架后，我才明白：&lt;strong&gt;一份好的接口文档，不是冰冷的技术参数，而是抚平团队焦虑、建立信任的契约。&lt;/strong&gt;&lt;/p&gt;
+&lt;p&gt;如果你也正深陷“口头对齐、事后扯皮”的泥潭，希望今天分享的这些“血泪经验”，能给你一点温暖的慰藉和实用的解法。&lt;/p&gt;
+&lt;h2 id=&#34;拒绝猜谜游戏把隐性知识显性化&#34;&gt;拒绝“猜谜游戏”，把隐性知识显性化
+&lt;/h2&gt;&lt;p&gt;我们经常陷入一种“知识诅咒”：觉得这东西显而易见，别人一定懂。&lt;/p&gt;
+&lt;p&gt;在我的团队里，曾发生过一起著名的“时间戳惨案”。我给前端返回了一个标准的13位时间戳，心想这是国际惯例。结果新来的前端实习生直接把它当做文本展示在了界面上，导致用户看到了一串乱码。&lt;/p&gt;
+&lt;p&gt;复盘时，他委屈地说：“文档里只写了‘时间’两个字，我以为你会给我格式化好的 &lt;code&gt;2023-10-01&lt;/code&gt;。”&lt;/p&gt;
+&lt;p&gt;那是我们协作中最脆弱的时刻。为了避免再次陷入这种互相指责的内耗，我开始强制要求文档必须包含**“业务语义”&lt;strong&gt;，而不仅仅是&lt;/strong&gt;“数据类型”**。&lt;/p&gt;
+&lt;p&gt;&lt;img src=&#34;https://picsum.photos/800/450?random=1768450672355&#34;
+	
+	
+	
+	loading=&#34;lazy&#34;
+	
+		alt=&#34;配图&#34;
+	
+	
+&gt;&lt;/p&gt;
+&lt;p&gt;&lt;strong&gt;现在，我的文档规范里有一条铁律：不要让对方猜。&lt;/strong&gt;&lt;/p&gt;
+&lt;blockquote&gt;
+&lt;p&gt;&lt;strong&gt;改进前的描述：&lt;/strong&gt;
+&lt;code&gt;status&lt;/code&gt;: int // 状态码&lt;/p&gt;
+&lt;/blockquote&gt;
+&lt;p&gt;&lt;img src=&#34;https://picsum.photos/800/450?random=1768450671702&#34;
+	
+	
+	
+	loading=&#34;lazy&#34;
+	
+		alt=&#34;配图&#34;
+	
+	
+&gt;&lt;/p&gt;
+&lt;blockquote&gt;
+&lt;p&gt;&lt;strong&gt;改进后的描述：&lt;/strong&gt;
+&lt;code&gt;status&lt;/code&gt;: int // 订单状态。
+&lt;strong&gt;枚举值定义：&lt;/strong&gt;&lt;/p&gt;
+&lt;ul&gt;
+&lt;li&gt;&lt;code&gt;0&lt;/code&gt;: 待支付（用户已下单，未付款）&lt;/li&gt;
+&lt;li&gt;&lt;code&gt;1&lt;/code&gt;: 已支付（等待发货）&lt;/li&gt;
+&lt;li&gt;&lt;code&gt;2&lt;/code&gt;: 已取消（用户主动取消或超时关闭）
+&lt;strong&gt;注意：&lt;/strong&gt; 前端展示时，请将状态 &lt;code&gt;2&lt;/code&gt; 统一显示为灰色标签。&lt;/li&gt;
+&lt;/ul&gt;
+&lt;/blockquote&gt;
+&lt;p&gt;当你把每一个字段背后的业务逻辑都写清楚时，你会发现，前端和测试来找你“麻烦”的次数少了，大家看你的眼神也多了一份信任。因为你替他们多想了一步，这份体贴，就是职场里最顶级的温柔。&lt;/p&gt;
+&lt;h2 id=&#34;动态更新别让文档成为僵尸&#34;&gt;动态更新，别让文档成为“僵尸”
+&lt;/h2&gt;&lt;p&gt;很多时候，我们的焦虑来自于“不确定性”。&lt;/p&gt;
+&lt;p&gt;我有过一段非常崩溃的经历：后端代码改了，因为赶上线进度，我心想“回头再补文档”。结果两天后，测试同学拿着旧文档测出了十几个Bug，气得在工位上摔鼠标。那一刻我意识到，&lt;strong&gt;过期的文档比没有文档更可怕，因为它提供了错误的确定性。&lt;/strong&gt;&lt;/p&gt;
+&lt;p&gt;为了修补这个裂痕，我改掉了“最后写文档”的习惯。我开始推行**“文档即代码”**的策略，尽量使用 Swagger/YApi 等工具自动生成文档，或者坚持一个原则：&lt;strong&gt;代码未动，文档先行。&lt;/strong&gt;&lt;/p&gt;
+&lt;p&gt;我给自己定了一个小规矩：&lt;strong&gt;每周五下午三点&lt;/strong&gt;，无论多忙，我都会花20分钟审视这一周改动的接口，并同步更新到Wiki上。&lt;/p&gt;
+&lt;p&gt;同时，我会在文档开头醒目地标注“变更日志”：&lt;/p&gt;
+&lt;table&gt;
+  &lt;thead&gt;
+      &lt;tr&gt;
+          &lt;th style=&#34;text-align: left&#34;&gt;变更日期&lt;/th&gt;
+          &lt;th style=&#34;text-align: left&#34;&gt;变更人&lt;/th&gt;
+          &lt;th style=&#34;text-align: left&#34;&gt;变更内容&lt;/th&gt;
+          &lt;th style=&#34;text-align: left&#34;&gt;影响范围&lt;/th&gt;
+      &lt;/tr&gt;
+  &lt;/thead&gt;
+  &lt;tbody&gt;
+      &lt;tr&gt;
+          &lt;td style=&#34;text-align: left&#34;&gt;2023-11-15&lt;/td&gt;
+          &lt;td style=&#34;text-align: left&#34;&gt;Gemini&lt;/td&gt;
+          &lt;td style=&#34;text-align: left&#34;&gt;新增 &lt;code&gt;user_level&lt;/code&gt; 字段&lt;/td&gt;
+          &lt;td style=&#34;text-align: left&#34;&gt;会员中心页、结算页&lt;/td&gt;
+      &lt;/tr&gt;
+      &lt;tr&gt;
+          &lt;td style=&#34;text-align: left&#34;&gt;2023-11-18&lt;/td&gt;
+          &lt;td style=&#34;text-align: left&#34;&gt;Gemini&lt;/td&gt;
+          &lt;td style=&#34;text-align: left&#34;&gt;修改 &lt;code&gt;price&lt;/code&gt; 单位为分&lt;/td&gt;
+          &lt;td style=&#34;text-align: left&#34;&gt;&lt;strong&gt;注意：所有涉及金额计算的页面需适配&lt;/strong&gt;&lt;/td&gt;
+      &lt;/tr&gt;
+  &lt;/tbody&gt;
+&lt;/table&gt;
+&lt;p&gt;当这种透明度建立起来后，我发现产品经理不再每隔一小时就来问进度，测试同学也能提前准备用例。&lt;strong&gt;所谓靠谱，不就是凡事有交代，件件有着落吗？&lt;/strong&gt;&lt;/p&gt;
+&lt;h2 id=&#34;给出全家桶示例不仅仅是定义&#34;&gt;给出“全家桶”示例，不仅仅是定义
+&lt;/h2&gt;&lt;p&gt;这是我用了两年、效果最好的一个方法。&lt;/p&gt;
+&lt;p&gt;以前我只写请求参数和返回参数的定义，觉得只要字段对得上就行。后来有一次，我和一位负责对接的第三方开发者聊天，他苦笑着对我说：“哥，你的文档是很标准，但我为了拼出一个能跑通的 JSON 请求体，试错了一下午。”&lt;/p&gt;
+&lt;p&gt;这句话深深刺痛了我。我们写文档，目的是为了方便别人调用，而不是为了证明自己懂协议。&lt;/p&gt;
+&lt;p&gt;从那以后，我在每个复杂接口下方，都会贴心地附上**“懒人包”**：&lt;/p&gt;
+&lt;ol&gt;
+&lt;li&gt;&lt;strong&gt;完整的成功响应示例&lt;/strong&gt;（包含真实数据，而不是 &lt;code&gt;null&lt;/code&gt;）；&lt;/li&gt;
+&lt;li&gt;&lt;strong&gt;常见的失败响应示例&lt;/strong&gt;（告诉对方报错长什么样）；&lt;/li&gt;
+&lt;li&gt;&lt;strong&gt;CURL 命令&lt;/strong&gt;（对方复制粘贴进终端就能跑）。&lt;/li&gt;
+&lt;/ol&gt;
+&lt;div class=&#34;highlight&#34;&gt;&lt;pre tabindex=&#34;0&#34; style=&#34;color:#f8f8f2;background-color:#272822;-moz-tab-size:4;-o-tab-size:4;tab-size:4;&#34;&gt;&lt;code class=&#34;language-json&#34; data-lang=&#34;json&#34;&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;&lt;span style=&#34;color:#75715e&#34;&gt;// ❌ 冰冷的示例
+&lt;/span&gt;&lt;/span&gt;&lt;/span&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;&lt;span style=&#34;color:#75715e&#34;&gt;&lt;/span&gt;{
+&lt;/span&gt;&lt;/span&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;  &lt;span style=&#34;color:#f92672&#34;&gt;&amp;#34;data&amp;#34;&lt;/span&gt;: &lt;span style=&#34;color:#960050;background-color:#1e0010&#34;&gt;Object&lt;/span&gt;
+&lt;/span&gt;&lt;/span&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;}
+&lt;/span&gt;&lt;/span&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;
+&lt;/span&gt;&lt;/span&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;&lt;span style=&#34;color:#75715e&#34;&gt;// ✅ 温暖的示例（直接告诉对方真实场景是什么样）
+&lt;/span&gt;&lt;/span&gt;&lt;/span&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;&lt;span style=&#34;color:#75715e&#34;&gt;&lt;/span&gt;{
+&lt;/span&gt;&lt;/span&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;  &lt;span style=&#34;color:#f92672&#34;&gt;&amp;#34;code&amp;#34;&lt;/span&gt;: &lt;span style=&#34;color:#ae81ff&#34;&gt;200&lt;/span&gt;,
+&lt;/span&gt;&lt;/span&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;  &lt;span style=&#34;color:#f92672&#34;&gt;&amp;#34;message&amp;#34;&lt;/span&gt;: &lt;span style=&#34;color:#e6db74&#34;&gt;&amp;#34;success&amp;#34;&lt;/span&gt;,
+&lt;/span&gt;&lt;/span&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;  &lt;span style=&#34;color:#f92672&#34;&gt;&amp;#34;data&amp;#34;&lt;/span&gt;: {
+&lt;/span&gt;&lt;/span&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;    &lt;span style=&#34;color:#f92672&#34;&gt;&amp;#34;user_id&amp;#34;&lt;/span&gt;: &lt;span style=&#34;color:#ae81ff&#34;&gt;10086&lt;/span&gt;,
+&lt;/span&gt;&lt;/span&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;    &lt;span style=&#34;color:#f92672&#34;&gt;&amp;#34;nickname&amp;#34;&lt;/span&gt;: &lt;span style=&#34;color:#e6db74&#34;&gt;&amp;#34;多喝热水&amp;#34;&lt;/span&gt;,
+&lt;/span&gt;&lt;/span&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;    &lt;span style=&#34;color:#f92672&#34;&gt;&amp;#34;avatar_url&amp;#34;&lt;/span&gt;: &lt;span style=&#34;color:#e6db74&#34;&gt;&amp;#34;https://example.com/a.jpg&amp;#34;&lt;/span&gt;,
+&lt;/span&gt;&lt;/span&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;    &lt;span style=&#34;color:#f92672&#34;&gt;&amp;#34;is_vip&amp;#34;&lt;/span&gt;: &lt;span style=&#34;color:#66d9ef&#34;&gt;true&lt;/span&gt; &lt;span style=&#34;color:#75715e&#34;&gt;// 注意：VIP用户需展示金边特效
+&lt;/span&gt;&lt;/span&gt;&lt;/span&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;&lt;span style=&#34;color:#75715e&#34;&gt;&lt;/span&gt;  }
+&lt;/span&gt;&lt;/span&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;}
+&lt;/span&gt;&lt;/span&gt;&lt;/code&gt;&lt;/pre&gt;&lt;/div&gt;&lt;p&gt;自从加了这些“全家桶”示例，我收到的关于“参数传不对”的咨询减少了至少80%。那个第三方开发者后来特意发消息给我：“你的文档是我对接过的公司里，最让人省心的。”&lt;/p&gt;
+&lt;p&gt;那一刻，所有的加班和疲惫都烟消云散了。&lt;/p&gt;
+&lt;h2 id=&#34;写在最后&#34;&gt;写在最后
+&lt;/h2&gt;&lt;p&gt;技术接口文档，表面上是冷冰冰的技术规范，实则是我们与合作伙伴之间沟通的桥梁。它承载的不仅仅是数据，更是我们对他人的尊重和同理心。&lt;/p&gt;
+&lt;p&gt;当我们愿意多花十分钟，去把文档写得更清晰、更易读、更人性化时，我们其实是在消除团队的焦虑，是在告诉队友：&lt;strong&gt;“别怕，有我在，坑我都帮你填平了。”&lt;/strong&gt;&lt;/p&gt;
+&lt;p&gt;最后，分享一个我正在使用的&lt;strong&gt;轻量级接口文档Markdown模板&lt;/strong&gt;，你可以直接复制到你的笔记或Wiki中，稍作修改就能用：&lt;/p&gt;
+&lt;div class=&#34;highlight&#34;&gt;&lt;pre tabindex=&#34;0&#34; style=&#34;color:#f8f8f2;background-color:#272822;-moz-tab-size:4;-o-tab-size:4;tab-size:4;&#34;&gt;&lt;code class=&#34;language-markdown&#34; data-lang=&#34;markdown&#34;&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;# [接口名称] (例如：获取用户详情)
+&lt;/span&gt;&lt;/span&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;
+&lt;/span&gt;&lt;/span&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;&lt;span style=&#34;color:#75715e&#34;&gt;## 1. 接口背景
+&lt;/span&gt;&lt;/span&gt;&lt;/span&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;&lt;span style=&#34;color:#75715e&#34;&gt;&lt;/span&gt;&lt;span style=&#34;color:#66d9ef&#34;&gt;&amp;gt; &lt;/span&gt;&lt;span style=&#34;font-style:italic&#34;&gt;简述这个接口是用在哪里的，解决了什么业务问题。
+&lt;/span&gt;&lt;/span&gt;&lt;/span&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;&lt;span style=&#34;font-style:italic&#34;&gt;&lt;/span&gt;&lt;span style=&#34;color:#66d9ef&#34;&gt;&amp;gt; &lt;/span&gt;&lt;span style=&#34;font-style:italic&#34;&gt;例如：用于“个人中心”页面初始化，获取头像和积分。
+&lt;/span&gt;&lt;/span&gt;&lt;/span&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;&lt;span style=&#34;font-style:italic&#34;&gt;&lt;/span&gt;
+&lt;/span&gt;&lt;/span&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;&lt;span style=&#34;color:#75715e&#34;&gt;## 2. 基本信息
+&lt;/span&gt;&lt;/span&gt;&lt;/span&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;&lt;span style=&#34;color:#75715e&#34;&gt;&lt;/span&gt;&lt;span style=&#34;color:#66d9ef&#34;&gt;-&lt;/span&gt; **请求方法**: GET / POST
+&lt;/span&gt;&lt;/span&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;&lt;span style=&#34;color:#66d9ef&#34;&gt;-&lt;/span&gt; **请求路径**: &lt;span style=&#34;color:#e6db74&#34;&gt;`/api/v1/user/profile`&lt;/span&gt;
+&lt;/span&gt;&lt;/span&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;&lt;span style=&#34;color:#66d9ef&#34;&gt;-&lt;/span&gt; **开发负责人**: [你的名字]
+&lt;/span&gt;&lt;/span&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;
+&lt;/span&gt;&lt;/span&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;&lt;span style=&#34;color:#75715e&#34;&gt;## 3. 请求参数
+&lt;/span&gt;&lt;/span&gt;&lt;/span&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;&lt;span style=&#34;color:#75715e&#34;&gt;&lt;/span&gt;| 参数名 | 类型 | 必填 | 描述 | 示例值 |
+&lt;/span&gt;&lt;/span&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;| :--- | :--- | :--- | :--- | :--- |
+&lt;/span&gt;&lt;/span&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;| uid | Long | 是 | 用户唯一ID | 10086 |
+&lt;/span&gt;&lt;/span&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;
+&lt;/span&gt;&lt;/span&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;&lt;span style=&#34;color:#75715e&#34;&gt;## 4. 响应参数 (核心)
+&lt;/span&gt;&lt;/span&gt;&lt;/span&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;&lt;span style=&#34;color:#75715e&#34;&gt;&lt;/span&gt;&lt;span style=&#34;color:#66d9ef&#34;&gt;&amp;gt; &lt;/span&gt;&lt;span style=&#34;font-style:italic&#34;&gt;**特殊说明**：`status` 字段请务必参考下方的枚举定义。
+&lt;/span&gt;&lt;/span&gt;&lt;/span&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;&lt;span style=&#34;font-style:italic&#34;&gt;&lt;/span&gt;
+&lt;/span&gt;&lt;/span&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;```json
+&lt;/span&gt;&lt;/span&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;{
+&lt;/span&gt;&lt;/span&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;  &amp;#34;code&amp;#34;: 0,
+&lt;/span&gt;&lt;/span&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;  &amp;#34;msg&amp;#34;: &amp;#34;success&amp;#34;,
+&lt;/span&gt;&lt;/span&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;  &amp;#34;data&amp;#34;: {
+&lt;/span&gt;&lt;/span&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;    // 粘贴完整的、真实的JSON结构
+&lt;/span&gt;&lt;/span&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;  }
+&lt;/span&gt;&lt;/span&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;}
+&lt;/span&gt;&lt;/span&gt;&lt;/code&gt;&lt;/pre&gt;&lt;/div&gt;&lt;h2 id=&#34;5-异常情况&#34;&gt;5. 异常情况
+&lt;/h2&gt;&lt;ul&gt;
+&lt;li&gt;若 &lt;code&gt;uid&lt;/code&gt; 不存在，返回 code: 4001, msg: &amp;ldquo;用户未找到&amp;rdquo;&lt;/li&gt;
+&lt;/ul&gt;
+&lt;pre tabindex=&#34;0&#34;&gt;&lt;code&gt;
+**哪怕从今天开始，你只做这三件小事：**
+1.  **加上业务注释：** 不只写类型，写清楚代表什么业务含义。
+2.  **提供真实示例：** 给一段复制即用的 JSON，而不是空架子。
+3.  **同步通知：** 每次文档改动，哪怕是一个字段，都在群里喊一声。
+
+相信我，你会发现群里的戾气变少了，大家的笑容变多了。愿我们在代码的世界里，都能被温柔以待。
+&lt;/code&gt;&lt;/pre&gt;</description>
+        </item>
+        
+    </channel>
+</rss>

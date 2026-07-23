@@ -1,0 +1,131 @@
+<?xml version="1.0" encoding="utf-8" standalone="yes"?>
+<rss version="2.0" xmlns:atom="http://www.w3.org/2005/Atom">
+    <channel>
+        <title>消息积压怎么办？紧急扩容与消费端优化 on SelfTechHub</title>
+        <link>https://blog.irudder.me/tags/%E6%B6%88%E6%81%AF%E7%A7%AF%E5%8E%8B%E6%80%8E%E4%B9%88%E5%8A%9E%E7%B4%A7%E6%80%A5%E6%89%A9%E5%AE%B9%E4%B8%8E%E6%B6%88%E8%B4%B9%E7%AB%AF%E4%BC%98%E5%8C%96.html</link>
+        <description>Recent content in 消息积压怎么办？紧急扩容与消费端优化 on SelfTechHub</description>
+        <generator>Hugo -- gohugo.io</generator>
+        <language>zh-cn</language>
+        <lastBuildDate>Thu, 22 Dec 2022 00:00:00 +0000</lastBuildDate><atom:link href="https://blog.irudder.me/tags/%E6%B6%88%E6%81%AF%E7%A7%AF%E5%8E%8B%E6%80%8E%E4%B9%88%E5%8A%9E%E7%B4%A7%E6%80%A5%E6%89%A9%E5%AE%B9%E4%B8%8E%E6%B6%88%E8%B4%B9%E7%AB%AF%E4%BC%98%E5%8C%96/index.xml" rel="self" type="application/rss+xml" /><item>
+        <title>凌晨3点告警：消息积压上亿，我是如何“逃出生天”的？</title>
+        <link>https://blog.irudder.me/tech/jiagouyouhuashizhananlijiexi/xiaoxijiyazenmebanjinjikuorongyuxiaofeiduanyouhua.html</link>
+        <pubDate>Thu, 22 Dec 2022 00:00:00 +0000</pubDate>
+        
+        <guid>https://blog.irudder.me/tech/jiagouyouhuashizhananlijiexi/xiaoxijiyazenmebanjinjikuorongyuxiaofeiduanyouhua.html</guid>
+        <description>&lt;p&gt;还记得五年前那个让我至今心有余悸的周六凌晨，手机疯狂震动，PagerDuty 的告警声在寂静的卧室里显得格外刺耳。迷迷糊糊抓起手机一看，瞬间清醒：&lt;strong&gt;核心订单服务的 Kafka 消息积压（Lag）突破了 1 亿，且还在以每秒 2 万的速度飙升。&lt;/strong&gt;&lt;/p&gt;
+&lt;p&gt;当时我的第一反应和很多刚入行的新人一样：“扩容！赶紧加机器！”于是我手忙脚乱地在 K8s 上把 Consumer 的 Pod 数从 10 个扩到了 50 个。结果呢？&lt;strong&gt;积压曲线纹丝不动，甚至因为甚至因为数据库连接数暴涨，差点把 DB 打挂。&lt;/strong&gt;&lt;/p&gt;
+&lt;p&gt;那一刻我才深刻意识到，处理消息积压绝不是简单的“堆人头”或“堆机器”。这几年经历了无数次大促洗礼，踩过无数坑后，我总结出了一套从“紧急止血”到“根源治理”的组合拳。今天就不聊虚的理论，咱们复盘几个真实场景，聊聊当 Lag 红线拉满时，到底该怎么办。&lt;/p&gt;
+&lt;h2 id=&#34;扩容的陷阱为什么加了机器没用&#34;&gt;扩容的陷阱：为什么加了机器没用？
+&lt;/h2&gt;&lt;p&gt;很多时候，当我们看到积压，本能反应就是增加消费端节点。这招在某些场景下有效，但在 Kafka 这类基于 Partition（分区）机制的消息队列中，往往是无效的。&lt;/p&gt;
+&lt;p&gt;&lt;strong&gt;真实案例：&lt;/strong&gt;
+在一次“双11”预演中，我们的营销服务积压了 5000 万条消息。运维老哥很给力，一口气给我加了 20 台服务器。但我盯着监控看了一分钟，消费速率（TPS）几乎是一条直线，根本没涨。&lt;/p&gt;
+&lt;p&gt;&lt;strong&gt;问题出在哪？&lt;/strong&gt;
+Kafka 的机制决定了，&lt;strong&gt;一个 Partition 在同一时间只能被同一个 Consumer Group 下的一个 Consumer 线程消费。&lt;/strong&gt; 当时我们的 Topic 只有 20 个 Partition，而我们原来的消费者就已经有 20 个了。你扩容到 40 个、100 个，多出来的那些节点只能在旁边干瞪眼，处于 Idle 状态，完全分不到数据。&lt;/p&gt;
+&lt;p&gt;&lt;strong&gt;怎么破？紧急扩容“中转站”方案&lt;/strong&gt;
+既然分区数是瓶颈，那我们在不动线上核心业务逻辑的前提下，得先搞个“分流器”。&lt;/p&gt;
+&lt;p&gt;我当时的&lt;strong&gt;具体操作步骤&lt;/strong&gt;是这样的：&lt;/p&gt;
+&lt;ol&gt;
+&lt;li&gt;&lt;strong&gt;临时扩容 Topic&lt;/strong&gt;：新建一个临时 Topic（比如 &lt;code&gt;topic_emergency_dump&lt;/code&gt;），把 Partition 数配置成原来的 10 倍（比如 200 个）。&lt;/li&gt;
+&lt;li&gt;&lt;strong&gt;改写消费逻辑（Relay）&lt;/strong&gt;：写一个极简的 Consumer 程序，它的逻辑只有一步——&lt;strong&gt;不处理任何业务，只负责把原来的 Topic 消息读出来，原样写入新的临时 Topic。&lt;/strong&gt; 这一步非常快，原本 20 个节点就能扛住巨大的流量。&lt;/li&gt;
+&lt;li&gt;&lt;strong&gt;部署超级消费集群&lt;/strong&gt;：在新的临时 Topic 上，部署 200 个真正的业务 Consumer 节点。&lt;/li&gt;
+&lt;/ol&gt;
+&lt;p&gt;&lt;strong&gt;结果：&lt;/strong&gt;
+这套方案上线后，原 Topic 的积压在 15 分钟内被“搬运”到了新 Topic，而新 Topic 凭借 200 个并发的消费能力，在 1 小时内消化掉了所有积压。虽然架构复杂了一点，但在救火场景下，&lt;strong&gt;先把水排出去，比什么都重要。&lt;/strong&gt;&lt;/p&gt;
+&lt;h2 id=&#34;性能的黑洞你的代码在摸鱼吗&#34;&gt;性能的黑洞：你的代码在“摸鱼”吗？
+&lt;/h2&gt;&lt;p&gt;搞定了并发度，咱们再来看看单机性能。很多时候，积压的根源不是机器不够，而是代码写得太“慢”了。&lt;/p&gt;
+&lt;p&gt;&lt;img src=&#34;https://picsum.photos/800/450?random=1768531836641&#34;
+	
+	
+	
+	loading=&#34;lazy&#34;
+	
+		alt=&#34;配图&#34;
+	
+	
+&gt;&lt;/p&gt;
+&lt;p&gt;&lt;strong&gt;真实案例：&lt;/strong&gt;
+有个做日志分析的同事找我求助，说他们的服务 CPU 使用率只有 10%，内存也很充足，但消息就是消费不过来。我看了一下代码，差点一口老血喷出来。&lt;/p&gt;
+&lt;p&gt;他的逻辑大概是这样的：&lt;/p&gt;
+&lt;div class=&#34;highlight&#34;&gt;&lt;pre tabindex=&#34;0&#34; style=&#34;color:#f8f8f2;background-color:#272822;-moz-tab-size:4;-o-tab-size:4;tab-size:4;&#34;&gt;&lt;code class=&#34;language-java&#34; data-lang=&#34;java&#34;&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;&lt;span style=&#34;color:#75715e&#34;&gt;// 伪代码：千万别这么写&lt;/span&gt;
+&lt;/span&gt;&lt;/span&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;&lt;span style=&#34;color:#66d9ef&#34;&gt;while&lt;/span&gt; (&lt;span style=&#34;color:#66d9ef&#34;&gt;true&lt;/span&gt;) {
+&lt;/span&gt;&lt;/span&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;    Message msg &lt;span style=&#34;color:#f92672&#34;&gt;=&lt;/span&gt; consumer.&lt;span style=&#34;color:#a6e22e&#34;&gt;poll&lt;/span&gt;();
+&lt;/span&gt;&lt;/span&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;    &lt;span style=&#34;color:#66d9ef&#34;&gt;if&lt;/span&gt; (msg &lt;span style=&#34;color:#f92672&#34;&gt;!=&lt;/span&gt; &lt;span style=&#34;color:#66d9ef&#34;&gt;null&lt;/span&gt;) {
+&lt;/span&gt;&lt;/span&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;        &lt;span style=&#34;color:#75715e&#34;&gt;// 每一条消息都去查一次数据库&lt;/span&gt;
+&lt;/span&gt;&lt;/span&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;        User user &lt;span style=&#34;color:#f92672&#34;&gt;=&lt;/span&gt; userService.&lt;span style=&#34;color:#a6e22e&#34;&gt;findById&lt;/span&gt;(msg.&lt;span style=&#34;color:#a6e22e&#34;&gt;getUserId&lt;/span&gt;());
+&lt;/span&gt;&lt;/span&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;        &lt;span style=&#34;color:#75715e&#34;&gt;// ... 业务逻辑&lt;/span&gt;
+&lt;/span&gt;&lt;/span&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;        saveResult(user);
+&lt;/span&gt;&lt;/span&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;    }
+&lt;/span&gt;&lt;/span&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;}
+&lt;/span&gt;&lt;/span&gt;&lt;/code&gt;&lt;/pre&gt;&lt;/div&gt;&lt;p&gt;&lt;strong&gt;反思与改进：&lt;/strong&gt;
+这简直是教科书级别的性能杀手。&lt;strong&gt;IO（网络/磁盘）永远是最大的瓶颈。&lt;/strong&gt; 每一条消息都发起一次 DB 查询，不管数据库多强，几万 QPS 下去也得跪，而且网络往返的耗时（RTT）会让线程大部分时间都在等待。&lt;/p&gt;
+&lt;p&gt;我给他的优化建议只改了两点，吞吐量直接提升了 20 倍：&lt;/p&gt;
+&lt;ol&gt;
+&lt;li&gt;&lt;strong&gt;批量消费（Batch Processing）&lt;/strong&gt;：
+不要来一条处理一条。一次拉取 500 条，积攒到 List 里。&lt;/li&gt;
+&lt;li&gt;&lt;strong&gt;批量 IO + 本地缓存&lt;/strong&gt;：
+拿到 500 条消息后，提取出所有的 &lt;code&gt;userId&lt;/code&gt;，&lt;strong&gt;一次性&lt;/strong&gt;去数据库 &lt;code&gt;select * from user where id in (...)&lt;/code&gt;。如果数据变化不频繁，甚至可以在本地加一层 Guava Cache 或 Caffeine。&lt;/li&gt;
+&lt;/ol&gt;
+&lt;p&gt;&lt;strong&gt;落地效果：&lt;/strong&gt;
+原本每秒处理 1000 条，改完后轻松跑到 20000 条，CPU 利用率也上去了（这才是对的，CPU 忙起来说明在干活，而不是在等 IO）。&lt;/p&gt;
+&lt;h2 id=&#34;最后的防线别让积压拖垮整个系统&#34;&gt;最后的防线：别让积压拖垮整个系统
+&lt;/h2&gt;&lt;p&gt;&lt;img src=&#34;https://picsum.photos/800/450?random=1768531833487&#34;
+	
+	
+	
+	loading=&#34;lazy&#34;
+	
+		alt=&#34;配图&#34;
+	
+	
+&gt;&lt;/p&gt;
+&lt;p&gt;有时候，积压是不可避免的。比如第三方服务挂了，或者下游系统彻底瘫痪。这时候，我们的目标不是“消除积压”，而是**“保命”**。&lt;/p&gt;
+&lt;p&gt;&lt;strong&gt;真实案例：&lt;/strong&gt;
+两年前，我们的一个积分服务依赖外部供应商的 API。有一天供应商挂了，响应时间从 200ms 变成了 30s 超时。我们的消费线程全部卡在等待响应上，线程池瞬间爆满。结果不仅消息积压，还导致服务 OOM（内存溢出），连带把同一个容器里的其他服务也拖死了。&lt;/p&gt;
+&lt;p&gt;&lt;strong&gt;经验沉淀：&lt;/strong&gt;
+从那以后，我在所有的 Consumer 端都强制加了两道锁：&lt;/p&gt;
+&lt;ol&gt;
+&lt;li&gt;&lt;strong&gt;强隔离与熔断&lt;/strong&gt;：
+使用 Sentinel 或 Resilience4j。一旦检测到下游接口异常比例升高，直接熔断，不再发起调用。&lt;/li&gt;
+&lt;li&gt;&lt;strong&gt;死信队列（DLQ）策略&lt;/strong&gt;：
+对于处理失败的消息，不要无限重试！很多框架默认会无限重试，导致一条毒丸消息（Poison Pill）堵死整个队列。
+&lt;strong&gt;我个人的配置习惯&lt;/strong&gt;：重试 3 次 -&amp;gt; 依然失败 -&amp;gt; 扔入死信队列 -&amp;gt; 发送告警 -&amp;gt; 人工介入。&lt;/li&gt;
+&lt;/ol&gt;
+&lt;blockquote&gt;
+&lt;p&gt;记住一句话：&lt;strong&gt;在极端情况下，丢弃消息比拖垮系统要好。&lt;/strong&gt; 只要入了死信队列，我们事后还有机会回放（Replay），但服务挂了就什么都没了。&lt;/p&gt;
+&lt;/blockquote&gt;
+&lt;h2 id=&#34;拿来即用我的防积压急救包&#34;&gt;拿来即用：我的“防积压”急救包
+&lt;/h2&gt;&lt;p&gt;聊了这么多，最后给大家整理一套我个人常用的&lt;strong&gt;消息积压排查与治理模板&lt;/strong&gt;，建议大家截图保存，关键时刻能省去不少思考时间。&lt;/p&gt;
+&lt;h3 id=&#34;1-紧急排查-sop复制可用&#34;&gt;1. 紧急排查 SOP（复制可用）
+&lt;/h3&gt;&lt;ul&gt;
+&lt;li&gt;&lt;strong&gt;Step 1 看指标&lt;/strong&gt;：积压是全量积压还是部分 Partition 积压？
+&lt;ul&gt;
+&lt;li&gt;&lt;em&gt;全量积压&lt;/em&gt; -&amp;gt; 查下游资源（DB/Redis/接口）是否瓶颈。&lt;/li&gt;
+&lt;li&gt;&lt;em&gt;部分积压&lt;/em&gt; -&amp;gt; 查是否有数据倾斜（某个 Key 数据量特别大）。&lt;/li&gt;
+&lt;/ul&gt;
+&lt;/li&gt;
+&lt;li&gt;&lt;strong&gt;Step 2 看资源&lt;/strong&gt;：消费者 CPU/内存是否打满？
+&lt;ul&gt;
+&lt;li&gt;&lt;em&gt;低 CPU 高 Latency&lt;/em&gt; -&amp;gt; 线程卡在 IO 上（查数据库、外部接口）。&lt;/li&gt;
+&lt;li&gt;&lt;em&gt;高 CPU&lt;/em&gt; -&amp;gt; 代码死循环或复杂计算（查 GC 日志、复杂正则）。&lt;/li&gt;
+&lt;/ul&gt;
+&lt;/li&gt;
+&lt;li&gt;&lt;strong&gt;Step 3 看日志&lt;/strong&gt;：是否有大量错误异常刷屏？
+&lt;ul&gt;
+&lt;li&gt;有异常导致不断重试 -&amp;gt; 立即开启降级或调整重试策略。&lt;/li&gt;
+&lt;/ul&gt;
+&lt;/li&gt;
+&lt;/ul&gt;
+&lt;h3 id=&#34;2-落地行动建议&#34;&gt;2. 落地行动建议
+&lt;/h3&gt;&lt;p&gt;光看不练假把式，如果你负责的系统里也有消息队列，建议这周抽出半天时间做三件事：&lt;/p&gt;
+&lt;ol&gt;
+&lt;li&gt;&lt;strong&gt;检查消费端配置&lt;/strong&gt;：确认是否开启了批量消费？确认重试策略是否设置了上限（建议不超过 3-5 次）？&lt;/li&gt;
+&lt;li&gt;&lt;strong&gt;压测&lt;/strong&gt;：在测试环境模拟一下，如果下游接口慢了 10 倍，你的消费端会发生什么？会堵死吗？&lt;/li&gt;
+&lt;li&gt;&lt;strong&gt;配置监控告警&lt;/strong&gt;：不要等用户投诉了才知道积压。设置 Lag 阈值告警（比如积压超过 10 万或延迟超过 5 分钟），并配置电话/短信通知。&lt;/li&gt;
+&lt;/ol&gt;
+&lt;p&gt;架构优化是个细活，更是个苦活。消息积压不可怕，可怕的是我们手里没有应对的方案。希望这篇复盘能帮你建立起面对告警时的底气。&lt;/p&gt;
+&lt;p&gt;&lt;strong&gt;你在处理消息积压时遇到过什么奇葩场景？欢迎在评论区聊聊，咱们一起排坑！&lt;/strong&gt;&lt;/p&gt;
+</description>
+        </item>
+        
+    </channel>
+</rss>
