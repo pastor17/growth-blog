@@ -6,7 +6,1305 @@
         <description>Recent content in Function Calling on SelfTechHub</description>
         <generator>Hugo -- gohugo.io</generator>
         <language>zh-cn</language>
-        <lastBuildDate>Mon, 01 Jun 2026 00:00:00 +0000</lastBuildDate><atom:link href="https://blog.irudder.me/tags/Function-Calling/index.xml" rel="self" type="application/rss+xml" /><item>
+        <lastBuildDate>Sun, 26 Jul 2026 00:00:00 +0000</lastBuildDate><atom:link href="https://blog.irudder.me/tags/Function-Calling/index.xml" rel="self" type="application/rss+xml" /><item>
+        <title>LLM工具调用深度解析——从Function Calling到MCP</title>
+        <link>https://blog.irudder.me/ai/ai-systematization/03-LLM-Tool-Calling-Deep-Dive.html</link>
+        <pubDate>Sun, 26 Jul 2026 00:00:00 +0000</pubDate>
+        
+        <guid>https://blog.irudder.me/ai/ai-systematization/03-LLM-Tool-Calling-Deep-Dive.html</guid>
+        <description>&lt;h1 id=&#34;llm工具调用深度解析从function-calling到mcp&#34;&gt;LLM工具调用深度解析——从Function Calling到MCP
+&lt;/h1&gt;&lt;blockquote&gt;
+&lt;p&gt;本文是「AI 知识体系深度解析」系列的第三篇。LLM 的工具调用能力是 Agent 系统的地基：没有它，模型只是一个会聊天的文字盒子。从 2023 年 OpenAI 推出 Function Calling，到 2024 年 Anthropic 发布 MCP 协议，再到 2025 年 Skill 与 A2A 的出现，&amp;ldquo;让模型真正能做事&amp;rdquo; 这件事经历了一整条技术栈的演进。本文将这条栈从底到顶完整拆开——从模型如何学会输出 JSON、到工具如何标准化接入、再到多个 Agent 如何跨进程协作，一次性建立完整的知识地图。&lt;/p&gt;
+&lt;/blockquote&gt;
+&lt;hr&gt;
+&lt;h2 id=&#34;核心问题列表&#34;&gt;核心问题列表
+&lt;/h2&gt;&lt;p&gt;阅读本文，你将能够回答以下关键问题：&lt;/p&gt;
+&lt;ol&gt;
+&lt;li&gt;&lt;strong&gt;Function Calling 到底是谁在执行工具？&lt;/strong&gt; 模型只负责&amp;quot;决策&amp;quot;，代码负责&amp;quot;执行&amp;quot;，这个分工为何是整个机制的基石？&lt;/li&gt;
+&lt;li&gt;&lt;strong&gt;大模型是天生就会调工具的吗？&lt;/strong&gt; SFT 和 RLHF 各自解决了什么问题？为什么缺一不可？&lt;/li&gt;
+&lt;li&gt;&lt;strong&gt;MCP 和 Function Calling 是竞争关系吗？&lt;/strong&gt; 它们到底处于不同的抽象层次还是同一层面？&lt;/li&gt;
+&lt;li&gt;&lt;strong&gt;推理模型为什么曾经不支持工具调用？&lt;/strong&gt; 生成范式的冲突到底是什么？后来又是怎么解决的？&lt;/li&gt;
+&lt;li&gt;&lt;strong&gt;Skill 和 MCP 有什么区别？&lt;/strong&gt; &amp;ldquo;操作手册&amp;quot;和&amp;quot;工具箱&amp;quot;是怎么配合工作的？&lt;/li&gt;
+&lt;li&gt;&lt;strong&gt;A2A 和 MCP 有什么区别？&lt;/strong&gt; 为什么复杂 Agent 系统里两者都要用？&lt;/li&gt;
+&lt;li&gt;&lt;strong&gt;SSE、WebSocket、WebRTC、stdio 各自适合什么场景？&lt;/strong&gt; 通信协议该怎么选？&lt;/li&gt;
+&lt;li&gt;&lt;strong&gt;LLM 网关和普通 API 网关有什么本质区别？&lt;/strong&gt; 语义缓存为什么是 LLM 特有的能力？&lt;/li&gt;
+&lt;/ol&gt;
+&lt;hr&gt;
+&lt;h2 id=&#34;引言从一个错觉说起&#34;&gt;引言：从一个&amp;quot;错觉&amp;quot;说起
+&lt;/h2&gt;&lt;p&gt;很多人第一次接触 LLM 工具调用时，会有一个直觉性的误解：&lt;strong&gt;&amp;ldquo;模型自己去访问网络、查数据库，然后把结果返回给用户。&amp;rdquo;&lt;/strong&gt;&lt;/p&gt;
+&lt;p&gt;这句话里藏着一个根本性错误——模型有直接执行代码的能力吗？它能联网吗？答案是不能。大语言模型在预训练阶段学的是&amp;quot;给定前面的文字，预测下一个 token&amp;rdquo;，整个训练过程完全在文本空间里进行，模型从未见过&amp;quot;工具调用&amp;quot;这件事。哪怕你在 prompt 里写&amp;quot;你可以调用天气 API&amp;quot;，没经过专门训练的模型也只会生成一段自然语言描述——&amp;ldquo;我需要调用天气 API 来回答你&amp;rdquo;——而不是输出一段可以被程序解析和执行的 JSON 调用请求。&lt;/p&gt;
+&lt;p&gt;&lt;strong&gt;描述一个意图&lt;/strong&gt;和&lt;strong&gt;输出可执行的结构化指令&lt;/strong&gt;，这两件事之间有本质的差距。&lt;/p&gt;
+&lt;p&gt;正是为了跨越这道鸿沟，整个 LLM 工具调用的技术栈被一层层搭建起来：&lt;/p&gt;
+&lt;pre tabindex=&#34;0&#34;&gt;&lt;code&gt;┌─────────────────────────────────────────────────────┐
+│                 A2A (Agent 间协作)                    │  ← 横向：多Agent通信
+├─────────────────────────────────────────────────────┤
+│              Skill (任务流程知识化)                    │  ← 第3层：操作手册
+├─────────────────────────────────────────────────────┤
+│            MCP (工具标准化接入协议)                    │  ← 第2层：工具箱
+├─────────────────────────────────────────────────────┤
+│         Function Calling (模型调用语言)               │  ← 第1层：调用协议
+├─────────────────────────────────────────────────────┤
+│            LLM (大语言模型本体)                        │  ← 地基
+└─────────────────────────────────────────────────────┘
+         ↑ 底层           通信协议层(横切)           顶层 ↑
+   (SSE/WebSocket/WebRTC/stdio)        (LLM Gateway 横切中间件)
+&lt;/code&gt;&lt;/pre&gt;&lt;p&gt;本文将按&amp;quot;从底到顶&amp;quot;的顺序，把这张图里的每一层拆开讲透。&lt;/p&gt;
+&lt;hr&gt;
+&lt;h2 id=&#34;第一章function-calling-原理&#34;&gt;第一章：Function Calling 原理
+&lt;/h2&gt;&lt;h3 id=&#34;11-function-calling-解决了什么问题&#34;&gt;1.1 Function Calling 解决了什么问题
+&lt;/h3&gt;&lt;p&gt;在 Function Calling 出现之前，想让模型帮你调工具，完全靠解析自然语言。模型输出&amp;quot;我需要查一下北京的天气&amp;quot;，你再写 &lt;code&gt;if/else&lt;/code&gt; 判断它&amp;quot;说&amp;quot;的是要查天气，然后手动去调 API。这个做法极其脆弱——模型换个说法，你的 &lt;code&gt;if/else&lt;/code&gt; 就失配了，也根本没办法标准化对接。&lt;/p&gt;
+&lt;p&gt;Function Calling 的核心改进是：&lt;strong&gt;模型不再&amp;quot;说&amp;quot;要调工具，而是直接输出一段结构化的 JSON&lt;/strong&gt;，开发者按格式解析就行，准确率大幅提升，也有了统一标准可以对接。这套机制由 OpenAI 在 2023 年推出，现在 Claude、Gemini、Qwen 等主流模型都支持。&lt;/p&gt;
+&lt;h3 id=&#34;12-三个角色把-function-calling-理解成一场任务委托&#34;&gt;1.2 三个角色：把 Function Calling 理解成一场任务委托
+&lt;/h3&gt;&lt;p&gt;理解 Function Calling 的关键是搞清楚&amp;quot;谁做什么&amp;quot;。可以把这套流程理解成一场&amp;quot;任务委托&amp;quot;：&lt;/p&gt;
+&lt;table&gt;
+  &lt;thead&gt;
+      &lt;tr&gt;
+          &lt;th&gt;角色&lt;/th&gt;
+          &lt;th&gt;比喻&lt;/th&gt;
+          &lt;th&gt;职责&lt;/th&gt;
+      &lt;/tr&gt;
+  &lt;/thead&gt;
+  &lt;tbody&gt;
+      &lt;tr&gt;
+          &lt;td&gt;&lt;strong&gt;开发者&lt;/strong&gt;&lt;/td&gt;
+          &lt;td&gt;HR&lt;/td&gt;
+          &lt;td&gt;给每个工具写&amp;quot;职位说明书&amp;quot;（JSON schema），告诉模型有哪些工具、能做什么、需要什么参数&lt;/td&gt;
+      &lt;/tr&gt;
+      &lt;tr&gt;
+          &lt;td&gt;&lt;strong&gt;模型&lt;/strong&gt;&lt;/td&gt;
+          &lt;td&gt;经理&lt;/td&gt;
+          &lt;td&gt;读完说明书后决定&amp;quot;调哪个工具、参数填什么&amp;quot;，把指令下达出来&lt;/td&gt;
+      &lt;/tr&gt;
+      &lt;tr&gt;
+          &lt;td&gt;&lt;strong&gt;宿主代码&lt;/strong&gt;&lt;/td&gt;
+          &lt;td&gt;员工&lt;/td&gt;
+          &lt;td&gt;真正去跑函数、访问网络、查数据库，把结果汇报回来&lt;/td&gt;
+      &lt;/tr&gt;
+  &lt;/tbody&gt;
+&lt;/table&gt;
+&lt;p&gt;&lt;strong&gt;关键点&lt;/strong&gt;：模型全程只是在&amp;quot;下指令&amp;quot;，它不亲自执行任何代码，也没有直接访问网络的权限。执行的事一律由宿主程序代码完成。这个&amp;quot;模型决策、代码执行&amp;quot;的分工是整个机制的核心设计——LLM 擅长理解意图和推理，但不应该有直接操作系统资源的权限；宿主程序负责执行，可以做权限控制、参数校验、执行沙箱等安全措施。&lt;/p&gt;
+&lt;h3 id=&#34;13-工具定义schema-的每个字段都有含义&#34;&gt;1.3 工具定义：schema 的每个字段都有含义
+&lt;/h3&gt;&lt;p&gt;工具 schema 就是一份结构化的&amp;quot;工具说明书&amp;quot;，用 JSON 格式写：&lt;/p&gt;
+&lt;div class=&#34;highlight&#34;&gt;&lt;pre tabindex=&#34;0&#34; style=&#34;color:#f8f8f2;background-color:#272822;-moz-tab-size:4;-o-tab-size:4;tab-size:4;&#34;&gt;&lt;code class=&#34;language-python&#34; data-lang=&#34;python&#34;&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;tools &lt;span style=&#34;color:#f92672&#34;&gt;=&lt;/span&gt; [
+&lt;/span&gt;&lt;/span&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;    {
+&lt;/span&gt;&lt;/span&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;        &lt;span style=&#34;color:#e6db74&#34;&gt;&amp;#34;type&amp;#34;&lt;/span&gt;: &lt;span style=&#34;color:#e6db74&#34;&gt;&amp;#34;function&amp;#34;&lt;/span&gt;,
+&lt;/span&gt;&lt;/span&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;        &lt;span style=&#34;color:#e6db74&#34;&gt;&amp;#34;function&amp;#34;&lt;/span&gt;: {
+&lt;/span&gt;&lt;/span&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;            &lt;span style=&#34;color:#e6db74&#34;&gt;&amp;#34;name&amp;#34;&lt;/span&gt;: &lt;span style=&#34;color:#e6db74&#34;&gt;&amp;#34;get_weather&amp;#34;&lt;/span&gt;,          &lt;span style=&#34;color:#75715e&#34;&gt;# 工具的唯一标识&lt;/span&gt;
+&lt;/span&gt;&lt;/span&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;            &lt;span style=&#34;color:#e6db74&#34;&gt;&amp;#34;description&amp;#34;&lt;/span&gt;: &lt;span style=&#34;color:#e6db74&#34;&gt;&amp;#34;查询指定城市的实时天气，包含气温、天气状况、风向风速，仅支持中国大陆城市&amp;#34;&lt;/span&gt;,
+&lt;/span&gt;&lt;/span&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;            &lt;span style=&#34;color:#e6db74&#34;&gt;&amp;#34;parameters&amp;#34;&lt;/span&gt;: {
+&lt;/span&gt;&lt;/span&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;                &lt;span style=&#34;color:#e6db74&#34;&gt;&amp;#34;type&amp;#34;&lt;/span&gt;: &lt;span style=&#34;color:#e6db74&#34;&gt;&amp;#34;object&amp;#34;&lt;/span&gt;,
+&lt;/span&gt;&lt;/span&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;                &lt;span style=&#34;color:#e6db74&#34;&gt;&amp;#34;properties&amp;#34;&lt;/span&gt;: {
+&lt;/span&gt;&lt;/span&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;                    &lt;span style=&#34;color:#e6db74&#34;&gt;&amp;#34;city&amp;#34;&lt;/span&gt;: {
+&lt;/span&gt;&lt;/span&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;                        &lt;span style=&#34;color:#e6db74&#34;&gt;&amp;#34;type&amp;#34;&lt;/span&gt;: &lt;span style=&#34;color:#e6db74&#34;&gt;&amp;#34;string&amp;#34;&lt;/span&gt;,
+&lt;/span&gt;&lt;/span&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;                        &lt;span style=&#34;color:#e6db74&#34;&gt;&amp;#34;description&amp;#34;&lt;/span&gt;: &lt;span style=&#34;color:#e6db74&#34;&gt;&amp;#34;城市名称，如「北京」「上海」，不要带省份前缀&amp;#34;&lt;/span&gt;
+&lt;/span&gt;&lt;/span&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;                    },
+&lt;/span&gt;&lt;/span&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;                    &lt;span style=&#34;color:#e6db74&#34;&gt;&amp;#34;unit&amp;#34;&lt;/span&gt;: {
+&lt;/span&gt;&lt;/span&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;                        &lt;span style=&#34;color:#e6db74&#34;&gt;&amp;#34;type&amp;#34;&lt;/span&gt;: &lt;span style=&#34;color:#e6db74&#34;&gt;&amp;#34;string&amp;#34;&lt;/span&gt;,
+&lt;/span&gt;&lt;/span&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;                        &lt;span style=&#34;color:#e6db74&#34;&gt;&amp;#34;enum&amp;#34;&lt;/span&gt;: [&lt;span style=&#34;color:#e6db74&#34;&gt;&amp;#34;celsius&amp;#34;&lt;/span&gt;, &lt;span style=&#34;color:#e6db74&#34;&gt;&amp;#34;fahrenheit&amp;#34;&lt;/span&gt;],
+&lt;/span&gt;&lt;/span&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;                        &lt;span style=&#34;color:#e6db74&#34;&gt;&amp;#34;description&amp;#34;&lt;/span&gt;: &lt;span style=&#34;color:#e6db74&#34;&gt;&amp;#34;温度单位，默认用摄氏度&amp;#34;&lt;/span&gt;
+&lt;/span&gt;&lt;/span&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;                    }
+&lt;/span&gt;&lt;/span&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;                },
+&lt;/span&gt;&lt;/span&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;                &lt;span style=&#34;color:#e6db74&#34;&gt;&amp;#34;required&amp;#34;&lt;/span&gt;: [&lt;span style=&#34;color:#e6db74&#34;&gt;&amp;#34;city&amp;#34;&lt;/span&gt;]
+&lt;/span&gt;&lt;/span&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;            }
+&lt;/span&gt;&lt;/span&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;        }
+&lt;/span&gt;&lt;/span&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;    }
+&lt;/span&gt;&lt;/span&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;]
+&lt;/span&gt;&lt;/span&gt;&lt;/code&gt;&lt;/pre&gt;&lt;/div&gt;&lt;p&gt;其中最关键的字段是 &lt;code&gt;description&lt;/code&gt;。如果 description 写得含糊（比如只写&amp;quot;获取天气&amp;quot;），模型会&amp;quot;瞎猜&amp;quot;——拿到一个带英文名的城市也照样调，拿到&amp;quot;这周天气如何&amp;quot;这种时间跨度不对的问题也硬往里塞。模型在决定&amp;quot;要不要调这个工具、参数怎么填&amp;quot;的时候，能依赖的唯一依据就是这段描述。写得越清晰，模型的选择越准确。&lt;/p&gt;
+&lt;h3 id=&#34;14-完整调用流程两轮对话加中间执行&#34;&gt;1.4 完整调用流程：两轮对话加中间执行
+&lt;/h3&gt;&lt;p&gt;Function Calling 的运行时本质上是&amp;quot;两轮对话 + 中间执行&amp;quot;的闭环：&lt;/p&gt;
+&lt;pre tabindex=&#34;0&#34;&gt;&lt;code&gt;   用户                    模型                   宿主代码
+    │                       │                       │
+    │──── &amp;#34;北京天气？&amp;#34; ────→│                       │
+    │   (携带 tools schema) │                       │
+    │                       │                       │
+    │                  [判断:需要调工具]              │
+    │←─ finish_reason: ────│                       │
+    │   &amp;#34;tool_calls&amp;#34;        │                       │
+    │   {name, arguments}   │                       │
+    │                       │                       │
+    │                       │──── 执行 get_weather ─→│
+    │                       │     (&amp;#34;city&amp;#34;:&amp;#34;北京&amp;#34;)    │
+    │                       │←──── &amp;#34;晴,15°C&amp;#34; ───────│
+    │                       │                       │
+    │                       │  [拿到结果,生成答案]    │
+    │←── &amp;#34;北京今天晴朗...&amp;#34; ─│                       │
+&lt;/code&gt;&lt;/pre&gt;&lt;p&gt;第一轮，你把工具列表和用户的问题一起传给模型。模型如果判断需要调工具，就不直接输出最终答案，而是输出一个 &lt;code&gt;finish_reason&lt;/code&gt; 为 &lt;code&gt;&amp;quot;tool_calls&amp;quot;&lt;/code&gt; 的响应，里面包含要调用的工具名和参数——这是个明确信号，告诉你&amp;quot;我需要工具帮助，还没准备好给答案&amp;quot;。&lt;/p&gt;
+&lt;p&gt;中间环节交给你的代码：解析 &lt;code&gt;tool_calls&lt;/code&gt;，找到对应的函数执行，拿到结果。&lt;/p&gt;
+&lt;p&gt;第二轮，把工具执行结果以 &lt;code&gt;role: &amp;quot;tool&amp;quot;&lt;/code&gt; 的消息塞回对话历史，再次调用模型。这次模型有了工具结果，有了充分信息，才给出最终的自然语言答案。&lt;/p&gt;
+&lt;div class=&#34;highlight&#34;&gt;&lt;pre tabindex=&#34;0&#34; style=&#34;color:#f8f8f2;background-color:#272822;-moz-tab-size:4;-o-tab-size:4;tab-size:4;&#34;&gt;&lt;code class=&#34;language-python&#34; data-lang=&#34;python&#34;&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;&lt;span style=&#34;color:#f92672&#34;&gt;import&lt;/span&gt; openai&lt;span style=&#34;color:#f92672&#34;&gt;,&lt;/span&gt; json
+&lt;/span&gt;&lt;/span&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;
+&lt;/span&gt;&lt;/span&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;client &lt;span style=&#34;color:#f92672&#34;&gt;=&lt;/span&gt; openai&lt;span style=&#34;color:#f92672&#34;&gt;.&lt;/span&gt;OpenAI()
+&lt;/span&gt;&lt;/span&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;messages &lt;span style=&#34;color:#f92672&#34;&gt;=&lt;/span&gt; [{&lt;span style=&#34;color:#e6db74&#34;&gt;&amp;#34;role&amp;#34;&lt;/span&gt;: &lt;span style=&#34;color:#e6db74&#34;&gt;&amp;#34;user&amp;#34;&lt;/span&gt;, &lt;span style=&#34;color:#e6db74&#34;&gt;&amp;#34;content&amp;#34;&lt;/span&gt;: &lt;span style=&#34;color:#e6db74&#34;&gt;&amp;#34;北京今天天气怎么样？&amp;#34;&lt;/span&gt;}]
+&lt;/span&gt;&lt;/span&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;
+&lt;/span&gt;&lt;/span&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;&lt;span style=&#34;color:#75715e&#34;&gt;# 第一轮：把工具定义和问题一起传给模型&lt;/span&gt;
+&lt;/span&gt;&lt;/span&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;response &lt;span style=&#34;color:#f92672&#34;&gt;=&lt;/span&gt; client&lt;span style=&#34;color:#f92672&#34;&gt;.&lt;/span&gt;chat&lt;span style=&#34;color:#f92672&#34;&gt;.&lt;/span&gt;completions&lt;span style=&#34;color:#f92672&#34;&gt;.&lt;/span&gt;create(
+&lt;/span&gt;&lt;/span&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;    model&lt;span style=&#34;color:#f92672&#34;&gt;=&lt;/span&gt;&lt;span style=&#34;color:#e6db74&#34;&gt;&amp;#34;gpt-4o&amp;#34;&lt;/span&gt;,
+&lt;/span&gt;&lt;/span&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;    messages&lt;span style=&#34;color:#f92672&#34;&gt;=&lt;/span&gt;messages,
+&lt;/span&gt;&lt;/span&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;    tools&lt;span style=&#34;color:#f92672&#34;&gt;=&lt;/span&gt;tools,
+&lt;/span&gt;&lt;/span&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;    tool_choice&lt;span style=&#34;color:#f92672&#34;&gt;=&lt;/span&gt;&lt;span style=&#34;color:#e6db74&#34;&gt;&amp;#34;auto&amp;#34;&lt;/span&gt;  &lt;span style=&#34;color:#75715e&#34;&gt;# auto 让模型自己判断，也可设 required 强制调&lt;/span&gt;
+&lt;/span&gt;&lt;/span&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;)
+&lt;/span&gt;&lt;/span&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;msg &lt;span style=&#34;color:#f92672&#34;&gt;=&lt;/span&gt; response&lt;span style=&#34;color:#f92672&#34;&gt;.&lt;/span&gt;choices[&lt;span style=&#34;color:#ae81ff&#34;&gt;0&lt;/span&gt;]&lt;span style=&#34;color:#f92672&#34;&gt;.&lt;/span&gt;message
+&lt;/span&gt;&lt;/span&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;
+&lt;/span&gt;&lt;/span&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;&lt;span style=&#34;color:#66d9ef&#34;&gt;if&lt;/span&gt; msg&lt;span style=&#34;color:#f92672&#34;&gt;.&lt;/span&gt;finish_reason &lt;span style=&#34;color:#f92672&#34;&gt;==&lt;/span&gt; &lt;span style=&#34;color:#e6db74&#34;&gt;&amp;#34;tool_calls&amp;#34;&lt;/span&gt;:  &lt;span style=&#34;color:#75715e&#34;&gt;# 模型要调工具&lt;/span&gt;
+&lt;/span&gt;&lt;/span&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;    tool_call &lt;span style=&#34;color:#f92672&#34;&gt;=&lt;/span&gt; msg&lt;span style=&#34;color:#f92672&#34;&gt;.&lt;/span&gt;tool_calls[&lt;span style=&#34;color:#ae81ff&#34;&gt;0&lt;/span&gt;]
+&lt;/span&gt;&lt;/span&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;    func_args &lt;span style=&#34;color:#f92672&#34;&gt;=&lt;/span&gt; json&lt;span style=&#34;color:#f92672&#34;&gt;.&lt;/span&gt;loads(tool_call&lt;span style=&#34;color:#f92672&#34;&gt;.&lt;/span&gt;function&lt;span style=&#34;color:#f92672&#34;&gt;.&lt;/span&gt;arguments)  &lt;span style=&#34;color:#75715e&#34;&gt;# {&amp;#34;city&amp;#34;: &amp;#34;北京&amp;#34;}&lt;/span&gt;
+&lt;/span&gt;&lt;/span&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;
+&lt;/span&gt;&lt;/span&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;    &lt;span style=&#34;color:#75715e&#34;&gt;# 中间执行：你的代码真正去跑函数&lt;/span&gt;
+&lt;/span&gt;&lt;/span&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;    result &lt;span style=&#34;color:#f92672&#34;&gt;=&lt;/span&gt; &lt;span style=&#34;color:#e6db74&#34;&gt;f&lt;/span&gt;&lt;span style=&#34;color:#e6db74&#34;&gt;&amp;#34;&lt;/span&gt;&lt;span style=&#34;color:#e6db74&#34;&gt;{&lt;/span&gt;func_args[&lt;span style=&#34;color:#e6db74&#34;&gt;&amp;#39;city&amp;#39;&lt;/span&gt;]&lt;span style=&#34;color:#e6db74&#34;&gt;}&lt;/span&gt;&lt;span style=&#34;color:#e6db74&#34;&gt;今天晴，15°C，东北风 3 级&amp;#34;&lt;/span&gt;
+&lt;/span&gt;&lt;/span&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;
+&lt;/span&gt;&lt;/span&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;    &lt;span style=&#34;color:#75715e&#34;&gt;# 第二轮：把工具结果塞回对话，再问一次模型&lt;/span&gt;
+&lt;/span&gt;&lt;/span&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;    messages&lt;span style=&#34;color:#f92672&#34;&gt;.&lt;/span&gt;append(msg)
+&lt;/span&gt;&lt;/span&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;    messages&lt;span style=&#34;color:#f92672&#34;&gt;.&lt;/span&gt;append({
+&lt;/span&gt;&lt;/span&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;        &lt;span style=&#34;color:#e6db74&#34;&gt;&amp;#34;role&amp;#34;&lt;/span&gt;: &lt;span style=&#34;color:#e6db74&#34;&gt;&amp;#34;tool&amp;#34;&lt;/span&gt;,
+&lt;/span&gt;&lt;/span&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;        &lt;span style=&#34;color:#e6db74&#34;&gt;&amp;#34;tool_call_id&amp;#34;&lt;/span&gt;: tool_call&lt;span style=&#34;color:#f92672&#34;&gt;.&lt;/span&gt;id,  &lt;span style=&#34;color:#75715e&#34;&gt;# 和 tool_calls 里的 id 对应&lt;/span&gt;
+&lt;/span&gt;&lt;/span&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;        &lt;span style=&#34;color:#e6db74&#34;&gt;&amp;#34;content&amp;#34;&lt;/span&gt;: result
+&lt;/span&gt;&lt;/span&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;    })
+&lt;/span&gt;&lt;/span&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;    final &lt;span style=&#34;color:#f92672&#34;&gt;=&lt;/span&gt; client&lt;span style=&#34;color:#f92672&#34;&gt;.&lt;/span&gt;chat&lt;span style=&#34;color:#f92672&#34;&gt;.&lt;/span&gt;completions&lt;span style=&#34;color:#f92672&#34;&gt;.&lt;/span&gt;create(model&lt;span style=&#34;color:#f92672&#34;&gt;=&lt;/span&gt;&lt;span style=&#34;color:#e6db74&#34;&gt;&amp;#34;gpt-4o&amp;#34;&lt;/span&gt;, messages&lt;span style=&#34;color:#f92672&#34;&gt;=&lt;/span&gt;messages, tools&lt;span style=&#34;color:#f92672&#34;&gt;=&lt;/span&gt;tools)
+&lt;/span&gt;&lt;/span&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;    print(final&lt;span style=&#34;color:#f92672&#34;&gt;.&lt;/span&gt;choices[&lt;span style=&#34;color:#ae81ff&#34;&gt;0&lt;/span&gt;]&lt;span style=&#34;color:#f92672&#34;&gt;.&lt;/span&gt;message&lt;span style=&#34;color:#f92672&#34;&gt;.&lt;/span&gt;content)
+&lt;/span&gt;&lt;/span&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;    &lt;span style=&#34;color:#75715e&#34;&gt;# 输出：北京今天天气晴朗，气温 15°C，东北风 3 级，适合外出。&lt;/span&gt;
+&lt;/span&gt;&lt;/span&gt;&lt;/code&gt;&lt;/pre&gt;&lt;/div&gt;&lt;h3 id=&#34;15-并行工具调用&#34;&gt;1.5 并行工具调用
+&lt;/h3&gt;&lt;p&gt;如果用户一口气问了好几件事——&amp;ldquo;帮我查北京、上海、广州三个城市的天气&amp;rdquo;——模型可以在一次响应里同时输出多个 &lt;code&gt;tool_calls&lt;/code&gt;（它是一个列表）。你的代码可以同时执行这些工具（比如用 &lt;code&gt;asyncio.gather&lt;/code&gt;），拿到所有结果后一次性塞回对话，再调一次模型拿到综合答案。&lt;/p&gt;
+&lt;p&gt;整个过程从&amp;quot;两轮对话 × N 个工具串行&amp;quot;压缩成了&amp;quot;一轮对话 + 并行执行&amp;quot;，总耗时大幅降低。&lt;strong&gt;但前提是这几个工具之间没有依赖关系&lt;/strong&gt;：查北京和上海天气互不影响，可以并行；但&amp;quot;先查用户订单号，再用订单号查物流&amp;quot;，第二个调用依赖第一个的结果，只能串行，模型也会正确地分两轮输出。&lt;/p&gt;
+&lt;div class=&#34;highlight&#34;&gt;&lt;pre tabindex=&#34;0&#34; style=&#34;color:#f8f8f2;background-color:#272822;-moz-tab-size:4;-o-tab-size:4;tab-size:4;&#34;&gt;&lt;code class=&#34;language-python&#34; data-lang=&#34;python&#34;&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;&lt;span style=&#34;color:#f92672&#34;&gt;import&lt;/span&gt; asyncio
+&lt;/span&gt;&lt;/span&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;
+&lt;/span&gt;&lt;/span&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;&lt;span style=&#34;color:#66d9ef&#34;&gt;async&lt;/span&gt; &lt;span style=&#34;color:#66d9ef&#34;&gt;def&lt;/span&gt; &lt;span style=&#34;color:#a6e22e&#34;&gt;execute_tool_call&lt;/span&gt;(tool_call):
+&lt;/span&gt;&lt;/span&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;    &lt;span style=&#34;color:#e6db74&#34;&gt;&amp;#34;&amp;#34;&amp;#34;并行执行单个工具调用&amp;#34;&amp;#34;&amp;#34;&lt;/span&gt;
+&lt;/span&gt;&lt;/span&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;    func_args &lt;span style=&#34;color:#f92672&#34;&gt;=&lt;/span&gt; json&lt;span style=&#34;color:#f92672&#34;&gt;.&lt;/span&gt;loads(tool_call&lt;span style=&#34;color:#f92672&#34;&gt;.&lt;/span&gt;function&lt;span style=&#34;color:#f92672&#34;&gt;.&lt;/span&gt;arguments)
+&lt;/span&gt;&lt;/span&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;    &lt;span style=&#34;color:#75715e&#34;&gt;# 这里 dispatch 到真实函数&lt;/span&gt;
+&lt;/span&gt;&lt;/span&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;    &lt;span style=&#34;color:#66d9ef&#34;&gt;return&lt;/span&gt; &lt;span style=&#34;color:#66d9ef&#34;&gt;await&lt;/span&gt; dispatch_function(tool_call&lt;span style=&#34;color:#f92672&#34;&gt;.&lt;/span&gt;function&lt;span style=&#34;color:#f92672&#34;&gt;.&lt;/span&gt;name, func_args)
+&lt;/span&gt;&lt;/span&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;
+&lt;/span&gt;&lt;/span&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;&lt;span style=&#34;color:#75715e&#34;&gt;# 并行执行模型一次返回的多个 tool_calls&lt;/span&gt;
+&lt;/span&gt;&lt;/span&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;results &lt;span style=&#34;color:#f92672&#34;&gt;=&lt;/span&gt; &lt;span style=&#34;color:#66d9ef&#34;&gt;await&lt;/span&gt; asyncio&lt;span style=&#34;color:#f92672&#34;&gt;.&lt;/span&gt;gather(&lt;span style=&#34;color:#f92672&#34;&gt;*&lt;/span&gt;[execute_tool_call(tc) &lt;span style=&#34;color:#66d9ef&#34;&gt;for&lt;/span&gt; tc &lt;span style=&#34;color:#f92672&#34;&gt;in&lt;/span&gt; msg&lt;span style=&#34;color:#f92672&#34;&gt;.&lt;/span&gt;tool_calls])
+&lt;/span&gt;&lt;/span&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;
+&lt;/span&gt;&lt;/span&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;&lt;span style=&#34;color:#75715e&#34;&gt;# 把所有结果塞回对话&lt;/span&gt;
+&lt;/span&gt;&lt;/span&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;&lt;span style=&#34;color:#66d9ef&#34;&gt;for&lt;/span&gt; tc, result &lt;span style=&#34;color:#f92672&#34;&gt;in&lt;/span&gt; zip(msg&lt;span style=&#34;color:#f92672&#34;&gt;.&lt;/span&gt;tool_calls, results):
+&lt;/span&gt;&lt;/span&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;    messages&lt;span style=&#34;color:#f92672&#34;&gt;.&lt;/span&gt;append({
+&lt;/span&gt;&lt;/span&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;        &lt;span style=&#34;color:#e6db74&#34;&gt;&amp;#34;role&amp;#34;&lt;/span&gt;: &lt;span style=&#34;color:#e6db74&#34;&gt;&amp;#34;tool&amp;#34;&lt;/span&gt;,
+&lt;/span&gt;&lt;/span&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;        &lt;span style=&#34;color:#e6db74&#34;&gt;&amp;#34;tool_call_id&amp;#34;&lt;/span&gt;: tc&lt;span style=&#34;color:#f92672&#34;&gt;.&lt;/span&gt;id,
+&lt;/span&gt;&lt;/span&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;        &lt;span style=&#34;color:#e6db74&#34;&gt;&amp;#34;content&amp;#34;&lt;/span&gt;: result
+&lt;/span&gt;&lt;/span&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;    })
+&lt;/span&gt;&lt;/span&gt;&lt;/code&gt;&lt;/pre&gt;&lt;/div&gt;&lt;h3 id=&#34;本章实践要点&#34;&gt;本章实践要点
+&lt;/h3&gt;&lt;ul&gt;
+&lt;li&gt;&lt;strong&gt;description 是灵魂&lt;/strong&gt;：工具描述写得越清晰，模型选择越准确。务必写明适用范围、参数格式、限制条件。&lt;/li&gt;
+&lt;li&gt;&lt;strong&gt;模型只决策不执行&lt;/strong&gt;：永远不要让模型直接操作系统资源，执行逻辑放在宿主代码里，便于权限控制和沙箱隔离。&lt;/li&gt;
+&lt;li&gt;&lt;strong&gt;并行调用要判断依赖&lt;/strong&gt;：无依赖的工具用并行执行降低延迟，有依赖的必须串行。&lt;/li&gt;
+&lt;li&gt;&lt;strong&gt;tool_call_id 要对应&lt;/strong&gt;：第二轮把结果塞回去时，&lt;code&gt;tool_call_id&lt;/code&gt; 必须和 &lt;code&gt;tool_calls&lt;/code&gt; 里的 id 一一对应。&lt;/li&gt;
+&lt;/ul&gt;
+&lt;hr&gt;
+&lt;h2 id=&#34;第二章function-calling-训练&#34;&gt;第二章：Function Calling 训练
+&lt;/h2&gt;&lt;h3 id=&#34;21-原始-llm-为什么不会调工具&#34;&gt;2.1 原始 LLM 为什么不会调工具
+&lt;/h3&gt;&lt;p&gt;想象一个人从出生到成年，只生活在文字的世界里，读过几乎所有的书，却从没接触过任何工具——没用过锤子、没开过车、也没见过 API。你突然跟他说&amp;quot;去帮我查一下天气 API&amp;quot;，他最多只会用语言描述&amp;quot;我需要查天气 API 来获取数据……&amp;quot;，绝对不会真的去操作工具。&lt;/p&gt;
+&lt;p&gt;大语言模型在预训练阶段经历的就是这样一个过程。预训练的目标是&amp;quot;预测下一个 token&amp;quot;，整个训练完全在文本空间里进行，模型从未见过&amp;quot;工具调用&amp;quot;这件事。预训练语料里有代码、有文档、有对话，但几乎没有&amp;quot;给定一组工具 schema，该在什么场景输出什么 JSON&amp;quot;这样的成对样本。&lt;/p&gt;
+&lt;p&gt;所以工具调用能力不是天生的，是后天&amp;quot;教&amp;quot;出来的。怎么教？靠两个阶段：&lt;strong&gt;SFT 教会怎么调，RLHF 教会什么时候调&lt;/strong&gt;。&lt;/p&gt;
+&lt;h3 id=&#34;22-第一阶段sft让模型见过工具调用&#34;&gt;2.2 第一阶段：SFT，让模型&amp;quot;见过&amp;quot;工具调用
+&lt;/h3&gt;&lt;p&gt;SFT（Supervised Fine-Tuning，监督微调）的核心思路非常直接：给模型看大量正确的示例，让它学会模仿。就像培养一名新员工，前期让他看几百份填好的工单，他自然就学会了&amp;quot;遇到这类问题该怎么写工单、该走哪个流程&amp;quot;。&lt;/p&gt;
+&lt;p&gt;一条完整的训练样本包含所有角色的消息：&lt;/p&gt;
+&lt;pre tabindex=&#34;0&#34;&gt;&lt;code&gt;System: [工具定义 schema]          ← 模型从这里&amp;#34;认识&amp;#34;工具
+User:   &amp;#34;北京今天天气怎么样？&amp;#34;        ← 用户提问
+Assistant: {&amp;#34;tool_calls&amp;#34;: [         ← 关键！结构化JSON，不是自然语言
+    {&amp;#34;name&amp;#34;:&amp;#34;get_weather&amp;#34;,
+     &amp;#34;arguments&amp;#34;:{&amp;#34;city&amp;#34;:&amp;#34;北京&amp;#34;}}]}
+Tool:   &amp;#34;晴，15°C，东北风3级&amp;#34;        ← 模拟工具返回
+Assistant: &amp;#34;北京今天天气晴朗...&amp;#34;      ← 最终自然语言回答
+&lt;/code&gt;&lt;/pre&gt;&lt;p&gt;模型在几十万甚至上百万条这样的样本上反复训练，通过反向传播（backpropagation）学习：当模型输出的内容偏离正确 JSON 时，损失函数产生惩罚信号，梯度往回传，调整参数权重，让下次输出更接近正确格式。&lt;/p&gt;
+&lt;h3 id=&#34;23-训练数据需要覆盖的五类场景&#34;&gt;2.3 训练数据需要覆盖的五类场景
+&lt;/h3&gt;&lt;p&gt;训练数据的多样性直接决定了 Function Call 能力的上限，不能只有&amp;quot;正常调一个工具&amp;quot;这一种情况。好的训练数据至少要覆盖五类场景：&lt;/p&gt;
+&lt;table&gt;
+  &lt;thead&gt;
+      &lt;tr&gt;
+          &lt;th&gt;场景&lt;/th&gt;
+          &lt;th&gt;说明&lt;/th&gt;
+          &lt;th&gt;缺失的后果&lt;/th&gt;
+      &lt;/tr&gt;
+  &lt;/thead&gt;
+  &lt;tbody&gt;
+      &lt;tr&gt;
+          &lt;td&gt;&lt;strong&gt;单工具调用&lt;/strong&gt;&lt;/td&gt;
+          &lt;td&gt;最基础的入门场景&lt;/td&gt;
+          &lt;td&gt;模型连基础调用都不会&lt;/td&gt;
+      &lt;/tr&gt;
+      &lt;tr&gt;
+          &lt;td&gt;&lt;strong&gt;多工具并行调用&lt;/strong&gt;&lt;/td&gt;
+          &lt;td&gt;一次输出多个 tool_calls&lt;/td&gt;
+          &lt;td&gt;模型不知道可以并行，傻乎乎串行&lt;/td&gt;
+      &lt;/tr&gt;
+      &lt;tr&gt;
+          &lt;td&gt;&lt;strong&gt;工具调用失败后重试&lt;/strong&gt;&lt;/td&gt;
+          &lt;td&gt;API 超时、参数错误等情况&lt;/td&gt;
+          &lt;td&gt;模型遇到错误直接崩掉或傻傻重复&lt;/td&gt;
+      &lt;/tr&gt;
+      &lt;tr&gt;
+          &lt;td&gt;&lt;strong&gt;不需要工具直接回答&lt;/strong&gt;&lt;/td&gt;
+          &lt;td&gt;&amp;ldquo;1+1等于几&amp;quot;这类问题&lt;/td&gt;
+          &lt;td&gt;模型形成&amp;quot;遇到问题就调工具&amp;quot;的惯性&lt;/td&gt;
+      &lt;/tr&gt;
+      &lt;tr&gt;
+          &lt;td&gt;&lt;strong&gt;多轮对话中的工具调用&lt;/strong&gt;&lt;/td&gt;
+          &lt;td&gt;引用历史上下文中的工具结果&lt;/td&gt;
+          &lt;td&gt;模型无视历史重新调用&lt;/td&gt;
+      &lt;/tr&gt;
+  &lt;/tbody&gt;
+&lt;/table&gt;
+&lt;h3 id=&#34;24-sft-的短板会了但不知道该不该调&#34;&gt;2.4 SFT 的短板：会了，但不知道&amp;quot;该不该调&amp;rdquo;
+&lt;/h3&gt;&lt;p&gt;SFT 让模型学会了&amp;quot;调工具&amp;quot;这个动作，但它不知道什么时候该调、什么时候不该调。因为 SFT 的训练样本里&amp;quot;该调的场景&amp;quot;占了绝大多数（毕竟我们就是要教它调工具），模型在模仿的过程中会过拟合这种&amp;quot;积极调用&amp;quot;的倾向，没看过足够多的&amp;quot;不该调&amp;quot;反例。&lt;/p&gt;
+&lt;p&gt;&amp;ldquo;SFT 之后的模型也有类似的毛病：可能对简单问题也尝试调工具，或者遇到工具调用失败时不知道该怎么处理，行为边界感很弱。&amp;rdquo;&lt;/p&gt;
+&lt;h3 id=&#34;25-第二阶段rlhf用反馈建立边界感&#34;&gt;2.5 第二阶段：RLHF，用反馈建立边界感
+&lt;/h3&gt;&lt;p&gt;RLHF（Reinforcement Learning from Human Feedback，人类反馈强化学习）的流程分四步：&lt;/p&gt;
+&lt;pre tabindex=&#34;0&#34;&gt;&lt;code&gt;┌──────────────┐    ┌──────────────┐    ┌──────────────┐    ┌──────────────┐
+│ 1.生成多样回答 │───→│ 2.人类打分排序 │───→│ 3.训练奖励模型│───→│ 4.强化学习优化│
+│ (覆盖各种情况) │    │ (哪种回答更好) │    │ (学会打分的RM)│    │ (PPO调主模型) │
+└──────────────┘    └──────────────┘    └──────────────┘    └──────────────┘
+&lt;/code&gt;&lt;/pre&gt;&lt;ol&gt;
+&lt;li&gt;&lt;strong&gt;生成多样回答&lt;/strong&gt;：对同一个问题，让模型生成几种不同的处理方式——有的调了工具、有的直接回答、有的参数填错了，故意覆盖各种情况。&lt;/li&gt;
+&lt;li&gt;&lt;strong&gt;人类打分&lt;/strong&gt;：标注员评判哪种回答更合理。&amp;ldquo;1+1 等于几&amp;quot;直接回答最好，&amp;ldquo;北京天气怎么样&amp;quot;调工具才对。这批打分数据记录了人类的判断偏好。&lt;/li&gt;
+&lt;li&gt;&lt;strong&gt;训练奖励模型（RM）&lt;/strong&gt;：用这批打分数据单独训练一个小模型，专门负责打分。它不回答问题，只判断&amp;quot;这个回答人类会喜欢吗&amp;rdquo;——相当于一个&amp;quot;会打分的裁判&amp;rdquo;。人类的判断被&amp;quot;蒸馏&amp;quot;进了这个裁判。&lt;/li&gt;
+&lt;li&gt;&lt;strong&gt;强化学习优化主模型&lt;/strong&gt;：拿奖励模型的打分，通过 PPO 等算法持续调整主模型参数，让它越来越倾向于产出&amp;quot;高分回答&amp;quot;。&lt;/li&gt;
+&lt;/ol&gt;
+&lt;h3 id=&#34;26-为什么偏偏是-ppo&#34;&gt;2.6 为什么偏偏是 PPO
+&lt;/h3&gt;&lt;p&gt;强化学习算法那么多，选 PPO 有两个务实的理由：&lt;/p&gt;
+&lt;ul&gt;
+&lt;li&gt;&lt;strong&gt;相对稳定&lt;/strong&gt;：训练过程不容易崩。传统策略梯度算法很容易因为单步更新太大把模型直接调废。&lt;/li&gt;
+&lt;li&gt;&lt;strong&gt;内置 KL 散度约束&lt;/strong&gt;：强迫新模型和旧模型的输出分布不要差得太远，避免&amp;quot;为了讨好奖励模型，模型把自己训成只会重复几句套话的怪胎&amp;quot;这种退化情况。&lt;/li&gt;
+&lt;/ul&gt;
+&lt;p&gt;RLHF 本质上要让模型在&amp;quot;追求高奖励&amp;quot;和&amp;quot;保持语言能力&amp;quot;之间走钢丝，PPO 在这个平衡上是目前公认好用的工具。&lt;/p&gt;
+&lt;p&gt;&lt;strong&gt;RLAIF&lt;/strong&gt;（Reinforcement Learning from AI Feedback）是 RLHF 的变体，用更强的 AI 模型（比如 GPT-4）代替人类标注员打分，成本能低 10-100 倍。但代价是&amp;quot;AI 的偏见会传递&amp;quot;——如果打分的 AI 本身对某些场景判断有偏差，这些偏差也会被学进去。现在业界很多模型训练都在混用 RLHF 和 RLAIF，关键数据用人工保质量，量大的地方用 AI 提效率。&lt;/p&gt;
+&lt;h3 id=&#34;27-两个阶段各司其职&#34;&gt;2.7 两个阶段各司其职
+&lt;/h3&gt;&lt;pre tabindex=&#34;0&#34;&gt;&lt;code&gt;  SFT                          RLHF
+&amp;#34;会不会调&amp;#34;                   &amp;#34;该不该调&amp;#34;
+(教会格式)                   (建立边界感)
+    │                            │
+    └──────────┬─────────────────┘
+               ↓
+        训练好的 Function Call 能力
+    &amp;#34;知道怎么调，也知道什么时候该调&amp;#34;
+&lt;/code&gt;&lt;/pre&gt;&lt;p&gt;只有 SFT 而没有 RLHF 的模型，可能遇到什么问题都冲动地调工具；反过来，只有 RLHF 而没有 SFT，模型连工具调用的格式都输不出来，奖励信号根本没地方发力。两个阶段配合起来，才能训练出完整的工具使用能力。&lt;/p&gt;
+&lt;h3 id=&#34;本章实践要点-1&#34;&gt;本章实践要点
+&lt;/h3&gt;&lt;ul&gt;
+&lt;li&gt;&lt;strong&gt;预训练学不会工具调用&lt;/strong&gt;：不要指望参数量够大就自然涌现，必须做专项微调。&lt;/li&gt;
+&lt;li&gt;&lt;strong&gt;训练数据要覆盖五类场景&lt;/strong&gt;：缺哪个场景就会在哪个场景翻车，特别是&amp;quot;不需要工具直接回答&amp;quot;这一类经常被忽略。&lt;/li&gt;
+&lt;li&gt;&lt;strong&gt;数据来源注意幻觉传递&lt;/strong&gt;：用强模型自动生成训练数据时（Self-Instruct / Distillation），必须人工抽查质量，否则等于在教模型学错误答案。&lt;/li&gt;
+&lt;li&gt;&lt;strong&gt;RLHF 的奖励模型质量是天花板&lt;/strong&gt;：人类标注员标准不一致，奖励模型就会学到歪的打分标准。&lt;/li&gt;
+&lt;/ul&gt;
+&lt;hr&gt;
+&lt;h2 id=&#34;第三章mcp-协议&#34;&gt;第三章：MCP 协议
+&lt;/h2&gt;&lt;h3 id=&#34;31-nm-问题没有-mcp-之前接工具有多麻烦&#34;&gt;3.1 N×M 问题：没有 MCP 之前，接工具有多麻烦
+&lt;/h3&gt;&lt;p&gt;想象你要给 Claude 接入 GitHub 工具。你得手写 GitHub API 的调用代码、处理认证（OAuth token 怎么传）、处理各种返回格式、把 API 响应转成模型能理解的格式……好不容易接好了。结果过了两个月 Claude 升了个版，接口有变化，对接代码得改。更麻烦的是，你同时接了十个工具，每个工具都有自己的一套对接代码。现在产品方说这套工具也要给 Cursor 用——不好意思，重写一遍，因为 Cursor 和 Claude Desktop 的接入方式完全不同。&lt;/p&gt;
+&lt;p&gt;这就是 MCP 出现之前 AI 工具生态的真实状态：&lt;strong&gt;碎片化、难复用、强绑定&lt;/strong&gt;。&lt;/p&gt;
+&lt;p&gt;把这个问题抽象出来就是经典的 &lt;strong&gt;N×M 问题&lt;/strong&gt;：N 个 AI 应用要对接 M 个工具，需要维护 N×M 份对接代码。&lt;/p&gt;
+&lt;pre tabindex=&#34;0&#34;&gt;&lt;code&gt;  没有MCP: N×M 份对接代码                    有MCP: N+M 份
+
+  App1 ──→ ToolA (对接代码)                 App1 ──┐
+  App1 ──→ ToolB (对接代码)                 App2 ──┤     ┌── MCP Server A
+  App1 ──→ ToolC (对接代码)                 App3 ──┤ ┌──→(ToolA)
+                                          ──────┤ │
+  App2 ──→ ToolA (重写一份)                 MCP   ├─┤
+  App2 ──→ ToolB (重写一份)                 Client├─┤ ┌── MCP Server B
+  App2 ──→ ToolC (重写一份)                 模块  │ └──→(ToolB)
+                                          (N个)  │
+  App3 ──→ ToolA (再重写)                        ├─┐
+  App3 ──→ ToolB (再重写)                        │ └── MCP Server C
+  App3 ──→ ToolC (再重写)                           (ToolC)
+  
+  = N×M 份代码, 改一个工具改 N 处              = N+M 份代码, 各自独立维护
+&lt;/code&gt;&lt;/pre&gt;&lt;p&gt;MCP（Model Context Protocol，模型上下文协议）的思路是用 USB 接口来类比：在 USB 标准出现之前，鼠标用一个接口、键盘用另一个、打印机又是另一个，换台电脑就愁接口不兼容。USB 出现之后，所有外设统一接口，设备厂商只需要做一次适配，全球所有 USB 电脑都能用。MCP 做的是同一件事：为&amp;quot;AI 接工具&amp;quot;这件事定一套统一的协议标准。&lt;/p&gt;
+&lt;h3 id=&#34;32-client-server-架构与三个角色&#34;&gt;3.2 Client-Server 架构与三个角色
+&lt;/h3&gt;&lt;p&gt;MCP 采用标准的 Client-Server 架构，但定义了三个角色，不只是两个：&lt;/p&gt;
+&lt;table&gt;
+  &lt;thead&gt;
+      &lt;tr&gt;
+          &lt;th&gt;角色&lt;/th&gt;
+          &lt;th&gt;职责&lt;/th&gt;
+          &lt;th&gt;比喻&lt;/th&gt;
+      &lt;/tr&gt;
+  &lt;/thead&gt;
+  &lt;tbody&gt;
+      &lt;tr&gt;
+          &lt;td&gt;&lt;strong&gt;Host&lt;/strong&gt;&lt;/td&gt;
+          &lt;td&gt;AI 应用本身（如 Claude Desktop），启动和管理所有 Client，控制连哪些 Server&lt;/td&gt;
+          &lt;td&gt;公司&lt;/td&gt;
+      &lt;/tr&gt;
+      &lt;tr&gt;
+          &lt;td&gt;&lt;strong&gt;Client&lt;/strong&gt;&lt;/td&gt;
+          &lt;td&gt;Host 内部的连接模块，一个 Client 对应一个 Server 连接。负责初始化连接、能力发现、转发调用请求&lt;/td&gt;
+          &lt;td&gt;驻场联络员&lt;/td&gt;
+      &lt;/tr&gt;
+      &lt;tr&gt;
+          &lt;td&gt;&lt;strong&gt;Server&lt;/strong&gt;&lt;/td&gt;
+          &lt;td&gt;工具提供方实现的独立进程，对外暴露 Tools/Resources/Prompts&lt;/td&gt;
+          &lt;td&gt;外部供应商&lt;/td&gt;
+      &lt;/tr&gt;
+  &lt;/tbody&gt;
+&lt;/table&gt;
+&lt;p&gt;关键设计：&lt;strong&gt;一个 Host 可以同时连多个 Server&lt;/strong&gt;。你把文件系统 Server + GitHub Server + PostgreSQL Server 都接上，模型就同时拥有了操作本地文件、读写代码仓库、查询数据库这三套工具能力，而你不需要写任何对接代码，只需要在配置文件里加几行 JSON。&lt;/p&gt;
+&lt;p&gt;Server 完全不关心上面是哪个 Host 在用它，只需要按 MCP 协议响应 Client 的请求就行。这也是 MCP 的核心价值：Server 写一次，任何支持 MCP 的 Host 都能直接用。&lt;/p&gt;
+&lt;h3 id=&#34;33-三类核心能力tools--resources--prompts&#34;&gt;3.3 三类核心能力：Tools / Resources / Prompts
+&lt;/h3&gt;&lt;p&gt;MCP Server 可以向 Client 暴露三类能力，各有各的定位：&lt;/p&gt;
+&lt;table&gt;
+  &lt;thead&gt;
+      &lt;tr&gt;
+          &lt;th&gt;能力&lt;/th&gt;
+          &lt;th&gt;本质&lt;/th&gt;
+          &lt;th&gt;副作用&lt;/th&gt;
+          &lt;th&gt;授权要求&lt;/th&gt;
+      &lt;/tr&gt;
+  &lt;/thead&gt;
+  &lt;tbody&gt;
+      &lt;tr&gt;
+          &lt;td&gt;&lt;strong&gt;Tools（工具）&lt;/strong&gt;&lt;/td&gt;
+          &lt;td&gt;有副作用的操作，执行后改变外部状态&lt;/td&gt;
+          &lt;td&gt;有（创建文件、提交代码、发消息、调API）&lt;/td&gt;
+          &lt;td&gt;通常需要用户授权确认&lt;/td&gt;
+      &lt;/tr&gt;
+      &lt;tr&gt;
+          &lt;td&gt;&lt;strong&gt;Resources（资源）&lt;/strong&gt;&lt;/td&gt;
+          &lt;td&gt;只读数据，不改变任何东西&lt;/td&gt;
+          &lt;td&gt;无（读取日志、查数据库记录、获取文档）&lt;/td&gt;
+          &lt;td&gt;可更宽松暴露&lt;/td&gt;
+      &lt;/tr&gt;
+      &lt;tr&gt;
+          &lt;td&gt;&lt;strong&gt;Prompts（提示模板）&lt;/strong&gt;&lt;/td&gt;
+          &lt;td&gt;预定义的提示词模板，带参数占位符&lt;/td&gt;
+          &lt;td&gt;无&lt;/td&gt;
+          &lt;td&gt;可共享复用&lt;/td&gt;
+      &lt;/tr&gt;
+  &lt;/tbody&gt;
+&lt;/table&gt;
+&lt;p&gt;三者的本质区别可以这样记：&lt;strong&gt;Tools 改变世界，Resources 观察世界，Prompts 结构化表达&lt;/strong&gt;。&lt;/p&gt;
+&lt;p&gt;Resources 和 Tools 最本质的区别是一个字：&amp;ldquo;只读&amp;rdquo;。你可以把 Resources 理解成&amp;quot;工具的资料室&amp;quot;，模型可以进去查资料，但不能修改里面的东西。正因为只读、无副作用，Resources 可以更宽松地暴露给模型，不需要像 Tools 那样谨慎授权。&lt;/p&gt;
+&lt;h3 id=&#34;34-json-rpc-20底层消息格式&#34;&gt;3.4 JSON-RPC 2.0：底层消息格式
+&lt;/h3&gt;&lt;p&gt;Client 和 Server 之间的消息格式统一用 JSON-RPC 2.0。每条消息是一个 JSON 对象，格式固定：&lt;/p&gt;
+&lt;div class=&#34;highlight&#34;&gt;&lt;pre tabindex=&#34;0&#34; style=&#34;color:#f8f8f2;background-color:#272822;-moz-tab-size:4;-o-tab-size:4;tab-size:4;&#34;&gt;&lt;code class=&#34;language-json&#34; data-lang=&#34;json&#34;&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;&lt;span style=&#34;color:#75715e&#34;&gt;// Client 向 Server 查询工具列表
+&lt;/span&gt;&lt;/span&gt;&lt;/span&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;&lt;span style=&#34;color:#75715e&#34;&gt;&lt;/span&gt;{&lt;span style=&#34;color:#f92672&#34;&gt;&amp;#34;jsonrpc&amp;#34;&lt;/span&gt;: &lt;span style=&#34;color:#e6db74&#34;&gt;&amp;#34;2.0&amp;#34;&lt;/span&gt;, &lt;span style=&#34;color:#f92672&#34;&gt;&amp;#34;id&amp;#34;&lt;/span&gt;: &lt;span style=&#34;color:#ae81ff&#34;&gt;1&lt;/span&gt;, &lt;span style=&#34;color:#f92672&#34;&gt;&amp;#34;method&amp;#34;&lt;/span&gt;: &lt;span style=&#34;color:#e6db74&#34;&gt;&amp;#34;tools/list&amp;#34;&lt;/span&gt;, &lt;span style=&#34;color:#f92672&#34;&gt;&amp;#34;params&amp;#34;&lt;/span&gt;: {}}
+&lt;/span&gt;&lt;/span&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;
+&lt;/span&gt;&lt;/span&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;&lt;span style=&#34;color:#75715e&#34;&gt;// Server 返回工具列表
+&lt;/span&gt;&lt;/span&gt;&lt;/span&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;&lt;span style=&#34;color:#75715e&#34;&gt;&lt;/span&gt;{&lt;span style=&#34;color:#f92672&#34;&gt;&amp;#34;jsonrpc&amp;#34;&lt;/span&gt;: &lt;span style=&#34;color:#e6db74&#34;&gt;&amp;#34;2.0&amp;#34;&lt;/span&gt;, &lt;span style=&#34;color:#f92672&#34;&gt;&amp;#34;id&amp;#34;&lt;/span&gt;: &lt;span style=&#34;color:#ae81ff&#34;&gt;1&lt;/span&gt;, &lt;span style=&#34;color:#f92672&#34;&gt;&amp;#34;result&amp;#34;&lt;/span&gt;: {&lt;span style=&#34;color:#f92672&#34;&gt;&amp;#34;tools&amp;#34;&lt;/span&gt;: [{&lt;span style=&#34;color:#f92672&#34;&gt;&amp;#34;name&amp;#34;&lt;/span&gt;: &lt;span style=&#34;color:#e6db74&#34;&gt;&amp;#34;read_file&amp;#34;&lt;/span&gt;, &lt;span style=&#34;color:#960050;background-color:#1e0010&#34;&gt;...&lt;/span&gt;}]}}
+&lt;/span&gt;&lt;/span&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;
+&lt;/span&gt;&lt;/span&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;&lt;span style=&#34;color:#75715e&#34;&gt;// Client 请求调用某个工具
+&lt;/span&gt;&lt;/span&gt;&lt;/span&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;&lt;span style=&#34;color:#75715e&#34;&gt;&lt;/span&gt;{&lt;span style=&#34;color:#f92672&#34;&gt;&amp;#34;jsonrpc&amp;#34;&lt;/span&gt;: &lt;span style=&#34;color:#e6db74&#34;&gt;&amp;#34;2.0&amp;#34;&lt;/span&gt;, &lt;span style=&#34;color:#f92672&#34;&gt;&amp;#34;id&amp;#34;&lt;/span&gt;: &lt;span style=&#34;color:#ae81ff&#34;&gt;2&lt;/span&gt;, &lt;span style=&#34;color:#f92672&#34;&gt;&amp;#34;method&amp;#34;&lt;/span&gt;: &lt;span style=&#34;color:#e6db74&#34;&gt;&amp;#34;tools/call&amp;#34;&lt;/span&gt;,
+&lt;/span&gt;&lt;/span&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt; &lt;span style=&#34;color:#f92672&#34;&gt;&amp;#34;params&amp;#34;&lt;/span&gt;: {&lt;span style=&#34;color:#f92672&#34;&gt;&amp;#34;name&amp;#34;&lt;/span&gt;: &lt;span style=&#34;color:#e6db74&#34;&gt;&amp;#34;read_file&amp;#34;&lt;/span&gt;, &lt;span style=&#34;color:#f92672&#34;&gt;&amp;#34;arguments&amp;#34;&lt;/span&gt;: {&lt;span style=&#34;color:#f92672&#34;&gt;&amp;#34;path&amp;#34;&lt;/span&gt;: &lt;span style=&#34;color:#e6db74&#34;&gt;&amp;#34;/tmp/log.txt&amp;#34;&lt;/span&gt;}}}
+&lt;/span&gt;&lt;/span&gt;&lt;/code&gt;&lt;/pre&gt;&lt;/div&gt;&lt;p&gt;用 JSON 而不是二进制格式，好处是易读、易调试、语言无关，不管 Server 是 Python 写的还是 TypeScript 写的，消息格式是一样的。MCP 用 JSON-RPC 2.0（相比 1.0 加了批量请求、通知消息等功能）。&lt;/p&gt;
+&lt;h3 id=&#34;35-两种传输方式&#34;&gt;3.5 两种传输方式
+&lt;/h3&gt;&lt;p&gt;消息格式定了，怎么传呢？MCP 支持两种传输方式：&lt;/p&gt;
+&lt;pre tabindex=&#34;0&#34;&gt;&lt;code&gt;┌─────────────────────┐          ┌─────────────────────────┐
+│     stdio (本地)     │          │  Streamable HTTP (远程)  │
+├─────────────────────┤          ├─────────────────────────┤
+│ Server 作为子进程    │          │ Server 作为 HTTP 服务    │
+│ 通过 OS 管道通信     │          │ Client 通过网络连接      │
+│                     │          │                         │
+│ ✓ 延迟极低           │          │ ✓ 多Client共享一个Server │
+│ ✓ 不开端口,无安全问题 │          │ ✓ 支持跨机器访问         │
+│ ✓ 生命周期自动管理   │          │ ✗ 有网络开销             │
+│ ✗ 仅限本地           │          │ ✗ 需处理认证/重连        │
+└─────────────────────┘          └─────────────────────────┘
+&lt;/code&gt;&lt;/pre&gt;&lt;p&gt;&lt;strong&gt;stdio（标准输入输出）&lt;/strong&gt;：Server 作为本地子进程运行，Host 通过操作系统的管道和它通信，Server 从 stdin 读请求、把结果写到 stdout。整个过程不经过网卡、不经过 TCP/IP 协议栈，数据在 RAM 里走了一趟就到了，延迟天然比网络请求低得多。Claude Desktop 接本地 MCP Server 走的就是这种方式。&lt;/p&gt;
+&lt;p&gt;&lt;strong&gt;Streamable HTTP&lt;/strong&gt;：Server 作为 HTTP 服务独立部署，Client 通过网络连接访问。用单个 HTTP 端点（通常是 &lt;code&gt;/mcp&lt;/code&gt;）同时处理请求和响应：Client 用 POST 发请求，Server 根据情况灵活返回——短请求直接回普通 JSON，长请求则把 HTTP 响应升级为 SSE 流持续推送中间结果。&lt;/p&gt;
+&lt;p&gt;这里有一个很重要的设计点：&lt;strong&gt;消息格式（JSON-RPC 2.0）和传输方式（stdio / Streamable HTTP）是解耦的&lt;/strong&gt;。同一套 JSON-RPC 消息可以跑在任意传输层上，切换传输方式不影响上层的工具调用逻辑。这让 MCP Server 既可以轻量地作为本地进程运行，也可以作为正式的微服务部署。&lt;/p&gt;
+&lt;h3 id=&#34;36-sse-双端点到-streamable-http-的演进&#34;&gt;3.6 SSE 双端点到 Streamable HTTP 的演进
+&lt;/h3&gt;&lt;p&gt;MCP 早期版本（2024-11-05 规范）的远程传输方案叫&amp;quot;HTTP + SSE&amp;quot;，是双端点结构：一个 GET 端点开 SSE 长连接接收 Server 推送，一个 POST 端点用来发请求。这套方案在 2025 年 3 月的规范更新里被改成了单端点的 &lt;strong&gt;Streamable HTTP&lt;/strong&gt;（老的 HTTP+SSE 被标记为 deprecated，但保留向后兼容）。&lt;/p&gt;
+&lt;p&gt;为什么要替换？因为双端点有一个小尴尬：同一个对话被拆成了两条通道。Client POST 了一条消息之后网络突然断了，那条消息到底被处理了没、SSE 流会不会推回结果，Client 没有一个简单的办法判断，出问题时排查链路很长。&lt;/p&gt;
+&lt;p&gt;Streamable HTTP 把两条通道合并成一个端点，架构更简洁，对负载均衡器和 serverless 环境都更友好。&lt;strong&gt;注意：Streamable HTTP 并没有抛弃 SSE&lt;/strong&gt;，流式推送的部分底层还是 SSE（&lt;code&gt;Content-Type: text/event-stream&lt;/code&gt;），只是把端点从两个合成一个。&lt;/p&gt;
+&lt;h3 id=&#34;37-生态发展快的原因&#34;&gt;3.7 生态发展快的原因
+&lt;/h3&gt;&lt;p&gt;MCP 是 Anthropic 在 2024 年底发布的，发布后发展速度很快，主要有两个原因：&lt;/p&gt;
+&lt;ol&gt;
+&lt;li&gt;&lt;strong&gt;极低的实现门槛&lt;/strong&gt;：Anthropic 开源了协议规范和多语言 SDK（Python、TypeScript 都有），写一个最简单的 MCP Server 不到 30 行代码。&lt;/li&gt;
+&lt;li&gt;&lt;strong&gt;头部工具第一时间跟进&lt;/strong&gt;：GitHub、Slack、PostgreSQL、Puppeteer、Google Maps 等高频工具都有了官方或社区维护的 MCP Server，接一个新工具就是配置文件里加几行 JSON，零代码。&lt;/li&gt;
+&lt;/ol&gt;
+&lt;h3 id=&#34;本章实践要点-2&#34;&gt;本章实践要点
+&lt;/h3&gt;&lt;ul&gt;
+&lt;li&gt;&lt;strong&gt;MCP 是协议不是框架&lt;/strong&gt;：它解决的是&amp;quot;工具怎么标准化接入&amp;quot;，不是&amp;quot;模型怎么输出调用请求&amp;quot;。&lt;/li&gt;
+&lt;li&gt;&lt;strong&gt;Host ≠ Client&lt;/strong&gt;：Host 是宿主应用本身，Client 是 Host 内部负责和 Server 通信的模块，一个 Host 可以连多个 Server。&lt;/li&gt;
+&lt;li&gt;&lt;strong&gt;三类能力职责分明&lt;/strong&gt;：Tools 有副作用需授权，Resources 只读无副作用，Prompts 是可复用模板。不要把只读数据和有副作用的操作混为一谈。&lt;/li&gt;
+&lt;li&gt;&lt;strong&gt;消息格式和传输方式解耦&lt;/strong&gt;：JSON-RPC 2.0 定义消息长什么样，stdio/Streamable HTTP 定义消息怎么传，两者互不耦合。&lt;/li&gt;
+&lt;li&gt;&lt;strong&gt;新项目用 Streamable HTTP&lt;/strong&gt;：HTTP+SSE 双端点方案已 deprecated，仍向后兼容但不推荐新项目使用。&lt;/li&gt;
+&lt;/ul&gt;
+&lt;hr&gt;
+&lt;h2 id=&#34;第四章mcp-vs-function-calling&#34;&gt;第四章：MCP vs Function Calling
+&lt;/h2&gt;&lt;h3 id=&#34;41-语言层-vs-工具箱层&#34;&gt;4.1 语言层 vs 工具箱层
+&lt;/h3&gt;&lt;p&gt;很多人第一次看到 MCP 会有一个直觉困惑：Function Calling 不是已经能调工具了吗，为什么还要再搞一个协议？这个困惑的根源，是把&amp;quot;能调工具&amp;quot;和&amp;quot;管好工具&amp;quot;混在一起了。&lt;/p&gt;
+&lt;p&gt;有一个很好的类比：HTTP 协议出来之后，我们已经能在网络上传数据了，为什么还需要 REST API 规范？因为 HTTP 解决的是&amp;quot;怎么传&amp;quot;（一次请求长什么样、用什么方法、怎么编码），REST 解决的是&amp;quot;怎么组织和管理&amp;quot;（资源怎么命名、端点怎么设计、状态怎么表达、多个服务之间怎么复用同一套约定）。&lt;/p&gt;
+&lt;p&gt;Function Calling 和 MCP 也是同样的关系：&lt;/p&gt;
+&lt;table&gt;
+  &lt;thead&gt;
+      &lt;tr&gt;
+          &lt;th&gt;维度&lt;/th&gt;
+          &lt;th&gt;Function Calling&lt;/th&gt;
+          &lt;th&gt;MCP&lt;/th&gt;
+      &lt;/tr&gt;
+  &lt;/thead&gt;
+  &lt;tbody&gt;
+      &lt;tr&gt;
+          &lt;td&gt;&lt;strong&gt;解决什么&lt;/strong&gt;&lt;/td&gt;
+          &lt;td&gt;模型怎么输出调用请求&lt;/td&gt;
+          &lt;td&gt;工具怎么标准化接入&lt;/td&gt;
+      &lt;/tr&gt;
+      &lt;tr&gt;
+          &lt;td&gt;&lt;strong&gt;层次&lt;/strong&gt;&lt;/td&gt;
+          &lt;td&gt;调用语言（格式）&lt;/td&gt;
+          &lt;td&gt;工具生态（规范+管理）&lt;/td&gt;
+      &lt;/tr&gt;
+      &lt;tr&gt;
+          &lt;td&gt;&lt;strong&gt;类比&lt;/strong&gt;&lt;/td&gt;
+          &lt;td&gt;HTTP 请求格式&lt;/td&gt;
+          &lt;td&gt;REST API 规范 + 服务注册发现&lt;/td&gt;
+      &lt;/tr&gt;
+      &lt;tr&gt;
+          &lt;td&gt;&lt;strong&gt;工具管理&lt;/strong&gt;&lt;/td&gt;
+          &lt;td&gt;无，每次手动写 schema&lt;/td&gt;
+          &lt;td&gt;有，自动发现、注册&lt;/td&gt;
+      &lt;/tr&gt;
+      &lt;tr&gt;
+          &lt;td&gt;&lt;strong&gt;跨项目复用&lt;/strong&gt;&lt;/td&gt;
+          &lt;td&gt;无，换个项目重写&lt;/td&gt;
+          &lt;td&gt;有，一次实现到处复用&lt;/td&gt;
+      &lt;/tr&gt;
+      &lt;tr&gt;
+          &lt;td&gt;&lt;strong&gt;跨模型兼容&lt;/strong&gt;&lt;/td&gt;
+          &lt;td&gt;无，各家格式不同&lt;/td&gt;
+          &lt;td&gt;有，协议统一&lt;/td&gt;
+      &lt;/tr&gt;
+  &lt;/tbody&gt;
+&lt;/table&gt;
+&lt;h3 id=&#34;42-function-calling-的痛点每次都是一次性的&#34;&gt;4.2 Function Calling 的痛点：每次都是一次性的
+&lt;/h3&gt;&lt;p&gt;&amp;ldquo;每次手动&amp;quot;到底有多痛？假设你团队里有 5 个应用，每个应用要接 8 个工具，也就是 40 份工具对接代码在维护。某天 GitHub API 的某个字段变了，你要在 5 个地方同步改，只要其中一个忘了，那个应用在凌晨报警。再假设你要从 Claude 迁到 GPT-4，这 40 份代码里的 Function Calling 格式全要重新适配一遍。&lt;/p&gt;
+&lt;p&gt;同一个工具，换个项目就要重新对接一遍，每次都是一次性的手工活。这就是 Function Calling 解决不了的核心问题：&lt;strong&gt;工具的管理、复用和跨平台兼容&lt;/strong&gt;。&lt;/p&gt;
+&lt;h3 id=&#34;43-最关键的联系mcp-底层依然靠-function-calling-驱动&#34;&gt;4.3 最关键的联系：MCP 底层依然靠 Function Calling 驱动
+&lt;/h3&gt;&lt;p&gt;这是很多人没想清楚的一点：&lt;strong&gt;MCP 不是 Function Calling 的替代品，而是建立在 Function Calling 之上的&lt;/strong&gt;。&lt;/p&gt;
+&lt;p&gt;当 MCP Client 连上一个 Server 之后，会自动向 Server 拉取所有工具的定义（调用 &lt;code&gt;list_tools&lt;/code&gt; 接口），然后把这些定义&lt;strong&gt;转换成模型原生的 Function Calling 格式&lt;/strong&gt;传给模型。模型依然通过输出 &lt;code&gt;tool_calls&lt;/code&gt; 来表达&amp;quot;我要调哪个工具&amp;rdquo;，MCP Client 再把这个请求路由到对应的 Server 去执行，拿到结果后以 tool 消息的形式喂回对话。&lt;/p&gt;
+&lt;pre tabindex=&#34;0&#34;&gt;&lt;code&gt;    模型视角               MCP Client (宿主程序层)           MCP Server
+       │                         │                              │
+       │  ← tools schema ─────── │ (list_tools, 转成FC格式) ←─── │
+       │                         │                              │
+       │  ── tool_calls JSON ──→ │ (路由到对应Server) ─────────→│ (执行)
+       │                         │                              │
+       │  ← tool result ──────── │ (tool消息喂回) ←──────────── │ (返回)
+       │                         │                              │
+       │  [模型完全感知不到MCP]    │  [所有&amp;#34;魔法&amp;#34;都在这一层]        │
+&lt;/code&gt;&lt;/pre&gt;&lt;p&gt;从&lt;strong&gt;模型的视角&lt;/strong&gt;来看，它完全感知不到 MCP 的存在，它以为自己只是在做普通的 Function Calling，根本不知道背后有一套 Server 在运行。MCP 的所有&amp;quot;魔法&amp;quot;都发生在宿主程序层：工具的自动发现、schema 的格式转换、调用请求的路由、执行结果的返回，全都在这一层默默完成。&lt;/p&gt;
+&lt;p&gt;这也意味着：&lt;strong&gt;如果模型本身不支持 Function Calling，MCP 就完全没办法用&lt;/strong&gt;，因为这个&amp;quot;翻译层&amp;quot;失效了。&lt;/p&gt;
+&lt;h3 id=&#34;44-自己写一个-mcp-server-有多简单&#34;&gt;4.4 自己写一个 MCP Server 有多简单
+&lt;/h3&gt;&lt;p&gt;以 Python SDK 为例，核心就三步：用 &lt;code&gt;@app.list_tools()&lt;/code&gt; 装饰器声明工具、用 &lt;code&gt;@app.call_tool()&lt;/code&gt; 装饰器实现执行逻辑、用 stdio 方式运行。&lt;/p&gt;
+&lt;div class=&#34;highlight&#34;&gt;&lt;pre tabindex=&#34;0&#34; style=&#34;color:#f8f8f2;background-color:#272822;-moz-tab-size:4;-o-tab-size:4;tab-size:4;&#34;&gt;&lt;code class=&#34;language-python&#34; data-lang=&#34;python&#34;&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;&lt;span style=&#34;color:#f92672&#34;&gt;import&lt;/span&gt; asyncio
+&lt;/span&gt;&lt;/span&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;&lt;span style=&#34;color:#f92672&#34;&gt;from&lt;/span&gt; mcp.server &lt;span style=&#34;color:#f92672&#34;&gt;import&lt;/span&gt; Server
+&lt;/span&gt;&lt;/span&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;&lt;span style=&#34;color:#f92672&#34;&gt;from&lt;/span&gt; mcp.server.stdio &lt;span style=&#34;color:#f92672&#34;&gt;import&lt;/span&gt; stdio_server
+&lt;/span&gt;&lt;/span&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;&lt;span style=&#34;color:#f92672&#34;&gt;from&lt;/span&gt; mcp.types &lt;span style=&#34;color:#f92672&#34;&gt;import&lt;/span&gt; Tool, TextContent
+&lt;/span&gt;&lt;/span&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;
+&lt;/span&gt;&lt;/span&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;app &lt;span style=&#34;color:#f92672&#34;&gt;=&lt;/span&gt; Server(&lt;span style=&#34;color:#e6db74&#34;&gt;&amp;#34;calculator&amp;#34;&lt;/span&gt;)
+&lt;/span&gt;&lt;/span&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;
+&lt;/span&gt;&lt;/span&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;&lt;span style=&#34;color:#75715e&#34;&gt;# 1. 定义工具列表&lt;/span&gt;
+&lt;/span&gt;&lt;/span&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;&lt;span style=&#34;color:#a6e22e&#34;&gt;@app.list_tools&lt;/span&gt;()
+&lt;/span&gt;&lt;/span&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;&lt;span style=&#34;color:#66d9ef&#34;&gt;async&lt;/span&gt; &lt;span style=&#34;color:#66d9ef&#34;&gt;def&lt;/span&gt; &lt;span style=&#34;color:#a6e22e&#34;&gt;list_tools&lt;/span&gt;() &lt;span style=&#34;color:#f92672&#34;&gt;-&amp;gt;&lt;/span&gt; list[Tool]:
+&lt;/span&gt;&lt;/span&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;    &lt;span style=&#34;color:#66d9ef&#34;&gt;return&lt;/span&gt; [
+&lt;/span&gt;&lt;/span&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;        Tool(
+&lt;/span&gt;&lt;/span&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;            name&lt;span style=&#34;color:#f92672&#34;&gt;=&lt;/span&gt;&lt;span style=&#34;color:#e6db74&#34;&gt;&amp;#34;add_numbers&amp;#34;&lt;/span&gt;,
+&lt;/span&gt;&lt;/span&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;            description&lt;span style=&#34;color:#f92672&#34;&gt;=&lt;/span&gt;&lt;span style=&#34;color:#e6db74&#34;&gt;&amp;#34;计算两个数字的和&amp;#34;&lt;/span&gt;,
+&lt;/span&gt;&lt;/span&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;            inputSchema&lt;span style=&#34;color:#f92672&#34;&gt;=&lt;/span&gt;{
+&lt;/span&gt;&lt;/span&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;                &lt;span style=&#34;color:#e6db74&#34;&gt;&amp;#34;type&amp;#34;&lt;/span&gt;: &lt;span style=&#34;color:#e6db74&#34;&gt;&amp;#34;object&amp;#34;&lt;/span&gt;,
+&lt;/span&gt;&lt;/span&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;                &lt;span style=&#34;color:#e6db74&#34;&gt;&amp;#34;properties&amp;#34;&lt;/span&gt;: {
+&lt;/span&gt;&lt;/span&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;                    &lt;span style=&#34;color:#e6db74&#34;&gt;&amp;#34;a&amp;#34;&lt;/span&gt;: {&lt;span style=&#34;color:#e6db74&#34;&gt;&amp;#34;type&amp;#34;&lt;/span&gt;: &lt;span style=&#34;color:#e6db74&#34;&gt;&amp;#34;number&amp;#34;&lt;/span&gt;, &lt;span style=&#34;color:#e6db74&#34;&gt;&amp;#34;description&amp;#34;&lt;/span&gt;: &lt;span style=&#34;color:#e6db74&#34;&gt;&amp;#34;第一个数字&amp;#34;&lt;/span&gt;},
+&lt;/span&gt;&lt;/span&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;                    &lt;span style=&#34;color:#e6db74&#34;&gt;&amp;#34;b&amp;#34;&lt;/span&gt;: {&lt;span style=&#34;color:#e6db74&#34;&gt;&amp;#34;type&amp;#34;&lt;/span&gt;: &lt;span style=&#34;color:#e6db74&#34;&gt;&amp;#34;number&amp;#34;&lt;/span&gt;, &lt;span style=&#34;color:#e6db74&#34;&gt;&amp;#34;description&amp;#34;&lt;/span&gt;: &lt;span style=&#34;color:#e6db74&#34;&gt;&amp;#34;第二个数字&amp;#34;&lt;/span&gt;}
+&lt;/span&gt;&lt;/span&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;                },
+&lt;/span&gt;&lt;/span&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;                &lt;span style=&#34;color:#e6db74&#34;&gt;&amp;#34;required&amp;#34;&lt;/span&gt;: [&lt;span style=&#34;color:#e6db74&#34;&gt;&amp;#34;a&amp;#34;&lt;/span&gt;, &lt;span style=&#34;color:#e6db74&#34;&gt;&amp;#34;b&amp;#34;&lt;/span&gt;]
+&lt;/span&gt;&lt;/span&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;            }
+&lt;/span&gt;&lt;/span&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;        )
+&lt;/span&gt;&lt;/span&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;    ]
+&lt;/span&gt;&lt;/span&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;
+&lt;/span&gt;&lt;/span&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;&lt;span style=&#34;color:#75715e&#34;&gt;# 2. 实现工具执行逻辑&lt;/span&gt;
+&lt;/span&gt;&lt;/span&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;&lt;span style=&#34;color:#a6e22e&#34;&gt;@app.call_tool&lt;/span&gt;()
+&lt;/span&gt;&lt;/span&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;&lt;span style=&#34;color:#66d9ef&#34;&gt;async&lt;/span&gt; &lt;span style=&#34;color:#66d9ef&#34;&gt;def&lt;/span&gt; &lt;span style=&#34;color:#a6e22e&#34;&gt;call_tool&lt;/span&gt;(name: str, arguments: dict) &lt;span style=&#34;color:#f92672&#34;&gt;-&amp;gt;&lt;/span&gt; list[TextContent]:
+&lt;/span&gt;&lt;/span&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;    &lt;span style=&#34;color:#66d9ef&#34;&gt;if&lt;/span&gt; name &lt;span style=&#34;color:#f92672&#34;&gt;==&lt;/span&gt; &lt;span style=&#34;color:#e6db74&#34;&gt;&amp;#34;add_numbers&amp;#34;&lt;/span&gt;:
+&lt;/span&gt;&lt;/span&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;        result &lt;span style=&#34;color:#f92672&#34;&gt;=&lt;/span&gt; arguments&lt;span style=&#34;color:#f92672&#34;&gt;.&lt;/span&gt;get(&lt;span style=&#34;color:#e6db74&#34;&gt;&amp;#34;a&amp;#34;&lt;/span&gt;, &lt;span style=&#34;color:#ae81ff&#34;&gt;0&lt;/span&gt;) &lt;span style=&#34;color:#f92672&#34;&gt;+&lt;/span&gt; arguments&lt;span style=&#34;color:#f92672&#34;&gt;.&lt;/span&gt;get(&lt;span style=&#34;color:#e6db74&#34;&gt;&amp;#34;b&amp;#34;&lt;/span&gt;, &lt;span style=&#34;color:#ae81ff&#34;&gt;0&lt;/span&gt;)
+&lt;/span&gt;&lt;/span&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;        &lt;span style=&#34;color:#66d9ef&#34;&gt;return&lt;/span&gt; [TextContent(type&lt;span style=&#34;color:#f92672&#34;&gt;=&lt;/span&gt;&lt;span style=&#34;color:#e6db74&#34;&gt;&amp;#34;text&amp;#34;&lt;/span&gt;, text&lt;span style=&#34;color:#f92672&#34;&gt;=&lt;/span&gt;&lt;span style=&#34;color:#e6db74&#34;&gt;f&lt;/span&gt;&lt;span style=&#34;color:#e6db74&#34;&gt;&amp;#34;计算结果: &lt;/span&gt;&lt;span style=&#34;color:#e6db74&#34;&gt;{&lt;/span&gt;result&lt;span style=&#34;color:#e6db74&#34;&gt;}&lt;/span&gt;&lt;span style=&#34;color:#e6db74&#34;&gt;&amp;#34;&lt;/span&gt;)]
+&lt;/span&gt;&lt;/span&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;    &lt;span style=&#34;color:#66d9ef&#34;&gt;return&lt;/span&gt; [TextContent(type&lt;span style=&#34;color:#f92672&#34;&gt;=&lt;/span&gt;&lt;span style=&#34;color:#e6db74&#34;&gt;&amp;#34;text&amp;#34;&lt;/span&gt;, text&lt;span style=&#34;color:#f92672&#34;&gt;=&lt;/span&gt;&lt;span style=&#34;color:#e6db74&#34;&gt;f&lt;/span&gt;&lt;span style=&#34;color:#e6db74&#34;&gt;&amp;#34;未知工具: &lt;/span&gt;&lt;span style=&#34;color:#e6db74&#34;&gt;{&lt;/span&gt;name&lt;span style=&#34;color:#e6db74&#34;&gt;}&lt;/span&gt;&lt;span style=&#34;color:#e6db74&#34;&gt;&amp;#34;&lt;/span&gt;)]
+&lt;/span&gt;&lt;/span&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;
+&lt;/span&gt;&lt;/span&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;&lt;span style=&#34;color:#75715e&#34;&gt;# 3. 启动 Server (stdio模式)&lt;/span&gt;
+&lt;/span&gt;&lt;/span&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;&lt;span style=&#34;color:#66d9ef&#34;&gt;async&lt;/span&gt; &lt;span style=&#34;color:#66d9ef&#34;&gt;def&lt;/span&gt; &lt;span style=&#34;color:#a6e22e&#34;&gt;main&lt;/span&gt;():
+&lt;/span&gt;&lt;/span&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;    &lt;span style=&#34;color:#66d9ef&#34;&gt;async&lt;/span&gt; &lt;span style=&#34;color:#66d9ef&#34;&gt;with&lt;/span&gt; stdio_server() &lt;span style=&#34;color:#66d9ef&#34;&gt;as&lt;/span&gt; (read_stream, write_stream):
+&lt;/span&gt;&lt;/span&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;        &lt;span style=&#34;color:#66d9ef&#34;&gt;await&lt;/span&gt; app&lt;span style=&#34;color:#f92672&#34;&gt;.&lt;/span&gt;run(read_stream, write_stream,
+&lt;/span&gt;&lt;/span&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;                      app&lt;span style=&#34;color:#f92672&#34;&gt;.&lt;/span&gt;create_initialization_options())
+&lt;/span&gt;&lt;/span&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;
+&lt;/span&gt;&lt;/span&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;&lt;span style=&#34;color:#66d9ef&#34;&gt;if&lt;/span&gt; __name__ &lt;span style=&#34;color:#f92672&#34;&gt;==&lt;/span&gt; &lt;span style=&#34;color:#e6db74&#34;&gt;&amp;#34;__main__&amp;#34;&lt;/span&gt;:
+&lt;/span&gt;&lt;/span&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;    asyncio&lt;span style=&#34;color:#f92672&#34;&gt;.&lt;/span&gt;run(main())
+&lt;/span&gt;&lt;/span&gt;&lt;/code&gt;&lt;/pre&gt;&lt;/div&gt;&lt;p&gt;然后在 &lt;code&gt;claude_desktop_config.json&lt;/code&gt; 里加几行配置：&lt;/p&gt;
+&lt;div class=&#34;highlight&#34;&gt;&lt;pre tabindex=&#34;0&#34; style=&#34;color:#f8f8f2;background-color:#272822;-moz-tab-size:4;-o-tab-size:4;tab-size:4;&#34;&gt;&lt;code class=&#34;language-json&#34; data-lang=&#34;json&#34;&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;{
+&lt;/span&gt;&lt;/span&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;  &lt;span style=&#34;color:#f92672&#34;&gt;&amp;#34;mcpServers&amp;#34;&lt;/span&gt;: {
+&lt;/span&gt;&lt;/span&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;    &lt;span style=&#34;color:#f92672&#34;&gt;&amp;#34;calculator&amp;#34;&lt;/span&gt;: {
+&lt;/span&gt;&lt;/span&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;      &lt;span style=&#34;color:#f92672&#34;&gt;&amp;#34;command&amp;#34;&lt;/span&gt;: &lt;span style=&#34;color:#e6db74&#34;&gt;&amp;#34;python&amp;#34;&lt;/span&gt;,
+&lt;/span&gt;&lt;/span&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;      &lt;span style=&#34;color:#f92672&#34;&gt;&amp;#34;args&amp;#34;&lt;/span&gt;: [&lt;span style=&#34;color:#e6db74&#34;&gt;&amp;#34;/path/to/your/calculator_server.py&amp;#34;&lt;/span&gt;]
+&lt;/span&gt;&lt;/span&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;    }
+&lt;/span&gt;&lt;/span&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;  }
+&lt;/span&gt;&lt;/span&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;}
+&lt;/span&gt;&lt;/span&gt;&lt;/code&gt;&lt;/pre&gt;&lt;/div&gt;&lt;p&gt;配好之后重启 Claude Desktop，直接输入&amp;quot;帮我算一下 25 加 17 等于多少&amp;quot;，Claude 就会自动调用你写的 &lt;code&gt;add_numbers&lt;/code&gt; 工具。整个过程你只写了工具逻辑本身，所有的通信、发现、调用路由都由 MCP 框架搞定了。&lt;/p&gt;
+&lt;h3 id=&#34;45-选型判断框架&#34;&gt;4.5 选型判断框架
+&lt;/h3&gt;&lt;p&gt;碰到&amp;quot;用 Function Calling 还是 MCP&amp;quot;这个选择题，按几个问题依次过一遍：&lt;/p&gt;
+&lt;pre tabindex=&#34;0&#34;&gt;&lt;code&gt;                  开始
+                   │
+       ┌───────────▼───────────┐
+       │ 社区有现成MCP Server?  │
+       └───┬───────────────┬───┘
+          是│              否│
+            ↓               │
+         直接用MCP          │
+       ┌────▼───────────┐
+       │ 工具需要跨项目  │
+       │ /跨团队复用?    │
+       └──┬──────────┬──┘
+        是│          否│
+          ↓           │
+        用MCP         │
+     ┌────▼────────┐
+     │ 工具规模起来了? │  (数量+复杂度+团队规模+变更频率)
+     └──┬───────┬──┘
+      是│       否│
+        ↓        │
+     用MCP       │
+     ┌───▼──────┐
+     │ 做正式    │
+     │ Agent系统?│
+     └─┬──────┬─┘
+      是│      │
+       ↓       │
+     用MCP     │
+           ┌──▼──────┐
+           │受限环境? │  (Serverless不能起子进程)
+           └──┬──────┘
+              是│
+               ↓
+           用Function Calling
+&lt;/code&gt;&lt;/pre&gt;&lt;p&gt;总结成一句话：&lt;strong&gt;&amp;ldquo;只用自己、只用一次、不需要复用&amp;quot;才适合 Function Calling，其他情况优先考虑 MCP&lt;/strong&gt;。两者不是竞争关系，MCP 底层本来就是靠 Function Calling 驱动的，选哪个取决于你的工程需求。&lt;/p&gt;
+&lt;h3 id=&#34;本章实践要点-3&#34;&gt;本章实践要点
+&lt;/h3&gt;&lt;ul&gt;
+&lt;li&gt;&lt;strong&gt;不是替代关系&lt;/strong&gt;：MCP 底层靠 Function Calling 驱动，模型感知不到 MCP 的存在。&lt;/li&gt;
+&lt;li&gt;&lt;strong&gt;选型看多维度&lt;/strong&gt;：社区现成 Server、复用需求、工具规模、Agent 系统、部署环境，不能只看一个指标。&lt;/li&gt;
+&lt;li&gt;&lt;strong&gt;内嵌 vs 独立&lt;/strong&gt;：Function Calling 的工具&amp;quot;内嵌&amp;quot;在应用代码里，MCP 的工具&amp;quot;独立&amp;quot;为标准进程。&lt;/li&gt;
+&lt;li&gt;&lt;strong&gt;受限环境退回 FC&lt;/strong&gt;：某些 Serverless 平台不允许启动子进程，stdio 模式的 MCP Server 没法用。&lt;/li&gt;
+&lt;/ul&gt;
+&lt;hr&gt;
+&lt;h2 id=&#34;第五章skill任务流程知识化&#34;&gt;第五章：Skill——任务流程知识化
+&lt;/h2&gt;&lt;h3 id=&#34;51-从重复贴-prompt的痛点说起&#34;&gt;5.1 从&amp;quot;重复贴 prompt&amp;quot;的痛点说起
+&lt;/h3&gt;&lt;p&gt;你一定遇到过这种情况：每次让 AI 帮你做代码审查，你都要贴一大段指令——&amp;ldquo;检查这几类问题、用这种格式输出、重点关注安全漏洞&amp;rdquo;。第一次贴还好，第十次你就开始烦了，每次新对话都要从头贴一遍，漏掉某个细节就会导致输出质量不稳定。&lt;/p&gt;
+&lt;p&gt;这还只是一个人的情况。如果是团队协作呢？十个人做代码审查，每个人贴的 prompt 都不一样，有人关注安全，有人关注性能，审查标准完全没法统一。你可能想到把 prompt 写到共享文档里让大家复制，但这本质上还是靠人工维护和执行，版本一多就容易乱。&lt;/p&gt;
+&lt;p&gt;Skill 要解决的就是这个问题：把那些你反复在用的指令、流程、模板，打包成一个标准化的模块，&lt;strong&gt;Agent 自己知道什么时候该用它、怎么用它&lt;/strong&gt;，不再依赖你手动复制粘贴。&lt;/p&gt;
+&lt;h3 id=&#34;52-skill-的结构&#34;&gt;5.2 Skill 的结构
+&lt;/h3&gt;&lt;p&gt;一个 Skill 说白了就是一个文件夹，里面最核心的是一份 &lt;code&gt;SKILL.md&lt;/code&gt; 文件：&lt;/p&gt;
+&lt;pre tabindex=&#34;0&#34;&gt;&lt;code&gt;code-review/                  # Skill 文件夹，名字就是标识
+├── SKILL.md                  # 核心指令文件（必须有）
+├── scripts/                  # 可选：可执行的脚本
+│   └── check_security.py     # 比如一个安全检查脚本
+├── references/               # 可选：参考文档
+│   └── review_standards.md   # 比如团队的审查标准文档
+└── assets/                   # 可选：模板、资源文件
+    └── report_template.md    # 比如审查报告的输出模板
+&lt;/code&gt;&lt;/pre&gt;&lt;p&gt;&lt;code&gt;SKILL.md&lt;/code&gt; 的内容分两部分：顶部是 YAML 格式的元数据（frontmatter），声明名字和一句话描述；下面是 Markdown 正文，写具体的指令和步骤：&lt;/p&gt;
+&lt;div class=&#34;highlight&#34;&gt;&lt;pre tabindex=&#34;0&#34; style=&#34;color:#f8f8f2;background-color:#272822;-moz-tab-size:4;-o-tab-size:4;tab-size:4;&#34;&gt;&lt;code class=&#34;language-markdown&#34; data-lang=&#34;markdown&#34;&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;---
+&lt;/span&gt;&lt;/span&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;name: code-review
+&lt;/span&gt;&lt;/span&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;description: &amp;#34;对代码进行全面审查，检查 bug、安全漏洞和性能问题，输出结构化审查报告&amp;#34;
+&lt;/span&gt;&lt;/span&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;---
+&lt;/span&gt;&lt;/span&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;
+&lt;/span&gt;&lt;/span&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;# 代码审查 Skill
+&lt;/span&gt;&lt;/span&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;
+&lt;/span&gt;&lt;/span&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;&lt;span style=&#34;color:#75715e&#34;&gt;## 指令
+&lt;/span&gt;&lt;/span&gt;&lt;/span&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;&lt;span style=&#34;color:#75715e&#34;&gt;&lt;/span&gt;
+&lt;/span&gt;&lt;/span&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;&lt;span style=&#34;color:#75715e&#34;&gt;### 第一步：理解代码上下文
+&lt;/span&gt;&lt;/span&gt;&lt;/span&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;&lt;span style=&#34;color:#75715e&#34;&gt;&lt;/span&gt;阅读提交的代码，理解它的功能和所属模块，确认修改范围。
+&lt;/span&gt;&lt;/span&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;
+&lt;/span&gt;&lt;/span&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;&lt;span style=&#34;color:#75715e&#34;&gt;### 第二步：逐项检查
+&lt;/span&gt;&lt;/span&gt;&lt;/span&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;&lt;span style=&#34;color:#75715e&#34;&gt;&lt;/span&gt;按以下维度逐一检查：
+&lt;/span&gt;&lt;/span&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;&lt;span style=&#34;color:#66d9ef&#34;&gt;1.&lt;/span&gt; 功能正确性：逻辑是否有 bug，边界条件是否处理了
+&lt;/span&gt;&lt;/span&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;&lt;span style=&#34;color:#66d9ef&#34;&gt;2.&lt;/span&gt; 安全性：是否有注入、XSS、权限绕过等漏洞
+&lt;/span&gt;&lt;/span&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;&lt;span style=&#34;color:#66d9ef&#34;&gt;3.&lt;/span&gt; 性能：是否有 N+1 查询、不必要的循环、内存泄漏风险
+&lt;/span&gt;&lt;/span&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;
+&lt;/span&gt;&lt;/span&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;&lt;span style=&#34;color:#75715e&#34;&gt;### 第三步：输出报告
+&lt;/span&gt;&lt;/span&gt;&lt;/span&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;&lt;span style=&#34;color:#75715e&#34;&gt;&lt;/span&gt;使用 assets/report_template.md 的模板格式，输出结构化的审查报告。
+&lt;/span&gt;&lt;/span&gt;&lt;/code&gt;&lt;/pre&gt;&lt;/div&gt;&lt;h3 id=&#34;53-渐进式加载skill-最聪明的设计&#34;&gt;5.3 渐进式加载：Skill 最聪明的设计
+&lt;/h3&gt;&lt;p&gt;Skill 最让人眼前一亮的设计不是&amp;quot;能打包&amp;rdquo;，而是它的加载方式——&lt;strong&gt;渐进式加载（Progressive Disclosure）&lt;/strong&gt;。&lt;/p&gt;
+&lt;p&gt;假设你有 20 个 Skill，每个平均 2000 token，全部加载就是 4 万 token 打底，吃掉了 20 万上下文窗口的五分之一，而大部分在当前任务里根本用不上。Skill 用三层机制解决这个问题：&lt;/p&gt;
+&lt;pre tabindex=&#34;0&#34;&gt;&lt;code&gt;  ┌──────────────────────────────────────────────────────┐
+  │ 第1层：只看简历                                        │
+  │ 启动时只加载 name + description                        │
+  │ 每个 Skill ~30-50 token                               │
+  │ &amp;#34;我手上有哪些能力可以用&amp;#34;                               │
+  ├──────────────────────────────────────────────────────┤
+  │ 第2层：翻开详细资料 (按需)                             │
+  │ Agent判断某Skill与当前任务相关时                       │
+  │ 才加载 SKILL.md 正文                                   │
+  │ 不相关的Skill始终不加载                                │
+  ├──────────────────────────────────────────────────────┤
+  │ 第3层：需要时再取 (用到才取)                           │
+  │ 执行中指令提到&amp;#34;使用assets/xxx模板&amp;#34;时                   │
+  │ 才读取那个模板文件                                     │
+  │ 参考文档、脚本同理                                     │
+  └──────────────────────────────────────────────────────┘
+&lt;/code&gt;&lt;/pre&gt;&lt;p&gt;这个设计用一个类比就很好理解：Skill 就像公司给新员工准备的入职手册。你入职第一天不会把整本手册从头到尾看完，而是先扫一眼目录，知道里面有&amp;quot;报销流程&amp;quot;&amp;ldquo;请假制度&amp;quot;&amp;ldquo;代码规范&amp;quot;这些章节就行了。等你真的要报销了，再翻开&amp;quot;报销流程&amp;quot;那一章仔细看。&lt;/p&gt;
+&lt;p&gt;&lt;strong&gt;为什么这个设计这么重要？&lt;/strong&gt; 因为 context window 是 Agent 最宝贵的资源。如果把所有 Skill 的全部内容一股脑塞进去，真正有用的用户任务信息反而会被淹没，Agent 的注意力被分散，输出质量反而下降。&lt;/p&gt;
+&lt;h3 id=&#34;54-skill-与-mcp-的关系操作手册层&#34;&gt;5.4 Skill 与 MCP 的关系：操作手册层
+&lt;/h3&gt;&lt;p&gt;Skill 和 MCP 处于完全不同的层次，用一个类比就能讲清楚：&lt;/p&gt;
+&lt;table&gt;
+  &lt;thead&gt;
+      &lt;tr&gt;
+          &lt;th&gt;概念&lt;/th&gt;
+          &lt;th&gt;比喻&lt;/th&gt;
+          &lt;th&gt;作用&lt;/th&gt;
+      &lt;/tr&gt;
+  &lt;/thead&gt;
+  &lt;tbody&gt;
+      &lt;tr&gt;
+          &lt;td&gt;&lt;strong&gt;MCP / Tool&lt;/strong&gt;&lt;/td&gt;
+          &lt;td&gt;公司给员工配的电脑、软件和数据库权限&lt;/td&gt;
+          &lt;td&gt;提供能力（能做事）&lt;/td&gt;
+      &lt;/tr&gt;
+      &lt;tr&gt;
+          &lt;td&gt;&lt;strong&gt;Skill&lt;/strong&gt;&lt;/td&gt;
+          &lt;td&gt;操作手册和 SOP 流程&lt;/td&gt;
+          &lt;td&gt;提供知识和流程（知道怎么做）&lt;/td&gt;
+      &lt;/tr&gt;
+      &lt;tr&gt;
+          &lt;td&gt;&lt;strong&gt;Prompt&lt;/strong&gt;&lt;/td&gt;
+          &lt;td&gt;口头跟员工说的一句话指令&lt;/td&gt;
+          &lt;td&gt;一次性、临时&lt;/td&gt;
+      &lt;/tr&gt;
+  &lt;/tbody&gt;
+&lt;/table&gt;
+&lt;p&gt;MCP 给 Agent 提供的是工具和数据的访问能力，Skill 教 Agent 拿到这些工具之后该怎么用。&lt;strong&gt;一个是&amp;quot;能力&amp;rdquo;，一个是&amp;quot;知识和流程&amp;rdquo;&lt;/strong&gt;。&lt;/p&gt;
+&lt;p&gt;那 Slash Command 呢？它也是把指令保存下来复用，但必须由你手动触发（输入 &lt;code&gt;/code-review&lt;/code&gt;）。而 Skill 可以被 Agent &lt;strong&gt;自动发现和调用&lt;/strong&gt;——Agent 看到你的任务后，自己判断&amp;quot;这个任务需要用 code-review Skill&amp;quot;，然后主动去加载和执行。&lt;/p&gt;
+&lt;h3 id=&#34;55-skill-和-mcp-怎么配合工作&#34;&gt;5.5 Skill 和 MCP 怎么配合工作
+&lt;/h3&gt;&lt;p&gt;用一个代码审查场景走一遍：&lt;/p&gt;
+&lt;pre tabindex=&#34;0&#34;&gt;&lt;code&gt;用户：&amp;#34;帮我审查这次提交的代码&amp;#34;
+         │
+         ▼
+┌─────────────────┐
+│ Skill层起作用    │  Agent扫描Skill列表
+│                 │  发现code-review匹配
+│ 加载SKILL.md:   │  读取执行流程:
+│  第1步:读代码    │
+│  第2步:安全检查  │
+│  第3步:输出报告  │
+└────────┬────────┘
+         │
+         ▼
+┌─────────────────┐
+│ MCP层起作用      │  执行第1步&amp;#34;读代码&amp;#34;
+│                 │  调用文件系统MCP Server:
+│ code = mcp_     │  read_file(&amp;#34;src/auth.py&amp;#34;)
+│  client.call_   │
+│  tool(&amp;#34;read_    │
+│  file&amp;#34;, {...})  │
+└────────┬────────┘
+         │
+         ▼
+┌─────────────────┐
+│ Skill自带脚本    │  执行第2步&amp;#34;安全检查&amp;#34;
+│                 │  加载scripts/check_security.py
+│ 运行脚本         │  (Skill不只有文字,还能带脚本)
+└────────┬────────┘
+         │
+         ▼
+┌─────────────────┐
+│ Skill自带模板    │  执行第3步&amp;#34;输出报告&amp;#34;
+│                 │  加载assets/report_template.md
+│ 按模板格式输出   │  整理成结构化报告
+└─────────────────┘
+&lt;/code&gt;&lt;/pre&gt;&lt;p&gt;分工非常清晰：&lt;strong&gt;Skill 扮演&amp;quot;编排者&amp;quot;&lt;/strong&gt;，定义了做什么、按什么顺序做、用什么标准做；&lt;strong&gt;MCP 扮演&amp;quot;执行者&amp;quot;&lt;/strong&gt;，提供了每一步需要调用的具体工具。缺了 Skill，Agent 拿着一堆工具不知道该什么时候用；缺了 MCP，Skill 再详细的流程也只是纸上谈兵。&lt;/p&gt;
+&lt;h3 id=&#34;本章实践要点-4&#34;&gt;本章实践要点
+&lt;/h3&gt;&lt;ul&gt;
+&lt;li&gt;&lt;strong&gt;Skill 不是 prompt&lt;/strong&gt;：它是一个包含指令、脚本、模板的可复用能力模块，Agent 可以自动发现和按需加载。&lt;/li&gt;
+&lt;li&gt;&lt;strong&gt;渐进式加载是核心设计&lt;/strong&gt;：三层加载机制（只读元数据 → 按需加载指令 → 用到时才取资源）体现的是&amp;quot;context 工程&amp;quot;思维。&lt;/li&gt;
+&lt;li&gt;&lt;strong&gt;Skill 和 MCP 互补&lt;/strong&gt;：MCP 提供工具和数据访问，Skill 提供用这些工具完成任务的知识和流程。&lt;/li&gt;
+&lt;li&gt;&lt;strong&gt;Skill 粒度比 MCP 粗得多&lt;/strong&gt;：MCP 粒度是单个函数调用，Skill 粒度是完整工作流程，内部可能涉及好几个步骤、调用好几个工具。&lt;/li&gt;
+&lt;/ul&gt;
+&lt;hr&gt;
+&lt;h2 id=&#34;第六章fc--mcp--skill-三层架构全景&#34;&gt;第六章：FC / MCP / Skill 三层架构全景
+&lt;/h2&gt;&lt;h3 id=&#34;61-为什么会有三个概念&#34;&gt;6.1 为什么会有三个概念
+&lt;/h3&gt;&lt;p&gt;这三个概念放在一起确实容易让人迷惑，但它们各自解决的是完全不同层次的问题，是&lt;strong&gt;三层架构，不是三个竞争方案&lt;/strong&gt;。&lt;/p&gt;
+&lt;p&gt;从时间线来看更清楚：&lt;/p&gt;
+&lt;ul&gt;
+&lt;li&gt;&lt;strong&gt;Function Calling（2023）&lt;/strong&gt;：最先出现，核心问题是&amp;quot;模型只会生成文本，怎么让它触发外部调用&amp;quot;。&lt;/li&gt;
+&lt;li&gt;&lt;strong&gt;MCP（2024 底）&lt;/strong&gt;：Function Calling 普及后，痛点变成&amp;quot;每个应用都要自己写代码对接各种工具，重复劳动太多&amp;quot;。MCP 把工具接入标准化。&lt;/li&gt;
+&lt;li&gt;&lt;strong&gt;Skill（2025 年 10 月）&lt;/strong&gt;：工具有了、接入也标准化了，又冒出新问题&amp;quot;Agent 有了一堆工具，但不知道该按什么流程用&amp;quot;。Skill 解决知识和流程复用。&lt;/li&gt;
+&lt;/ul&gt;
+&lt;p&gt;三者的出现背景不同，自然解决的是不同层次的东西。&lt;/p&gt;
+&lt;h3 id=&#34;62-三层架构全景图&#34;&gt;6.2 三层架构全景图
+&lt;/h3&gt;&lt;pre tabindex=&#34;0&#34;&gt;&lt;code&gt;╔══════════════════════════════════════════════════════════╗
+║                    用户任务输入                           ║
+║            &amp;#34;帮我分析最近三个月的销售数据&amp;#34;                  ║
+╠══════════════════════════════════════════════════════════╣
+║                                                          ║
+║  ┌─ Skill 层 (操作手册) ─────────────────────────────┐   ║
+║  │ Agent扫描Skill列表 → 匹配&amp;#34;数据分析报告&amp;#34;Skill      │   ║
+║  │ 加载SKILL.md:                                     │   ║
+║  │   第1步: 从数据库取数据                            │   ║
+║  │   第2步: 用Python做趋势分析                        │   ║
+║  │   第3步: 按模板写报告                              │   ║
+║  │ [定义流程: 做什么、什么顺序、什么标准]              │   ║
+║  └───────────────────────┬──────────────────────────┘   ║
+║                          │ 每步需要调工具时               ║
+║  ┌───────────────────────▼──────────────────────────┐   ║
+║  │ MCP 层 (工具箱)                                    │   ║
+║  │ MCP Client自动发现工具:                            │   ║
+║  │   • query_database (数据库Server)                  │   ║
+║  │   • run_python (Python执行器Server)                │   ║
+║  │ [提供工具: 一次实现,到处复用,自动发现]              │   ║
+║  └───────────────────────┬──────────────────────────┘   ║
+║                          │ 模型触发调用时                 ║
+║  ┌───────────────────────▼──────────────────────────┐   ║
+║  │ Function Calling 层 (调用语言)                     │   ║
+║  │ 模型输出:                                          │   ║
+║  │   tool_calls: query_database(sql=&amp;#34;SELECT...&amp;#34;)      │   ║
+║  │ 模型输出:                                          │   ║
+║  │   tool_calls: run_python(code=&amp;#34;df.groupby...&amp;#34;)     │   ║
+║  │ [模型决策: 调哪个函数、参数是什么]                  │   ║
+║  └───────────────────────────────────────────────────┘   ║
+║                                                          ║
+╠══════════════════════════════════════════════════════════╣
+║                    最终结构化报告输出                      ║
+╚══════════════════════════════════════════════════════════╝
+&lt;/code&gt;&lt;/pre&gt;&lt;h3 id=&#34;63-用做菜来类比&#34;&gt;6.3 用做菜来类比
+&lt;/h3&gt;&lt;p&gt;用做菜来类比就很好理解三层的关系：&lt;/p&gt;
+&lt;table&gt;
+  &lt;thead&gt;
+      &lt;tr&gt;
+          &lt;th&gt;层&lt;/th&gt;
+          &lt;th&gt;类比&lt;/th&gt;
+          &lt;th&gt;说明&lt;/th&gt;
+      &lt;/tr&gt;
+  &lt;/thead&gt;
+  &lt;tbody&gt;
+      &lt;tr&gt;
+          &lt;td&gt;&lt;strong&gt;Function Calling&lt;/strong&gt;&lt;/td&gt;
+          &lt;td&gt;你的&amp;quot;手&amp;quot;&lt;/td&gt;
+          &lt;td&gt;能拿刀、能点火、能翻锅，最基础的操作能力&lt;/td&gt;
+      &lt;/tr&gt;
+      &lt;tr&gt;
+          &lt;td&gt;&lt;strong&gt;MCP&lt;/strong&gt;&lt;/td&gt;
+          &lt;td&gt;你的&amp;quot;厨房&amp;quot;&lt;/td&gt;
+          &lt;td&gt;里面有各种厨具和食材，刀在抽屉里、调料在架子上，走进去就知道有什么可用&lt;/td&gt;
+      &lt;/tr&gt;
+      &lt;tr&gt;
+          &lt;td&gt;&lt;strong&gt;Skill&lt;/strong&gt;&lt;/td&gt;
+          &lt;td&gt;&amp;ldquo;菜谱&amp;rdquo;&lt;/td&gt;
+          &lt;td&gt;告诉你先热锅凉油、再放姜蒜爆香、然后下主料翻炒、最后调味出锅&lt;/td&gt;
+      &lt;/tr&gt;
+  &lt;/tbody&gt;
+&lt;/table&gt;
+&lt;p&gt;跳过其中一层会怎样？&lt;/p&gt;
+&lt;ul&gt;
+&lt;li&gt;&lt;strong&gt;没有手（FC）&lt;/strong&gt;：你站在厨房里、拿着菜谱，什么都做不了，连刀都拿不起来。&lt;/li&gt;
+&lt;li&gt;&lt;strong&gt;没有厨房（MCP）&lt;/strong&gt;：就算你有手、有菜谱，家里什么厨具都没有，只能空手对着菜谱发呆。&lt;/li&gt;
+&lt;li&gt;&lt;strong&gt;没有菜谱（Skill）&lt;/strong&gt;：你有手、也有满厨房的厨具，但面对一桌食材不知道先切什么、后炒什么，只能瞎折腾。&lt;/li&gt;
+&lt;/ul&gt;
+&lt;p&gt;三者缺一不可，各管各的层次。完整的链条是：&lt;strong&gt;Skill（定义流程）→ MCP（提供工具）→ Function Calling（模型触发调用）&lt;/strong&gt;，从上到下三层，每一层都建立在下一层的基础之上。&lt;/p&gt;
+&lt;h3 id=&#34;64-三层各自谁和谁通信&#34;&gt;6.4 三层各自&amp;quot;谁和谁通信&amp;quot;
+&lt;/h3&gt;&lt;table&gt;
+  &lt;thead&gt;
+      &lt;tr&gt;
+          &lt;th&gt;机制&lt;/th&gt;
+          &lt;th&gt;发生在&lt;/th&gt;
+          &lt;th&gt;主语&lt;/th&gt;
+          &lt;th&gt;粒度&lt;/th&gt;
+      &lt;/tr&gt;
+  &lt;/thead&gt;
+  &lt;tbody&gt;
+      &lt;tr&gt;
+          &lt;td&gt;&lt;strong&gt;Function Calling&lt;/strong&gt;&lt;/td&gt;
+          &lt;td&gt;模型 ↔ 函数&lt;/td&gt;
+          &lt;td&gt;模型说&amp;quot;我要调这个函数&amp;quot;&lt;/td&gt;
+          &lt;td&gt;单次调用&lt;/td&gt;
+      &lt;/tr&gt;
+      &lt;tr&gt;
+          &lt;td&gt;&lt;strong&gt;MCP&lt;/strong&gt;&lt;/td&gt;
+          &lt;td&gt;AI客户端 ↔ 工具服务&lt;/td&gt;
+          &lt;td&gt;工具服务说&amp;quot;我能提供这些函数&amp;quot;&lt;/td&gt;
+          &lt;td&gt;原子操作&lt;/td&gt;
+      &lt;/tr&gt;
+      &lt;tr&gt;
+          &lt;td&gt;&lt;strong&gt;Skill&lt;/strong&gt;&lt;/td&gt;
+          &lt;td&gt;Agent ↔ 知识模块&lt;/td&gt;
+          &lt;td&gt;操作手册说&amp;quot;用这些工具按这个流程做&amp;quot;&lt;/td&gt;
+          &lt;td&gt;工作流程&lt;/td&gt;
+      &lt;/tr&gt;
+  &lt;/tbody&gt;
+&lt;/table&gt;
+&lt;p&gt;三句话的主语不一样，说话对象不一样，粒度也不一样，这就是三者的本质差异。&lt;/p&gt;
+&lt;h3 id=&#34;本章实践要点-5&#34;&gt;本章实践要点
+&lt;/h3&gt;&lt;ul&gt;
+&lt;li&gt;&lt;strong&gt;不是三个竞争方案&lt;/strong&gt;：它们是三层架构，从底到顶各司其职。&lt;/li&gt;
+&lt;li&gt;&lt;strong&gt;层级依赖明确&lt;/strong&gt;：Skill 依赖 MCP 提供工具，MCP 依赖 Function Calling 触发调用。&lt;/li&gt;
+&lt;li&gt;&lt;strong&gt;用完整场景串联&lt;/strong&gt;：理解三者的最好方式是把它们放在同一个任务里走一遍——Skill 编排流程，MCP 提供工具，Function Calling 做模型和工具的通信。&lt;/li&gt;
+&lt;/ul&gt;
+&lt;hr&gt;
+&lt;h2 id=&#34;第七章推理模型与工具调用冲突&#34;&gt;第七章：推理模型与工具调用冲突
+&lt;/h2&gt;&lt;h3 id=&#34;71-范式冲突的本质&#34;&gt;7.1 范式冲突的本质
+&lt;/h3&gt;&lt;p&gt;普通模型的工作方式很直接：问题进来，答案出去。推理模型（Reasoning Model）不一样，它在给出最终答案之前，会先生成一大段&amp;quot;内部思考&amp;quot;（thinking tokens），在思考里自言自语地推演、验证、反驳，甚至推翻自己前面的结论重来。代表模型有 OpenAI o1/o3 系列、DeepSeek-R1、Claude 的扩展思考（Extended Thinking）模式。&lt;/p&gt;
+&lt;p&gt;工具调用的本质是&amp;quot;中途暂停&amp;quot;：模型生成调用请求 → &lt;strong&gt;停下来等宿主程序执行&lt;/strong&gt; → 拿到结果 → 继续生成。而推理模型的思考链是一次性连续生成的，不能中途打断。&lt;/p&gt;
+&lt;p&gt;&lt;strong&gt;这两种生成范式是根本冲突的。&lt;/strong&gt;&lt;/p&gt;
+&lt;pre tabindex=&#34;0&#34;&gt;&lt;code&gt;  普通模型 + 工具调用 (没问题):
+  ────生成────[暂停]──执行──[恢复]────生成────
+        可以随时截断再重新启动
+
+  推理模型 + 工具调用 (冲突!):
+  ──思考──思考──思考──[???暂停???]──思考──思考──
+        思考链是连续整体, 中途打断=推理上下文全断
+&lt;/code&gt;&lt;/pre&gt;&lt;h3 id=&#34;72-直觉类比写推理过程中途被打断&#34;&gt;7.2 直觉类比：写推理过程中途被打断
+&lt;/h3&gt;&lt;p&gt;想象你正在心无旁骛地写一篇复杂的推理论文，脑子里已经建立了一整套逻辑框架，各个论点之间的关系都串起来了，正处于思维最活跃的时刻。突然电话来了，你放下笔去接了 20 分钟电话，再回来坐下——很多细节想不起来了，之前好不容易建立的推理脉络断了，只能重新梳理。&lt;/p&gt;
+&lt;p&gt;推理模型的思考链就是这种东西。它是一个依赖完整上下文的连续生成过程，每一步推理都建立在前面所有推理内容的基础上。中途强行打断，之前建立的推理状态会断掉，模型没办法从中间接着想，只能整个重来。&lt;/p&gt;
+&lt;h3 id=&#34;73-那保存状态再恢复不就行了&#34;&gt;7.3 &amp;ldquo;那保存状态再恢复不就行了？&amp;rdquo;
+&lt;/h3&gt;&lt;p&gt;有人可能会问：暂停时把状态保存起来，工具执行完再恢复，不就解决了？&lt;/p&gt;
+&lt;p&gt;听起来可行，但实际代价很大。模型推理时的中间状态可以想象成一本&amp;quot;思考草稿本&amp;quot;——技术上叫 &lt;strong&gt;KV Cache&lt;/strong&gt;，是模型缓存注意力计算结果的结构，体积非常庞大。一旦暂停，这本草稿本就得原封不动占着一块 GPU 显存，工具执行要几秒、几十秒，这块显存就一直被占着不能给别的请求用。工具执行完再接着想，显存占用翻倍、吞吐量直接腰斩，整体延迟也大幅上升。对一个需要同时服务成千上万请求的在线推理系统来说，这个代价完全承受不了。&lt;/p&gt;
+&lt;p&gt;更难解决的是&lt;strong&gt;一致性问题&lt;/strong&gt;：思考过程中途接入工具结果，等于在模型&amp;quot;想到一半&amp;quot;时改变了输入。模型之前的思路是基于&amp;quot;我还不知道工具结果&amp;quot;建立的，突然工具结果来了，模型需要重新校准，之前的推理链和新来的工具结果可能是矛盾的。&lt;/p&gt;
+&lt;h3 id=&#34;74-训练目标上的冲突&#34;&gt;7.4 训练目标上的冲突
+&lt;/h3&gt;&lt;p&gt;除了生成范式，训练层面也有根本性冲突。推理模型的训练核心是：用强化学习大量奖励&amp;quot;思考链完整且结论正确&amp;quot;的输出，模型越来越倾向于&amp;quot;一直想、想到底&amp;quot;。而 Function Calling 的训练恰好相反，需要模型学会&lt;strong&gt;在合适时机打断自己&lt;/strong&gt;，从推理状态切换出来输出结构化 JSON。&lt;/p&gt;
+&lt;p&gt;如果强行把两种训练数据混在一起喂，常见的失败模式有三种：&lt;/p&gt;
+&lt;ol&gt;
+&lt;li&gt;模型在思考到一半突然跳出来输出一段奇怪的 JSON，格式还错了，两边都没干好。&lt;/li&gt;
+&lt;li&gt;模型彻底偏向一边——要么思考链缩水变浅（变成普通模型），要么干脆不会输出工具调用。&lt;/li&gt;
+&lt;li&gt;融合处的推理断裂，工具结果回来之后模型的后续推理和之前的思考链对不上，答非所问。&lt;/li&gt;
+&lt;/ol&gt;
+&lt;p&gt;所以早期推理模型宁可先放弃工具调用，也要先把推理能力做扎实。&lt;/p&gt;
+&lt;h3 id=&#34;75-折中方案interleaved-thinking&#34;&gt;7.5 折中方案：interleaved thinking
+&lt;/h3&gt;&lt;p&gt;后续版本找到的工程解法是：&lt;strong&gt;让工具调用发生在思考阶段结束之后&lt;/strong&gt;。&lt;/p&gt;
+&lt;pre tabindex=&#34;0&#34;&gt;&lt;code&gt;  折中方案:
+  ──思考思考思考思考──[思考结束]──[调工具]──[拿结果]──生成答案──
+  
+  思考过程仍然一次性完整生成, 不被打断
+  工具调用发生在&amp;#34;答案生成阶段&amp;#34;
+&lt;/code&gt;&lt;/pre&gt;&lt;p&gt;具体做法是：模型先把整个推理链完整跑完，进入&amp;quot;输出最终答案&amp;quot;阶段时，才触发 Function Calling 流程。这样思考过程仍然是一次性完整生成的，推理质量得以保住。代价是：思考阶段完全感知不到工具结果，模型只能基于自己的已有知识来推理。&lt;/p&gt;
+&lt;p&gt;o3 和 Claude Extended Thinking 走的都是这条路。Claude 还进一步推出了 &lt;strong&gt;interleaved thinking（交错思考）&lt;/strong&gt; 模式，允许模型在多次工具调用之间穿插思考，而不是只能在所有思考结束后才调用工具，在一定程度上缓解了&amp;quot;思考阶段感知不到工具结果&amp;quot;的局限。&lt;/p&gt;
+&lt;p&gt;但内在限制的本质仍然存在，各家的解法都是在&amp;quot;保证推理质量&amp;quot;和&amp;quot;支持工具调用&amp;quot;之间做权衡。&lt;/p&gt;
+&lt;h3 id=&#34;76-为什么不支持-fc-就不支持-mcp&#34;&gt;7.6 为什么不支持 FC 就不支持 MCP
+&lt;/h3&gt;&lt;p&gt;这个传导关系很直接：MCP 底层完全依赖 Function Calling。如果推理模型不支持 Function Calling，MCP 的&amp;quot;翻译层&amp;quot;（工具定义 → Function Calling 格式转换）就完全失效了，工具信息没办法让模型理解，调用请求也无法被模型生成，整条链路从中间直接断掉。&lt;/p&gt;
+&lt;p&gt;&amp;ldquo;推理模型不支持 Function Calling → 不支持 MCP&amp;quot;是一个很自然的传导关系，不是 MCP 本身有什么问题，是底层能力缺失导致的连锁反应。&lt;/p&gt;
+&lt;h3 id=&#34;本章实践要点-6&#34;&gt;本章实践要点
+&lt;/h3&gt;&lt;ul&gt;
+&lt;li&gt;&lt;strong&gt;冲突的本质是生成范式&lt;/strong&gt;：推理模型的思考链是连续整体，工具调用需要中途暂停，两者天然不兼容。&lt;/li&gt;
+&lt;li&gt;&lt;strong&gt;KV Cache 是暂停的代价&lt;/strong&gt;：保存推理状态要占大量 GPU 显存，在线系统承受不起。&lt;/li&gt;
+&lt;li&gt;&lt;strong&gt;折中方案的局限&lt;/strong&gt;：让工具调用发生在思考结束后，保证了推理质量但牺牲了&amp;quot;带着工具结果深度推理&amp;quot;的能力。&lt;/li&gt;
+&lt;li&gt;&lt;strong&gt;interleaved thinking 是缓解不是根治&lt;/strong&gt;：允许在多次工具调用间穿插思考，但根本权衡仍在。&lt;/li&gt;
+&lt;/ul&gt;
+&lt;hr&gt;
+&lt;h2 id=&#34;第八章a2a-协议&#34;&gt;第八章：A2A 协议
+&lt;/h2&gt;&lt;h3 id=&#34;81-单个-agent-的天花板&#34;&gt;8.1 单个 Agent 的天花板
+&lt;/h3&gt;&lt;p&gt;要理解 A2A 是干什么的，得先把&amp;quot;单 Agent 的天花板&amp;quot;搞清楚。一个 Agent 的本质是：&lt;strong&gt;一个 LLM + 一组工具 + 一段上下文窗口&lt;/strong&gt;，这三个维度都有自己的天花板：&lt;/p&gt;
+&lt;ol&gt;
+&lt;li&gt;&lt;strong&gt;工具数量限制&lt;/strong&gt;：你不可能给一个 Agent 装 100 个工具，模型处理起来效率极低，容易混乱。&lt;/li&gt;
+&lt;li&gt;&lt;strong&gt;上下文窗口限制&lt;/strong&gt;：128K tokens 听起来很多，但复杂任务积累的中间产物（搜索结果、草稿、反思记录）会很快把窗口塞满。&lt;/li&gt;
+&lt;li&gt;&lt;strong&gt;专业能力限制&lt;/strong&gt;：同一个 Agent 既做代码审查又做市场分析，不如专门配置或微调的 Agent 效果好。&lt;/li&gt;
+&lt;/ol&gt;
+&lt;p&gt;解决方案很自然：把任务拆开，交给不同的专业 Agent 并行处理，最后汇总。但多 Agent 系统有一个绕不开的基础问题——&lt;strong&gt;Agent 之间怎么互相认识？&lt;/strong&gt;&lt;/p&gt;
+&lt;h3 id=&#34;82-agent-card能力声明与自动发现&#34;&gt;8.2 Agent Card：能力声明与自动发现
+&lt;/h3&gt;&lt;p&gt;最笨的方案是写死配置：Agent A 的代码里硬编码&amp;quot;B 可以做竞品分析&amp;rdquo;。这样太脆了，B 的能力一变，A 的代码就得改。&lt;/p&gt;
+&lt;p&gt;更好的方案是让 B 主动&amp;quot;发名片&amp;quot;，声明自己能做什么——这就是 A2A 里 &lt;strong&gt;Agent Card&lt;/strong&gt; 的设计思路。每个 A2A Agent 都在一个约定位置发布一张 JSON 格式的名片（推荐路径 &lt;code&gt;/.well-known/agent-card.json&lt;/code&gt;），里面写清楚自己叫什么、能做哪类任务（Skill 列表）、支不支持流式返回、支不支持异步回调。&lt;/p&gt;
+&lt;p&gt;任何想和它协作的 Agent，先去拿这张名片，再决定要不要把任务委托给它。这套机制让整个多 Agent 系统变得&lt;strong&gt;可插拔&lt;/strong&gt;：新加一个 Agent，发布它的 Agent Card，调度 Agent 就能自动发现和利用它，完全不需要改调度 Agent 的代码。&lt;/p&gt;
+&lt;h3 id=&#34;83-task-状态机异步长任务协作&#34;&gt;8.3 Task 状态机：异步长任务协作
+&lt;/h3&gt;&lt;p&gt;A2A 里任务协作的基本单位是 &lt;strong&gt;Task&lt;/strong&gt;，有完整的生命周期状态管理：&lt;/p&gt;
+&lt;pre tabindex=&#34;0&#34;&gt;&lt;code&gt;         创建           开始执行
+  ┌──────────→ submitted ──────────→ working
+  │                                    │
+  │                              ┌─────┴─────┐
+  │                              │           │
+  │                              ▼           ▼
+  │                          completed    failed
+  │                          (成功)       (失败)
+  │
+  └─ 调度Agent可以轮询状态
+     或通过push notification等待回调
+&lt;/code&gt;&lt;/pre&gt;&lt;p&gt;为什么需要这么完整的状态机？因为 A2A 专门为&lt;strong&gt;长时间任务&lt;/strong&gt;设计。一个&amp;quot;竞品分析&amp;quot;任务可能要跑几分钟——先搜索、再整理、再写报告，不可能让调度 Agent 同步等着。调度 Agent 提交任务后可以去处理其他事情，通过轮询状态或者 push notification（任务完成时接收方主动回调通知）来得知任务完成了。&lt;/p&gt;
+&lt;p&gt;&lt;strong&gt;上下文隔离的核心收益&lt;/strong&gt;：调度 Agent 把&amp;quot;做行业趋势分析&amp;quot;委托给市场 Agent，市场 Agent 自己去搜几十个网页、写草稿、反复迭代，这些中间过程都在它自己的上下文里。任务做完，它只把最终结论（一份几百字的摘要）通过 A2A 返回给调度 Agent。调度 Agent 的上下文里只多了一份摘要，而不是几十个网页的原文——调研过程的上下文压力被隔离在了市场 Agent 内部。&lt;/p&gt;
+&lt;h3 id=&#34;84-agent-的微服务化&#34;&gt;8.4 Agent 的微服务化
+&lt;/h3&gt;&lt;p&gt;如果你有后端开发经验，A2A 其实不陌生：它就是 &lt;strong&gt;Agent 世界里的微服务架构&lt;/strong&gt;。&lt;/p&gt;
+&lt;table&gt;
+  &lt;thead&gt;
+      &lt;tr&gt;
+          &lt;th&gt;微服务概念&lt;/th&gt;
+          &lt;th&gt;A2A 对应&lt;/th&gt;
+      &lt;/tr&gt;
+  &lt;/thead&gt;
+  &lt;tbody&gt;
+      &lt;tr&gt;
+          &lt;td&gt;服务独立部署&lt;/td&gt;
+          &lt;td&gt;Agent 独立部署为 HTTP 服务&lt;/td&gt;
+      &lt;/tr&gt;
+      &lt;tr&gt;
+          &lt;td&gt;API 文档&lt;/td&gt;
+          &lt;td&gt;Agent Card&lt;/td&gt;
+      &lt;/tr&gt;
+      &lt;tr&gt;
+          &lt;td&gt;异步消息队列&lt;/td&gt;
+          &lt;td&gt;Task 状态机&lt;/td&gt;
+      &lt;/tr&gt;
+      &lt;tr&gt;
+          &lt;td&gt;服务注册中心&lt;/td&gt;
+          &lt;td&gt;&lt;code&gt;.well-known/agent-card.json&lt;/code&gt;&lt;/td&gt;
+      &lt;/tr&gt;
+      &lt;tr&gt;
+          &lt;td&gt;HTTP 互相调用&lt;/td&gt;
+          &lt;td&gt;Agent 间 A2A 通信&lt;/td&gt;
+      &lt;/tr&gt;
+  &lt;/tbody&gt;
+&lt;/table&gt;
+&lt;p&gt;每个 A2A Agent 对外就是一个 HTTP 服务，任何支持 A2A 的系统都可以发现它、向它发任务、接收结果，不绑定特定的 AI 框架，也不依赖特定的编程语言。这个设计理念和 MCP 是一脉相承的：&lt;strong&gt;MCP 让工具成为独立标准化服务，A2A 让 Agent 成为独立标准化服务&lt;/strong&gt;。&lt;/p&gt;
+&lt;h3 id=&#34;85-a2a-与-mcp一纵一横各管一层&#34;&gt;8.5 A2A 与 MCP：一纵一横，各管一层
+&lt;/h3&gt;&lt;p&gt;理清两者关系最简单的方式是看方向：&lt;/p&gt;
+&lt;pre tabindex=&#34;0&#34;&gt;&lt;code&gt;          ┌─────────────────────────────────────┐
+          │         调度 Agent (Agent A)          │
+          │                                     │
+          │  ┌──A2A──→ 市场分析Agent (B)          │  ← 横向:A2A
+          │  ├──A2A──→ 技术研究Agent (C)          │     (Agent间协作)
+          │  ├──A2A──→ 报告撰写Agent (D)          │
+          │  │                                    │
+          │  │  ┌──MCP──→ 数据库工具              │  ← 纵向:MCP
+          │  │  ├──MCP──→ 文件系统工具            │     (Agent连工具)
+          │  │  └──MCP──→ 代码执行器              │
+          └──┴───────────────────────────────────┘
+&lt;/code&gt;&lt;/pre&gt;&lt;ul&gt;
+&lt;li&gt;&lt;strong&gt;MCP 是 Agent 向下连工具&lt;/strong&gt;（纵向）：数据库、浏览器、代码执行器。&lt;/li&gt;
+&lt;li&gt;&lt;strong&gt;A2A 是 Agent 向外连其他 Agent&lt;/strong&gt;（横向）：任务委派、结果接收。&lt;/li&gt;
+&lt;/ul&gt;
+&lt;p&gt;打个比方，MCP 就像公司里每个员工的&amp;quot;工具箱&amp;quot;，决定了这个人能用什么工具干活。A2A 就像公司里的&amp;quot;协作流程&amp;quot;，决定了不同岗位的人怎么分工、怎么交接任务。工具箱和协作流程是两回事，缺了哪个都不行。在复杂的多 Agent 系统里，这两者通常同时在用。&lt;/p&gt;
+&lt;h3 id=&#34;本章实践要点-7&#34;&gt;本章实践要点
+&lt;/h3&gt;&lt;ul&gt;
+&lt;li&gt;&lt;strong&gt;A2A 不是 MCP 的竞品&lt;/strong&gt;：MCP 向下连工具，A2A 向外连 Agent，方向完全不同。&lt;/li&gt;
+&lt;li&gt;&lt;strong&gt;Agent Card 是自动发现的基础&lt;/strong&gt;：新 Agent 发布名片即可被发现，调度 Agent 无需改代码。&lt;/li&gt;
+&lt;li&gt;&lt;strong&gt;Task 状态机专为长任务设计&lt;/strong&gt;：支持异步、轮询、push notification，调度 Agent 保持轻量。&lt;/li&gt;
+&lt;li&gt;&lt;strong&gt;本质是微服务架构&lt;/strong&gt;：Agent 对外就是 HTTP 服务，可独立部署、跨框架、跨语言。&lt;/li&gt;
+&lt;/ul&gt;
+&lt;hr&gt;
+&lt;h2 id=&#34;第九章通信协议对比&#34;&gt;第九章：通信协议对比
+&lt;/h2&gt;&lt;h3 id=&#34;91-从-http-的本质说起&#34;&gt;9.1 从 HTTP 的本质说起
+&lt;/h3&gt;&lt;p&gt;要理解各种通信协议的区别，得先回到一个根本问题：它们到底在解决什么问题？答案是普通 HTTP 做不到的事情。&lt;/p&gt;
+&lt;p&gt;标准 HTTP 是&amp;quot;一问一答&amp;quot;模型：客户端发请求，服务端返回响应，连接关闭。服务端在任何时候都不能主动&amp;quot;推&amp;quot;数据给客户端。但 AI 对话场景不行——模型生成一个完整回答需要几秒甚至十几秒，如果等全部生成完再一次性返回，用户只能干瞪着空白屏幕等待。我们需要的效果是：模型生成一个词就推一个词，用户实时看到文字逐渐出现。&lt;/p&gt;
+&lt;h3 id=&#34;92-sse用普通-http-撑开一条单向水管&#34;&gt;9.2 SSE：用普通 HTTP 撑开一条单向水管
+&lt;/h3&gt;&lt;p&gt;SSE（Server-Sent Events）本质上是对 HTTP 的一种&amp;quot;巧用&amp;quot;，不是新协议，而是 HTTP/1.1 里本来就有的特性。客户端发一个普通 GET 请求，但在请求头声明 &lt;code&gt;Accept: text/event-stream&lt;/code&gt;，服务端收到后不关闭连接，保持持续打开，不停往里写数据。这条连接在技术上仍然是一个 HTTP 响应，只不过响应体是&amp;quot;无限长&amp;quot;的。&lt;/p&gt;
+&lt;p&gt;可以把它理解为&amp;quot;一根从服务端流向客户端的单向水管&amp;quot;，水只能从服务端流向客户端。&lt;/p&gt;
+&lt;p&gt;&lt;strong&gt;为什么 SSE 成为 LLM 流式输出的行业标准？&lt;/strong&gt; 有一个关键但容易被忽视的原因：文字传输天然适合 TCP 的可靠有序传输。模型输出是连续文本，如果中间某个 token 丢了，整段话的意思可能完全变了。所以你希望每个 token 都准确到达、不乱序——这恰恰是 TCP 的强项，你愿意等网络重传，因为等来的是正确的内容。这和语音场景完全相反，那里 TCP 的重传会造成不可接受的延迟。&lt;/p&gt;
+&lt;h3 id=&#34;93-websocket从-http-升级成全双工信道&#34;&gt;9.3 WebSocket：从 HTTP 升级成全双工信道
+&lt;/h3&gt;&lt;p&gt;WebSocket 是一个独立协议，建立在 TCP 之上，但不是 HTTP 的特性。建立过程有一个特殊的&amp;quot;握手仪式&amp;quot;：客户端先发一个看起来像普通 HTTP 请求的东西，但请求头带了&amp;quot;我想升级成 WebSocket&amp;quot;。服务端如果同意，回一个 &lt;code&gt;101 Switching Protocols&lt;/code&gt; 响应，从这一刻起这条 TCP 连接就&amp;quot;变性&amp;quot;了，变成双方都可以随时说话的全双工信道。&lt;/p&gt;
+&lt;p&gt;和 SSE 最本质的区别是通信方向：SSE 只有服务端能主动推，客户端想发消息必须另起一个 HTTP 请求；WebSocket 是真正的双向，客户端和服务端都可以随时主动发消息。&lt;/p&gt;
+&lt;h3 id=&#34;94-webrtc为实时语音选择-udp&#34;&gt;9.4 WebRTC：为实时语音选择 UDP
+&lt;/h3&gt;&lt;p&gt;语音场景和文字场景对网络的要求完全相反。人类大脑对语音时序极其敏感，超过 200ms 延迟就会明显感觉到&amp;quot;卡顿&amp;quot;。丢掉一个 20ms 的音频片段不是大事，人耳感知不到一小段静音；但为了等这 20ms 的片段重传，把后续所有音频都堵住，延迟积累到几百毫秒，体验就彻底崩了。&lt;strong&gt;语音容忍丢包，绝不容忍延迟&lt;/strong&gt;，TCP 的设计哲学正好和这个需求相反。&lt;/p&gt;
+&lt;p&gt;WebRTC 把底层从 TCP 换成 UDP，丢包了不等重传，直接用&amp;quot;丢包隐藏（Packet Loss Concealment）&amp;ldquo;技术自动填补——用前后帧插值生成一段听起来合理的音频来替代，整体播放不中断，只是极短暂的音质轻微下降。延迟能控制在 50-150 毫秒。&lt;/p&gt;
+&lt;p&gt;WebRTC 还内置了回声消除（AEC）、噪声抑制（NS）、自动增益控制（AGC）、自适应码率（ABR）这些语音处理能力，这些用 WebSocket 全得自己造轮子。&lt;/p&gt;
+&lt;h3 id=&#34;95-四种传输方式对比&#34;&gt;9.5 四种传输方式对比
+&lt;/h3&gt;&lt;table&gt;
+  &lt;thead&gt;
+      &lt;tr&gt;
+          &lt;th&gt;维度&lt;/th&gt;
+          &lt;th&gt;SSE&lt;/th&gt;
+          &lt;th&gt;WebSocket&lt;/th&gt;
+          &lt;th&gt;WebRTC&lt;/th&gt;
+          &lt;th&gt;stdio&lt;/th&gt;
+      &lt;/tr&gt;
+  &lt;/thead&gt;
+  &lt;tbody&gt;
+      &lt;tr&gt;
+          &lt;td&gt;&lt;strong&gt;底层协议&lt;/strong&gt;&lt;/td&gt;
+          &lt;td&gt;HTTP/1.1（特性）&lt;/td&gt;
+          &lt;td&gt;TCP（独立协议）&lt;/td&gt;
+          &lt;td&gt;UDP（协议族）&lt;/td&gt;
+          &lt;td&gt;OS 管道&lt;/td&gt;
+      &lt;/tr&gt;
+      &lt;tr&gt;
+          &lt;td&gt;&lt;strong&gt;通信方向&lt;/strong&gt;&lt;/td&gt;
+          &lt;td&gt;服务端单向推&lt;/td&gt;
+          &lt;td&gt;全双工&lt;/td&gt;
+          &lt;td&gt;全双工（P2P）&lt;/td&gt;
+          &lt;td&gt;双向（管道）&lt;/td&gt;
+      &lt;/tr&gt;
+      &lt;tr&gt;
+          &lt;td&gt;&lt;strong&gt;延迟&lt;/strong&gt;&lt;/td&gt;
+          &lt;td&gt;低（TCP）&lt;/td&gt;
+          &lt;td&gt;50-500ms（受TCP重传影响）&lt;/td&gt;
+          &lt;td&gt;50-150ms（UDP不重传）&lt;/td&gt;
+          &lt;td&gt;极低（内存）&lt;/td&gt;
+      &lt;/tr&gt;
+      &lt;tr&gt;
+          &lt;td&gt;&lt;strong&gt;连接数限制&lt;/strong&gt;&lt;/td&gt;
+          &lt;td&gt;HTTP/1.1同域6条&lt;/td&gt;
+          &lt;td&gt;无&lt;/td&gt;
+          &lt;td&gt;无&lt;/td&gt;
+          &lt;td&gt;无&lt;/td&gt;
+      &lt;/tr&gt;
+      &lt;tr&gt;
+          &lt;td&gt;&lt;strong&gt;二进制支持&lt;/strong&gt;&lt;/td&gt;
+          &lt;td&gt;否（需Base64膨胀33%）&lt;/td&gt;
+          &lt;td&gt;是&lt;/td&gt;
+          &lt;td&gt;是（原生音视频）&lt;/td&gt;
+          &lt;td&gt;是&lt;/td&gt;
+      &lt;/tr&gt;
+      &lt;tr&gt;
+          &lt;td&gt;&lt;strong&gt;横向扩展&lt;/strong&gt;&lt;/td&gt;
+          &lt;td&gt;简单（无状态HTTP）&lt;/td&gt;
+          &lt;td&gt;麻烦（有状态需Redis）&lt;/td&gt;
+          &lt;td&gt;复杂（需信令服务器）&lt;/td&gt;
+          &lt;td&gt;不适用&lt;/td&gt;
+      &lt;/tr&gt;
+      &lt;tr&gt;
+          &lt;td&gt;&lt;strong&gt;代理穿透&lt;/strong&gt;&lt;/td&gt;
+          &lt;td&gt;好（普通HTTP）&lt;/td&gt;
+          &lt;td&gt;差（Upgrade易被拦）&lt;/td&gt;
+          &lt;td&gt;差（需ICE/STUN/TURN）&lt;/td&gt;
+          &lt;td&gt;不适用&lt;/td&gt;
+      &lt;/tr&gt;
+      &lt;tr&gt;
+          &lt;td&gt;&lt;strong&gt;适合场景&lt;/strong&gt;&lt;/td&gt;
+          &lt;td&gt;LLM文字流式输出&lt;/td&gt;
+          &lt;td&gt;双向实时交互&lt;/td&gt;
+          &lt;td&gt;实时音视频&lt;/td&gt;
+          &lt;td&gt;MCP本地工具&lt;/td&gt;
+      &lt;/tr&gt;
+  &lt;/tbody&gt;
+&lt;/table&gt;
+&lt;h3 id=&#34;96-选型决策&#34;&gt;9.6 选型决策
+&lt;/h3&gt;&lt;table&gt;
+  &lt;thead&gt;
+      &lt;tr&gt;
+          &lt;th&gt;场景&lt;/th&gt;
+          &lt;th&gt;推荐方案&lt;/th&gt;
+          &lt;th&gt;原因&lt;/th&gt;
+      &lt;/tr&gt;
+  &lt;/thead&gt;
+  &lt;tbody&gt;
+      &lt;tr&gt;
+          &lt;td&gt;LLM 流式文字输出（ChatGPT 风格）&lt;/td&gt;
+          &lt;td&gt;SSE&lt;/td&gt;
+          &lt;td&gt;单向推送够用，轻量，HTTP 原生支持&lt;/td&gt;
+      &lt;/tr&gt;
+      &lt;tr&gt;
+          &lt;td&gt;多轮对话（用户发消息 + 模型回复）&lt;/td&gt;
+          &lt;td&gt;SSE + POST&lt;/td&gt;
+          &lt;td&gt;用户发消息走 POST，模型回复走 SSE&lt;/td&gt;
+      &lt;/tr&gt;
+      &lt;tr&gt;
+          &lt;td&gt;需要用户中途打断模型输出&lt;/td&gt;
+          &lt;td&gt;WebSocket&lt;/td&gt;
+          &lt;td&gt;需要客户端在流式输出中途主动发消息&lt;/td&gt;
+      &lt;/tr&gt;
+      &lt;tr&gt;
+          &lt;td&gt;多人协同（实时同步）&lt;/td&gt;
+          &lt;td&gt;WebSocket&lt;/td&gt;
+          &lt;td&gt;频繁双向消息&lt;/td&gt;
+      &lt;/tr&gt;
+      &lt;tr&gt;
+          &lt;td&gt;实时语音对话&lt;/td&gt;
+          &lt;td&gt;WebRTC&lt;/td&gt;
+          &lt;td&gt;音频流需要 UDP + 低延迟&lt;/td&gt;
+      &lt;/tr&gt;
+      &lt;tr&gt;
+          &lt;td&gt;MCP 本地 Server&lt;/td&gt;
+          &lt;td&gt;stdio&lt;/td&gt;
+          &lt;td&gt;不走网络、延迟极低、生命周期自动管理&lt;/td&gt;
+      &lt;/tr&gt;
+      &lt;tr&gt;
+          &lt;td&gt;MCP 远程 Server&lt;/td&gt;
+          &lt;td&gt;Streamable HTTP&lt;/td&gt;
+          &lt;td&gt;多 Client 共享、跨机器访问&lt;/td&gt;
+      &lt;/tr&gt;
+  &lt;/tbody&gt;
+&lt;/table&gt;
+&lt;p&gt;大原则是：&lt;strong&gt;单向推用 SSE，真正需要双向才上 WebSocket，实时语音必须 WebRTC，本地进程间用 stdio&lt;/strong&gt;。绝大多数 LLM 文字对话产品用 SSE 就够了，这也是 OpenAI、Anthropic 的 API 都选 SSE 而不是 WebSocket的原因。&lt;/p&gt;
+&lt;h3 id=&#34;本章实践要点-8&#34;&gt;本章实践要点
+&lt;/h3&gt;&lt;ul&gt;
+&lt;li&gt;&lt;strong&gt;SSE 不是 WebSocket 的子集&lt;/strong&gt;：SSE 是 HTTP 原生特性，WebSocket 是独立协议，底层机制完全不同。&lt;/li&gt;
+&lt;li&gt;&lt;strong&gt;SSE 的三个坑&lt;/strong&gt;：HTTP/1.1 同域连接数上限（6条）、只支持文本（二进制需 Base64 膨胀 33%）、单向性导致双通道架构。&lt;/li&gt;
+&lt;li&gt;&lt;strong&gt;WebSocket 的三个坑&lt;/strong&gt;：有状态导致横向扩展麻烦、容易被企业代理/防火墙拦截 Upgrade 握手、没有内置请求-响应配对机制。&lt;/li&gt;
+&lt;li&gt;&lt;strong&gt;WebRTC 建连仍需 WebSocket&lt;/strong&gt;：WebSocket 负责信令交换（SDP），真正的音频流走 UDP，两者是配合不是替代。&lt;/li&gt;
+&lt;li&gt;&lt;strong&gt;stdio 是 MCP 本地首选&lt;/strong&gt;：不经过网卡、不需要端口、生命周期自动管理。&lt;/li&gt;
+&lt;/ul&gt;
+&lt;hr&gt;
+&lt;h2 id=&#34;第十章llm-网关&#34;&gt;第十章：LLM 网关
+&lt;/h2&gt;&lt;h3 id=&#34;101-网关是什么放在哪&#34;&gt;10.1 网关是什么，放在哪
+&lt;/h3&gt;&lt;p&gt;没有网关时，你的应用直接对接各个模型 API：应用 → OpenAI API、应用 → Anthropic API、应用 → 其他 API。有了网关之后，调用链变成：&lt;strong&gt;应用 → 网关 → OpenAI/Anthropic/其他 API&lt;/strong&gt;。&lt;/p&gt;
+&lt;p&gt;网关就是一个&amp;quot;中间人&amp;rdquo;，坐在你的应用和各个模型 API 之间。你的应用只认识网关，不需要直接对接多个 API。这个&amp;quot;中间人&amp;quot;的定位是理解网关所有功能的基础——它集中拦截和处理了所有出入流量，所以能在这个位置统一做很多事情。&lt;/p&gt;
+&lt;h3 id=&#34;102-没有网关时的痛点&#34;&gt;10.2 没有网关时的痛点
+&lt;/h3&gt;&lt;p&gt;一个稍微大一点的 AI 产品，同时用多个模型是常态：主流程用 GPT-4o，成本敏感的任务用 GPT-4o-mini，代码任务用 Claude Sonnet，向量化用 text-embedding-3-small。每家厂商的 SDK 不一样、鉴权方式不一样、参数格式也有细微差异。如果不做网关，这些差异会渗透到每个业务服务里，带来一连串麻烦：&lt;/p&gt;
+&lt;ul&gt;
+&lt;li&gt;&lt;strong&gt;安全问题&lt;/strong&gt;：API Key 散落在各个服务的配置文件里，任何一处泄露都是安全事故。&lt;/li&gt;
+&lt;li&gt;&lt;strong&gt;重复劳动&lt;/strong&gt;：每个服务都要自己写重试和限流逻辑，版本还不一样。&lt;/li&gt;
+&lt;li&gt;&lt;strong&gt;成本黑箱&lt;/strong&gt;：各服务各记各的，月底无法统计哪个业务线花了多少钱。&lt;/li&gt;
+&lt;li&gt;&lt;strong&gt;灵活性差&lt;/strong&gt;：想换模型、想限制调用量都得改代码。&lt;/li&gt;
+&lt;/ul&gt;
+&lt;p&gt;这些问题都源自同一个根本原因：&lt;strong&gt;没有一个集中的地方来统一管理这些&amp;quot;横切关注点&amp;quot;&lt;/strong&gt;。&lt;/p&gt;
+&lt;h3 id=&#34;103-六大核心功能&#34;&gt;10.3 六大核心功能
+&lt;/h3&gt;&lt;h4 id=&#34;功能一多模型统一接口&#34;&gt;功能一：多模型统一接口
+&lt;/h4&gt;&lt;p&gt;大多数 LLM 网关对外暴露一个 OpenAI 兼容的接口。业务代码只需要改两个地方：把 &lt;code&gt;base_url&lt;/code&gt; 指向网关地址，把 &lt;code&gt;api_key&lt;/code&gt; 换成网关分配的虚拟 Key，其他代码一行不动。换模型只改网关路由配置，&amp;ldquo;换模型&amp;quot;这件事对业务层彻底隐形。&lt;/p&gt;
+&lt;h4 id=&#34;功能二api-key-集中管理&#34;&gt;功能二：API Key 集中管理
+&lt;/h4&gt;&lt;p&gt;API Key 只存在网关这一个地方，业务服务拿到的是网关分配的虚拟 Key，根本接触不到真实密钥。降低泄漏风险。&lt;/p&gt;
+&lt;h4 id=&#34;功能三负载均衡和故障转移&#34;&gt;功能三：负载均衡和故障转移
+&lt;/h4&gt;&lt;p&gt;给同一个&amp;quot;模型名&amp;quot;配置多条路由规则，主路由指向 OpenAI，备用路由指向 Azure OpenAI 或 Anthropic。主路由连续失败达到阈值时，网关自动切换到备用路由，业务层完全无感知。&lt;/p&gt;
+&lt;h4 id=&#34;功能四限流和配额&#34;&gt;功能四：限流和配额
+&lt;/h4&gt;&lt;p&gt;给每个团队的虚拟 Key 设置独立的 token 日预算。一旦超出配额，该 Key 的请求直接返回 429，其他团队不受影响。&lt;/p&gt;
+&lt;h4 id=&#34;功能五成本追踪和可观测性&#34;&gt;功能五：成本追踪和可观测性
+&lt;/h4&gt;&lt;p&gt;网关集中记录每次调用的 token 用量、响应时间、错误率，可以回答&amp;quot;哪个接口最烧钱&amp;quot;&amp;ldquo;各团队用了多少&amp;quot;这类问题。通常可以直接对接 Langfuse、Prometheus 等监控系统。&lt;/p&gt;
+&lt;h4 id=&#34;功能六语义缓存llm-网关的亮点&#34;&gt;功能六：语义缓存（LLM 网关的亮点）
+&lt;/h4&gt;&lt;p&gt;这是 LLM 网关区别于普通 API 网关的关键能力。普通 HTTP 缓存是精确匹配，请求内容一字不差才能命中。但 LLM 的问题往往有大量语义相近的变体：&amp;ldquo;北京今天热吗&amp;quot;&amp;ldquo;北京现在天气怎样&amp;quot;&amp;ldquo;今天北京气温多少&amp;rdquo;——三个问题本质上是同一个需求，精确匹配全部 miss。&lt;/p&gt;
+&lt;p&gt;语义缓存的核心原理是：把用户问题转换成一个向量（embedding），然后在向量数据库里做相似度搜索，如果找到一个指纹很接近的历史问题（相似度超过设定阈值），就直接返回那次的答案，&lt;strong&gt;完全跳过 LLM 调用&lt;/strong&gt;。&lt;/p&gt;
+&lt;div class=&#34;highlight&#34;&gt;&lt;pre tabindex=&#34;0&#34; style=&#34;color:#f8f8f2;background-color:#272822;-moz-tab-size:4;-o-tab-size:4;tab-size:4;&#34;&gt;&lt;code class=&#34;language-python&#34; data-lang=&#34;python&#34;&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;&lt;span style=&#34;color:#75715e&#34;&gt;# 语义缓存的简化流程&lt;/span&gt;
+&lt;/span&gt;&lt;/span&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;&lt;span style=&#34;color:#66d9ef&#34;&gt;def&lt;/span&gt; &lt;span style=&#34;color:#a6e22e&#34;&gt;semantic_cache_lookup&lt;/span&gt;(user_question):
+&lt;/span&gt;&lt;/span&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;    &lt;span style=&#34;color:#75715e&#34;&gt;# 1. 把问题向量化&lt;/span&gt;
+&lt;/span&gt;&lt;/span&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;    question_vector &lt;span style=&#34;color:#f92672&#34;&gt;=&lt;/span&gt; embed(user_question)
+&lt;/span&gt;&lt;/span&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;    
+&lt;/span&gt;&lt;/span&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;    &lt;span style=&#34;color:#75715e&#34;&gt;# 2. 在向量数据库里做相似度搜索&lt;/span&gt;
+&lt;/span&gt;&lt;/span&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;    similar &lt;span style=&#34;color:#f92672&#34;&gt;=&lt;/span&gt; vector_db&lt;span style=&#34;color:#f92672&#34;&gt;.&lt;/span&gt;search(
+&lt;/span&gt;&lt;/span&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;        question_vector, 
+&lt;/span&gt;&lt;/span&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;        top_k&lt;span style=&#34;color:#f92672&#34;&gt;=&lt;/span&gt;&lt;span style=&#34;color:#ae81ff&#34;&gt;1&lt;/span&gt;, 
+&lt;/span&gt;&lt;/span&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;        threshold&lt;span style=&#34;color:#f92672&#34;&gt;=&lt;/span&gt;&lt;span style=&#34;color:#ae81ff&#34;&gt;0.90&lt;/span&gt;  &lt;span style=&#34;color:#75715e&#34;&gt;# 相似度阈值&lt;/span&gt;
+&lt;/span&gt;&lt;/span&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;    )
+&lt;/span&gt;&lt;/span&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;    
+&lt;/span&gt;&lt;/span&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;    &lt;span style=&#34;color:#66d9ef&#34;&gt;if&lt;/span&gt; similar &lt;span style=&#34;color:#f92672&#34;&gt;and&lt;/span&gt; similar[&lt;span style=&#34;color:#ae81ff&#34;&gt;0&lt;/span&gt;]&lt;span style=&#34;color:#f92672&#34;&gt;.&lt;/span&gt;score &lt;span style=&#34;color:#f92672&#34;&gt;&amp;gt;=&lt;/span&gt; &lt;span style=&#34;color:#ae81ff&#34;&gt;0.90&lt;/span&gt;:
+&lt;/span&gt;&lt;/span&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;        &lt;span style=&#34;color:#75715e&#34;&gt;# 3. 命中缓存，直接返回历史答案&lt;/span&gt;
+&lt;/span&gt;&lt;/span&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;        &lt;span style=&#34;color:#66d9ef&#34;&gt;return&lt;/span&gt; similar[&lt;span style=&#34;color:#ae81ff&#34;&gt;0&lt;/span&gt;]&lt;span style=&#34;color:#f92672&#34;&gt;.&lt;/span&gt;answer  &lt;span style=&#34;color:#75715e&#34;&gt;# 跳过 LLM 调用!&lt;/span&gt;
+&lt;/span&gt;&lt;/span&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;    &lt;span style=&#34;color:#66d9ef&#34;&gt;else&lt;/span&gt;:
+&lt;/span&gt;&lt;/span&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;        &lt;span style=&#34;color:#75715e&#34;&gt;# 4. 未命中，调 LLM 并缓存&lt;/span&gt;
+&lt;/span&gt;&lt;/span&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;        answer &lt;span style=&#34;color:#f92672&#34;&gt;=&lt;/span&gt; llm_call(user_question)
+&lt;/span&gt;&lt;/span&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;        vector_db&lt;span style=&#34;color:#f92672&#34;&gt;.&lt;/span&gt;insert(question_vector, answer)
+&lt;/span&gt;&lt;/span&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;        &lt;span style=&#34;color:#66d9ef&#34;&gt;return&lt;/span&gt; answer
+&lt;/span&gt;&lt;/span&gt;&lt;/code&gt;&lt;/pre&gt;&lt;/div&gt;&lt;p&gt;语义缓存要用好，有两个工程细节需要注意：&lt;/p&gt;
+&lt;ol&gt;
+&lt;li&gt;&lt;strong&gt;相似度阈值怎么设&lt;/strong&gt;：太高（0.99）只有一模一样的问题才命中，缓存形同虚设；太低（0.7）可能出现&amp;quot;北京今天热吗&amp;quot;命中了&amp;quot;上海今天热吗&amp;quot;的答案。通常在 0.85-0.95 之间调试。&lt;/li&gt;
+&lt;li&gt;&lt;strong&gt;缓存有效期&lt;/strong&gt;：天气、股价这类实时信息缓存几分钟就够；产品 FAQ、技术文档这类稳定知识缓存几天甚至更长。&lt;/li&gt;
+&lt;/ol&gt;
+&lt;h3 id=&#34;104-prompt-安全过滤&#34;&gt;10.4 Prompt 安全过滤
+&lt;/h3&gt;&lt;p&gt;在网关层可以统一做输入输出的安全校验，包括检测 prompt 注入攻击、过滤个人隐私信息（身份证号、手机号不应该被发送到外部 API）、内容安全审核。集中在网关做的好处是不需要每个业务服务各自实现，安全策略统一更新，任何一个接入点都自动获得保护。&lt;/p&gt;
+&lt;h3 id=&#34;105-常见网关框架对比&#34;&gt;10.5 常见网关框架对比
+&lt;/h3&gt;&lt;table&gt;
+  &lt;thead&gt;
+      &lt;tr&gt;
+          &lt;th&gt;框架&lt;/th&gt;
+          &lt;th&gt;类型&lt;/th&gt;
+          &lt;th&gt;特点&lt;/th&gt;
+      &lt;/tr&gt;
+  &lt;/thead&gt;
+  &lt;tbody&gt;
+      &lt;tr&gt;
+          &lt;td&gt;&lt;strong&gt;LiteLLM&lt;/strong&gt;&lt;/td&gt;
+          &lt;td&gt;开源，Python&lt;/td&gt;
+          &lt;td&gt;支持 100+ 模型，OpenAI 兼容接口，社区最活跃（注意关注安全公告）&lt;/td&gt;
+      &lt;/tr&gt;
+      &lt;tr&gt;
+          &lt;td&gt;&lt;strong&gt;Bifrost&lt;/strong&gt;&lt;/td&gt;
+          &lt;td&gt;开源，Rust&lt;/td&gt;
+          &lt;td&gt;高性能低延迟，2026 年新兴，适合对性能要求高的场景&lt;/td&gt;
+      &lt;/tr&gt;
+      &lt;tr&gt;
+          &lt;td&gt;&lt;strong&gt;PortKey&lt;/strong&gt;&lt;/td&gt;
+          &lt;td&gt;商业+开源&lt;/td&gt;
+          &lt;td&gt;功能完整，有托管版，适合不想自运维的团队&lt;/td&gt;
+      &lt;/tr&gt;
+      &lt;tr&gt;
+          &lt;td&gt;&lt;strong&gt;Kong AI Gateway&lt;/strong&gt;&lt;/td&gt;
+          &lt;td&gt;商业（Kong 扩展）&lt;/td&gt;
+          &lt;td&gt;基于成熟的 Kong 网关扩展 AI 能力，适合已有 Kong 的团队&lt;/td&gt;
+      &lt;/tr&gt;
+      &lt;tr&gt;
+          &lt;td&gt;&lt;strong&gt;One API&lt;/strong&gt;&lt;/td&gt;
+          &lt;td&gt;开源，Go&lt;/td&gt;
+          &lt;td&gt;国内社区活跃，支持国产模型，部署简单&lt;/td&gt;
+      &lt;/tr&gt;
+      &lt;tr&gt;
+          &lt;td&gt;&lt;strong&gt;Nginx/Envoy 自研&lt;/strong&gt;&lt;/td&gt;
+          &lt;td&gt;自研&lt;/td&gt;
+          &lt;td&gt;灵活但工作量大，适合有特殊需求的大厂&lt;/td&gt;
+      &lt;/tr&gt;
+  &lt;/tbody&gt;
+&lt;/table&gt;
+&lt;h3 id=&#34;本章实践要点-9&#34;&gt;本章实践要点
+&lt;/h3&gt;&lt;ul&gt;
+&lt;li&gt;&lt;strong&gt;不是普通 API 网关&lt;/strong&gt;：LLM 网关除了统一接口和负载均衡，更核心的价值是 token 配额、语义缓存、prompt 安全这些 LLM 特有能力。&lt;/li&gt;
+&lt;li&gt;&lt;strong&gt;语义缓存阈值要调&lt;/strong&gt;：0.85-0.95 是常见范围，具体看场景和用户提问多样性。&lt;/li&gt;
+&lt;li&gt;&lt;strong&gt;虚拟 Key 隔离风险&lt;/strong&gt;：业务服务接触不到真实密钥，降低泄漏风险。&lt;/li&gt;
+&lt;li&gt;&lt;strong&gt;故障转移保障可用性&lt;/strong&gt;：多路由配置 + 自动切换，业务层无感知。&lt;/li&gt;
+&lt;li&gt;&lt;strong&gt;安全事件要关注&lt;/strong&gt;：LiteLLM 在 2026 年 3 月发生过供应链安全事件，生产环境建议版本锁定和校验。&lt;/li&gt;
+&lt;/ul&gt;
+&lt;hr&gt;
+&lt;h2 id=&#34;核心知识点回顾&#34;&gt;核心知识点回顾
+&lt;/h2&gt;&lt;h3 id=&#34;关键认知&#34;&gt;关键认知
+&lt;/h3&gt;&lt;ol&gt;
+&lt;li&gt;
+&lt;p&gt;&lt;strong&gt;模型只决策不执行&lt;/strong&gt;——这是整个工具调用体系的基石。模型输出结构化 JSON，代码负责执行。LLM 擅长理解意图和推理，但不应该有直接操作系统资源的权限。&lt;/p&gt;
+&lt;/li&gt;
+&lt;li&gt;
+&lt;p&gt;&lt;strong&gt;SFT 教会怎么调，RLHF 教会什么时候调&lt;/strong&gt;——两个阶段缺一不可。只有 SFT 模型会过激调用，只有 RLHF 模型连格式都输不出来。&lt;/p&gt;
+&lt;/li&gt;
+&lt;li&gt;
+&lt;p&gt;&lt;strong&gt;MCP 底层靠 Function Calling 驱动&lt;/strong&gt;——模型感知不到 MCP 的存在。MCP 是工具箱层，FC 是调用语言层，不是竞争关系。&lt;/p&gt;
+&lt;/li&gt;
+&lt;li&gt;
+&lt;p&gt;&lt;strong&gt;三层架构缺一不可&lt;/strong&gt;——Function Calling 是&amp;quot;手&amp;rdquo;（调用语言），MCP 是&amp;quot;厨房&amp;rdquo;（工具箱），Skill 是&amp;quot;菜谱&amp;rdquo;（操作手册）。Skill 定义流程 → MCP 提供工具 → Function Calling 触发调用。&lt;/p&gt;
+&lt;/li&gt;
+&lt;li&gt;
+&lt;p&gt;&lt;strong&gt;推理模型与工具调用的冲突是范式性的&lt;/strong&gt;——思考链是连续整体，工具调用需要中途暂停。折中方案让工具调用发生在思考结束后，interleaved thinking 部分缓解了局限。&lt;/p&gt;
+&lt;/li&gt;
+&lt;li&gt;
+&lt;p&gt;&lt;strong&gt;A2A 和 MCP 一纵一横&lt;/strong&gt;——MCP 向下连工具（纵向），A2A 向外连 Agent（横向）。复杂多 Agent 系统两者都要用。&lt;/p&gt;
+&lt;/li&gt;
+&lt;li&gt;
+&lt;p&gt;&lt;strong&gt;通信协议选型看场景&lt;/strong&gt;——文字用 SSE，双向实时用 WebSocket，语音用 WebRTC，本地进程间用 stdio。&lt;/p&gt;
+&lt;/li&gt;
+&lt;li&gt;
+&lt;p&gt;&lt;strong&gt;LLM 网关的核心差异化是语义缓存&lt;/strong&gt;——这是普通 API 网关做不到的，用向量相似度匹配语义相近问题，跳过 LLM 调用。&lt;/p&gt;
+&lt;/li&gt;
+&lt;/ol&gt;
+&lt;h3 id=&#34;技术栈全景速查&#34;&gt;技术栈全景速查
+&lt;/h3&gt;&lt;pre tabindex=&#34;0&#34;&gt;&lt;code&gt;╔══════════════════════════════════════════════════════════════╗
+║                        用户 / 业务应用                         ║
+╠══════════════════════════════════════════════════════════════╣
+║                                                              ║
+║  ┌─ A2A ──────────────────────────────────────────────────┐  ║
+║  │ Agent间协作: Agent Card + Task状态机 + 微服务化          │  ║
+║  └────────────────────────────────────────────────────────┘  ║
+║                                                              ║
+║  ┌─ Skill ────────────────────────────────────────────────┐  ║
+║  │ 任务流程知识化: SKILL.md + scripts + 渐进式加载          │  ║
+║  └────────────────────────────────────────────────────────┘  ║
+║                                                              ║
+║  ┌─ MCP ──────────────────────────────────────────────────┐  ║
+║  │ 工具标准化: Host/Client/Server + Tools/Resources/Prompts│  ║
+║  │ 传输: stdio(本地) / Streamable HTTP(远程)               │  ║
+║  │ 消息: JSON-RPC 2.0                                      │  ║
+║  └────────────────────────────────────────────────────────┘  ║
+║                                                              ║
+║  ┌─ Function Calling ─────────────────────────────────────┐  ║
+║  │ 调用语言: schema定义 + tool_calls JSON + 两轮对话        │  ║
+║  │ 训练: SFT(怎么调) + RLHF/PPO(该不该调)                   │  ║
+║  └────────────────────────────────────────────────────────┘  ║
+║                                                              ║
+║  ┌─ LLM 网关 (横切中间件) ────────────────────────────────┐  ║
+║  │ 统一接口 + Key管理 + 负载均衡 + 配额 + 成本追踪           │  ║
+║  │ + 语义缓存 + Prompt安全                                  │  ║
+║  └────────────────────────────────────────────────────────┘  ║
+║                                                              ║
+║  ┌─ 通信协议 (横切基础设施) ───────────────────────────────┐  ║
+║  │ SSE(文字流) / WebSocket(双向) / WebRTC(语音) / stdio(本地)│  ║
+║  └────────────────────────────────────────────────────────┘  ║
+║                                                              ║
+╠══════════════════════════════════════════════════════════════╣
+║                     各家模型 API (OpenAI/Anthropic/...)       ║
+╚══════════════════════════════════════════════════════════════╝
+&lt;/code&gt;&lt;/pre&gt;&lt;h3 id=&#34;主题关联&#34;&gt;主题关联
+&lt;/h3&gt;&lt;p&gt;本文涉及的各主题之间有着紧密的逻辑递进关系：&lt;/p&gt;
+&lt;ul&gt;
+&lt;li&gt;&lt;strong&gt;Function Calling&lt;/strong&gt; 是整条技术栈的地基，没有它上层一切都无从谈起。&lt;/li&gt;
+&lt;li&gt;&lt;strong&gt;训练（SFT+RLHF）&lt;/strong&gt; 解释了 Function Calling 能力从何而来，理解了训练才能理解为什么推理模型会冲突。&lt;/li&gt;
+&lt;li&gt;&lt;strong&gt;MCP&lt;/strong&gt; 在 Function Calling 之上解决工具管理问题，但本质还是靠 FC 驱动。&lt;/li&gt;
+&lt;li&gt;&lt;strong&gt;Skill&lt;/strong&gt; 在 MCP 之上解决流程知识问题，三层共同构成完整的 Agent 能力栈。&lt;/li&gt;
+&lt;li&gt;&lt;strong&gt;推理模型冲突&lt;/strong&gt; 是 Function Calling 的一个&amp;quot;边界案例&amp;rdquo;，揭示了工具调用并非万能，有范式上的约束。&lt;/li&gt;
+&lt;li&gt;&lt;strong&gt;A2A&lt;/strong&gt; 把视角从单 Agent 扩展到多 Agent，和 MCP 形成&amp;quot;纵向+横向&amp;quot;的互补。&lt;/li&gt;
+&lt;li&gt;&lt;strong&gt;通信协议&lt;/strong&gt; 是支撑以上所有机制的底层基础设施，选对协议直接影响系统性能。&lt;/li&gt;
+&lt;li&gt;&lt;strong&gt;LLM 网关&lt;/strong&gt; 是横切所有上层应用的中间件，解决工程化和治理问题。&lt;/li&gt;
+&lt;/ul&gt;
+&lt;h3 id=&#34;进一步阅读&#34;&gt;进一步阅读
+&lt;/h3&gt;&lt;ul&gt;
+&lt;li&gt;&lt;strong&gt;Function Calling 官方文档&lt;/strong&gt;：OpenAI Function Calling Guide、Anthropic Tool Use 文档&lt;/li&gt;
+&lt;li&gt;&lt;strong&gt;MCP 规范&lt;/strong&gt;：Anthropic Model Context Protocol 官方规范（2025-03-26 版本）&lt;/li&gt;
+&lt;li&gt;&lt;strong&gt;Agent Skills&lt;/strong&gt;：Anthropic Agent Skills 开放标准规范（2025 年 12 月发布）&lt;/li&gt;
+&lt;li&gt;&lt;strong&gt;A2A 协议&lt;/strong&gt;：Google Agent-to-Agent Protocol 规范&lt;/li&gt;
+&lt;li&gt;&lt;strong&gt;通信协议深入&lt;/strong&gt;：MDN SSE/WebSocket 文档、WebRTC 官方文档&lt;/li&gt;
+&lt;li&gt;&lt;strong&gt;LLM 网关&lt;/strong&gt;：LiteLLM 文档、GPTCache（语义缓存实现）文档&lt;/li&gt;
+&lt;/ul&gt;
+&lt;blockquote&gt;
+&lt;p&gt;&lt;strong&gt;系列导航&lt;/strong&gt;：本文是「AI 知识体系深度解析」系列第三篇。前序篇章覆盖 LLM 基础架构与训练原理，后续篇章将深入 Agent 系统设计与多模态应用，敬请关注。&lt;/p&gt;
+&lt;/blockquote&gt;
+</description>
+        </item>
+        <item>
         <title>第5章：MCP——工具调用的标准化革命</title>
         <link>https://blog.irudder.me/ai/knowledge-series/05-MCP-and-Protocolized-Tool-Ecosystem.html</link>
         <pubDate>Mon, 01 Jun 2026 00:00:00 +0000</pubDate>

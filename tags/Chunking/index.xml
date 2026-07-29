@@ -6,7 +6,1098 @@
         <description>Recent content in Chunking on SelfTechHub</description>
         <generator>Hugo -- gohugo.io</generator>
         <language>zh-cn</language>
-        <lastBuildDate>Mon, 15 Jun 2026 00:00:00 +0000</lastBuildDate><atom:link href="https://blog.irudder.me/tags/Chunking/index.xml" rel="self" type="application/rss+xml" /><item>
+        <lastBuildDate>Sat, 25 Jul 2026 00:00:00 +0000</lastBuildDate><atom:link href="https://blog.irudder.me/tags/Chunking/index.xml" rel="self" type="application/rss+xml" /><item>
+        <title>RAG检索增强生成——从原理到工程落地</title>
+        <link>https://blog.irudder.me/ai/ai-systematization/02-RAG-Retrieval-Augmented-Generation.html</link>
+        <pubDate>Sat, 25 Jul 2026 00:00:00 +0000</pubDate>
+        
+        <guid>https://blog.irudder.me/ai/ai-systematization/02-RAG-Retrieval-Augmented-Generation.html</guid>
+        <description>&lt;h1 id=&#34;rag检索增强生成从原理到工程落地&#34;&gt;RAG检索增强生成——从原理到工程落地
+&lt;/h1&gt;&lt;blockquote&gt;
+&lt;p&gt;本文是「AI 大模型工程知识体系」系列的第 02 篇。RAG（Retrieval-Augmented Generation，检索增强生成）是企业 AI 落地最核心的技术范式之一——它让大模型在回答问题时&amp;quot;有据可依&amp;quot;，而非凭记忆发挥。本文将从 RAG 的本质出发，逐层拆解文档切割、Embedding、向量数据库、在线检索、检索优化、高级范式与生产落地的完整知识体系，力求让读者既能理解原理，又能动手工程实践。&lt;/p&gt;
+&lt;/blockquote&gt;
+&lt;hr&gt;
+&lt;h2 id=&#34;核心问题列表&#34;&gt;核心问题列表
+&lt;/h2&gt;&lt;p&gt;在进入正文之前，先抛出本文要回答的核心问题，带着问题阅读效果更好：&lt;/p&gt;
+&lt;ol&gt;
+&lt;li&gt;&lt;strong&gt;RAG 到底是什么？&lt;/strong&gt; 它解决了 LLM 的哪些根本问题？和微调的本质区别在哪？&lt;/li&gt;
+&lt;li&gt;&lt;strong&gt;文档为什么要切割？&lt;/strong&gt; 有哪些切割策略？chunk_size 怎么定？语义被切断怎么规避？&lt;/li&gt;
+&lt;li&gt;&lt;strong&gt;Embedding 的原理是什么？&lt;/strong&gt; 从 one-hot 到稠密向量经历了怎样的演进？如何选型和评估？&lt;/li&gt;
+&lt;li&gt;&lt;strong&gt;向量数据库和普通数据库有什么不同？&lt;/strong&gt; HNSW 和 IVF 索引算法各自适合什么场景？生产环境怎么选型？&lt;/li&gt;
+&lt;li&gt;&lt;strong&gt;在线检索的完整流程是什么？&lt;/strong&gt; 粗排和精排有何区别？多路召回怎么做？&lt;/li&gt;
+&lt;li&gt;&lt;strong&gt;检索效果不好从哪里优化？&lt;/strong&gt; Query 层、检索层、结果层、生成层各自解决什么问题？&lt;/li&gt;
+&lt;li&gt;&lt;strong&gt;Self-RAG、CRAG、GraphRAG、LightRAG 这些高级范式各自解决什么痛点？&lt;/strong&gt; 该怎么选？&lt;/li&gt;
+&lt;li&gt;&lt;strong&gt;RAG 上生产有哪些难点？&lt;/strong&gt; 幻觉怎么规避？效果怎么量化？知识库怎么动态更新？&lt;/li&gt;
+&lt;/ol&gt;
+&lt;hr&gt;
+&lt;h2 id=&#34;引言为什么大模型需要开卷考试&#34;&gt;引言：为什么大模型需要&amp;quot;开卷考试&amp;quot;
+&lt;/h2&gt;&lt;p&gt;一个 LLM（大语言模型）训练完成之后，它的知识就&amp;quot;冻结&amp;quot;了。训练数据截止日期之后发生的事情它一无所知，你们公司内部的私有文档它更不知道。就好比一个人高考之后再也不看新闻，你问他今天的股价，他怎么可能答得上来？&lt;/p&gt;
+&lt;p&gt;那能不能靠微调来更新知识？理论上可以，但微调成本高、耗时长，最关键的是知识一旦写进模型参数，以后想更新就得重新训练一遍——这就好比你为了让一个人记住一条新闻，让他重新上了一遍大学，太不划算了。&lt;/p&gt;
+&lt;p&gt;RAG 走了一条完全不同的路：&lt;strong&gt;不把知识塞进模型参数里，而是在用户提问的时候，实时去外部知识库检索相关内容，把检索结果和用户的问题一起交给 LLM，让它基于这些上下文来回答。&lt;/strong&gt; 本质上就是给 LLM 开了一个&amp;quot;开卷考试&amp;quot;的口子，不用再靠死记硬背。&lt;/p&gt;
+&lt;p&gt;这个设计思路让知识管理和模型能力彻底解耦：更新知识不需要碰模型，扩充领域知识只需要扩充知识库，这也是 RAG 成为企业 AI 落地首选方案的根本原因。&lt;/p&gt;
+&lt;p&gt;接下来，我们从 RAG 的本质开始，逐层深入。&lt;/p&gt;
+&lt;hr&gt;
+&lt;h2 id=&#34;第一章rag-的本质与价值&#34;&gt;第一章：RAG 的本质与价值
+&lt;/h2&gt;&lt;h3 id=&#34;11-rag-解决的三大问题&#34;&gt;1.1 RAG 解决的三大问题
+&lt;/h3&gt;&lt;p&gt;要理解 RAG 的价值，得先搞清楚 LLM 到底差在哪。LLM 的&amp;quot;知识&amp;quot;是训练时通过海量文本学到的，最终以权重参数的形式固化在模型里——就像把知识烧进了 ROM，训练完成之后就刻在那里了，不会自动更新。这个特性导致了三个环环相扣的问题：&lt;/p&gt;
+&lt;p&gt;&lt;strong&gt;问题一：知识时效性（知识过期）。&lt;/strong&gt; LLM 训练数据有截止日期，之后发生的事它不知道，但它不会说&amp;quot;我不知道&amp;quot;，而是会&amp;quot;推测&amp;quot;出一个听起来合理的答案。金融场景里用 LLM 辅助分析，如果模型不知道某公司最近一季度的财报数据，给出的分析就是基于过期信息的，参考价值大打折扣。&lt;/p&gt;
+&lt;p&gt;&lt;strong&gt;问题二：私有知识覆盖（知识空白）。&lt;/strong&gt; 公开互联网上的知识 LLM 或多或少见过，但每家公司的内部文档——产品手册、客服知识库、合同模板、行业规范——这些东西根本不会出现在公开训练数据里。你让 LLM 扮演客服机器人回答&amp;quot;我们产品的退款政策是什么&amp;quot;，它不可能知道，因为它压根没见过这条信息。&lt;/p&gt;
+&lt;p&gt;&lt;strong&gt;问题三：幻觉问题（知识缺失的副产品）。&lt;/strong&gt; 前两个问题都指向同一个现象——幻觉。LLM 的核心机制是&amp;quot;预测下一个词&amp;quot;，它没有内置&amp;quot;我不确定就停下来&amp;quot;的开关。当参数里的知识不够用时，它只能硬着头皮往下生成，把相关的、不相关的知识拼凑出一个&amp;quot;听起来合理&amp;quot;的答案。&lt;/p&gt;
+&lt;p&gt;很多人有个误区，以为幻觉是 LLM 的一个独立 bug，需要单独治理。其实不是，&lt;strong&gt;幻觉是知识缺失的副产品&lt;/strong&gt;，是模型在没有可靠依据时的&amp;quot;应急策略&amp;quot;。根源都是同一件事：模型参数里没有对应的知识。&lt;/p&gt;
+&lt;p&gt;RAG 的解法一招对三症：把知识存到外部知识库，用的时候实时检索注入，彻底绕开参数里的知识限制。知识过期——新内容随时入库，不需要重新训练；知识缺失——公司文档入库后 LLM 就能&amp;quot;看到&amp;quot;这些内容；幻觉——LLM 有了真实参考依据，生成答案时是在&amp;quot;复述&amp;quot;检索到的内容，而非凭记忆发挥。&lt;/p&gt;
+&lt;h3 id=&#34;12-rag-的完整工作流程&#34;&gt;1.2 RAG 的完整工作流程
+&lt;/h3&gt;&lt;p&gt;一个完整的 RAG 系统分&lt;strong&gt;离线（索引）&lt;/strong&gt; 和&lt;strong&gt;在线（查询）&lt;/strong&gt; 两个阶段，分工明确：离线负责建库，在线负责检索和生成。&lt;/p&gt;
+&lt;pre tabindex=&#34;0&#34;&gt;&lt;code&gt;┌─────────────────────────────────────────────────────────────────┐
+│                      RAG 完整架构                                │
+├─────────────────────────┬───────────────────────────────────────┤
+│    离线阶段（建库）      │        在线阶段（检索+生成）           │
+│    只做一次，反复使用    │        每次用户提问实时执行            │
+├─────────────────────────┼───────────────────────────────────────┤
+│                         │                                       │
+│  文档加载(PDF/Word/MD)  │   用户提问                            │
+│         │               │      │                                │
+│         ▼               │      ▼                                │
+│  文档切割(Chunking)     │   Query预处理(改写/HyDE/扩展)         │
+│  500~1000 token/块      │      │                                │
+│         │               │      ▼                                │
+│         ▼               │   Query向量化(同款Embedding)          │
+│  向量化(Embedding)      │      │                                │
+│  文本→1024维向量        │      ▼                                │
+│         │               │   向量检索(粗排)+多路召回(BM25)       │
+│         ▼               │   Top-20候选                          │
+│  入库(向量数据库)       │      │                                │
+│  向量+原文+metadata     │      ▼                                │
+│                         │   Rerank精排(Cross-Encoder)          │
+│                         │   Top-3~5高质量片段                   │
+│                         │      │                                │
+│                         │      ▼                                │
+│                         │   Prompt拼装(资料+问题+约束)          │
+│                         │      │                                │
+│                         │      ▼                                │
+│                         │   LLM生成答案 + 引用溯源              │
+│                         │                                       │
+└─────────────────────────┴───────────────────────────────────────┘
+&lt;/code&gt;&lt;/pre&gt;&lt;p&gt;&lt;strong&gt;离线阶段四步走：&lt;/strong&gt;&lt;/p&gt;
+&lt;ol&gt;
+&lt;li&gt;&lt;strong&gt;文档加载&lt;/strong&gt;：把 PDF、Word、Markdown、网页等各格式数据读取进来。&lt;/li&gt;
+&lt;li&gt;&lt;strong&gt;文档切割（Chunking）&lt;/strong&gt;：把文档切成小片段（chunk），因为 Embedding 模型有输入长度限制，且整篇文档压缩成一个向量会丢失细节。&lt;/li&gt;
+&lt;li&gt;&lt;strong&gt;向量化（Embedding）&lt;/strong&gt;：把每个 chunk 转成高维数字向量，语义相近的文本在向量空间里距离近。&lt;/li&gt;
+&lt;li&gt;&lt;strong&gt;入库&lt;/strong&gt;：把向量 + 原始文本 + metadata 存进向量数据库。&lt;/li&gt;
+&lt;/ol&gt;
+&lt;p&gt;&lt;strong&gt;在线阶段六步走：&lt;/strong&gt;&lt;/p&gt;
+&lt;ol&gt;
+&lt;li&gt;&lt;strong&gt;Query 预处理&lt;/strong&gt;：把口语化、带指代的问题改写成更适合检索的形式。&lt;/li&gt;
+&lt;li&gt;&lt;strong&gt;Query 向量化&lt;/strong&gt;：用和建库时完全相同的 Embedding 模型把问题转成向量。&lt;/li&gt;
+&lt;li&gt;&lt;strong&gt;向量检索（粗排）+ 多路召回&lt;/strong&gt;：在向量库里做 ANN 搜索找 Top-K，通常同时走 BM25 关键词检索。&lt;/li&gt;
+&lt;li&gt;&lt;strong&gt;Rerank 精排&lt;/strong&gt;：用 Cross-Encoder 深度理解 query 和每个候选的相关性，重排序留下 Top-3~5。&lt;/li&gt;
+&lt;li&gt;&lt;strong&gt;Prompt 拼装&lt;/strong&gt;：把精排后的 chunk 和用户问题组装成 Prompt，明确约束 LLM 只根据资料回答。&lt;/li&gt;
+&lt;li&gt;&lt;strong&gt;LLM 生成 + 溯源&lt;/strong&gt;：LLM 基于参考资料生成答案，标注每句话来自哪个片段。&lt;/li&gt;
+&lt;/ol&gt;
+&lt;h3 id=&#34;13-rag-vs-微调不是二选一而是互补&#34;&gt;1.3 RAG vs 微调：不是二选一，而是互补
+&lt;/h3&gt;&lt;p&gt;RAG 和微调（Fine-tuning）解决的不是同一层面的问题。理解 LLM 知识的本质——&amp;ldquo;知识固化在参数里&amp;rdquo;——就能理解为什么需要这两种方案：它们本质上都是在解决同一个问题（怎么把模型训练时没学到的知识补上），但思路完全不同。&lt;/p&gt;
+&lt;table&gt;
+  &lt;thead&gt;
+      &lt;tr&gt;
+          &lt;th&gt;维度&lt;/th&gt;
+          &lt;th&gt;微调（Fine-tuning）&lt;/th&gt;
+          &lt;th&gt;RAG&lt;/th&gt;
+      &lt;/tr&gt;
+  &lt;/thead&gt;
+  &lt;tbody&gt;
+      &lt;tr&gt;
+          &lt;td&gt;&lt;strong&gt;本质&lt;/strong&gt;&lt;/td&gt;
+          &lt;td&gt;把知识烧进模型参数&lt;/td&gt;
+          &lt;td&gt;不改参数，推理时实时检索注入&lt;/td&gt;
+      &lt;/tr&gt;
+      &lt;tr&gt;
+          &lt;td&gt;&lt;strong&gt;知识更新&lt;/strong&gt;&lt;/td&gt;
+          &lt;td&gt;需要重新训练，成本高&lt;/td&gt;
+          &lt;td&gt;更新知识库即可，实时生效&lt;/td&gt;
+      &lt;/tr&gt;
+      &lt;tr&gt;
+          &lt;td&gt;&lt;strong&gt;推理延迟&lt;/strong&gt;&lt;/td&gt;
+          &lt;td&gt;低，无额外检索步骤&lt;/td&gt;
+          &lt;td&gt;较高，多一次检索耗时&lt;/td&gt;
+      &lt;/tr&gt;
+      &lt;tr&gt;
+          &lt;td&gt;&lt;strong&gt;实现成本&lt;/strong&gt;&lt;/td&gt;
+          &lt;td&gt;高，需 GPU 和标注数据&lt;/td&gt;
+          &lt;td&gt;低，向量库 + Embedding 即可&lt;/td&gt;
+      &lt;/tr&gt;
+      &lt;tr&gt;
+          &lt;td&gt;&lt;strong&gt;答案可溯源&lt;/strong&gt;&lt;/td&gt;
+          &lt;td&gt;不支持，来自模型参数&lt;/td&gt;
+          &lt;td&gt;支持，可追溯到具体 chunk&lt;/td&gt;
+      &lt;/tr&gt;
+      &lt;tr&gt;
+          &lt;td&gt;&lt;strong&gt;适合场景&lt;/strong&gt;&lt;/td&gt;
+          &lt;td&gt;定制输出风格、深度专业能力&lt;/td&gt;
+          &lt;td&gt;私有知识问答、动态更新数据&lt;/td&gt;
+      &lt;/tr&gt;
+      &lt;tr&gt;
+          &lt;td&gt;&lt;strong&gt;知识上限&lt;/strong&gt;&lt;/td&gt;
+          &lt;td&gt;受限于训练数据质量和规模&lt;/td&gt;
+          &lt;td&gt;受限于检索质量和 context 长度&lt;/td&gt;
+      &lt;/tr&gt;
+  &lt;/tbody&gt;
+&lt;/table&gt;
+&lt;p&gt;一个关键的直觉认知：&lt;strong&gt;生成层（LLM）只是在复述和整理检索到的内容，它的上限被检索层死死卡住。&lt;/strong&gt; 你只能回答你检索到的知识，没检索到的东西 LLM 是变不出来的。所以 RAG 系统调优的主战场永远是检索这一层，不是换更强的 LLM。&lt;/p&gt;
+&lt;p&gt;实际工程中最常见的做法是&lt;strong&gt;组合使用&lt;/strong&gt;：先微调让模型学会输出格式、语气风格、行业术语；再用 RAG 提供具体知识内容。微调解决&amp;quot;怎么说&amp;quot;，RAG 解决&amp;quot;说什么&amp;quot;，各司其职。&lt;/p&gt;
+&lt;blockquote&gt;
+&lt;p&gt;&lt;strong&gt;本章实践要点&lt;/strong&gt;：做 RAG 选型决策时，先问自己&amp;quot;知识是否需要频繁更新&amp;quot;和&amp;quot;答案是否需要可溯源&amp;quot;。如果两个都是 Yes，RAG 是首选；如果只是要定制输出风格，微调更合适。生产环境推荐&amp;quot;微调打基础 + RAG 补知识&amp;quot;的组合拳。&lt;/p&gt;
+&lt;/blockquote&gt;
+&lt;hr&gt;
+&lt;h2 id=&#34;第二章文档切割策略&#34;&gt;第二章：文档切割策略
+&lt;/h2&gt;&lt;h3 id=&#34;21-为什么文档不能直接存&#34;&gt;2.1 为什么文档不能直接存
+&lt;/h3&gt;&lt;p&gt;原始文档不能直接存进向量库，必须先切成小块（chunk）再存。原因有两个：&lt;/p&gt;
+&lt;p&gt;&lt;strong&gt;第一，向量模型有输入长度限制&lt;/strong&gt;，一般最多几百到几千个 token，一篇几千字的文档根本塞不进去。&lt;/p&gt;
+&lt;p&gt;&lt;strong&gt;第二，即使模型支持超长输入，把整篇文章压缩成一个向量，细节信息会被&amp;quot;平均掉&amp;quot;。&lt;/strong&gt; 你想找&amp;quot;退款政策&amp;quot;，但向量里还混着&amp;quot;配送时效&amp;quot;&amp;ldquo;积分规则&amp;quot;等内容，最终检索到的是这篇笼统的文档，而不是精确的那段话。&lt;/p&gt;
+&lt;p&gt;一篇文档会变成向量库里的多条记录：一篇 5000 字的文档，切成 500 字一个 chunk，就是 10 条记录。每条 chunk 记录包含三个部分，缺一不可：&lt;/p&gt;
+&lt;pre tabindex=&#34;0&#34;&gt;&lt;code&gt;┌──────────────────────────────────────────────┐
+│  Chunk 记录结构                               │
+├──────────────────────────────────────────────┤
+│  向量(1024维浮点数)  ← 索引卡：用于相似度检索  │
+│  原始文本(chunk内容) ← 书页：LLM真正阅读的内容 │
+│  metadata(来源/页码) ← 书签：用于过滤和溯源   │
+└──────────────────────────────────────────────┘
+&lt;/code&gt;&lt;/pre&gt;&lt;p&gt;可以用一个类比来理解：&lt;strong&gt;向量是索引卡，原文是书页，metadata 是书签&lt;/strong&gt;。索引卡告诉你内容在语义空间的位置，用于快速找到；书页才是 LLM 要读的内容；书签记的是来源文件名、页码，用于过滤和溯源。向量负责&amp;quot;找到&amp;rdquo;，原文负责&amp;quot;阅读&amp;quot;，两者缺一不可。&lt;/p&gt;
+&lt;h3 id=&#34;22-六种切割策略&#34;&gt;2.2 六种切割策略
+&lt;/h3&gt;&lt;p&gt;chunk 大小没有固定答案，通常 500~1000 token 是合理起点，但更重要的是根据文档类型选策略。&lt;/p&gt;
+&lt;h4 id=&#34;策略一固定大小切割fixed-size-chunking&#34;&gt;策略一：固定大小切割（Fixed Size Chunking）
+&lt;/h4&gt;&lt;p&gt;按固定字符数或 token 数切割，不管语义边界在哪。通常会加上&lt;strong&gt;重叠（overlap）&lt;/strong&gt; 来缓解边界截断问题：前一个 chunk 的末尾和下一个 chunk 的开头有一段重叠内容，确保跨边界的语义能被至少一个 chunk 完整覆盖。&lt;/p&gt;
+&lt;p&gt;比如 &lt;code&gt;chunk_size=500, overlap=100&lt;/code&gt;，后一个 chunk 的前 100 个字符和前一个 chunk 的后 100 个字符相同。重叠量通常设为 chunk_size 的 10%~20%。太大（如 40%）重复内容太多，干扰 LLM 阅读；太小（如 5%）保护效果弱。&lt;/p&gt;
+&lt;p&gt;适合纯文本、无明显结构的文档，是最简单也是最保底的选择。&lt;/p&gt;
+&lt;h4 id=&#34;策略二语义边界切割semanticstructure-based-chunking&#34;&gt;策略二：语义边界切割（Semantic/Structure Based Chunking）
+&lt;/h4&gt;&lt;p&gt;顺着文本的天然断点来切，按段落、句子、标题层级。核心思想：不要在语义中间截断，找到文字天然的&amp;quot;断点&amp;quot;再切。&lt;/p&gt;
+&lt;p&gt;句子是语言表达意思的最小完整单位，在句子中间截断就像切断一段话的呼吸。实际操作时维护一个分隔符优先级列表：先按段落切，太大再按句子切，再按标点切，直到满足 chunk_size 限制。&lt;/p&gt;
+&lt;p&gt;对有明确标题结构的 Markdown/HTML 文档，按标题层级切更优：每个 chunk 对应一个完整章节，metadata 带上所属标题（如&amp;quot;产品手册 &amp;gt; 退款政策 &amp;gt; 申请流程&amp;quot;），既语义独立又方便溯源。&lt;/p&gt;
+&lt;h4 id=&#34;策略三特殊内容专项处理&#34;&gt;策略三：特殊内容专项处理
+&lt;/h4&gt;&lt;p&gt;代码应该以函数或类为单位切割——一个函数是最小的语义完整单元，从函数中间截断就失去了逻辑意义。用语法解析工具（如 Python 的 AST 模块）识别函数和类的边界。&lt;/p&gt;
+&lt;p&gt;表格则要整块保留，转成 Markdown 格式存储，不能按行截断。表格的每一行都依赖表头才有意义，&amp;ldquo;2 小时&amp;quot;单独来看完全不知道是什么的 2 小时，配上列名&amp;quot;响应时间：2 小时&amp;quot;就清晰了。&lt;/p&gt;
+&lt;h4 id=&#34;策略四父子切割parent-child-chunking&#34;&gt;策略四：父子切割（Parent-Child Chunking）
+&lt;/h4&gt;&lt;p&gt;核心思路一句话概括：&lt;strong&gt;检索时用放大镜（小块，精准定位），返回时用全景图（大块，上下文完整）&lt;/strong&gt;。&lt;/p&gt;
+&lt;p&gt;存储时同一段内容存两份：细粒度的小 chunk（如 200 token）用于向量检索，语义聚焦、召回精度高；包含上下文的大 chunk（如 1000 token）通过 ID 关联。检索时用小 chunk 找到精准命中点，然后根据关联 ID 取出对应大 chunk 交给 LLM 阅读。&lt;/p&gt;
+&lt;p&gt;好比图书馆找书：用目录卡（小 chunk）快速定位到某章某节，但拿出来读的是完整的那一章（大 chunk）。代价是存储量翻倍，但对召回质量要求高的场景值得。&lt;/p&gt;
+&lt;h4 id=&#34;策略五命题化切割propositions-based-chunking&#34;&gt;策略五：命题化切割（Propositions-based Chunking）
+&lt;/h4&gt;&lt;p&gt;不按文本位置切割，而是用 LLM 把文档分解成一条条独立的&amp;quot;命题&amp;rdquo;。每个命题是一个完整、自包含的陈述句，包含了表达这个事实所需的全部上下文，单独拿出来就能看懂。&lt;/p&gt;
+&lt;p&gt;原文&amp;quot;企业用户享有优先客服通道，响应时间不超过 2 小时，并可申请专属技术顾问服务&amp;quot;分解成三条独立命题：①企业用户享有优先客服通道。②企业用户的客服响应时间不超过 2 小时。③企业用户可以申请专属技术顾问服务。语义密度极高，检索精度非常好，但需要额外 LLM 调用，成本较高。&lt;/p&gt;
+&lt;h4 id=&#34;策略六contextual-retrievalanthropic-2024&#34;&gt;策略六：Contextual Retrieval（Anthropic 2024）
+&lt;/h4&gt;&lt;p&gt;不改变 chunk 本身，而是在向量化之前把缺失的上下文补进去。让 LLM 看着整篇原始文档，为每个切出来的 chunk 生成一段简短的背景说明（1~2 句话），然后把&amp;quot;Context + chunk&amp;quot;整体做 Embedding。&lt;/p&gt;
+&lt;pre tabindex=&#34;0&#34;&gt;&lt;code&gt;原始 chunk: &amp;#34;此条款自 2024年1月1日起生效，适用于所有企业版订阅用户。&amp;#34;
+生成Context: &amp;#34;这段内容说明了企业用户专属客服和技术顾问服务条款的生效日期和适用范围。&amp;#34;
+拼接后向量化: Context + chunk（现在向量里包含了&amp;#34;企业用户&amp;#34;&amp;#34;客服条款&amp;#34;等关键语义）
+&lt;/code&gt;&lt;/pre&gt;&lt;p&gt;借助 Prompt Caching 可把每个 chunk 调 LLM 的成本降低 80%~90%。根据 Anthropic 测评数据，结合 BM25 混合检索能将检索失败率降低约 49%。&lt;/p&gt;
+&lt;p&gt;下面是一个用 LangChain 实现递归语义切割的代码示例：&lt;/p&gt;
+&lt;div class=&#34;highlight&#34;&gt;&lt;pre tabindex=&#34;0&#34; style=&#34;color:#f8f8f2;background-color:#272822;-moz-tab-size:4;-o-tab-size:4;tab-size:4;&#34;&gt;&lt;code class=&#34;language-python&#34; data-lang=&#34;python&#34;&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;&lt;span style=&#34;color:#f92672&#34;&gt;from&lt;/span&gt; langchain.text_splitter &lt;span style=&#34;color:#f92672&#34;&gt;import&lt;/span&gt; RecursiveCharacterTextSplitter
+&lt;/span&gt;&lt;/span&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;
+&lt;/span&gt;&lt;/span&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;&lt;span style=&#34;color:#75715e&#34;&gt;# 递归字符切割：优先按段落切，太大按句子，再按标点&lt;/span&gt;
+&lt;/span&gt;&lt;/span&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;splitter &lt;span style=&#34;color:#f92672&#34;&gt;=&lt;/span&gt; RecursiveCharacterTextSplitter(
+&lt;/span&gt;&lt;/span&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;    chunk_size&lt;span style=&#34;color:#f92672&#34;&gt;=&lt;/span&gt;&lt;span style=&#34;color:#ae81ff&#34;&gt;500&lt;/span&gt;,        &lt;span style=&#34;color:#75715e&#34;&gt;# 每个 chunk 最多 500 字符&lt;/span&gt;
+&lt;/span&gt;&lt;/span&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;    chunk_overlap&lt;span style=&#34;color:#f92672&#34;&gt;=&lt;/span&gt;&lt;span style=&#34;color:#ae81ff&#34;&gt;100&lt;/span&gt;,     &lt;span style=&#34;color:#75715e&#34;&gt;# 相邻 chunk 重叠 100 字符，避免语义截断&lt;/span&gt;
+&lt;/span&gt;&lt;/span&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;    separators&lt;span style=&#34;color:#f92672&#34;&gt;=&lt;/span&gt;[&lt;span style=&#34;color:#e6db74&#34;&gt;&amp;#34;&lt;/span&gt;&lt;span style=&#34;color:#ae81ff&#34;&gt;\n\n&lt;/span&gt;&lt;span style=&#34;color:#e6db74&#34;&gt;&amp;#34;&lt;/span&gt;, &lt;span style=&#34;color:#e6db74&#34;&gt;&amp;#34;&lt;/span&gt;&lt;span style=&#34;color:#ae81ff&#34;&gt;\n&lt;/span&gt;&lt;span style=&#34;color:#e6db74&#34;&gt;&amp;#34;&lt;/span&gt;, &lt;span style=&#34;color:#e6db74&#34;&gt;&amp;#34;。&amp;#34;&lt;/span&gt;, &lt;span style=&#34;color:#e6db74&#34;&gt;&amp;#34;！&amp;#34;&lt;/span&gt;, &lt;span style=&#34;color:#e6db74&#34;&gt;&amp;#34;？&amp;#34;&lt;/span&gt;, &lt;span style=&#34;color:#e6db74&#34;&gt;&amp;#34;；&amp;#34;&lt;/span&gt;, &lt;span style=&#34;color:#e6db74&#34;&gt;&amp;#34;，&amp;#34;&lt;/span&gt;, &lt;span style=&#34;color:#e6db74&#34;&gt;&amp;#34; &amp;#34;&lt;/span&gt;, &lt;span style=&#34;color:#e6db74&#34;&gt;&amp;#34;&amp;#34;&lt;/span&gt;],
+&lt;/span&gt;&lt;/span&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;    &lt;span style=&#34;color:#75715e&#34;&gt;# 优先级：段落 &amp;gt; 换行 &amp;gt; 句号 &amp;gt; 感叹号 &amp;gt; 问号 &amp;gt; 分号 &amp;gt; 逗号 &amp;gt; 空格&lt;/span&gt;
+&lt;/span&gt;&lt;/span&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;)
+&lt;/span&gt;&lt;/span&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;
+&lt;/span&gt;&lt;/span&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;chunks &lt;span style=&#34;color:#f92672&#34;&gt;=&lt;/span&gt; splitter&lt;span style=&#34;color:#f92672&#34;&gt;.&lt;/span&gt;split_text(long_document)
+&lt;/span&gt;&lt;/span&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;print(&lt;span style=&#34;color:#e6db74&#34;&gt;f&lt;/span&gt;&lt;span style=&#34;color:#e6db74&#34;&gt;&amp;#34;文档被切成 &lt;/span&gt;&lt;span style=&#34;color:#e6db74&#34;&gt;{&lt;/span&gt;len(chunks)&lt;span style=&#34;color:#e6db74&#34;&gt;}&lt;/span&gt;&lt;span style=&#34;color:#e6db74&#34;&gt; 个 chunk&amp;#34;&lt;/span&gt;)
+&lt;/span&gt;&lt;/span&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;&lt;span style=&#34;color:#75715e&#34;&gt;# 每个 chunk 语义相对完整，且相邻 chunk 有重叠兜底&lt;/span&gt;
+&lt;/span&gt;&lt;/span&gt;&lt;/code&gt;&lt;/pre&gt;&lt;/div&gt;&lt;p&gt;各策略的适用场景对比：&lt;/p&gt;
+&lt;table&gt;
+  &lt;thead&gt;
+      &lt;tr&gt;
+          &lt;th&gt;策略&lt;/th&gt;
+          &lt;th&gt;适用文档类型&lt;/th&gt;
+          &lt;th&gt;优点&lt;/th&gt;
+          &lt;th&gt;缺点&lt;/th&gt;
+      &lt;/tr&gt;
+  &lt;/thead&gt;
+  &lt;tbody&gt;
+      &lt;tr&gt;
+          &lt;td&gt;固定大小+重叠&lt;/td&gt;
+          &lt;td&gt;纯文本、无结构&lt;/td&gt;
+          &lt;td&gt;实现简单、大小可控&lt;/td&gt;
+          &lt;td&gt;可能在语义中间截断&lt;/td&gt;
+      &lt;/tr&gt;
+      &lt;tr&gt;
+          &lt;td&gt;语义边界切割&lt;/td&gt;
+          &lt;td&gt;段落分明的文章&lt;/td&gt;
+          &lt;td&gt;语义完整、召回质量好&lt;/td&gt;
+          &lt;td&gt;实现稍复杂、大小不均&lt;/td&gt;
+      &lt;/tr&gt;
+      &lt;tr&gt;
+          &lt;td&gt;特殊内容专项&lt;/td&gt;
+          &lt;td&gt;代码、表格&lt;/td&gt;
+          &lt;td&gt;保留逻辑完整性&lt;/td&gt;
+          &lt;td&gt;需 AST 解析，限定语言&lt;/td&gt;
+      &lt;/tr&gt;
+      &lt;tr&gt;
+          &lt;td&gt;父子切割&lt;/td&gt;
+          &lt;td&gt;追求高质量&lt;/td&gt;
+          &lt;td&gt;检索精准+上下文完整&lt;/td&gt;
+          &lt;td&gt;存储翻倍、索引复杂&lt;/td&gt;
+      &lt;/tr&gt;
+      &lt;tr&gt;
+          &lt;td&gt;命题化切割&lt;/td&gt;
+          &lt;td&gt;高质量要求&lt;/td&gt;
+          &lt;td&gt;语义密度最高&lt;/td&gt;
+          &lt;td&gt;LLM 调用成本高&lt;/td&gt;
+      &lt;/tr&gt;
+      &lt;tr&gt;
+          &lt;td&gt;Contextual&lt;/td&gt;
+          &lt;td&gt;语境强场景&lt;/td&gt;
+          &lt;td&gt;补全孤立 chunk 上下文&lt;/td&gt;
+          &lt;td&gt;LLM 调用（可缓存降本）&lt;/td&gt;
+      &lt;/tr&gt;
+  &lt;/tbody&gt;
+&lt;/table&gt;
+&lt;h3 id=&#34;23-规避语义被切割的方法&#34;&gt;2.3 规避语义被切割的方法
+&lt;/h3&gt;&lt;p&gt;语义截断的核心问题不是信息丢了，而是&lt;strong&gt;信息被拆散之后，每一半都不够强，检索时全军覆没&lt;/strong&gt;。规避方法分两个方向：&lt;/p&gt;
+&lt;p&gt;&lt;strong&gt;方向一：切的时候别截断。&lt;/strong&gt; 重叠切割保证跨边界文字不丢失（基础兜底）；语义边界切割顺着句子/段落天然断点切，从根本上避免截断。&lt;/p&gt;
+&lt;p&gt;&lt;strong&gt;方向二：切完之后补上下文。&lt;/strong&gt; 句子窗口检索——存储时切成单句各自向量化，检索命中一个句子后把前后各 N 个句子一起返回；父子切割——小块检索、大块返回；Contextual Retrieval——向量化前为每个 chunk 补全背景上下文。&lt;/p&gt;
+&lt;p&gt;另外值得一提的是 &lt;strong&gt;Late Chunking&lt;/strong&gt;（Jina AI 2024 年提出）：传统做法是先切块再编码，每个 chunk 独立过 Embedding 模型，跨块上下文在编码阶段就丢了。Late Chunking 反过来——先让支持长上下文的 Embedding 模型对整篇文档做一次完整前向传播，输出每个 token 的向量（这些 token 向量已通过注意力机制彼此感知），然后按 chunk 边界对同 chunk 内的 token 向量做 mean pooling。先编码后切分，每个 chunk 的向量天然融入全文语境。&lt;/p&gt;
+&lt;blockquote&gt;
+&lt;p&gt;&lt;strong&gt;本章实践要点&lt;/strong&gt;：实际工程中通常组合使用——重叠切割做兜底，语义边界切割保证质量，对高质量要求场景再加父子切割或 Contextual Retrieval。chunk_size 起步 500~1000 token，overlap 设 10%~20%。记住：没有银弹，根据文档类型选策略。&lt;/p&gt;
+&lt;/blockquote&gt;
+&lt;hr&gt;
+&lt;h2 id=&#34;第三章embedding-原理与选型&#34;&gt;第三章：Embedding 原理与选型
+&lt;/h2&gt;&lt;h3 id=&#34;31-从-one-hot-到稠密向量&#34;&gt;3.1 从 one-hot 到稠密向量
+&lt;/h3&gt;&lt;p&gt;Embedding 模型做的事情本质上是&amp;quot;语义压缩&amp;quot;——把一段自然语言文本映射成一个固定长度的浮点数向量。这个映射最关键的性质是：&lt;strong&gt;语义相近的文本，向量的余弦相似度高&lt;/strong&gt;。&lt;/p&gt;
+&lt;p&gt;要理解为什么能达到这个效果，需要回顾 Embedding 算法的三代演进。每一代方案解决了一类问题的同时，都暴露出了新的短板——理解&amp;quot;每一代在补上一代的坑&amp;quot;的逻辑，就能理解整个演进脉络。&lt;/p&gt;
+&lt;pre tabindex=&#34;0&#34;&gt;&lt;code&gt;┌────────────────────────────────────────────────────────────────┐
+│              Embedding 算法三代演进                            │
+├──────────────────┬─────────────────────────────────────────────┤
+│  第一代: 静态词向量│  Word2Vec / GloVe / FastText (2013)        │
+│  每个词固定向量   │  ✓ 解决&amp;#34;词变向量&amp;#34;                           │
+│  不管上下文       │  ✗ 多义词处理不了（&amp;#34;苹果&amp;#34;=水果=手机）       │
+├──────────────────┼─────────────────────────────────────────────┤
+│  第二代: 上下文向量│  ELMo / BERT (2018)                        │
+│  同词不同向量     │  ✓ 解决多义词                              │
+│  需两两拼接       │  ✗ 检索时百万文档跑百万次，不可用           │
+├──────────────────┼─────────────────────────────────────────────┤
+│  第三代: 句子级   │  SBERT / SimCSE / BGE / E5 (2019+)         │
+│  bi-encoder独立编码│ ✓ 可提前算好向量存库，查询时只算一次        │
+│  对比学习优化     │  ✗ 精度略低于 cross-encoder                 │
+│  → RAG 标配      │                                             │
+└──────────────────┴─────────────────────────────────────────────┘
+&lt;/code&gt;&lt;/pre&gt;&lt;p&gt;&lt;strong&gt;第一代：静态词向量（Word2Vec / GloVe / FastText）。&lt;/strong&gt; 核心思路是用一个词周围的词来预测这个词。Word2Vec（Google 2013）有 CBOW 和 Skip-gram 两种训练方式，Skip-gram 更常用，因为它从一个词能产生多个训练样本，对低频词友好。训练完每个词对应一个固定向量，&amp;ldquo;国王 - 男人 + 女人 ≈ 女王&amp;quot;这个著名类比就是 Word2Vec 做到的。GloVe 对全局词共现矩阵做分解；FastText 把词拆成字符级 n-gram 子词，解决了未登录词问题。&lt;/p&gt;
+&lt;p&gt;这一代的致命局限是&lt;strong&gt;静态&lt;/strong&gt;：每个词只有一个固定向量，&amp;ldquo;我吃了苹果&amp;quot;和&amp;quot;苹果手机发布了&amp;quot;里的&amp;quot;苹果&amp;quot;向量完全相同。这个缺陷直接催生了第二代。&lt;/p&gt;
+&lt;p&gt;&lt;strong&gt;第二代：上下文相关向量（ELMo / BERT）。&lt;/strong&gt; 让词的向量随上下文动态变化。ELMo（2018）用双向 LSTM；BERT（2018）用 Transformer 引入 Masked Language Model，效果全面超越 ELMo。&lt;/p&gt;
+&lt;p&gt;但 BERT 在检索场景下有极其致命的缺陷：要比较两个句子相似度，必须把两个句子拼在一起喂给 BERT，让 [CLS] 来判断。这意味着每次检索都要把查询和每一个候选 chunk 拼在一起跑 BERT，百万条文档要跑百万次，一次前向传播几十毫秒，百万次就是好几个小时，用户根本等不起。&lt;/p&gt;
+&lt;p&gt;&lt;strong&gt;第三代：句子级对比学习 Embedding（SBERT / SimCSE / BGE）。&lt;/strong&gt; 专门针对&amp;quot;句子相似度&amp;quot;和&amp;quot;语义检索&amp;quot;任务优化，是 RAG 系统的标配。&lt;/p&gt;
+&lt;p&gt;SBERT（Sentence-BERT，2019）用 bi-encoder 结构：两个句子分别独立过 BERT，各自得到一个句子级向量，然后用余弦相似度比较。知识库里所有文档的向量可以提前算好存起来，每次检索只算一次查询向量，毫秒级返回。&lt;/p&gt;
+&lt;div class=&#34;highlight&#34;&gt;&lt;pre tabindex=&#34;0&#34; style=&#34;color:#f8f8f2;background-color:#272822;-moz-tab-size:4;-o-tab-size:4;tab-size:4;&#34;&gt;&lt;code class=&#34;language-python&#34; data-lang=&#34;python&#34;&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;&lt;span style=&#34;color:#f92672&#34;&gt;from&lt;/span&gt; sentence_transformers &lt;span style=&#34;color:#f92672&#34;&gt;import&lt;/span&gt; SentenceTransformer
+&lt;/span&gt;&lt;/span&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;&lt;span style=&#34;color:#f92672&#34;&gt;from&lt;/span&gt; sklearn.metrics.pairwise &lt;span style=&#34;color:#f92672&#34;&gt;import&lt;/span&gt; cosine_similarity
+&lt;/span&gt;&lt;/span&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;
+&lt;/span&gt;&lt;/span&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;model &lt;span style=&#34;color:#f92672&#34;&gt;=&lt;/span&gt; SentenceTransformer(&lt;span style=&#34;color:#e6db74&#34;&gt;&amp;#39;BAAI/bge-large-zh-v1.5&amp;#39;&lt;/span&gt;)
+&lt;/span&gt;&lt;/span&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;
+&lt;/span&gt;&lt;/span&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;&lt;span style=&#34;color:#75715e&#34;&gt;# 查询和文档分别独立编码，不需要拼在一起&lt;/span&gt;
+&lt;/span&gt;&lt;/span&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;query &lt;span style=&#34;color:#f92672&#34;&gt;=&lt;/span&gt; &lt;span style=&#34;color:#e6db74&#34;&gt;&amp;#34;苹果手机怎么截图&amp;#34;&lt;/span&gt;
+&lt;/span&gt;&lt;/span&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;doc   &lt;span style=&#34;color:#f92672&#34;&gt;=&lt;/span&gt; &lt;span style=&#34;color:#e6db74&#34;&gt;&amp;#34;iPhone 截屏方法&amp;#34;&lt;/span&gt;
+&lt;/span&gt;&lt;/span&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;
+&lt;/span&gt;&lt;/span&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;query_vec &lt;span style=&#34;color:#f92672&#34;&gt;=&lt;/span&gt; model&lt;span style=&#34;color:#f92672&#34;&gt;.&lt;/span&gt;encode(query)   &lt;span style=&#34;color:#75715e&#34;&gt;# 检索时实时算&lt;/span&gt;
+&lt;/span&gt;&lt;/span&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;doc_vec   &lt;span style=&#34;color:#f92672&#34;&gt;=&lt;/span&gt; model&lt;span style=&#34;color:#f92672&#34;&gt;.&lt;/span&gt;encode(doc)     &lt;span style=&#34;color:#75715e&#34;&gt;# 提前算好，存向量库&lt;/span&gt;
+&lt;/span&gt;&lt;/span&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;
+&lt;/span&gt;&lt;/span&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;&lt;span style=&#34;color:#75715e&#34;&gt;# 余弦相似度衡量语义距离（只看方向不看长度）&lt;/span&gt;
+&lt;/span&gt;&lt;/span&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;score &lt;span style=&#34;color:#f92672&#34;&gt;=&lt;/span&gt; cosine_similarity([query_vec], [doc_vec])
+&lt;/span&gt;&lt;/span&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;&lt;span style=&#34;color:#75715e&#34;&gt;# score ≈ 0.95，语义相近但用词完全不同&lt;/span&gt;
+&lt;/span&gt;&lt;/span&gt;&lt;/code&gt;&lt;/pre&gt;&lt;/div&gt;&lt;p&gt;SimCSE（2021）用对比学习把同一句话做两次 dropout 得到两个向量作为正样本对拉近，同 batch 其他句子作为负样本推远，解决了 BERT 原生句子向量的&amp;quot;各向异性&amp;quot;问题（向量分布扭曲、挤在窄小锥形区域）。BGE（北京智源研究院）基于对比学习在大规模中英文数据上训练，同时支持 bi-encoder 和 reranker，是中文 RAG 场景非常流行的开源模型。&lt;/p&gt;
+&lt;p&gt;2025-2026 年第三代还在持续进化：&lt;strong&gt;指令感知 Embedding&lt;/strong&gt;（如 Qwen3-Embedding，能根据检索指令动态调整向量表示）；&lt;strong&gt;Matryoshka 表示学习&lt;/strong&gt;（前 N 维就能表达有意义语义，灵活截断维度平衡精度和成本）；&lt;strong&gt;多模态 Embedding&lt;/strong&gt;（同模型编码文本和图片，支持跨模态检索）。&lt;/p&gt;
+&lt;h3 id=&#34;32-为什么用余弦相似度&#34;&gt;3.2 为什么用余弦相似度
+&lt;/h3&gt;&lt;p&gt;衡量向量相似度有欧氏距离和余弦相似度两种。为什么 RAG 里用余弦？&lt;/p&gt;
+&lt;p&gt;因为在高维空间里，两段文本的向量长度（模长）会受文本长度、表达强度等非语义因素影响，直接比距离会把&amp;quot;长短&amp;quot;和&amp;quot;语义&amp;quot;混在一起。余弦只看两个向量的方向（夹角），方向越一致余弦值越接近 1，正好把&amp;quot;意思相近&amp;quot;从&amp;quot;文本长短&amp;quot;里剥离出来。可以理解为：两段话如果&amp;quot;指向同一个意思&amp;rdquo;，它们的向量箭头就朝着同一个方向，至于箭头多长无所谓。&lt;/p&gt;
+&lt;h3 id=&#34;33-embedding-模型选型&#34;&gt;3.3 Embedding 模型选型
+&lt;/h3&gt;&lt;p&gt;选模型主要看三个维度：&lt;/p&gt;
+&lt;p&gt;&lt;strong&gt;第一，中英文比例。&lt;/strong&gt; 中文为主选 &lt;code&gt;bge-large-zh-v1.5&lt;/code&gt; 或 &lt;code&gt;Qwen3-Embedding&lt;/code&gt;；中英混合选 &lt;code&gt;bge-m3&lt;/code&gt;（支持稠密/稀疏/ColBERT 三种检索模式）；纯英文或追求省事选 &lt;code&gt;text-embedding-3-small&lt;/code&gt;。&lt;/p&gt;
+&lt;p&gt;&lt;strong&gt;第二，数据合规。&lt;/strong&gt; 数据不能出境就必须用可本地部署的开源模型，BGE 系列和 Qwen3-Embedding 都是很好的选择。&lt;/p&gt;
+&lt;p&gt;&lt;strong&gt;第三，向量维度。&lt;/strong&gt; 维度越高精度越好，但存储和检索成本也越大。百万量级知识库 1024 维是合理平衡点；小规模 1536 维也无所谓。新模型支持 Matryoshka 降维可灵活调整。&lt;/p&gt;
+&lt;table&gt;
+  &lt;thead&gt;
+      &lt;tr&gt;
+          &lt;th&gt;模型&lt;/th&gt;
+          &lt;th&gt;维度&lt;/th&gt;
+          &lt;th&gt;中文效果&lt;/th&gt;
+          &lt;th&gt;开源&lt;/th&gt;
+          &lt;th&gt;适用场景&lt;/th&gt;
+      &lt;/tr&gt;
+  &lt;/thead&gt;
+  &lt;tbody&gt;
+      &lt;tr&gt;
+          &lt;td&gt;text-embedding-3-small&lt;/td&gt;
+          &lt;td&gt;1536(可降维)&lt;/td&gt;
+          &lt;td&gt;一般&lt;/td&gt;
+          &lt;td&gt;否(API)&lt;/td&gt;
+          &lt;td&gt;英文为主、快速上手&lt;/td&gt;
+      &lt;/tr&gt;
+      &lt;tr&gt;
+          &lt;td&gt;text-embedding-3-large&lt;/td&gt;
+          &lt;td&gt;3072(可降维)&lt;/td&gt;
+          &lt;td&gt;一般&lt;/td&gt;
+          &lt;td&gt;否(API)&lt;/td&gt;
+          &lt;td&gt;英文为主、精度要求高&lt;/td&gt;
+      &lt;/tr&gt;
+      &lt;tr&gt;
+          &lt;td&gt;bge-large-zh-v1.5&lt;/td&gt;
+          &lt;td&gt;1024&lt;/td&gt;
+          &lt;td&gt;很好&lt;/td&gt;
+          &lt;td&gt;是&lt;/td&gt;
+          &lt;td&gt;中文知识库经典选择&lt;/td&gt;
+      &lt;/tr&gt;
+      &lt;tr&gt;
+          &lt;td&gt;bge-m3&lt;/td&gt;
+          &lt;td&gt;1024&lt;/td&gt;
+          &lt;td&gt;好&lt;/td&gt;
+          &lt;td&gt;是&lt;/td&gt;
+          &lt;td&gt;中英混合、多语言、多模式&lt;/td&gt;
+      &lt;/tr&gt;
+      &lt;tr&gt;
+          &lt;td&gt;Qwen3-Embedding&lt;/td&gt;
+          &lt;td&gt;多种可选&lt;/td&gt;
+          &lt;td&gt;很好&lt;/td&gt;
+          &lt;td&gt;是&lt;/td&gt;
+          &lt;td&gt;中文场景新一代强力选择&lt;/td&gt;
+      &lt;/tr&gt;
+      &lt;tr&gt;
+          &lt;td&gt;Voyage-3-large&lt;/td&gt;
+          &lt;td&gt;1024&lt;/td&gt;
+          &lt;td&gt;一般&lt;/td&gt;
+          &lt;td&gt;否(API)&lt;/td&gt;
+          &lt;td&gt;英文高精度检索&lt;/td&gt;
+      &lt;/tr&gt;
+  &lt;/tbody&gt;
+&lt;/table&gt;
+&lt;h3 id=&#34;34-如何评估-embedding-模型&#34;&gt;3.4 如何评估 Embedding 模型
+&lt;/h3&gt;&lt;p&gt;一个常见误区：拿 MTEB 通用排行榜分数选模型。MTEB 用通用数据集评测，你的业务场景（医疗问诊、法律文档、客服知识库）和通用数据分布差异很大，排行榜第一不一定适合你。&lt;/p&gt;
+&lt;p&gt;正确做法是在&lt;strong&gt;自己的业务数据上测&lt;/strong&gt;：准备几百条&amp;quot;问题 + 正确答案 chunk&amp;quot;对，分别用候选模型做检索，看正确 chunk 有没有出现在前 K 条结果里。这个指标叫 &lt;strong&gt;Hit@K&lt;/strong&gt;——Hit@5 = 0.8 意思是 80% 的问题对应的答案出现在了检索结果前 5 条里。通常 Hit@5 低于 0.7 就要考虑换模型或改进 Chunking 策略。&lt;/p&gt;
+&lt;blockquote&gt;
+&lt;p&gt;&lt;strong&gt;本章实践要点&lt;/strong&gt;：中文场景优先评估 &lt;code&gt;bge-large-zh-v1.5&lt;/code&gt; 和 &lt;code&gt;Qwen3-Embedding&lt;/code&gt;；一定要在自有业务数据上跑 Hit@K 测试，别只看排行榜。一旦换 Embedding 模型，整个知识库必须重建——不同模型的向量空间&amp;quot;形状&amp;quot;不同，老向量和新查询不在同一套坐标系里。&lt;/p&gt;
+&lt;/blockquote&gt;
+&lt;hr&gt;
+&lt;h2 id=&#34;第四章向量数据库&#34;&gt;第四章：向量数据库
+&lt;/h2&gt;&lt;h3 id=&#34;41-为什么需要专门的向量数据库&#34;&gt;4.1 为什么需要专门的向量数据库
+&lt;/h3&gt;&lt;p&gt;普通关系型数据库用 B-tree 索引，查询 &lt;code&gt;WHERE id = 123&lt;/code&gt; 这种精确匹配效率极高。但向量检索要做的是找&amp;quot;最相近&amp;quot;的，不是找&amp;quot;等于&amp;quot;的。&lt;/p&gt;
+&lt;p&gt;高维向量（如 1024 维）的相似度搜索如果暴力遍历，把查询向量和库里每一条都算一遍余弦相似度，百万条数据要算一百万次，延迟完全不可接受。B-tree 只能处理一维有序索引，对高维向量&amp;quot;多个维度同时要考虑距离&amp;quot;的场景基本失效——你不可能对 1024 维向量建一个 B-tree 然后说&amp;quot;帮我找和它最近的&amp;rdquo;。&lt;/p&gt;
+&lt;p&gt;向量数据库的核心价值就是用专门的索引结构把这个搜索加速，在可接受的精度损失下把延迟降到毫秒级。一句话概括：&lt;strong&gt;MySQL 擅长精确匹配（&lt;code&gt;WHERE id=123&lt;/code&gt;），向量数据库擅长语义相似（&amp;ldquo;找和这个意思最接近的内容&amp;rdquo;）&lt;/strong&gt;。&lt;/p&gt;
+&lt;h3 id=&#34;42-核心索引算法hnsw-与-ivf&#34;&gt;4.2 核心索引算法：HNSW 与 IVF
+&lt;/h3&gt;&lt;p&gt;向量数据库之所以能做到毫秒级检索，秘密全在索引算法上。目前主流有两种：&lt;/p&gt;
+&lt;p&gt;&lt;strong&gt;HNSW（Hierarchical Navigable Small World，分层可导航小世界图）&lt;/strong&gt; 是目前召回率最高的 ANN 算法之一。它构建多层图结构，查询时从最上层稀疏图开始导航，逐层收窄范围，最终在底层找到最近邻。想象在地图上找最近的餐厅：不是把全国所有餐厅遍历一遍，而是先在全国层面找大致方向，再锁定到省、市、区，一层一层缩小。&lt;/p&gt;
+&lt;p&gt;HNSW 有两个关键参数：&lt;code&gt;M&lt;/code&gt;（每个节点最多认识几个邻居，通常 16&lt;del&gt;32，越大精度越高但内存越多）和 &lt;code&gt;ef_construction&lt;/code&gt;（建图时考察多少候选，通常 100&lt;/del&gt;200）。查询时还有 &lt;code&gt;ef&lt;/code&gt;（搜索候选集大小，50~200，越大召回越准但延迟越高）。&lt;/p&gt;
+&lt;p&gt;优点是召回率高（通常 95%+）、查询速度快；缺点是建索引时内存消耗大。Qdrant、Milvus、Chroma 默认都用 HNSW。&lt;/p&gt;
+&lt;p&gt;&lt;strong&gt;IVF（Inverted File Index，倒排文件索引）&lt;/strong&gt; 是另一种思路：先对向量做聚类，把相似的向量分进同一个&amp;quot;桶&amp;quot;里，查询时只搜最相关的几个桶。就像图书馆分类体系：找编程书先找到&amp;quot;计算机科学&amp;quot;区域，再在里面找，范围大幅缩小。&lt;/p&gt;
+&lt;p&gt;优点是内存占用小、适合超大规模；缺点是精度比 HNSW 略低，需要调参（聚类数 nlist、搜索桶数 nprobe）。Milvus 在超大规模场景下用 IVF 系列索引。&lt;/p&gt;
+&lt;p&gt;为什么 HNSW 精度高速度快还需要 IVF？因为 HNSW 的内存消耗和向量数量成正比，到了亿级规模内存可能扛不住。IVF 用聚类换内存，牺牲一点精度就能处理超大规模数据，两者各有适用场景。&lt;/p&gt;
+&lt;h3 id=&#34;43-向量数据库的核心能力&#34;&gt;4.3 向量数据库的核心能力
+&lt;/h3&gt;&lt;p&gt;光有 ANN 搜索还不够，生产级系统还要支持几个关键特性：&lt;/p&gt;
+&lt;p&gt;&lt;strong&gt;Metadata 过滤（混合检索）&lt;/strong&gt;：知识库有多个部门、多个产品线的文档，用户只想搜&amp;quot;技术部的文档&amp;quot;或&amp;quot;2024 年更新的内容&amp;quot;。向量数据库支持给每个向量挂 metadata 字段，检索时加过滤条件，只在符合条件子集里做 ANN 搜索。先过滤再 ANN，保证召回的每一条都是真正想要的。&lt;/p&gt;
+&lt;p&gt;&lt;strong&gt;实时更新&lt;/strong&gt;：知识库经常需要新增、修改、删除文档，主流向量数据库都支持在线写入，新数据进来后增量构建索引，不需要停服重建。&lt;/p&gt;
+&lt;p&gt;&lt;strong&gt;与关键词检索融合&lt;/strong&gt;：纯向量检索对精确词语（产品型号、专有名词）效果不好，有些向量数据库同时支持向量检索 + BM25 关键词检索，做混合召回。&lt;/p&gt;
+&lt;h3 id=&#34;44-主流向量数据库对比&#34;&gt;4.4 主流向量数据库对比
+&lt;/h3&gt;&lt;p&gt;选向量数据库主要看三个维度：数据规模、部署方式、是否需要混合检索。&lt;/p&gt;
+&lt;table&gt;
+  &lt;thead&gt;
+      &lt;tr&gt;
+          &lt;th&gt;数据库&lt;/th&gt;
+          &lt;th&gt;部署方式&lt;/th&gt;
+          &lt;th&gt;适合规模&lt;/th&gt;
+          &lt;th&gt;混合检索&lt;/th&gt;
+          &lt;th&gt;主要优势&lt;/th&gt;
+          &lt;th&gt;主要劣势&lt;/th&gt;
+      &lt;/tr&gt;
+  &lt;/thead&gt;
+  &lt;tbody&gt;
+      &lt;tr&gt;
+          &lt;td&gt;Chroma&lt;/td&gt;
+          &lt;td&gt;本地/C-S/云&lt;/td&gt;
+          &lt;td&gt;中小规模&lt;/td&gt;
+          &lt;td&gt;是(BM25/SPLADE)&lt;/td&gt;
+          &lt;td&gt;零配置上手极快&lt;/td&gt;
+          &lt;td&gt;超大规模稳定性待验证&lt;/td&gt;
+      &lt;/tr&gt;
+      &lt;tr&gt;
+          &lt;td&gt;Qdrant&lt;/td&gt;
+          &lt;td&gt;自托管/云(分布式)&lt;/td&gt;
+          &lt;td&gt;中大规模(亿级)&lt;/td&gt;
+          &lt;td&gt;是&lt;/td&gt;
+          &lt;td&gt;性能好、API简洁、Rust高性能&lt;/td&gt;
+          &lt;td&gt;超大规模需调优&lt;/td&gt;
+      &lt;/tr&gt;
+      &lt;tr&gt;
+          &lt;td&gt;Milvus&lt;/td&gt;
+          &lt;td&gt;自托管(分布式)&lt;/td&gt;
+          &lt;td&gt;大规模(亿级)&lt;/td&gt;
+          &lt;td&gt;是&lt;/td&gt;
+          &lt;td&gt;可水平扩展&lt;/td&gt;
+          &lt;td&gt;部署运维复杂&lt;/td&gt;
+      &lt;/tr&gt;
+      &lt;tr&gt;
+          &lt;td&gt;Pinecone&lt;/td&gt;
+          &lt;td&gt;全托管云服务&lt;/td&gt;
+          &lt;td&gt;中大规模&lt;/td&gt;
+          &lt;td&gt;是&lt;/td&gt;
+          &lt;td&gt;无需运维&lt;/td&gt;
+          &lt;td&gt;费用高、数据出境&lt;/td&gt;
+      &lt;/tr&gt;
+      &lt;tr&gt;
+          &lt;td&gt;pgvector&lt;/td&gt;
+          &lt;td&gt;PostgreSQL插件&lt;/td&gt;
+          &lt;td&gt;中小规模&lt;/td&gt;
+          &lt;td&gt;是(配合全文检索)&lt;/td&gt;
+          &lt;td&gt;无需新组件、可JOIN&lt;/td&gt;
+          &lt;td&gt;性能弱于专用向量库&lt;/td&gt;
+      &lt;/tr&gt;
+  &lt;/tbody&gt;
+&lt;/table&gt;
+&lt;p&gt;&lt;strong&gt;选型建议&lt;/strong&gt;：本地开发用 Chroma 零配置上手；中小到大规模生产推荐 Qdrant（性能好、API 简洁、Docker 一条命令部署）；千万到亿级需分布式选 Milvus（国内大厂用得多，但运维复杂）；不想运维用 Pinecone（注意数据出境）；已有 PostgreSQL 且数据量不大直接用 pgvector 插件。&lt;/p&gt;
+&lt;h3 id=&#34;45-生产实践性能数据与瓶颈&#34;&gt;4.5 生产实践：性能数据与瓶颈
+&lt;/h3&gt;&lt;p&gt;以 Milvus 生产实践为例。知识库约 &lt;strong&gt;150 万条 chunk&lt;/strong&gt;，每条 BGE-large-zh 生成 1024 维向量，HNSW 索引（M=16, ef_construction=128）。&lt;/p&gt;
+&lt;p&gt;先算内存：150 万 × 1024 维 × 4 字节(float32) ≈ &lt;strong&gt;6GB&lt;/strong&gt; 纯向量，进程完整跑起来约 10~12GB（含 HNSW 图结构、metadata、管理开销）。开启 &lt;strong&gt;标量量化 SQ8&lt;/strong&gt;（float32 压成 int8，1 字节代替 4 字节）后内存降到约 3GB，召回率基本无损（通常只下降 1 个百分点以内）——这是最划算的优化。&lt;/p&gt;
+&lt;p&gt;实测查询性能（单机 16 核 32G、本地千兆网、HNSW 在内存、ef=100）：单次 top-5 查询 &lt;strong&gt;P50 延迟约 20ms，P99 约 60ms&lt;/strong&gt;，并发 100 QPS 延迟基本稳定。&lt;/p&gt;
+&lt;p&gt;两个典型瓶颈：&lt;/p&gt;
+&lt;p&gt;&lt;strong&gt;瓶颈一：内存不足导致查询延迟飙升。&lt;/strong&gt; 8GB 内存机器加载索引后空间很小，稍有权重就频繁 swap，延迟从 20ms 飙到 2s+。解法是开 SQ8 量化，或用 mmap 把原始向量存磁盘只把索引放内存。&lt;/p&gt;
+&lt;p&gt;&lt;strong&gt;瓶颈二：批量写入触发 Segment 合并，查询抖动。&lt;/strong&gt; 一次性写入几十万条时后台触发 Segment 合并（把增量段合并成封存段并建索引），期间消耗 CPU 和磁盘 IO，P99 延迟从 60ms 涨到 300ms+。解法：时间上错峰（低峰期写入）+ 量上化整为零（每批 500~1000 条，间隔几秒）。&lt;/p&gt;
+&lt;div class=&#34;highlight&#34;&gt;&lt;pre tabindex=&#34;0&#34; style=&#34;color:#f8f8f2;background-color:#272822;-moz-tab-size:4;-o-tab-size:4;tab-size:4;&#34;&gt;&lt;code class=&#34;language-python&#34; data-lang=&#34;python&#34;&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;&lt;span style=&#34;color:#75715e&#34;&gt;# Milvus 生产配置示例&lt;/span&gt;
+&lt;/span&gt;&lt;/span&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;&lt;span style=&#34;color:#f92672&#34;&gt;from&lt;/span&gt; pymilvus &lt;span style=&#34;color:#f92672&#34;&gt;import&lt;/span&gt; CollectionSchema, FieldSchema, DataType
+&lt;/span&gt;&lt;/span&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;
+&lt;/span&gt;&lt;/span&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;&lt;span style=&#34;color:#75715e&#34;&gt;# 定义 Collection Schema&lt;/span&gt;
+&lt;/span&gt;&lt;/span&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;fields &lt;span style=&#34;color:#f92672&#34;&gt;=&lt;/span&gt; [
+&lt;/span&gt;&lt;/span&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;    FieldSchema(&lt;span style=&#34;color:#e6db74&#34;&gt;&amp;#34;id&amp;#34;&lt;/span&gt;, DataType&lt;span style=&#34;color:#f92672&#34;&gt;.&lt;/span&gt;INT64, is_primary&lt;span style=&#34;color:#f92672&#34;&gt;=&lt;/span&gt;&lt;span style=&#34;color:#66d9ef&#34;&gt;True&lt;/span&gt;, auto_id&lt;span style=&#34;color:#f92672&#34;&gt;=&lt;/span&gt;&lt;span style=&#34;color:#66d9ef&#34;&gt;True&lt;/span&gt;),
+&lt;/span&gt;&lt;/span&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;    FieldSchema(&lt;span style=&#34;color:#e6db74&#34;&gt;&amp;#34;embedding&amp;#34;&lt;/span&gt;, DataType&lt;span style=&#34;color:#f92672&#34;&gt;.&lt;/span&gt;FLOAT_VECTOR, dim&lt;span style=&#34;color:#f92672&#34;&gt;=&lt;/span&gt;&lt;span style=&#34;color:#ae81ff&#34;&gt;1024&lt;/span&gt;),
+&lt;/span&gt;&lt;/span&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;    FieldSchema(&lt;span style=&#34;color:#e6db74&#34;&gt;&amp;#34;text&amp;#34;&lt;/span&gt;, DataType&lt;span style=&#34;color:#f92672&#34;&gt;.&lt;/span&gt;VARCHAR, max_length&lt;span style=&#34;color:#f92672&#34;&gt;=&lt;/span&gt;&lt;span style=&#34;color:#ae81ff&#34;&gt;65535&lt;/span&gt;),     &lt;span style=&#34;color:#75715e&#34;&gt;# 原文&lt;/span&gt;
+&lt;/span&gt;&lt;/span&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;    FieldSchema(&lt;span style=&#34;color:#e6db74&#34;&gt;&amp;#34;source_doc&amp;#34;&lt;/span&gt;, DataType&lt;span style=&#34;color:#f92672&#34;&gt;.&lt;/span&gt;VARCHAR, max_length&lt;span style=&#34;color:#f92672&#34;&gt;=&lt;/span&gt;&lt;span style=&#34;color:#ae81ff&#34;&gt;256&lt;/span&gt;),  &lt;span style=&#34;color:#75715e&#34;&gt;# metadata: 来源&lt;/span&gt;
+&lt;/span&gt;&lt;/span&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;    FieldSchema(&lt;span style=&#34;color:#e6db74&#34;&gt;&amp;#34;chunk_idx&amp;#34;&lt;/span&gt;, DataType&lt;span style=&#34;color:#f92672&#34;&gt;.&lt;/span&gt;INT64),                     &lt;span style=&#34;color:#75715e&#34;&gt;# metadata: chunk序号&lt;/span&gt;
+&lt;/span&gt;&lt;/span&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;]
+&lt;/span&gt;&lt;/span&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;schema &lt;span style=&#34;color:#f92672&#34;&gt;=&lt;/span&gt; CollectionSchema(fields, &lt;span style=&#34;color:#e6db74&#34;&gt;&amp;#34;RAG知识库&amp;#34;&lt;/span&gt;)
+&lt;/span&gt;&lt;/span&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;
+&lt;/span&gt;&lt;/span&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;&lt;span style=&#34;color:#75715e&#34;&gt;# HNSW 索引参数（M越大精度越高但内存越多）&lt;/span&gt;
+&lt;/span&gt;&lt;/span&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;index_params &lt;span style=&#34;color:#f92672&#34;&gt;=&lt;/span&gt; {
+&lt;/span&gt;&lt;/span&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;    &lt;span style=&#34;color:#e6db74&#34;&gt;&amp;#34;index_type&amp;#34;&lt;/span&gt;: &lt;span style=&#34;color:#e6db74&#34;&gt;&amp;#34;HNSW&amp;#34;&lt;/span&gt;,
+&lt;/span&gt;&lt;/span&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;    &lt;span style=&#34;color:#e6db74&#34;&gt;&amp;#34;metric_type&amp;#34;&lt;/span&gt;: &lt;span style=&#34;color:#e6db74&#34;&gt;&amp;#34;COSINE&amp;#34;&lt;/span&gt;,
+&lt;/span&gt;&lt;/span&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;    &lt;span style=&#34;color:#e6db74&#34;&gt;&amp;#34;params&amp;#34;&lt;/span&gt;: {&lt;span style=&#34;color:#e6db74&#34;&gt;&amp;#34;M&amp;#34;&lt;/span&gt;: &lt;span style=&#34;color:#ae81ff&#34;&gt;16&lt;/span&gt;, &lt;span style=&#34;color:#e6db74&#34;&gt;&amp;#34;efConstruction&amp;#34;&lt;/span&gt;: &lt;span style=&#34;color:#ae81ff&#34;&gt;128&lt;/span&gt;}
+&lt;/span&gt;&lt;/span&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;}
+&lt;/span&gt;&lt;/span&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;&lt;span style=&#34;color:#75715e&#34;&gt;# 查询参数：ef越大召回越准但延迟越高&lt;/span&gt;
+&lt;/span&gt;&lt;/span&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;search_params &lt;span style=&#34;color:#f92672&#34;&gt;=&lt;/span&gt; {&lt;span style=&#34;color:#e6db74&#34;&gt;&amp;#34;params&amp;#34;&lt;/span&gt;: {&lt;span style=&#34;color:#e6db74&#34;&gt;&amp;#34;ef&amp;#34;&lt;/span&gt;: &lt;span style=&#34;color:#ae81ff&#34;&gt;100&lt;/span&gt;}}
+&lt;/span&gt;&lt;/span&gt;&lt;/code&gt;&lt;/pre&gt;&lt;/div&gt;&lt;blockquote&gt;
+&lt;p&gt;&lt;strong&gt;本章实践要点&lt;/strong&gt;：选型从数据规模、部署方式、混合检索三个维度判断。生产环境百万级数据务必开 SQ8 量化省内存；批量写入要错峰+分批，避免 Segment 合并抖动。报性能数字一定带硬件和参数背景——同样的 Milvus，8 核机和 16 核机、ef=100 和 ef=200，数字能差一个量级。&lt;/p&gt;
+&lt;/blockquote&gt;
+&lt;hr&gt;
+&lt;h2 id=&#34;第五章在线检索流程&#34;&gt;第五章：在线检索流程
+&lt;/h2&gt;&lt;h3 id=&#34;51-为什么不能直接把问题扔给大模型&#34;&gt;5.1 为什么不能直接把问题扔给大模型
+&lt;/h3&gt;&lt;p&gt;大模型的上下文窗口有限，不可能把整个知识库塞进去；没有外部知识依据时只靠参数记忆回答容易幻觉。所以 RAG 在线流程本质是一个&amp;quot;精准取件&amp;quot;过程：从海量知识里找到和问题最相关的那几段，再让大模型在小范围里作答。&lt;/p&gt;
+&lt;p&gt;用户原始提问的质量决定了后续所有环节的天花板——如果输入就差，后面再怎么精排、再怎么拼 Prompt 都是白搭。所以整个在线流程按顺序分六步，每步都在为下一步准备更好的输入。&lt;/p&gt;
+&lt;pre tabindex=&#34;0&#34;&gt;&lt;code&gt;┌──────────────────────────────────────────────────────────────┐
+│                  RAG 在线检索六步流程                         │
+│                                                              │
+│  用户提问                                                     │
+│    │                                                         │
+│    ▼  ①Query预处理(改写/HyDE/Step-back/多Query扩展)          │
+│  改写后的问题                                                 │
+│    │                                                         │
+│    ▼  ②Query Embedding(必须用和建库相同的模型!)              │
+│  问题向量                                                     │
+│    │                                                         │
+│    ▼  ③向量检索(粗排ANN) + 多路召回(BM25并行)                │
+│  Top-20 候选 chunk                                           │
+│    │                                                         │
+│    ▼  ④Rerank精排(Cross-Encoder逐对打分)                    │
+│  Top-3~5 高质量 chunk                                        │
+│    │                                                         │
+│    ▼  ⑤Prompt拼装(资料+问题+约束指令)                       │
+│  完整 Prompt                                                  │
+│    │                                                         │
+│    ▼  ⑥LLM生成答案 + 引用溯源                               │
+│  最终答案(带来源标注)                                         │
+│                                                              │
+│  耗时分布: Query改写~几十ms | 向量检索~几十ms |              │
+│           Rerank~几百ms | LLM生成~1-10s                      │
+└──────────────────────────────────────────────────────────────┘
+&lt;/code&gt;&lt;/pre&gt;&lt;h3 id=&#34;52-第一步query-预处理&#34;&gt;5.2 第一步：Query 预处理
+&lt;/h3&gt;&lt;p&gt;用户提问往往口语化、带指代、有歧义，直接检索效果极差。常见技术有四种：&lt;/p&gt;
+&lt;p&gt;&lt;strong&gt;直接改写&lt;/strong&gt;：让 LLM 把口语化问题转成更正式、独立完整的检索句，补全代词指代。如&amp;quot;上次说的那个退款的事，流程是啥&amp;quot; → &amp;ldquo;申请商品退款的完整操作流程是什么&amp;rdquo;。&lt;/p&gt;
+&lt;p&gt;&lt;strong&gt;HyDE（Hypothetical Document Embeddings）&lt;/strong&gt;：让 LLM 先&amp;quot;假设&amp;quot;一个可能的答案，用假设答案的向量去检索。为什么用答案搜而不是用问题搜？因为问题和答案的用词差异很大，但假设答案和真实答案的用词更接近，它们在语义空间天然更匹配。&amp;ldquo;退款政策是什么&amp;quot;和&amp;quot;申请售后退款须知&amp;quot;距离较远；但假设答案&amp;quot;用户可在购买后14天内申请退款&amp;hellip;&amp;ldquo;和文档距离很近。&lt;/p&gt;
+&lt;p&gt;&lt;strong&gt;Step-back Prompting（后退提问）&lt;/strong&gt;：把具体问题往上抽象一层，检索更通用的背景知识。&amp;ldquo;Qdrant 的 HNSW ef 参数设多少合适&amp;rdquo; → &amp;ldquo;HNSW 索引的参数调优原则是什么&amp;rdquo;。&lt;/p&gt;
+&lt;p&gt;&lt;strong&gt;多 Query 扩展&lt;/strong&gt;：用 LLM 把问题改写成 3~5 个不同角度版本，分别检索后合并去重，覆盖面更广。注意原始问题一定要保留在检索列表里，因为改写过程可能丢失原始细节。&lt;/p&gt;
+&lt;h3 id=&#34;53-第二步query-向量化&#34;&gt;5.3 第二步：Query 向量化
+&lt;/h3&gt;&lt;p&gt;把处理后的问题用 Embedding 模型转成向量。关键细节：&lt;strong&gt;必须用和离线建库时完全相同的 Embedding 模型&lt;/strong&gt;。不同模型的向量空间&amp;quot;形状&amp;quot;不同，模型 A 让&amp;quot;苹果手机&amp;quot;和&amp;quot;iPhone&amp;quot;落在某个方向，模型 B 可能让它们落在另一个方向，连维度数都可能对不上。用 A 建的库用 B 检索，两边的向量就像在不同坐标系里，距离计算毫无意义。&lt;/p&gt;
+&lt;h3 id=&#34;54-三种检索方式对比&#34;&gt;5.4 三种检索方式对比
+&lt;/h3&gt;&lt;p&gt;&lt;strong&gt;向量检索（Dense Retrieval）&lt;/strong&gt;：把问题和文档都转成稠密向量，用余弦相似度找最近的 Top-K。擅长语义匹配——&amp;ldquo;苹果手机怎么截图&amp;quot;和&amp;quot;iPhone 如何截屏&amp;quot;一个字不同但余弦相似度可达 0.95。但对精确词语（产品型号、专有名词）效果差。&lt;/p&gt;
+&lt;p&gt;&lt;strong&gt;关键词检索（BM25 / Sparse Retrieval）&lt;/strong&gt;：基于词频统计，看查询词在文档里出现了多少次。核心看两个因素：词频 TF（词在文档出现越多越相关）和稀缺度 IDF（词在所有文档里越罕见区分度越高）。BM25 在 TF-IDF 基础上加了饱和度限制防止高频词权重无限叠加。对精确词命中率极高，但遇到同义词就束手无策——&amp;ldquo;手机截图&amp;quot;和&amp;quot;iPhone 截屏&amp;quot;词不重叠，BM25 分数为零。&lt;/p&gt;
+&lt;p&gt;&lt;strong&gt;混合检索（Hybrid Search）&lt;/strong&gt;：两种方式盲区恰好互补，同时跑两路各召回一批，用 RRF 算法合并。两路可以并行执行，总延迟取两路最大值而非相加。&lt;/p&gt;
+&lt;table&gt;
+  &lt;thead&gt;
+      &lt;tr&gt;
+          &lt;th&gt;维度&lt;/th&gt;
+          &lt;th&gt;关键词检索(BM25)&lt;/th&gt;
+          &lt;th&gt;向量检索&lt;/th&gt;
+      &lt;/tr&gt;
+  &lt;/thead&gt;
+  &lt;tbody&gt;
+      &lt;tr&gt;
+          &lt;td&gt;匹配方式&lt;/td&gt;
+          &lt;td&gt;词汇重叠统计&lt;/td&gt;
+          &lt;td&gt;语义空间距离&lt;/td&gt;
+      &lt;/tr&gt;
+      &lt;tr&gt;
+          &lt;td&gt;索引结构&lt;/td&gt;
+          &lt;td&gt;倒排索引(稀疏)&lt;/td&gt;
+          &lt;td&gt;向量库(稠密)&lt;/td&gt;
+      &lt;/tr&gt;
+      &lt;tr&gt;
+          &lt;td&gt;同义词处理&lt;/td&gt;
+          &lt;td&gt;无法处理&lt;/td&gt;
+          &lt;td&gt;天然支持&lt;/td&gt;
+      &lt;/tr&gt;
+      &lt;tr&gt;
+          &lt;td&gt;精确词命中&lt;/td&gt;
+          &lt;td&gt;极好&lt;/td&gt;
+          &lt;td&gt;容易漏&lt;/td&gt;
+      &lt;/tr&gt;
+      &lt;tr&gt;
+          &lt;td&gt;适合场景&lt;/td&gt;
+          &lt;td&gt;专有名词、代码、精确查询&lt;/td&gt;
+          &lt;td&gt;语义问答、模糊表达&lt;/td&gt;
+      &lt;/tr&gt;
+  &lt;/tbody&gt;
+&lt;/table&gt;
+&lt;h3 id=&#34;55-rrf-融合算法&#34;&gt;5.5 RRF 融合算法
+&lt;/h3&gt;&lt;p&gt;三路召回各自有排序结果，但分数单位不同（向量是 0~1 余弦值，BM25 是任意正数），没法直接加权平均。RRF（Reciprocal Rank Fusion，互倒排名融合）巧妙绕开了这个问题——不用原始分数，只用排名：&lt;/p&gt;
+&lt;div class=&#34;highlight&#34;&gt;&lt;pre tabindex=&#34;0&#34; style=&#34;color:#f8f8f2;background-color:#272822;-moz-tab-size:4;-o-tab-size:4;tab-size:4;&#34;&gt;&lt;code class=&#34;language-python&#34; data-lang=&#34;python&#34;&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;&lt;span style=&#34;color:#66d9ef&#34;&gt;def&lt;/span&gt; &lt;span style=&#34;color:#a6e22e&#34;&gt;reciprocal_rank_fusion&lt;/span&gt;(results_list, k&lt;span style=&#34;color:#f92672&#34;&gt;=&lt;/span&gt;&lt;span style=&#34;color:#ae81ff&#34;&gt;60&lt;/span&gt;):
+&lt;/span&gt;&lt;/span&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;    &lt;span style=&#34;color:#e6db74&#34;&gt;&amp;#34;&amp;#34;&amp;#34;
+&lt;/span&gt;&lt;/span&gt;&lt;/span&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;&lt;span style=&#34;color:#e6db74&#34;&gt;    results_list: 多路检索结果，每路是一个 [doc_id, ...] 有序列表
+&lt;/span&gt;&lt;/span&gt;&lt;/span&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;&lt;span style=&#34;color:#e6db74&#34;&gt;    k: 平滑参数，防止排名第1的文档权重过大，通常取 60
+&lt;/span&gt;&lt;/span&gt;&lt;/span&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;&lt;span style=&#34;color:#e6db74&#34;&gt;    &amp;#34;&amp;#34;&amp;#34;&lt;/span&gt;
+&lt;/span&gt;&lt;/span&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;    scores &lt;span style=&#34;color:#f92672&#34;&gt;=&lt;/span&gt; {}
+&lt;/span&gt;&lt;/span&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;    &lt;span style=&#34;color:#66d9ef&#34;&gt;for&lt;/span&gt; results &lt;span style=&#34;color:#f92672&#34;&gt;in&lt;/span&gt; results_list:
+&lt;/span&gt;&lt;/span&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;        &lt;span style=&#34;color:#66d9ef&#34;&gt;for&lt;/span&gt; rank, doc_id &lt;span style=&#34;color:#f92672&#34;&gt;in&lt;/span&gt; enumerate(results):
+&lt;/span&gt;&lt;/span&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;            &lt;span style=&#34;color:#66d9ef&#34;&gt;if&lt;/span&gt; doc_id &lt;span style=&#34;color:#f92672&#34;&gt;not&lt;/span&gt; &lt;span style=&#34;color:#f92672&#34;&gt;in&lt;/span&gt; scores:
+&lt;/span&gt;&lt;/span&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;                scores[doc_id] &lt;span style=&#34;color:#f92672&#34;&gt;=&lt;/span&gt; &lt;span style=&#34;color:#ae81ff&#34;&gt;0&lt;/span&gt;
+&lt;/span&gt;&lt;/span&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;            &lt;span style=&#34;color:#75715e&#34;&gt;# 排名越靠前（rank越小），倒数越大&lt;/span&gt;
+&lt;/span&gt;&lt;/span&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;            scores[doc_id] &lt;span style=&#34;color:#f92672&#34;&gt;+=&lt;/span&gt; &lt;span style=&#34;color:#ae81ff&#34;&gt;1&lt;/span&gt; &lt;span style=&#34;color:#f92672&#34;&gt;/&lt;/span&gt; (rank &lt;span style=&#34;color:#f92672&#34;&gt;+&lt;/span&gt; k)
+&lt;/span&gt;&lt;/span&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;    &lt;span style=&#34;color:#75715e&#34;&gt;# 按总分降序排列，取 Top-K&lt;/span&gt;
+&lt;/span&gt;&lt;/span&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;    &lt;span style=&#34;color:#66d9ef&#34;&gt;return&lt;/span&gt; sorted(scores&lt;span style=&#34;color:#f92672&#34;&gt;.&lt;/span&gt;items(), key&lt;span style=&#34;color:#f92672&#34;&gt;=&lt;/span&gt;&lt;span style=&#34;color:#66d9ef&#34;&gt;lambda&lt;/span&gt; x: x[&lt;span style=&#34;color:#ae81ff&#34;&gt;1&lt;/span&gt;], reverse&lt;span style=&#34;color:#f92672&#34;&gt;=&lt;/span&gt;&lt;span style=&#34;color:#66d9ef&#34;&gt;True&lt;/span&gt;)
+&lt;/span&gt;&lt;/span&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;
+&lt;/span&gt;&lt;/span&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;&lt;span style=&#34;color:#75715e&#34;&gt;# 使用示例：向量检索和BM25并行召回&lt;/span&gt;
+&lt;/span&gt;&lt;/span&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;vector_results &lt;span style=&#34;color:#f92672&#34;&gt;=&lt;/span&gt; [&lt;span style=&#34;color:#e6db74&#34;&gt;&amp;#34;doc_a&amp;#34;&lt;/span&gt;, &lt;span style=&#34;color:#e6db74&#34;&gt;&amp;#34;doc_b&amp;#34;&lt;/span&gt;, &lt;span style=&#34;color:#e6db74&#34;&gt;&amp;#34;doc_c&amp;#34;&lt;/span&gt;]   &lt;span style=&#34;color:#75715e&#34;&gt;# 向量检索排序&lt;/span&gt;
+&lt;/span&gt;&lt;/span&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;bm25_results   &lt;span style=&#34;color:#f92672&#34;&gt;=&lt;/span&gt; [&lt;span style=&#34;color:#e6db74&#34;&gt;&amp;#34;doc_b&amp;#34;&lt;/span&gt;, &lt;span style=&#34;color:#e6db74&#34;&gt;&amp;#34;doc_d&amp;#34;&lt;/span&gt;, &lt;span style=&#34;color:#e6db74&#34;&gt;&amp;#34;doc_a&amp;#34;&lt;/span&gt;]   &lt;span style=&#34;color:#75715e&#34;&gt;# BM25排序&lt;/span&gt;
+&lt;/span&gt;&lt;/span&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;merged &lt;span style=&#34;color:#f92672&#34;&gt;=&lt;/span&gt; reciprocal_rank_fusion([vector_results, bm25_results])
+&lt;/span&gt;&lt;/span&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;&lt;span style=&#34;color:#75715e&#34;&gt;# doc_b 两路都高排 → 综合分最高&lt;/span&gt;
+&lt;/span&gt;&lt;/span&gt;&lt;/code&gt;&lt;/pre&gt;&lt;/div&gt;&lt;p&gt;RRF 的直觉：不管各路分数怎么算，只看排名。一个文档在多路检索里都排名靠前，综合分就高，就像多位评委都给高分的选手综合排名就高。不需要训练、计算量极小，工程落地成本几乎为零。&lt;/p&gt;
+&lt;h3 id=&#34;56-第四步rerank-精排&#34;&gt;5.6 第四步：Rerank 精排
+&lt;/h3&gt;&lt;p&gt;粗排召回的 Top-20 里可能混入干扰片段。Rerank 用 Cross-Encoder 结构把&amp;quot;query + chunk&amp;quot;拼成一对输入，让模型整体看这一对的相关性，重新打分排序，最终保留 Top-3~5。&lt;/p&gt;
+&lt;p&gt;为什么向量检索已经排过序还需要再排？因为两者结构不同：&lt;/p&gt;
+&lt;p&gt;&lt;strong&gt;Bi-encoder（向量检索）&lt;/strong&gt;：query 和 chunk 各自独立编码成向量再算余弦相似度。速度快（chunk 向量提前算好存库，查询时只算一次 query 向量），但 query 和 chunk 分开编码，模型看不到两段文字之间的具体词语关联，相关性判断不够精准。&lt;/p&gt;
+&lt;p&gt;&lt;strong&gt;Cross-encoder（Rerank）&lt;/strong&gt;：把 query 和 chunk 拼在一起输入，模型能看到 query 中每个词对 chunk 的影响、chunk 里哪些词最能回答 query，相关性判断精度远高于 Bi-encoder。代价是每个候选都要单独跑一次，速度慢，所以只适合小规模候选集精排。&lt;/p&gt;
+&lt;p&gt;打个比方：Bi-encoder 像只看两个人简历就判断他们合不合适合作；Cross-encoder 是把两个人放在一个房间里观察他们怎么交流配合，判断当然更准，但代价是需要花更多时间观察每个人。&lt;/p&gt;
+&lt;div class=&#34;highlight&#34;&gt;&lt;pre tabindex=&#34;0&#34; style=&#34;color:#f8f8f2;background-color:#272822;-moz-tab-size:4;-o-tab-size:4;tab-size:4;&#34;&gt;&lt;code class=&#34;language-python&#34; data-lang=&#34;python&#34;&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;&lt;span style=&#34;color:#75715e&#34;&gt;# 使用 BGE-Reranker 做精排&lt;/span&gt;
+&lt;/span&gt;&lt;/span&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;&lt;span style=&#34;color:#f92672&#34;&gt;from&lt;/span&gt; FlagEmbedding &lt;span style=&#34;color:#f92672&#34;&gt;import&lt;/span&gt; FlagReranker
+&lt;/span&gt;&lt;/span&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;
+&lt;/span&gt;&lt;/span&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;reranker &lt;span style=&#34;color:#f92672&#34;&gt;=&lt;/span&gt; FlagReranker(&lt;span style=&#34;color:#e6db74&#34;&gt;&amp;#39;BAAI/bge-reranker-v2-m3&amp;#39;&lt;/span&gt;, use_fp16&lt;span style=&#34;color:#f92672&#34;&gt;=&lt;/span&gt;&lt;span style=&#34;color:#66d9ef&#34;&gt;True&lt;/span&gt;)
+&lt;/span&gt;&lt;/span&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;
+&lt;/span&gt;&lt;/span&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;query &lt;span style=&#34;color:#f92672&#34;&gt;=&lt;/span&gt; &lt;span style=&#34;color:#e6db74&#34;&gt;&amp;#34;苹果手机怎么截图&amp;#34;&lt;/span&gt;
+&lt;/span&gt;&lt;/span&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;candidates &lt;span style=&#34;color:#f92672&#34;&gt;=&lt;/span&gt; [
+&lt;/span&gt;&lt;/span&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;    &lt;span style=&#34;color:#e6db74&#34;&gt;&amp;#34;iPhone 截屏操作指南&amp;#34;&lt;/span&gt;,          &lt;span style=&#34;color:#75715e&#34;&gt;# 相关&lt;/span&gt;
+&lt;/span&gt;&lt;/span&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;    &lt;span style=&#34;color:#e6db74&#34;&gt;&amp;#34;安卓手机拍照技巧&amp;#34;&lt;/span&gt;,             &lt;span style=&#34;color:#75715e&#34;&gt;# 不相关&lt;/span&gt;
+&lt;/span&gt;&lt;/span&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;    &lt;span style=&#34;color:#e6db74&#34;&gt;&amp;#34;苹果手机退货政策&amp;#34;&lt;/span&gt;,             &lt;span style=&#34;color:#75715e&#34;&gt;# 部分相关&lt;/span&gt;
+&lt;/span&gt;&lt;/span&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;]
+&lt;/span&gt;&lt;/span&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;
+&lt;/span&gt;&lt;/span&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;&lt;span style=&#34;color:#75715e&#34;&gt;# Cross-Encoder: query 和每个候选拼在一起打分&lt;/span&gt;
+&lt;/span&gt;&lt;/span&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;pairs &lt;span style=&#34;color:#f92672&#34;&gt;=&lt;/span&gt; [[query, c] &lt;span style=&#34;color:#66d9ef&#34;&gt;for&lt;/span&gt; c &lt;span style=&#34;color:#f92672&#34;&gt;in&lt;/span&gt; candidates]
+&lt;/span&gt;&lt;/span&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;scores &lt;span style=&#34;color:#f92672&#34;&gt;=&lt;/span&gt; reranker&lt;span style=&#34;color:#f92672&#34;&gt;.&lt;/span&gt;compute_score(pairs)
+&lt;/span&gt;&lt;/span&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;&lt;span style=&#34;color:#75715e&#34;&gt;# scores: [0.95, 0.12, 0.45] → 重排序后只取 Top-2&lt;/span&gt;
+&lt;/span&gt;&lt;/span&gt;&lt;/code&gt;&lt;/pre&gt;&lt;/div&gt;&lt;p&gt;为什么不全用 Cross-encoder 检索？因为它需要两两拼接，百万条数据逐一算分延迟完全不可接受。所以工程上采用&amp;quot;粗排筛到几十条，精排再从几十条里挑最好的几条&amp;quot;的两阶段策略。&lt;/p&gt;
+&lt;h3 id=&#34;57-prompt-拼装与生成溯源&#34;&gt;5.7 Prompt 拼装与生成溯源
+&lt;/h3&gt;&lt;div class=&#34;highlight&#34;&gt;&lt;pre tabindex=&#34;0&#34; style=&#34;color:#f8f8f2;background-color:#272822;-moz-tab-size:4;-o-tab-size:4;tab-size:4;&#34;&gt;&lt;code class=&#34;language-python&#34; data-lang=&#34;python&#34;&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;prompt &lt;span style=&#34;color:#f92672&#34;&gt;=&lt;/span&gt; &lt;span style=&#34;color:#e6db74&#34;&gt;f&lt;/span&gt;&lt;span style=&#34;color:#e6db74&#34;&gt;&amp;#34;&amp;#34;&amp;#34;
+&lt;/span&gt;&lt;/span&gt;&lt;/span&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;&lt;span style=&#34;color:#e6db74&#34;&gt;你是一个专业助手，请根据以下参考资料回答用户的问题。
+&lt;/span&gt;&lt;/span&gt;&lt;/span&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;&lt;span style=&#34;color:#e6db74&#34;&gt;如果参考资料中没有相关信息，请回答&amp;#34;根据现有资料无法回答&amp;#34;，不要自行猜测。
+&lt;/span&gt;&lt;/span&gt;&lt;/span&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;&lt;span style=&#34;color:#e6db74&#34;&gt;
+&lt;/span&gt;&lt;/span&gt;&lt;/span&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;&lt;span style=&#34;color:#e6db74&#34;&gt;参考资料：
+&lt;/span&gt;&lt;/span&gt;&lt;/span&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;&lt;span style=&#34;color:#e6db74&#34;&gt;[1] &lt;/span&gt;&lt;span style=&#34;color:#e6db74&#34;&gt;{&lt;/span&gt;chunk_1&lt;span style=&#34;color:#e6db74&#34;&gt;}&lt;/span&gt;&lt;span style=&#34;color:#e6db74&#34;&gt;
+&lt;/span&gt;&lt;/span&gt;&lt;/span&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;&lt;span style=&#34;color:#e6db74&#34;&gt;[2] &lt;/span&gt;&lt;span style=&#34;color:#e6db74&#34;&gt;{&lt;/span&gt;chunk_2&lt;span style=&#34;color:#e6db74&#34;&gt;}&lt;/span&gt;&lt;span style=&#34;color:#e6db74&#34;&gt;
+&lt;/span&gt;&lt;/span&gt;&lt;/span&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;&lt;span style=&#34;color:#e6db74&#34;&gt;[3] &lt;/span&gt;&lt;span style=&#34;color:#e6db74&#34;&gt;{&lt;/span&gt;chunk_3&lt;span style=&#34;color:#e6db74&#34;&gt;}&lt;/span&gt;&lt;span style=&#34;color:#e6db74&#34;&gt;
+&lt;/span&gt;&lt;/span&gt;&lt;/span&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;&lt;span style=&#34;color:#e6db74&#34;&gt;
+&lt;/span&gt;&lt;/span&gt;&lt;/span&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;&lt;span style=&#34;color:#e6db74&#34;&gt;用户问题：&lt;/span&gt;&lt;span style=&#34;color:#e6db74&#34;&gt;{&lt;/span&gt;user_query&lt;span style=&#34;color:#e6db74&#34;&gt;}&lt;/span&gt;&lt;span style=&#34;color:#e6db74&#34;&gt;
+&lt;/span&gt;&lt;/span&gt;&lt;/span&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;&lt;span style=&#34;color:#e6db74&#34;&gt;
+&lt;/span&gt;&lt;/span&gt;&lt;/span&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;&lt;span style=&#34;color:#e6db74&#34;&gt;请在回答中标注信息来源（如&amp;#34;根据资料[1]...&amp;#34;）。
+&lt;/span&gt;&lt;/span&gt;&lt;/span&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;&lt;span style=&#34;color:#e6db74&#34;&gt;&amp;#34;&amp;#34;&amp;#34;&lt;/span&gt;
+&lt;/span&gt;&lt;/span&gt;&lt;/code&gt;&lt;/pre&gt;&lt;/div&gt;&lt;p&gt;每条指令都有工程意图：&amp;ldquo;只根据资料回答&amp;quot;抑制 LLM 凭记忆发挥；&amp;ldquo;资料没有就说不知道&amp;quot;防止信息不足时强行补全幻觉；&amp;ldquo;带编号&amp;quot;方便引用溯源，让用户验证答案准确性。&lt;/p&gt;
+&lt;p&gt;工程实践中还要求 LLM 在答案里标注每句话来自哪个片段，这样用户可以追溯到原始文档——即使 LLM 在有参考资料时仍可能过度发挥或误读资料，溯源让用户有能力判断哪些内容可靠。&lt;/p&gt;
+&lt;p&gt;整个链路耗时分布：Query 改写几十毫秒，向量检索几十毫秒，Rerank 几百毫秒，LLM 生成 1~10 秒。常见优化是缓存高频 Query 检索结果，以及把向量检索和 BM25 检索并行执行。&lt;/p&gt;
+&lt;blockquote&gt;
+&lt;p&gt;&lt;strong&gt;本章实践要点&lt;/strong&gt;：Query 预处理是投入产出比很高的一步，口语化提问场景必做；向量检索和 BM25 一定要并行混合检索，覆盖互补；Rerank 是提升精度最直接的手段，强烈推荐；Prompt 必须强约束 LLM 只根据资料回答并标注来源。&lt;/p&gt;
+&lt;/blockquote&gt;
+&lt;hr&gt;
+&lt;h2 id=&#34;第六章检索优化四层框架&#34;&gt;第六章：检索优化四层框架
+&lt;/h2&gt;&lt;p&gt;LLM 只能根据送进去的 context 来回答，检索召回的内容就是整个系统的天花板。生成层做得再好，检索没把相关内容找回来，LLM 也是巧妇难为无米之炊。所以 RAG 系统里，&lt;strong&gt;检索优化是投入产出比最高的环节，没有之一&lt;/strong&gt;。RAG 检索优化可以从四个层次来理解，每一层解决的问题不同，优化手段也不同。&lt;/p&gt;
+&lt;pre tabindex=&#34;0&#34;&gt;&lt;code&gt;┌──────────────────────────────────────────────────────────────┐
+│              RAG 检索优化四层框架                              │
+│                                                              │
+│  ┌────────────────────────────────────────────────┐          │
+│  │ 第一层: 索引层(Query层)  知识怎么&amp;#34;存&amp;#34;          │          │
+│  │   Parent-Child / 摘要索引 / 多粒度分层索引     │          │
+│  └────────────────────────────────────────────────┘          │
+│  ┌────────────────────────────────────────────────┐          │
+│  │ 第二层: 查询层            问题怎么&amp;#34;转&amp;#34;          │          │
+│  │   Query改写 / HyDE / Step-back / 多Query扩展   │          │
+│  └────────────────────────────────────────────────┘          │
+│  ┌────────────────────────────────────────────────┐          │
+│  │ 第三层: 检索层            从哪里&amp;#34;找&amp;#34;            │          │
+│  │   向量检索 + BM25 + 多Query扩展 → RRF融合      │          │
+│  └────────────────────────────────────────────────┘          │
+│  ┌────────────────────────────────────────────────┐          │
+│  │ 第四层: 结果层            谁&amp;#34;最相关&amp;#34;            │          │
+│  │   Rerank精排 + 内容压缩 + 上下文窗口控制       │          │
+│  └────────────────────────────────────────────────┘          │
+│  (生成层) Prompt约束 + 结构化输出 + 引用溯源                  │
+└──────────────────────────────────────────────────────────────┘
+&lt;/code&gt;&lt;/pre&gt;&lt;h3 id=&#34;61-索引层优化解决检索粒度-vs-上下文完整的矛盾&#34;&gt;6.1 索引层优化：解决检索粒度 vs 上下文完整的矛盾
+&lt;/h3&gt;&lt;p&gt;索引优化聚焦于一个核心矛盾：&lt;strong&gt;检索用的粒度和 LLM 读的粒度天然是矛盾的&lt;/strong&gt;。一个 chunk 需要同时完成两个任务——&amp;ldquo;检索时被找到&amp;quot;要求向量语义聚焦（小 chunk），&amp;ldquo;被 LLM 读懂&amp;quot;要求上下文完整（大 chunk）。小 chunk 检索准但内容太碎，大 chunk 内容完整但检索时语义稀释。&lt;/p&gt;
+&lt;p&gt;解决思路叫 &lt;strong&gt;Small-to-Big（小块检索、大块使用）&lt;/strong&gt;，有三种实现：&lt;/p&gt;
+&lt;p&gt;&lt;strong&gt;Parent-Child Chunking&lt;/strong&gt;：把文档切成两个版本，细粒度子 chunk（如 150 token）和粗粒度父 chunk（如 500 token），通过 parent_id 关联。入库只给子 chunk 建向量索引；检索用子 chunk 匹配精度高，命中后根据 parent_id 取父 chunk 给 LLM 阅读，上下文完整。&lt;/p&gt;
+&lt;p&gt;&lt;strong&gt;摘要索引（Summary Index）&lt;/strong&gt;：让 LLM 为每段内容生成摘要，用摘要建向量索引（摘要语义更聚焦，和用户问题更接近），命中后把原始段落塞给 LLM。&lt;/p&gt;
+&lt;p&gt;&lt;strong&gt;多粒度分层索引&lt;/strong&gt;：同时建章节级、段落级、句子级三层索引。宽泛概念问题用章节级，细节问题用句子级，系统根据问题类型自动选粒度。&lt;/p&gt;
+&lt;h3 id=&#34;62-查询层优化弥合提问与文档的语义鸿沟&#34;&gt;6.2 查询层优化：弥合提问与文档的语义鸿沟
+&lt;/h3&gt;&lt;p&gt;即使索引建得再好，用户提问方式和知识库表述之间还是有鸿沟。用户问&amp;quot;苹果手机咋截图&amp;rdquo;，文档写的是&amp;quot;iPhone 截图操作方法&amp;rdquo;，向量相似度可能不高——口语和书面语在向量空间的&amp;quot;坐标&amp;quot;差距不小，尤其短文本场景下信息量少，表达差异对相似度的影响被放大。&lt;/p&gt;
+&lt;p&gt;四种方法已在第五章详述：Query 改写（口语转书面）、多 Query 扩展（多角度撒网）、HyDE（用假设答案搜）、Step-back Prompting（具体问题抽象化检索背景知识）。核心原则：原始问题一定要保留在检索列表里，不能只用改写版本。&lt;/p&gt;
+&lt;h3 id=&#34;63-检索层优化多路召回互补盲区&#34;&gt;6.3 检索层优化：多路召回互补盲区
+&lt;/h3&gt;&lt;p&gt;即使 query 改写得很好，只走一条检索路径还是会漏掉内容。向量检索擅长语义相似但精确词效果差；BM25 擅长精确匹配但同义词无能为力。两种盲区恰好互补，典型三路并行：&lt;/p&gt;
+&lt;ol&gt;
+&lt;li&gt;&lt;strong&gt;向量检索&lt;/strong&gt;——语义层面覆盖，处理同义词、近义词&lt;/li&gt;
+&lt;li&gt;&lt;strong&gt;BM25 关键词检索&lt;/strong&gt;——精确词匹配，处理产品型号、专有名词&lt;/li&gt;
+&lt;li&gt;&lt;strong&gt;多 Query 扩展&lt;/strong&gt;——覆盖不同表述角度，用户提问风格多变时召回覆盖率提升 10%~20%&lt;/li&gt;
+&lt;/ol&gt;
+&lt;p&gt;三路结果用 RRF 融合。RRF 最大的优点是实现简单、不需要训练、计算量极小，但融合效果在大多数场景都很好，是多路召回的标配。&lt;/p&gt;
+&lt;h3 id=&#34;64-结果层优化rerank-精排&#34;&gt;6.4 结果层优化：Rerank 精排
+&lt;/h3&gt;&lt;p&gt;多路召回后候选 chunk 可能有 20~30 个，难免混入不太相关的内容。直接全塞给 LLM 有两个问题：一是 token 消耗暴涨成本上升；二是上下文太长 LLM 出现&amp;quot;Lost in the Middle&amp;quot;现象——只关注开头结尾，中间内容被忽略。&lt;/p&gt;
+&lt;p&gt;Rerank 用 Cross-encoder 从候选里挑出最相关 3~5 个。常用开源模型有 BGE-Reranker-v2（中英双语效果好）、BCE-Reranker；不想自己部署可用 Cohere Rerank 或 Jina Reranker API。加了 Rerank 后最终答案质量通常有明显提升，是成本效益最高的优化手段之一。&lt;/p&gt;
+&lt;h3 id=&#34;65-生成层优化prompt-约束&#34;&gt;6.5 生成层优化：Prompt 约束
+&lt;/h3&gt;&lt;p&gt;虽然检索层是主战场，生成层也不是完全不用管。Prompt 拼得好不好直接影响 LLM 是否&amp;quot;老实照着资料说&amp;rdquo;。核心约束指令：&amp;ldquo;只能使用参考资料中的信息&amp;rdquo;、&amp;ldquo;资料里没有就说不知道&amp;rdquo;、&amp;ldquo;不要推断和补充&amp;rdquo;、&amp;ldquo;标注信息来源&amp;rdquo;。这些指令每一条都有明确工程意图，缺一不可。&lt;/p&gt;
+&lt;h3 id=&#34;66-四层怎么组合&#34;&gt;6.6 四层怎么组合
+&lt;/h3&gt;&lt;table&gt;
+  &lt;thead&gt;
+      &lt;tr&gt;
+          &lt;th&gt;层次&lt;/th&gt;
+          &lt;th&gt;解决的核心问题&lt;/th&gt;
+          &lt;th&gt;推荐程度&lt;/th&gt;
+      &lt;/tr&gt;
+  &lt;/thead&gt;
+  &lt;tbody&gt;
+      &lt;tr&gt;
+          &lt;td&gt;索引优化(Parent-Child)&lt;/td&gt;
+          &lt;td&gt;检索粒度vs上下文完整性矛盾&lt;/td&gt;
+          &lt;td&gt;推荐，效果稳定&lt;/td&gt;
+      &lt;/tr&gt;
+      &lt;tr&gt;
+          &lt;td&gt;查询优化(Multi-Query/HyDE)&lt;/td&gt;
+          &lt;td&gt;用户提问和知识库表达不对齐&lt;/td&gt;
+          &lt;td&gt;视场景，提问质量差时必做&lt;/td&gt;
+      &lt;/tr&gt;
+      &lt;tr&gt;
+          &lt;td&gt;多路召回(向量+BM25)&lt;/td&gt;
+          &lt;td&gt;单路检索漏召&lt;/td&gt;
+          &lt;td&gt;推荐，低成本高收益&lt;/td&gt;
+      &lt;/tr&gt;
+      &lt;tr&gt;
+          &lt;td&gt;Rerank精排&lt;/td&gt;
+          &lt;td&gt;粗召精度不足&lt;/td&gt;
+          &lt;td&gt;强烈推荐，提升精度最直接&lt;/td&gt;
+      &lt;/tr&gt;
+  &lt;/tbody&gt;
+&lt;/table&gt;
+&lt;p&gt;一个典型的生产级搭配：&lt;strong&gt;Parent-Child 索引 + 向量 BM25 多路召回 + Rerank 精排&lt;/strong&gt;。这三层组合基本能覆盖大多数场景。如果用户提问质量差再额外加 Query 改写。&lt;/p&gt;
+&lt;p&gt;从另一个角度记这四层：&lt;strong&gt;索引层保证&amp;quot;存进去的知识可以被找到&amp;rdquo;，查询层保证&amp;quot;搜索的姿势是对的&amp;rdquo;，召回层保证&amp;quot;不漏掉该找到的内容&amp;rdquo;，Rerank 层保证&amp;quot;送进 LLM 的是真正有用的内容&amp;rdquo;&lt;/strong&gt;。每一层各司其职，组合起来才能把检索质量做到高水准。&lt;/p&gt;
+&lt;blockquote&gt;
+&lt;p&gt;&lt;strong&gt;本章实践要点&lt;/strong&gt;：单独优化一个层次往往效果有限，线上系统要组合使用。先靠索引优化和多路召回保证覆盖率，再用 Rerank 保证精度，用户提问质量差时加查询优化。记住主战场永远是检索层，不是换更强的 LLM。&lt;/p&gt;
+&lt;/blockquote&gt;
+&lt;hr&gt;
+&lt;h2 id=&#34;第七章高级-rag-范式&#34;&gt;第七章：高级 RAG 范式
+&lt;/h2&gt;&lt;h3 id=&#34;71-rag-的三代演进&#34;&gt;7.1 RAG 的三代演进
+&lt;/h3&gt;&lt;p&gt;朴素 RAG（Naive RAG）逻辑直白：用户提问 → 向量检索 → 拼 Prompt → LLM 生成。两天能上线 Demo，但什么都没优化——召回什么送什么，用户提问差就找得差，找到内容有没有用也不管，全一股脑塞给 LLM，幻觉和偏差就这样来的。&lt;/p&gt;
+&lt;p&gt;&lt;strong&gt;Advanced RAG&lt;/strong&gt; 在&amp;quot;检索前&amp;quot;和&amp;quot;检索后&amp;quot;各加一道工序：检索前加 Query 改写和扩展；检索后加 Rerank 精排和内容压缩。不用改框架，只需在原有流程插入几个步骤，工程改动小效果提升明显。目前大多数生产系统用的就是这个形态。&lt;/p&gt;
+&lt;p&gt;&lt;strong&gt;Modular RAG&lt;/strong&gt; 把各环节拆成可独立替换的模块，像乐高一样按需组合：检索模块可选向量/BM25/图检索，改写模块可选 HyDE/Step-back/多 Query，生成模块可选普通输出或带引用结构化输出。LlamaIndex 的 Workflow 和 LangGraph 都是这个思路的实现。&lt;/p&gt;
+&lt;p&gt;在这三代之上，还有几个针对特定痛点深度设计的高级范式。&lt;/p&gt;
+&lt;h3 id=&#34;72-self-ragllm-自主决策检索&#34;&gt;7.2 Self-RAG：LLM 自主决策检索
+&lt;/h3&gt;&lt;p&gt;朴素 RAG 不管用户问什么都去检索，但有些问题根本不需要检索（如&amp;quot;1+1等于几&amp;rdquo;），有些检索结果根本不相关。Self-RAG 训练了一个特殊的 LLM，它会自主决定四件事：&lt;/p&gt;
+&lt;ul&gt;
+&lt;li&gt;当前问题&lt;strong&gt;需不需要检索&lt;/strong&gt;？（Retrieval token）&lt;/li&gt;
+&lt;li&gt;检索回来的内容&lt;strong&gt;相不相关&lt;/strong&gt;？（Relevance token）&lt;/li&gt;
+&lt;li&gt;生成的答案&lt;strong&gt;有没有幻觉&lt;/strong&gt;？（Support token）&lt;/li&gt;
+&lt;li&gt;最终答案&lt;strong&gt;质量够不够好&lt;/strong&gt;？（Utility token）&lt;/li&gt;
+&lt;/ul&gt;
+&lt;p&gt;执行流程：判断是否需要检索 → 不需要的常识问题直接回答 → 需要的检索后逐条评估相关性，不相关跳过 → 每个相关 chunk 各自生成候选答案 → 评估每个答案有没有文档支撑和对用户有没有用 → 综合打分选出最优答案返回。&lt;/p&gt;
+&lt;p&gt;关键前提：这四种 reflection token 不是现成 LLM 自带的，需要在专门构造的数据集上对基础 LLM 做监督微调。所以 Self-RAG 不能拿普通 GPT-4 直接&amp;quot;套用&amp;rdquo;——要么用论文开源的微调版本（基于 Llama2），要么自己造数据微调。这是它和 CRAG、Agentic RAG 很不一样的地方，后者都可以在通用 LLM 上直接跑。&lt;/p&gt;
+&lt;h3 id=&#34;73-crag检索质量差时自动纠错降级&#34;&gt;7.3 CRAG：检索质量差时自动纠错降级
+&lt;/h3&gt;&lt;p&gt;Self-RAG 解决&amp;quot;要不要检索&amp;quot;的问题，那检索了但结果质量很差怎么办？CRAG（Corrective RAG）在检索完之后加了质量评估环节：&lt;/p&gt;
+&lt;pre tabindex=&#34;0&#34;&gt;&lt;code&gt;┌──────────────────────────────────────────────────────┐
+│              CRAG 三级路由决策                        │
+│                                                      │
+│  本地检索 Top-K chunk                                 │
+│         │                                            │
+│         ▼                                            │
+│  轻量级检索评估器(打分)                              │
+│         │                                            │
+│    ┌────┼────────────┬──────────────┐               │
+│    ▼    ▼            ▼              ▼               │
+│  &amp;#34;相关&amp;#34; &amp;#34;模糊&amp;#34;      &amp;#34;不相关&amp;#34;                       │
+│    │     │            │                             │
+│    ▼     ▼            ▼                             │
+│  直接用  本地+网络   丢弃本地结果                   │
+│  本地结果 合并使用   降级走网络搜索                  │
+│  生成答案 生成答案   用搜索结果生成                  │
+└──────────────────────────────────────────────────────┘
+&lt;/code&gt;&lt;/pre&gt;&lt;p&gt;核心价值在于&amp;quot;兜底&amp;quot;：知识库覆盖不到的问题不会直接乱答，而是自动去网上找答案。它把知识库当主力，把网络搜索当备胎，两者配合使用，大幅提升系统健壮性。评估器可以是专门训练的分类模型，也可以用 Rerank 模型的分数近似。判断阈值需根据业务调，经验值在 0.3~0.6 之间。&lt;/p&gt;
+&lt;h3 id=&#34;74-graphrag用知识图谱增强全局理解&#34;&gt;7.4 GraphRAG：用知识图谱增强全局理解
+&lt;/h3&gt;&lt;p&gt;传统 RAG 有三个硬伤：&lt;strong&gt;跨文档多跳推理干不了&lt;/strong&gt;（&amp;ldquo;A 公司的投资方和 B 公司有什么交集&amp;quot;需要跨多文档做关系推理）、&lt;strong&gt;全局性问题答不上&lt;/strong&gt;（&amp;ldquo;这份财报的核心观点是什么&amp;quot;需要通读归纳而非检索 Top-K）、&lt;strong&gt;切块带来语义断裂&lt;/strong&gt;（实体间因果关系被切断）。&lt;/p&gt;
+&lt;p&gt;这三个痛点的根本原因：&lt;strong&gt;传统 RAG 做的是&amp;quot;找相似文本&amp;rdquo;，但企业需要的是&amp;quot;理解实体关系&amp;rdquo;&lt;/strong&gt;。GraphRAG（微软 2024 年 4 月）的解法是——用 LLM 把文档&amp;quot;读成一张知识图谱&amp;quot;，然后基于图谱做检索和回答。&lt;/p&gt;
+&lt;p&gt;&lt;strong&gt;索引阶段 5 步：&lt;/strong&gt;&lt;/p&gt;
+&lt;pre tabindex=&#34;0&#34;&gt;&lt;code&gt;┌──────────────────────────────────────────────────────────────┐
+│              GraphRAG 索引阶段(离线，一次性)                  │
+│                                                              │
+│  原始文档                                                     │
+│    │                                                         │
+│    ▼  ①文档切块(Text Unit)                                   │
+│  文本块们                                                     │
+│    │                                                         │
+│    ▼  ②LLM实体关系提取(每块调一次LLM)                        │
+│  实体节点 + 关系边                                            │
+│    │                                                         │
+│    ▼  ③生成实体/关系摘要(汇总同一实体的多处描述)             │
+│  带综合描述的图                                               │
+│    │                                                         │
+│    ▼  ④社区检测(Leiden算法，层次化划分)                     │
+│  多层社区(Level0粗→Level3细)                                │
+│    │                                                         │
+│    ▼  ⑤生成社区摘要(每个社区调LLM写报告)                    │
+│  知识图谱 + 层次化社区报告                                    │
+│                                                              │
+│  ⚠️ Token消耗巨大: 1M token约$20-50，是传统RAG的几十倍       │
+└──────────────────────────────────────────────────────────────┘
+&lt;/code&gt;&lt;/pre&gt;&lt;p&gt;以《三国演义》为例：Level 0 划成&amp;quot;曹魏集团&amp;quot;&amp;ldquo;蜀汉集团&amp;quot;&amp;ldquo;东吴集团&amp;quot;等大社区；Level 1 在&amp;quot;蜀汉集团&amp;quot;里分出&amp;quot;刘关张小团体&amp;quot;&amp;ldquo;诸葛亮周边&amp;quot;&amp;ldquo;五虎上将&amp;rdquo;；一路细分到无法再拆。每个社区都有一份 LLM 生成的摘要报告——这就是 GraphRAG 回答全局问题的核心资产。&lt;/p&gt;
+&lt;p&gt;&lt;strong&gt;查询阶段两种模式：&lt;/strong&gt;&lt;/p&gt;
+&lt;p&gt;&lt;strong&gt;Local Search（本地搜索）&lt;/strong&gt;：适用具体实体问题（&amp;ldquo;A 公司的 CTO 是谁&amp;rdquo;）。先用问题向量在实体节点向量索引里找入口实体，沿图边扩展到邻居实体、关系、原始文本块、所属社区报告，组装上下文交给 LLM。&lt;/p&gt;
+&lt;p&gt;&lt;strong&gt;Global Search（全局搜索）&lt;/strong&gt;：适用全局性问题（&amp;ldquo;整本书讲了哪几派势力斗争&amp;rdquo;）。用 Map-Reduce 策略：Map 阶段把某层级所有社区报告分批让 LLM 生成中间答案并打重要性评分；Reduce 阶段汇总中间答案按评分排序合并成最终答案。一次 Global Search 端到端延迟常在 10 秒到 1 分钟之间——因为要遍历几百上千个社区，每个都要调 LLM。&lt;/p&gt;
+&lt;p&gt;&lt;strong&gt;GraphRAG 的四大难点：&lt;/strong&gt;&lt;/p&gt;
+&lt;ol&gt;
+&lt;li&gt;&lt;strong&gt;索引成本高得吓人（Token 焚烧炉）&lt;/strong&gt;：每个文本块调 LLM 抽实体，每个实体/关系调 LLM 合成描述，每个社区调 LLM 写报告。100 万 token 索引成本 $20-50，传统 RAG 只要几美分，差三四个数量级。给 5GB 法律文档建索引成本可能高达 3.3 万美元。&lt;/li&gt;
+&lt;li&gt;&lt;strong&gt;实体消歧&lt;/strong&gt;：LLM 抽取天然不一致——&amp;ldquo;IBM&amp;quot;&amp;ldquo;国际商业机器&amp;quot;&amp;ldquo;Big Blue&amp;quot;被抽成多个节点，导致知识图谱被&amp;quot;近重复节点&amp;quot;塞满，关系碎片化，40% 相关合同挂在另一个节点下查不出来。业界没有标准解法，需叠加字符串编辑距离+向量相似度+LLM 判别+人工兜底。&lt;/li&gt;
+&lt;li&gt;&lt;strong&gt;查询延迟&lt;/strong&gt;：Global Search 的 Map-Reduce 遍历大量社区，10s-1min 延迟，C 端实时交互不可能用。&lt;/li&gt;
+&lt;li&gt;&lt;strong&gt;增量更新牵一发而动全身&lt;/strong&gt;：新文档进来可能触发实体消歧→图结构变→社区划分过时→社区摘要全部失效→向量索引同步更新。很多团队只能定期全量重建，成本问题被放大。&lt;/li&gt;
+&lt;/ol&gt;
+&lt;h3 id=&#34;75-lightraggraphrag-的轻量化改良&#34;&gt;7.5 LightRAG：GraphRAG 的轻量化改良
+&lt;/h3&gt;&lt;p&gt;LightRAG（香港大学 2024 年 10 月）就是为了解决 GraphRAG 这些痛点而生，设计哲学是&amp;quot;Simple&amp;quot;和&amp;quot;Fast&amp;rdquo;。三个核心创新：&lt;/p&gt;
+&lt;p&gt;&lt;strong&gt;创新一：图增强文本索引（去社区化）。&lt;/strong&gt; 和 GraphRAG 一样用 LLM 抽实体和关系，但&lt;strong&gt;根本不做社区检测，也不做社区摘要&lt;/strong&gt;——Leiden 算法和最烧钱的 LLM 调用全省掉了。只保留实体节点 + 关系边这个最核心的图结构，描述向量化存进向量库。仅这两步就省了 80% 以上的 LLM 调用量。&lt;/p&gt;
+&lt;p&gt;&lt;strong&gt;创新二：双层检索范式。&lt;/strong&gt; 不做社区摘要了，全局问题怎么答？LightRAG 的做法是在查询时把查询拆成两层关键词：&lt;/p&gt;
+&lt;pre tabindex=&#34;0&#34;&gt;&lt;code&gt;查询: &amp;#34;国际贸易如何影响全球经济稳定？&amp;#34;
+
+LLM抽取:
+  high_level_keywords: [&amp;#34;国际贸易&amp;#34;, &amp;#34;全球经济稳定&amp;#34;, &amp;#34;经济影响&amp;#34;]  ← 抽象主题
+  low_level_keywords:  [&amp;#34;贸易协定&amp;#34;, &amp;#34;关税&amp;#34;, &amp;#34;货币汇率&amp;#34;, &amp;#34;进出口&amp;#34;] ← 具体对象
+
+Low-level检索: 用低层关键词搜实体节点 → 找&amp;#34;点&amp;#34;
+High-level检索: 用高层关键词搜关系边   → 找&amp;#34;线&amp;#34;
+两路并行 → 合并组装上下文 → LLM生成答案
+&lt;/code&gt;&lt;/pre&gt;&lt;p&gt;一路找&amp;quot;点&amp;rdquo;（具体实体），一路找&amp;quot;线&amp;rdquo;（关系主题），两种信息合起来组装上下文。不用预先生成社区摘要，每次查询只调一次 LLM 做关键词抽取 + 几次向量检索。相比 GraphRAG 的 Map-Reduce 全局查询，&lt;strong&gt;查询成本和延迟降了一个数量级&lt;/strong&gt;。&lt;/p&gt;
+&lt;p&gt;&lt;strong&gt;创新三：增量更新算法。&lt;/strong&gt; 本质就是&amp;quot;追加&amp;quot;两字。新文档来了跑实体关系抽取，直接 upsert 到图和向量库。同名实体合并描述，新实体加新节点。&lt;strong&gt;完全没有&amp;quot;社区&amp;quot;这层，自然没有&amp;quot;社区失效&amp;quot;问题&lt;/strong&gt;，增量索引变得跟传统 RAG 一样轻。&lt;/p&gt;
+&lt;p&gt;LightRAG 还有个小巧思——&lt;strong&gt;关系关键词&lt;/strong&gt;：抽取关系时额外生成一个描述这条关系主题的关键词（如&amp;quot;张三创立 A 公司&amp;rdquo;→ 关键词&amp;quot;创业、企业创立&amp;rdquo;），这就是后面&amp;quot;高层检索&amp;quot;命中相关关系的钥匙。&lt;/p&gt;
+&lt;h3 id=&#34;76-四大范式详细对比&#34;&gt;7.6 四大范式详细对比
+&lt;/h3&gt;&lt;table&gt;
+  &lt;thead&gt;
+      &lt;tr&gt;
+          &lt;th&gt;对比维度&lt;/th&gt;
+          &lt;th&gt;Self-RAG&lt;/th&gt;
+          &lt;th&gt;CRAG&lt;/th&gt;
+          &lt;th&gt;GraphRAG(微软)&lt;/th&gt;
+          &lt;th&gt;LightRAG(港大)&lt;/th&gt;
+      &lt;/tr&gt;
+  &lt;/thead&gt;
+  &lt;tbody&gt;
+      &lt;tr&gt;
+          &lt;td&gt;&lt;strong&gt;核心创新&lt;/strong&gt;&lt;/td&gt;
+          &lt;td&gt;LLM自主决策检索&lt;/td&gt;
+          &lt;td&gt;检索质量差时降级网络搜索&lt;/td&gt;
+          &lt;td&gt;社区检测+社区摘要&lt;/td&gt;
+          &lt;td&gt;双层检索+增量友好&lt;/td&gt;
+      &lt;/tr&gt;
+      &lt;tr&gt;
+          &lt;td&gt;&lt;strong&gt;解决痛点&lt;/strong&gt;&lt;/td&gt;
+          &lt;td&gt;不是所有问题都需检索&lt;/td&gt;
+          &lt;td&gt;知识库覆盖不全&lt;/td&gt;
+          &lt;td&gt;全局理解+跨文档关联&lt;/td&gt;
+          &lt;td&gt;GraphRAG成本/增量/延迟&lt;/td&gt;
+      &lt;/tr&gt;
+      &lt;tr&gt;
+          &lt;td&gt;&lt;strong&gt;索引成本&lt;/strong&gt;&lt;/td&gt;
+          &lt;td&gt;无特殊索引&lt;/td&gt;
+          &lt;td&gt;无特殊索引&lt;/td&gt;
+          &lt;td&gt;极高(Token焚烧炉)&lt;/td&gt;
+          &lt;td&gt;低(减少99%)&lt;/td&gt;
+      &lt;/tr&gt;
+      &lt;tr&gt;
+          &lt;td&gt;&lt;strong&gt;查询延迟&lt;/strong&gt;&lt;/td&gt;
+          &lt;td&gt;正常&lt;/td&gt;
+          &lt;td&gt;正常+网络搜索&lt;/td&gt;
+          &lt;td&gt;慢(Global可达分钟级)&lt;/td&gt;
+          &lt;td&gt;快(秒级)&lt;/td&gt;
+      &lt;/tr&gt;
+      &lt;tr&gt;
+          &lt;td&gt;&lt;strong&gt;增量更新&lt;/strong&gt;&lt;/td&gt;
+          &lt;td&gt;正常&lt;/td&gt;
+          &lt;td&gt;正常&lt;/td&gt;
+          &lt;td&gt;难(级联复杂)&lt;/td&gt;
+          &lt;td&gt;易(直接追加)&lt;/td&gt;
+      &lt;/tr&gt;
+      &lt;tr&gt;
+          &lt;td&gt;&lt;strong&gt;全局深度洞察&lt;/strong&gt;&lt;/td&gt;
+          &lt;td&gt;无&lt;/td&gt;
+          &lt;td&gt;无&lt;/td&gt;
+          &lt;td&gt;强(社区摘要)&lt;/td&gt;
+          &lt;td&gt;一般(临场组装)&lt;/td&gt;
+      &lt;/tr&gt;
+      &lt;tr&gt;
+          &lt;td&gt;&lt;strong&gt;工程复杂度&lt;/strong&gt;&lt;/td&gt;
+          &lt;td&gt;高(需特殊训练模型)&lt;/td&gt;
+          &lt;td&gt;中&lt;/td&gt;
+          &lt;td&gt;高&lt;/td&gt;
+          &lt;td&gt;低&lt;/td&gt;
+      &lt;/tr&gt;
+      &lt;tr&gt;
+          &lt;td&gt;&lt;strong&gt;模型要求&lt;/strong&gt;&lt;/td&gt;
+          &lt;td&gt;需微调特殊LLM&lt;/td&gt;
+          &lt;td&gt;通用LLM即可&lt;/td&gt;
+          &lt;td&gt;通用LLM即可&lt;/td&gt;
+          &lt;td&gt;通用LLM即可&lt;/td&gt;
+      &lt;/tr&gt;
+  &lt;/tbody&gt;
+&lt;/table&gt;
+&lt;h3 id=&#34;77-选型建议什么时候用什么&#34;&gt;7.7 选型建议：什么时候用什么
+&lt;/h3&gt;&lt;p&gt;一个务实的决策思路：&lt;strong&gt;不要一上来就选重型方案&lt;/strong&gt;。&lt;/p&gt;
+&lt;ul&gt;
+&lt;li&gt;&lt;strong&gt;数据 &amp;lt; 10 万 token&lt;/strong&gt;：传统 RAG 就够了，没必要上图&lt;/li&gt;
+&lt;li&gt;&lt;strong&gt;10 万 ~ 500 万 token&lt;/strong&gt;：LightRAG 最佳甜蜜区&lt;/li&gt;
+&lt;li&gt;&lt;strong&gt;需要深度全局洞察且预算管够&lt;/strong&gt;：GraphRAG&lt;/li&gt;
+&lt;li&gt;&lt;strong&gt;问题类型多样、部分不需检索&lt;/strong&gt;：Self-RAG&lt;/li&gt;
+&lt;li&gt;&lt;strong&gt;知识库覆盖不全需兜底&lt;/strong&gt;：CRAG&lt;/li&gt;
+&lt;/ul&gt;
+&lt;p&gt;最常见的混合架构：对稳定的、历史性核心知识（公司规章、法规库）用 GraphRAG 建索引做深度分析；对动态的日常变化数据（工单、新闻、产品更新）用 LightRAG 实时响应；查询时搭一个 Query Router 根据查询类型分流到对应系统。&lt;/p&gt;
+&lt;p&gt;一句话总结：&lt;strong&gt;GraphRAG 是深度分析的重型武器，LightRAG 是日常使用的轻巧刀具&lt;/strong&gt;。大多数企业 RAG 落地用 LightRAG 就能覆盖 80% 需求，剩下 20% 深度分析再上 GraphRAG 补充。&lt;/p&gt;
+&lt;blockquote&gt;
+&lt;p&gt;&lt;strong&gt;本章实践要点&lt;/strong&gt;：选高级范式前先用传统 RAG 搭 MVP，跑一段时间看用户到底在问什么类型的问题。如果大量问题涉及跨文档关系、全局主题，再升级到 LightRAG；如果 LightRAG 也搞不定高精度深度分析，才上 GraphRAG。RAG 技术发展本质上是在&amp;quot;精度&amp;quot;&amp;ldquo;成本&amp;quot;&amp;ldquo;速度&amp;quot;&amp;ldquo;维护&amp;quot;之间不断做权衡，没有银弹。&lt;/p&gt;
+&lt;/blockquote&gt;
+&lt;hr&gt;
+&lt;h2 id=&#34;第八章rag-生产落地&#34;&gt;第八章：RAG 生产落地
+&lt;/h2&gt;&lt;h3 id=&#34;81-幻觉规避&#34;&gt;8.1 幻觉规避
+&lt;/h3&gt;&lt;p&gt;很多人以为做了 RAG 就不会有幻觉了，这是常见误区。塞进 prompt 不等于 LLM 一定&amp;quot;老老实实照着说&amp;rdquo;。RAG 里的幻觉有两个完全不同的来源：&lt;/p&gt;
+&lt;p&gt;&lt;strong&gt;检索层幻觉&lt;/strong&gt;：检索没召回到相关内容，LLM 没有可用上下文，靠自身知识编造答案。你的知识库记录退款政策是&amp;quot;7 天无理由退款&amp;rdquo;，但某次检索没召回到这个 chunk，LLM 用自己的&amp;quot;知识&amp;quot;给出&amp;quot;30 天退款&amp;rdquo;——用户按这个操作退款失败。&lt;/p&gt;
+&lt;p&gt;&lt;strong&gt;生成层幻觉&lt;/strong&gt;：检索到了相关 chunk，但 LLM 没有严格遵循，在文档内容基础上加了自己的推断、补充了原文没有的细节、甚至把两段不相关的信息混在一起。读者很难分辨哪句来自文档、哪句是 LLM 加的。&lt;/p&gt;
+&lt;p&gt;四个递进的规避方案：&lt;/p&gt;
+&lt;p&gt;&lt;strong&gt;方案一：Prompt 强约束（成本最低）&lt;/strong&gt;。明确立规矩：只能用参考资料中的信息、资料里没有就说不知道、回答时标注来源、不要推断和补充。这几条规则让 LLM&amp;quot;知道自己的边界&amp;rdquo;，给了它&amp;quot;合法的逃生出口&amp;quot;。能压制生成层幻觉，但对检索层幻觉帮助有限。&lt;/p&gt;
+&lt;p&gt;&lt;strong&gt;方案二：检索质量门控&lt;/strong&gt;。Rerank 模型对每个候选打 0&lt;del&gt;1 分，最高分低于阈值就直接拒答&amp;quot;知识库无相关信息，建议联系人工&amp;quot;，不让 LLM 在低质量上下文硬撑。阈值需按业务数据调，经验值 0.3&lt;/del&gt;0.6，精度要求高（金融医疗）偏高。方案一+方案二是上线前基础配置。&lt;/p&gt;
+&lt;p&gt;&lt;strong&gt;方案三：生成后引用核查&lt;/strong&gt;。LLM 生成完答案，再用另一个 LLM 回头检查每条关键信息在 chunk 里有没有依据，没依据的标注&amp;quot;无法核实&amp;quot;或删掉。代价是多一次 LLM 调用，延迟和成本翻倍，只用于医疗问诊、法律咨询等容错率极低场景。&lt;/p&gt;
+&lt;p&gt;&lt;strong&gt;方案四：结构化输出强制溯源&lt;/strong&gt;。让 LLM 输出 JSON，每个结论必须填来自哪条参考资料的编号。LLM 构建 JSON 时必须主动想&amp;quot;这条结论从哪条资料找到的&amp;quot;，这个过程本身就会减少瞎编概率——就像让学生写论文必须标参考文献，他自然不敢随便编。&lt;/p&gt;
+&lt;div class=&#34;highlight&#34;&gt;&lt;pre tabindex=&#34;0&#34; style=&#34;color:#f8f8f2;background-color:#272822;-moz-tab-size:4;-o-tab-size:4;tab-size:4;&#34;&gt;&lt;code class=&#34;language-json&#34; data-lang=&#34;json&#34;&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;{
+&lt;/span&gt;&lt;/span&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;  &lt;span style=&#34;color:#f92672&#34;&gt;&amp;#34;answer&amp;#34;&lt;/span&gt;: &lt;span style=&#34;color:#e6db74&#34;&gt;&amp;#34;完整回答&amp;#34;&lt;/span&gt;,
+&lt;/span&gt;&lt;/span&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;  &lt;span style=&#34;color:#f92672&#34;&gt;&amp;#34;statements&amp;#34;&lt;/span&gt;: [
+&lt;/span&gt;&lt;/span&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;    {&lt;span style=&#34;color:#f92672&#34;&gt;&amp;#34;claim&amp;#34;&lt;/span&gt;: &lt;span style=&#34;color:#e6db74&#34;&gt;&amp;#34;具体结论1&amp;#34;&lt;/span&gt;, &lt;span style=&#34;color:#f92672&#34;&gt;&amp;#34;source_ids&amp;#34;&lt;/span&gt;: [&lt;span style=&#34;color:#ae81ff&#34;&gt;1&lt;/span&gt;, &lt;span style=&#34;color:#ae81ff&#34;&gt;2&lt;/span&gt;]},
+&lt;/span&gt;&lt;/span&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;    {&lt;span style=&#34;color:#f92672&#34;&gt;&amp;#34;claim&amp;#34;&lt;/span&gt;: &lt;span style=&#34;color:#e6db74&#34;&gt;&amp;#34;具体结论2&amp;#34;&lt;/span&gt;, &lt;span style=&#34;color:#f92672&#34;&gt;&amp;#34;source_ids&amp;#34;&lt;/span&gt;: [&lt;span style=&#34;color:#ae81ff&#34;&gt;3&lt;/span&gt;]}
+&lt;/span&gt;&lt;/span&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;  ],
+&lt;/span&gt;&lt;/span&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;  &lt;span style=&#34;color:#f92672&#34;&gt;&amp;#34;confidence&amp;#34;&lt;/span&gt;: &lt;span style=&#34;color:#e6db74&#34;&gt;&amp;#34;high&amp;#34;&lt;/span&gt;
+&lt;/span&gt;&lt;/span&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;}
+&lt;/span&gt;&lt;/span&gt;&lt;/code&gt;&lt;/pre&gt;&lt;/div&gt;&lt;p&gt;核心认知：&lt;strong&gt;检索质量是幻觉的最大来源&lt;/strong&gt;。检索到了正确内容，Prompt 再稍微约束，幻觉就已经少很多了；检索这一步就烂，再多的生成层约束也填不了坑。&lt;strong&gt;治幻觉，先治检索。&lt;/strong&gt;&lt;/p&gt;
+&lt;h3 id=&#34;82-评估体系&#34;&gt;8.2 评估体系
+&lt;/h3&gt;&lt;p&gt;靠&amp;quot;用户投诉&amp;quot;或&amp;quot;人工抽查&amp;quot;评估是亡羊补牢。RAG 评估要把&amp;quot;好不好&amp;quot;这个主观感受拆解成可追踪、可对比、可指导决策的客观数字，分两层：&lt;/p&gt;
+&lt;p&gt;&lt;strong&gt;检索层评估&lt;/strong&gt;——不管 LLM 输出，只看该召回的有没有召回到：&lt;/p&gt;
+&lt;ul&gt;
+&lt;li&gt;&lt;strong&gt;Hit@K&lt;/strong&gt;：Top-K 结果里有没有正确 chunk。Hit@5=0.8 意思是 80% 问题的答案出现在前 5 条。低于 0.7 说明检索层有问题。&lt;/li&gt;
+&lt;li&gt;&lt;strong&gt;MRR（平均倒数排名）&lt;/strong&gt;：关心正确 chunk 排第几名。第一名得 1 分，第二名 0.5 分，第三名 0.33 分。低于 0.5 说明 Rerank 效果不够好。简单记：&lt;strong&gt;Hit@K 是&amp;quot;找到没&amp;quot;，MRR 是&amp;quot;多快找到的&amp;quot;&lt;/strong&gt;。&lt;/li&gt;
+&lt;/ul&gt;
+&lt;p&gt;&lt;strong&gt;生成层评估（RAGAs 框架）&lt;/strong&gt;——用 LLM 当裁判（LLM-as-a-Judge）自动打分：&lt;/p&gt;
+&lt;ul&gt;
+&lt;li&gt;&lt;strong&gt;Faithfulness（忠实度）&lt;/strong&gt;：答案每件事在 chunk 里有没有出处？衡量幻觉程度。目标 &amp;gt; 0.8。&lt;/li&gt;
+&lt;li&gt;&lt;strong&gt;Answer Relevancy（答案相关性）&lt;/strong&gt;：答案有没有回答用户问的问题？和 Faithfulness 是两回事——可以字字有据但完全跑题。目标 &amp;gt; 0.8。&lt;/li&gt;
+&lt;li&gt;&lt;strong&gt;Context Recall（上下文召回率）&lt;/strong&gt;：回答所需信息有多少比例在检索结果里覆盖到？低说明检索漏了关键信息。目标 &amp;gt; 0.7。&lt;/li&gt;
+&lt;li&gt;&lt;strong&gt;Context Precision（上下文精确率）&lt;/strong&gt;：检索结果里有用内容排名是否靠前？低说明召回太多噪音。&lt;/li&gt;
+&lt;/ul&gt;
+&lt;p&gt;通过指标组合精确定位问题：Context Recall 低 → 换更强 Embedding 或调 Chunking 或加多路召回；Context Precision 低 → 加强 Rerank；Faithfulness 低 → 加强 Prompt 约束或检索质量门控；Answer Relevancy 低 → Prompt 指令不够明确。&lt;/p&gt;
+&lt;p&gt;&lt;strong&gt;线上指标&lt;/strong&gt;才是最终验收标准：点踩率（最直接负反馈）、追问率（答非所问程度）、转人工率（RAG 放弃回答频率）、空回答率（系统说&amp;quot;不知道&amp;quot;的比例）、会话解决率（最综合指标）。形成&amp;quot;离线测评→上线→线上观测→发现问题→离线复现→修复→再上线&amp;quot;的闭环。&lt;/p&gt;
+&lt;h3 id=&#34;83-动态更新&#34;&gt;8.3 动态更新
+&lt;/h3&gt;&lt;p&gt;RAG 知识库更新不能像普通数据库直接 UPDATE。因为原始文档和向量库之间是一对多关系——一篇文档被切成几十上百个 chunk，文档内容变了切割结果可能完全不同，chunk 数量、边界、内容都会变。&lt;/p&gt;
+&lt;p&gt;最可靠的更新逻辑是&lt;strong&gt;先删后增&lt;/strong&gt;：把旧文档对应的所有 chunk 全部删掉，重新按新内容切割入库。不要尝试&amp;quot;局部更新&amp;quot;——文档一改切割边界就变了，没法把旧 chunk 和新 chunk 一一对应打补丁。&lt;/p&gt;
+&lt;p&gt;&lt;strong&gt;变更检测&lt;/strong&gt;用内容 hash：每次入库算 MD5/SHA256，和存储的 hash 对比。相同跳过，不同触发重处理。优化：先用&amp;quot;最后修改时间&amp;quot;粗筛，只对时间戳变化的才算 hash，能过滤 99% 未变文档。&lt;/p&gt;
+&lt;p&gt;&lt;strong&gt;chunk ID 设计&lt;/strong&gt;很关键：让 chunk ID 带文档 ID 前缀（如 &lt;code&gt;product_manual_v3_chunk_001&lt;/code&gt;），或在 metadata 存 &lt;code&gt;source_doc_id&lt;/code&gt; 字段，这样删除一篇文档所有 chunk 时能批量查找删除。&lt;strong&gt;从一开始就把文档和 chunk 的关联关系设计好&lt;/strong&gt;，等到需要更新时再临时想办法会很狼狈。&lt;/p&gt;
+&lt;p&gt;&lt;strong&gt;两种变更感知方式&lt;/strong&gt;：&lt;/p&gt;
+&lt;ul&gt;
+&lt;li&gt;&lt;strong&gt;定时轮询（Polling）&lt;/strong&gt;：固定间隔扫描对比 hash。实现简单不依赖外部系统，但有延迟，适合更新频率低的场景。&lt;/li&gt;
+&lt;li&gt;&lt;strong&gt;事件驱动（Event-Driven）&lt;/strong&gt;：数据源变更时通过 Kafka/RabbitMQ/Webhook 发消息，收到立刻处理。延迟低（秒级），适合客服知识库、新闻资讯等实时性要求高场景。很多 CMS（Confluence、Notion、语雀）支持 Webhook，天然适合事件驱动。&lt;/li&gt;
+&lt;/ul&gt;
+&lt;p&gt;&lt;strong&gt;灰度更新&lt;/strong&gt;用于核心生产知识库：不直接删旧数据，先把新版本 chunk 打 &lt;code&gt;version=new&lt;/code&gt; 标签并行写入，旧版本保留 &lt;code&gt;version=old&lt;/code&gt;。验证阶段用测试问题同时跑新旧版本对比，确认无退化后把检索版本过滤条件从 old 切到 new，最后清理旧版本。类似蓝绿部署，出问题可秒级回滚。&lt;/p&gt;
+&lt;p&gt;生产环境推荐&amp;quot;事件驱动 + hash 变更检测 + 先删后增&amp;quot;的组合方案。全量重建只在两种情况用：知识库规模很小（几十篇几分钟搞定）；或做了重大架构调整（换 Embedding 模型、改 Chunking 策略，新旧向量不兼容）。&lt;/p&gt;
+&lt;h3 id=&#34;84-rag-落地三大难点&#34;&gt;8.4 RAG 落地三大难点
+&lt;/h3&gt;&lt;p&gt;&lt;strong&gt;第一难：文档预处理。&lt;/strong&gt; 这是最前面一环，做不好后面所有优化都难救回来——给系统喂的原料是烂的。难在现实世界文档格式五花八门：PDF 的表格、双栏、嵌套排版被通用库解析成乱码（pypdf 做的是文本流提取，表格应交给 pdfplumber/unstructured）；扫描版需 OCR；含图片的文档关键信息提取不到；代码块切割不当破坏逻辑完整性。真正的生产系统文档预处理代码量往往比 RAG 核心逻辑还多。进去的是垃圾，出来的也是垃圾。&lt;/p&gt;
+&lt;p&gt;&lt;strong&gt;第二难：检索质量调优。&lt;/strong&gt; 检索质量是系统天花板，但问题来源很多，排查费劲。Chunking 策略不当——退款相关内容被切散在十几个 chunk 里每个都不够强；Query 和文档语义鸿沟——口语提问和正式文档用词差距大；向量检索对精确词效果差——产品型号不如 BM25。这三个问题交织在一起，定位起来特别麻烦。&lt;/p&gt;
+&lt;p&gt;&lt;strong&gt;第三难：效果评估。&lt;/strong&gt; 单条答案对错人工判断成本高且标准不统一；端到端指标反馈周期太长，出了问题不知道是 Chunking 的锅还是检索的锅还是 LLM 生成的锅。没有量化指标体系就不知道该优化哪里，优化变成瞎猜。必须建立检索层（Hit@K + MRR）+ 生成层（RAGAs）+ 线上指标的分层评估体系。&lt;/p&gt;
+&lt;p&gt;总结一句话：&lt;strong&gt;原型 Demo 一两天能跑起来，但把它调到生产可用的质量水平，往往需要几周甚至几个月的迭代。&lt;/strong&gt; 每个环节都可以是瓶颈，而且各环节相互影响，没有捷径。&lt;/p&gt;
+&lt;blockquote&gt;
+&lt;p&gt;&lt;strong&gt;本章实践要点&lt;/strong&gt;：幻觉规避先治检索（方案一+方案二上线前必做）；评估体系分检索层和生成层两层，必须在自有业务数据上跑；动态更新用&amp;quot;事件驱动+hash检测+先删后增&amp;quot;，chunk ID 设计从一开始做好；文档预处理别用通用库硬解 PDF 表格，该上专项工具就上。&lt;/p&gt;
+&lt;/blockquote&gt;
+&lt;hr&gt;
+&lt;h2 id=&#34;结尾&#34;&gt;结尾
+&lt;/h2&gt;&lt;h3 id=&#34;核心知识点回顾&#34;&gt;核心知识点回顾
+&lt;/h3&gt;&lt;p&gt;让我们用一张表快速回顾本文的全部核心知识点：&lt;/p&gt;
+&lt;table&gt;
+  &lt;thead&gt;
+      &lt;tr&gt;
+          &lt;th&gt;章节&lt;/th&gt;
+          &lt;th&gt;核心知识点&lt;/th&gt;
+          &lt;th&gt;一句话记忆&lt;/th&gt;
+      &lt;/tr&gt;
+  &lt;/thead&gt;
+  &lt;tbody&gt;
+      &lt;tr&gt;
+          &lt;td&gt;第一章&lt;/td&gt;
+          &lt;td&gt;RAG 本质&lt;/td&gt;
+          &lt;td&gt;给 LLM &amp;ldquo;开卷考试&amp;rdquo;，知识存外部实时检索，不改模型参数&lt;/td&gt;
+      &lt;/tr&gt;
+      &lt;tr&gt;
+          &lt;td&gt;第一章&lt;/td&gt;
+          &lt;td&gt;三大问题&lt;/td&gt;
+          &lt;td&gt;知识时效性 + 私有知识覆盖 + 幻觉，根源都是知识冻结在参数里&lt;/td&gt;
+      &lt;/tr&gt;
+      &lt;tr&gt;
+          &lt;td&gt;第一章&lt;/td&gt;
+          &lt;td&gt;vs 微调&lt;/td&gt;
+          &lt;td&gt;微调解决&amp;quot;怎么说&amp;quot;，RAG 解决&amp;quot;说什么&amp;quot;，可组合使用&lt;/td&gt;
+      &lt;/tr&gt;
+      &lt;tr&gt;
+          &lt;td&gt;第二章&lt;/td&gt;
+          &lt;td&gt;文档切割&lt;/td&gt;
+          &lt;td&gt;不能整篇存，500~1000 token 起步，按文档类型选策略&lt;/td&gt;
+      &lt;/tr&gt;
+      &lt;tr&gt;
+          &lt;td&gt;第二章&lt;/td&gt;
+          &lt;td&gt;六种策略&lt;/td&gt;
+          &lt;td&gt;固定大小/语义边界/特殊内容/父子/命题化/Contextual&lt;/td&gt;
+      &lt;/tr&gt;
+      &lt;tr&gt;
+          &lt;td&gt;第二章&lt;/td&gt;
+          &lt;td&gt;规避截断&lt;/td&gt;
+          &lt;td&gt;切时别截断(重叠+语义边界) + 切完补上下文(窗口/父子/Contextual)&lt;/td&gt;
+      &lt;/tr&gt;
+      &lt;tr&gt;
+          &lt;td&gt;第三章&lt;/td&gt;
+          &lt;td&gt;三代演进&lt;/td&gt;
+          &lt;td&gt;静态词向量→上下文向量→句子级对比学习(RAG标配)&lt;/td&gt;
+      &lt;/tr&gt;
+      &lt;tr&gt;
+          &lt;td&gt;第三章&lt;/td&gt;
+          &lt;td&gt;选型评估&lt;/td&gt;
+          &lt;td&gt;中文 BGE/Qwen3，一定要在业务数据上跑 Hit@K&lt;/td&gt;
+      &lt;/tr&gt;
+      &lt;tr&gt;
+          &lt;td&gt;第四章&lt;/td&gt;
+          &lt;td&gt;索引算法&lt;/td&gt;
+          &lt;td&gt;HNSW 精度高内存大，IVF 内存小精度略低&lt;/td&gt;
+      &lt;/tr&gt;
+      &lt;tr&gt;
+          &lt;td&gt;第四章&lt;/td&gt;
+          &lt;td&gt;选型&lt;/td&gt;
+          &lt;td&gt;中小用 Qdrant，亿级用 Milvus，已用 PG 用 pgvector&lt;/td&gt;
+      &lt;/tr&gt;
+      &lt;tr&gt;
+          &lt;td&gt;第四章&lt;/td&gt;
+          &lt;td&gt;生产实践&lt;/td&gt;
+          &lt;td&gt;百万级开 SQ8 量化省内存，批量写入要错峰分批&lt;/td&gt;
+      &lt;/tr&gt;
+      &lt;tr&gt;
+          &lt;td&gt;第五章&lt;/td&gt;
+          &lt;td&gt;六步流程&lt;/td&gt;
+          &lt;td&gt;Query预处理→向量化→粗排+多路→Rerank→拼Prompt→生成溯源&lt;/td&gt;
+      &lt;/tr&gt;
+      &lt;tr&gt;
+          &lt;td&gt;第五章&lt;/td&gt;
+          &lt;td&gt;三种检索&lt;/td&gt;
+          &lt;td&gt;向量(语义)+BM25(精确词)+混合(互补)，RRF融合&lt;/td&gt;
+      &lt;/tr&gt;
+      &lt;tr&gt;
+          &lt;td&gt;第五章&lt;/td&gt;
+          &lt;td&gt;Rerank&lt;/td&gt;
+          &lt;td&gt;Cross-encoder 比 bi-encoder 准但慢，只对小候选集精排&lt;/td&gt;
+      &lt;/tr&gt;
+      &lt;tr&gt;
+          &lt;td&gt;第六章&lt;/td&gt;
+          &lt;td&gt;四层框架&lt;/td&gt;
+          &lt;td&gt;索引层→查询层→检索层→结果层，组合使用&lt;/td&gt;
+      &lt;/tr&gt;
+      &lt;tr&gt;
+          &lt;td&gt;第七章&lt;/td&gt;
+          &lt;td&gt;Self-RAG&lt;/td&gt;
+          &lt;td&gt;LLM 自主决策要不要检索，需微调特殊模型&lt;/td&gt;
+      &lt;/tr&gt;
+      &lt;tr&gt;
+          &lt;td&gt;第七章&lt;/td&gt;
+          &lt;td&gt;CRAG&lt;/td&gt;
+          &lt;td&gt;检索质量差时降级网络搜索兜底&lt;/td&gt;
+      &lt;/tr&gt;
+      &lt;tr&gt;
+          &lt;td&gt;第七章&lt;/td&gt;
+          &lt;td&gt;GraphRAG&lt;/td&gt;
+          &lt;td&gt;社区检测+摘要支持全局查询，但贵慢难增量&lt;/td&gt;
+      &lt;/tr&gt;
+      &lt;tr&gt;
+          &lt;td&gt;第七章&lt;/td&gt;
+          &lt;td&gt;LightRAG&lt;/td&gt;
+          &lt;td&gt;去社区化+双层检索+增量友好，成本降99%&lt;/td&gt;
+      &lt;/tr&gt;
+      &lt;tr&gt;
+          &lt;td&gt;第八章&lt;/td&gt;
+          &lt;td&gt;幻觉规避&lt;/td&gt;
+          &lt;td&gt;治幻觉先治检索，Prompt约束+质量门控是基础配置&lt;/td&gt;
+      &lt;/tr&gt;
+      &lt;tr&gt;
+          &lt;td&gt;第八章&lt;/td&gt;
+          &lt;td&gt;评估体系&lt;/td&gt;
+          &lt;td&gt;检索层 Hit@K+MRR，生成层 RAGAs，线上点踩率/转人工率&lt;/td&gt;
+      &lt;/tr&gt;
+      &lt;tr&gt;
+          &lt;td&gt;第八章&lt;/td&gt;
+          &lt;td&gt;动态更新&lt;/td&gt;
+          &lt;td&gt;事件驱动+hash检测+先删后增，chunk ID 从一开始设计好&lt;/td&gt;
+      &lt;/tr&gt;
+      &lt;tr&gt;
+          &lt;td&gt;第八章&lt;/td&gt;
+          &lt;td&gt;三大难点&lt;/td&gt;
+          &lt;td&gt;文档预处理(垃圾进垃圾出)+检索调优(多环节交织)+效果评估&lt;/td&gt;
+      &lt;/tr&gt;
+  &lt;/tbody&gt;
+&lt;/table&gt;
+&lt;h3 id=&#34;主题关联&#34;&gt;主题关联
+&lt;/h3&gt;&lt;p&gt;本文是「AI 大模型工程知识体系」系列的第 02 篇，与系列其他篇章紧密关联：&lt;/p&gt;
+&lt;ul&gt;
+&lt;li&gt;
+&lt;p&gt;&lt;strong&gt;与第 01 篇（LLM 基础）的关联&lt;/strong&gt;：RAG 的存在前提是 LLM 的&amp;quot;知识冻结&amp;quot;特性——LLM 训练完知识就固化在参数里，这是第一章三大问题的根源。理解 LLM 的预训练机制（预测下一个词、无&amp;quot;不知道&amp;quot;开关），才能理解为什么 RAG 是解决幻觉最有效的方案。&lt;/p&gt;
+&lt;/li&gt;
+&lt;li&gt;
+&lt;p&gt;&lt;strong&gt;与 Agent 篇章的关联&lt;/strong&gt;：第七章的 Agentic RAG 把 RAG 嵌入 Agent 循环——LLM 自主决定要不要再检索一次、用什么关键词、检索结果是否充分。这是 RAG 向 Agent 演进的关键节点，GraphRAG 和 LightRAG 也可以作为 Agent 的工具被动态调用。Agent 框架（LangGraph、LlamaIndex Workflow）正是 Modular RAG 思想的具体实现。&lt;/p&gt;
+&lt;/li&gt;
+&lt;li&gt;
+&lt;p&gt;&lt;strong&gt;与向量检索/数据库篇章的关联&lt;/strong&gt;：第四章的向量数据库是 RAG 的基础设施，HNSW 和 IVF 索引算法的理解深度直接决定了生产环境的性能调优能力。如果后续有专门的向量检索深入篇章，本文提供了 RAG 场景的应用上下文。&lt;/p&gt;
+&lt;/li&gt;
+&lt;/ul&gt;
+&lt;h3 id=&#34;进一步阅读&#34;&gt;进一步阅读
+&lt;/h3&gt;&lt;ol&gt;
+&lt;li&gt;&lt;strong&gt;GraphRAG 论文&lt;/strong&gt;：Darren Edge 等，《From Local to Global: A Graph RAG Approach to Query-Focused Summarization》（微软，2024.4）——理解社区检测+层次摘要的原始设计。&lt;/li&gt;
+&lt;li&gt;&lt;strong&gt;LightRAG 论文&lt;/strong&gt;：Zirui Guo 等，《LightRAG: Simple and Fast Retrieval-Augmented Generation》（港大，2024.10，EMNLP 2025 Findings）——理解双层检索和增量友好的轻量化设计。&lt;/li&gt;
+&lt;li&gt;&lt;strong&gt;Self-RAG 论文&lt;/strong&gt;：Akari Asai 等，《Self-RAG: Learning to Retrieve, Generate, and Critique through Self-Reflection》——理解 reflection token 的微调机制。&lt;/li&gt;
+&lt;li&gt;&lt;strong&gt;CRAG 论文&lt;/strong&gt;：Shi-Qi Yan 等，《Corrective Retrieval Augmented Generation》——理解三级路由降级策略。&lt;/li&gt;
+&lt;li&gt;&lt;strong&gt;Contextual Retrieval&lt;/strong&gt;：Anthropic 官方技术博客（2024）——理解向量化前补全上下文的方案及 Prompt Caching 降本实践。&lt;/li&gt;
+&lt;li&gt;&lt;strong&gt;RAGAs 框架&lt;/strong&gt;：Shahul Es 等，《RAGAS: Automated Evaluation of Retrieval Augmented Generation》——理解 LLM-as-a-Judge 的评估方法论。&lt;/li&gt;
+&lt;li&gt;&lt;strong&gt;MTEB 排行榜&lt;/strong&gt;：Hugging Face 上的文本 Embedding 通用排行榜，选型参考但不可盲信，务必在业务数据上验证。&lt;/li&gt;
+&lt;li&gt;&lt;strong&gt;Late Chunking&lt;/strong&gt;：Jina AI 博客（2024）——理解先编码后切分如何保留跨块上下文。&lt;/li&gt;
+&lt;/ol&gt;
+&lt;hr&gt;
+&lt;blockquote&gt;
+&lt;p&gt;&lt;em&gt;RAG 技术的发展，本质上是在&amp;quot;精度&amp;quot;&amp;ldquo;成本&amp;quot;&amp;ldquo;速度&amp;quot;&amp;ldquo;维护&amp;quot;之间不断做权衡。没有银弹，只有最适合你业务场景的方案。把基础打牢，后面的进阶技术学起来就会事半功倍。&lt;/em&gt;&lt;/p&gt;
+&lt;/blockquote&gt;
+&lt;p&gt;&lt;strong&gt;系列导航&lt;/strong&gt;：&lt;a class=&#34;link&#34; href=&#34;./00_%e5%af%bc%e8%ae%ba_AI%e5%a4%a7%e6%a8%a1%e5%9e%8b%e5%b7%a5%e7%a8%8b%e7%9f%a5%e8%af%86%e4%bd%93%e7%b3%bb%e6%80%bb%e8%a7%88.md&#34; &gt;← 上一篇：00 导论&lt;/a&gt; ｜ [下一篇：Agent 智能体 →]&lt;/p&gt;
+</description>
+        </item>
+        <item>
         <title>第9章：RAG 检索优化全攻略——从召回率到答案质量</title>
         <link>https://blog.irudder.me/ai/knowledge-series/09-RAG-Retrieval-Optimization-Guide.html</link>
         <pubDate>Mon, 15 Jun 2026 00:00:00 +0000</pubDate>

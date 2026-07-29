@@ -1,0 +1,1881 @@
+<!DOCTYPE html>
+<html lang="zh-cn" dir="ltr">
+    <head><meta charset='utf-8'>
+<meta name='viewport' content='width=device-width, initial-scale=1'><meta name='description' content="Agent智能体——从概念到自主推理与行动\r本文是「AI 知识体系深度教程」系列的第五篇。如果你已经读过前面关于大语言模型、RAG、工具调用与框架的章节，那么本文正是这些知识的&quot;集大成&quot;——Agent 把它们融为一个能自主闭环的完整系统。如果你是直接跳到这一篇的初学者，也不必担心，我们会从最本质的概念讲起，逐步带你走到多 Agent 协作和高级设计。\n核心问题列表\r在进入正文之前，请带着下面这些问题阅读本文。它们贯穿全文，也是工程实践中最常被问到的&quot;灵魂拷问&quot;：\nAgent 和一个&quot;带插件的大模型&quot;到底有什么本质区别？为什么不能把&quot;会调工具&quot;等同于&quot;是 Agent&quot;？ 普通大模型有哪三大不可逾越的局限？Agent 又是用哪三大能力去突破它们的？ Workflow、Agent、Tools 这三个常被混用的词，到底谁在做&quot;下一步该干什么&quot;的决策？为什么 Anthropic 说&quot;能用 Workflow 解决的问题，就不要用 Agent&quot;？ ReAct、Plan-and-Execute、Reflection 三种设计范式各自解决什么层次的问题？什么时候该单独用、什么时候该组合用？ 一个 5 步的任务，ReAct 和 Plan-and-Execute 的 token 消耗为什么能差一倍以上？背后的输入增长机制是什么？ 短期记忆、长期记忆、实体记忆到底有什么不同？为什么&quot;记忆粒度不是越细越好&quot;？ CoT → ToT → GoT 的演进逻辑是什么？为什么 GoT 在生产环境几乎见不到？ 反思机制为什么必须设&quot;最大 2-3 轮&quot;的硬性上限？为什么多 Agent 互评往往比自我反思更有效？ 什么情况下该&quot;手搓 Agent&quot;而不是用框架？&ldquo;核心手写、周边借用&quot;的折中方案为什么最务实？ Single-Agent 力不从心的三类任务是什么？为什么生产环境几乎都选 Orchestrator 中心化模式，而不用去中心化？ 引言：Agent 是 AI 工程的终极形态\r过去两年，我们见证了 AI 从&quot;能聊天&quot;到&quot;能做事&quot;的跃迁。这个跃迁的标志，就是 Agent（智能体）。\n如果你把大语言模型（LLM）比作一个&quot;读过万卷书但只会动嘴的书生&rdquo;——它能告诉你怎么做，却从不会真的去做；那么 Agent 就是给这个书生装上了&quot;手脚&quot;（工具调用）、&ldquo;档案室&rdquo;（记忆）和&quot;项目经理&quot;（规划模块），让它真正成为一个能自主完成目标的&quot;行动派&quot;。\n一句话概括 Agent 的本质：自主闭环——感知目标 → 规划步骤 → 调用工具行动 → 观察结果 → 再感知再规划，如此循环直到任务完成。\n">
+<title>Agent智能体——从概念到自主推理与行动</title>
+
+<link rel='canonical' href='https://blog.irudder.me/ai/ai-systematization/05-Agent-Intelligent-Agent.html'>
+
+<link rel="stylesheet" href="/scss/style.min.b9e9128fec450ebccecc4ec9900157f32b85d0609bcd5ee3293968bcaa1235f2.css"><meta property='og:title' content="Agent智能体——从概念到自主推理与行动">
+<meta property='og:description' content="Agent智能体——从概念到自主推理与行动\r本文是「AI 知识体系深度教程」系列的第五篇。如果你已经读过前面关于大语言模型、RAG、工具调用与框架的章节，那么本文正是这些知识的&quot;集大成&quot;——Agent 把它们融为一个能自主闭环的完整系统。如果你是直接跳到这一篇的初学者，也不必担心，我们会从最本质的概念讲起，逐步带你走到多 Agent 协作和高级设计。\n核心问题列表\r在进入正文之前，请带着下面这些问题阅读本文。它们贯穿全文，也是工程实践中最常被问到的&quot;灵魂拷问&quot;：\nAgent 和一个&quot;带插件的大模型&quot;到底有什么本质区别？为什么不能把&quot;会调工具&quot;等同于&quot;是 Agent&quot;？ 普通大模型有哪三大不可逾越的局限？Agent 又是用哪三大能力去突破它们的？ Workflow、Agent、Tools 这三个常被混用的词，到底谁在做&quot;下一步该干什么&quot;的决策？为什么 Anthropic 说&quot;能用 Workflow 解决的问题，就不要用 Agent&quot;？ ReAct、Plan-and-Execute、Reflection 三种设计范式各自解决什么层次的问题？什么时候该单独用、什么时候该组合用？ 一个 5 步的任务，ReAct 和 Plan-and-Execute 的 token 消耗为什么能差一倍以上？背后的输入增长机制是什么？ 短期记忆、长期记忆、实体记忆到底有什么不同？为什么&quot;记忆粒度不是越细越好&quot;？ CoT → ToT → GoT 的演进逻辑是什么？为什么 GoT 在生产环境几乎见不到？ 反思机制为什么必须设&quot;最大 2-3 轮&quot;的硬性上限？为什么多 Agent 互评往往比自我反思更有效？ 什么情况下该&quot;手搓 Agent&quot;而不是用框架？&ldquo;核心手写、周边借用&quot;的折中方案为什么最务实？ Single-Agent 力不从心的三类任务是什么？为什么生产环境几乎都选 Orchestrator 中心化模式，而不用去中心化？ 引言：Agent 是 AI 工程的终极形态\r过去两年，我们见证了 AI 从&quot;能聊天&quot;到&quot;能做事&quot;的跃迁。这个跃迁的标志，就是 Agent（智能体）。\n如果你把大语言模型（LLM）比作一个&quot;读过万卷书但只会动嘴的书生&rdquo;——它能告诉你怎么做，却从不会真的去做；那么 Agent 就是给这个书生装上了&quot;手脚&quot;（工具调用）、&ldquo;档案室&rdquo;（记忆）和&quot;项目经理&quot;（规划模块），让它真正成为一个能自主完成目标的&quot;行动派&quot;。\n一句话概括 Agent 的本质：自主闭环——感知目标 → 规划步骤 → 调用工具行动 → 观察结果 → 再感知再规划，如此循环直到任务完成。\n">
+<meta property='og:url' content='https://blog.irudder.me/ai/ai-systematization/05-Agent-Intelligent-Agent.html'>
+<meta property='og:site_name' content='SelfTechHub'>
+<meta property='og:type' content='article'><meta property='article:section' content='Ai' /><meta property='article:tag' content='Agent' /><meta property='article:tag' content='AI Agent' /><meta property='article:tag' content='Autonomous' /><meta property='article:tag' content='Reasoning' /><meta property='article:tag' content='Multi-Agent' /><meta property='article:published_time' content='2026-07-28T00:00:00&#43;00:00'/><meta property='article:modified_time' content='2026-07-28T00:00:00&#43;00:00'/>
+<meta name="twitter:title" content="Agent智能体——从概念到自主推理与行动">
+<meta name="twitter:description" content="Agent智能体——从概念到自主推理与行动\r本文是「AI 知识体系深度教程」系列的第五篇。如果你已经读过前面关于大语言模型、RAG、工具调用与框架的章节，那么本文正是这些知识的&quot;集大成&quot;——Agent 把它们融为一个能自主闭环的完整系统。如果你是直接跳到这一篇的初学者，也不必担心，我们会从最本质的概念讲起，逐步带你走到多 Agent 协作和高级设计。\n核心问题列表\r在进入正文之前，请带着下面这些问题阅读本文。它们贯穿全文，也是工程实践中最常被问到的&quot;灵魂拷问&quot;：\nAgent 和一个&quot;带插件的大模型&quot;到底有什么本质区别？为什么不能把&quot;会调工具&quot;等同于&quot;是 Agent&quot;？ 普通大模型有哪三大不可逾越的局限？Agent 又是用哪三大能力去突破它们的？ Workflow、Agent、Tools 这三个常被混用的词，到底谁在做&quot;下一步该干什么&quot;的决策？为什么 Anthropic 说&quot;能用 Workflow 解决的问题，就不要用 Agent&quot;？ ReAct、Plan-and-Execute、Reflection 三种设计范式各自解决什么层次的问题？什么时候该单独用、什么时候该组合用？ 一个 5 步的任务，ReAct 和 Plan-and-Execute 的 token 消耗为什么能差一倍以上？背后的输入增长机制是什么？ 短期记忆、长期记忆、实体记忆到底有什么不同？为什么&quot;记忆粒度不是越细越好&quot;？ CoT → ToT → GoT 的演进逻辑是什么？为什么 GoT 在生产环境几乎见不到？ 反思机制为什么必须设&quot;最大 2-3 轮&quot;的硬性上限？为什么多 Agent 互评往往比自我反思更有效？ 什么情况下该&quot;手搓 Agent&quot;而不是用框架？&ldquo;核心手写、周边借用&quot;的折中方案为什么最务实？ Single-Agent 力不从心的三类任务是什么？为什么生产环境几乎都选 Orchestrator 中心化模式，而不用去中心化？ 引言：Agent 是 AI 工程的终极形态\r过去两年，我们见证了 AI 从&quot;能聊天&quot;到&quot;能做事&quot;的跃迁。这个跃迁的标志，就是 Agent（智能体）。\n如果你把大语言模型（LLM）比作一个&quot;读过万卷书但只会动嘴的书生&rdquo;——它能告诉你怎么做，却从不会真的去做；那么 Agent 就是给这个书生装上了&quot;手脚&quot;（工具调用）、&ldquo;档案室&rdquo;（记忆）和&quot;项目经理&quot;（规划模块），让它真正成为一个能自主完成目标的&quot;行动派&quot;。\n一句话概括 Agent 的本质：自主闭环——感知目标 → 规划步骤 → 调用工具行动 → 观察结果 → 再感知再规划，如此循环直到任务完成。\n">
+    </head>
+    <body class="
+    article-page
+    ">
+    <script>
+        (function() {
+            const colorSchemeKey = 'StackColorScheme';
+            if(!localStorage.getItem(colorSchemeKey)){
+                localStorage.setItem(colorSchemeKey, "auto");
+            }
+        })();
+    </script><script>
+    (function() {
+        const colorSchemeKey = 'StackColorScheme';
+        const colorSchemeItem = localStorage.getItem(colorSchemeKey);
+        const supportDarkMode = window.matchMedia('(prefers-color-scheme: dark)').matches === true;
+
+        if (colorSchemeItem == 'dark' || colorSchemeItem === 'auto' && supportDarkMode) {
+            
+
+            document.documentElement.dataset.scheme = 'dark';
+        } else {
+            document.documentElement.dataset.scheme = 'light';
+        }
+    })();
+</script>
+<div class="container main-container flex on-phone--column compact"><aside class="sidebar left-sidebar sticky ">
+    <button class="hamburger hamburger--spin" type="button" id="toggle-menu" aria-label="切换菜单">
+        <span class="hamburger-box">
+            <span class="hamburger-inner"></span>
+        </span>
+    </button>
+
+    <header>
+        
+            
+            <figure class="site-avatar">
+                <a href="/">
+                
+                    
+                    
+                    
+                        
+                        <img src="/img/avatar_hu_8588ce14af1147e2.png" width="300"
+                            height="286" class="site-logo" loading="lazy" alt="Avatar">
+                    
+                
+                </a>
+                
+            </figure>
+            
+        
+        
+        <div class="site-meta">
+            <h1 class="site-name"><a href="/">SelfTechHub</a></h1>
+            <h2 class="site-description"></h2>
+        </div>
+    </header><ol class="menu" id="main-menu">
+        
+        
+        <li class="menu-bottom-section">
+            <ol class="menu">
+
+                
+                    <li id="dark-mode-toggle">
+                        <svg xmlns="http://www.w3.org/2000/svg" class="icon icon-tabler icon-tabler-toggle-left" width="24" height="24" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor" fill="none" stroke-linecap="round" stroke-linejoin="round">
+  <path stroke="none" d="M0 0h24v24H0z"/>
+  <circle cx="8" cy="12" r="2" />
+  <rect x="2" y="6" width="20" height="12" rx="6" />
+</svg>
+
+
+
+                        <svg xmlns="http://www.w3.org/2000/svg" class="icon icon-tabler icon-tabler-toggle-right" width="24" height="24" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor" fill="none" stroke-linecap="round" stroke-linejoin="round">
+  <path stroke="none" d="M0 0h24v24H0z"/>
+  <circle cx="16" cy="12" r="2" />
+  <rect x="2" y="6" width="20" height="12" rx="6" />
+</svg>
+
+
+
+                        <span>暗色模式</span>
+                    </li>
+                
+            </ol>
+        </li>
+    </ol>
+</aside>
+
+    
+
+            <main class="main full-width">
+    <article class="main-article">
+    <header class="article-header">
+
+    <div class="article-details">
+    
+    <header class="article-category">
+        
+            <a href="/categories/ai.html" >
+                AI探索
+            </a>
+        
+    </header>
+    
+
+    <div class="article-title-wrapper">
+        <h2 class="article-title">
+            <a href="/ai/ai-systematization/05-Agent-Intelligent-Agent.html">Agent智能体——从概念到自主推理与行动</a>
+        </h2>
+    
+        
+    </div>
+
+    
+    
+    
+    
+    <footer class="article-time">
+        
+            <div>
+                <svg xmlns="http://www.w3.org/2000/svg" class="icon icon-tabler icon-tabler-calendar-time" width="56" height="56" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor" fill="none" stroke-linecap="round" stroke-linejoin="round">
+  <path stroke="none" d="M0 0h24v24H0z"/>
+  <path d="M11.795 21h-6.795a2 2 0 0 1 -2 -2v-12a2 2 0 0 1 2 -2h12a2 2 0 0 1 2 2v4" />
+  <circle cx="18" cy="18" r="4" />
+  <path d="M15 3v4" />
+  <path d="M7 3v4" />
+  <path d="M3 11h16" />
+  <path d="M18 16.496v1.504l1 1" />
+</svg>
+                <time class="article-time--published" datetime='2026-07-28T00:00:00Z'>Jul 28, 2026</time>
+            </div>
+        
+
+        
+            <div>
+                <svg xmlns="http://www.w3.org/2000/svg" class="icon icon-tabler icon-tabler-clock" width="24" height="24" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor" fill="none" stroke-linecap="round" stroke-linejoin="round">
+  <path stroke="none" d="M0 0h24v24H0z"/>
+  <circle cx="12" cy="12" r="9" />
+  <polyline points="12 7 12 12 15 15" />
+</svg>
+
+
+
+                <time class="article-time--reading">
+                    阅读时长: 15 分钟
+                </time>
+            </div>
+        
+    </footer>
+    
+
+    
+</div>
+
+</header>
+
+    <section class="article-content">
+    
+    
+    <h1 id="agent智能体从概念到自主推理与行动">Agent智能体——从概念到自主推理与行动
+</h1><blockquote>
+<p>本文是「AI 知识体系深度教程」系列的第五篇。如果你已经读过前面关于大语言模型、RAG、工具调用与框架的章节，那么本文正是这些知识的&quot;集大成&quot;——Agent 把它们融为一个能自主闭环的完整系统。如果你是直接跳到这一篇的初学者，也不必担心，我们会从最本质的概念讲起，逐步带你走到多 Agent 协作和高级设计。</p>
+</blockquote>
+<hr>
+<h2 id="核心问题列表">核心问题列表
+</h2><p>在进入正文之前，请带着下面这些问题阅读本文。它们贯穿全文，也是工程实践中最常被问到的&quot;灵魂拷问&quot;：</p>
+<ol>
+<li>Agent 和一个&quot;带插件的大模型&quot;到底有什么本质区别？为什么不能把&quot;会调工具&quot;等同于&quot;是 Agent&quot;？</li>
+<li>普通大模型有哪三大不可逾越的局限？Agent 又是用哪三大能力去突破它们的？</li>
+<li>Workflow、Agent、Tools 这三个常被混用的词，到底谁在做&quot;下一步该干什么&quot;的决策？为什么 Anthropic 说&quot;能用 Workflow 解决的问题，就不要用 Agent&quot;？</li>
+<li>ReAct、Plan-and-Execute、Reflection 三种设计范式各自解决什么层次的问题？什么时候该单独用、什么时候该组合用？</li>
+<li>一个 5 步的任务，ReAct 和 Plan-and-Execute 的 token 消耗为什么能差一倍以上？背后的输入增长机制是什么？</li>
+<li>短期记忆、长期记忆、实体记忆到底有什么不同？为什么&quot;记忆粒度不是越细越好&quot;？</li>
+<li>CoT → ToT → GoT 的演进逻辑是什么？为什么 GoT 在生产环境几乎见不到？</li>
+<li>反思机制为什么必须设&quot;最大 2-3 轮&quot;的硬性上限？为什么多 Agent 互评往往比自我反思更有效？</li>
+<li>什么情况下该&quot;手搓 Agent&quot;而不是用框架？&ldquo;核心手写、周边借用&quot;的折中方案为什么最务实？</li>
+<li>Single-Agent 力不从心的三类任务是什么？为什么生产环境几乎都选 Orchestrator 中心化模式，而不用去中心化？</li>
+</ol>
+<hr>
+<h2 id="引言agent-是-ai-工程的终极形态">引言：Agent 是 AI 工程的终极形态
+</h2><p>过去两年，我们见证了 AI 从&quot;能聊天&quot;到&quot;能做事&quot;的跃迁。这个跃迁的标志，就是 <strong>Agent（智能体）</strong>。</p>
+<p>如果你把大语言模型（LLM）比作一个&quot;读过万卷书但只会动嘴的书生&rdquo;——它能告诉你怎么做，却从不会真的去做；那么 Agent 就是给这个书生装上了&quot;手脚&quot;（工具调用）、&ldquo;档案室&rdquo;（记忆）和&quot;项目经理&quot;（规划模块），让它真正成为一个能自主完成目标的&quot;行动派&quot;。</p>
+<p>一句话概括 Agent 的本质：<strong>自主闭环</strong>——感知目标 → 规划步骤 → 调用工具行动 → 观察结果 → 再感知再规划，如此循环直到任务完成。</p>
+<p>这个&quot;闭环&quot;二字，是理解 Agent 全部设计的钥匙。本文会从概念本质出发，一路讲到核心架构、设计范式、记忆机制、规划与反思，最后落到多 Agent 系统与工程落地。无论你是想建立第一印象的初学者，还是想掌握多 Agent 协作与高级设计的工程师，都能在这篇文章里找到你需要的那一层。</p>
+<hr>
+<h2 id="第一章agent-的本质">第一章：Agent 的本质
+</h2><h3 id="11-什么是-agent与大模型的本质不同">1.1 什么是 Agent？与大模型的本质不同
+</h3><p>很多人第一次接触 Agent 时会问：它和 ChatGPT 这种大模型有什么区别？不就是给大模型加了几个插件吗？</p>
+<p><strong>不是。</strong> 这是最常见的误解。两者的本质区别可以用一个词概括：<strong>自主性</strong>。</p>
+<ul>
+<li><strong>大模型</strong>：本质是一个文本生成器。你给它一段输入，它生成一段输出，交互到此结束。它不会主动决定&quot;我下一步要不要去查个资料&quot;&ldquo;我要不要发封邮件&rdquo;，它只会告诉你&quot;你可以这样查&quot;&ldquo;你可以那样发&rdquo;。</li>
+<li><strong>Agent</strong>：能自主完成目标的 AI 系统。它自己决定<strong>用不用工具、何时用、用哪个</strong>，自己决定<strong>下一步干什么</strong>，自己决定<strong>任务算不算完成</strong>。大模型是被动的应答器，Agent 是主动的行动者。</li>
+</ul>
+<p>用一个生活中的类比：大模型像一个百科全书式的电话客服，你问它答，挂了电话就忘；Agent 像一个能干的私人助理，你给个目标&quot;帮我订下周二去上海的出差&quot;，它会自己去查航班、订酒店、发起报销流程、把结果汇报给你，中途遇到航班取消还会自己改签。</p>
+<h3 id="12-普通大模型的三大局限">1.2 普通大模型的三大局限
+</h3><p>要真正理解 Agent，必须先看清它要解决的大模型三大局限。这三大局限是&quot;结构性&quot;的，不是靠 prompt 调优就能绕过的：</p>
+<p><strong>局限一：知识被冻结。</strong>
+大模型的训练数据有截止日期。你问它&quot;今天杭州天气怎么样&quot;&ldquo;苹果公司最新一季营收多少&rdquo;，它要么编一个（幻觉），要么老实承认&quot;我的知识截止到……&quot;。它无法获取任何实时信息，因为它的&quot;知识&quot;在训练完成那一刻就被冻结了。</p>
+<p><strong>局限二：不能行动。</strong>
+大模型本质是文本生成器。它能用文字详细描述&quot;如何发一封邮件&quot;&ldquo;如何查一个数据库&quot;&ldquo;如何执行一段 Python 代码&rdquo;，但它自己一个都做不到。它只会告诉你&quot;怎么做&rdquo;，自己从不真的去做。它没有连接真实世界的手脚。</p>
+<p><strong>局限三：没有持续状态。</strong>
+大模型每次调用之间是完全失忆的。你上一轮告诉它&quot;我是做金融的&quot;，下一轮它不记得，除非你把上下文重新传一遍。它没有&quot;记忆&quot;这个概念，无法跨任务、跨会话积累对你的了解。</p>
+<p>这三大局限，构成了 Agent 诞生的&quot;问题驱动&quot;。Agent 的三大核心能力，正是逐一对应去突破它们。</p>
+<h3 id="13-agent-的三大核心能力">1.3 Agent 的三大核心能力
+</h3><p><strong>能力一：工具调用（Tool Use）——让 Agent 从&quot;说话&quot;变成&quot;做事&quot;。</strong></p>
+<p>这是突破&quot;知识冻结&quot;和&quot;不能行动&quot;的关键。给 Agent 接上搜索引擎，它就能获取实时信息；接上邮件 API，它就能真正发邮件；接上代码执行器，它就能真正跑代码。</p>
+<p>这里有一个贯穿全文的核心设计哲学，务必牢记：<strong>决策和执行分离</strong>。模型只是&quot;大脑&quot;，负责决定<strong>调什么工具、填什么参数</strong>；真正执行工具的是你的<strong>代码</strong>，执行结果再反馈给模型。模型从不亲自&quot;动手&quot;，它只下指令。</p>
+<pre tabindex="0"><code>┌──────────────────────────────────────────────────────┐
+│            决策与执行分离（Agent 核心哲学）            │
+├──────────────────────────────────────────────────────┤
+│                                                      │
+│   LLM（大脑）          你的代码（手脚）               │
+│   ┌─────────┐         ┌──────────────┐               │
+│   │ 决定调   │ ──JSON─▶│ 解析参数     │               │
+│   │ 什么工具 │         │ 真正执行工具 │               │
+│   │ 填什么参 │         │ 返回结果     │               │
+│   └─────────┘ ◀───────└──────────────┘               │
+│      决策者                 执行者                   │
+│   （只动脑不动手）      （真正与外部世界交互）          │
+└──────────────────────────────────────────────────────┘
+</code></pre><p><strong>能力二：记忆机制——突破&quot;没有持续状态&quot;。</strong></p>
+<ul>
+<li><strong>短期记忆</strong>：当前任务进行中的中间状态，存在 context window（上下文窗口）里。任务结束就清空，像一个用完即擦的工作台。</li>
+<li><strong>长期记忆</strong>：跨任务的用户偏好、历史决策、做事方法论，存在向量数据库里，靠语义检索调取。像一个越攒越厚的档案室。</li>
+</ul>
+<p>有了记忆，Agent 就不再是&quot;每次都从零开始的失忆者&quot;，而是&quot;能记住你、记住上次怎么解决问题的老手&quot;。</p>
+<p><strong>能力三：多步推理与自我纠错——让 Agent 真正&quot;自主&quot;。</strong></p>
+<p>这是 Agent 区别于&quot;插件大模型&quot;的最关键一点。某个步骤失败了，Agent 不会直接崩掉——它能<strong>感知失败、分析原因、换一种方式重试</strong>。它能&quot;边做边反思&quot;，根据中途的观察动态调整后续计划。</p>
+<p>正是这第三点，让 Agent 从&quot;会调工具的模型&quot;升级为&quot;能自主闭环的系统&quot;。一个只会按预设顺序调工具的程序不是 Agent；一个能自己决定下一步、并在出错时自己纠偏的，才是。</p>
+<h3 id="14-agent-爆发的三个条件">1.4 Agent 爆发的三个条件
+</h3><p>Agent 这个概念其实提出得很早，但为什么直到 2023-2024 年才真正&quot;爆发&quot;？因为三个条件必须<strong>同时</strong>成熟，缺一不可：</p>
+<ol>
+<li>
+<p><strong>大模型能力跨过&quot;能用&quot;门槛</strong>：GPT-4、Claude 3 这一代模型在推理能力和指令遵循能力上发生了质变。再早的模型，给它工具它也用不明白——参数填不对、该调的时候不调、不该调的时候乱调。只有当模型&quot;聪明到能正确决策&quot;时，Agent 才有意义。</p>
+</li>
+<li>
+<p><strong>工具调用标准化</strong>：2023 年 OpenAI 推出 Function Calling，让模型能输出结构化的 JSON 来表达&quot;我要调这个工具、参数是这些&quot;，而不是靠解析自由文本（早期 ReAct 靠正则解析 <code>Action: xxx</code>，极不稳定）。标准化让&quot;决策和执行分离&quot;真正可靠落地。</p>
+</li>
+<li>
+<p><strong>配套生态完善</strong>：LangChain/LlamaIndex 这类框架大幅降低了开发门槛，向量数据库（Chroma、Pinecone、Milvus 等）解决了长期记忆的存储与检索问题。没有这些&quot;脚手架&quot;，从零搭一个 Agent 的工程成本会劝退绝大多数团队。</p>
+</li>
+</ol>
+<p>近年来还有两大协议在推动生态标准化：<strong>MCP</strong>（Model Context Protocol，Anthropic 2024 年底提出，解决&quot;Agent 怎么调工具&quot;，是工具世界的&quot;USB-C 接口&quot;）和 <strong>A2A</strong>（Agent2Agent，Google 2025 年 4 月提出，解决&quot;Agent 之间怎么协作&quot;）。两者互补：MCP 管 Agent 与工具的连接，A2A 管 Agent 与 Agent 的通信。两者均已捐给 Linux 基金会，走向开放标准。</p>
+<h3 id="15-一个关键词自主闭环">1.5 一个关键词：自主闭环
+</h3><p>如果这一章只能记住一个词，那就是<strong>自主闭环</strong>。</p>
+<pre tabindex="0"><code>        ┌────────────────────────────────┐
+        │                                ▼
+     感知目标 ──▶ 规划步骤 ──▶ 行动(调工具) ──▶ 观察结果
+                                              │
+                                              ▼
+                                        再感知再规划
+                                        (动态调整)
+</code></pre><ul>
+<li><strong>感知</strong>：理解用户目标和当前环境（包括工具返回的结果）。</li>
+<li><strong>规划</strong>：把复杂目标拆解成可执行的步骤。</li>
+<li><strong>行动</strong>：调用工具，与外部世界真实交互。</li>
+<li><strong>再感知</strong>：把行动结果反馈回来，判断是否需要调整计划。</li>
+</ul>
+<p>这四个环节首尾相连、循环往复，就是 Agent 的&quot;心跳&quot;。任何一环缺失，都不是完整的 Agent。</p>
+<blockquote>
+<p><strong>实践要点</strong></p>
+<ul>
+<li>判断一个系统是不是 Agent，看三点：①能否自主规划多步；②能否通过工具与真实世界交互；③结果能否反馈形成闭环。三者缺一不可。</li>
+<li>永远记住&quot;模型只是大脑，执行靠代码&quot;——这是排查一切 Agent bug 的第一原则。</li>
+<li>别把 Agent 等同于&quot;插件&quot;或&quot;工具调用&quot;。工具调用只是 Agent 能力的一部分，自主性才是它的灵魂。</li>
+</ul>
+</blockquote>
+<hr>
+<h2 id="第二章agent-核心架构">第二章：Agent 核心架构
+</h2><h3 id="21-四大核心组件">2.1 四大核心组件
+</h3><p>如果把 Agent 比作一家公司，它有四大核心组件，各司其职：</p>
+<div class="table-wrapper"><table>
+  <thead>
+      <tr>
+          <th>组件</th>
+          <th>公司角色</th>
+          <th>职责</th>
+      </tr>
+  </thead>
+  <tbody>
+      <tr>
+          <td><strong>LLM（大模型）</strong></td>
+          <td>老板/大脑</td>
+          <td>理解任务、做决策、生成自然语言</td>
+      </tr>
+      <tr>
+          <td><strong>工具系统</strong></td>
+          <td>外包执行团队</td>
+          <td>与外部世界交互（搜索、发邮件、执行代码…）</td>
+      </tr>
+      <tr>
+          <td><strong>记忆系统</strong></td>
+          <td>档案室</td>
+          <td>保持状态、跨任务积累经验</td>
+      </tr>
+      <tr>
+          <td><strong>规划模块</strong></td>
+          <td>项目经理</td>
+          <td>把复杂目标拆解成步骤、动态调整计划</td>
+      </tr>
+  </tbody>
+</table></div>
+<p><strong>LLM 核心</strong>是整个系统的决策中枢。所有输入——用户指令、工具返回、记忆内容——都经过 LLM 理解和决策。其中 <strong>System Prompt</strong>（系统提示词）相当于 Agent 的&quot;岗位说明书&quot;，定义它的角色、行为边界和输出格式。在实际开发中，调优 System Prompt 占据了相当大的开发时间比例。</p>
+<p>模型选择有一个重要权衡：<strong>大模型做核心决策，小模型做简单任务</strong>。比如用 GPT-4 / Claude Opus 做规划和关键判断，用 GPT-4o-mini / 开源 7B 模型做意图分类、格式提取这类简单活，是常见的成本优化手段。工具调用的稳定性、上下文窗口大小，也是选型时的硬性考量。</p>
+<p><strong>工具系统</strong>是 Agent 与外部世界交互的唯一入口。一个关键细节：工具定义只有&quot;名字、描述、参数说明&quot;，<strong>没有执行逻辑</strong>——执行逻辑在你自己的代码里。工具描述的质量直接影响 Agent 表现：description 写得含糊，模型就会误调或漏调。好工具设计有四原则：职责单一、描述精确、错误信息清晰、参数设计简洁。</p>
+<p><strong>记忆系统</strong>分几个层次（详见第五章），最基本的两层是：短期记忆（context window，任务结束清空）和长期记忆（向量数据库，跨任务持久）。</p>
+<p><strong>规划模块</strong>负责把复杂目标拆解成步骤，并能在执行中动态调整。提升 LLM 推理能力的技术手段从简单到复杂有 CoT（思维链）、ToT（思维树）、GoT（思维图），工程上更常用的是 Plan-and-Execute（先规划后执行）。</p>
+<h3 id="22-workflow--agent--tools-三层概念区分">2.2 Workflow / Agent / Tools 三层概念区分
+</h3><p>这三个词在日常讨论里经常被混用，但它们其实是<strong>粒度从小到大的三层结构，可相互嵌套</strong>。区分它们最核心的角度只有一个：<strong>谁来做&quot;下一步该干什么&quot;的决策？</strong></p>
+<pre tabindex="0"><code>┌─────────────────────────────────────────────────────────┐
+│  三层结构：粒度从小到大，可相互嵌套                       │
+│                                                         │
+│   Tools（最小能力积木）                                  │
+│   ├─ 本质：按特定格式暴露给 LLM 的函数                   │
+│   ├─ 不做决策，只执行，甚至不知道自己&#34;应该&#34;何时被用      │
+│   └─ 像瑞士军刀的刀片，决定拿哪个的是拿着刀的手(Agent)   │
+│                                                         │
+│   Agent（拿工具自己做决定的人）                          │
+│   ├─ Agent = 拿着工具、自己决定用哪个的角色              │
+│   ├─ 运行方式：Thought→Action→Observation 循环          │
+│   ├─ while True 跑几次开发者完全不知道                   │
+│   └─ 执行路径由 LLM 实时决定                            │
+│                                                         │
+│   Workflow（总指挥）                                     │
+│   ├─ 把整个流程&#34;骨架&#34;写在代码里                         │
+│   ├─ LLM/Agent/Tools 都是节点                           │
+│   └─ &#34;下一步去哪&#34;全由开发者代码(if/elif)决定            │
+└─────────────────────────────────────────────────────────┘
+</code></pre><ul>
+<li><strong>Tools</strong>：最小的能力积木。本身<strong>无决策能力</strong>，甚至不知道自己&quot;应该&quot;何时被用。它只是按特定格式暴露给 LLM 的函数（配 schema：名字、描述、参数类型）。</li>
+<li><strong>Agent</strong>：拿着工具、自己决定用哪个的角色。运行方式是一个循环：想清楚（Thought）→ 行动（Action）→ 看结果（Observation）→ 再想清楚 → 再行动，直到 LLM 判断完成。<code>while True</code> 循环跑几次，开发者完全不知道——执行路径由 LLM 实时决定。</li>
+<li><strong>Workflow</strong>：把整个执行流程的&quot;骨架&quot;写在代码里，LLM/Agent/Tools 都是节点，<strong>下一步去哪全由开发者代码决定</strong>。LLM 只是流程里的一个&quot;工位&quot;，接下来去哪由 <code>if/elif</code> 控制。</li>
+</ul>
+<p><strong>三者对比表：</strong></p>
+<div class="table-wrapper"><table>
+  <thead>
+      <tr>
+          <th>维度</th>
+          <th>Tools</th>
+          <th>Agent</th>
+          <th>Workflow</th>
+      </tr>
+  </thead>
+  <tbody>
+      <tr>
+          <td>决策能力</td>
+          <td>无（只执行）</td>
+          <td>有（LLM 自主决策）</td>
+          <td>无（代码写死）</td>
+      </tr>
+      <tr>
+          <td>执行方式</td>
+          <td>被动等待</td>
+          <td>主动循环至完成</td>
+          <td>按定义顺序执行</td>
+      </tr>
+      <tr>
+          <td>确定性</td>
+          <td>高</td>
+          <td>低（同输入可能不同路径）</td>
+          <td>高</td>
+      </tr>
+      <tr>
+          <td>灵活性</td>
+          <td>只做一件事</td>
+          <td>高（应对预料外情况）</td>
+          <td>低</td>
+      </tr>
+      <tr>
+          <td>调试难度</td>
+          <td>容易</td>
+          <td>难（路径不确定）</td>
+          <td>容易（链路清晰）</td>
+      </tr>
+      <tr>
+          <td>适用场景</td>
+          <td>封装单一能力</td>
+          <td>路径未知的复杂任务</td>
+          <td>流程固定的业务系统</td>
+      </tr>
+  </tbody>
+</table></div>
+<h3 id="23-agent-vs-workflow-的本质区别">2.3 Agent vs Workflow 的本质区别
+</h3><p>这是工程中最常被问到的辨析。一句话：<strong>Workflow 是确定性流程图，每步硬编码；Agent 把&quot;下一步做什么&quot;的决策权交给 LLM。</strong></p>
+<p>代码结构上的对比最直观：</p>
+<div class="highlight"><pre tabindex="0" style="color:#f8f8f2;background-color:#272822;-moz-tab-size:4;-o-tab-size:4;tab-size:4;"><code class="language-python" data-lang="python"><span style="display:flex;"><span><span style="color:#75715e"># Workflow：每行都是明确指令，&#34;下一步去哪&#34;由代码决定</span>
+</span></span><span style="display:flex;"><span><span style="color:#66d9ef">def</span> <span style="color:#a6e22e">workflow_run</span>(input):
+</span></span><span style="display:flex;"><span>    category <span style="color:#f92672">=</span> llm_classify(input)       <span style="color:#75715e"># LLM 只做分类</span>
+</span></span><span style="display:flex;"><span>    <span style="color:#66d9ef">if</span> category <span style="color:#f92672">==</span> <span style="color:#e6db74">&#34;refund&#34;</span>:
+</span></span><span style="display:flex;"><span>        result <span style="color:#f92672">=</span> handle_refund(input)     <span style="color:#75715e"># 代码决定走退款分支</span>
+</span></span><span style="display:flex;"><span>    <span style="color:#66d9ef">elif</span> category <span style="color:#f92672">==</span> <span style="color:#e6db74">&#34;consult&#34;</span>:
+</span></span><span style="display:flex;"><span>        result <span style="color:#f92672">=</span> handle_consult(input)    <span style="color:#75715e"># 代码决定走咨询分支</span>
+</span></span><span style="display:flex;"><span>    <span style="color:#66d9ef">return</span> result
+</span></span><span style="display:flex;"><span>
+</span></span><span style="display:flex;"><span><span style="color:#75715e"># Agent：loop 里只有 llm.decide()，&#34;下一步做什么&#34;由 LLM 决定</span>
+</span></span><span style="display:flex;"><span><span style="color:#66d9ef">def</span> <span style="color:#a6e22e">agent_run</span>(goal):
+</span></span><span style="display:flex;"><span>    history <span style="color:#f92672">=</span> []
+</span></span><span style="display:flex;"><span>    <span style="color:#66d9ef">for</span> _ <span style="color:#f92672">in</span> range(max_steps):
+</span></span><span style="display:flex;"><span>        decision <span style="color:#f92672">=</span> llm<span style="color:#f92672">.</span>decide(goal, history)   <span style="color:#75715e"># LLM 决定下一步</span>
+</span></span><span style="display:flex;"><span>        <span style="color:#66d9ef">if</span> decision<span style="color:#f92672">.</span>is_final:
+</span></span><span style="display:flex;"><span>            <span style="color:#66d9ef">return</span> decision<span style="color:#f92672">.</span>answer
+</span></span><span style="display:flex;"><span>        result <span style="color:#f92672">=</span> tools<span style="color:#f92672">.</span>execute(decision<span style="color:#f92672">.</span>action)
+</span></span><span style="display:flex;"><span>        history<span style="color:#f92672">.</span>append(result)
+</span></span></code></pre></div><ul>
+<li><strong>Workflow 的优点</strong>：可预测、可控、好调试。缺点是灵活性低，遇到预料外的情况容易失败。</li>
+<li><strong>Agent 的优点</strong>：能处理没设计过的情况，灵活。缺点是行为不确定、难复现。</li>
+</ul>
+<p>正因为两者各有优劣，生产环境的主流是 <strong>Agentic Workflow（智能体工作流）</strong>：用 Workflow 固定主流程骨架，需要灵活判断的节点嵌入 Agent，其余固定节点用 LLM/Tools。Anthropic 有一个著名的工程原则：<strong>能用 Workflow 解决的问题，就不要用 Agent</strong>——因为可控性比灵活性更重要。先从最简单的 Workflow 开始，发现某个节点确实需要灵活决策，才把它升级为 Agent。</p>
+<p>Anthropic 总结了几种主流 Workflow 编排模式，值得了解：</p>
+<div class="table-wrapper"><table>
+  <thead>
+      <tr>
+          <th>模式</th>
+          <th>说明</th>
+      </tr>
+  </thead>
+  <tbody>
+      <tr>
+          <td>Prompt Chaining（提示链）</td>
+          <td>前一步输出作为后一步输入，流水线串联</td>
+      </tr>
+      <tr>
+          <td>Routing（路由）</td>
+          <td>LLM 分类 → 分发到不同分支</td>
+      </tr>
+      <tr>
+          <td>Parallelization（并行化）</td>
+          <td>子任务并行执行，最后汇总</td>
+      </tr>
+      <tr>
+          <td>Orchestrator-Workers</td>
+          <td>中央编排者分配，多 Worker 各自完成</td>
+      </tr>
+      <tr>
+          <td>Evaluator-Optimizer</td>
+          <td>生成者产出 → 评估者审查 → 不通过反馈重做</td>
+      </tr>
+  </tbody>
+</table></div>
+<h3 id="24-决策和执行分离的设计哲学">2.4 决策和执行分离的设计哲学
+</h3><p>这条原则贯穿 Agent 设计的方方面面，值得单独强调。</p>
+<p>为什么要把&quot;决策&quot;和&quot;执行&quot;分开？因为<strong>模型的强项是理解和判断，代码的强项是可靠执行</strong>。让模型去&quot;想&quot;该做什么，让代码去&quot;做&quot;具体的事，两者各司其职：</p>
+<ul>
+<li>模型决定<strong>调什么工具、填什么参数</strong>（决策）</li>
+<li>代码负责<strong>真正调用 API、执行函数、返回结果</strong>（执行）</li>
+<li>结果再回到模型，由模型决定<strong>下一步怎么办</strong>（再决策）</li>
+</ul>
+<p>这种分离带来了巨大的工程好处：工具的实现可以独立优化、独立测试，不依赖模型的稳定性；模型可以换（GPT-4 换 Claude），只要决策逻辑不变，工具代码一行都不用改。这也是为什么 MCP 协议能成立——它标准化的正是&quot;决策（模型）&ldquo;和&quot;执行（工具 Server）&ldquo;之间的接口。</p>
+<blockquote>
+<p><strong>实践要点</strong></p>
+<ul>
+<li>看到任何 Agent 实现，第一件事就是问自己：&ldquo;这个系统里，谁在做&rsquo;下一步该干什么&rsquo;的决策？&quot;——这决定了它是 Workflow、Agent 还是 Agentic Workflow。</li>
+<li>生产环境优先用 Agentic Workflow（骨架固定 + 关键节点嵌 Agent），不要一上来就上纯 Agent。</li>
+<li>工具描述写得越精确，Agent 越不容易误调。把工具当产品来设计，description 当产品说明书来写。</li>
+<li>Agent 必须有停止条件：LLM 主动判断完成、最大循环次数（如 15 轮）、总 token 预算上限、超时机制（如 60 秒），通常多个机制同时存在，哪个先触发用哪个。</li>
+</ul>
+</blockquote>
+<hr>
+<h2 id="第三章agent-设计范式">第三章：Agent 设计范式
+</h2><h3 id="31-为什么需要不同的设计范式">3.1 为什么需要不同的设计范式
+</h3><p>设计范式，就是搭 Agent 的&quot;顶层做事流程框架&rdquo;，类比公司的管理制度。不同的任务有不同的特征——有的简单、有的复杂、有的路径明确、有的需要高质量输出——用一套流程硬套所有任务，要么浪费成本，要么做不好。</p>
+<p>Agent 有三种主流设计范式：<strong>ReAct</strong>（推理与行动交替）、<strong>Plan-and-Execute</strong>（先规划后执行）、<strong>Reflection</strong>（反思驱动改进）。需要特别注意的是，<strong>三者不是互斥的平行选项</strong>：Reflection 不是独立流程，而是叠加在前两者之上的&quot;质量 buff&rdquo;；实际工程中三者常常混合使用。</p>
+<p>先看一个总览，理解三者各解决什么层次的问题：</p>
+<div class="table-wrapper"><table>
+  <thead>
+      <tr>
+          <th>范式</th>
+          <th>解决的问题</th>
+          <th>定位</th>
+          <th>类比</th>
+      </tr>
+  </thead>
+  <tbody>
+      <tr>
+          <td>ReAct</td>
+          <td>单步灵活性</td>
+          <td>边想边干，走一步看一步</td>
+          <td>外卖骑手实时导航</td>
+      </tr>
+      <tr>
+          <td>Plan-and-Execute</td>
+          <td>长任务跑偏</td>
+          <td>先想全再干，全局视野</td>
+          <td>项目经理先排计划</td>
+      </tr>
+      <tr>
+          <td>Reflection</td>
+          <td>输出质量不够</td>
+          <td>给前两者加&quot;检查 buff&rdquo;</td>
+          <td>考试做完回头检查</td>
+      </tr>
+  </tbody>
+</table></div>
+<h3 id="32-reactreasoning--acting推理与行动交替">3.2 ReAct（Reasoning + Acting）：推理与行动交替
+</h3><h4 id="完整的-thought--action--observation-循环">完整的 Thought → Action → Observation 循环
+</h4><p>ReAct（2022 年由 Yao 等人提出）的核心思想是：在 CoT（思维链）的推理过程里，插入真实的&quot;行动&quot;。每一轮循环是：</p>
+<pre tabindex="0"><code>Thought（思考）→ Action（行动）→ Observation（观察）→ 再 Thought ...
+</code></pre><ul>
+<li><strong>Thought</strong>：先分析当前情况，决定下一步该做什么。这一步防止&quot;冲动决策&quot;——不先想就乱调工具。</li>
+<li><strong>Action</strong>：根据思考结果，调用一个工具（或给出最终答案）。</li>
+<li><strong>Observation</strong>：工具返回的结果，作为下一轮思考的事实依据。</li>
+</ul>
+<p>循环往复，直到 LLM 判断任务完成，输出 <code>Final Answer</code>。</p>
+<p>为什么不能只用 CoT（纯推理）或只用 Act-only（纯行动）？</p>
+<ul>
+<li><strong>纯 CoT</strong>：只在脑子里推，拿不到真实数据，容易产生幻觉（它&quot;想&quot;出来的&quot;事实&quot;可能是编的）。</li>
+<li><strong>纯 Act-only</strong>：不写思考过程，动作序列脆弱——一步错全跑偏。研究显示在 HotpotQA 等任务上准确率明显更低。</li>
+<li><strong>ReAct</strong>：把推理和行动交织——Thought 定方向，Action 落地，Observation 带回事实，三者闭环互补。</li>
+</ul>
+<h4 id="react-的实现细节">ReAct 的实现细节
+</h4><p>理解 ReAct 实现最关键的一点：<strong>循环不是 LLM 自己转的，是代码驱动的</strong>。LLM 每次只做一件事——根据历史输出下一步的 Thought + Action。代码负责：检测输出、判断有没有 Final Answer、解析 Action、执行工具、把 Observation 填回历史、再次调用 LLM。</p>
+<p>ReAct 的经典 prompt 格式：</p>
+<pre tabindex="0"><code>Thought: 你的思考过程
+Action: 工具名称
+Action Input: 工具输入参数
+Observation: （系统填入工具结果）
+... 可重复多轮 ...
+Final Answer: 最终答案
+</code></pre><p>完整的 ReAct 实现代码：</p>
+<div class="highlight"><pre tabindex="0" style="color:#f8f8f2;background-color:#272822;-moz-tab-size:4;-o-tab-size:4;tab-size:4;"><code class="language-python" data-lang="python"><span style="display:flex;"><span><span style="color:#66d9ef">def</span> <span style="color:#a6e22e">react_agent</span>(question, tools, max_steps<span style="color:#f92672">=</span><span style="color:#ae81ff">10</span>):
+</span></span><span style="display:flex;"><span>    <span style="color:#e6db74">&#34;&#34;&#34;
+</span></span></span><span style="display:flex;"><span><span style="color:#e6db74">    ReAct Agent 的核心实现。
+</span></span></span><span style="display:flex;"><span><span style="color:#e6db74">    关键理解：循环由代码驱动，LLM 每次只输出一步 Thought+Action。
+</span></span></span><span style="display:flex;"><span><span style="color:#e6db74">    &#34;&#34;&#34;</span>
+</span></span><span style="display:flex;"><span>    prompt <span style="color:#f92672">=</span> build_react_prompt(question, tools)
+</span></span><span style="display:flex;"><span>    history <span style="color:#f92672">=</span> []  <span style="color:#75715e"># 短期记忆：记录每一步的思考和观察</span>
+</span></span><span style="display:flex;"><span>
+</span></span><span style="display:flex;"><span>    <span style="color:#66d9ef">for</span> step <span style="color:#f92672">in</span> range(max_steps):
+</span></span><span style="display:flex;"><span>        <span style="color:#75715e"># 1. 调用 LLM，让它基于历史输出下一步</span>
+</span></span><span style="display:flex;"><span>        response <span style="color:#f92672">=</span> llm<span style="color:#f92672">.</span>generate(prompt <span style="color:#f92672">+</span> <span style="color:#e6db74">&#34;</span><span style="color:#ae81ff">\n</span><span style="color:#e6db74">&#34;</span><span style="color:#f92672">.</span>join(history))
+</span></span><span style="display:flex;"><span>
+</span></span><span style="display:flex;"><span>        <span style="color:#75715e"># 2. 检查是否给出最终答案</span>
+</span></span><span style="display:flex;"><span>        <span style="color:#66d9ef">if</span> <span style="color:#e6db74">&#34;Final Answer:&#34;</span> <span style="color:#f92672">in</span> response:
+</span></span><span style="display:flex;"><span>            <span style="color:#66d9ef">return</span> response<span style="color:#f92672">.</span>split(<span style="color:#e6db74">&#34;Final Answer:&#34;</span>)[<span style="color:#f92672">-</span><span style="color:#ae81ff">1</span>]<span style="color:#f92672">.</span>strip()
+</span></span><span style="display:flex;"><span>
+</span></span><span style="display:flex;"><span>        <span style="color:#75715e"># 3. 解析出 Action 和参数（决策）</span>
+</span></span><span style="display:flex;"><span>        action, action_input <span style="color:#f92672">=</span> parse_action(response)
+</span></span><span style="display:flex;"><span>        <span style="color:#66d9ef">if</span> action <span style="color:#f92672">in</span> tools:
+</span></span><span style="display:flex;"><span>            <span style="color:#75715e"># 4. 代码执行工具（执行），把结果作为 Observation</span>
+</span></span><span style="display:flex;"><span>            observation <span style="color:#f92672">=</span> tools[action](action_input)
+</span></span><span style="display:flex;"><span>        <span style="color:#66d9ef">else</span>:
+</span></span><span style="display:flex;"><span>            observation <span style="color:#f92672">=</span> <span style="color:#e6db74">f</span><span style="color:#e6db74">&#34;工具 </span><span style="color:#e6db74">{</span>action<span style="color:#e6db74">}</span><span style="color:#e6db74"> 不存在，请从可用工具中选择&#34;</span>
+</span></span><span style="display:flex;"><span>
+</span></span><span style="display:flex;"><span>        <span style="color:#75715e"># 5. 把 LLM 输出和观察结果都存入历史，供下一轮参考</span>
+</span></span><span style="display:flex;"><span>        history<span style="color:#f92672">.</span>append(response)
+</span></span><span style="display:flex;"><span>        history<span style="color:#f92672">.</span>append(<span style="color:#e6db74">f</span><span style="color:#e6db74">&#34;Observation: </span><span style="color:#e6db74">{</span>observation<span style="color:#e6db74">}</span><span style="color:#e6db74">&#34;</span>)
+</span></span><span style="display:flex;"><span>
+</span></span><span style="display:flex;"><span>    <span style="color:#66d9ef">return</span> <span style="color:#e6db74">&#34;超过最大步数，任务未完成&#34;</span>
+</span></span></code></pre></div><p>现代演进：GPT-4 / Claude 3 之后，模型原生支持 Function Calling / Tool Use，直接输出结构化 JSON，不再靠解析文本。但<strong>本质循环不变</strong>——只是&quot;行动&quot;从解析文本变成了解析 JSON。</p>
+<p>ReAct 有两个著名的坑：</p>
+<ol>
+<li><strong>循环漂移</strong>：因为没有全局计划约束，跑着跑着容易偏离目标。比如让 Agent 查苹果营收，它查着查着被&quot;三星竞争&quot;的信息吸引，跑去搜三星了。步骤越多、历史越长，漂移概率越大。</li>
+<li><strong>错误传播</strong>：每步决策建立在前面结果上，中间一步错，全链带跑偏；而且 ReAct 没有内置&quot;回头检查&quot;机制，默认 Observation 都是对的。</li>
+</ol>
+<p>根源在于：ReAct 是<strong>纯前向推理</strong>，无全局规划、无反思。这正是 Plan-and-Execute 和 Reflection 要解决的问题。</p>
+<h3 id="33-plan-and-execute先规划后执行">3.3 Plan-and-Execute：先规划后执行
+</h3><h4 id="与-react-的核心区别">与 ReAct 的核心区别
+</h4><p>ReAct 是&quot;边走边问路&quot;，Plan-and-Execute 是&quot;先看地图再出发&quot;。</p>
+<p>核心区别一句话：<strong>规划推理和执行推理完全解耦</strong>。</p>
+<ul>
+<li>ReAct：每一步都是即时决策，没有提前的全局规划。</li>
+<li>Plan-and-Execute：先由 Planner 站在全局视角输出完整步骤列表，再由 Executor 逐步执行，每步执行时始终知道自己在整体计划中的位置。</li>
+</ul>
+<p>它还有一个<strong>隐藏优势</strong>：因为规划和执行分离，可以用不同的模型——<strong>规划用强模型</strong>（GPT-4 / Claude Opus，保证方向正确），<strong>执行用便宜小模型</strong>（GPT-4o-mini / 开源 7B，只做具体执行）。这种&quot;大小模型搭配&quot;可以降低 70%-90% 的成本，是生产环境非常重要的优化手段。</p>
+<h4 id="适用场景">适用场景
+</h4><p>Plan-and-Execute 的优势在&quot;长任务、多步骤、需要全局统筹&quot;的场景：</p>
+<ul>
+<li>写一份竞品分析报告（要先调研多个竞品、再对比、再撰写）</li>
+<li>全流程的项目开发（需求分析 → 架构设计 → 编码 → 测试）</li>
+<li>多维度行业调研（并行搜集多个维度的信息再汇总）</li>
+</ul>
+<p>代价是：多了一次规划 LLM 调用，延迟成本增加；如果初始规划方向就错了，后续执行再好也难挽回。所以它有一个关键机制——<strong>动态重规划（Dynamic Replan）</strong>：每步执行完，把结果和剩余计划交给规划器，判断计划是否还适用、需不需要调整。类比导航遇到封路自动重新规划路线。</p>
+<p>完整的 Plan-and-Execute 实现代码：</p>
+<div class="highlight"><pre tabindex="0" style="color:#f8f8f2;background-color:#272822;-moz-tab-size:4;-o-tab-size:4;tab-size:4;"><code class="language-python" data-lang="python"><span style="display:flex;"><span><span style="color:#66d9ef">def</span> <span style="color:#a6e22e">plan_and_execute</span>(task, planner_llm, executor_llm, tools, max_replans<span style="color:#f92672">=</span><span style="color:#ae81ff">3</span>):
+</span></span><span style="display:flex;"><span>    <span style="color:#e6db74">&#34;&#34;&#34;
+</span></span></span><span style="display:flex;"><span><span style="color:#e6db74">    Plan-and-Execute 实现。
+</span></span></span><span style="display:flex;"><span><span style="color:#e6db74">    规划与执行解耦，支持动态重规划，支持大小模型搭配。
+</span></span></span><span style="display:flex;"><span><span style="color:#e6db74">    &#34;&#34;&#34;</span>
+</span></span><span style="display:flex;"><span>    <span style="color:#75715e"># 阶段一：Planner 生成全局计划（用强模型）</span>
+</span></span><span style="display:flex;"><span>    plan_prompt <span style="color:#f92672">=</span> <span style="color:#e6db74">f</span><span style="color:#e6db74">&#34;&#34;&#34;请为以下任务制定一个清晰的分步执行计划。
+</span></span></span><span style="display:flex;"><span><span style="color:#e6db74">    任务：</span><span style="color:#e6db74">{</span>task<span style="color:#e6db74">}</span><span style="color:#e6db74">
+</span></span></span><span style="display:flex;"><span><span style="color:#e6db74">    输出格式：编号列表，每步一个独立的原子操作。&#34;&#34;&#34;</span>
+</span></span><span style="display:flex;"><span>    plan <span style="color:#f92672">=</span> parse_plan(planner_llm<span style="color:#f92672">.</span>generate(plan_prompt))
+</span></span><span style="display:flex;"><span>
+</span></span><span style="display:flex;"><span>    results <span style="color:#f92672">=</span> {}
+</span></span><span style="display:flex;"><span>    <span style="color:#66d9ef">for</span> i, step <span style="color:#f92672">in</span> enumerate(plan):
+</span></span><span style="display:flex;"><span>        <span style="color:#75715e"># 阶段二：Executor 逐步执行（用便宜小模型，可用 ReAct）</span>
+</span></span><span style="display:flex;"><span>        execution_context <span style="color:#f92672">=</span> build_context(task, plan, results, i)
+</span></span><span style="display:flex;"><span>        result <span style="color:#f92672">=</span> execute_step_with_react(executor_llm, tools, step, execution_context)
+</span></span><span style="display:flex;"><span>        results[i] <span style="color:#f92672">=</span> result
+</span></span><span style="display:flex;"><span>
+</span></span><span style="display:flex;"><span>        <span style="color:#75715e"># 阶段三：Re-planner 检查是否需要调整计划（触发条件：执行失败/输出差异大）</span>
+</span></span><span style="display:flex;"><span>        <span style="color:#66d9ef">if</span> should_replan(result, plan):
+</span></span><span style="display:flex;"><span>            replan_context <span style="color:#f92672">=</span> <span style="color:#e6db74">f</span><span style="color:#e6db74">&#34;原计划：</span><span style="color:#e6db74">{</span>plan<span style="color:#e6db74">}</span><span style="color:#ae81ff">\n</span><span style="color:#e6db74">已执行到第</span><span style="color:#e6db74">{</span>i<span style="color:#e6db74">}</span><span style="color:#e6db74">步</span><span style="color:#ae81ff">\n</span><span style="color:#e6db74">最新结果：</span><span style="color:#e6db74">{</span>result<span style="color:#e6db74">}</span><span style="color:#e6db74">&#34;</span>
+</span></span><span style="display:flex;"><span>            plan <span style="color:#f92672">=</span> adjust_plan(planner_llm, replan_context, plan, i)
+</span></span><span style="display:flex;"><span>            <span style="color:#66d9ef">if</span> max_replans <span style="color:#f92672">&lt;=</span> <span style="color:#ae81ff">0</span>:
+</span></span><span style="display:flex;"><span>                <span style="color:#66d9ef">break</span>
+</span></span><span style="display:flex;"><span>            max_replans <span style="color:#f92672">-=</span> <span style="color:#ae81ff">1</span>
+</span></span><span style="display:flex;"><span>
+</span></span><span style="display:flex;"><span>    <span style="color:#75715e"># 阶段四：汇总各步产出，生成连贯最终结果</span>
+</span></span><span style="display:flex;"><span>    final <span style="color:#f92672">=</span> executor_llm<span style="color:#f92672">.</span>generate(<span style="color:#e6db74">f</span><span style="color:#e6db74">&#34;任务：</span><span style="color:#e6db74">{</span>task<span style="color:#e6db74">}</span><span style="color:#ae81ff">\n</span><span style="color:#e6db74">各步结果：</span><span style="color:#e6db74">{</span>results<span style="color:#e6db74">}</span><span style="color:#ae81ff">\n</span><span style="color:#e6db74">请整合为最终输出。&#34;</span>)
+</span></span><span style="display:flex;"><span>    <span style="color:#66d9ef">return</span> final
+</span></span></code></pre></div><h3 id="34-reflection反思驱动改进">3.4 Reflection：反思驱动改进
+</h3><h4 id="反思机制闭环">反思机制闭环
+</h4><p>Reflection（反思）的核心定位必须先讲清楚：<strong>它不是独立的完整流程，而是叠加在 ReAct / Plan-and-Execute 之上的增强机制</strong>。前两者的核心是&quot;把事做完&quot;，Reflection 的核心是&quot;把事做好&quot;。</p>
+<p>它的循环是：<strong>生成 → 评估 → 改进</strong>，类比&quot;草稿 → 批阅 → 修改&quot;，改完再审阅，直到通过。</p>
+<p>一个关键变体是 <strong>Reflexion</strong>（Shinn 2023）：不只说&quot;不好重做&quot;，而是生成&quot;反思总结&quot;——记录失败原因和改进建议，存进记忆，作为下次尝试（甚至下次类似任务）的上下文。类比&quot;写错题本&quot;。效果数据很亮眼：HumanEval 上 GPT-4 直接做 pass@1 是 80%，加上 Reflexion 提升到 91%，超过 10 个百分点。它被称为&quot;verbal reinforcement learning&quot;（语言强化学习）——不需要梯度更新，就能从错误中学习。代码生成天然适合 Reflexion，因为可以运行测试，执行结果是直接反馈。</p>
+<h4 id="与前两者的组合使用">与前两者的组合使用
+</h4><p>Reflection 最常见的用法是<strong>叠加</strong>：</p>
+<ul>
+<li>Plan-and-Execute 全局规划 + ReAct 单步执行 + Reflection 关键步骤把关</li>
+<li>写生产代码：Executor 写完 → Critic 审查 → 不通过则改进 → 再审查</li>
+</ul>
+<p>完整的 Reflection 实现代码：</p>
+<div class="highlight"><pre tabindex="0" style="color:#f8f8f2;background-color:#272822;-moz-tab-size:4;-o-tab-size:4;tab-size:4;"><code class="language-python" data-lang="python"><span style="display:flex;"><span><span style="color:#66d9ef">def</span> <span style="color:#a6e22e">reflection_loop</span>(task, generator_llm, critic_llm, max_rounds<span style="color:#f92672">=</span><span style="color:#ae81ff">3</span>):
+</span></span><span style="display:flex;"><span>    <span style="color:#e6db74">&#34;&#34;&#34;
+</span></span></span><span style="display:flex;"><span><span style="color:#e6db74">    Reflection 反思机制实现。
+</span></span></span><span style="display:flex;"><span><span style="color:#e6db74">    核心循环：生成 → 评估 → 改进，直到 PASS 或达到最大轮次。
+</span></span></span><span style="display:flex;"><span><span style="color:#e6db74">    &#34;&#34;&#34;</span>
+</span></span><span style="display:flex;"><span>    <span style="color:#75715e"># 初始生成</span>
+</span></span><span style="display:flex;"><span>    current_output <span style="color:#f92672">=</span> generator_llm<span style="color:#f92672">.</span>generate(<span style="color:#e6db74">f</span><span style="color:#e6db74">&#34;任务：</span><span style="color:#e6db74">{</span>task<span style="color:#e6db74">}</span><span style="color:#ae81ff">\n</span><span style="color:#e6db74">请完成。&#34;</span>)
+</span></span><span style="display:flex;"><span>
+</span></span><span style="display:flex;"><span>    <span style="color:#66d9ef">for</span> round <span style="color:#f92672">in</span> range(max_rounds):
+</span></span><span style="display:flex;"><span>        <span style="color:#75715e"># 评估：让 Critic 检查当前输出</span>
+</span></span><span style="display:flex;"><span>        eval_prompt <span style="color:#f92672">=</span> <span style="color:#e6db74">f</span><span style="color:#e6db74">&#34;&#34;&#34;任务：</span><span style="color:#e6db74">{</span>task<span style="color:#e6db74">}</span><span style="color:#e6db74">
+</span></span></span><span style="display:flex;"><span><span style="color:#e6db74">        当前输出：</span><span style="color:#e6db74">{</span>current_output<span style="color:#e6db74">}</span><span style="color:#e6db74">
+</span></span></span><span style="display:flex;"><span><span style="color:#e6db74">        请评估以上输出：
+</span></span></span><span style="display:flex;"><span><span style="color:#e6db74">        1. 有没有事实错误或逻辑问题？
+</span></span></span><span style="display:flex;"><span><span style="color:#e6db74">        2. 有没有遗漏重要内容？
+</span></span></span><span style="display:flex;"><span><span style="color:#e6db74">        3. 表达是否清晰准确？
+</span></span></span><span style="display:flex;"><span><span style="color:#e6db74">        如果输出已经足够好，回复「PASS」；
+</span></span></span><span style="display:flex;"><span><span style="color:#e6db74">        否则指出具体问题并给出改进建议。&#34;&#34;&#34;</span>
+</span></span><span style="display:flex;"><span>        reflection <span style="color:#f92672">=</span> critic_llm<span style="color:#f92672">.</span>generate(eval_prompt)
+</span></span><span style="display:flex;"><span>
+</span></span><span style="display:flex;"><span>        <span style="color:#66d9ef">if</span> <span style="color:#e6db74">&#34;PASS&#34;</span> <span style="color:#f92672">in</span> reflection:
+</span></span><span style="display:flex;"><span>            <span style="color:#66d9ef">return</span> current_output  <span style="color:#75715e"># 通过，返回</span>
+</span></span><span style="display:flex;"><span>
+</span></span><span style="display:flex;"><span>        <span style="color:#75715e"># 改进：三样东西缺一不可——原始任务 + 当前输出 + 评估意见</span>
+</span></span><span style="display:flex;"><span>        improve_prompt <span style="color:#f92672">=</span> <span style="color:#e6db74">f</span><span style="color:#e6db74">&#34;&#34;&#34;原始任务：</span><span style="color:#e6db74">{</span>task<span style="color:#e6db74">}</span><span style="color:#e6db74">
+</span></span></span><span style="display:flex;"><span><span style="color:#e6db74">        当前输出：</span><span style="color:#e6db74">{</span>current_output<span style="color:#e6db74">}</span><span style="color:#e6db74">
+</span></span></span><span style="display:flex;"><span><span style="color:#e6db74">        评估意见：</span><span style="color:#e6db74">{</span>reflection<span style="color:#e6db74">}</span><span style="color:#e6db74">
+</span></span></span><span style="display:flex;"><span><span style="color:#e6db74">        请根据评估意见改进输出：&#34;&#34;&#34;</span>
+</span></span><span style="display:flex;"><span>        current_output <span style="color:#f92672">=</span> generator_llm<span style="color:#f92672">.</span>generate(improve_prompt)
+</span></span><span style="display:flex;"><span>
+</span></span><span style="display:flex;"><span>    <span style="color:#66d9ef">return</span> current_output  <span style="color:#75715e"># 达到最大轮次，强制退出</span>
+</span></span></code></pre></div><p>这里有两个<strong>关键设计</strong>，是反思机制能不能真正起作用的命门：</p>
+<ol>
+<li><strong>必须给出明确的检查维度</strong>（事实/逻辑/完整性/表达），而不是让 LLM 自由发挥。无方向的评估会流于表面——LLM 可能只说&quot;看起来不错&quot;敷衍了事。</li>
+<li><strong>必须有&quot;PASS&quot;机制</strong>——给 LLM 一个&quot;够好了就停&quot;的出口。没有这个出口，LLM 会陷入&quot;为了改而改&quot;的无限循环，每轮改动很小但无实质进步，甚至把原本对的改错。</li>
+</ol>
+<p>改进 prompt 里<strong>三样东西缺一不可</strong>：原始任务、当前输出、评估意见。缺原始输出 → 不知在什么基础上改；缺评估意见 → 不知改哪里；缺任务 → 改着改着偏离原始目标。三者都在，才能做到&quot;有针对性的修改&quot;，而非&quot;全部重写&quot;。</p>
+<h3 id="35-三种范式的核心区别与选型">3.5 三种范式的核心区别与选型
+</h3><h4 id="token-消耗量化分析">token 消耗量化分析
+</h4><p>这是一个常被忽视但极其重要的工程维度。以一个 <strong>5 步任务、每步约 2000 token</strong> 为例：</p>
+<pre tabindex="0"><code>ReAct 的输入增长（每次带完整历史）：
+  第1步: 2000 token
+  第2步: 2000 + 2000 = 4000
+  第3步: 2000 + 4000 = 6000
+  第4步: 2000 + 6000 = 8000
+  第5步: 2000 + 8000 = 10000
+  合计输入 ≈ 30000 token
+
+Plan-and-Execute：
+  规划一次: ~3000
+  执行每步(只带自己那步context): ~1500 × 5 = 7500
+  汇总一次: ~4000
+  合计 ≈ 14500 token（比 ReAct 低一半多）
+
+叠加 Reflection：
+  每个反思节点至少多一次调用，在基础上再增 30%-100%
+</code></pre><p>ReAct 的 token 随步数<strong>线性甚至超线性增长</strong>（因为每次都带完整历史），而 Plan-and-Execute 把历史&quot;分散&quot;到各步，总消耗低很多。步数越多，这个差距越大。这也是长任务该优先考虑 Plan-and-Execute 的重要原因。</p>
+<h4 id="实际项目选型建议">实际项目选型建议
+</h4><pre tabindex="0"><code>┌──────────────────────────────────────────────────────────┐
+│                    选型决策树                             │
+├──────────────────────────────────────────────────────────┤
+│                                                          │
+│  任务简单、流程不固定？                                   │
+│       │ 是                                               │
+│       ▼                                                  │
+│    ReAct（够用就好，实现简单、灵活、逻辑透明）            │
+│                                                          │
+│  任务长、易跑偏、需整体结构？                             │
+│       │ 是                                               │
+│       ▼                                                  │
+│    Plan-and-Execute（遇意外加动态 Replan）                │
+│                                                          │
+│  输出要求高、不能出错？                                   │
+│       │ 是                                               │
+│       ▼                                                  │
+│    在前两者基础上叠加 Reflection                          │
+│                                                          │
+│  需跨任务积累经验、避免重复犯错？                         │
+│       │ 是                                               │
+│       ▼                                                  │
+│    Reflexion（把失败经验存进记忆，下次参考）              │
+│                                                          │
+│  最常见的混合方案：                                       │
+│    Plan-and-Execute(全局规划)                             │
+│      + ReAct(单步执行)                                    │
+│      + Reflection(关键步骤把关)                           │
+└──────────────────────────────────────────────────────────┘
+</code></pre><p>一句话口诀：<strong>先 ReAct 玩明白，按需往上加。</strong> 最大的坑是&quot;全堆一起过度工程化&quot;——一上来就 Plan-and-Execute + ReAct + Reflection + Reflexion 全上，复杂度爆炸，调试地狱。先从最简单的 ReAct 跑通，发现长任务跑偏再加 Plan-and-Execute，发现输出质量不够再加 Reflection，循序渐进。</p>
+<blockquote>
+<p><strong>实践要点</strong></p>
+<ul>
+<li>Reflection 不是独立流程，是&quot;叠加 buff&quot;——这一点必须在选型时先说清，否则会把三者当成平行选项来纠结。</li>
+<li>反思最多 2-3 轮，绝对不能依赖 LLM 自己判断停止。硬性轮次上限是唯一可靠的退出机制。</li>
+<li>规划用强模型、执行用便宜小模型的&quot;大小模型搭配&quot;，是 Plan-and-Execute 最重要的成本优化手段。</li>
+<li>token 消耗不是小问题：ReAct 在长任务上的线性增长会迅速吃掉预算，这也是长任务该用 Plan-and-Execute 的硬理由。</li>
+</ul>
+</blockquote>
+<hr>
+<h2 id="第四章任务拆分">第四章：任务拆分
+</h2><h3 id="41-为什么要拆分复杂任务">4.1 为什么要拆分复杂任务
+</h3><p>让 LLM 一次性处理太复杂的任务，几乎必然出错：搜索掺杂分析、写到一半忘了前面的数据、结构混乱、前后矛盾。</p>
+<p>根本原因在于：<strong>context window 有上限，任务越大、中间状态越多，&ldquo;桌面&quot;越乱，越难持续追踪子目标</strong>。就像你在一张小桌子上同时做五件事，资料堆得满桌都是，做着做着就找不着北了。</p>
+<p>拆分后，每一步只聚焦一件事，桌面干净、质量高；而且每步独立，可以单独验证、单独重试——某步错了不用整个任务重来。</p>
+<h3 id="42-任务拆分的策略">4.2 任务拆分的策略
+</h3><p>有两种拆分思路：</p>
+<p><strong>静态拆分</strong>：提前写死步骤（这是 Workflow 的思路）。</p>
+<ul>
+<li>例：搜索资料 → 整理大纲 → 逐段撰写 → 润色校对。</li>
+<li>优点：可预测、好排查。缺点：灵活性低。</li>
+</ul>
+<p><strong>动态拆分</strong>：让 LLM 自己规划（这是 Plan-and-Execute 的核心）。</p>
+<p>Plan-and-Execute 的三阶段：</p>
+<pre tabindex="0"><code>┌──────────────────────────────────────────────────────┐
+│           动态拆分的三阶段（Plan-and-Execute）        │
+├──────────────────────────────────────────────────────┤
+│                                                      │
+│  1. 规划（项目启动会）                                │
+│     LLM 输出有序步骤列表，只规划不执行                │
+│                                                      │
+│  2. 执行（各部门干活）                                │
+│     逐步执行，每步带前面结果作 context                │
+│                                                      │
+│  3. 汇总（项目验收）                                  │
+│     整合各步骤产出，解决衔接，生成连贯整体            │
+│                                                      │
+└──────────────────────────────────────────────────────┘
+</code></pre><p>优点：灵活。缺点：规划质量不稳定，规划错了则全错。</p>
+<p><strong>注意区分一个容易混淆的点</strong>：CoT/ToT 讲的是&quot;LLM 内部怎么想清楚&rdquo;，是推理层面；静态/动态拆分讲的是&quot;Agent 怎么把大任务切成独立执行步骤&quot;，是工程层面。粒度和目标都不同。</p>
+<p><strong>拆分粒度的把握</strong>是关键：</p>
+<ul>
+<li><strong>太细</strong>：步骤多、token 升，太碎看不到全局，衔接生硬。</li>
+<li><strong>太粗</strong>：每步事多易错，出错难定位。</li>
+<li><strong>标准：原子操作</strong>——只做一件独立的事，边界清晰，做完有明确输出，不互相依赖。</li>
+<li>判断方法：能写清晰的函数签名 → 大概是原子；函数里还要分阶段 → 需要再拆。
+<ul>
+<li>原子：「搜索竞品 A 的产品信息」</li>
+<li>非原子：「整理竞品分析」（含搜索、筛选、格式化三件事）</li>
+</ul>
+</li>
+</ul>
+<p>还有一种进阶策略叫<strong>自适应拆分</strong>：不在开始时定死粒度，执行中根据难度动态调整。逻辑是：先试，做不好（超最大步数/质量不达标）→ 交给规划器再拆 → 对子任务重复。像递归展开的任务树，只有做不好的节点才拆，简单的直接做。特性是：任务越复杂递归层数越深，开销与实际难度成正比，不一刀切。</p>
+<h3 id="43-并行优化">4.3 并行优化
+</h3><p>拆分还有一个重要收益：<strong>无依赖的步骤可以并行执行</strong>。</p>
+<p>分析步骤之间的依赖关系，无依赖的可以同时跑。类比厨师：烧水的同时切菜腌肉，总时间由最长路径决定。用 <strong>DAG（有向无环图）</strong> 建模：节点是步骤，边是依赖，无依赖的节点可同时跑。</p>
+<div class="highlight"><pre tabindex="0" style="color:#f8f8f2;background-color:#272822;-moz-tab-size:4;-o-tab-size:4;tab-size:4;"><code class="language-python" data-lang="python"><span style="display:flex;"><span><span style="color:#f92672">import</span> asyncio
+</span></span><span style="display:flex;"><span>
+</span></span><span style="display:flex;"><span><span style="color:#66d9ef">async</span> <span style="color:#66d9ef">def</span> <span style="color:#a6e22e">execute_parallel_steps</span>(independent_steps):
+</span></span><span style="display:flex;"><span>    <span style="color:#e6db74">&#34;&#34;&#34;并行执行无依赖的步骤，总时间由最慢的步骤决定&#34;&#34;&#34;</span>
+</span></span><span style="display:flex;"><span>    tasks <span style="color:#f92672">=</span> [execute_step_async(step) <span style="color:#66d9ef">for</span> step <span style="color:#f92672">in</span> independent_steps]
+</span></span><span style="display:flex;"><span>    results <span style="color:#f92672">=</span> <span style="color:#66d9ef">await</span> asyncio<span style="color:#f92672">.</span>gather(<span style="color:#f92672">*</span>tasks)
+</span></span><span style="display:flex;"><span>    <span style="color:#66d9ef">return</span> results
+</span></span></code></pre></div><p>实际项目通过并行优化可以降低 40%-60% 的端到端延迟。但前提是：依赖稀疏、工具 I/O 占主要耗时。如果步骤之间是强依赖（必须串行），并行空间为零。</p>
+<h3 id="44-效果如何提升">4.4 效果如何提升
+</h3><p>拆分带来的提升是全方位的：</p>
+<ol>
+<li><strong>质量提升</strong>：每步聚焦一件事，context 干净，LLM 发挥更稳定。</li>
+<li><strong>可验证性</strong>：每步有明确完成标准，像单元测试断言，缺了可以自动重试。</li>
+<li><strong>可恢复性</strong>：某步出错只重试那一步，不用整个任务重来。</li>
+<li><strong>可并行性</strong>：无依赖步骤并行，降低端到端延迟。</li>
+</ol>
+<p>拆分结果有三个验证标准：</p>
+<ol>
+<li><strong>完备性</strong>：所有步骤覆盖原始任务全部要求（逐项对照检查）。</li>
+<li><strong>独立性</strong>：职责边界清晰，无重叠（防重复劳动和汇总矛盾）。</li>
+<li><strong>可验证性</strong>：每步有明确完成标准。好做法是拆分时同时写&quot;验收标准&quot;，步骤定义和验收标准成对出现。</li>
+</ol>
+<p>执行中的 <strong>Replan 机制</strong>也很重要：每步执行后检查计划需不需要调整（比如发现竞品已停止运营，后续对比就没意义了）。折中做法是：不每步都触发 Replan，而是设触发条件（输出差异大/执行失败时才 Replan），避免每步多一次评估调用的开销。</p>
+<blockquote>
+<p><strong>实践要点</strong></p>
+<ul>
+<li>拆分粒度的&quot;原子操作&quot;标准：能写清晰函数签名的是原子，函数里还要分阶段的需要再拆。</li>
+<li>并行优化的前提是依赖稀疏——强依赖的步骤串行，并行空间为零，别强行并行。</li>
+<li>拆分时同步写&quot;验收标准&quot;，让每步可验证、可自动重试。</li>
+<li>自适应拆分（做不好才继续拆）比一开始就定死粒度更合理，开销与难度成正比。</li>
+</ul>
+</blockquote>
+<hr>
+<h2 id="第五章agent-记忆机制">第五章：Agent 记忆机制
+</h2><h3 id="51-短期记忆context-window">5.1 短期记忆（context window）
+</h3><p>短期记忆就是 context window 里的 messages 列表，类比 LLM 的&quot;工作台&quot;。每步内容追加，每次调 LLM 传完整历史。任务结束清空，下次新任务桌面是空的。</p>
+<div class="highlight"><pre tabindex="0" style="color:#f8f8f2;background-color:#272822;-moz-tab-size:4;-o-tab-size:4;tab-size:4;"><code class="language-python" data-lang="python"><span style="display:flex;"><span><span style="color:#66d9ef">class</span> <span style="color:#a6e22e">ShortTermMemory</span>:
+</span></span><span style="display:flex;"><span>    <span style="color:#66d9ef">def</span> <span style="color:#a6e22e">__init__</span>(self):
+</span></span><span style="display:flex;"><span>        self<span style="color:#f92672">.</span>messages <span style="color:#f92672">=</span> []
+</span></span><span style="display:flex;"><span>
+</span></span><span style="display:flex;"><span>    <span style="color:#66d9ef">def</span> <span style="color:#a6e22e">add</span>(self, role, content):  <span style="color:#75715e"># role: user/assistant/tool</span>
+</span></span><span style="display:flex;"><span>        self<span style="color:#f92672">.</span>messages<span style="color:#f92672">.</span>append({<span style="color:#e6db74">&#34;role&#34;</span>: role, <span style="color:#e6db74">&#34;content&#34;</span>: content})
+</span></span><span style="display:flex;"><span>
+</span></span><span style="display:flex;"><span>    <span style="color:#66d9ef">def</span> <span style="color:#a6e22e">get_context</span>(self):
+</span></span><span style="display:flex;"><span>        <span style="color:#66d9ef">return</span> self<span style="color:#f92672">.</span>messages
+</span></span><span style="display:flex;"><span>
+</span></span><span style="display:flex;"><span>    <span style="color:#66d9ef">def</span> <span style="color:#a6e22e">clear</span>(self):
+</span></span><span style="display:flex;"><span>        self<span style="color:#f92672">.</span>messages <span style="color:#f92672">=</span> []
+</span></span></code></pre></div><p>进阶做法是<strong>结构化工作记忆</strong>：给工作台划固定区域（当前任务目标 / 已确认中间结论 / 待验证假设），每步主动更新对应区域，替换过时内容，保持结构清晰，而不是让消息无限堆积。</p>
+<h3 id="52-长期记忆向量数据库">5.2 长期记忆（向量数据库）
+</h3><p>长期记忆跨任务持久，核心工具是<strong>向量数据库 + Embedding</strong>。</p>
+<ul>
+<li><strong>Embedding</strong>：把文字转成几百到几千维的数字向量，捕捉&quot;语义&quot;。语义相近 → 向量空间距离近（类比 RGB 编码颜色，相近颜色 RGB 值也接近）。</li>
+<li><strong>向量数据库</strong>：存数字向量，核心能力是&quot;相似度检索&quot;——给一个查询向量，找距离最近的几条（语义最相关的）。用 HNSW/IVF 等 ANN 索引加速，不用和每条都比较。</li>
+</ul>
+<div class="highlight"><pre tabindex="0" style="color:#f8f8f2;background-color:#272822;-moz-tab-size:4;-o-tab-size:4;tab-size:4;"><code class="language-python" data-lang="python"><span style="display:flex;"><span><span style="color:#f92672">from</span> openai <span style="color:#f92672">import</span> OpenAI
+</span></span><span style="display:flex;"><span><span style="color:#f92672">import</span> chromadb
+</span></span><span style="display:flex;"><span>
+</span></span><span style="display:flex;"><span>client <span style="color:#f92672">=</span> OpenAI()
+</span></span><span style="display:flex;"><span>db <span style="color:#f92672">=</span> chromadb<span style="color:#f92672">.</span>Client()
+</span></span><span style="display:flex;"><span>collection <span style="color:#f92672">=</span> db<span style="color:#f92672">.</span>get_or_create_collection(<span style="color:#e6db74">&#34;agent_memory&#34;</span>)
+</span></span><span style="display:flex;"><span>
+</span></span><span style="display:flex;"><span><span style="color:#66d9ef">def</span> <span style="color:#a6e22e">save_to_long_term</span>(content, metadata):
+</span></span><span style="display:flex;"><span>    <span style="color:#e6db74">&#34;&#34;&#34;把内容存入长期记忆，metadata 记录时间/类型/重要程度&#34;&#34;&#34;</span>
+</span></span><span style="display:flex;"><span>    embedding <span style="color:#f92672">=</span> client<span style="color:#f92672">.</span>embeddings<span style="color:#f92672">.</span>create(
+</span></span><span style="display:flex;"><span>        input<span style="color:#f92672">=</span>content, model<span style="color:#f92672">=</span><span style="color:#e6db74">&#34;text-embedding-3-small&#34;</span>
+</span></span><span style="display:flex;"><span>    )<span style="color:#f92672">.</span>data[<span style="color:#ae81ff">0</span>]<span style="color:#f92672">.</span>embedding
+</span></span><span style="display:flex;"><span>    collection<span style="color:#f92672">.</span>add(
+</span></span><span style="display:flex;"><span>        embeddings<span style="color:#f92672">=</span>[embedding],
+</span></span><span style="display:flex;"><span>        documents<span style="color:#f92672">=</span>[content],
+</span></span><span style="display:flex;"><span>        metadatas<span style="color:#f92672">=</span>[metadata],  <span style="color:#75715e"># 时间/任务类型/重要程度/记忆类型，检索时可过滤</span>
+</span></span><span style="display:flex;"><span>        ids<span style="color:#f92672">=</span>[<span style="color:#e6db74">f</span><span style="color:#e6db74">&#34;mem_</span><span style="color:#e6db74">{</span>hash(content)<span style="color:#e6db74">}</span><span style="color:#e6db74">&#34;</span>]
+</span></span><span style="display:flex;"><span>    )
+</span></span><span style="display:flex;"><span>
+</span></span><span style="display:flex;"><span><span style="color:#66d9ef">def</span> <span style="color:#a6e22e">retrieve_memory</span>(query, top_k<span style="color:#f92672">=</span><span style="color:#ae81ff">3</span>):
+</span></span><span style="display:flex;"><span>    <span style="color:#e6db74">&#34;&#34;&#34;语义检索最相关的几条记忆&#34;&#34;&#34;</span>
+</span></span><span style="display:flex;"><span>    query_embedding <span style="color:#f92672">=</span> client<span style="color:#f92672">.</span>embeddings<span style="color:#f92672">.</span>create(
+</span></span><span style="display:flex;"><span>        input<span style="color:#f92672">=</span>query, model<span style="color:#f92672">=</span><span style="color:#e6db74">&#34;text-embedding-3-small&#34;</span>
+</span></span><span style="display:flex;"><span>    )<span style="color:#f92672">.</span>data[<span style="color:#ae81ff">0</span>]<span style="color:#f92672">.</span>embedding
+</span></span><span style="display:flex;"><span>    results <span style="color:#f92672">=</span> collection<span style="color:#f92672">.</span>query(query_embeddings<span style="color:#f92672">=</span>[query_embedding], n_results<span style="color:#f92672">=</span>top_k)
+</span></span><span style="display:flex;"><span>    <span style="color:#66d9ef">return</span> results[<span style="color:#e6db74">&#34;documents&#34;</span>][<span style="color:#ae81ff">0</span>]
+</span></span></code></pre></div><p>长期记忆的<strong>粒度</strong>是个关键问题：</p>
+<ul>
+<li><strong>太细</strong>（每句话一条）：检索碎片化，只命中部分，信息不完整。</li>
+<li><strong>太粗</strong>（整次任务一条）：命中但相关内容只占一小部分，LLM 被无关内容干扰。</li>
+<li><strong>合理粒度</strong>：&ldquo;一次完整交互&quot;或&quot;一个独立知识点/事件&rdquo;。前者信息完整，后者如&quot;用户偏好：Python，简洁风格，英文注释&quot;打包一条结构化记录。</li>
+</ul>
+<p><strong>记忆衰减</strong>：给每条记忆加&quot;新鲜度权重&quot;，检索排序同时考虑语义相似度和时间新鲜度（越久越低）。相关性分数 = 语义相似度 × 时间衰减因子。或定期让 LLM 审查清理过时/矛盾的记忆。</p>
+<h3 id="53-四层记忆机制设计">5.3 四层记忆机制设计
+</h3><p>借用认知科学，工程上可以把记忆分为四层（从最短暂到最持久）：</p>
+<div class="table-wrapper"><table>
+  <thead>
+      <tr>
+          <th>类型</th>
+          <th>类比</th>
+          <th>载体</th>
+          <th>容量</th>
+          <th>生命周期</th>
+          <th>访问方式</th>
+      </tr>
+  </thead>
+  <tbody>
+      <tr>
+          <td>感知记忆</td>
+          <td>即时感觉</td>
+          <td>当次输入</td>
+          <td>极小</td>
+          <td>单次调用</td>
+          <td>即时访问</td>
+      </tr>
+      <tr>
+          <td>短期记忆</td>
+          <td>工作记忆</td>
+          <td>context window</td>
+          <td>受 token 限制</td>
+          <td>一次任务</td>
+          <td>直接读取</td>
+      </tr>
+      <tr>
+          <td>长期记忆</td>
+          <td>长期记忆</td>
+          <td>向量/关系数据库</td>
+          <td>无限</td>
+          <td>持久</td>
+          <td>语义检索</td>
+      </tr>
+      <tr>
+          <td>实体记忆</td>
+          <td>病历卡</td>
+          <td>结构化存储</td>
+          <td>无限</td>
+          <td>持久</td>
+          <td>精确查询</td>
+      </tr>
+  </tbody>
+</table></div>
+<ul>
+<li><strong>感知记忆</strong>：当前调用的原始输入（用户消息、截图、文档），处理完消失。</li>
+<li><strong>短期记忆</strong>：context window 的 messages 列表，维持任务状态，任务结束清空。</li>
+<li><strong>长期记忆</strong>：跨任务，向量数据库语义检索。子类型包括：
+<ul>
+<li><strong>情节记忆</strong>（Episodic）：具体事件经历（上次退款问题查了订单系统）</li>
+<li><strong>语义记忆</strong>（Semantic）：提炼的通用规律（用户是金融行业）</li>
+<li><strong>程序记忆</strong>（Procedural）：做事方法论 SOP（退款流程先查订单再核实支付）</li>
+</ul>
+</li>
+<li><strong>实体记忆</strong>：从对话中提炼的结构化事实（用户偏好 Python、预算 5 万），信息密度高，查询快，不受原始表述影响。</li>
+</ul>
+<p>设计记忆模块要回答三个核心问题：</p>
+<p><strong>1. 存什么？</strong> 判断标准：&ldquo;这条信息下次任务开始时知道，会让 Agent 做得更好吗？&rdquo; 值得存：用户偏好习惯、关键结论决策、外部知识。不值得存：中间推理过程、工具原始数据、闲聊（存了反而稀释信噪比）。</p>
+<p><strong>2. 怎么存？</strong> 不一刀切全塞向量数据库，按信息类型选介质：</p>
+<ul>
+<li>语义检索内容（文档知识、对话摘要）→ 向量数据库 + embedding</li>
+<li>结构化偏好状态（语言偏好、项目配置）→ 关系数据库/Key-Value（精确查询快）</li>
+<li>整段文档 → 向量数据库配合 RAG</li>
+<li><strong>混合存储是主流</strong>：结构化用关系数据库，非结构化用向量数据库。</li>
+</ul>
+<p><strong>3. 什么时候取？</strong></p>
+<ul>
+<li><strong>主动检索</strong>：任务开始前用任务描述检索相关记忆，注入 system prompt 作背景知识。</li>
+<li><strong>被动触发</strong>：执行中需要特定知识时，把&quot;查记忆&quot;封装成 Tool 让 Agent 自己调。</li>
+<li><strong>实践</strong>：session 开始主动检索加载偏好背景；执行中按需检索专业知识。</li>
+</ul>
+<h3 id="54-记忆压缩的四种方法">5.4 记忆压缩的四种方法
+</h3><p>短期记忆（context window）有硬上限，对话越长每次调用越贵。记忆压缩就是在保留关键信息的前提下，减少历史占用的 token。有四种方法，分别解决不同维度的问题：</p>
+<p><strong>方法一：滑动窗口（最简单最粗糙）</strong></p>
+<ul>
+<li>只保留最近 N 轮，超出从最老丢。</li>
+<li>优点：极简无额外开销。缺点：<strong>硬截断</strong>，按时间一刀切，关键决策和闲聊同等对待。</li>
+<li>特性：&ldquo;金鱼记忆&rdquo;。适合短对话/历史不重要场景。</li>
+</ul>
+<p><strong>方法二：摘要压缩（丢之前先提炼）</strong></p>
+<ul>
+<li>不直接丢，先 LLM 总结成精华摘要替换原文。</li>
+<li>类比：笔记本快满了，先把前半本要点整理成一页总结再收起来。</li>
+<li>代价：摘要会丢细节（LLM 按&quot;重要性&quot;省略，有些当时不重要后来需要的找不回）。</li>
+<li><strong>层级式摘要</strong>：最近 10 轮原文，10-50 轮&quot;中期摘要&quot;，50 轮前&quot;长期摘要&quot;（类比会议纪要体系）。</li>
+<li><strong>最常见工程组合：滑动窗口 + 摘要</strong>——滑动窗口控总长，摘要负责丢弃前提炼。</li>
+</ul>
+<p><strong>方法三：重要性过滤（按价值筛选，不按时间）</strong></p>
+<ul>
+<li>打破时间顺序，按内容实际价值决定去留：给每条打分，低于阈值淘汰。</li>
+<li>打分方式：规则打分（含&quot;决定/确认/需求&quot;关键词加分、被引用多加分；快但粗糙）或 LLM 打分（准确但开销大，批量清理时做）。</li>
+<li><strong>观察遮蔽</strong>（Observation Masking）：不删除低分内容，构造 prompt 时选择性&quot;隐藏&quot;。当前写代码就跳过需求讨论，进入测试再显示测试相关。信息没真删，动态选&quot;当前最需要看什么&quot;。</li>
+<li><strong>主动压缩</strong>（Proactive Compression）：不等快满才压，每步执行后主动判断哪些中间过程可压缩（如搜索返回 2000 token 立刻压成 200 token 要点）。适合工具调用频繁的 Agent。</li>
+</ul>
+<p><strong>方法四：结构化抽取（换载体存信息）</strong></p>
+<ul>
+<li>质疑&quot;对话文本是最佳载体吗&quot;——很多场景有价值的是事实和状态，不是对话文字。</li>
+<li>主动提取关键信息存结构化字段（用户偏好 Python、预算 5 万、已确认方案 B）。</li>
+<li>类比医生病历（不存全程录音，存结构化档案）。</li>
+<li><strong>信息损失最小</strong>，只要字段定义合理，重要信息精确保留。代价：开发成本最高，需预定义重要字段，通用性低。</li>
+</ul>
+<p>四种方法解决三个不同维度的问题，可以组合：</p>
+<div class="table-wrapper"><table>
+  <thead>
+      <tr>
+          <th>维度</th>
+          <th>方法</th>
+      </tr>
+  </thead>
+  <tbody>
+      <tr>
+          <td>历史太长怎么截</td>
+          <td>滑动窗口（直接截）/ 摘要压缩（截前提炼）</td>
+      </tr>
+      <tr>
+          <td>内容不等价怎么挑</td>
+          <td>重要性过滤（按价值，打破时间顺序）</td>
+      </tr>
+      <tr>
+          <td>对话文本是不是最佳载体</td>
+          <td>结构化抽取（换高效形式）</td>
+      </tr>
+  </tbody>
+</table></div>
+<p>实际系统多方法配合：重要性过滤筛低价值 → 摘要压缩处理剩余 → 关键信息结构化抽取。</p>
+<p>还有一个<strong>计算层</strong>的互补手段：<strong>Prompt Caching</strong>（Anthropic Claude 和 OpenAI 都支持）。背景是 LLM 每次请求需把输入所有 token&quot;过一遍模型&quot;（prefill），是延迟成本主要来源。固定 system prompt + 越来越长历史每次都重新计算。思路是：prompt 前缀在多次请求间一样，就把这部分计算结果缓存，下次前缀匹配直接复用。Anthropic 命中缓存 token 约为正常输入的 1/10。Agent 场景天然适合（system prompt + 长期记忆注入部分多轮不变）。</p>
+<p><strong>注意区分</strong>：记忆压缩在&quot;信息层&quot;（决定哪些内容保留），Prompt Caching 在&quot;计算层&quot;（对已决定带入的内容减少重复计算）。两者是<strong>互补关系，非替代，可同时用</strong>。</p>
+<h3 id="55-长短期记忆系统的存储与使用">5.5 长短期记忆系统的存储与使用
+</h3><p>把两层记忆串起来，形成一个完整的&quot;读 → 用 → 写&quot;闭环：</p>
+<div class="highlight"><pre tabindex="0" style="color:#f8f8f2;background-color:#272822;-moz-tab-size:4;-o-tab-size:4;tab-size:4;"><code class="language-python" data-lang="python"><span style="display:flex;"><span><span style="color:#66d9ef">def</span> <span style="color:#a6e22e">run_agent_with_memory</span>(user_request, long_term_memory, short_term_memory):
+</span></span><span style="display:flex;"><span>    <span style="color:#75715e"># 1. 任务开始前「读」：检索长期记忆，注入背景</span>
+</span></span><span style="display:flex;"><span>    relevant_memories <span style="color:#f92672">=</span> long_term_memory<span style="color:#f92672">.</span>retrieve(user_request, top_k<span style="color:#f92672">=</span><span style="color:#ae81ff">3</span>)
+</span></span><span style="display:flex;"><span>    system_prompt <span style="color:#f92672">=</span> <span style="color:#e6db74">f</span><span style="color:#e6db74">&#34;你是一个智能助手。</span><span style="color:#ae81ff">\n</span><span style="color:#e6db74">相关历史信息：</span><span style="color:#ae81ff">\n</span><span style="color:#e6db74">{</span>chr(<span style="color:#ae81ff">10</span>)<span style="color:#f92672">.</span>join(relevant_memories)<span style="color:#e6db74">}</span><span style="color:#e6db74">&#34;</span>
+</span></span><span style="display:flex;"><span>    short_term_memory<span style="color:#f92672">.</span>add(<span style="color:#e6db74">&#34;system&#34;</span>, system_prompt)
+</span></span><span style="display:flex;"><span>    short_term_memory<span style="color:#f92672">.</span>add(<span style="color:#e6db74">&#34;user&#34;</span>, user_request)
+</span></span><span style="display:flex;"><span>
+</span></span><span style="display:flex;"><span>    <span style="color:#75715e"># 2. 执行中「用」：短期记忆全程工作（messages 追加）</span>
+</span></span><span style="display:flex;"><span>    result <span style="color:#f92672">=</span> execute_task_with_short_term_memory(short_term_memory)
+</span></span><span style="display:flex;"><span>
+</span></span><span style="display:flex;"><span>    <span style="color:#75715e"># 3. 任务结束后「写」：重要结论写入长期记忆，短期记忆清空</span>
+</span></span><span style="display:flex;"><span>    <span style="color:#66d9ef">if</span> result<span style="color:#f92672">.</span>is_important:
+</span></span><span style="display:flex;"><span>        long_term_memory<span style="color:#f92672">.</span>save(
+</span></span><span style="display:flex;"><span>            content<span style="color:#f92672">=</span>result<span style="color:#f92672">.</span>summary,
+</span></span><span style="display:flex;"><span>            metadata<span style="color:#f92672">=</span>{<span style="color:#e6db74">&#34;task_type&#34;</span>: <span style="color:#e6db74">&#34;coding&#34;</span>, <span style="color:#e6db74">&#34;timestamp&#34;</span>: now()}
+</span></span><span style="display:flex;"><span>        )
+</span></span><span style="display:flex;"><span>    short_term_memory<span style="color:#f92672">.</span>clear()
+</span></span><span style="display:flex;"><span>    <span style="color:#66d9ef">return</span> result
+</span></span></code></pre></div><p>这个&quot;读-用-写&quot;闭环是记忆系统的精髓：</p>
+<ol>
+<li><strong>任务开始前&quot;读&quot;</strong>：实体记忆取结构化偏好 + 长期记忆语义检索 → 注入 system prompt。</li>
+<li><strong>任务执行中&quot;用&quot;</strong>：短期记忆全程工作（messages 追加），需专业知识时临时检索注入。</li>
+<li><strong>任务结束后&quot;写&quot;</strong>：新偏好更新实体记忆，有价结论写长期记忆，短期记忆清空。</li>
+</ol>
+<p>记忆框架的趋势也值得关注：<strong>Mem0</strong>（记忆管理独立服务层，<code>memory.add()</code>/<code>memory.search()</code>，底层自动做 embedding/去重/冲突消解）、<strong>Letta</strong>（前身 MemGPT，灵感来自 OS 内存管理，三层：Core/Recall/Archival，Agent 自己通过工具调用管理）、<strong>Zep（Graphiti）</strong>（引入&quot;时间感知&quot;，给记忆标&quot;有效时间窗口&quot;，自动识别过时记忆）。</p>
+<p>还有一个进阶话题是<strong>知识图谱让记忆产生关联</strong>：向量检索是&quot;一条一条&quot;存取，记忆间独立；知识图谱用&quot;实体→关系→实体&quot;三元组存储，可沿关系链多跳推理。实践上是和向量数据库配合——向量负责模糊语义检索，知识图谱负责精确关系推理。</p>
+<p>记忆还需要定期<strong>整合升华</strong>（从碎片到知识）：</p>
+<ol>
+<li><strong>去重</strong>：语义相近的多条合并。</li>
+<li><strong>冲突消解</strong>：矛盾时保留时间更新的，标记旧的过期（时间戳关键）。</li>
+<li><strong>抽象提炼</strong>（最有价值）：情节记忆 → 语义记忆，把多次具体经历喂 LLM 总结通用规律。</li>
+</ol>
+<ul>
+<li>节奏：每次任务后轻量去重更新；每天/每周深度整理提炼。</li>
+</ul>
+<blockquote>
+<p><strong>实践要点</strong></p>
+<ul>
+<li>长期记忆的核心是 Embedding + 向量数据库语义检索，不是&quot;存数据库靠关键词搜索&quot;。</li>
+<li>记忆粒度不是越细越好——太细导致碎片化，&ldquo;一次完整交互&quot;或&quot;一个独立知识点&quot;是合理粒度。</li>
+<li>两层记忆的作用时机要分清：短期是执行中工作台（结束清空），长期是任务前检索注入/任务后写入沉淀。</li>
+<li>记忆压缩四种方法解决三个维度问题，可组合；Prompt Caching 是计算层互补手段，不替代信息层的压缩。</li>
+</ul>
+</blockquote>
+<hr>
+<h2 id="第六章agent-规划能力">第六章：Agent 规划能力
+</h2><h3 id="61-cot--tot--got-的演进">6.1 CoT → ToT → GoT 的演进
+</h3><p>为什么需要规划能力？因为普通 LLM&quot;一口气&quot;生成答案，中间推理是隐式的，多步推导的误差在暗处累积（这是 Transformer next-token 预测机制决定的）。规划能力 = 把隐式推理显式化，不再&quot;一步跳到答案&rdquo;，而是&quot;一步一步推到答案&quot;。</p>
+<p>规划能力的演进路径是 <strong>CoT → ToT → GoT</strong>，层层递进，每一层解决前一层的问题：</p>
+<div class="table-wrapper"><table>
+  <thead>
+      <tr>
+          <th>机制</th>
+          <th>解决的问题</th>
+          <th>代价</th>
+      </tr>
+  </thead>
+  <tbody>
+      <tr>
+          <td>CoT</td>
+          <td>要不要把推理显式化（要，减少跳步出错）</td>
+          <td>几乎零成本</td>
+      </tr>
+      <tr>
+          <td>ToT</td>
+          <td>走错方向怎么办（多探索几条路，边走边评估边剪枝）</td>
+          <td>CoT 的 3-5 倍</td>
+      </tr>
+      <tr>
+          <td>GoT</td>
+          <td>不同路径中间结论能不能复用（树换图，支持结论汇聚）</td>
+          <td>工程落地不成熟</td>
+      </tr>
+  </tbody>
+</table></div>
+<h3 id="62-tree-of-thoughts思维树">6.2 Tree of Thoughts（思维树）
+</h3><p><strong>CoT（Chain of Thought，2022 Wei 等人）</strong> 是最简单的：prompt 加一句&quot;让我们一步步思考&quot;，LLM 先写推理再给答案。有效原因：先输出的推理进入上下文，成为后续生成的依据（类比纸上演算数学题）。</p>
+<p>两种触发方式：</p>
+<ul>
+<li><strong>Zero-shot CoT</strong>：直接加一句话，零成本即插即用，但不稳定。</li>
+<li><strong>Few-shot CoT</strong>：给带推理过程的示例，效果更稳定，需准备示例占 token。</li>
+</ul>
+<p>CoT 的根本局限：只有一条推理路径，一开始走错全错，<strong>无纠偏机制</strong>。</p>
+<p><strong>ToT（Tree of Thoughts）</strong> 就是为了解决&quot;走错方向&quot;：把&quot;一条链&quot;变成&quot;一棵树&quot;——同时探索多条推理路径，边探索边评估边剪枝，选最优继续。</p>
+<p>三步循环：生成多个候选思路 → 评估每个可行性打分 → 选优深入、剪掉差的。类比：CoT 只想一个解法做到底；ToT 想三种思路，评估选最好的继续，另两条放弃。</p>
+<p>代价：多次 LLM 调用（多路径 × 多层深度 × 每层评估）。典型（每层 3 路径、搜 2-3 层）成本是 CoT 的 <strong>3-5 倍</strong>；极端（深搜/更多路径/每步打分）可能 10 倍以上。</p>
+<h3 id="63-graph-of-thoughts思维图">6.3 Graph of Thoughts（思维图）
+</h3><p><strong>GoT（Graph of Thoughts）</strong> 解决的是 ToT 的另一个局限：树形结构分支独立，中间结论无法互相借用。GoT 把&quot;树&quot;变成&quot;图&quot;——允许不同路径的中间结果合并、复用，一个节点可以接收多个前置节点的输出。</p>
+<p>例：研究竞品 A 和研究竞品 B 两条路径的结论，汇聚到&quot;综合对比分析&quot;节点（树结构每个节点只有一个父节点，难自然表达这种汇聚）。</p>
+<p>GoT 能建模更丰富的推理模式，更接近人类复杂思考。<strong>但落地复杂度很高，目前主要学术场景，生产极少</strong>。</p>
+<h3 id="64-规划能力的实现方式">6.4 规划能力的实现方式
+</h3><p>CoT/ToT/GoT 讲的是&quot;怎么让 LLM 推理更好&quot;，工程上真正常用的规划模式是 <strong>Plan-and-Execute</strong>。</p>
+<pre tabindex="0"><code>┌──────────────────────────────────────────────────────────┐
+│            Plan-and-Execute 三步流程                      │
+├──────────────────────────────────────────────────────────┤
+│                                                          │
+│  1. Planner（规划器）                                     │
+│     接收任务 → 生成步骤清单（只规划不执行）               │
+│                                                          │
+│  2. Executor（执行器）                                    │
+│     按清单逐步执行（工具调用/LLM 推理）                   │
+│                                                          │
+│  3. Re-planner（重规划器）                                │
+│     每步后回顾进展 → 判断计划是否适用 → 动态调整          │
+│                                                          │
+└──────────────────────────────────────────────────────────┘
+</code></pre><p><strong>为何需要</strong>：CoT 边想边做无全局视角，复杂多工具任务易跑偏。Plan-and-Execute 先一次 LLM 建立全局视角，再后续调用逐步落地，规划执行分两阶段。</p>
+<p><strong>与 ReAct 的关系</strong>：ReAct 每步即时决策无提前规划；Plan-and-Execute 在 ReAct 基础上加全局规划。<strong>不是替代，常搭配</strong>——ReAct 负责每步怎么执行，Plan-and-Execute 负责整体编排和动态调整。</p>
+<p><strong>工程好处</strong>：规划执行分离后，规划用强模型（GPT-4）保证方向，执行用快便宜模型提效，成本质量分别优化。LangGraph 内置支持这种模式。</p>
+<p><strong>工程选型</strong>：</p>
+<ul>
+<li>CoT 几乎标配（加一句话零成本）。</li>
+<li>ToT 准确率要求高的复杂任务值得考虑（做好 3-5 倍成本准备）。</li>
+<li>GoT 工程落地不成熟，了解思想即可。</li>
+</ul>
+<blockquote>
+<p><strong>实践要点</strong></p>
+<ul>
+<li>典型误区：&ldquo;CoT 就是规划能力&rdquo;——CoT 只是最基础的实现手段，不是全部。</li>
+<li>ToT 不是&quot;想更多&quot;，而是&quot;想多条路并评估剪枝&quot;，成本是 CoT 的 3-5 倍，用之前做好预算。</li>
+<li>工程上优先用 Plan-and-Execute，它比 CoT/ToT/GoT 更贴近真实任务编排。</li>
+<li>规划用强模型、执行用便宜模型，是 Plan-and-Execute 最重要的成本优化手段。</li>
+</ul>
+</blockquote>
+<hr>
+<h2 id="第七章agent-反思机制">第七章：Agent 反思机制
+</h2><h3 id="71-反思的具体实现">7.1 反思的具体实现
+</h3><p>反思的核心循环是 <strong>生成 → 评估 → 改进</strong>（Self-Refine，Madaan 2023），类比&quot;草稿 → 批阅 → 修改&quot;，改完再审阅直到通过。</p>
+<p>评估 prompt（检查者角色找问题）有两个<strong>关键设计</strong>：</p>
+<ol>
+<li><strong>给出明确检查维度</strong>（事实/逻辑/完整性/表达），而非自由发挥——无方向评估会流于表面。</li>
+<li><strong>必须有&quot;PASS&quot;机制</strong>——给 LLM&quot;够好了就停&quot;的出口。没有则无限挑毛病，把原本对的改错。</li>
+</ol>
+<p>改进 prompt 里<strong>三样东西缺一不可</strong>：原始任务 + 当前输出 + 评估意见。缺任何一个，改进就会变成无的放矢或偏离目标。</p>
+<p>两个 prompt 循环调用，直到 PASS 或超最大轮次强制退出（普通 for 循环，不依赖 LLM 自己判断停止）。</p>
+<h3 id="72-反思与行动的关系">7.2 反思与行动的关系
+</h3><p>反思有两个粒度，适用不同场景：</p>
+<div class="table-wrapper"><table>
+  <thead>
+      <tr>
+          <th>粒度</th>
+          <th>触发时机</th>
+          <th>优点</th>
+          <th>代价</th>
+          <th>适合</th>
+      </tr>
+  </thead>
+  <tbody>
+      <tr>
+          <td>步骤级</td>
+          <td>每步工具调用/推理后立即检查</td>
+          <td>错误早发现早纠正，不层层放大</td>
+          <td>每步多一次调用，10 步任务可能调 20 次</td>
+          <td>步骤强依赖、前步错后面全错</td>
+      </tr>
+      <tr>
+          <td>任务级</td>
+          <td>整个任务完成后整体评估</td>
+          <td>开销小（只多一次），能发现整体问题</td>
+          <td>中途大问题到最后才发现</td>
+          <td>步骤相对独立、整体质量重要（生成报告）</td>
+      </tr>
+  </tbody>
+</table></div>
+<p>步骤级反思防止&quot;错误传播&quot;，任务级反思发现&quot;各步都对但结论矛盾/衔接不自然&quot;的整体问题。两者不互斥，关键步骤用步骤级，整体用任务级。</p>
+<h3 id="73-反思机制的闭环设计">7.3 反思机制的闭环设计
+</h3><p>反思还有几个进阶机制：</p>
+<p><strong>多 Agent 互评（他人审视 &gt; 自我检查）</strong>：专门设独立的 Critic Agent 审查执行 Agent 输出。为什么更好？类比代码 review——自己写自己看容易&quot;视觉疲劳&quot;，潜意识倾向认为逻辑正确。单 Agent 自我反思，评估者和生成者是同一模型，沿用生成时的内部逻辑，对自己的错误不敏感，容易陷入&quot;自洽&quot;。独立 Critic 没有这个包袱，唯一职责就是找问题，视角更客观。</p>
+<p>流程：执行 Agent 生成 → Critic 审查给批注 → 执行 Agent 修改 → Critic 再确认。适合质量要求非常高的场景（代码生成后测试 Agent 验证、报告后事实核查 Agent 交叉验证）。代价是多一个 Agent 的成本和复杂度。</p>
+<p><strong>Reflexion</strong>（Shinn 2023）：不仅反思当前输出，还把&quot;失败经验&quot;存下来，下次类似任务参考，避免重蹈覆辙。类比：Self-Refine 是&quot;写完当场改&quot;；Reflexion 是&quot;把这次犯错记笔记本，下次写前先翻笔记&quot;。引入&quot;经验记忆&quot;，适合重复执行类似任务的场景。</p>
+<p><strong>LATS</strong>（Language Agent Tree Search，Zhou 2024）：反思 + 树搜索结合，MCTS 同时探索多条路径，每条路径执行后评估反思，反思结果作经验反馈后续探索。代价大，目前学术场景。</p>
+<p><strong>辩论式反思</strong>：多 Agent 互相辩论。正方提方案，反方专门挑毛病提反对意见，正方针对优化。对抗式比单方面审查更能暴露深层问题。偶用于高质量场景（商业决策分析、法律文本审查）。</p>
+<h3 id="74-实践中的调参经验">7.4 实践中的调参经验
+</h3><p>反思不是&quot;万能 buff&quot;，要清醒地权衡：</p>
+<ul>
+<li><strong>值得开</strong>：输出质量要求高、错误代价大的关键节点（最终报告、重要决策推理）；任务复杂 LLM 易遗漏细节。</li>
+<li><strong>不值得开</strong>：简单直接任务（格式转换、简单问答）；实时性要求高（一次反思至少多一次调用，延迟可能从 1 秒变 3 秒）。</li>
+<li><strong>防死循环：必须设最大轮次（通常 2-3 轮），绝对不能依赖 LLM 自己判断停止</strong>。LLM 会陷入&quot;为了改而改&quot;循环，每轮改动小但无实质进步。硬性轮次上限是唯一可靠退出机制。</li>
+<li><strong>整体代价清醒认知</strong>：每轮反思含一次评估 + 一次改进，3 轮反思 = 额外 6 次 LLM 调用，延迟成本大幅增加。用在刀刃上，不是每步都做。</li>
+</ul>
+<blockquote>
+<p><strong>实践要点</strong></p>
+<ul>
+<li>反思不是&quot;不满意就重新生成&quot;（随机重试），而是&quot;生成→评估→改进&quot;有结构的闭环。</li>
+<li>评估 prompt 必须有明确检查维度 + PASS 机制，否则要么流于表面要么死循环。</li>
+<li>多 Agent 互评往往比自我反思更有效——独立 Critic 没有&quot;自洽&quot;包袱。</li>
+<li>反思最多 2-3 轮，硬性上限是唯一可靠的退出机制，绝不能依赖 LLM 自己判断停止。</li>
+</ul>
+</blockquote>
+<hr>
+<h2 id="第八章手搓-agent-vs-使用框架">第八章：手搓 Agent vs 使用框架
+</h2><h3 id="81-为什么有时候要手搓-agent">8.1 为什么有时候要手搓 Agent
+</h3><p>框架（如 LangChain）的价值是真实的：封装重复工作（工具格式定义、解析工具调用、维护对话历史、失败重试、向量库接入），早期上手快，能把两周缩短到两天。POC 阶段几乎无副作用，框架很爽。</p>
+<p>但痛点随项目推进会浮现：</p>
+<ul>
+<li><strong>第一个奇怪 bug</strong>：你代码 50 行，stack trace 40 层，追到框架内部。不知道是自己的问题、框架版本变化、还是 callback 触发时机。类比老式车（打开引擎盖自己看漏油）vs 现代豪华车（一堆电子设备只能诊断仪扫）。</li>
+<li><strong>版本升级踩坑</strong>：依赖升级时 LangChain 改了接口，代码报错，要么回滚要么改十几处。早期 breaking change 常见。</li>
+<li><strong>性能优化隐性开销</strong>：规模化时 profile 发现框架每次调用都在做你不需要的事（序列化中间结果、触发 callback、记录日志），高流量下累积成真实延迟和费用。</li>
+</ul>
+<h3 id="82-框架的局限性">8.2 框架的局限性
+</h3><p>框架的核心局限在于<strong>抽象层让你离底层更远</strong>。Anthropic 官方 Agent 构建指南也建议：不要一上来就用框架，先用最少抽象把核心逻辑跑通。&ldquo;框架抽象层让你离底层更远，调试成本比省下的开发时间还高&rdquo;。</p>
+<p>类比：框架是&quot;租房&quot;（装修好直接住，但结构改不了，房东随时调政策）；手搓是&quot;自建&quot;（建得慢，但所有结构熟悉，改什么都能改）。</p>
+<p>对比一下两版代码就很清楚：</p>
+<div class="highlight"><pre tabindex="0" style="color:#f8f8f2;background-color:#272822;-moz-tab-size:4;-o-tab-size:4;tab-size:4;"><code class="language-python" data-lang="python"><span style="display:flex;"><span><span style="color:#75715e"># 框架版（简洁但黑盒）</span>
+</span></span><span style="display:flex;"><span><span style="color:#f92672">from</span> langchain.agents <span style="color:#f92672">import</span> AgentExecutor, create_openai_tools_agent
+</span></span><span style="display:flex;"><span>agent <span style="color:#f92672">=</span> create_openai_tools_agent(llm, tools, prompt)
+</span></span><span style="display:flex;"><span>executor <span style="color:#f92672">=</span> AgentExecutor(agent<span style="color:#f92672">=</span>agent, tools<span style="color:#f92672">=</span>tools)
+</span></span><span style="display:flex;"><span>result <span style="color:#f92672">=</span> executor<span style="color:#f92672">.</span>invoke({<span style="color:#e6db74">&#34;input&#34;</span>: <span style="color:#e6db74">&#34;帮我查一下今天的天气&#34;</span>})
+</span></span><span style="display:flex;"><span><span style="color:#75715e"># （AgentExecutor 新版已废弃，官方推荐迁移 LangGraph，印证升级痛点）</span>
+</span></span><span style="display:flex;"><span>
+</span></span><span style="display:flex;"><span><span style="color:#75715e"># 手搓版（代码多但每步在眼前）</span>
+</span></span><span style="display:flex;"><span>messages <span style="color:#f92672">=</span> [{<span style="color:#e6db74">&#34;role&#34;</span>: <span style="color:#e6db74">&#34;system&#34;</span>, <span style="color:#e6db74">&#34;content&#34;</span>: system_prompt}]
+</span></span><span style="display:flex;"><span>messages<span style="color:#f92672">.</span>append({<span style="color:#e6db74">&#34;role&#34;</span>: <span style="color:#e6db74">&#34;user&#34;</span>, <span style="color:#e6db74">&#34;content&#34;</span>: user_input})
+</span></span><span style="display:flex;"><span><span style="color:#66d9ef">for</span> i <span style="color:#f92672">in</span> range(max_turns):
+</span></span><span style="display:flex;"><span>    response <span style="color:#f92672">=</span> client<span style="color:#f92672">.</span>chat<span style="color:#f92672">.</span>completions<span style="color:#f92672">.</span>create(
+</span></span><span style="display:flex;"><span>        model<span style="color:#f92672">=</span><span style="color:#e6db74">&#34;gpt-4&#34;</span>, messages<span style="color:#f92672">=</span>messages, tools<span style="color:#f92672">=</span>tool_schemas
+</span></span><span style="display:flex;"><span>    )
+</span></span><span style="display:flex;"><span>    msg <span style="color:#f92672">=</span> response<span style="color:#f92672">.</span>choices[<span style="color:#ae81ff">0</span>]<span style="color:#f92672">.</span>message
+</span></span><span style="display:flex;"><span>    messages<span style="color:#f92672">.</span>append(msg)
+</span></span><span style="display:flex;"><span>    <span style="color:#66d9ef">if</span> <span style="color:#f92672">not</span> msg<span style="color:#f92672">.</span>tool_calls:
+</span></span><span style="display:flex;"><span>        <span style="color:#66d9ef">break</span>
+</span></span><span style="display:flex;"><span>    <span style="color:#66d9ef">for</span> tc <span style="color:#f92672">in</span> msg<span style="color:#f92672">.</span>tool_calls:
+</span></span><span style="display:flex;"><span>        result <span style="color:#f92672">=</span> execute_tool(tc<span style="color:#f92672">.</span>function<span style="color:#f92672">.</span>name, tc<span style="color:#f92672">.</span>function<span style="color:#f92672">.</span>arguments)
+</span></span><span style="display:flex;"><span>        messages<span style="color:#f92672">.</span>append({<span style="color:#e6db74">&#34;role&#34;</span>: <span style="color:#e6db74">&#34;tool&#34;</span>, <span style="color:#e6db74">&#34;tool_call_id&#34;</span>: tc<span style="color:#f92672">.</span>id, <span style="color:#e6db74">&#34;content&#34;</span>: result})
+</span></span><span style="display:flex;"><span>        logger<span style="color:#f92672">.</span>info(<span style="color:#e6db74">f</span><span style="color:#e6db74">&#34;工具 </span><span style="color:#e6db74">{</span>tc<span style="color:#f92672">.</span>function<span style="color:#f92672">.</span>name<span style="color:#e6db74">}</span><span style="color:#e6db74"> 返回: </span><span style="color:#e6db74">{</span>result<span style="color:#e6db74">}</span><span style="color:#e6db74">&#34;</span>)  <span style="color:#75715e"># 随意加日志/监控/重试</span>
+</span></span></code></pre></div><h3 id="83-手搓的核心要素">8.3 手搓的核心要素
+</h3><p>手搓的核心优势是<strong>完全掌控</strong>：</p>
+<ol>
+<li><strong>链路透明、可观测性好</strong>：每行代码知道在干什么，任意位置加日志/断点/监控，无黑盒。线上出问题靠日志复现最快。</li>
+<li><strong>精确裁剪、无多余开销</strong>：只写需要的逻辑，无通用性包袱，优化空间完全在自己手里。</li>
+<li><strong>稳定可控、不受框架升级影响</strong>：自己接口不会突然变，依赖只有底层 LLM SDK 相对稳定。</li>
+</ol>
+<h3 id="84-什么时候该手搓什么时候该用框架">8.4 什么时候该手搓，什么时候该用框架
+</h3><div class="table-wrapper"><table>
+  <thead>
+      <tr>
+          <th>场景</th>
+          <th>选择</th>
+      </tr>
+  </thead>
+  <tbody>
+      <tr>
+          <td>POC 快速验证 idea</td>
+          <td>框架（速度优势真实）</td>
+      </tr>
+      <tr>
+          <td>团队刚接触 Agent 开发</td>
+          <td>框架（少踩基础坑）</td>
+      </tr>
+      <tr>
+          <td>周边工具依赖框架生态</td>
+          <td>框架</td>
+      </tr>
+      <tr>
+          <td>准备上生产，稳定性核心关切</td>
+          <td>手搓</td>
+      </tr>
+      <tr>
+          <td>流量上来，性能成本敏感</td>
+          <td>手搓</td>
+      </tr>
+      <tr>
+          <td>业务逻辑高度定制</td>
+          <td>手搓</td>
+      </tr>
+      <tr>
+          <td>需高可观测性</td>
+          <td>手搓</td>
+      </tr>
+  </tbody>
+</table></div>
+<p><strong>最务实的折中方案：核心手写，周边借用。</strong></p>
+<ul>
+<li><strong>核心逻辑手写</strong>（Agent 心脏）：工具调用循环、对话历史管理、错误处理重试、任务状态维护——百分百理解百分百掌控。</li>
+<li><strong>周边工具借用</strong>：LangSmith tracing、LlamaIndex 文档解析、向量库客户端——出问题一眼看出，不带来黑盒。</li>
+<li>类比盖房：自己设计核心结构承重墙，门锁插座水龙头买现成。</li>
+</ul>
+<p>真实项目的演进轨迹往往是：框架快速跑通验证方向 → 遇线上问题把关键部分替换手写 → 流量上来性能敏感核心全手写 → 框架只保留周边工具。</p>
+<p>判断信号：能清楚说出&quot;框架在某处替我做了什么&quot; → 理解它有掌控感；只调方法不知里面发生什么 → 黑盒需警惕。<strong>框架本身不是问题，&ldquo;不理解就依赖&quot;才是。</strong></p>
+<blockquote>
+<p><strong>实践要点</strong></p>
+<ul>
+<li>不要一开口否定框架——POC 阶段它的速度优势是真实的。</li>
+<li>手搓的价值是&quot;完全掌控&rdquo;：可观测、稳定、可裁剪。</li>
+<li>最务实的是折中方案：核心逻辑手写（Agent 心脏），周边工具借用框架（不带来黑盒的部分）。</li>
+<li>判断该不该手搓的信号：能否清楚说出&quot;框架在某处替我做了什么&quot;。</li>
+</ul>
+</blockquote>
+<hr>
+<h2 id="第九章多-agent-系统">第九章：多 Agent 系统
+</h2><h3 id="91-什么是-multi-agent">9.1 什么是 Multi-Agent
+</h3><p>Multi-Agent = 多个 Agent 协作完成任务，各有分工（搜索/写代码/评审）。<strong>价值不只是&quot;多几个 AI&quot;，背后有两个具体的工程问题驱动</strong>。</p>
+<p>单个 Agent 有两个硬限制：</p>
+<ol>
+<li><strong>context window 大小限制</strong>：复杂任务信息量一多就撑爆，早期内容&quot;掉落&quot;，Agent 遗忘。这是结构性上限，非努力优化能绕过。</li>
+<li><strong>单点能力（专业度）问题</strong>：什么都让一个 Agent 做，每件事都是泛才，精力分散。一个 Agent 既搜信息又写代码又测试又写文档，每件都不够专注，互相干扰。某环节出问题整条链路卡住，无隔离性。</li>
+</ol>
+<p>Multi-Agent 的核心思路是&quot;团队作战代替单打独斗&quot;：按职能拆开，每个 Agent 只负责一件事，专心做好，做完传给下一个。关键好处：每个 Agent 的 context 完全隔离，工作台干净，只装自己那块信息，专业度更高；无依赖子任务可并行执行，整体速度提升；某环节出问题可隔离定位。</p>
+<p>三种协作模式：</p>
+<div class="table-wrapper"><table>
+  <thead>
+      <tr>
+          <th>模式</th>
+          <th>说明</th>
+      </tr>
+  </thead>
+  <tbody>
+      <tr>
+          <td>顺序流水线（Sequential Pipeline）</td>
+          <td>A→B→C 依次处理，工厂流水线</td>
+      </tr>
+      <tr>
+          <td>并行扇出（Fan-out）</td>
+          <td>调度者同时分发独立子任务给不同 Worker，并行执行，最后汇总</td>
+      </tr>
+      <tr>
+          <td>辩论/评审（Debate/Review）</td>
+          <td>多 Agent 各给方案，裁判 Agent 或互相评审筛选最优解</td>
+      </tr>
+  </tbody>
+</table></div>
+<h3 id="92-single-agent-vs-multi-agent-选型">9.2 Single-Agent vs Multi-Agent 选型
+</h3><p><strong>Single-Agent</strong> 的本质：一个 LLM + 一套工具，跑决策循环。最大优势不只是&quot;架构简单&quot;，更核心是<strong>整条任务链路完全在掌控内</strong>——任务怎么走、用什么工具、何时结束都在一处写清，出问题链路短好排查。类比一个人独立写博客，自己查资料想大纲写下来，单人更高效，沟通成本为零。</p>
+<p>Single-Agent 力不从心的<strong>三类任务</strong>（此时 Multi-Agent 有真实价值）：</p>
+<ol>
+<li>任务太长信息量太大，context 撑爆，Agent 遗忘。</li>
+<li>不同步骤需完全不同专业能力，什么都塞一个 Agent 每件都不专注。</li>
+<li>任务中有多个独立子任务可并行，单 Agent 只能一个个来。</li>
+</ol>
+<p><strong>不属于这三类就用 Single-Agent，不要为&quot;用新技术&quot;强行引入 Multi-Agent。</strong></p>
+<p><strong>渐进式演进策略</strong>（实用）：先 Single-Agent 跑起来，发现某环节成瓶颈（context 常撑满/某类子任务质量不行）再拆出来交专门 Worker Agent。<strong>不要一上来就设计五六个 Agent 的复杂系统</strong>，可能连真正瓶颈都没搞清。从 Single-Agent 演进到 Multi-Agent 是自然过程，非一开始的架构决策。</p>
+<p>三方案对比：</p>
+<div class="table-wrapper"><table>
+  <thead>
+      <tr>
+          <th>维度</th>
+          <th>Single-Agent</th>
+          <th>Multi-Agent（中心化）</th>
+          <th>Multi-Agent（去中心化）</th>
+      </tr>
+  </thead>
+  <tbody>
+      <tr>
+          <td>架构复杂度</td>
+          <td>低</td>
+          <td>中</td>
+          <td>高</td>
+      </tr>
+      <tr>
+          <td>Context 压力</td>
+          <td>全压一个</td>
+          <td>各独立</td>
+          <td>各独立，需额外共享协调状态</td>
+      </tr>
+      <tr>
+          <td>专业能力</td>
+          <td>泛才</td>
+          <td>专才分工</td>
+          <td>专才分工</td>
+      </tr>
+      <tr>
+          <td>并行能力</td>
+          <td>不支持</td>
+          <td>支持子任务并行</td>
+          <td>支持并行</td>
+      </tr>
+      <tr>
+          <td>可控性</td>
+          <td>高</td>
+          <td>高（Orchestrator 统管）</td>
+          <td>低</td>
+      </tr>
+      <tr>
+          <td>调试难度</td>
+          <td>容易</td>
+          <td>中（按调度链路追踪）</td>
+          <td>难（行为不可预测）</td>
+      </tr>
+      <tr>
+          <td>工程实用性</td>
+          <td>高</td>
+          <td>高</td>
+          <td>低（主要学术研究）</td>
+      </tr>
+      <tr>
+          <td>适用场景</td>
+          <td>任务清晰复杂度适中</td>
+          <td>需分工或并行的复杂任务</td>
+          <td>学术探索</td>
+      </tr>
+  </tbody>
+</table></div>
+<h3 id="93-多-agent-通信方式消息传递-vs-共享状态">9.3 多 Agent 通信方式（消息传递 vs 共享状态）
+</h3><p>Agent 间传递信息有两种方式：</p>
+<p><strong>消息传递</strong>（像发邮件）：</p>
+<ul>
+<li>Agent 完成工作后把结果发到消息队列，下游 Agent 订阅感兴趣的消息取到再处理。</li>
+<li><strong>核心优势：解耦</strong>——发送方不需知道谁在接收，接收方不需知道谁发送。</li>
+<li>缺点：需消息中间件维护机制，部署成本稍高。</li>
+<li>适合：Agent 间需独立运行、互相不感知。</li>
+</ul>
+<p><strong>共享状态</strong>（像共享白板）：</p>
+<ul>
+<li>所有 Agent 读写同一状态对象，记录任务进展和中间结果。</li>
+<li><strong>核心优势：直接</strong>——前一步写进去后一步直接读。</li>
+<li>LangGraph 用此思路，贯穿所有 Agent 的 State，每个 Agent 执行完写入结果，下一个直接读。</li>
+<li>适合：各步骤依赖关系明确的流水线型任务。</li>
+</ul>
+<p><strong>怎么选</strong>：依赖强（前一步结果直接传后一步）→ 共享状态；希望解耦（互相不知存在）→ 消息传递。</p>
+<p><strong>状态管理设计要点</strong>（多 Agent 最易出 bug 处）：</p>
+<ol>
+<li><strong>状态结构分层</strong>：
+<ul>
+<li>全局状态：所有 Agent 都需读取（用户原始请求、任务进展、最终输出）。</li>
+<li>局部状态：每个 Agent 自己的中间结果（搜索候选文档、代码草稿），不直接暴露给其他 Agent，避免信息污染。</li>
+</ul>
+</li>
+<li><strong>写入规则明确</strong>：最简单可靠是&quot;<strong>只追加不覆盖</strong>&quot;，每个 Agent 完成后追加而非修改已有字段。LangGraph State 更新机制即此思路——定义 schema，节点返回&quot;增量更新&quot;，框架合并到全局状态，不会互相覆盖。</li>
+<li><strong>错误状态处理</strong>：Agent 执行失败，错误信息也写入状态而非悄悄吞掉。后续 Agent/Orchestrator 读到错误状态才能正确决策（跳过/换 Agent 重试/终止）。</li>
+</ol>
+<h3 id="94-路由策略静态规则-vs-llm-动态决策">9.4 路由策略（静态规则 vs LLM 动态决策）
+</h3><p>Orchestrator 怎么决定叫谁？有静态和动态两种路由：</p>
+<p><strong>静态路由</strong>（提前写死规则）：</p>
+<ul>
+<li>&ldquo;任务含搜索→Researcher&quot;&ldquo;步骤是代码写完→Reviewer&rdquo;，找不到匹配→Orchestrator 兜底。</li>
+<li>像工厂流水线，每道工序完成后下一步固定。效率高、可预测、好调试。但覆盖不了没预料的情况。</li>
+</ul>
+<p><strong>动态路由</strong>（LLM 决策）：</p>
+<ul>
+<li>Orchestrator 把当前任务描述、已完成什么、可用 Agent 列表全告诉 LLM，让它判断&quot;现在叫哪个 Agent&rdquo;。</li>
+</ul>
+<div class="highlight"><pre tabindex="0" style="color:#f8f8f2;background-color:#272822;-moz-tab-size:4;-o-tab-size:4;tab-size:4;"><code class="language-python" data-lang="python"><span style="display:flex;"><span><span style="color:#66d9ef">def</span> <span style="color:#a6e22e">dynamic_route</span>(task_context, available_agents):
+</span></span><span style="display:flex;"><span>    prompt <span style="color:#f92672">=</span> <span style="color:#e6db74">f</span><span style="color:#e6db74">&#34;&#34;&#34;当前任务状态：</span><span style="color:#ae81ff">\n</span><span style="color:#e6db74">{</span>task_context<span style="color:#e6db74">}</span><span style="color:#ae81ff">\n\n</span><span style="color:#e6db74">
+</span></span></span><span style="display:flex;"><span><span style="color:#e6db74">    可用的 Agent：</span><span style="color:#ae81ff">\n</span><span style="color:#e6db74">{</span>chr(<span style="color:#ae81ff">10</span>)<span style="color:#f92672">.</span>join(<span style="color:#e6db74">f</span><span style="color:#e6db74">&#39;- </span><span style="color:#e6db74">{</span>a<span style="color:#e6db74">}</span><span style="color:#e6db74">&#39;</span> <span style="color:#66d9ef">for</span> a <span style="color:#f92672">in</span> available_agents)<span style="color:#e6db74">}</span><span style="color:#ae81ff">\n\n</span><span style="color:#e6db74">
+</span></span></span><span style="display:flex;"><span><span style="color:#e6db74">    请根据当前进展，判断下一步应该交给哪个 Agent。只返回 Agent 名称，不需要解释。&#34;&#34;&#34;</span>
+</span></span><span style="display:flex;"><span>    response <span style="color:#f92672">=</span> client<span style="color:#f92672">.</span>chat<span style="color:#f92672">.</span>completions<span style="color:#f92672">.</span>create(
+</span></span><span style="display:flex;"><span>        model<span style="color:#f92672">=</span><span style="color:#e6db74">&#34;gpt-4&#34;</span>, messages<span style="color:#f92672">=</span>[{<span style="color:#e6db74">&#34;role&#34;</span>: <span style="color:#e6db74">&#34;user&#34;</span>, <span style="color:#e6db74">&#34;content&#34;</span>: prompt}]
+</span></span><span style="display:flex;"><span>    )
+</span></span><span style="display:flex;"><span>    <span style="color:#66d9ef">return</span> response<span style="color:#f92672">.</span>choices[<span style="color:#ae81ff">0</span>]<span style="color:#f92672">.</span>message<span style="color:#f92672">.</span>content<span style="color:#f92672">.</span>strip()
+</span></span></code></pre></div><p>优点：灵活，能处理任何没预先设计的路径。缺点：每次路由多一次 LLM 调用（延迟成本增加），LLM 偶尔路由错，可预测性降低。实际还会加保护措施：校验返回名称是否在可用列表、设默认 fallback Agent、记录路由决策日志。</p>
+<h3 id="95-orchestrator-中心化模式">9.5 Orchestrator 中心化模式
+</h3><p><strong>Orchestrator</strong>（交响乐指挥/总调度员/项目经理）是最特殊的 Agent：不做任何具体工作，只负责三件事——读懂大目标拆子任务、判断每个子任务交哪个 Worker、收集产出拼最终答案。</p>
+<p>Orchestrator 有三个变体：</p>
+<div class="table-wrapper"><table>
+  <thead>
+      <tr>
+          <th>变体</th>
+          <th>说明</th>
+          <th>复杂度</th>
+      </tr>
+  </thead>
+  <tbody>
+      <tr>
+          <td>静态路由（Static Router）</td>
+          <td>任务拆分分配规则预先定义</td>
+          <td>简单可预测</td>
+      </tr>
+      <tr>
+          <td>动态规划（Dynamic Planner）</td>
+          <td>Orchestrator 是 LLM，动态生成任务计划，可执行中调整</td>
+          <td>中（大多数场景够用）</td>
+      </tr>
+      <tr>
+          <td>自适应编排（Adaptive Orchestration）</td>
+          <td>不仅动态规划，还根据 Worker 结果实时调整后续计划</td>
+          <td>高（调试复杂）</td>
+      </tr>
+  </tbody>
+</table></div>
+<p>Worker Agent 只关注自己那块，不需要知道整体任务和其他 Worker，拿指令做完返回结果退出，context 干净。</p>
+<p>中心化最大好处：每环节出问题能精准定位（报告不准→Researcher；分析逻辑错→Analyst；格式不对→Writer），顺着调度记录追根源。</p>
+<p><strong>去中心化方案为什么&quot;听起来灵活&quot;却很少工程用？</strong> 因为实际工程问题太多（三 Agent 场景为例）：</p>
+<ol>
+<li>任务分配没协调（A 和 B 搜大量重叠内容，重复工作）。</li>
+<li>执行顺序没保证（C 不知 A/B 何时搜完，不知等多久）。</li>
+<li>失败没感知（A 中途出错，无中央调度收错误通知，B/C 还在跑，汇总出不完整结果但系统不知道）。</li>
+<li>没人确认&quot;任务整体完成了&quot;。</li>
+</ol>
+<p>类比无项目经理团队：每个人都能干，但没人协调时间节点和接口，交出互不兼容结果。<strong>生产环境几乎所有正经项目都选 Orchestrator 模式</strong>。去中心化多停留在学术研究。</p>
+<h3 id="96-多-agent-协作与动态切换">9.6 多 Agent 协作与动态切换
+</h3><p>多 Agent 协作有三种主要模式（不互斥，复杂系统常混合）：</p>
+<div class="table-wrapper"><table>
+  <thead>
+      <tr>
+          <th>模式</th>
+          <th>说明</th>
+      </tr>
+  </thead>
+  <tbody>
+      <tr>
+          <td>流水线模式</td>
+          <td>Agent 按固定顺序依次执行，前一个完成交下一个（工厂装配线）</td>
+      </tr>
+      <tr>
+          <td>层级模式</td>
+          <td>Orchestrator 分配任务收集结果，其他 Agent 各自执行子任务</td>
+      </tr>
+      <tr>
+          <td>协商模式</td>
+          <td>多 Agent 无严格上下级，通过互相沟通辩论达成一致</td>
+      </tr>
+  </tbody>
+</table></div>
+<p><strong>Handoff 模式</strong>（Agent 间&quot;接力棒&quot;，OpenAI Swarm 框架推广）：</p>
+<ul>
+<li>不需中央 Orchestrator 决定&quot;下一步找谁&quot;，让当前执行 Agent 自己决定&quot;我做完了，接下来交给谁&quot;。接力赛跑，跑完自己那棒直接递接力棒。</li>
+<li><strong>好处</strong>：每个 Agent 对自己任务边界最清楚，由它决定下一步找谁往往比外部 Orchestrator 更准；无中央节点瓶颈，扩展性好。</li>
+<li><strong>缺点</strong>：无全局视角。A 交 B，B 觉得不是自己活交 C，C 又交回 A → 死循环。</li>
+<li><strong>必须设计</strong>：每个 Agent 职责边界清晰 + 防循环机制（记录任务经过哪些 Agent，重复经过同一 Agent 强制终止）。</li>
+</ul>
+<p><strong>工程上怎么用</strong>：</p>
+<ul>
+<li><strong>最稳健：两种路由组合</strong>——主流程静态路由（确定性节点切换写规则，保绝大多数稳定可预测），边缘情况才交 LLM 动态决策。静态路由&quot;保底&quot;，动态路由&quot;兜住异常&quot;，互补。</li>
+<li><strong>Handoff</strong>：适合 Agent 职责边界非常清晰、任务流向相对确定的场景。Agent 数量不多、输入输出接口明确 → 比 Orchestrator 简洁；数量多流向复杂 → 用 Orchestrator 统一调度避免交接成乱麻。</li>
+<li><strong>通信方式</strong>：相对清晰流水线（明确前后依赖）→ 共享状态；需多 Agent 独立并行互不感知 → 消息传递。</li>
+</ul>
+<h3 id="97-multi-agent-的工程挑战">9.7 Multi-Agent 的工程挑战
+</h3><p>Multi-Agent 不是&quot;多个 AI 效率更高&quot;那么简单，它带来真实的工程挑战：</p>
+<ol>
+<li><strong>通信开销</strong>：Agent 间传递信息、Orchestrator 调度决策，都增加额外的 LLM 调用和延迟。</li>
+<li><strong>状态一致性</strong>：多 Agent 读写同一状态，设计不好易被意外覆盖或读脏数据（&ldquo;只追加不覆盖&quot;是最简单可靠的规则）。</li>
+<li><strong>调试复杂度</strong>：行为路径不确定，出问题要顺着调度链路追根源，比 Single-Agent 难得多。</li>
+<li><strong>成本控制</strong>：每个 Agent 都是独立的 LLM 调用循环，多 Agent 系统的总 token 消耗和延迟会成倍增加。</li>
+</ol>
+<p>框架生态方面：CrewAI、LangGraph 封装了通信/调度/汇总基础设施。<strong>Microsoft Agent Framework（MAF）</strong> 2025 年推出，合并了 Semantic Kernel（企业级）+ AutoGen（多 Agent 编排）为统一 SDK。选框架：微软技术栈生产优先 MAF；其他场景 CrewAI（上层易用）或 LangGraph（底层灵活）。</p>
+<p>协议趋势：<strong>A2A</strong>（Agent2Agent，Google 2025 年 4 月提出）解决不同团队/框架开发的 Agent 间通信协作。之前每个框架自己通信方式，Agent 只能在同框架内协作。A2A 定义标准化通信协议，思路像微服务。目前已捐 Linux 基金会。但<strong>目前较早期</strong>，实际生态&quot;真正即插即用跨框架调用&quot;未完全成熟，多为社区实现和示范项目。</p>
+<blockquote>
+<p><strong>实践要点</strong></p>
+<ul>
+<li>选型标准不能只说&quot;任务复杂&rdquo;，要说出三类具体场景（context 撑爆/需多专业/可并行）。</li>
+<li>生产环境几乎都选 Orchestrator 中心化模式——可控、可追踪、出问题能排查。去中心化主要在学术。</li>
+<li>状态管理用&quot;只追加不覆盖&quot;规则，避免多 Agent 互相覆盖。</li>
+<li>路由最稳健的组合：主流程静态路由保底 + 边缘情况动态路由兜底。</li>
+<li>不要一上来就设计五六个 Agent 的复杂系统，先 Single-Agent 跑通，遇瓶颈再渐进拆分。</li>
+</ul>
+</blockquote>
+<hr>
+<h2 id="结尾">结尾
+</h2><h3 id="核心知识点回顾">核心知识点回顾
+</h3><p>贯穿全文的核心原则，可以用八句话概括：</p>
+<ol>
+<li><strong>决策与执行分离</strong>：模型是大脑只决策，代码真正执行（工具调用、ReAct 循环驱动）。</li>
+<li><strong>谁做决策是核心区分</strong>：Tools 不决策、Agent 自主决策、Workflow 开发者写死决策。</li>
+<li><strong>可控性 &gt; 灵活性</strong>（生产环境）：能用 Workflow 就别用 Agent，Agentic Workflow 是主流。</li>
+<li><strong>够用就好，别过度工程化</strong>：先 ReAct 跑通，按需加 Plan-and-Execute / Reflection；先 Single-Agent，遇瓶颈再 Multi-Agent。</li>
+<li><strong>完全掌控优于黑盒</strong>：核心逻辑手写，周边工具借用框架。</li>
+<li><strong>工程取舍三维度</strong>：任务复杂度、流程确定性、输出质量要求决定范式选型。</li>
+<li><strong>记忆读-用-写闭环</strong>：任务前读记忆注入背景，执行中短期记忆维持状态，任务后写长期记忆沉淀。</li>
+<li><strong>防失控机制必备</strong>：最大循环次数/token 预算/超时（Agent）；最大反思轮次 2-3 轮（Reflection）；防循环记录（Handoff）。</li>
+</ol>
+<p>用一张总览图把所有概念串起来：</p>
+<pre tabindex="0"><code>                    【Agent 本质】自主闭环（感知→规划→行动→再感知）
+                              │
+              ┌───────────────┼───────────────┐
+              ▼               ▼               ▼
+         【四大组件】      【三层结构】     【三大局限突破】
+         LLM(大脑)        Tools(积木)      工具调用(突破知识冻结/不能行动)
+         工具系统(手脚)    Agent(决策者)    记忆机制(突破无持续状态)
+         记忆系统(档案)    Workflow(总指挥) 多步推理(自主纠错)
+         规划模块(PM)
+              │
+    ┌─────────┼──────────┐
+    ▼         ▼          ▼
+【设计范式】           【推理模式】
+ReAct(边想边干)        CoT(线性写推理)
+Plan-and-Execute       ToT(树形多路径)
+(先规划再执行)          GoT(图形可复用)
+Reflection(质量buff)
+    │
+    ├── 动态 Replan(计划遇意外调整)
+    └── Reflexion(失败经验存记忆,错题本)
+         │
+         ▼
+【工程实践】
+任务拆分(静态/动态/自适应) + 并行优化(DAG)
+记忆(四层) + 压缩(滑动窗口/摘要/重要性/结构化)
+规划能力(CoT→ToT→GoT + Plan-and-Execute)
+反思机制(生成→评估→改进, 步骤级/任务级, 多Agent互评)
+手搓vs框架(核心手写周边借用)
+         │
+         ▼
+【多Agent】
+Single vs Multi(context上限/专业度/并行)
+协作(消息传递/共享状态) + 切换(静态路由/动态路由/Handoff)
+中心化(Orchestrator) vs 去中心化(少用)
+协议(MCP管工具, A2A管Agent间通信)
+</code></pre><h3 id="与其他主题的关联">与其他主题的关联
+</h3><p>Agent 是整个 AI 工程知识体系的<strong>集大成者</strong>。前面几篇文章讲的知识，在 Agent 这里汇聚成一个完整的自主系统：</p>
+<ul>
+<li><strong>LLM（大语言模型）</strong>：Agent 的&quot;大脑&quot;，所有理解和决策的中枢。没有强 LLM，Agent 无从谈起——这正是 Agent 爆发的第一个条件。</li>
+<li><strong>RAG（检索增强生成）</strong>：Agent 长期记忆的本质就是&quot;按需 RAG&quot;——任务开始前检索相关记忆注入 context，和 RAG 检索文档注入 context 是同一个机制。</li>
+<li><strong>工具调用 / Function Calling</strong>：Agent 突破&quot;不能行动&quot;的关键，也是&quot;决策与执行分离&quot;哲学的落地。MCP 协议标准化的正是这一层。</li>
+<li><strong>Prompt Engineering</strong>：Agent 的 System Prompt 是它的&quot;岗位说明书&quot;，调优占开发时间相当大比例。CoT/ToT 等&quot;推理模式&quot;本质也是 prompt 工程。</li>
+<li><strong>框架（LangChain/LangGraph 等）</strong>：降低 Agent 开发门槛的脚手架，但&quot;核心手写、周边借用&quot;才是生产环境的务实之道。</li>
+</ul>
+<p>可以说，<strong>理解了 Agent，就理解了 AI 工程的全貌</strong>——它是 LLM + RAG + 工具调用 + 框架 + 规划 + 记忆 + 反思的融合体。任何一个环节的短板，都会成为 Agent 整体能力的瓶颈。</p>
+<h3 id="进一步阅读资源">进一步阅读资源
+</h3><ul>
+<li><strong>ReAct 原始论文</strong>：Yao et al., &ldquo;ReAct: Synergizing Reasoning and Acting in Language Models&rdquo; (2022)——理解 Thought→Action→Observation 循环的理论源头。</li>
+<li><strong>Reflexion 原始论文</strong>：Shinn et al., &ldquo;Reflexion: Language Agents with Verbal Reinforcement Learning from Multi-Aspect Feedback&rdquo; (2023)——反思机制 + 经验记忆的奠基工作，HumanEval 80%→91% 的来源。</li>
+<li><strong>Self-Refine 论文</strong>：Madaan et al., &ldquo;Self-Refine: Iterative Refinement with Self-Feedback&rdquo; (2023)——生成→评估→改进闭环的正式提出。</li>
+<li><strong>Anthropic &ldquo;Building Effective Agents&rdquo;</strong>：Anthropic 官方 Agent 构建指南，&ldquo;能用 Workflow 就别用 Agent&quot;原则的出处，强烈推荐。</li>
+<li><strong>MCP 规范</strong>（Model Context Protocol）：Anthropic 提出的工具标准化协议，工具世界的&quot;USB-C&rdquo;。</li>
+<li><strong>A2A 协议</strong>（Agent2Agent）：Google 提出的 Agent 间通信协议，已捐 Linux 基金会。</li>
+<li><strong>LangGraph 文档</strong>：生产级 Agent/Workflow 编排框架，Plan-and-Execute、共享状态等模式的参考实现。</li>
+<li><strong>Letta（MemGPT）</strong>：灵感来自 OS 内存管理的记忆框架，三层记忆（Core/Recall/Archival）值得研究。</li>
+<li><strong>Microsoft Agent Framework（MAF）</strong>：2025 年微软统一 SDK，合并 Semantic Kernel + AutoGen。</li>
+</ul>
+<blockquote>
+<p>Agent 不是终点，而是 AI 工程从&quot;单点能力&quot;走向&quot;自主系统&quot;的起点。当 Agent 能自主闭环、能跨任务记忆、能多体协作，我们离真正的&quot;通用 AI 助手&quot;就更近了一步。理解本文的每一层，都是在为搭建那个&quot;能干的私人助理&quot;打地基。</p>
+</blockquote>
+
+</section>
+
+
+    <footer class="article-footer">
+    
+    <section class="article-tags">
+        
+            <a href="/tags/Agent.html">Agent</a>
+        
+            <a href="/tags/AI-Agent.html">AI Agent</a>
+        
+            <a href="/tags/Autonomous.html">Autonomous</a>
+        
+            <a href="/tags/Reasoning.html">Reasoning</a>
+        
+            <a href="/tags/Multi-Agent.html">Multi-Agent</a>
+        
+    </section>
+
+
+    </footer>
+
+
+    
+</article>
+
+    
+
+    
+
+<aside class="related-content--wrapper">
+    <h2 class="section-title">相关文章</h2>
+    <div class="related-content">
+        <div class="flex article-list--tile">
+            
+                
+<article class="">
+    <a href="/ai/knowledge-series/12-Agent-Reasoning-Patterns-and-ReAct.html">
+        
+        
+
+        <div class="article-details">
+            <h2 class="article-title">第12章：Agent 推理模式——从 CoT 到 ReAct 再到自主执行</h2>
+        </div>
+    </a>
+</article>
+
+            
+                
+<article class="">
+    <a href="/ai/knowledge-series/10-From-Prompt-to-Agent.html">
+        
+        
+
+        <div class="article-details">
+            <h2 class="article-title">第10章：从 Prompt 到 Agent——AI 能力跃迁的分水岭</h2>
+        </div>
+    </a>
+</article>
+
+            
+                
+<article class="">
+    <a href="/ai/ai-systematization/04-LangChain-Framework-Comprehensive-Guide.html">
+        
+        
+
+        <div class="article-details">
+            <h2 class="article-title">LangChain框架全解析——架构、组件与实战</h2>
+        </div>
+    </a>
+</article>
+
+            
+                
+<article class="">
+    <a href="/ai/ai-systematization/03-LLM-Tool-Calling-Deep-Dive.html">
+        
+        
+
+        <div class="article-details">
+            <h2 class="article-title">LLM工具调用深度解析——从Function Calling到MCP</h2>
+        </div>
+    </a>
+</article>
+
+            
+                
+<article class="">
+    <a href="/ai/knowledge-series/14-Agent-Memory-System.html">
+        
+        
+
+        <div class="article-details">
+            <h2 class="article-title">第14章：Agent 记忆系统——如何让 AI 记得你的约定？</h2>
+        </div>
+    </a>
+</article>
+
+            
+        </div>
+    </div>
+</aside>
+
+     
+    
+        
+    <script
+    src="https://giscus.app/client.js"
+    data-repo="pastor17/bloggiscus"
+    data-repo-id="R_kgDOQ6H9qQ"
+    data-category=""
+    data-category-id="DIC_kwDOQ6H9qc4C0-T8"
+    data-mapping="pathname"
+    data-strict="0"
+    data-reactions-enabled="1"
+    data-emit-metadata="0"
+    data-input-position="bottom"
+    data-theme="light"
+    data-lang="zh-CN"
+    data-loading="lazy"
+    crossorigin="anonymous"
+    async
+></script>
+<script>
+    function setGiscusTheme(theme) {
+        let giscus = document.querySelector("iframe.giscus-frame");
+        if (giscus) {
+            giscus.contentWindow.postMessage(
+                {
+                    giscus: {
+                        setConfig: {
+                            theme: theme,
+                        },
+                    },
+                },
+                "https://giscus.app"
+            );
+        }
+    }
+
+    (function () {
+        addEventListener("message", (e) => {
+            if (event.origin !== "https://giscus.app") return;
+            handler();
+        });
+        window.addEventListener("onColorSchemeChange", handler);
+
+        function handler() {
+            if (document.documentElement.dataset.scheme === "light") {
+                setGiscusTheme('light');
+            } else {
+                setGiscusTheme('dark_dimmed');
+            }
+        }
+    })();
+</script>
+
+    
+
+    <footer class="site-footer">
+    <section class="copyright">
+        &copy; 
+        
+        2026 SelfTechHub
+    </section>
+    
+    <section class="powerby">
+        
+
+    </section>
+</footer>
+
+
+    
+<div class="pswp" tabindex="-1" role="dialog" aria-hidden="true">
+
+    
+    <div class="pswp__bg"></div>
+
+    
+    <div class="pswp__scroll-wrap">
+
+        
+        <div class="pswp__container">
+            <div class="pswp__item"></div>
+            <div class="pswp__item"></div>
+            <div class="pswp__item"></div>
+        </div>
+
+        
+        <div class="pswp__ui pswp__ui--hidden">
+
+            <div class="pswp__top-bar">
+
+                
+
+                <div class="pswp__counter"></div>
+
+                <button class="pswp__button pswp__button--close" title="Close (Esc)"></button>
+
+                <button class="pswp__button pswp__button--share" title="Share"></button>
+
+                <button class="pswp__button pswp__button--fs" title="Toggle fullscreen"></button>
+
+                <button class="pswp__button pswp__button--zoom" title="Zoom in/out"></button>
+
+                
+                
+                <div class="pswp__preloader">
+                    <div class="pswp__preloader__icn">
+                        <div class="pswp__preloader__cut">
+                            <div class="pswp__preloader__donut"></div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <div class="pswp__share-modal pswp__share-modal--hidden pswp__single-tap">
+                <div class="pswp__share-tooltip"></div>
+            </div>
+
+            <button class="pswp__button pswp__button--arrow--left" title="Previous (arrow left)">
+            </button>
+
+            <button class="pswp__button pswp__button--arrow--right" title="Next (arrow right)">
+            </button>
+
+            <div class="pswp__caption">
+                <div class="pswp__caption__center"></div>
+            </div>
+
+        </div>
+
+    </div>
+
+</div><script 
+                src="https://cdn.jsdelivr.net/npm/photoswipe@4.1.3/dist/photoswipe.min.js"integrity="sha256-ePwmChbbvXbsO02lbM3HoHbSHTHFAeChekF1xKJdleo="crossorigin="anonymous"
+                defer
+                >
+            </script><script 
+                src="https://cdn.jsdelivr.net/npm/photoswipe@4.1.3/dist/photoswipe-ui-default.min.js"integrity="sha256-UKkzOn/w1mBxRmLLGrSeyB4e1xbrp4xylgAWb3M42pU="crossorigin="anonymous"
+                defer
+                >
+            </script><link 
+                rel="stylesheet" 
+                href="https://cdn.jsdelivr.net/npm/photoswipe@4.1.3/dist/default-skin/default-skin.min.css"crossorigin="anonymous"
+            ><link 
+                rel="stylesheet" 
+                href="https://cdn.jsdelivr.net/npm/photoswipe@4.1.3/dist/photoswipe.min.css"crossorigin="anonymous"
+            >
+    
+
+            </main>
+        </div>
+        <script 
+                src="https://cdn.jsdelivr.net/npm/node-vibrant@3.1.6/dist/vibrant.min.js"integrity="sha256-awcR2jno4kI5X0zL8ex0vi2z&#43;KMkF24hUW8WePSA9HM="crossorigin="anonymous"
+                
+                >
+            </script><script type="text/javascript" src="/ts/main.c922af694cc257bf1ecc41c0dd7b0430f9114ec280ccf67cd2c6ad55f5316c4e.js" defer></script>
+<script>
+    (function () {
+        const customFont = document.createElement('link');
+        customFont.href = "https://fonts.googleapis.com/css2?family=Lato:wght@300;400;700&display=swap";
+
+        customFont.type = "text/css";
+        customFont.rel = "stylesheet";
+
+        document.head.appendChild(customFont);
+    }());
+</script>
+
+    </body>
+</html>

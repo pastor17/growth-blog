@@ -1,0 +1,880 @@
+<!DOCTYPE html>
+<html lang="zh-cn" dir="ltr">
+    <head><meta charset='utf-8'>
+<meta name='viewport' content='width=device-width, initial-scale=1'><meta name='description' content="AI大模型工程知识体系总览与导论\r本文是「AI知识成长体系」系列的开篇，为全系列8篇文章提供路线图与认知框架。无论你是刚接触大模型的初学者，还是已有工程经验的开发者，都可以从这篇文章找到适合自己的学习路径。\n一、为什么需要这套知识体系\r2026年，AI Agent开发的浪潮已经席卷整个互联网行业。不仅是AI算法、AI应用工程师这些「天生AI」的岗位，连后端开发、前端开发、数据开发这些原本跟AI隔了一道墙的岗位，面试官也开始问起AI题了：\n「你的项目里有没有用过LLM？怎么用的？」 「假如让你做一个Agent，你会怎么设计？」 「RAG工作流程是怎样的？」 「MCP和Skills有什么区别？」 「Claude Code的源码架构你了解吗？」 「Harness Engineering是什么？Agent怎么越用越聪明？」 这些问题已经悄悄出现在各种岗位的面试里。AI时代，每个工程师都得懂点大模型，不然很容易掉队。\n但问题在于，大模型领域的知识碎片化严重。网上有无数的教程、博客、视频，但大多数只覆盖某个点——要么只讲Prompt工程，要么只讲RAG，要么只讲Agent——缺乏一条从底层原理到工程实践、从概念到落地的完整知识链路。\n这套系列文章的目标，就是把大模型工程领域的核心知识，按照一条清晰的认知主线串联起来，形成一套既有深度、又能让初学者入门、还能让有经验者增进的完整知识成长体系。\n二、知识体系的六大支柱\r经过对大模型工程领域系统性的梳理（覆盖7大板块、97篇深度文章），我们将整个知识体系划分为六大核心主题，它们之间存在明确的依赖关系和演进逻辑：\n┌─────────────────────────────────────────────────────────────┐\r│ AI大模型工程知识体系 │\r├─────────────────────────────────────────────────────────────┤\r│ │\r│ 支柱一：大模型工程基础（LLM Fundamentals） │\r│ ├── Transformer架构与注意力机制 │\r│ ├── 训练三阶段（预训练→SFT→对齐） │\r│ ├── 推理优化（KV Cache、量化、解码策略） │\r│ ├── Prompt工程与CoT │\r│ └── 部署与评测 │\r│ │ │\r│ ▼ │\r│ 支柱二：RAG检索增强生成（Retrieval-Augmented Generation） │\r│ ├── 文档切割与Embedding │\r│ ├── 向量数据库与索引 │\r│ ├── 检索优化（Query改写、多路召回、Rerank） │\r│ ├── 高级范式（Self-RAG、CRAG、GraphRAG/LightRAG） │\r│ └── 生产落地（评估、动态更新、幻觉规避） │\r│ │ │\r│ ▼ │\r│ 支柱三：LLM工具调用（Tool Use / Function Calling） │\r│ ├── Function Calling原理与训练 │\r│ ├── MCP协议（标准化工具封装与发现） │\r│ ├── Skill（任务流程知识化） │\r│ ├── A2A协议（Agent间协作） │\r│ └── 通信协议与LLM网关 │\r│ │ │\r│ ▼ │\r│ 支柱四：LangChain框架（LLM应用开发框架） │\r│ ├── 核心组件（Model I/O、Chains、Memory、Agents） │\r│ ├── LCEL表达式语言 │\r│ ├── LangGraph多Agent编排 │\r│ ├── LangSmith调试与监控 │\r│ └── 框架选型与工程实践 │\r│ │ │\r│ ▼ │\r│ 支柱五：Agent智能体（Autonomous AI Agent） │\r│ ├── 核心架构（感知→规划→行动→反思） │\r│ ├── 设计范式（ReAct、Plan-and-Execute、Reflection） │\r│ ├── 记忆机制与任务拆分 │\r│ ├── Harness Engineering &amp; Loop Engineering │\r│ ├── 多Agent协作与通信 │\r│ └── OpenClaw与手搓Agent │\r│ │ │\r│ ▼ │\r│ 支柱六：Claude Code实战（AI Coding Engineering） │\r│ ├── 基础使用与CLAUDE.md项目记忆 │\r│ ├── Skill机制与SDD规约驱动开发 │\r│ ├── 源码架构（Query Loop/Compact/grep/Memory/SubAgent） │\r│ ├── 系统提示词工程（Fable 5泄漏分析） │\r│ └── AI编程方法论（grill-me/expertise over coding） │\r│ │\r└─────────────────────────────────────────────────────────────┘ 为什么是这个顺序？\r这六大支柱不是随意排列的，而是一条从底层到上层、从原理到应用、从概念到落地的认知演进路线：\n">
+<title>AI大模型工程知识体系总览与导论</title>
+
+<link rel='canonical' href='https://blog.irudder.me/ai/ai-systematization/00-Introduction-to-AI-Large-Model-Engineering-Knowledge-System.html'>
+
+<link rel="stylesheet" href="/scss/style.min.b9e9128fec450ebccecc4ec9900157f32b85d0609bcd5ee3293968bcaa1235f2.css"><meta property='og:title' content="AI大模型工程知识体系总览与导论">
+<meta property='og:description' content="AI大模型工程知识体系总览与导论\r本文是「AI知识成长体系」系列的开篇，为全系列8篇文章提供路线图与认知框架。无论你是刚接触大模型的初学者，还是已有工程经验的开发者，都可以从这篇文章找到适合自己的学习路径。\n一、为什么需要这套知识体系\r2026年，AI Agent开发的浪潮已经席卷整个互联网行业。不仅是AI算法、AI应用工程师这些「天生AI」的岗位，连后端开发、前端开发、数据开发这些原本跟AI隔了一道墙的岗位，面试官也开始问起AI题了：\n「你的项目里有没有用过LLM？怎么用的？」 「假如让你做一个Agent，你会怎么设计？」 「RAG工作流程是怎样的？」 「MCP和Skills有什么区别？」 「Claude Code的源码架构你了解吗？」 「Harness Engineering是什么？Agent怎么越用越聪明？」 这些问题已经悄悄出现在各种岗位的面试里。AI时代，每个工程师都得懂点大模型，不然很容易掉队。\n但问题在于，大模型领域的知识碎片化严重。网上有无数的教程、博客、视频，但大多数只覆盖某个点——要么只讲Prompt工程，要么只讲RAG，要么只讲Agent——缺乏一条从底层原理到工程实践、从概念到落地的完整知识链路。\n这套系列文章的目标，就是把大模型工程领域的核心知识，按照一条清晰的认知主线串联起来，形成一套既有深度、又能让初学者入门、还能让有经验者增进的完整知识成长体系。\n二、知识体系的六大支柱\r经过对大模型工程领域系统性的梳理（覆盖7大板块、97篇深度文章），我们将整个知识体系划分为六大核心主题，它们之间存在明确的依赖关系和演进逻辑：\n┌─────────────────────────────────────────────────────────────┐\r│ AI大模型工程知识体系 │\r├─────────────────────────────────────────────────────────────┤\r│ │\r│ 支柱一：大模型工程基础（LLM Fundamentals） │\r│ ├── Transformer架构与注意力机制 │\r│ ├── 训练三阶段（预训练→SFT→对齐） │\r│ ├── 推理优化（KV Cache、量化、解码策略） │\r│ ├── Prompt工程与CoT │\r│ └── 部署与评测 │\r│ │ │\r│ ▼ │\r│ 支柱二：RAG检索增强生成（Retrieval-Augmented Generation） │\r│ ├── 文档切割与Embedding │\r│ ├── 向量数据库与索引 │\r│ ├── 检索优化（Query改写、多路召回、Rerank） │\r│ ├── 高级范式（Self-RAG、CRAG、GraphRAG/LightRAG） │\r│ └── 生产落地（评估、动态更新、幻觉规避） │\r│ │ │\r│ ▼ │\r│ 支柱三：LLM工具调用（Tool Use / Function Calling） │\r│ ├── Function Calling原理与训练 │\r│ ├── MCP协议（标准化工具封装与发现） │\r│ ├── Skill（任务流程知识化） │\r│ ├── A2A协议（Agent间协作） │\r│ └── 通信协议与LLM网关 │\r│ │ │\r│ ▼ │\r│ 支柱四：LangChain框架（LLM应用开发框架） │\r│ ├── 核心组件（Model I/O、Chains、Memory、Agents） │\r│ ├── LCEL表达式语言 │\r│ ├── LangGraph多Agent编排 │\r│ ├── LangSmith调试与监控 │\r│ └── 框架选型与工程实践 │\r│ │ │\r│ ▼ │\r│ 支柱五：Agent智能体（Autonomous AI Agent） │\r│ ├── 核心架构（感知→规划→行动→反思） │\r│ ├── 设计范式（ReAct、Plan-and-Execute、Reflection） │\r│ ├── 记忆机制与任务拆分 │\r│ ├── Harness Engineering &amp; Loop Engineering │\r│ ├── 多Agent协作与通信 │\r│ └── OpenClaw与手搓Agent │\r│ │ │\r│ ▼ │\r│ 支柱六：Claude Code实战（AI Coding Engineering） │\r│ ├── 基础使用与CLAUDE.md项目记忆 │\r│ ├── Skill机制与SDD规约驱动开发 │\r│ ├── 源码架构（Query Loop/Compact/grep/Memory/SubAgent） │\r│ ├── 系统提示词工程（Fable 5泄漏分析） │\r│ └── AI编程方法论（grill-me/expertise over coding） │\r│ │\r└─────────────────────────────────────────────────────────────┘ 为什么是这个顺序？\r这六大支柱不是随意排列的，而是一条从底层到上层、从原理到应用、从概念到落地的认知演进路线：\n">
+<meta property='og:url' content='https://blog.irudder.me/ai/ai-systematization/00-Introduction-to-AI-Large-Model-Engineering-Knowledge-System.html'>
+<meta property='og:site_name' content='SelfTechHub'>
+<meta property='og:type' content='article'><meta property='article:section' content='Ai' /><meta property='article:tag' content='AI' /><meta property='article:tag' content='Large Model' /><meta property='article:tag' content='Engineering' /><meta property='article:tag' content='Knowledge System' /><meta property='article:tag' content='Introduction' /><meta property='article:published_time' content='2026-07-23T00:00:00&#43;00:00'/><meta property='article:modified_time' content='2026-07-23T00:00:00&#43;00:00'/>
+<meta name="twitter:title" content="AI大模型工程知识体系总览与导论">
+<meta name="twitter:description" content="AI大模型工程知识体系总览与导论\r本文是「AI知识成长体系」系列的开篇，为全系列8篇文章提供路线图与认知框架。无论你是刚接触大模型的初学者，还是已有工程经验的开发者，都可以从这篇文章找到适合自己的学习路径。\n一、为什么需要这套知识体系\r2026年，AI Agent开发的浪潮已经席卷整个互联网行业。不仅是AI算法、AI应用工程师这些「天生AI」的岗位，连后端开发、前端开发、数据开发这些原本跟AI隔了一道墙的岗位，面试官也开始问起AI题了：\n「你的项目里有没有用过LLM？怎么用的？」 「假如让你做一个Agent，你会怎么设计？」 「RAG工作流程是怎样的？」 「MCP和Skills有什么区别？」 「Claude Code的源码架构你了解吗？」 「Harness Engineering是什么？Agent怎么越用越聪明？」 这些问题已经悄悄出现在各种岗位的面试里。AI时代，每个工程师都得懂点大模型，不然很容易掉队。\n但问题在于，大模型领域的知识碎片化严重。网上有无数的教程、博客、视频，但大多数只覆盖某个点——要么只讲Prompt工程，要么只讲RAG，要么只讲Agent——缺乏一条从底层原理到工程实践、从概念到落地的完整知识链路。\n这套系列文章的目标，就是把大模型工程领域的核心知识，按照一条清晰的认知主线串联起来，形成一套既有深度、又能让初学者入门、还能让有经验者增进的完整知识成长体系。\n二、知识体系的六大支柱\r经过对大模型工程领域系统性的梳理（覆盖7大板块、97篇深度文章），我们将整个知识体系划分为六大核心主题，它们之间存在明确的依赖关系和演进逻辑：\n┌─────────────────────────────────────────────────────────────┐\r│ AI大模型工程知识体系 │\r├─────────────────────────────────────────────────────────────┤\r│ │\r│ 支柱一：大模型工程基础（LLM Fundamentals） │\r│ ├── Transformer架构与注意力机制 │\r│ ├── 训练三阶段（预训练→SFT→对齐） │\r│ ├── 推理优化（KV Cache、量化、解码策略） │\r│ ├── Prompt工程与CoT │\r│ └── 部署与评测 │\r│ │ │\r│ ▼ │\r│ 支柱二：RAG检索增强生成（Retrieval-Augmented Generation） │\r│ ├── 文档切割与Embedding │\r│ ├── 向量数据库与索引 │\r│ ├── 检索优化（Query改写、多路召回、Rerank） │\r│ ├── 高级范式（Self-RAG、CRAG、GraphRAG/LightRAG） │\r│ └── 生产落地（评估、动态更新、幻觉规避） │\r│ │ │\r│ ▼ │\r│ 支柱三：LLM工具调用（Tool Use / Function Calling） │\r│ ├── Function Calling原理与训练 │\r│ ├── MCP协议（标准化工具封装与发现） │\r│ ├── Skill（任务流程知识化） │\r│ ├── A2A协议（Agent间协作） │\r│ └── 通信协议与LLM网关 │\r│ │ │\r│ ▼ │\r│ 支柱四：LangChain框架（LLM应用开发框架） │\r│ ├── 核心组件（Model I/O、Chains、Memory、Agents） │\r│ ├── LCEL表达式语言 │\r│ ├── LangGraph多Agent编排 │\r│ ├── LangSmith调试与监控 │\r│ └── 框架选型与工程实践 │\r│ │ │\r│ ▼ │\r│ 支柱五：Agent智能体（Autonomous AI Agent） │\r│ ├── 核心架构（感知→规划→行动→反思） │\r│ ├── 设计范式（ReAct、Plan-and-Execute、Reflection） │\r│ ├── 记忆机制与任务拆分 │\r│ ├── Harness Engineering &amp; Loop Engineering │\r│ ├── 多Agent协作与通信 │\r│ └── OpenClaw与手搓Agent │\r│ │ │\r│ ▼ │\r│ 支柱六：Claude Code实战（AI Coding Engineering） │\r│ ├── 基础使用与CLAUDE.md项目记忆 │\r│ ├── Skill机制与SDD规约驱动开发 │\r│ ├── 源码架构（Query Loop/Compact/grep/Memory/SubAgent） │\r│ ├── 系统提示词工程（Fable 5泄漏分析） │\r│ └── AI编程方法论（grill-me/expertise over coding） │\r│ │\r└─────────────────────────────────────────────────────────────┘ 为什么是这个顺序？\r这六大支柱不是随意排列的，而是一条从底层到上层、从原理到应用、从概念到落地的认知演进路线：\n">
+    </head>
+    <body class="
+    article-page
+    ">
+    <script>
+        (function() {
+            const colorSchemeKey = 'StackColorScheme';
+            if(!localStorage.getItem(colorSchemeKey)){
+                localStorage.setItem(colorSchemeKey, "auto");
+            }
+        })();
+    </script><script>
+    (function() {
+        const colorSchemeKey = 'StackColorScheme';
+        const colorSchemeItem = localStorage.getItem(colorSchemeKey);
+        const supportDarkMode = window.matchMedia('(prefers-color-scheme: dark)').matches === true;
+
+        if (colorSchemeItem == 'dark' || colorSchemeItem === 'auto' && supportDarkMode) {
+            
+
+            document.documentElement.dataset.scheme = 'dark';
+        } else {
+            document.documentElement.dataset.scheme = 'light';
+        }
+    })();
+</script>
+<div class="container main-container flex on-phone--column compact"><aside class="sidebar left-sidebar sticky ">
+    <button class="hamburger hamburger--spin" type="button" id="toggle-menu" aria-label="切换菜单">
+        <span class="hamburger-box">
+            <span class="hamburger-inner"></span>
+        </span>
+    </button>
+
+    <header>
+        
+            
+            <figure class="site-avatar">
+                <a href="/">
+                
+                    
+                    
+                    
+                        
+                        <img src="/img/avatar_hu_8588ce14af1147e2.png" width="300"
+                            height="286" class="site-logo" loading="lazy" alt="Avatar">
+                    
+                
+                </a>
+                
+            </figure>
+            
+        
+        
+        <div class="site-meta">
+            <h1 class="site-name"><a href="/">SelfTechHub</a></h1>
+            <h2 class="site-description"></h2>
+        </div>
+    </header><ol class="menu" id="main-menu">
+        
+        
+        <li class="menu-bottom-section">
+            <ol class="menu">
+
+                
+                    <li id="dark-mode-toggle">
+                        <svg xmlns="http://www.w3.org/2000/svg" class="icon icon-tabler icon-tabler-toggle-left" width="24" height="24" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor" fill="none" stroke-linecap="round" stroke-linejoin="round">
+  <path stroke="none" d="M0 0h24v24H0z"/>
+  <circle cx="8" cy="12" r="2" />
+  <rect x="2" y="6" width="20" height="12" rx="6" />
+</svg>
+
+
+
+                        <svg xmlns="http://www.w3.org/2000/svg" class="icon icon-tabler icon-tabler-toggle-right" width="24" height="24" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor" fill="none" stroke-linecap="round" stroke-linejoin="round">
+  <path stroke="none" d="M0 0h24v24H0z"/>
+  <circle cx="16" cy="12" r="2" />
+  <rect x="2" y="6" width="20" height="12" rx="6" />
+</svg>
+
+
+
+                        <span>暗色模式</span>
+                    </li>
+                
+            </ol>
+        </li>
+    </ol>
+</aside>
+
+    
+
+            <main class="main full-width">
+    <article class="main-article">
+    <header class="article-header">
+
+    <div class="article-details">
+    
+    <header class="article-category">
+        
+            <a href="/categories/ai.html" >
+                AI探索
+            </a>
+        
+    </header>
+    
+
+    <div class="article-title-wrapper">
+        <h2 class="article-title">
+            <a href="/ai/ai-systematization/00-Introduction-to-AI-Large-Model-Engineering-Knowledge-System.html">AI大模型工程知识体系总览与导论</a>
+        </h2>
+    
+        
+    </div>
+
+    
+    
+    
+    
+    <footer class="article-time">
+        
+            <div>
+                <svg xmlns="http://www.w3.org/2000/svg" class="icon icon-tabler icon-tabler-calendar-time" width="56" height="56" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor" fill="none" stroke-linecap="round" stroke-linejoin="round">
+  <path stroke="none" d="M0 0h24v24H0z"/>
+  <path d="M11.795 21h-6.795a2 2 0 0 1 -2 -2v-12a2 2 0 0 1 2 -2h12a2 2 0 0 1 2 2v4" />
+  <circle cx="18" cy="18" r="4" />
+  <path d="M15 3v4" />
+  <path d="M7 3v4" />
+  <path d="M3 11h16" />
+  <path d="M18 16.496v1.504l1 1" />
+</svg>
+                <time class="article-time--published" datetime='2026-07-23T00:00:00Z'>Jul 23, 2026</time>
+            </div>
+        
+
+        
+            <div>
+                <svg xmlns="http://www.w3.org/2000/svg" class="icon icon-tabler icon-tabler-clock" width="24" height="24" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor" fill="none" stroke-linecap="round" stroke-linejoin="round">
+  <path stroke="none" d="M0 0h24v24H0z"/>
+  <circle cx="12" cy="12" r="9" />
+  <polyline points="12 7 12 12 15 15" />
+</svg>
+
+
+
+                <time class="article-time--reading">
+                    阅读时长: 4 分钟
+                </time>
+            </div>
+        
+    </footer>
+    
+
+    
+</div>
+
+</header>
+
+    <section class="article-content">
+    
+    
+    <h1 id="ai大模型工程知识体系总览与导论">AI大模型工程知识体系总览与导论
+</h1><blockquote>
+<p>本文是「AI知识成长体系」系列的开篇，为全系列8篇文章提供路线图与认知框架。无论你是刚接触大模型的初学者，还是已有工程经验的开发者，都可以从这篇文章找到适合自己的学习路径。</p>
+</blockquote>
+<hr>
+<h2 id="一为什么需要这套知识体系">一、为什么需要这套知识体系
+</h2><p>2026年，AI Agent开发的浪潮已经席卷整个互联网行业。不仅是AI算法、AI应用工程师这些「天生AI」的岗位，连后端开发、前端开发、数据开发这些原本跟AI隔了一道墙的岗位，面试官也开始问起AI题了：</p>
+<ul>
+<li>「你的项目里有没有用过LLM？怎么用的？」</li>
+<li>「假如让你做一个Agent，你会怎么设计？」</li>
+<li>「RAG工作流程是怎样的？」</li>
+<li>「MCP和Skills有什么区别？」</li>
+<li>「Claude Code的源码架构你了解吗？」</li>
+<li>「Harness Engineering是什么？Agent怎么越用越聪明？」</li>
+</ul>
+<p>这些问题已经悄悄出现在各种岗位的面试里。AI时代，每个工程师都得懂点大模型，不然很容易掉队。</p>
+<p>但问题在于，大模型领域的知识碎片化严重。网上有无数的教程、博客、视频，但大多数只覆盖某个点——要么只讲Prompt工程，要么只讲RAG，要么只讲Agent——缺乏一条从底层原理到工程实践、从概念到落地的完整知识链路。</p>
+<p>这套系列文章的目标，就是把大模型工程领域的核心知识，按照一条清晰的认知主线串联起来，形成一套<strong>既有深度、又能让初学者入门、还能让有经验者增进</strong>的完整知识成长体系。</p>
+<hr>
+<h2 id="二知识体系的六大支柱">二、知识体系的六大支柱
+</h2><p>经过对大模型工程领域系统性的梳理（覆盖7大板块、97篇深度文章），我们将整个知识体系划分为六大核心主题，它们之间存在明确的依赖关系和演进逻辑：</p>
+<pre tabindex="0"><code>┌─────────────────────────────────────────────────────────────┐
+│                    AI大模型工程知识体系                          │
+├─────────────────────────────────────────────────────────────┤
+│                                                             │
+│  支柱一：大模型工程基础（LLM Fundamentals）                      │
+│  ├── Transformer架构与注意力机制                               │
+│  ├── 训练三阶段（预训练→SFT→对齐）                             │
+│  ├── 推理优化（KV Cache、量化、解码策略）                        │
+│  ├── Prompt工程与CoT                                         │
+│  └── 部署与评测                                               │
+│         │                                                   │
+│         ▼                                                   │
+│  支柱二：RAG检索增强生成（Retrieval-Augmented Generation）       │
+│  ├── 文档切割与Embedding                                      │
+│  ├── 向量数据库与索引                                          │
+│  ├── 检索优化（Query改写、多路召回、Rerank）                    │
+│  ├── 高级范式（Self-RAG、CRAG、GraphRAG/LightRAG）            │
+│  └── 生产落地（评估、动态更新、幻觉规避）                        │
+│         │                                                   │
+│         ▼                                                   │
+│  支柱三：LLM工具调用（Tool Use / Function Calling）            │
+│  ├── Function Calling原理与训练                               │
+│  ├── MCP协议（标准化工具封装与发现）                            │
+│  ├── Skill（任务流程知识化）                                  │
+│  ├── A2A协议（Agent间协作）                                  │
+│  └── 通信协议与LLM网关                                        │
+│         │                                                   │
+│         ▼                                                   │
+│  支柱四：LangChain框架（LLM应用开发框架）                      │
+│  ├── 核心组件（Model I/O、Chains、Memory、Agents）            │
+│  ├── LCEL表达式语言                                          │
+│  ├── LangGraph多Agent编排                                   │
+│  ├── LangSmith调试与监控                                     │
+│  └── 框架选型与工程实践                                        │
+│         │                                                   │
+│         ▼                                                   │
+│  支柱五：Agent智能体（Autonomous AI Agent）                   │
+│  ├── 核心架构（感知→规划→行动→反思）                          │
+│  ├── 设计范式（ReAct、Plan-and-Execute、Reflection）          │
+│  ├── 记忆机制与任务拆分                                       │
+│  ├── Harness Engineering &amp; Loop Engineering                  │
+│  ├── 多Agent协作与通信                                       │
+│  └── OpenClaw与手搓Agent                                     │
+│         │                                                   │
+│         ▼                                                   │
+│  支柱六：Claude Code实战（AI Coding Engineering）             │
+│  ├── 基础使用与CLAUDE.md项目记忆                               │
+│  ├── Skill机制与SDD规约驱动开发                               │
+│  ├── 源码架构（Query Loop/Compact/grep/Memory/SubAgent）     │
+│  ├── 系统提示词工程（Fable 5泄漏分析）                         │
+│  └── AI编程方法论（grill-me/expertise over coding）           │
+│                                                             │
+└─────────────────────────────────────────────────────────────┘
+</code></pre><h3 id="为什么是这个顺序">为什么是这个顺序？
+</h3><p>这六大支柱不是随意排列的，而是一条<strong>从底层到上层、从原理到应用、从概念到落地</strong>的认知演进路线：</p>
+<ol>
+<li><strong>大模型工程基础</strong>是地基。不懂Transformer、不懂训练流程、不懂推理优化，后面的一切都是空中楼阁。</li>
+<li><strong>RAG</strong>是大模型最成熟的应用模式。它解决了大模型「知识被冻结」的核心问题，是绝大多数企业AI落地的第一步。GraphRAG和LightRAG进一步引入图结构，解决复杂关系推理。</li>
+<li><strong>工具调用</strong>是大模型从「说话」变成「做事」的关键。没有工具调用，大模型只是一个聊天机器人；有了工具调用，它才可能成为真正的Agent。</li>
+<li><strong>LangChain框架</strong>是工程化的加速器。当你理解了原理，框架帮你把各种组件标准化组合，快速构建应用。</li>
+<li><strong>Agent</strong>是终极形态。Agent = LLM + RAG + 工具调用 + 记忆 + 规划 + 反思，它是前面所有知识的集大成者。Harness Engineering和Loop Engineering代表了Agent工程的最新演进。</li>
+<li><strong>Claude Code实战</strong>是AI工程的前沿阵地。通过拆解Claude Code的源码架构和系统提示词，你能看到一个工业级AI Coding Agent是如何设计的——这是Agent理论在真实产品中的最佳实践。</li>
+</ol>
+<hr>
+<h2 id="三系列文章目录与阅读指南">三、系列文章目录与阅读指南
+</h2><p>本系列共8篇文章，建议按顺序阅读，但也可以根据自身情况跳读：</p>
+<div class="table-wrapper"><table>
+  <thead>
+      <tr>
+          <th>序号</th>
+          <th>标题</th>
+          <th>定位</th>
+          <th>适合读者</th>
+      </tr>
+  </thead>
+  <tbody>
+      <tr>
+          <td>00</td>
+          <td>本文：AI大模型工程知识体系总览与导论</td>
+          <td>路线图</td>
+          <td>所有人</td>
+      </tr>
+      <tr>
+          <td>01</td>
+          <td>大模型基础与工程化实践</td>
+          <td>底层原理</td>
+          <td>需要理解LLM本质的开发者</td>
+      </tr>
+      <tr>
+          <td>02</td>
+          <td>RAG检索增强生成——从原理到工程落地</td>
+          <td>核心应用</td>
+          <td>需要构建知识库应用的开发者</td>
+      </tr>
+      <tr>
+          <td>03</td>
+          <td>LLM工具调用深度解析——从Function Calling到MCP</td>
+          <td>能力扩展</td>
+          <td>需要让LLM调用外部工具的开发者</td>
+      </tr>
+      <tr>
+          <td>04</td>
+          <td>LangChain框架全解析——架构、组件与实战</td>
+          <td>工程框架</td>
+          <td>需要快速构建LLM应用的开发者</td>
+      </tr>
+      <tr>
+          <td>05</td>
+          <td>Agent智能体——从概念到自主推理与行动</td>
+          <td>终极形态</td>
+          <td>需要构建自主AI系统的开发者</td>
+      </tr>
+      <tr>
+          <td>06</td>
+          <td>Claude Code实战——AI编程工程深度拆解</td>
+          <td>前沿实践</td>
+          <td>需要用AI编程或理解Agent产品的开发者</td>
+      </tr>
+      <tr>
+          <td>07</td>
+          <td>AI知识成长体系总纲——学习路径与进阶指南</td>
+          <td>成长指南</td>
+          <td>所有想要系统提升的读者</td>
+      </tr>
+  </tbody>
+</table></div>
+<h3 id="不同读者的推荐阅读路径">不同读者的推荐阅读路径
+</h3><p><strong>初学者路径（0基础入门）：</strong></p>
+<pre tabindex="0"><code>00（导论）→ 01（大模型基础，重点看概念部分）→ 02（RAG，重点看流程）
+→ 07（学习路径指南）→ 按需深入03/04/05/06
+</code></pre><p><strong>后端/前端工程师路径（想快速应用）：</strong></p>
+<pre tabindex="0"><code>00（导论）→ 01（快速浏览原理）→ 02（RAG实战）→ 04（LangChain框架）
+→ 06（Claude Code，AI编程提效）→ 05（Agent概念）→ 03（工具调用，按需）
+</code></pre><p><strong>AI应用工程师路径（系统深入）：</strong></p>
+<pre tabindex="0"><code>00 → 01 → 02 → 03 → 04 → 05 → 06 → 07（全部完整阅读）
+</code></pre><p><strong>面试冲刺路径（高频考点）：</strong></p>
+<pre tabindex="0"><code>00 → 01（Transformer/训练/推理优化）→ 02（RAG全流程）
+→ 03（MCP vs FC vs Skill）→ 05（Agent范式/多Agent/Harness Engineering）
+→ 06（Claude Code源码/系统提示词）→ 07（查漏补缺）
+</code></pre><p><strong>AI编程方向路径（想用好AI Coding工具）：</strong></p>
+<pre tabindex="0"><code>00 → 06（Claude Code完整阅读）→ 05（Agent理论支撑）
+→ 03（Skill/MCP理解）→ 01（模型理解，按需）
+</code></pre><hr>
+<h2 id="四核心认知框架理解大模型工程的三个层次">四、核心认知框架：理解大模型工程的三个层次
+</h2><p>在深入各个主题之前，先建立一个贯穿全系列的核心认知框架。大模型工程可以理解为三个层次：</p>
+<h3 id="第一层模型层model大脑">第一层：模型层（Model）——「大脑」
+</h3><p>这是最底层的物理基础，关注的是<strong>模型本身是怎么构成的、怎么训练出来的、怎么推理的</strong>。</p>
+<p>核心问题：</p>
+<ul>
+<li>Transformer架构为什么有效？Self-Attention的数学原理是什么？</li>
+<li>大模型是怎么从海量文本中「学」到知识的？预训练、SFT、对齐三个阶段分别做什么？</li>
+<li>推理时怎么加速？KV Cache、量化、MoE各解决什么问题？</li>
+<li>为什么大模型会「幻觉」？能消除吗？</li>
+</ul>
+<p>这一层对应系列第01篇。</p>
+<h3 id="第二层能力层capability技能">第二层：能力层（Capability）——「技能」
+</h3><p>模型本身只是一个「会接续文本的大脑」，要让它在真实场景中有用，需要给它叠加两层能力：</p>
+<p><strong>知识能力（RAG）：</strong> 大模型的知识被冻结在训练数据里，无法获取实时信息或私有数据。RAG通过外接知识库，让模型在生成前先「查资料」，解决了知识时效性和私有化问题。GraphRAG和LightRAG进一步引入图结构，解决复杂关系推理。</p>
+<p><strong>行动能力（工具调用）：</strong> 大模型本质上只是文本生成器，不能发邮件、不能查数据库、不能执行代码。Function Calling → MCP → Skill 这一套递进机制，让模型能调用外部工具，从「说话」变成「做事」。</p>
+<p>这一层对应系列第02篇（RAG）和第03篇（工具调用）。</p>
+<h3 id="第三层应用层application产品">第三层：应用层（Application）——「产品」
+</h3><p>有了模型、有了知识、有了工具，还需要一个<strong>框架把这些组件编排起来</strong>，形成一个完整的AI应用。这就是LangChain、Agent和Claude Code的领域。</p>
+<p><strong>LangChain框架：</strong> 提供标准化的组件抽象（Model I/O、Chains、Memory、Agents、Retrievers），让开发者像搭积木一样构建LLM应用。LangGraph进一步提供了多Agent编排能力。</p>
+<p><strong>Agent智能体：</strong> 终极应用形态。Agent = LLM + 工具 + 记忆 + 规划 + 反思，能自主感知环境、制定计划、调用工具、执行行动、反思纠错，形成闭环。Harness Engineering让Agent越用越聪明，Loop Engineering把编程范式从Prompt推向Loop。</p>
+<p><strong>Claude Code实战：</strong> 一个工业级AI Coding Agent的完整拆解。从基础使用到源码架构，从系统提示词到多Agent机制，展示了Agent理论如何在真实产品中落地。</p>
+<p>这一层对应系列第04篇（LangChain）、第05篇（Agent）和第06篇（Claude Code）。</p>
+<pre tabindex="0"><code>┌──────────────────────────────────────────┐
+│           第三层：应用层（产品）              │
+│   LangChain框架 / Agent / Claude Code     │
+├──────────────────────────────────────────┤
+│           第二层：能力层（技能）              │
+│      RAG（知识）  +  工具调用（行动）       │
+├──────────────────────────────────────────┤
+│           第一层：模型层（大脑）              │
+│      LLM（Transformer/训练/推理）          │
+└──────────────────────────────────────────┘
+</code></pre><p>理解了这三个层次，你就理解了整套知识体系的内在逻辑：<strong>从大脑（模型）到技能（RAG+工具）到产品（框架+Agent+Claude Code）</strong>，每一层都建立在前一层之上。</p>
+<hr>
+<h2 id="五贯穿全系列的十条核心原则">五、贯穿全系列的十条核心原则
+</h2><p>在阅读后续文章时，你会发现以下原则反复出现。它们是大模型工程领域的「元认知」，理解了它们，很多具体的技术选型和设计决策都能自己推导出来：</p>
+<h3 id="原则1模型是大脑代码是身体">原则1：模型是大脑，代码是身体
+</h3><p>大模型永远只是「决策者」，不亲自执行任何操作。无论是Function Calling、MCP还是Agent，核心设计都是<strong>决策和执行分离</strong>——模型决定做什么，代码负责怎么做。Claude Code的源码完美体现了这一点：模型的Query Loop负责决策，工具执行在代码层完成。</p>
+<h3 id="原则2知识在数据里不在参数里">原则2：知识在数据里，不在参数里
+</h3><p>大模型的知识被冻结在训练数据中。要让模型知道新知识，有两条路：RAG（外接知识库，推理时查）和微调（改参数，训练时学）。绝大多数场景下，RAG是更经济、更灵活的选择——因为知识更新只需要更新数据库，不需要重新训练模型。GraphRAG进一步证明了：用图结构组织知识，比纯向量检索更能捕捉实体间的复杂关系。</p>
+<h3 id="原则3复杂任务必须拆分">原则3：复杂任务必须拆分
+</h3><p>一个大模型调用做不完复杂任务。无论是Agent的任务拆分、RAG的文档切割、还是LangChain的Chain组合、Claude Code的SubAgent机制，核心思想都是<strong>把大问题分解为小步骤</strong>，每一步让模型做它最擅长的事。</p>
+<h3 id="原则4检索质量决定生成质量">原则4：检索质量决定生成质量
+</h3><p>RAG系统里，Garbage In Garbage Out。如果检索到的文档不相关，模型再强也生成不出好答案。这就是为什么RAG系列会花大量篇幅讲Chunking策略、Embedding选型、Query改写、多路召回、Rerank精排——全都在优化检索质量。有趣的是，Claude Code在代码检索场景下选择了grep而非RAG——因为代码检索有精确匹配需求，这反过来说明：<strong>没有最好的检索方式，只有最适合场景的检索方式</strong>。</p>
+<h3 id="原则5记忆是agent的连续性">原则5：记忆是Agent的连续性
+</h3><p>没有记忆的Agent就像金鱼，每次对话都从零开始。短期记忆（context window）保持当前任务上下文，长期记忆（CLAUDE.md/向量数据库）保持跨任务的项目规范和历史。Claude Code的记忆机制设计尤其精妙：它不用向量数据库做长期记忆，而是用CLAUDE.md文件——因为代码项目的「记忆」是结构化的、可版本控制的，文件比向量更适合。</p>
+<h3 id="原则6反思让agent从错误中学习">原则6：反思让Agent从错误中学习
+</h3><p>优秀的Agent不是不犯错，而是犯了错能感知、能分析、能纠正。Reflection机制让Agent在每步行动后检查结果，发现异常就调整策略。Claude Code的grill-me方法论把这种反思前置——写代码前先让AI审问你的需求，这本质上是把Reflection从「事后纠错」升级为「事前预防」。</p>
+<h3 id="原则7框架是加速器不是依赖">原则7：框架是加速器，不是依赖
+</h3><p>LangChain、LlamaIndex等框架能帮你快速起步，但在复杂场景下框架的抽象可能成为限制。有经验的工程师知道什么时候用框架、什么时候手搓——这个判断力来自于对底层原理的理解。Claude Code本身就是一个「手搓」的Agent——它没有用LangChain，而是自己实现了Query Loop、Compact压缩、SubAgent等机制，因为通用框架无法满足AI Coding的特殊需求。</p>
+<h3 id="原则8评估是工程化的前提">原则8：评估是工程化的前提
+</h3><p>没有评估就没有改进。无论是RAG的检索质量评估（Hit@K、RAGAs）、还是大模型的能力评测（Benchmark+业务测试集）、还是Agent的端到端评估，量化评估是把AI从「Demo」推向「生产」的关键一环。Anthropic对40万次Claude Code会话的研究发现：用好AI编程的关键不是会写代码，而是会表达专业意图——这本身就是一种大规模评估驱动的洞察。</p>
+<h3 id="原则9harness-engineering让agent越用越聪明">原则9：Harness Engineering让Agent越用越聪明
+</h3><p>Agent不是一次性的工具，而是一个可以持续优化的系统。Harness Engineering的核心是：通过不断优化Agent的外围框架（Prompt模板、工具定义、记忆策略、反思机制），让同一个底层模型展现出越来越强的能力。Claude Code的CLAUDE.md、Skill机制、grill-me都是Harness Engineering的具体实践。</p>
+<h3 id="原则10从prompt到loop是编程范式的转变">原则10：从Prompt到Loop是编程范式的转变
+</h3><p>传统编程是「人写代码，机器执行」。AI编程的新范式是「人描述意图，AI生成代码，人审查反馈，AI修改迭代」——这是一个Loop。Loop Engineering不是简单的「让AI写代码」，而是重新定义了人机协作的编程流程：规约驱动开发（SDD）、需求审问（grill-me）、多Agent协作，都是Loop Engineering的具体模式。</p>
+<hr>
+<h2 id="六本系列的知识来源与方法论">六、本系列的知识来源与方法论
+</h2><p>本系列文章的素材来源于对小林面试笔记（xiaolinnote.com）七大板块共97篇深度文章的系统性遍历和完整提取：</p>
+<div class="table-wrapper"><table>
+  <thead>
+      <tr>
+          <th>板块</th>
+          <th>文章数</th>
+          <th>核心内容</th>
+      </tr>
+  </thead>
+  <tbody>
+      <tr>
+          <td>大模型面试题-Agents</td>
+          <td>16篇</td>
+          <td>Agent概念架构、设计范式、工程实践、多Agent协作</td>
+      </tr>
+      <tr>
+          <td>大模型面试题-RAG</td>
+          <td>20篇</td>
+          <td>基础概念、索引构建、检索优化、高级范式、生产落地</td>
+      </tr>
+      <tr>
+          <td>大模型面试题-工具调用</td>
+          <td>16篇</td>
+          <td>Function Calling、MCP、Skill、A2A、通信协议、LLM网关</td>
+      </tr>
+      <tr>
+          <td>大模型面试题-大模型工程</td>
+          <td>22篇</td>
+          <td>Transformer、训练、推理优化、Prompt工程、部署评测</td>
+      </tr>
+      <tr>
+          <td>大模型面试题-LangChain</td>
+          <td>介绍页</td>
+          <td>框架概述与生态</td>
+      </tr>
+      <tr>
+          <td>图解Agent</td>
+          <td>7篇</td>
+          <td>Agent万字图解、OpenClaw、GraphRAG/LightRAG、Harness/Loop Engineering</td>
+      </tr>
+      <tr>
+          <td>图解Claude Code</td>
+          <td>16篇</td>
+          <td>使用教程、Playbook实战、源码拆解、系统提示词、AI编程方法论</td>
+      </tr>
+  </tbody>
+</table></div>
+<p>所有题目均来自字节、阿里、快手、腾讯等大厂真实面经，每道题都从根子上讲透原理。所有文章均通过带cookie的完整抓取获取，确保内容无截断。</p>
+<p>在此基础上，我们进行了以下改写和重构：</p>
+<ol>
+<li><strong>从面试题到知识体系</strong>：不再以「题」为单位，而是以「知识主题」为单位，把分散的面试题重新组织成有逻辑的知识链路。</li>
+<li><strong>从问答到教程</strong>：不是Q&amp;A形式，而是教程式叙述，从概念引入到原理剖析到工程实践，循序渐进。</li>
+<li><strong>从碎片到体系</strong>：六大主题之间建立明确的关联关系，形成完整的认知框架。</li>
+<li><strong>从入门到进阶</strong>：每篇文章都兼顾初学者（概念清晰、类比生动）和有经验者（原理深入、工程细节、坑点提示）。</li>
+<li><strong>整合图解系列</strong>：将图解Agent和图解Claude Code的深度内容融入相应主题，使理论有实践支撑。</li>
+</ol>
+<hr>
+<h2 id="七阅读建议">七、阅读建议
+</h2><ol>
+<li><strong>不要跳过基础</strong>。即使你已经有Agent开发经验，第01篇的Transformer原理、训练流程、推理优化也值得回顾——很多工程问题的根源就在底层原理。</li>
+<li><strong>动手实践</strong>。每篇文章中的代码示例都可以直接运行，建议边读边跑，加深理解。</li>
+<li><strong>关注关联</strong>。注意每篇文章末尾的「与其他主题的关联」部分，这是把碎片知识串联成体系的关键。</li>
+<li><strong>带着问题读</strong>。每篇文章开头都有「核心问题」，读完之后检查自己能否回答这些问题。</li>
+<li><strong>迭代学习</strong>。第一遍快速通读建立框架，第二遍深入细节，第三遍结合实践查漏补缺。</li>
+<li><strong>特别关注Claude Code篇</strong>。即使你不做AI Coding，Claude Code的源码架构和系统提示词也是理解工业级Agent设计的最佳教材。</li>
+</ol>
+<hr>
+<h2 id="八术语速查表">八、术语速查表
+</h2><div class="table-wrapper"><table>
+  <thead>
+      <tr>
+          <th>术语</th>
+          <th>全称</th>
+          <th>一句话解释</th>
+      </tr>
+  </thead>
+  <tbody>
+      <tr>
+          <td>LLM</td>
+          <td>Large Language Model</td>
+          <td>大语言模型，用海量文本预训练的自回归生成模型</td>
+      </tr>
+      <tr>
+          <td>Transformer</td>
+          <td>-</td>
+          <td>大模型的核心架构，基于Self-Attention机制</td>
+      </tr>
+      <tr>
+          <td>RAG</td>
+          <td>Retrieval-Augmented Generation</td>
+          <td>检索增强生成，生成前先检索外部知识</td>
+      </tr>
+      <tr>
+          <td>GraphRAG</td>
+          <td>Graph-based RAG</td>
+          <td>图增强RAG，用知识图谱捕捉实体间复杂关系</td>
+      </tr>
+      <tr>
+          <td>LightRAG</td>
+          <td>Lightweight RAG</td>
+          <td>轻量级图RAG，比GraphRAG更简单高效</td>
+      </tr>
+      <tr>
+          <td>Embedding</td>
+          <td>-</td>
+          <td>将文本映射为向量，用于语义相似度计算</td>
+      </tr>
+      <tr>
+          <td>Function Calling</td>
+          <td>-</td>
+          <td>让LLM输出结构化函数调用指令的机制</td>
+      </tr>
+      <tr>
+          <td>MCP</td>
+          <td>Model Context Protocol</td>
+          <td>模型上下文协议，标准化工具封装与发现</td>
+      </tr>
+      <tr>
+          <td>Skill</td>
+          <td>-</td>
+          <td>任务流程知识化，把操作步骤打包成可复用模块</td>
+      </tr>
+      <tr>
+          <td>A2A</td>
+          <td>Agent-to-Agent</td>
+          <td>Agent间协作协议</td>
+      </tr>
+      <tr>
+          <td>Agent</td>
+          <td>-</td>
+          <td>能自主完成目标的AI系统</td>
+      </tr>
+      <tr>
+          <td>ReAct</td>
+          <td>Reasoning + Acting</td>
+          <td>推理+行动交替的Agent设计范式</td>
+      </tr>
+      <tr>
+          <td>CoT</td>
+          <td>Chain-of-Thought</td>
+          <td>思维链，让模型逐步推理</td>
+      </tr>
+      <tr>
+          <td>KV Cache</td>
+          <td>-</td>
+          <td>推理时缓存注意力Key-Value矩阵以加速</td>
+      </tr>
+      <tr>
+          <td>LoRA</td>
+          <td>Low-Rank Adaptation</td>
+          <td>低秩适配，高效的微调方法</td>
+      </tr>
+      <tr>
+          <td>MoE</td>
+          <td>Mixture of Experts</td>
+          <td>混合专家模型，总参数大但激活参数小</td>
+      </tr>
+      <tr>
+          <td>LCEL</td>
+          <td>LangChain Expression Language</td>
+          <td>LangChain表达式语言</td>
+      </tr>
+      <tr>
+          <td>LangGraph</td>
+          <td>-</td>
+          <td>LangChain的图式编排运行时</td>
+      </tr>
+      <tr>
+          <td>LangSmith</td>
+          <td>-</td>
+          <td>LangChain的可观测性平台</td>
+      </tr>
+      <tr>
+          <td>SFT</td>
+          <td>Supervised Fine-Tuning</td>
+          <td>监督微调</td>
+      </tr>
+      <tr>
+          <td>RLHF</td>
+          <td>Reinforcement Learning from Human Feedback</td>
+          <td>基于人类反馈的强化学习</td>
+      </tr>
+      <tr>
+          <td>DPO</td>
+          <td>Direct Preference Optimization</td>
+          <td>直接偏好优化</td>
+      </tr>
+      <tr>
+          <td>PPO</td>
+          <td>Proximal Policy Optimization</td>
+          <td>近端策略优化</td>
+      </tr>
+      <tr>
+          <td>CLAUDE.md</td>
+          <td>-</td>
+          <td>Claude Code的项目记忆文件，定义项目规范和上下文</td>
+      </tr>
+      <tr>
+          <td>Harness Engineering</td>
+          <td>-</td>
+          <td>Agent外围框架工程，让Agent越用越聪明</td>
+      </tr>
+      <tr>
+          <td>Loop Engineering</td>
+          <td>-</td>
+          <td>从Prompt到Loop的AI编程范式转变</td>
+      </tr>
+      <tr>
+          <td>SDD</td>
+          <td>Spec-Driven Development</td>
+          <td>规约驱动开发，先规约后编码</td>
+      </tr>
+      <tr>
+          <td>grill-me</td>
+          <td>-</td>
+          <td>写代码前先让AI审问需求的方法论</td>
+      </tr>
+      <tr>
+          <td>SubAgent</td>
+          <td>-</td>
+          <td>Claude Code的子Agent机制，用于并行任务</td>
+      </tr>
+      <tr>
+          <td>Compact</td>
+          <td>-</td>
+          <td>Claude Code的上下文压缩机制</td>
+      </tr>
+      <tr>
+          <td>OpenClaw</td>
+          <td>-</td>
+          <td>开源Agent框架/方法论</td>
+      </tr>
+      <tr>
+          <td>Fable 5</td>
+          <td>-</td>
+          <td>Claude的系统提示词版本代号</td>
+      </tr>
+  </tbody>
+</table></div>
+<hr>
+<blockquote>
+<p><strong>下一篇：<a class="link" href="01_%e5%a4%a7%e6%a8%a1%e5%9e%8b%e5%9f%ba%e7%a1%80%e4%b8%8e%e5%b7%a5%e7%a8%8b%e5%8c%96%e5%ae%9e%e8%b7%b5.md" >01 大模型基础与工程化实践</a></strong></p>
+<p>我们将从Transformer架构出发，一路讲到训练三阶段、推理优化、Prompt工程和部署评测，建立对大模型本身的最底层理解。</p>
+</blockquote>
+<hr>
+<p><em>本文是「AI知识成长体系」系列第00篇。全系列共8篇，形成完整的大模型工程知识成长体系。</em></p>
+
+</section>
+
+
+    <footer class="article-footer">
+    
+    <section class="article-tags">
+        
+            <a href="/tags/AI.html">AI</a>
+        
+            <a href="/tags/Large-Model.html">Large Model</a>
+        
+            <a href="/tags/Engineering.html">Engineering</a>
+        
+            <a href="/tags/Knowledge-System.html">Knowledge System</a>
+        
+            <a href="/tags/Introduction.html">Introduction</a>
+        
+    </section>
+
+
+    </footer>
+
+
+    
+</article>
+
+    
+
+    
+
+<aside class="related-content--wrapper">
+    <h2 class="section-title">相关文章</h2>
+    <div class="related-content">
+        <div class="flex article-list--tile">
+            
+                
+<article class="">
+    <a href="/ai/ped/Chapter07-AI-Tech-Fundamentals-and-Tool-Selection.html">
+        
+        
+
+        <div class="article-details">
+            <h2 class="article-title">第7章 AI技术基础与工具选型</h2>
+        </div>
+    </a>
+</article>
+
+            
+                
+<article class="">
+    <a href="/ai/ped/Chapter04-AI-Implementation-Basic-Terms.html">
+        
+        
+
+        <div class="article-details">
+            <h2 class="article-title">第4章 AI落地基础术语扫盲</h2>
+        </div>
+    </a>
+</article>
+
+            
+        </div>
+    </div>
+</aside>
+
+     
+    
+        
+    <script
+    src="https://giscus.app/client.js"
+    data-repo="pastor17/bloggiscus"
+    data-repo-id="R_kgDOQ6H9qQ"
+    data-category=""
+    data-category-id="DIC_kwDOQ6H9qc4C0-T8"
+    data-mapping="pathname"
+    data-strict="0"
+    data-reactions-enabled="1"
+    data-emit-metadata="0"
+    data-input-position="bottom"
+    data-theme="light"
+    data-lang="zh-CN"
+    data-loading="lazy"
+    crossorigin="anonymous"
+    async
+></script>
+<script>
+    function setGiscusTheme(theme) {
+        let giscus = document.querySelector("iframe.giscus-frame");
+        if (giscus) {
+            giscus.contentWindow.postMessage(
+                {
+                    giscus: {
+                        setConfig: {
+                            theme: theme,
+                        },
+                    },
+                },
+                "https://giscus.app"
+            );
+        }
+    }
+
+    (function () {
+        addEventListener("message", (e) => {
+            if (event.origin !== "https://giscus.app") return;
+            handler();
+        });
+        window.addEventListener("onColorSchemeChange", handler);
+
+        function handler() {
+            if (document.documentElement.dataset.scheme === "light") {
+                setGiscusTheme('light');
+            } else {
+                setGiscusTheme('dark_dimmed');
+            }
+        }
+    })();
+</script>
+
+    
+
+    <footer class="site-footer">
+    <section class="copyright">
+        &copy; 
+        
+        2026 SelfTechHub
+    </section>
+    
+    <section class="powerby">
+        
+
+    </section>
+</footer>
+
+
+    
+<div class="pswp" tabindex="-1" role="dialog" aria-hidden="true">
+
+    
+    <div class="pswp__bg"></div>
+
+    
+    <div class="pswp__scroll-wrap">
+
+        
+        <div class="pswp__container">
+            <div class="pswp__item"></div>
+            <div class="pswp__item"></div>
+            <div class="pswp__item"></div>
+        </div>
+
+        
+        <div class="pswp__ui pswp__ui--hidden">
+
+            <div class="pswp__top-bar">
+
+                
+
+                <div class="pswp__counter"></div>
+
+                <button class="pswp__button pswp__button--close" title="Close (Esc)"></button>
+
+                <button class="pswp__button pswp__button--share" title="Share"></button>
+
+                <button class="pswp__button pswp__button--fs" title="Toggle fullscreen"></button>
+
+                <button class="pswp__button pswp__button--zoom" title="Zoom in/out"></button>
+
+                
+                
+                <div class="pswp__preloader">
+                    <div class="pswp__preloader__icn">
+                        <div class="pswp__preloader__cut">
+                            <div class="pswp__preloader__donut"></div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <div class="pswp__share-modal pswp__share-modal--hidden pswp__single-tap">
+                <div class="pswp__share-tooltip"></div>
+            </div>
+
+            <button class="pswp__button pswp__button--arrow--left" title="Previous (arrow left)">
+            </button>
+
+            <button class="pswp__button pswp__button--arrow--right" title="Next (arrow right)">
+            </button>
+
+            <div class="pswp__caption">
+                <div class="pswp__caption__center"></div>
+            </div>
+
+        </div>
+
+    </div>
+
+</div><script 
+                src="https://cdn.jsdelivr.net/npm/photoswipe@4.1.3/dist/photoswipe.min.js"integrity="sha256-ePwmChbbvXbsO02lbM3HoHbSHTHFAeChekF1xKJdleo="crossorigin="anonymous"
+                defer
+                >
+            </script><script 
+                src="https://cdn.jsdelivr.net/npm/photoswipe@4.1.3/dist/photoswipe-ui-default.min.js"integrity="sha256-UKkzOn/w1mBxRmLLGrSeyB4e1xbrp4xylgAWb3M42pU="crossorigin="anonymous"
+                defer
+                >
+            </script><link 
+                rel="stylesheet" 
+                href="https://cdn.jsdelivr.net/npm/photoswipe@4.1.3/dist/default-skin/default-skin.min.css"crossorigin="anonymous"
+            ><link 
+                rel="stylesheet" 
+                href="https://cdn.jsdelivr.net/npm/photoswipe@4.1.3/dist/photoswipe.min.css"crossorigin="anonymous"
+            >
+    
+
+            </main>
+        </div>
+        <script 
+                src="https://cdn.jsdelivr.net/npm/node-vibrant@3.1.6/dist/vibrant.min.js"integrity="sha256-awcR2jno4kI5X0zL8ex0vi2z&#43;KMkF24hUW8WePSA9HM="crossorigin="anonymous"
+                
+                >
+            </script><script type="text/javascript" src="/ts/main.c922af694cc257bf1ecc41c0dd7b0430f9114ec280ccf67cd2c6ad55f5316c4e.js" defer></script>
+<script>
+    (function () {
+        const customFont = document.createElement('link');
+        customFont.href = "https://fonts.googleapis.com/css2?family=Lato:wght@300;400;700&display=swap";
+
+        customFont.type = "text/css";
+        customFont.rel = "stylesheet";
+
+        document.head.appendChild(customFont);
+    }());
+</script>
+
+    </body>
+</html>
