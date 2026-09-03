@@ -1,495 +1,85 @@
-<!DOCTYPE html>
-<html lang="zh-cn" dir="ltr">
-    <head><meta charset='utf-8'>
-<meta name='viewport' content='width=device-width, initial-scale=1'><meta name='description' content="凌晨两点，监控系统疯狂报警：“生产环境Kubernetes节点磁盘空间不足，Pod驱逐中”。\n排查后发现，罪魁祸首不是日志，而是那几个刚刚发布的、未经优化的Docker镜像。每个镜像动辄1.5GB，不仅撑爆了节点磁盘，更让扩容时的拉取时间变成了漫长的折磨。\n这曾是我带团队时踩过的最痛的一个坑。那时我误以为Docker只是个打包工具，把代码和依赖塞进去能跑就行。直到这次事故，我才意识到：镜像大小不仅关乎存储成本，更直接决定了发布速度、安全攻击面和系统的弹性伸缩能力。\n这两年，我通过几十个项目的实战，总结了一套可落地的镜像优化方法论。今天咱们不谈空泛的理论，直接复盘我是如何把一个臃肿的Java应用镜像从1.2GB砍到80MB的。\n所谓“多阶段构建”，不只是分两次写\r很多工程师知道多阶段构建（Multi-stage builds），但在Code Review中，我发现大部分人只是机械地照搬文档，并没有理解其核心价值——剥离构建环境与运行环境。\n在一个Spring Boot老项目的改造中，我发现之前的Dockerfile直接基于 maven:3.8-jdk-11 构建，把源码、Maven仓库缓存（.m2）、甚至测试报告都打进了最终镜像。这就像是你买了一套房子，交房时建筑队把脚手架、水泥搅拌机都留在了客厅里。\n我们做了一个简单的调整：\n第一阶段（Builder）：负责编译、测试、打包。这里可以使用包含完整SDK的大体积基础镜像。 第二阶段（Runner）：只拷贝编译好的Jar包，并运行在最小化的JRE环境中。 看看这个对比：\n# ❌ 错误示范：单阶段构建，产物含源码和Maven缓存 FROM maven:3.8-jdk-11 WORKDIR /app COPY . . RUN mvn package CMD [&#34;java&#34;, &#34;-jar&#34;, &#34;target/app.jar&#34;] # ✅ 优化后：多阶段构建 # 阶段一：构建 FROM maven:3.8-jdk-11 AS builder WORKDIR /build COPY pom.xml . COPY src ./src RUN mvn package -DskipTests # 阶段二：运行 FROM openjdk:11-jre-slim WORKDIR /app # 关键点：只拷贝阶段一的产物 COPY --from=builder /build/target/app.jar . CMD [&#34;java&#34;, &#34;-jar&#34;, &#34;app.jar&#34;] 结果非常直观：镜像体积瞬间从 800MB+ 降到了 250MB。\n但这就够了吗？显然没有。对于高频发布的微服务来说，250MB依然是个负担。\n善用缓存机制，别让你的带宽空转\r在CI/CD流水线中，我观察到一个奇怪现象：即使开发人员只修改了一行代码（比如改了个Log级别），整个镜像构建过程依然需要重新下载所有依赖，耗时3-5分钟。\n这是因为Docker的层级缓存（Layer Caching）机制失效了。\n">
-<title>Docker镜像从1.2G到80M：架构师的“瘦身”复盘</title>
-
-<link rel='canonical' href='https://blog.irudder.me/tech/jiagouyouhuashizhananlijiexi/dockerjingxiangyouhua_tijijianshao80%dejiqiao.html'>
-
-<link rel="stylesheet" href="/scss/style.min.b9e9128fec450ebccecc4ec9900157f32b85d0609bcd5ee3293968bcaa1235f2.css"><meta property='og:title' content="Docker镜像从1.2G到80M：架构师的“瘦身”复盘">
-<meta property='og:description' content="凌晨两点，监控系统疯狂报警：“生产环境Kubernetes节点磁盘空间不足，Pod驱逐中”。\n排查后发现，罪魁祸首不是日志，而是那几个刚刚发布的、未经优化的Docker镜像。每个镜像动辄1.5GB，不仅撑爆了节点磁盘，更让扩容时的拉取时间变成了漫长的折磨。\n这曾是我带团队时踩过的最痛的一个坑。那时我误以为Docker只是个打包工具，把代码和依赖塞进去能跑就行。直到这次事故，我才意识到：镜像大小不仅关乎存储成本，更直接决定了发布速度、安全攻击面和系统的弹性伸缩能力。\n这两年，我通过几十个项目的实战，总结了一套可落地的镜像优化方法论。今天咱们不谈空泛的理论，直接复盘我是如何把一个臃肿的Java应用镜像从1.2GB砍到80MB的。\n所谓“多阶段构建”，不只是分两次写\r很多工程师知道多阶段构建（Multi-stage builds），但在Code Review中，我发现大部分人只是机械地照搬文档，并没有理解其核心价值——剥离构建环境与运行环境。\n在一个Spring Boot老项目的改造中，我发现之前的Dockerfile直接基于 maven:3.8-jdk-11 构建，把源码、Maven仓库缓存（.m2）、甚至测试报告都打进了最终镜像。这就像是你买了一套房子，交房时建筑队把脚手架、水泥搅拌机都留在了客厅里。\n我们做了一个简单的调整：\n第一阶段（Builder）：负责编译、测试、打包。这里可以使用包含完整SDK的大体积基础镜像。 第二阶段（Runner）：只拷贝编译好的Jar包，并运行在最小化的JRE环境中。 看看这个对比：\n# ❌ 错误示范：单阶段构建，产物含源码和Maven缓存 FROM maven:3.8-jdk-11 WORKDIR /app COPY . . RUN mvn package CMD [&#34;java&#34;, &#34;-jar&#34;, &#34;target/app.jar&#34;] # ✅ 优化后：多阶段构建 # 阶段一：构建 FROM maven:3.8-jdk-11 AS builder WORKDIR /build COPY pom.xml . COPY src ./src RUN mvn package -DskipTests # 阶段二：运行 FROM openjdk:11-jre-slim WORKDIR /app # 关键点：只拷贝阶段一的产物 COPY --from=builder /build/target/app.jar . CMD [&#34;java&#34;, &#34;-jar&#34;, &#34;app.jar&#34;] 结果非常直观：镜像体积瞬间从 800MB+ 降到了 250MB。\n但这就够了吗？显然没有。对于高频发布的微服务来说，250MB依然是个负担。\n善用缓存机制，别让你的带宽空转\r在CI/CD流水线中，我观察到一个奇怪现象：即使开发人员只修改了一行代码（比如改了个Log级别），整个镜像构建过程依然需要重新下载所有依赖，耗时3-5分钟。\n这是因为Docker的层级缓存（Layer Caching）机制失效了。\n">
-<meta property='og:url' content='https://blog.irudder.me/tech/jiagouyouhuashizhananlijiexi/dockerjingxiangyouhua_tijijianshao80%dejiqiao.html'>
-<meta property='og:site_name' content='SelfTechHub'>
-<meta property='og:type' content='article'><meta property='article:section' content='Tech' /><meta property='article:tag' content='Docker镜像优化：体积减少80%的技巧' /><meta property='article:published_time' content='2024-11-19T00:00:00&#43;00:00'/><meta property='article:modified_time' content='2024-11-19T00:00:00&#43;00:00'/>
-<meta name="twitter:title" content="Docker镜像从1.2G到80M：架构师的“瘦身”复盘">
-<meta name="twitter:description" content="凌晨两点，监控系统疯狂报警：“生产环境Kubernetes节点磁盘空间不足，Pod驱逐中”。\n排查后发现，罪魁祸首不是日志，而是那几个刚刚发布的、未经优化的Docker镜像。每个镜像动辄1.5GB，不仅撑爆了节点磁盘，更让扩容时的拉取时间变成了漫长的折磨。\n这曾是我带团队时踩过的最痛的一个坑。那时我误以为Docker只是个打包工具，把代码和依赖塞进去能跑就行。直到这次事故，我才意识到：镜像大小不仅关乎存储成本，更直接决定了发布速度、安全攻击面和系统的弹性伸缩能力。\n这两年，我通过几十个项目的实战，总结了一套可落地的镜像优化方法论。今天咱们不谈空泛的理论，直接复盘我是如何把一个臃肿的Java应用镜像从1.2GB砍到80MB的。\n所谓“多阶段构建”，不只是分两次写\r很多工程师知道多阶段构建（Multi-stage builds），但在Code Review中，我发现大部分人只是机械地照搬文档，并没有理解其核心价值——剥离构建环境与运行环境。\n在一个Spring Boot老项目的改造中，我发现之前的Dockerfile直接基于 maven:3.8-jdk-11 构建，把源码、Maven仓库缓存（.m2）、甚至测试报告都打进了最终镜像。这就像是你买了一套房子，交房时建筑队把脚手架、水泥搅拌机都留在了客厅里。\n我们做了一个简单的调整：\n第一阶段（Builder）：负责编译、测试、打包。这里可以使用包含完整SDK的大体积基础镜像。 第二阶段（Runner）：只拷贝编译好的Jar包，并运行在最小化的JRE环境中。 看看这个对比：\n# ❌ 错误示范：单阶段构建，产物含源码和Maven缓存 FROM maven:3.8-jdk-11 WORKDIR /app COPY . . RUN mvn package CMD [&#34;java&#34;, &#34;-jar&#34;, &#34;target/app.jar&#34;] # ✅ 优化后：多阶段构建 # 阶段一：构建 FROM maven:3.8-jdk-11 AS builder WORKDIR /build COPY pom.xml . COPY src ./src RUN mvn package -DskipTests # 阶段二：运行 FROM openjdk:11-jre-slim WORKDIR /app # 关键点：只拷贝阶段一的产物 COPY --from=builder /build/target/app.jar . CMD [&#34;java&#34;, &#34;-jar&#34;, &#34;app.jar&#34;] 结果非常直观：镜像体积瞬间从 800MB+ 降到了 250MB。\n但这就够了吗？显然没有。对于高频发布的微服务来说，250MB依然是个负担。\n善用缓存机制，别让你的带宽空转\r在CI/CD流水线中，我观察到一个奇怪现象：即使开发人员只修改了一行代码（比如改了个Log级别），整个镜像构建过程依然需要重新下载所有依赖，耗时3-5分钟。\n这是因为Docker的层级缓存（Layer Caching）机制失效了。\n">
-    </head>
-    <body class="
-    article-page
-    ">
-    <script>
-        (function() {
-            const colorSchemeKey = 'StackColorScheme';
-            if(!localStorage.getItem(colorSchemeKey)){
-                localStorage.setItem(colorSchemeKey, "auto");
-            }
-        })();
-    </script><script>
-    (function() {
-        const colorSchemeKey = 'StackColorScheme';
-        const colorSchemeItem = localStorage.getItem(colorSchemeKey);
-        const supportDarkMode = window.matchMedia('(prefers-color-scheme: dark)').matches === true;
-
-        if (colorSchemeItem == 'dark' || colorSchemeItem === 'auto' && supportDarkMode) {
-            
-
-            document.documentElement.dataset.scheme = 'dark';
-        } else {
-            document.documentElement.dataset.scheme = 'light';
-        }
-    })();
-</script>
-<div class="container main-container flex on-phone--column compact"><aside class="sidebar left-sidebar sticky ">
-    <button class="hamburger hamburger--spin" type="button" id="toggle-menu" aria-label="切换菜单">
-        <span class="hamburger-box">
-            <span class="hamburger-inner"></span>
-        </span>
-    </button>
-
-    <header>
-        
-            
-            <figure class="site-avatar">
-                <a href="/">
-                
-                    
-                    
-                    
-                        
-                        <img src="/img/avatar_hu_8588ce14af1147e2.png" width="300"
-                            height="286" class="site-logo" loading="lazy" alt="Avatar">
-                    
-                
-                </a>
-                
-            </figure>
-            
-        
-        
-        <div class="site-meta">
-            <h1 class="site-name"><a href="/">SelfTechHub</a></h1>
-            <h2 class="site-description"></h2>
-        </div>
-    </header><ol class="menu" id="main-menu">
-        
-        
-        <li class="menu-bottom-section">
-            <ol class="menu">
-
-                
-                    <li id="dark-mode-toggle">
-                        <svg xmlns="http://www.w3.org/2000/svg" class="icon icon-tabler icon-tabler-toggle-left" width="24" height="24" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor" fill="none" stroke-linecap="round" stroke-linejoin="round">
-  <path stroke="none" d="M0 0h24v24H0z"/>
-  <circle cx="8" cy="12" r="2" />
-  <rect x="2" y="6" width="20" height="12" rx="6" />
-</svg>
-
-
-
-                        <svg xmlns="http://www.w3.org/2000/svg" class="icon icon-tabler icon-tabler-toggle-right" width="24" height="24" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor" fill="none" stroke-linecap="round" stroke-linejoin="round">
-  <path stroke="none" d="M0 0h24v24H0z"/>
-  <circle cx="16" cy="12" r="2" />
-  <rect x="2" y="6" width="20" height="12" rx="6" />
-</svg>
-
-
-
-                        <span>暗色模式</span>
-                    </li>
-                
-            </ol>
-        </li>
-    </ol>
-</aside>
-
-    
-
-            <main class="main full-width">
-    <article class="main-article">
-    <header class="article-header">
-
-    <div class="article-details">
-    
-    <header class="article-category">
-        
-            <a href="/categories/%E6%8A%80%E6%9C%AF.html" >
-                技术精进
-            </a>
-        
-    </header>
-    
-
-    <div class="article-title-wrapper">
-        <h2 class="article-title">
-            <a href="/tech/jiagouyouhuashizhananlijiexi/dockerjingxiangyouhua_tijijianshao80%dejiqiao.html">Docker镜像从1.2G到80M：架构师的“瘦身”复盘</a>
-        </h2>
-    
-        
-    </div>
-
-    
-    
-    
-    
-    <footer class="article-time">
-        
-            <div>
-                <svg xmlns="http://www.w3.org/2000/svg" class="icon icon-tabler icon-tabler-calendar-time" width="56" height="56" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor" fill="none" stroke-linecap="round" stroke-linejoin="round">
-  <path stroke="none" d="M0 0h24v24H0z"/>
-  <path d="M11.795 21h-6.795a2 2 0 0 1 -2 -2v-12a2 2 0 0 1 2 -2h12a2 2 0 0 1 2 2v4" />
-  <circle cx="18" cy="18" r="4" />
-  <path d="M15 3v4" />
-  <path d="M7 3v4" />
-  <path d="M3 11h16" />
-  <path d="M18 16.496v1.504l1 1" />
-</svg>
-                <time class="article-time--published" datetime='2024-11-19T00:00:00Z'>Nov 19, 2024</time>
-            </div>
-        
-
-        
-            <div>
-                <svg xmlns="http://www.w3.org/2000/svg" class="icon icon-tabler icon-tabler-clock" width="24" height="24" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor" fill="none" stroke-linecap="round" stroke-linejoin="round">
-  <path stroke="none" d="M0 0h24v24H0z"/>
-  <circle cx="12" cy="12" r="9" />
-  <polyline points="12 7 12 12 15 15" />
-</svg>
-
-
-
-                <time class="article-time--reading">
-                    阅读时长: 2 分钟
-                </time>
-            </div>
-        
-    </footer>
-    
-
-    
-</div>
-
-</header>
-
-    <section class="article-content">
-    
-    
-    <p>凌晨两点，监控系统疯狂报警：“生产环境Kubernetes节点磁盘空间不足，Pod驱逐中”。</p>
-<p>排查后发现，罪魁祸首不是日志，而是那几个刚刚发布的、未经优化的Docker镜像。每个镜像动辄1.5GB，不仅撑爆了节点磁盘，更让扩容时的拉取时间变成了漫长的折磨。</p>
-<p>这曾是我带团队时踩过的最痛的一个坑。那时我误以为Docker只是个打包工具，把代码和依赖塞进去能跑就行。直到这次事故，我才意识到：<strong>镜像大小不仅关乎存储成本，更直接决定了发布速度、安全攻击面和系统的弹性伸缩能力。</strong></p>
-<p>这两年，我通过几十个项目的实战，总结了一套可落地的镜像优化方法论。今天咱们不谈空泛的理论，直接复盘我是如何把一个臃肿的Java应用镜像从1.2GB砍到80MB的。</p>
-<h2 id="所谓多阶段构建不只是分两次写">所谓“多阶段构建”，不只是分两次写
-</h2><p>很多工程师知道多阶段构建（Multi-stage builds），但在Code Review中，我发现大部分人只是机械地照搬文档，并没有理解其核心价值——<strong>剥离构建环境与运行环境</strong>。</p>
-<p>在一个Spring Boot老项目的改造中，我发现之前的Dockerfile直接基于 <code>maven:3.8-jdk-11</code> 构建，把源码、Maven仓库缓存（<code>.m2</code>）、甚至测试报告都打进了最终镜像。这就像是你买了一套房子，交房时建筑队把脚手架、水泥搅拌机都留在了客厅里。</p>
-<p>我们做了一个简单的调整：</p>
-<ol>
-<li><strong>第一阶段（Builder）</strong>：负责编译、测试、打包。这里可以使用包含完整SDK的大体积基础镜像。</li>
-<li><strong>第二阶段（Runner）</strong>：只拷贝编译好的Jar包，并运行在最小化的JRE环境中。</li>
-</ol>
-<p>看看这个对比：</p>
-<p><img src="https://picsum.photos/800/450?random=1768457741002"
-	
-	
-	
-	loading="lazy"
-	
-		alt="配图"
-	
-	
-></p>
-<div class="highlight"><pre tabindex="0" style="color:#f8f8f2;background-color:#272822;-moz-tab-size:4;-o-tab-size:4;tab-size:4;"><code class="language-dockerfile" data-lang="dockerfile"><span style="display:flex;"><span><span style="color:#75715e"># ❌ 错误示范：单阶段构建，产物含源码和Maven缓存</span><span style="color:#960050;background-color:#1e0010">
-</span></span></span><span style="display:flex;"><span><span style="color:#960050;background-color:#1e0010"></span><span style="color:#66d9ef">FROM</span> <span style="color:#e6db74">maven:3.8-jdk-11</span><span style="color:#960050;background-color:#1e0010">
-</span></span></span><span style="display:flex;"><span><span style="color:#960050;background-color:#1e0010"></span><span style="color:#66d9ef">WORKDIR</span> <span style="color:#e6db74">/app</span><span style="color:#960050;background-color:#1e0010">
-</span></span></span><span style="display:flex;"><span><span style="color:#960050;background-color:#1e0010"></span><span style="color:#66d9ef">COPY</span> . .<span style="color:#960050;background-color:#1e0010">
-</span></span></span><span style="display:flex;"><span><span style="color:#960050;background-color:#1e0010"></span><span style="color:#66d9ef">RUN</span> mvn package<span style="color:#960050;background-color:#1e0010">
-</span></span></span><span style="display:flex;"><span><span style="color:#960050;background-color:#1e0010"></span><span style="color:#66d9ef">CMD</span> [<span style="color:#e6db74">&#34;java&#34;</span>, <span style="color:#e6db74">&#34;-jar&#34;</span>, <span style="color:#e6db74">&#34;target/app.jar&#34;</span>]<span style="color:#960050;background-color:#1e0010">
-</span></span></span></code></pre></div><div class="highlight"><pre tabindex="0" style="color:#f8f8f2;background-color:#272822;-moz-tab-size:4;-o-tab-size:4;tab-size:4;"><code class="language-dockerfile" data-lang="dockerfile"><span style="display:flex;"><span><span style="color:#75715e"># ✅ 优化后：多阶段构建</span><span style="color:#960050;background-color:#1e0010">
-</span></span></span><span style="display:flex;"><span><span style="color:#960050;background-color:#1e0010"></span><span style="color:#75715e"># 阶段一：构建</span><span style="color:#960050;background-color:#1e0010">
-</span></span></span><span style="display:flex;"><span><span style="color:#960050;background-color:#1e0010"></span><span style="color:#66d9ef">FROM</span> <span style="color:#e6db74">maven:3.8-jdk-11</span> <span style="color:#66d9ef">AS</span> <span style="color:#e6db74">builder</span><span style="color:#960050;background-color:#1e0010">
-</span></span></span><span style="display:flex;"><span><span style="color:#960050;background-color:#1e0010"></span><span style="color:#66d9ef">WORKDIR</span> <span style="color:#e6db74">/build</span><span style="color:#960050;background-color:#1e0010">
-</span></span></span><span style="display:flex;"><span><span style="color:#960050;background-color:#1e0010"></span><span style="color:#66d9ef">COPY</span> pom.xml .<span style="color:#960050;background-color:#1e0010">
-</span></span></span><span style="display:flex;"><span><span style="color:#960050;background-color:#1e0010"></span><span style="color:#66d9ef">COPY</span> src ./src<span style="color:#960050;background-color:#1e0010">
-</span></span></span><span style="display:flex;"><span><span style="color:#960050;background-color:#1e0010"></span><span style="color:#66d9ef">RUN</span> mvn package -DskipTests<span style="color:#960050;background-color:#1e0010">
-</span></span></span><span style="display:flex;"><span><span style="color:#960050;background-color:#1e0010">
-</span></span></span><span style="display:flex;"><span><span style="color:#960050;background-color:#1e0010"></span><span style="color:#75715e"># 阶段二：运行</span><span style="color:#960050;background-color:#1e0010">
-</span></span></span><span style="display:flex;"><span><span style="color:#960050;background-color:#1e0010"></span><span style="color:#66d9ef">FROM</span> <span style="color:#e6db74">openjdk:11-jre-slim</span><span style="color:#960050;background-color:#1e0010">
-</span></span></span><span style="display:flex;"><span><span style="color:#960050;background-color:#1e0010"></span><span style="color:#66d9ef">WORKDIR</span> <span style="color:#e6db74">/app</span><span style="color:#960050;background-color:#1e0010">
-</span></span></span><span style="display:flex;"><span><span style="color:#960050;background-color:#1e0010"></span><span style="color:#75715e"># 关键点：只拷贝阶段一的产物</span><span style="color:#960050;background-color:#1e0010">
-</span></span></span><span style="display:flex;"><span><span style="color:#960050;background-color:#1e0010"></span><span style="color:#66d9ef">COPY</span> --from<span style="color:#f92672">=</span>builder /build/target/app.jar .<span style="color:#960050;background-color:#1e0010">
-</span></span></span><span style="display:flex;"><span><span style="color:#960050;background-color:#1e0010"></span><span style="color:#66d9ef">CMD</span> [<span style="color:#e6db74">&#34;java&#34;</span>, <span style="color:#e6db74">&#34;-jar&#34;</span>, <span style="color:#e6db74">&#34;app.jar&#34;</span>]<span style="color:#960050;background-color:#1e0010">
-</span></span></span></code></pre></div><p><strong>结果非常直观</strong>：镜像体积瞬间从 <strong>800MB+ 降到了 250MB</strong>。</p>
-<p>但这就够了吗？显然没有。对于高频发布的微服务来说，250MB依然是个负担。</p>
-<h2 id="善用缓存机制别让你的带宽空转">善用缓存机制，别让你的带宽空转
-</h2><p>在CI/CD流水线中，我观察到一个奇怪现象：即使开发人员只修改了一行代码（比如改了个Log级别），整个镜像构建过程依然需要重新下载所有依赖，耗时3-5分钟。</p>
-<p>这是因为Docker的层级缓存（Layer Caching）机制失效了。</p>
-<p>Docker构建时会逐行检查指令，一旦某行指令的内容发生了变化（例如 <code>COPY . .</code> 导致文件指纹变了），该行及其之后的所有指令缓存都会失效。</p>
-<p><strong>大部分人的坏习惯是：</strong> 先把所有代码拷进去，再安装依赖。
-<strong>正确的姿势是：</strong> 先拷依赖描述文件，安装依赖，最后才拷源码。</p>
-<p>我们将Python项目的Dockerfile做了如下调整：</p>
-<div class="highlight"><pre tabindex="0" style="color:#f8f8f2;background-color:#272822;-moz-tab-size:4;-o-tab-size:4;tab-size:4;"><code class="language-dockerfile" data-lang="dockerfile"><span style="display:flex;"><span><span style="color:#75715e"># ❌ 优化前</span><span style="color:#960050;background-color:#1e0010">
-</span></span></span><span style="display:flex;"><span><span style="color:#960050;background-color:#1e0010"></span><span style="color:#66d9ef">COPY</span> . /app<span style="color:#960050;background-color:#1e0010">
-</span></span></span><span style="display:flex;"><span><span style="color:#960050;background-color:#1e0010"></span><span style="color:#66d9ef">RUN</span> pip install -r requirements.txt<span style="color:#960050;background-color:#1e0010">
-</span></span></span><span style="display:flex;"><span><span style="color:#960050;background-color:#1e0010">
-</span></span></span><span style="display:flex;"><span><span style="color:#960050;background-color:#1e0010"></span><span style="color:#75715e"># ✅ 优化后</span><span style="color:#960050;background-color:#1e0010">
-</span></span></span><span style="display:flex;"><span><span style="color:#960050;background-color:#1e0010"></span><span style="color:#66d9ef">COPY</span> requirements.txt /app/<span style="color:#960050;background-color:#1e0010">
-</span></span></span><span style="display:flex;"><span><span style="color:#960050;background-color:#1e0010"></span><span style="color:#66d9ef">RUN</span> pip install -r requirements.txt<span style="color:#960050;background-color:#1e0010">
-</span></span></span><span style="display:flex;"><span><span style="color:#960050;background-color:#1e0010"></span><span style="color:#66d9ef">COPY</span> . /app<span style="color:#960050;background-color:#1e0010">
-</span></span></span></code></pre></div><p>这个改动看似微小，但效果惊人。在后续的几百次构建中，只要 <code>requirements.txt</code> 没变，<code>pip install</code> 这一层直接命中缓存。</p>
-<p><strong>数据支撑</strong>：我们的平均构建时间从 <strong>4分30秒缩短到了25秒</strong>，开发体验完全不在一个量级。我个人习惯在每周五下午Review代码时，专门检查一遍所有服务的Dockerfile是否遵循了“依赖先行”的原则。</p>
-<h2 id="极端瘦身distroless与alpine的抉择">极端瘦身：Distroless与Alpine的抉择
-</h2><p>到了这一步，我们的Java镜像还在200MB左右，Node.js镜像在500MB左右。瓶颈落在了**基础镜像（Base Image）**上。</p>
-<p>常规的 <code>ubuntu</code> 或 <code>centos</code> 镜像包含了大量你根本用不到的工具：<code>curl</code>, <code>vim</code>, <code>apt</code>, <code>bash</code> 等等。这些工具不仅占空间，还是黑客眼中的“趁手兵器”。</p>
-<p>这里有两个流派，我都亲测过：</p>
-<ol>
-<li>
-<p><strong>Alpine流派</strong>：</p>
-<ul>
-<li><strong>特点</strong>：使用 musl libc 代替 glibc，体积极其精简（~5MB）。</li>
-<li><strong>坑点</strong>：兼容性问题简直是噩梦。我曾在Python项目中因为C扩展库（如pandas, numpy）缺少预编译的wheel包，导致构建时需要现场编译gcc，反而让构建时间激增，甚至运行时出现莫名其妙的DNS解析问题。</li>
-</ul>
-</li>
-<li>
-<p><strong>Distroless流派（Google推荐）</strong>：</p>
-<ul>
-<li><strong>特点</strong>：只包含应用程序及其运行时依赖项，不包含包管理器、shell 或任何其他标准 Linux 发行版中常见的程序。</li>
-<li><strong>实战</strong>：我们将一个Go语言的网关服务，从 <code>alpine</code> 迁移到了 <code>gcr.io/distroless/static</code>。</li>
-</ul>
-</li>
-</ol>
-<div class="highlight"><pre tabindex="0" style="color:#f8f8f2;background-color:#272822;-moz-tab-size:4;-o-tab-size:4;tab-size:4;"><code class="language-dockerfile" data-lang="dockerfile"><span style="display:flex;"><span><span style="color:#75715e"># 最终阶段使用 distroless</span><span style="color:#960050;background-color:#1e0010">
-</span></span></span><span style="display:flex;"><span><span style="color:#960050;background-color:#1e0010"></span><span style="color:#66d9ef">FROM</span> <span style="color:#e6db74">gcr.io/distroless/static-debian11</span><span style="color:#960050;background-color:#1e0010">
-</span></span></span><span style="display:flex;"><span><span style="color:#960050;background-color:#1e0010"></span><span style="color:#66d9ef">COPY</span> --from<span style="color:#f92672">=</span>builder /go/bin/app /<span style="color:#960050;background-color:#1e0010">
-</span></span></span><span style="display:flex;"><span><span style="color:#960050;background-color:#1e0010"></span><span style="color:#66d9ef">CMD</span> [<span style="color:#e6db74">&#34;/app&#34;</span>]<span style="color:#960050;background-color:#1e0010">
-</span></span></span></code></pre></div><p><strong>最终战果</strong>：
+<!doctype html><html lang=zh-cn dir=ltr><head><meta charset=utf-8><meta name=viewport content='width=device-width,initial-scale=1'><meta name=description content="凌晨两点，监控系统疯狂报警：“生产环境Kubernetes节点磁盘空间不足，Pod驱逐中”。排查后发现，罪魁祸首不是日志，而是那几个刚刚发布的、未经优化的Docker镜像。"><title>Docker镜像从1.2G到80M：架构师的“瘦身”复盘</title><link rel=canonical href=https://blog.irudder.me/tech/jiagouyouhuashizhananlijiexi/dockerjingxiangyouhua_tijijianshao80%dejiqiao.html><link rel=stylesheet href=/scss/style.min.c77ce1b874b29b2ee9e54a89066c79ebf35cbe9cf399b31ab5d79167f9a965c9.css><meta property='og:title' content="Docker镜像从1.2G到80M：架构师的“瘦身”复盘"><meta property='og:description' content="凌晨两点，监控系统疯狂报警：“生产环境Kubernetes节点磁盘空间不足，Pod驱逐中”。排查后发现，罪魁祸首不是日志，而是那几个刚刚发布的、未经优化的Docker镜像。"><meta property='og:url' content='https://blog.irudder.me/tech/jiagouyouhuashizhananlijiexi/dockerjingxiangyouhua_tijijianshao80%dejiqiao.html'><meta property='og:site_name' content='SelfTechHub'><meta property='og:type' content='article'><meta property='article:section' content='Tech'><meta property='article:tag' content='Docker镜像优化：体积减少80%的技巧'><meta property='article:published_time' content='2024-11-19T00:00:00+08:00'><meta property='article:modified_time' content='2024-11-19T00:00:00+08:00'><meta name=twitter:title content="Docker镜像从1.2G到80M：架构师的“瘦身”复盘"><meta name=twitter:description content="凌晨两点，监控系统疯狂报警：“生产环境Kubernetes节点磁盘空间不足，Pod驱逐中”。排查后发现，罪魁祸首不是日志，而是那几个刚刚发布的、未经优化的Docker镜像。"><link rel="shortcut icon" href=/images/logo.png></head><body class=article-page><script>(function(){const e="StackColorScheme";localStorage.getItem(e)||localStorage.setItem(e,"auto")})()</script><script>(function(){const t="StackColorScheme",e=localStorage.getItem(t),n=window.matchMedia("(prefers-color-scheme: dark)").matches===!0;e=="dark"||e==="auto"&&n?document.documentElement.dataset.scheme="dark":document.documentElement.dataset.scheme="light"})()</script><div class="container main-container flex on-phone--column extended"><aside class="sidebar left-sidebar sticky"><button class="hamburger hamburger--spin" type=button id=toggle-menu aria-label=切换菜单>
+<span class=hamburger-box><span class=hamburger-inner></span></span></button><header><figure class=site-avatar><a href=/><img src=/img/avatar_hu_8588ce14af1147e2.png width=300 height=286 class=site-logo loading=lazy alt=Avatar>
+</a><span class=emoji>🧠</span></figure><div class=site-meta><h1 class=site-name><a href=/>SelfTechHub</a></h1><h2 class=site-description>成长 · 技术 · 商业 · AI —— 把碎片知识沉淀为可复用的记忆体系</h2></div></header><ol class=menu-social><li><a href=https://github.com/pastor17 target=_blank title=GitHub rel=me><svg class="icon icon-tabler icon-tabler-brand-github" width="24" height="24" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor" fill="none" stroke-linecap="round" stroke-linejoin="round"><path stroke="none" d="M0 0h24v24H0z" fill="none"/><path d="M9 19c-4.3 1.4-4.3-2.5-6-3m12 5v-3.5c0-1 .1-1.4-.5-2 2.8-.3 5.5-1.4 5.5-6a4.6 4.6.0 00-1.3-3.2 4.2 4.2.0 00-.1-3.2s-1.1-.3-3.5 1.3a12.3 12.3.0 00-6.2.0C6.5 2.8 5.4 3.1 5.4 3.1a4.2 4.2.0 00-.1 3.2A4.6 4.6.0 004 9.5c0 4.6 2.7 5.7 5.5 6-.6.6-.6 1.2-.5 2V21"/></svg></a></li></ol><ol class=menu id=main-menu><li><a href=/><svg class="icon icon-tabler icon-tabler-home" width="24" height="24" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor" fill="none" stroke-linecap="round" stroke-linejoin="round"><path stroke="none" d="M0 0h24v24H0z"/><polyline points="5 12 3 12 12 3 21 12 19 12"/><path d="M5 12v7a2 2 0 002 2h10a2 2 0 002-2v-7"/><path d="M9 21v-6a2 2 0 012-2h2a2 2 0 012 2v6"/></svg>
+<span>首页</span></a></li><li><a href=/categories/%E6%88%90%E9%95%BF.html><span>成长认知</span></a></li><li><a href=/categories/%E6%8A%80%E6%9C%AF.html><span>技术精进</span></a></li><li><a href=/categories/%E5%95%86%E4%B8%9A.html><span>商业·财富</span></a></li><li><a href=/categories/ai.html><span>探索AI</span></a></li><li><a href=/about/><svg class="icon icon-tabler icon-tabler-user" width="24" height="24" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor" fill="none" stroke-linecap="round" stroke-linejoin="round"><path stroke="none" d="M0 0h24v24H0z"/><circle cx="12" cy="7" r="4"/><path d="M6 21v-2a4 4 0 014-4h4a4 4 0 014 4v2"/></svg>
+<span>关于</span></a></li><li class=menu-bottom-section><ol class=menu><li id=dark-mode-toggle><svg class="icon icon-tabler icon-tabler-toggle-left" width="24" height="24" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor" fill="none" stroke-linecap="round" stroke-linejoin="round"><path stroke="none" d="M0 0h24v24H0z"/><circle cx="8" cy="12" r="2"/><rect x="2" y="6" width="20" height="12" rx="6"/></svg>
+<svg class="icon icon-tabler icon-tabler-toggle-right" width="24" height="24" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor" fill="none" stroke-linecap="round" stroke-linejoin="round"><path stroke="none" d="M0 0h24v24H0z"/><circle cx="16" cy="12" r="2"/><rect x="2" y="6" width="20" height="12" rx="6"/></svg>
+<span>暗色模式</span></li></ol></li></ol></aside><aside class="sidebar right-sidebar sticky"><section class="widget archives"><div class=widget-icon><svg class="icon icon-tabler icon-tabler-hash" width="24" height="24" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor" fill="none" stroke-linecap="round" stroke-linejoin="round"><path stroke="none" d="M0 0h24v24H0z"/><line x1="5" y1="9" x2="19" y2="9"/><line x1="5" y1="15" x2="19" y2="15"/><line x1="11" y1="4" x2="7" y2="20"/><line x1="17" y1="4" x2="13" y2="20"/></svg></div><h2 class="widget-title section-title">目录</h2><div class=widget--toc><nav id=TableOfContents><ul><li><a href=#所谓多阶段构建不只是分两次写>所谓“多阶段构建”，不只是分两次写</a></li><li><a href=#善用缓存机制别让你的带宽空转>善用缓存机制，别让你的带宽空转</a></li><li><a href=#极端瘦身distroless与alpine的抉择>极端瘦身：Distroless与Alpine的抉择</a></li><li><a href=#拒绝盲猜用工具看见大象>拒绝盲猜：用工具看见“大象”</a></li><li><a href=#总结与行动指南>总结与行动指南</a></li></ul></nav></div></section></aside><main class="main full-width"><article class=main-article><header class=article-header><div class=article-details><header class=article-category><a href=/categories/%E6%8A%80%E6%9C%AF.html>技术精进</a></header><div class=article-title-wrapper><h2 class=article-title><a href=/tech/jiagouyouhuashizhananlijiexi/dockerjingxiangyouhua_tijijianshao80%dejiqiao.html>Docker镜像从1.2G到80M：架构师的“瘦身”复盘</a></h2><h3 class=article-subtitle>凌晨两点，监控系统疯狂报警：“生产环境Kubernetes节点磁盘空间不足，Pod驱逐中”。排查后发现，罪魁祸首不是日志，而是那几个刚刚发布的、未经优化的Docker镜像。</h3></div><footer class=article-time><div><svg class="icon icon-tabler icon-tabler-calendar-time" width="56" height="56" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor" fill="none" stroke-linecap="round" stroke-linejoin="round"><path stroke="none" d="M0 0h24v24H0z"/><path d="M11.795 21H5a2 2 0 01-2-2V7a2 2 0 012-2h12a2 2 0 012 2v4"/><circle cx="18" cy="18" r="4"/><path d="M15 3v4"/><path d="M7 3v4"/><path d="M3 11h16"/><path d="M18 16.496V18l1 1"/></svg>
+<time class=article-time--published datetime=2024-11-19T00:00:00+08:00>2024-11-19</time></div><div><svg class="icon icon-tabler icon-tabler-clock" width="24" height="24" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor" fill="none" stroke-linecap="round" stroke-linejoin="round"><path stroke="none" d="M0 0h24v24H0z"/><circle cx="12" cy="12" r="9"/><polyline points="12 7 12 12 15 15"/></svg>
+<time class=article-time--reading>阅读时长: 6 分钟</time></div></footer></div></header><section class=article-content><p>凌晨两点，监控系统疯狂报警：“生产环境Kubernetes节点磁盘空间不足，Pod驱逐中”。</p><p>排查后发现，罪魁祸首不是日志，而是那几个刚刚发布的、未经优化的Docker镜像。每个镜像动辄1.5GB，不仅撑爆了节点磁盘，更让扩容时的拉取时间变成了漫长的折磨。</p><p>这曾是我带团队时踩过的最痛的一个坑。那时我误以为Docker只是个打包工具，把代码和依赖塞进去能跑就行。直到这次事故，我才意识到：<strong>镜像大小不仅关乎存储成本，更直接决定了发布速度、安全攻击面和系统的弹性伸缩能力。</strong></p><p>这两年，我通过几十个项目的实战，总结了一套可落地的镜像优化方法论。今天咱们不谈空泛的理论，直接复盘我是如何把一个臃肿的Java应用镜像从1.2GB砍到80MB的。</p><h2 id=所谓多阶段构建不只是分两次写>所谓“多阶段构建”，不只是分两次写</h2><p>很多工程师知道多阶段构建（Multi-stage builds），但在Code Review中，我发现大部分人只是机械地照搬文档，并没有理解其核心价值——<strong>剥离构建环境与运行环境</strong>。</p><p>在一个Spring Boot老项目的改造中，我发现之前的Dockerfile直接基于 <code>maven:3.8-jdk-11</code> 构建，把源码、Maven仓库缓存（<code>.m2</code>）、甚至测试报告都打进了最终镜像。这就像是你买了一套房子，交房时建筑队把脚手架、水泥搅拌机都留在了客厅里。</p><p>我们做了一个简单的调整：</p><ol><li><strong>第一阶段（Builder）</strong>：负责编译、测试、打包。这里可以使用包含完整SDK的大体积基础镜像。</li><li><strong>第二阶段（Runner）</strong>：只拷贝编译好的Jar包，并运行在最小化的JRE环境中。</li></ol><p>看看这个对比：</p><p><img src="https://picsum.photos/800/450?random=1768457741002" loading=lazy alt=配图></p><div class=highlight><div class=chroma><table class=lntable><tr><td class=lntd><pre tabindex=0 class=chroma><code><span class=lnt>1
+</span><span class=lnt>2
+</span><span class=lnt>3
+</span><span class=lnt>4
+</span><span class=lnt>5
+</span><span class=lnt>6
+</span></code></pre></td><td class=lntd><pre tabindex=0 class=chroma><code class=language-dockerfile data-lang=dockerfile><span class=line><span class=cl><span class=c># ❌ 错误示范：单阶段构建，产物含源码和Maven缓存</span><span class=err>
+</span></span></span><span class=line><span class=cl><span class=err></span><span class=k>FROM</span><span class=w> </span><span class=s>maven:3.8-jdk-11</span><span class=err>
+</span></span></span><span class=line><span class=cl><span class=err></span><span class=k>WORKDIR</span><span class=w> </span><span class=s>/app</span><span class=err>
+</span></span></span><span class=line><span class=cl><span class=err></span><span class=k>COPY</span> . .<span class=err>
+</span></span></span><span class=line><span class=cl><span class=err></span><span class=k>RUN</span> mvn package<span class=err>
+</span></span></span><span class=line><span class=cl><span class=err></span><span class=k>CMD</span> <span class=p>[</span><span class=s2>&#34;java&#34;</span><span class=p>,</span> <span class=s2>&#34;-jar&#34;</span><span class=p>,</span> <span class=s2>&#34;target/app.jar&#34;</span><span class=p>]</span><span class=err>
+</span></span></span></code></pre></td></tr></table></div></div><div class=highlight><div class=chroma><table class=lntable><tr><td class=lntd><pre tabindex=0 class=chroma><code><span class=lnt> 1
+</span><span class=lnt> 2
+</span><span class=lnt> 3
+</span><span class=lnt> 4
+</span><span class=lnt> 5
+</span><span class=lnt> 6
+</span><span class=lnt> 7
+</span><span class=lnt> 8
+</span><span class=lnt> 9
+</span><span class=lnt>10
+</span><span class=lnt>11
+</span><span class=lnt>12
+</span><span class=lnt>13
+</span><span class=lnt>14
+</span></code></pre></td><td class=lntd><pre tabindex=0 class=chroma><code class=language-dockerfile data-lang=dockerfile><span class=line><span class=cl><span class=c># ✅ 优化后：多阶段构建</span><span class=err>
+</span></span></span><span class=line><span class=cl><span class=err></span><span class=c># 阶段一：构建</span><span class=err>
+</span></span></span><span class=line><span class=cl><span class=err></span><span class=k>FROM</span><span class=w> </span><span class=s>maven:3.8-jdk-11</span><span class=w> </span><span class=k>AS</span><span class=w> </span><span class=s>builder</span><span class=err>
+</span></span></span><span class=line><span class=cl><span class=err></span><span class=k>WORKDIR</span><span class=w> </span><span class=s>/build</span><span class=err>
+</span></span></span><span class=line><span class=cl><span class=err></span><span class=k>COPY</span> pom.xml .<span class=err>
+</span></span></span><span class=line><span class=cl><span class=err></span><span class=k>COPY</span> src ./src<span class=err>
+</span></span></span><span class=line><span class=cl><span class=err></span><span class=k>RUN</span> mvn package -DskipTests<span class=err>
+</span></span></span><span class=line><span class=cl><span class=err>
+</span></span></span><span class=line><span class=cl><span class=err></span><span class=c># 阶段二：运行</span><span class=err>
+</span></span></span><span class=line><span class=cl><span class=err></span><span class=k>FROM</span><span class=w> </span><span class=s>openjdk:11-jre-slim</span><span class=err>
+</span></span></span><span class=line><span class=cl><span class=err></span><span class=k>WORKDIR</span><span class=w> </span><span class=s>/app</span><span class=err>
+</span></span></span><span class=line><span class=cl><span class=err></span><span class=c># 关键点：只拷贝阶段一的产物</span><span class=err>
+</span></span></span><span class=line><span class=cl><span class=err></span><span class=k>COPY</span> --from<span class=o>=</span>builder /build/target/app.jar .<span class=err>
+</span></span></span><span class=line><span class=cl><span class=err></span><span class=k>CMD</span> <span class=p>[</span><span class=s2>&#34;java&#34;</span><span class=p>,</span> <span class=s2>&#34;-jar&#34;</span><span class=p>,</span> <span class=s2>&#34;app.jar&#34;</span><span class=p>]</span><span class=err>
+</span></span></span></code></pre></td></tr></table></div></div><p><strong>结果非常直观</strong>：镜像体积瞬间从 <strong>800MB+ 降到了 250MB</strong>。</p><p>但这就够了吗？显然没有。对于高频发布的微服务来说，250MB依然是个负担。</p><h2 id=善用缓存机制别让你的带宽空转>善用缓存机制，别让你的带宽空转</h2><p>在CI/CD流水线中，我观察到一个奇怪现象：即使开发人员只修改了一行代码（比如改了个Log级别），整个镜像构建过程依然需要重新下载所有依赖，耗时3-5分钟。</p><p>这是因为Docker的层级缓存（Layer Caching）机制失效了。</p><p>Docker构建时会逐行检查指令，一旦某行指令的内容发生了变化（例如 <code>COPY . .</code> 导致文件指纹变了），该行及其之后的所有指令缓存都会失效。</p><p><strong>大部分人的坏习惯是：</strong> 先把所有代码拷进去，再安装依赖。
+<strong>正确的姿势是：</strong> 先拷依赖描述文件，安装依赖，最后才拷源码。</p><p>我们将Python项目的Dockerfile做了如下调整：</p><div class=highlight><div class=chroma><table class=lntable><tr><td class=lntd><pre tabindex=0 class=chroma><code><span class=lnt>1
+</span><span class=lnt>2
+</span><span class=lnt>3
+</span><span class=lnt>4
+</span><span class=lnt>5
+</span><span class=lnt>6
+</span><span class=lnt>7
+</span><span class=lnt>8
+</span></code></pre></td><td class=lntd><pre tabindex=0 class=chroma><code class=language-dockerfile data-lang=dockerfile><span class=line><span class=cl><span class=c># ❌ 优化前</span><span class=err>
+</span></span></span><span class=line><span class=cl><span class=err></span><span class=k>COPY</span> . /app<span class=err>
+</span></span></span><span class=line><span class=cl><span class=err></span><span class=k>RUN</span> pip install -r requirements.txt<span class=err>
+</span></span></span><span class=line><span class=cl><span class=err>
+</span></span></span><span class=line><span class=cl><span class=err></span><span class=c># ✅ 优化后</span><span class=err>
+</span></span></span><span class=line><span class=cl><span class=err></span><span class=k>COPY</span> requirements.txt /app/<span class=err>
+</span></span></span><span class=line><span class=cl><span class=err></span><span class=k>RUN</span> pip install -r requirements.txt<span class=err>
+</span></span></span><span class=line><span class=cl><span class=err></span><span class=k>COPY</span> . /app<span class=err>
+</span></span></span></code></pre></td></tr></table></div></div><p>这个改动看似微小，但效果惊人。在后续的几百次构建中，只要 <code>requirements.txt</code> 没变，<code>pip install</code> 这一层直接命中缓存。</p><p><strong>数据支撑</strong>：我们的平均构建时间从 <strong>4分30秒缩短到了25秒</strong>，开发体验完全不在一个量级。我个人习惯在每周五下午Review代码时，专门检查一遍所有服务的Dockerfile是否遵循了“依赖先行”的原则。</p><h2 id=极端瘦身distroless与alpine的抉择>极端瘦身：Distroless与Alpine的抉择</h2><p>到了这一步，我们的Java镜像还在200MB左右，Node.js镜像在500MB左右。瓶颈落在了**基础镜像（Base Image）**上。</p><p>常规的 <code>ubuntu</code> 或 <code>centos</code> 镜像包含了大量你根本用不到的工具：<code>curl</code>, <code>vim</code>, <code>apt</code>, <code>bash</code> 等等。这些工具不仅占空间，还是黑客眼中的“趁手兵器”。</p><p>这里有两个流派，我都亲测过：</p><ol><li><p><strong>Alpine流派</strong>：</p><ul><li><strong>特点</strong>：使用 musl libc 代替 glibc，体积极其精简（~5MB）。</li><li><strong>坑点</strong>：兼容性问题简直是噩梦。我曾在Python项目中因为C扩展库（如pandas, numpy）缺少预编译的wheel包，导致构建时需要现场编译gcc，反而让构建时间激增，甚至运行时出现莫名其妙的DNS解析问题。</li></ul></li><li><p><strong>Distroless流派（Google推荐）</strong>：</p><ul><li><strong>特点</strong>：只包含应用程序及其运行时依赖项，不包含包管理器、shell 或任何其他标准 Linux 发行版中常见的程序。</li><li><strong>实战</strong>：我们将一个Go语言的网关服务，从 <code>alpine</code> 迁移到了 <code>gcr.io/distroless/static</code>。</li></ul></li></ol><div class=highlight><div class=chroma><table class=lntable><tr><td class=lntd><pre tabindex=0 class=chroma><code><span class=lnt>1
+</span><span class=lnt>2
+</span><span class=lnt>3
+</span><span class=lnt>4
+</span></code></pre></td><td class=lntd><pre tabindex=0 class=chroma><code class=language-dockerfile data-lang=dockerfile><span class=line><span class=cl><span class=c># 最终阶段使用 distroless</span><span class=err>
+</span></span></span><span class=line><span class=cl><span class=err></span><span class=k>FROM</span><span class=w> </span><span class=s>gcr.io/distroless/static-debian11</span><span class=err>
+</span></span></span><span class=line><span class=cl><span class=err></span><span class=k>COPY</span> --from<span class=o>=</span>builder /go/bin/app /<span class=err>
+</span></span></span><span class=line><span class=cl><span class=err></span><span class=k>CMD</span> <span class=p>[</span><span class=s2>&#34;/app&#34;</span><span class=p>]</span><span class=err>
+</span></span></span></code></pre></td></tr></table></div></div><p><strong>最终战果</strong>：
 该Go服务镜像最终大小仅为 <strong>18MB</strong>。
-更重要的是安全扫描结果：<strong>高危漏洞（CVE）数量从原来的 30+ 降为 0</strong>。因为镜像里连个 Shell 都没有，攻击者就算利用代码漏洞进来了，也无法执行系统命令。</p>
-<h2 id="拒绝盲猜用工具看见大象">拒绝盲猜：用工具看见“大象”
-</h2><p><img src="https://picsum.photos/800/450?random=1768457740982"
-	
-	
-	
-	loading="lazy"
-	
-		alt="配图"
-	
-	
-></p>
-<p>很多时候，你以为镜像小了，其实里面还藏着“大象”。</p>
-<p>曾有一个实习生问我：“为什么我删除了大文件，镜像体积还是没变？”
-原因是Docker的文件系统是分层的。你在下一层 <code>RUN rm huge_file</code>，只是在当前层标记该文件为删除，上一层的实际数据依然存在于镜像历史中。</p>
-<p>我强制要求团队在本地开发环境安装 <strong>Dive</strong> 这个工具。</p>
-<blockquote>
-<p>Dive 是一个在终端运行的 Docker 镜像分析工具，它能以图形化方式展示每一层的文件变化。</p>
-</blockquote>
-<p>通过 <code>dive image:tag</code>，我们可以清晰地看到每一层增加了多少体积，以及具体是哪些文件。</p>
-<p>有一次排查发现，某个Node.js镜像体积异常，用Dive一看，竟然是因为 <code>.dockerignore</code> 没配置好，把 <code>.git</code> 目录（包含历史所有的提交记录）完整地拷进去了，白白浪费了 150MB。</p>
-<p><strong>这是一个价值 150MB 的教训，修复只需要一行配置。</strong></p>
-<h2 id="总结与行动指南">总结与行动指南
-</h2><p>Docker镜像优化不仅仅是“省硬盘”，它是架构师对交付质量、安全性和系统效率的一种极致追求。</p>
-<p>从 1.2GB 到 80MB 的过程，本质上是做减法的过程：</p>
-<ol>
-<li><strong>减去构建环境</strong>（多阶段构建）；</li>
-<li><strong>减去重复劳动</strong>（利用层级缓存）；</li>
-<li><strong>减去操作系统</strong>（使用 Distroless/Alpine）；</li>
-<li><strong>减去无用文件</strong>（使用 .dockerignore 和 Dive 分析）。</li>
-</ol>
-<p><strong>最后，我想做一个小调查：</strong>
-在基础镜像的选择上，你更倾向于 <strong>A. Alpine（追求极致体积但牺牲部分兼容性）</strong> 还是 <strong>B. Distroless（追求极致安全但调试不便）</strong>？欢迎在评论区告诉我你的选择和理由。</p>
-<p><strong>给读者的3个落地建议：</strong></p>
-<ol>
-<li><strong>立刻检查</strong>：去看看你现有的Dockerfile，是否将 <code>COPY . .</code> 放到了安装依赖之前？如果是，立刻改过来。</li>
-<li><strong>安装工具</strong>：在你的电脑上安装 <code>dive</code>，随便分析一个你常用的镜像，你会发现新大陆。</li>
-<li><strong>尝试迁移</strong>：选择一个非核心业务的微服务，尝试将其基础镜像替换为 <code>distroless</code> 或 <code>slim</code> 版本，对比一下扫描出的漏洞数量变化。</li>
-</ol>
-
-</section>
-
-
-    <footer class="article-footer">
-    
-    <section class="article-tags">
-        
-            <a href="/tags/Docker%E9%95%9C%E5%83%8F%E4%BC%98%E5%8C%96%E4%BD%93%E7%A7%AF%E5%87%8F%E5%B0%9180%E7%9A%84%E6%8A%80%E5%B7%A7.html">Docker镜像优化：体积减少80%的技巧</a>
-        
-    </section>
-
-
-    </footer>
-
-
-    
-</article>
-
-    
-
-    
-
-     
-    
-        
-    <script
-    src="https://giscus.app/client.js"
-    data-repo="pastor17/bloggiscus"
-    data-repo-id="R_kgDOQ6H9qQ"
-    data-category=""
-    data-category-id="DIC_kwDOQ6H9qc4C0-T8"
-    data-mapping="pathname"
-    data-strict="0"
-    data-reactions-enabled="1"
-    data-emit-metadata="0"
-    data-input-position="bottom"
-    data-theme="light"
-    data-lang="zh-CN"
-    data-loading="lazy"
-    crossorigin="anonymous"
-    async
-></script>
-<script>
-    function setGiscusTheme(theme) {
-        let giscus = document.querySelector("iframe.giscus-frame");
-        if (giscus) {
-            giscus.contentWindow.postMessage(
-                {
-                    giscus: {
-                        setConfig: {
-                            theme: theme,
-                        },
-                    },
-                },
-                "https://giscus.app"
-            );
-        }
-    }
-
-    (function () {
-        addEventListener("message", (e) => {
-            if (event.origin !== "https://giscus.app") return;
-            handler();
-        });
-        window.addEventListener("onColorSchemeChange", handler);
-
-        function handler() {
-            if (document.documentElement.dataset.scheme === "light") {
-                setGiscusTheme('light');
-            } else {
-                setGiscusTheme('dark_dimmed');
-            }
-        }
-    })();
-</script>
-
-    
-
-    <footer class="site-footer">
-    <section class="copyright">
-        &copy; 
-        
-        2026 SelfTechHub
-    </section>
-    
-    <section class="powerby">
-        
-
-    </section>
-</footer>
-
-
-    
-<div class="pswp" tabindex="-1" role="dialog" aria-hidden="true">
-
-    
-    <div class="pswp__bg"></div>
-
-    
-    <div class="pswp__scroll-wrap">
-
-        
-        <div class="pswp__container">
-            <div class="pswp__item"></div>
-            <div class="pswp__item"></div>
-            <div class="pswp__item"></div>
-        </div>
-
-        
-        <div class="pswp__ui pswp__ui--hidden">
-
-            <div class="pswp__top-bar">
-
-                
-
-                <div class="pswp__counter"></div>
-
-                <button class="pswp__button pswp__button--close" title="Close (Esc)"></button>
-
-                <button class="pswp__button pswp__button--share" title="Share"></button>
-
-                <button class="pswp__button pswp__button--fs" title="Toggle fullscreen"></button>
-
-                <button class="pswp__button pswp__button--zoom" title="Zoom in/out"></button>
-
-                
-                
-                <div class="pswp__preloader">
-                    <div class="pswp__preloader__icn">
-                        <div class="pswp__preloader__cut">
-                            <div class="pswp__preloader__donut"></div>
-                        </div>
-                    </div>
-                </div>
-            </div>
-
-            <div class="pswp__share-modal pswp__share-modal--hidden pswp__single-tap">
-                <div class="pswp__share-tooltip"></div>
-            </div>
-
-            <button class="pswp__button pswp__button--arrow--left" title="Previous (arrow left)">
-            </button>
-
-            <button class="pswp__button pswp__button--arrow--right" title="Next (arrow right)">
-            </button>
-
-            <div class="pswp__caption">
-                <div class="pswp__caption__center"></div>
-            </div>
-
-        </div>
-
-    </div>
-
-</div><script 
-                src="https://cdn.jsdelivr.net/npm/photoswipe@4.1.3/dist/photoswipe.min.js"integrity="sha256-ePwmChbbvXbsO02lbM3HoHbSHTHFAeChekF1xKJdleo="crossorigin="anonymous"
-                defer
-                >
-            </script><script 
-                src="https://cdn.jsdelivr.net/npm/photoswipe@4.1.3/dist/photoswipe-ui-default.min.js"integrity="sha256-UKkzOn/w1mBxRmLLGrSeyB4e1xbrp4xylgAWb3M42pU="crossorigin="anonymous"
-                defer
-                >
-            </script><link 
-                rel="stylesheet" 
-                href="https://cdn.jsdelivr.net/npm/photoswipe@4.1.3/dist/default-skin/default-skin.min.css"crossorigin="anonymous"
-            ><link 
-                rel="stylesheet" 
-                href="https://cdn.jsdelivr.net/npm/photoswipe@4.1.3/dist/photoswipe.min.css"crossorigin="anonymous"
-            >
-    
-
-            </main>
-        </div>
-        <script 
-                src="https://cdn.jsdelivr.net/npm/node-vibrant@3.1.6/dist/vibrant.min.js"integrity="sha256-awcR2jno4kI5X0zL8ex0vi2z&#43;KMkF24hUW8WePSA9HM="crossorigin="anonymous"
-                
-                >
-            </script><script type="text/javascript" src="/ts/main.c922af694cc257bf1ecc41c0dd7b0430f9114ec280ccf67cd2c6ad55f5316c4e.js" defer></script>
-<script>
-    (function () {
-        const customFont = document.createElement('link');
-        customFont.href = "https://fonts.googleapis.com/css2?family=Lato:wght@300;400;700&display=swap";
-
-        customFont.type = "text/css";
-        customFont.rel = "stylesheet";
-
-        document.head.appendChild(customFont);
-    }());
-</script>
-
-    </body>
-</html>
+更重要的是安全扫描结果：<strong>高危漏洞（CVE）数量从原来的 30+ 降为 0</strong>。因为镜像里连个 Shell 都没有，攻击者就算利用代码漏洞进来了，也无法执行系统命令。</p><h2 id=拒绝盲猜用工具看见大象>拒绝盲猜：用工具看见“大象”</h2><p><img src="https://picsum.photos/800/450?random=1768457740982" loading=lazy alt=配图></p><p>很多时候，你以为镜像小了，其实里面还藏着“大象”。</p><p>曾有一个实习生问我：“为什么我删除了大文件，镜像体积还是没变？”
+原因是Docker的文件系统是分层的。你在下一层 <code>RUN rm huge_file</code>，只是在当前层标记该文件为删除，上一层的实际数据依然存在于镜像历史中。</p><p>我强制要求团队在本地开发环境安装 <strong>Dive</strong> 这个工具。</p><blockquote><p>Dive 是一个在终端运行的 Docker 镜像分析工具，它能以图形化方式展示每一层的文件变化。</p></blockquote><p>通过 <code>dive image:tag</code>，我们可以清晰地看到每一层增加了多少体积，以及具体是哪些文件。</p><p>有一次排查发现，某个Node.js镜像体积异常，用Dive一看，竟然是因为 <code>.dockerignore</code> 没配置好，把 <code>.git</code> 目录（包含历史所有的提交记录）完整地拷进去了，白白浪费了 150MB。</p><p><strong>这是一个价值 150MB 的教训，修复只需要一行配置。</strong></p><h2 id=总结与行动指南>总结与行动指南</h2><p>Docker镜像优化不仅仅是“省硬盘”，它是架构师对交付质量、安全性和系统效率的一种极致追求。</p><p>从 1.2GB 到 80MB 的过程，本质上是做减法的过程：</p><ol><li><strong>减去构建环境</strong>（多阶段构建）；</li><li><strong>减去重复劳动</strong>（利用层级缓存）；</li><li><strong>减去操作系统</strong>（使用 Distroless/Alpine）；</li><li><strong>减去无用文件</strong>（使用 .dockerignore 和 Dive 分析）。</li></ol><p><strong>最后，我想做一个小调查：</strong>
+在基础镜像的选择上，你更倾向于 <strong>A. Alpine（追求极致体积但牺牲部分兼容性）</strong> 还是 <strong>B. Distroless（追求极致安全但调试不便）</strong>？欢迎在评论区告诉我你的选择和理由。</p><p><strong>给读者的3个落地建议：</strong></p><ol><li><strong>立刻检查</strong>：去看看你现有的Dockerfile，是否将 <code>COPY . .</code> 放到了安装依赖之前？如果是，立刻改过来。</li><li><strong>安装工具</strong>：在你的电脑上安装 <code>dive</code>，随便分析一个你常用的镜像，你会发现新大陆。</li><li><strong>尝试迁移</strong>：选择一个非核心业务的微服务，尝试将其基础镜像替换为 <code>distroless</code> 或 <code>slim</code> 版本，对比一下扫描出的漏洞数量变化。</li></ol></section><footer class=article-footer><section class=article-tags><a href=/tags/Docker%E9%95%9C%E5%83%8F%E4%BC%98%E5%8C%96%E4%BD%93%E7%A7%AF%E5%87%8F%E5%B0%9180%E7%9A%84%E6%8A%80%E5%B7%A7.html>Docker镜像优化：体积减少80%的技巧</a></section></footer></article><script src=https://giscus.app/client.js data-repo=pastor17/bloggiscus data-repo-id=R_kgDOQ6H9qQ data-category data-category-id=DIC_kwDOQ6H9qc4C0-T8 data-mapping=pathname data-strict=0 data-reactions-enabled=1 data-emit-metadata=0 data-input-position=bottom data-theme=light data-lang=zh-CN data-loading=lazy crossorigin=anonymous async></script><script>function setGiscusTheme(e){let t=document.querySelector("iframe.giscus-frame");t&&t.contentWindow.postMessage({giscus:{setConfig:{theme:e}}},"https://giscus.app")}(function(){addEventListener("message",t=>{if(event.origin!=="https://giscus.app")return;e()}),window.addEventListener("onColorSchemeChange",e);function e(){setGiscusTheme(document.documentElement.dataset.scheme==="light"?"light":"dark_dimmed")}})()</script><footer class=site-footer><section class=copyright>&copy;
+2021 -
+2026 SelfTechHub</section><section class=powerby>拒绝一次性认知，把碎片知识沉淀为可复用的记忆体系<br></section></footer><div class=pswp tabindex=-1 role=dialog aria-hidden=true><div class=pswp__bg></div><div class=pswp__scroll-wrap><div class=pswp__container><div class=pswp__item></div><div class=pswp__item></div><div class=pswp__item></div></div><div class="pswp__ui pswp__ui--hidden"><div class=pswp__top-bar><div class=pswp__counter></div><button class="pswp__button pswp__button--close" title="Close (Esc)"></button>
+<button class="pswp__button pswp__button--share" title=Share></button>
+<button class="pswp__button pswp__button--fs" title="Toggle fullscreen"></button>
+<button class="pswp__button pswp__button--zoom" title="Zoom in/out"></button><div class=pswp__preloader><div class=pswp__preloader__icn><div class=pswp__preloader__cut><div class=pswp__preloader__donut></div></div></div></div></div><div class="pswp__share-modal pswp__share-modal--hidden pswp__single-tap"><div class=pswp__share-tooltip></div></div><button class="pswp__button pswp__button--arrow--left" title="Previous (arrow left)">
+</button>
+<button class="pswp__button pswp__button--arrow--right" title="Next (arrow right)"></button><div class=pswp__caption><div class=pswp__caption__center></div></div></div></div></div><script src=https://cdn.jsdelivr.net/npm/photoswipe@4.1.3/dist/photoswipe.min.js integrity="sha256-ePwmChbbvXbsO02lbM3HoHbSHTHFAeChekF1xKJdleo=" crossorigin=anonymous defer></script><script src=https://cdn.jsdelivr.net/npm/photoswipe@4.1.3/dist/photoswipe-ui-default.min.js integrity="sha256-UKkzOn/w1mBxRmLLGrSeyB4e1xbrp4xylgAWb3M42pU=" crossorigin=anonymous defer></script><link rel=stylesheet href=https://cdn.jsdelivr.net/npm/photoswipe@4.1.3/dist/default-skin/default-skin.min.css crossorigin=anonymous><link rel=stylesheet href=https://cdn.jsdelivr.net/npm/photoswipe@4.1.3/dist/photoswipe.min.css crossorigin=anonymous></main></div><script src=https://cdn.jsdelivr.net/npm/node-vibrant@3.1.6/dist/vibrant.min.js integrity="sha256-awcR2jno4kI5X0zL8ex0vi2z+KMkF24hUW8WePSA9HM=" crossorigin=anonymous></script><script type=text/javascript src=/ts/main.c922af694cc257bf1ecc41c0dd7b0430f9114ec280ccf67cd2c6ad55f5316c4e.js defer></script><script>(function(){const e=document.createElement("link");e.href="https://fonts.googleapis.com/css2?family=Lato:wght@300;400;700&display=swap",e.type="text/css",e.rel="stylesheet",document.head.appendChild(e)})()</script></body></html>

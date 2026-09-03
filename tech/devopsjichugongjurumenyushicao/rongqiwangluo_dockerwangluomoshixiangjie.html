@@ -1,462 +1,51 @@
-<!DOCTYPE html>
-<html lang="zh-cn" dir="ltr">
-    <head><meta charset='utf-8'>
-<meta name='viewport' content='width=device-width, initial-scale=1'><meta name='description' content="还记得两年前的一个周五下午，那个令我至今心有余悸的&quot;发布日&quot;。\n当时我们将一套微服务系统从单体迁移到Docker环境。开发在本地跑得欢快无比，拍着胸脯说没问题。结果上线不到十分钟，监控报警群炸了：服务间调用全线超时，数据库连接数甚至诡异归零。\n运维小哥的第一反应是：&ldquo;重启试试？&rdquo;\n重启确实短暂恢复了，但五分钟后故障重现。那一晚，我们排查了防火墙、SELinux、路由表，最后才发现，根本原因在于我们对Docker网络模式的理解依然停留在&quot;能上网就行&quot;的浅层阶段。\n很多兄弟在入门DevOps时，往往只关注镜像怎么打、容器怎么起，却忽略了容器的&quot;血管&quot;——网络。今天，我想结合那些年我踩过的坑，不讲枯燥的概念，只聊聊在实战中怎么选对网络模式。\n坑一：默认Bridge模式，IP变动引发的&quot;失联&quot;案\r刚开始接触Docker时，大家最习惯直接敲 docker run -d my-app。这时候，Docker使用的是默认的 bridge 网络。\n这有个致命的大坑：容器IP是不固定的。\n真实案例： 当时我们的支付服务（Payment）配置里写死了用户服务（User）的容器IP 172.17.0.3。那天上线，因为某个Bug导致User服务崩溃重启。 Docker重启容器后，IP按顺序重新分配，User服务变成了 172.17.0.4，而 172.17.0.3 被分配给了一个刚启动的日志收集容器。 结果显而易见：支付服务拿着钱，疯狂地往日志容器里&quot;塞&quot;，导致全线报错。\n硬核解法：抛弃默认Bridge，使用自定义Bridge\n千万别依赖容器IP通信，也别指望 /etc/hosts 能自动维护。 Docker自带的DNS解析功能，只有在自定义网络下才生效。\n实操步骤：\n创建一个自定义网络： docker network create app_net 启动容器时加入该网络： # 启动User服务，指定容器名 docker run -d --name user-service --network app_net user:v1 # 启动Payment服务，直接用容器名访问 docker run -d --name payment-service --network app_net payment:v1 现在，无论User服务重启多少次，IP怎么变，Payment服务只需要访问 ping user-service，Docker内置DNS会自动解析到正确的IP。这招让我们彻底告别了写死IP的愚蠢做法。\n坑二：Host模式，高性能背后的端口噩梦\r在解决掉服务发现问题后，我们遇到了一次性能瓶颈。某个高并发网关服务，在压测时吞吐量死活上不去，CPU占用极高。\n排查发现，Bridge模式下的NAT（网络地址转换）消耗了大量资源。每经过一层NAT，就像过安检一样，是有成本的。\n于是，我大手一挥：&ldquo;改用 Host 模式！&rdquo;\n真实案例： 加上 --network host 后，网关性能确实提升了近 15%，甚至接近裸机。 但第二天早会，监控组的同事就找上门了：&ldquo;这台机器上的Zabbix Agent怎么挂了？&rdquo; 原来，网关服务占用了80端口，而这台宿主机上本来跑着的一个Nginx也占用了80端口，两者直接冲突，导致旧服务直接起不来。 Host模式下，容器和宿主机共用一个网络栈，没有隔离，全是裸奔。\n">
-<title>容器连不通？别只会重启，揭秘Docker网络三大深坑</title>
-
-<link rel='canonical' href='https://blog.irudder.me/tech/devopsjichugongjurumenyushicao/rongqiwangluo_dockerwangluomoshixiangjie.html'>
-
-<link rel="stylesheet" href="/scss/style.min.b9e9128fec450ebccecc4ec9900157f32b85d0609bcd5ee3293968bcaa1235f2.css"><meta property='og:title' content="容器连不通？别只会重启，揭秘Docker网络三大深坑">
-<meta property='og:description' content="还记得两年前的一个周五下午，那个令我至今心有余悸的&quot;发布日&quot;。\n当时我们将一套微服务系统从单体迁移到Docker环境。开发在本地跑得欢快无比，拍着胸脯说没问题。结果上线不到十分钟，监控报警群炸了：服务间调用全线超时，数据库连接数甚至诡异归零。\n运维小哥的第一反应是：&ldquo;重启试试？&rdquo;\n重启确实短暂恢复了，但五分钟后故障重现。那一晚，我们排查了防火墙、SELinux、路由表，最后才发现，根本原因在于我们对Docker网络模式的理解依然停留在&quot;能上网就行&quot;的浅层阶段。\n很多兄弟在入门DevOps时，往往只关注镜像怎么打、容器怎么起，却忽略了容器的&quot;血管&quot;——网络。今天，我想结合那些年我踩过的坑，不讲枯燥的概念，只聊聊在实战中怎么选对网络模式。\n坑一：默认Bridge模式，IP变动引发的&quot;失联&quot;案\r刚开始接触Docker时，大家最习惯直接敲 docker run -d my-app。这时候，Docker使用的是默认的 bridge 网络。\n这有个致命的大坑：容器IP是不固定的。\n真实案例： 当时我们的支付服务（Payment）配置里写死了用户服务（User）的容器IP 172.17.0.3。那天上线，因为某个Bug导致User服务崩溃重启。 Docker重启容器后，IP按顺序重新分配，User服务变成了 172.17.0.4，而 172.17.0.3 被分配给了一个刚启动的日志收集容器。 结果显而易见：支付服务拿着钱，疯狂地往日志容器里&quot;塞&quot;，导致全线报错。\n硬核解法：抛弃默认Bridge，使用自定义Bridge\n千万别依赖容器IP通信，也别指望 /etc/hosts 能自动维护。 Docker自带的DNS解析功能，只有在自定义网络下才生效。\n实操步骤：\n创建一个自定义网络： docker network create app_net 启动容器时加入该网络： # 启动User服务，指定容器名 docker run -d --name user-service --network app_net user:v1 # 启动Payment服务，直接用容器名访问 docker run -d --name payment-service --network app_net payment:v1 现在，无论User服务重启多少次，IP怎么变，Payment服务只需要访问 ping user-service，Docker内置DNS会自动解析到正确的IP。这招让我们彻底告别了写死IP的愚蠢做法。\n坑二：Host模式，高性能背后的端口噩梦\r在解决掉服务发现问题后，我们遇到了一次性能瓶颈。某个高并发网关服务，在压测时吞吐量死活上不去，CPU占用极高。\n排查发现，Bridge模式下的NAT（网络地址转换）消耗了大量资源。每经过一层NAT，就像过安检一样，是有成本的。\n于是，我大手一挥：&ldquo;改用 Host 模式！&rdquo;\n真实案例： 加上 --network host 后，网关性能确实提升了近 15%，甚至接近裸机。 但第二天早会，监控组的同事就找上门了：&ldquo;这台机器上的Zabbix Agent怎么挂了？&rdquo; 原来，网关服务占用了80端口，而这台宿主机上本来跑着的一个Nginx也占用了80端口，两者直接冲突，导致旧服务直接起不来。 Host模式下，容器和宿主机共用一个网络栈，没有隔离，全是裸奔。\n">
-<meta property='og:url' content='https://blog.irudder.me/tech/devopsjichugongjurumenyushicao/rongqiwangluo_dockerwangluomoshixiangjie.html'>
-<meta property='og:site_name' content='SelfTechHub'>
-<meta property='og:type' content='article'><meta property='article:section' content='Tech' /><meta property='article:tag' content='容器网络：Docker网络模式详解' /><meta property='article:published_time' content='2025-05-03T00:00:00&#43;00:00'/><meta property='article:modified_time' content='2025-05-03T00:00:00&#43;00:00'/>
-<meta name="twitter:title" content="容器连不通？别只会重启，揭秘Docker网络三大深坑">
-<meta name="twitter:description" content="还记得两年前的一个周五下午，那个令我至今心有余悸的&quot;发布日&quot;。\n当时我们将一套微服务系统从单体迁移到Docker环境。开发在本地跑得欢快无比，拍着胸脯说没问题。结果上线不到十分钟，监控报警群炸了：服务间调用全线超时，数据库连接数甚至诡异归零。\n运维小哥的第一反应是：&ldquo;重启试试？&rdquo;\n重启确实短暂恢复了，但五分钟后故障重现。那一晚，我们排查了防火墙、SELinux、路由表，最后才发现，根本原因在于我们对Docker网络模式的理解依然停留在&quot;能上网就行&quot;的浅层阶段。\n很多兄弟在入门DevOps时，往往只关注镜像怎么打、容器怎么起，却忽略了容器的&quot;血管&quot;——网络。今天，我想结合那些年我踩过的坑，不讲枯燥的概念，只聊聊在实战中怎么选对网络模式。\n坑一：默认Bridge模式，IP变动引发的&quot;失联&quot;案\r刚开始接触Docker时，大家最习惯直接敲 docker run -d my-app。这时候，Docker使用的是默认的 bridge 网络。\n这有个致命的大坑：容器IP是不固定的。\n真实案例： 当时我们的支付服务（Payment）配置里写死了用户服务（User）的容器IP 172.17.0.3。那天上线，因为某个Bug导致User服务崩溃重启。 Docker重启容器后，IP按顺序重新分配，User服务变成了 172.17.0.4，而 172.17.0.3 被分配给了一个刚启动的日志收集容器。 结果显而易见：支付服务拿着钱，疯狂地往日志容器里&quot;塞&quot;，导致全线报错。\n硬核解法：抛弃默认Bridge，使用自定义Bridge\n千万别依赖容器IP通信，也别指望 /etc/hosts 能自动维护。 Docker自带的DNS解析功能，只有在自定义网络下才生效。\n实操步骤：\n创建一个自定义网络： docker network create app_net 启动容器时加入该网络： # 启动User服务，指定容器名 docker run -d --name user-service --network app_net user:v1 # 启动Payment服务，直接用容器名访问 docker run -d --name payment-service --network app_net payment:v1 现在，无论User服务重启多少次，IP怎么变，Payment服务只需要访问 ping user-service，Docker内置DNS会自动解析到正确的IP。这招让我们彻底告别了写死IP的愚蠢做法。\n坑二：Host模式，高性能背后的端口噩梦\r在解决掉服务发现问题后，我们遇到了一次性能瓶颈。某个高并发网关服务，在压测时吞吐量死活上不去，CPU占用极高。\n排查发现，Bridge模式下的NAT（网络地址转换）消耗了大量资源。每经过一层NAT，就像过安检一样，是有成本的。\n于是，我大手一挥：&ldquo;改用 Host 模式！&rdquo;\n真实案例： 加上 --network host 后，网关性能确实提升了近 15%，甚至接近裸机。 但第二天早会，监控组的同事就找上门了：&ldquo;这台机器上的Zabbix Agent怎么挂了？&rdquo; 原来，网关服务占用了80端口，而这台宿主机上本来跑着的一个Nginx也占用了80端口，两者直接冲突，导致旧服务直接起不来。 Host模式下，容器和宿主机共用一个网络栈，没有隔离，全是裸奔。\n">
-    </head>
-    <body class="
-    article-page
-    ">
-    <script>
-        (function() {
-            const colorSchemeKey = 'StackColorScheme';
-            if(!localStorage.getItem(colorSchemeKey)){
-                localStorage.setItem(colorSchemeKey, "auto");
-            }
-        })();
-    </script><script>
-    (function() {
-        const colorSchemeKey = 'StackColorScheme';
-        const colorSchemeItem = localStorage.getItem(colorSchemeKey);
-        const supportDarkMode = window.matchMedia('(prefers-color-scheme: dark)').matches === true;
-
-        if (colorSchemeItem == 'dark' || colorSchemeItem === 'auto' && supportDarkMode) {
-            
-
-            document.documentElement.dataset.scheme = 'dark';
-        } else {
-            document.documentElement.dataset.scheme = 'light';
-        }
-    })();
-</script>
-<div class="container main-container flex on-phone--column compact"><aside class="sidebar left-sidebar sticky ">
-    <button class="hamburger hamburger--spin" type="button" id="toggle-menu" aria-label="切换菜单">
-        <span class="hamburger-box">
-            <span class="hamburger-inner"></span>
-        </span>
-    </button>
-
-    <header>
-        
-            
-            <figure class="site-avatar">
-                <a href="/">
-                
-                    
-                    
-                    
-                        
-                        <img src="/img/avatar_hu_8588ce14af1147e2.png" width="300"
-                            height="286" class="site-logo" loading="lazy" alt="Avatar">
-                    
-                
-                </a>
-                
-            </figure>
-            
-        
-        
-        <div class="site-meta">
-            <h1 class="site-name"><a href="/">SelfTechHub</a></h1>
-            <h2 class="site-description"></h2>
-        </div>
-    </header><ol class="menu" id="main-menu">
-        
-        
-        <li class="menu-bottom-section">
-            <ol class="menu">
-
-                
-                    <li id="dark-mode-toggle">
-                        <svg xmlns="http://www.w3.org/2000/svg" class="icon icon-tabler icon-tabler-toggle-left" width="24" height="24" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor" fill="none" stroke-linecap="round" stroke-linejoin="round">
-  <path stroke="none" d="M0 0h24v24H0z"/>
-  <circle cx="8" cy="12" r="2" />
-  <rect x="2" y="6" width="20" height="12" rx="6" />
-</svg>
-
-
-
-                        <svg xmlns="http://www.w3.org/2000/svg" class="icon icon-tabler icon-tabler-toggle-right" width="24" height="24" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor" fill="none" stroke-linecap="round" stroke-linejoin="round">
-  <path stroke="none" d="M0 0h24v24H0z"/>
-  <circle cx="16" cy="12" r="2" />
-  <rect x="2" y="6" width="20" height="12" rx="6" />
-</svg>
-
-
-
-                        <span>暗色模式</span>
-                    </li>
-                
-            </ol>
-        </li>
-    </ol>
-</aside>
-
-    
-
-            <main class="main full-width">
-    <article class="main-article">
-    <header class="article-header">
-
-    <div class="article-details">
-    
-    <header class="article-category">
-        
-            <a href="/categories/%E6%8A%80%E6%9C%AF.html" >
-                技术精进
-            </a>
-        
-    </header>
-    
-
-    <div class="article-title-wrapper">
-        <h2 class="article-title">
-            <a href="/tech/devopsjichugongjurumenyushicao/rongqiwangluo_dockerwangluomoshixiangjie.html">容器连不通？别只会重启，揭秘Docker网络三大深坑</a>
-        </h2>
-    
-        
-    </div>
-
-    
-    
-    
-    
-    <footer class="article-time">
-        
-            <div>
-                <svg xmlns="http://www.w3.org/2000/svg" class="icon icon-tabler icon-tabler-calendar-time" width="56" height="56" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor" fill="none" stroke-linecap="round" stroke-linejoin="round">
-  <path stroke="none" d="M0 0h24v24H0z"/>
-  <path d="M11.795 21h-6.795a2 2 0 0 1 -2 -2v-12a2 2 0 0 1 2 -2h12a2 2 0 0 1 2 2v4" />
-  <circle cx="18" cy="18" r="4" />
-  <path d="M15 3v4" />
-  <path d="M7 3v4" />
-  <path d="M3 11h16" />
-  <path d="M18 16.496v1.504l1 1" />
-</svg>
-                <time class="article-time--published" datetime='2025-05-03T00:00:00Z'>May 03, 2025</time>
-            </div>
-        
-
-        
-            <div>
-                <svg xmlns="http://www.w3.org/2000/svg" class="icon icon-tabler icon-tabler-clock" width="24" height="24" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor" fill="none" stroke-linecap="round" stroke-linejoin="round">
-  <path stroke="none" d="M0 0h24v24H0z"/>
-  <circle cx="12" cy="12" r="9" />
-  <polyline points="12 7 12 12 15 15" />
-</svg>
-
-
-
-                <time class="article-time--reading">
-                    阅读时长: 1 分钟
-                </time>
-            </div>
-        
-    </footer>
-    
-
-    
-</div>
-
-</header>
-
-    <section class="article-content">
-    
-    
-    <p>还记得两年前的一个周五下午，那个令我至今心有余悸的&quot;发布日&quot;。</p>
-<p>当时我们将一套微服务系统从单体迁移到Docker环境。开发在本地跑得欢快无比，拍着胸脯说没问题。结果上线不到十分钟，监控报警群炸了：<strong>服务间调用全线超时，数据库连接数甚至诡异归零。</strong></p>
-<p>运维小哥的第一反应是：&ldquo;重启试试？&rdquo;</p>
-<p>重启确实短暂恢复了，但五分钟后故障重现。那一晚，我们排查了防火墙、SELinux、路由表，最后才发现，<strong>根本原因在于我们对Docker网络模式的理解依然停留在&quot;能上网就行&quot;的浅层阶段</strong>。</p>
-<p>很多兄弟在入门DevOps时，往往只关注镜像怎么打、容器怎么起，却忽略了容器的&quot;血管&quot;——网络。今天，我想结合那些年我踩过的坑，不讲枯燥的概念，只聊聊在实战中怎么选对网络模式。</p>
-<h2 id="坑一默认bridge模式ip变动引发的失联案">坑一：默认Bridge模式，IP变动引发的&quot;失联&quot;案
-</h2><p>刚开始接触Docker时，大家最习惯直接敲 <code>docker run -d my-app</code>。这时候，Docker使用的是默认的 <code>bridge</code> 网络。</p>
-<p><strong>这有个致命的大坑：容器IP是不固定的。</strong></p>
-<p><strong>真实案例：</strong>
+<!doctype html><html lang=zh-cn dir=ltr><head><meta charset=utf-8><meta name=viewport content='width=device-width,initial-scale=1'><meta name=description content="还记得两年前的一个周五下午，那个令我至今心有余悸的\" 发布日\"。当时我们将一套微服务系统从单体迁移到docker环境。开发在本地跑得欢快无比，拍着胸脯说没问题。"><title>容器连不通？别只会重启，揭秘Docker网络三大深坑</title><link rel=canonical href=https://blog.irudder.me/tech/devopsjichugongjurumenyushicao/rongqiwangluo_dockerwangluomoshixiangjie.html><link rel=stylesheet href=/scss/style.min.c77ce1b874b29b2ee9e54a89066c79ebf35cbe9cf399b31ab5d79167f9a965c9.css><meta property='og:title' content="容器连不通？别只会重启，揭秘Docker网络三大深坑"><meta property='og:description' content="还记得两年前的一个周五下午，那个令我至今心有余悸的\" 发布日\"。当时我们将一套微服务系统从单体迁移到docker环境。开发在本地跑得欢快无比，拍着胸脯说没问题。"><meta property='og:url' content='https://blog.irudder.me/tech/devopsjichugongjurumenyushicao/rongqiwangluo_dockerwangluomoshixiangjie.html'><meta property='og:site_name' content='SelfTechHub'><meta property='og:type' content='article'><meta property='article:section' content='Tech'><meta property='article:tag' content='容器网络：Docker网络模式详解'><meta property='article:published_time' content='2025-05-03T00:00:00+08:00'><meta property='article:modified_time' content='2025-05-03T00:00:00+08:00'><meta name=twitter:title content="容器连不通？别只会重启，揭秘Docker网络三大深坑"><meta name=twitter:description content="还记得两年前的一个周五下午，那个令我至今心有余悸的\" 发布日\"。当时我们将一套微服务系统从单体迁移到docker环境。开发在本地跑得欢快无比，拍着胸脯说没问题。"><link rel="shortcut icon" href=/images/logo.png></head><body class=article-page><script>(function(){const e="StackColorScheme";localStorage.getItem(e)||localStorage.setItem(e,"auto")})()</script><script>(function(){const t="StackColorScheme",e=localStorage.getItem(t),n=window.matchMedia("(prefers-color-scheme: dark)").matches===!0;e=="dark"||e==="auto"&&n?document.documentElement.dataset.scheme="dark":document.documentElement.dataset.scheme="light"})()</script><div class="container main-container flex on-phone--column extended"><aside class="sidebar left-sidebar sticky"><button class="hamburger hamburger--spin" type=button id=toggle-menu aria-label=切换菜单>
+<span class=hamburger-box><span class=hamburger-inner></span></span></button><header><figure class=site-avatar><a href=/><img src=/img/avatar_hu_8588ce14af1147e2.png width=300 height=286 class=site-logo loading=lazy alt=Avatar>
+</a><span class=emoji>🧠</span></figure><div class=site-meta><h1 class=site-name><a href=/>SelfTechHub</a></h1><h2 class=site-description>成长 · 技术 · 商业 · AI —— 把碎片知识沉淀为可复用的记忆体系</h2></div></header><ol class=menu-social><li><a href=https://github.com/pastor17 target=_blank title=GitHub rel=me><svg class="icon icon-tabler icon-tabler-brand-github" width="24" height="24" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor" fill="none" stroke-linecap="round" stroke-linejoin="round"><path stroke="none" d="M0 0h24v24H0z" fill="none"/><path d="M9 19c-4.3 1.4-4.3-2.5-6-3m12 5v-3.5c0-1 .1-1.4-.5-2 2.8-.3 5.5-1.4 5.5-6a4.6 4.6.0 00-1.3-3.2 4.2 4.2.0 00-.1-3.2s-1.1-.3-3.5 1.3a12.3 12.3.0 00-6.2.0C6.5 2.8 5.4 3.1 5.4 3.1a4.2 4.2.0 00-.1 3.2A4.6 4.6.0 004 9.5c0 4.6 2.7 5.7 5.5 6-.6.6-.6 1.2-.5 2V21"/></svg></a></li></ol><ol class=menu id=main-menu><li><a href=/><svg class="icon icon-tabler icon-tabler-home" width="24" height="24" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor" fill="none" stroke-linecap="round" stroke-linejoin="round"><path stroke="none" d="M0 0h24v24H0z"/><polyline points="5 12 3 12 12 3 21 12 19 12"/><path d="M5 12v7a2 2 0 002 2h10a2 2 0 002-2v-7"/><path d="M9 21v-6a2 2 0 012-2h2a2 2 0 012 2v6"/></svg>
+<span>首页</span></a></li><li><a href=/categories/%E6%88%90%E9%95%BF.html><span>成长认知</span></a></li><li><a href=/categories/%E6%8A%80%E6%9C%AF.html><span>技术精进</span></a></li><li><a href=/categories/%E5%95%86%E4%B8%9A.html><span>商业·财富</span></a></li><li><a href=/categories/ai.html><span>探索AI</span></a></li><li><a href=/about/><svg class="icon icon-tabler icon-tabler-user" width="24" height="24" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor" fill="none" stroke-linecap="round" stroke-linejoin="round"><path stroke="none" d="M0 0h24v24H0z"/><circle cx="12" cy="7" r="4"/><path d="M6 21v-2a4 4 0 014-4h4a4 4 0 014 4v2"/></svg>
+<span>关于</span></a></li><li class=menu-bottom-section><ol class=menu><li id=dark-mode-toggle><svg class="icon icon-tabler icon-tabler-toggle-left" width="24" height="24" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor" fill="none" stroke-linecap="round" stroke-linejoin="round"><path stroke="none" d="M0 0h24v24H0z"/><circle cx="8" cy="12" r="2"/><rect x="2" y="6" width="20" height="12" rx="6"/></svg>
+<svg class="icon icon-tabler icon-tabler-toggle-right" width="24" height="24" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor" fill="none" stroke-linecap="round" stroke-linejoin="round"><path stroke="none" d="M0 0h24v24H0z"/><circle cx="16" cy="12" r="2"/><rect x="2" y="6" width="20" height="12" rx="6"/></svg>
+<span>暗色模式</span></li></ol></li></ol></aside><aside class="sidebar right-sidebar sticky"><section class="widget archives"><div class=widget-icon><svg class="icon icon-tabler icon-tabler-hash" width="24" height="24" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor" fill="none" stroke-linecap="round" stroke-linejoin="round"><path stroke="none" d="M0 0h24v24H0z"/><line x1="5" y1="9" x2="19" y2="9"/><line x1="5" y1="15" x2="19" y2="15"/><line x1="11" y1="4" x2="7" y2="20"/><line x1="17" y1="4" x2="13" y2="20"/></svg></div><h2 class="widget-title section-title">目录</h2><div class=widget--toc><nav id=TableOfContents><ul><li><a href=#坑一默认bridge模式ip变动引发的失联案>坑一：默认Bridge模式，IP变动引发的"失联"案</a></li><li><a href=#坑二host模式高性能背后的端口噩梦>坑二：Host模式，高性能背后的端口噩梦</a></li><li><a href=#坑三container模式调试排错的上帝视角>坑三：Container模式，调试排错的"上帝视角"</a></li><li><a href=#避坑指南与行动建议>避坑指南与行动建议</a></li></ul></nav></div></section></aside><main class="main full-width"><article class=main-article><header class=article-header><div class=article-details><header class=article-category><a href=/categories/%E6%8A%80%E6%9C%AF.html>技术精进</a></header><div class=article-title-wrapper><h2 class=article-title><a href=/tech/devopsjichugongjurumenyushicao/rongqiwangluo_dockerwangluomoshixiangjie.html>容器连不通？别只会重启，揭秘Docker网络三大深坑</a></h2><h3 class=article-subtitle>还记得两年前的一个周五下午，那个令我至今心有余悸的"发布日"。当时我们将一套微服务系统从单体迁移到Docker环境。开发在本地跑得欢快无比，拍着胸脯说没问题。</h3></div><footer class=article-time><div><svg class="icon icon-tabler icon-tabler-calendar-time" width="56" height="56" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor" fill="none" stroke-linecap="round" stroke-linejoin="round"><path stroke="none" d="M0 0h24v24H0z"/><path d="M11.795 21H5a2 2 0 01-2-2V7a2 2 0 012-2h12a2 2 0 012 2v4"/><circle cx="18" cy="18" r="4"/><path d="M15 3v4"/><path d="M7 3v4"/><path d="M3 11h16"/><path d="M18 16.496V18l1 1"/></svg>
+<time class=article-time--published datetime=2025-05-03T00:00:00+08:00>2025-05-03</time></div><div><svg class="icon icon-tabler icon-tabler-clock" width="24" height="24" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor" fill="none" stroke-linecap="round" stroke-linejoin="round"><path stroke="none" d="M0 0h24v24H0z"/><circle cx="12" cy="12" r="9"/><polyline points="12 7 12 12 15 15"/></svg>
+<time class=article-time--reading>阅读时长: 5 分钟</time></div></footer></div></header><section class=article-content><p>还记得两年前的一个周五下午，那个令我至今心有余悸的"发布日"。</p><p>当时我们将一套微服务系统从单体迁移到Docker环境。开发在本地跑得欢快无比，拍着胸脯说没问题。结果上线不到十分钟，监控报警群炸了：<strong>服务间调用全线超时，数据库连接数甚至诡异归零。</strong></p><p>运维小哥的第一反应是：&ldquo;重启试试？&rdquo;</p><p>重启确实短暂恢复了，但五分钟后故障重现。那一晚，我们排查了防火墙、SELinux、路由表，最后才发现，<strong>根本原因在于我们对Docker网络模式的理解依然停留在"能上网就行"的浅层阶段</strong>。</p><p>很多兄弟在入门DevOps时，往往只关注镜像怎么打、容器怎么起，却忽略了容器的"血管"——网络。今天，我想结合那些年我踩过的坑，不讲枯燥的概念，只聊聊在实战中怎么选对网络模式。</p><h2 id=坑一默认bridge模式ip变动引发的失联案>坑一：默认Bridge模式，IP变动引发的"失联"案</h2><p>刚开始接触Docker时，大家最习惯直接敲 <code>docker run -d my-app</code>。这时候，Docker使用的是默认的 <code>bridge</code> 网络。</p><p><strong>这有个致命的大坑：容器IP是不固定的。</strong></p><p><strong>真实案例：</strong>
 当时我们的支付服务（Payment）配置里写死了用户服务（User）的容器IP <code>172.17.0.3</code>。那天上线，因为某个Bug导致User服务崩溃重启。
 Docker重启容器后，IP按顺序重新分配，User服务变成了 <code>172.17.0.4</code>，而 <code>172.17.0.3</code> 被分配给了一个刚启动的日志收集容器。
-结果显而易见：支付服务拿着钱，疯狂地往日志容器里&quot;塞&quot;，导致全线报错。</p>
-<p><strong>硬核解法：抛弃默认Bridge，使用自定义Bridge</strong></p>
-<p>千万别依赖容器IP通信，也别指望 <code>/etc/hosts</code> 能自动维护。
-Docker自带的DNS解析功能，只有在<strong>自定义网络</strong>下才生效。</p>
-<p><strong>实操步骤：</strong></p>
-<ol>
-<li>创建一个自定义网络：
-<div class="highlight"><pre tabindex="0" style="color:#f8f8f2;background-color:#272822;-moz-tab-size:4;-o-tab-size:4;tab-size:4;"><code class="language-bash" data-lang="bash"><span style="display:flex;"><span>docker network create app_net
-</span></span></code></pre></div></li>
-<li>启动容器时加入该网络：
-<div class="highlight"><pre tabindex="0" style="color:#f8f8f2;background-color:#272822;-moz-tab-size:4;-o-tab-size:4;tab-size:4;"><code class="language-bash" data-lang="bash"><span style="display:flex;"><span><span style="color:#75715e"># 启动User服务，指定容器名</span>
-</span></span><span style="display:flex;"><span>docker run -d --name user-service --network app_net user:v1
-</span></span><span style="display:flex;"><span>
-</span></span><span style="display:flex;"><span><span style="color:#75715e"># 启动Payment服务，直接用容器名访问</span>
-</span></span><span style="display:flex;"><span>docker run -d --name payment-service --network app_net payment:v1
-</span></span></code></pre></div></li>
-</ol>
-<p>现在，无论User服务重启多少次，IP怎么变，Payment服务只需要访问 <code>ping user-service</code>，Docker内置DNS会自动解析到正确的IP。<strong>这招让我们彻底告别了写死IP的愚蠢做法。</strong></p>
-<h2 id="坑二host模式高性能背后的端口噩梦">坑二：Host模式，高性能背后的端口噩梦
-</h2><p>在解决掉服务发现问题后，我们遇到了一次性能瓶颈。某个高并发网关服务，在压测时吞吐量死活上不去，CPU占用极高。</p>
-<p>排查发现，Bridge模式下的NAT（网络地址转换）消耗了大量资源。每经过一层NAT，就像过安检一样，是有成本的。</p>
-<p>于是，我大手一挥：&ldquo;改用 Host 模式！&rdquo;</p>
-<p><strong>真实案例：</strong>
+结果显而易见：支付服务拿着钱，疯狂地往日志容器里"塞"，导致全线报错。</p><p><strong>硬核解法：抛弃默认Bridge，使用自定义Bridge</strong></p><p>千万别依赖容器IP通信，也别指望 <code>/etc/hosts</code> 能自动维护。
+Docker自带的DNS解析功能，只有在<strong>自定义网络</strong>下才生效。</p><p><strong>实操步骤：</strong></p><ol><li>创建一个自定义网络：<div class=highlight><div class=chroma><table class=lntable><tr><td class=lntd><pre tabindex=0 class=chroma><code><span class=lnt>1
+</span></code></pre></td><td class=lntd><pre tabindex=0 class=chroma><code class=language-bash data-lang=bash><span class=line><span class=cl>docker network create app_net
+</span></span></code></pre></td></tr></table></div></div></li><li>启动容器时加入该网络：<div class=highlight><div class=chroma><table class=lntable><tr><td class=lntd><pre tabindex=0 class=chroma><code><span class=lnt>1
+</span><span class=lnt>2
+</span><span class=lnt>3
+</span><span class=lnt>4
+</span><span class=lnt>5
+</span></code></pre></td><td class=lntd><pre tabindex=0 class=chroma><code class=language-bash data-lang=bash><span class=line><span class=cl><span class=c1># 启动User服务，指定容器名</span>
+</span></span><span class=line><span class=cl>docker run -d --name user-service --network app_net user:v1
+</span></span><span class=line><span class=cl>
+</span></span><span class=line><span class=cl><span class=c1># 启动Payment服务，直接用容器名访问</span>
+</span></span><span class=line><span class=cl>docker run -d --name payment-service --network app_net payment:v1
+</span></span></code></pre></td></tr></table></div></div></li></ol><p>现在，无论User服务重启多少次，IP怎么变，Payment服务只需要访问 <code>ping user-service</code>，Docker内置DNS会自动解析到正确的IP。<strong>这招让我们彻底告别了写死IP的愚蠢做法。</strong></p><h2 id=坑二host模式高性能背后的端口噩梦>坑二：Host模式，高性能背后的端口噩梦</h2><p>在解决掉服务发现问题后，我们遇到了一次性能瓶颈。某个高并发网关服务，在压测时吞吐量死活上不去，CPU占用极高。</p><p>排查发现，Bridge模式下的NAT（网络地址转换）消耗了大量资源。每经过一层NAT，就像过安检一样，是有成本的。</p><p>于是，我大手一挥：&ldquo;改用 Host 模式！&rdquo;</p><p><strong>真实案例：</strong>
 加上 <code>--network host</code> 后，网关性能确实提升了近 15%，甚至接近裸机。
 但第二天早会，监控组的同事就找上门了：&ldquo;这台机器上的Zabbix Agent怎么挂了？&rdquo;
 原来，网关服务占用了80端口，而这台宿主机上本来跑着的一个Nginx也占用了80端口，两者直接冲突，导致旧服务直接起不来。
-Host模式下，容器和宿主机共用一个网络栈，<strong>没有隔离，全是裸奔</strong>。</p>
-<p><strong>硬核解法：按需分配，别一把梭</strong></p>
-<p>Host模式虽然快，但端口管理是地狱难度。我建议只在以下两种场景使用：</p>
-<ol>
-<li><strong>对网络性能极度敏感</strong>（如负载均衡器、VoIP服务）。</li>
-<li><strong>端口范围极广且不固定</strong>（如FTP被动模式、RTP流媒体）。</li>
-</ol>
-<p>如果你只是跑个普通的Web应用，老老实实优化Bridge或者上Kubernetes的CNI插件，别为了那点性能牺牲隔离性。</p>
-<div class="highlight"><pre tabindex="0" style="color:#f8f8f2;background-color:#272822;-moz-tab-size:4;-o-tab-size:4;tab-size:4;"><code class="language-bash" data-lang="bash"><span style="display:flex;"><span><span style="color:#75715e"># 只有在明确知道不会冲突，且追求极致性能时使用</span>
-</span></span><span style="display:flex;"><span>docker run -d --network host my-high-perf-gateway
-</span></span></code></pre></div><h2 id="坑三container模式调试排错的上帝视角">坑三：Container模式，调试排错的&quot;上帝视角&quot;
-</h2><p>这是我个人最喜欢，也最常被大家忽略的模式。</p>
-<p>很多时候，为了保持镜像精简（如Alpine版），容器里连 <code>curl</code>、<code>ping</code>、<code>telnet</code> 都没有。一旦服务不通，你想进去抓个包或者测试连通性，简直两眼一抹黑。</p>
-<p><img src="https://picsum.photos/800/450?random=1768388450901"
-	
-	
-	
-	loading="lazy"
-	
-		alt="配图"
-	
-	
-></p>
-<p><strong>真实案例：</strong>
+Host模式下，容器和宿主机共用一个网络栈，<strong>没有隔离，全是裸奔</strong>。</p><p><strong>硬核解法：按需分配，别一把梭</strong></p><p>Host模式虽然快，但端口管理是地狱难度。我建议只在以下两种场景使用：</p><ol><li><strong>对网络性能极度敏感</strong>（如负载均衡器、VoIP服务）。</li><li><strong>端口范围极广且不固定</strong>（如FTP被动模式、RTP流媒体）。</li></ol><p>如果你只是跑个普通的Web应用，老老实实优化Bridge或者上Kubernetes的CNI插件，别为了那点性能牺牲隔离性。</p><div class=highlight><div class=chroma><table class=lntable><tr><td class=lntd><pre tabindex=0 class=chroma><code><span class=lnt>1
+</span><span class=lnt>2
+</span></code></pre></td><td class=lntd><pre tabindex=0 class=chroma><code class=language-bash data-lang=bash><span class=line><span class=cl><span class=c1># 只有在明确知道不会冲突，且追求极致性能时使用</span>
+</span></span><span class=line><span class=cl>docker run -d --network host my-high-perf-gateway
+</span></span></code></pre></td></tr></table></div></div><h2 id=坑三container模式调试排错的上帝视角>坑三：Container模式，调试排错的"上帝视角"</h2><p>这是我个人最喜欢，也最常被大家忽略的模式。</p><p>很多时候，为了保持镜像精简（如Alpine版），容器里连 <code>curl</code>、<code>ping</code>、<code>telnet</code> 都没有。一旦服务不通，你想进去抓个包或者测试连通性，简直两眼一抹黑。</p><p><img src="https://picsum.photos/800/450?random=1768388450901" loading=lazy alt=配图></p><p><strong>真实案例：</strong>
 有一次，生产环境的一个Java容器连不上Redis，容器里只有JRE环境，啥工具都没装。开发甚至提议：&ldquo;要不重新打个带工具的镜像上去？&rdquo;
-开什么玩笑，生产环境随便换镜像？</p>
-<p>这时候，<code>container</code> 模式救了大命。它的原理是：<strong>让一个新容器共享另一个已存在容器的网络栈。</strong> 它们就像连体婴儿，IP一样，端口一样，甚至能看到对方的 <code>localhost</code>。</p>
-<p><strong>硬核解法：外挂&quot;特种兵&quot;容器</strong></p>
-<p>我常备一个装满网络工具（net-tools, curl, tcpdump, iproute2）的&quot;瑞士军刀&quot;镜像。遇到疑难杂症，直接&quot;寄生&quot;上去：</p>
-<div class="highlight"><pre tabindex="0" style="color:#f8f8f2;background-color:#272822;-moz-tab-size:4;-o-tab-size:4;tab-size:4;"><code class="language-bash" data-lang="bash"><span style="display:flex;"><span><span style="color:#75715e"># 假设故障容器ID是 a1b2c3d4</span>
-</span></span><span style="display:flex;"><span><span style="color:#75715e"># 启动我的工具容器，并依附在故障容器的网络上</span>
-</span></span><span style="display:flex;"><span>docker run -it --rm --network container:a1b2c3d4 nicolaka/netshoot /bin/bash
-</span></span></code></pre></div><p><img src="https://picsum.photos/800/450?random=1768388456419"
-	
-	
-	
-	loading="lazy"
-	
-		alt="配图"
-	
-	
-></p>
-<p>进入这个工具容器后，我敲下 <code>localhost:8080</code>，直接就能访问那个故障Java应用的服务。在这个容器里抓包，抓到的就是那个Java容器的流量。</p>
-<p>这个技巧，我用了三年，帮我解决了无数次&quot;玄学&quot;网络故障。它也是Kubernetes中Pod概念（Sidecar模式）的雏形。</p>
-<h2 id="避坑指南与行动建议">避坑指南与行动建议
-</h2><p>容器网络不是魔法，它只是Linux内核功能的封装。当你觉得网络&quot;不稳定&quot;时，99%是因为选错了模式或配置不当。</p>
-<p><strong>你更倾向于哪种解决方案？</strong>
+开什么玩笑，生产环境随便换镜像？</p><p>这时候，<code>container</code> 模式救了大命。它的原理是：<strong>让一个新容器共享另一个已存在容器的网络栈。</strong> 它们就像连体婴儿，IP一样，端口一样，甚至能看到对方的 <code>localhost</code>。</p><p><strong>硬核解法：外挂"特种兵"容器</strong></p><p>我常备一个装满网络工具（net-tools, curl, tcpdump, iproute2）的"瑞士军刀"镜像。遇到疑难杂症，直接"寄生"上去：</p><div class=highlight><div class=chroma><table class=lntable><tr><td class=lntd><pre tabindex=0 class=chroma><code><span class=lnt>1
+</span><span class=lnt>2
+</span><span class=lnt>3
+</span></code></pre></td><td class=lntd><pre tabindex=0 class=chroma><code class=language-bash data-lang=bash><span class=line><span class=cl><span class=c1># 假设故障容器ID是 a1b2c3d4</span>
+</span></span><span class=line><span class=cl><span class=c1># 启动我的工具容器，并依附在故障容器的网络上</span>
+</span></span><span class=line><span class=cl>docker run -it --rm --network container:a1b2c3d4 nicolaka/netshoot /bin/bash
+</span></span></code></pre></td></tr></table></div></div><p><img src="https://picsum.photos/800/450?random=1768388456419" loading=lazy alt=配图></p><p>进入这个工具容器后，我敲下 <code>localhost:8080</code>，直接就能访问那个故障Java应用的服务。在这个容器里抓包，抓到的就是那个Java容器的流量。</p><p>这个技巧，我用了三年，帮我解决了无数次"玄学"网络故障。它也是Kubernetes中Pod概念（Sidecar模式）的雏形。</p><h2 id=避坑指南与行动建议>避坑指南与行动建议</h2><p>容器网络不是魔法，它只是Linux内核功能的封装。当你觉得网络"不稳定"时，99%是因为选错了模式或配置不当。</p><p><strong>你更倾向于哪种解决方案？</strong>
 A. 追求极致性能，哪怕管理麻烦点也愿意上Host模式。
 B. 稳定压倒一切，宁愿多一层NAT也要用自定义Bridge隔离。
-<strong>(请在评论区告诉我你的选择)</strong></p>
-<p>最后，给各位还在踩坑路上的朋友3个落地建议：</p>
-<ol>
-<li><strong>立刻检查你的Docker命令</strong>：如果还在用默认网络（没写 <code>--network</code>）且依赖IP通信，请这周内改为 <code>docker network create</code> 自定义网络，这能规避掉80%的连通性问题。</li>
-<li><strong>制作你的&quot;瑞士军刀&quot;镜像</strong>：不要在业务镜像里装 <code>ping</code> 或 <code>telnet</code>，保持业务纯净。需要调试时，用 <code>Container</code> 模式挂载工具容器。</li>
-<li><strong>要有网络拓扑意识</strong>：在单机Docker环境下，画一张草图，搞清楚流量是走了NAT还是走了Host，这比盲目修改 <code>sysctl.conf</code> 有用得多。</li>
-</ol>
-<p>别让网络成为你DevOps路上的拦路虎，把它变成你手中的利剑。</p>
-
-</section>
-
-
-    <footer class="article-footer">
-    
-    <section class="article-tags">
-        
-            <a href="/tags/%E5%AE%B9%E5%99%A8%E7%BD%91%E7%BB%9CDocker%E7%BD%91%E7%BB%9C%E6%A8%A1%E5%BC%8F%E8%AF%A6%E8%A7%A3.html">容器网络：Docker网络模式详解</a>
-        
-    </section>
-
-
-    </footer>
-
-
-    
-</article>
-
-    
-
-    
-
-     
-    
-        
-    <script
-    src="https://giscus.app/client.js"
-    data-repo="pastor17/bloggiscus"
-    data-repo-id="R_kgDOQ6H9qQ"
-    data-category=""
-    data-category-id="DIC_kwDOQ6H9qc4C0-T8"
-    data-mapping="pathname"
-    data-strict="0"
-    data-reactions-enabled="1"
-    data-emit-metadata="0"
-    data-input-position="bottom"
-    data-theme="light"
-    data-lang="zh-CN"
-    data-loading="lazy"
-    crossorigin="anonymous"
-    async
-></script>
-<script>
-    function setGiscusTheme(theme) {
-        let giscus = document.querySelector("iframe.giscus-frame");
-        if (giscus) {
-            giscus.contentWindow.postMessage(
-                {
-                    giscus: {
-                        setConfig: {
-                            theme: theme,
-                        },
-                    },
-                },
-                "https://giscus.app"
-            );
-        }
-    }
-
-    (function () {
-        addEventListener("message", (e) => {
-            if (event.origin !== "https://giscus.app") return;
-            handler();
-        });
-        window.addEventListener("onColorSchemeChange", handler);
-
-        function handler() {
-            if (document.documentElement.dataset.scheme === "light") {
-                setGiscusTheme('light');
-            } else {
-                setGiscusTheme('dark_dimmed');
-            }
-        }
-    })();
-</script>
-
-    
-
-    <footer class="site-footer">
-    <section class="copyright">
-        &copy; 
-        
-        2026 SelfTechHub
-    </section>
-    
-    <section class="powerby">
-        
-
-    </section>
-</footer>
-
-
-    
-<div class="pswp" tabindex="-1" role="dialog" aria-hidden="true">
-
-    
-    <div class="pswp__bg"></div>
-
-    
-    <div class="pswp__scroll-wrap">
-
-        
-        <div class="pswp__container">
-            <div class="pswp__item"></div>
-            <div class="pswp__item"></div>
-            <div class="pswp__item"></div>
-        </div>
-
-        
-        <div class="pswp__ui pswp__ui--hidden">
-
-            <div class="pswp__top-bar">
-
-                
-
-                <div class="pswp__counter"></div>
-
-                <button class="pswp__button pswp__button--close" title="Close (Esc)"></button>
-
-                <button class="pswp__button pswp__button--share" title="Share"></button>
-
-                <button class="pswp__button pswp__button--fs" title="Toggle fullscreen"></button>
-
-                <button class="pswp__button pswp__button--zoom" title="Zoom in/out"></button>
-
-                
-                
-                <div class="pswp__preloader">
-                    <div class="pswp__preloader__icn">
-                        <div class="pswp__preloader__cut">
-                            <div class="pswp__preloader__donut"></div>
-                        </div>
-                    </div>
-                </div>
-            </div>
-
-            <div class="pswp__share-modal pswp__share-modal--hidden pswp__single-tap">
-                <div class="pswp__share-tooltip"></div>
-            </div>
-
-            <button class="pswp__button pswp__button--arrow--left" title="Previous (arrow left)">
-            </button>
-
-            <button class="pswp__button pswp__button--arrow--right" title="Next (arrow right)">
-            </button>
-
-            <div class="pswp__caption">
-                <div class="pswp__caption__center"></div>
-            </div>
-
-        </div>
-
-    </div>
-
-</div><script 
-                src="https://cdn.jsdelivr.net/npm/photoswipe@4.1.3/dist/photoswipe.min.js"integrity="sha256-ePwmChbbvXbsO02lbM3HoHbSHTHFAeChekF1xKJdleo="crossorigin="anonymous"
-                defer
-                >
-            </script><script 
-                src="https://cdn.jsdelivr.net/npm/photoswipe@4.1.3/dist/photoswipe-ui-default.min.js"integrity="sha256-UKkzOn/w1mBxRmLLGrSeyB4e1xbrp4xylgAWb3M42pU="crossorigin="anonymous"
-                defer
-                >
-            </script><link 
-                rel="stylesheet" 
-                href="https://cdn.jsdelivr.net/npm/photoswipe@4.1.3/dist/default-skin/default-skin.min.css"crossorigin="anonymous"
-            ><link 
-                rel="stylesheet" 
-                href="https://cdn.jsdelivr.net/npm/photoswipe@4.1.3/dist/photoswipe.min.css"crossorigin="anonymous"
-            >
-    
-
-            </main>
-        </div>
-        <script 
-                src="https://cdn.jsdelivr.net/npm/node-vibrant@3.1.6/dist/vibrant.min.js"integrity="sha256-awcR2jno4kI5X0zL8ex0vi2z&#43;KMkF24hUW8WePSA9HM="crossorigin="anonymous"
-                
-                >
-            </script><script type="text/javascript" src="/ts/main.c922af694cc257bf1ecc41c0dd7b0430f9114ec280ccf67cd2c6ad55f5316c4e.js" defer></script>
-<script>
-    (function () {
-        const customFont = document.createElement('link');
-        customFont.href = "https://fonts.googleapis.com/css2?family=Lato:wght@300;400;700&display=swap";
-
-        customFont.type = "text/css";
-        customFont.rel = "stylesheet";
-
-        document.head.appendChild(customFont);
-    }());
-</script>
-
-    </body>
-</html>
+<strong>(请在评论区告诉我你的选择)</strong></p><p>最后，给各位还在踩坑路上的朋友3个落地建议：</p><ol><li><strong>立刻检查你的Docker命令</strong>：如果还在用默认网络（没写 <code>--network</code>）且依赖IP通信，请这周内改为 <code>docker network create</code> 自定义网络，这能规避掉80%的连通性问题。</li><li><strong>制作你的"瑞士军刀"镜像</strong>：不要在业务镜像里装 <code>ping</code> 或 <code>telnet</code>，保持业务纯净。需要调试时，用 <code>Container</code> 模式挂载工具容器。</li><li><strong>要有网络拓扑意识</strong>：在单机Docker环境下，画一张草图，搞清楚流量是走了NAT还是走了Host，这比盲目修改 <code>sysctl.conf</code> 有用得多。</li></ol><p>别让网络成为你DevOps路上的拦路虎，把它变成你手中的利剑。</p></section><footer class=article-footer><section class=article-tags><a href=/tags/%E5%AE%B9%E5%99%A8%E7%BD%91%E7%BB%9CDocker%E7%BD%91%E7%BB%9C%E6%A8%A1%E5%BC%8F%E8%AF%A6%E8%A7%A3.html>容器网络：Docker网络模式详解</a></section></footer></article><script src=https://giscus.app/client.js data-repo=pastor17/bloggiscus data-repo-id=R_kgDOQ6H9qQ data-category data-category-id=DIC_kwDOQ6H9qc4C0-T8 data-mapping=pathname data-strict=0 data-reactions-enabled=1 data-emit-metadata=0 data-input-position=bottom data-theme=light data-lang=zh-CN data-loading=lazy crossorigin=anonymous async></script><script>function setGiscusTheme(e){let t=document.querySelector("iframe.giscus-frame");t&&t.contentWindow.postMessage({giscus:{setConfig:{theme:e}}},"https://giscus.app")}(function(){addEventListener("message",t=>{if(event.origin!=="https://giscus.app")return;e()}),window.addEventListener("onColorSchemeChange",e);function e(){setGiscusTheme(document.documentElement.dataset.scheme==="light"?"light":"dark_dimmed")}})()</script><footer class=site-footer><section class=copyright>&copy;
+2021 -
+2026 SelfTechHub</section><section class=powerby>拒绝一次性认知，把碎片知识沉淀为可复用的记忆体系<br></section></footer><div class=pswp tabindex=-1 role=dialog aria-hidden=true><div class=pswp__bg></div><div class=pswp__scroll-wrap><div class=pswp__container><div class=pswp__item></div><div class=pswp__item></div><div class=pswp__item></div></div><div class="pswp__ui pswp__ui--hidden"><div class=pswp__top-bar><div class=pswp__counter></div><button class="pswp__button pswp__button--close" title="Close (Esc)"></button>
+<button class="pswp__button pswp__button--share" title=Share></button>
+<button class="pswp__button pswp__button--fs" title="Toggle fullscreen"></button>
+<button class="pswp__button pswp__button--zoom" title="Zoom in/out"></button><div class=pswp__preloader><div class=pswp__preloader__icn><div class=pswp__preloader__cut><div class=pswp__preloader__donut></div></div></div></div></div><div class="pswp__share-modal pswp__share-modal--hidden pswp__single-tap"><div class=pswp__share-tooltip></div></div><button class="pswp__button pswp__button--arrow--left" title="Previous (arrow left)">
+</button>
+<button class="pswp__button pswp__button--arrow--right" title="Next (arrow right)"></button><div class=pswp__caption><div class=pswp__caption__center></div></div></div></div></div><script src=https://cdn.jsdelivr.net/npm/photoswipe@4.1.3/dist/photoswipe.min.js integrity="sha256-ePwmChbbvXbsO02lbM3HoHbSHTHFAeChekF1xKJdleo=" crossorigin=anonymous defer></script><script src=https://cdn.jsdelivr.net/npm/photoswipe@4.1.3/dist/photoswipe-ui-default.min.js integrity="sha256-UKkzOn/w1mBxRmLLGrSeyB4e1xbrp4xylgAWb3M42pU=" crossorigin=anonymous defer></script><link rel=stylesheet href=https://cdn.jsdelivr.net/npm/photoswipe@4.1.3/dist/default-skin/default-skin.min.css crossorigin=anonymous><link rel=stylesheet href=https://cdn.jsdelivr.net/npm/photoswipe@4.1.3/dist/photoswipe.min.css crossorigin=anonymous></main></div><script src=https://cdn.jsdelivr.net/npm/node-vibrant@3.1.6/dist/vibrant.min.js integrity="sha256-awcR2jno4kI5X0zL8ex0vi2z+KMkF24hUW8WePSA9HM=" crossorigin=anonymous></script><script type=text/javascript src=/ts/main.c922af694cc257bf1ecc41c0dd7b0430f9114ec280ccf67cd2c6ad55f5316c4e.js defer></script><script>(function(){const e=document.createElement("link");e.href="https://fonts.googleapis.com/css2?family=Lato:wght@300;400;700&display=swap",e.type="text/css",e.rel="stylesheet",document.head.appendChild(e)})()</script></body></html>

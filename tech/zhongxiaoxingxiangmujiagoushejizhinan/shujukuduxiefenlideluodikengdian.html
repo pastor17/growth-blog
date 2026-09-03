@@ -1,482 +1,98 @@
-<!DOCTYPE html>
-<html lang="zh-cn" dir="ltr">
-    <head><meta charset='utf-8'>
-<meta name='viewport' content='width=device-width, initial-scale=1'><meta name='description' content="2018年，我负责重构一个电商后台，当时为了追求所谓的“高性能架构”，在QPS刚破千的时候就强行上了读写分离。\n结果上线第一周，客服电话被打爆了。用户刚下的订单在列表里找不到，运营修改了活动配置前台却不生效，开发团队查日志查到怀疑人生，因为数据库里明明有数据。\n那时候我才意识到，很多架构书上只教你怎么配置主从复制，却没告诉你复制延迟带来的“数据幽灵”有多要命。\n对于中小团队来说，读写分离往往不是性能救星，而是复杂度噩梦的开始。今天我想复盘一下，在不具备大厂完善中间件支撑的情况下，我们在落地读写分离时最容易踩的三个坑，以及低成本的填坑方案。\n刚写完就读不到？别让“主从延迟”背锅\r这是最经典的场景，也是最容易引发信任危机的坑。\n真实案例： 当时我们的用户注册流程是这样的：用户提交注册信息（写主库） -&gt; 跳转到登录页 -&gt; 自动登录并获取用户信息（读从库）。 但在网络波动或从库负载稍高时，主从同步会有毫秒级甚至秒级的延迟。结果就是：用户明明刚注册成功，系统却提示“账号不存在”。\n当时的临时方案是让前端在跳转前强制等待1秒，但这简直是用户体验的灾难。\n硬核解法： 别指望MySQL能做到强一致性的实时同步，必须要从代码层面规避。我们后来制定了一个**“强制路由原则”**：\n核心业务强制读主： 对于注册、下单、支付回调、库存扣减后立即查询等强一致性场景，直接在代码或注解中标注，强制走主库查询。 缓存标记法（Cache Aside Latch）： 如果不想改动太多老代码，可以用Redis做一个“写后标记”。\n// 伪代码示例 public User getUser(long userId) { // 1. 检查Redis里是否有“刚更新”的标记 if (redis.hasKey(&#34;user_update_&#34; + userId)) { // 2. 有标记，说明刚写过，强制走主库 return masterDb.selectUser(userId); } // 3. 没标记，走从库（默认） return slaveDb.selectUser(userId); } public void updateUser(User user) { // 1. 更新主库 masterDb.update(user); // 2. 设置标记，过期时间设为预估的主从延迟时间（如2秒） redis.setEx(&#34;user_update_&#34; + user.id, 2, &#34;1&#34;); } 这个方案我用了三年，成本极低，完美解决了99%的“写完读不到”问题，而且对从库的压力分担影响很小。\n事务里的“隐形杀手”：所有请求都去了主库\r很多资深开发在做代码Review时，容易忽略框架层的默认行为，导致读写分离形同虚设。\n真实案例： 有一次大促，我们监控到主库CPU飙升到95%，而三台从库的负载只有5%。排查代码发现，一位新来的兄弟为了省事，在一个涉及复杂查询的Service方法上直接加了 @Transactional 注解。\n">
-<title>读写分离差点搞挂项目？这3个“隐形大坑”不得不防</title>
-
-<link rel='canonical' href='https://blog.irudder.me/tech/zhongxiaoxingxiangmujiagoushejizhinan/shujukuduxiefenlideluodikengdian.html'>
-
-<link rel="stylesheet" href="/scss/style.min.b9e9128fec450ebccecc4ec9900157f32b85d0609bcd5ee3293968bcaa1235f2.css"><meta property='og:title' content="读写分离差点搞挂项目？这3个“隐形大坑”不得不防">
-<meta property='og:description' content="2018年，我负责重构一个电商后台，当时为了追求所谓的“高性能架构”，在QPS刚破千的时候就强行上了读写分离。\n结果上线第一周，客服电话被打爆了。用户刚下的订单在列表里找不到，运营修改了活动配置前台却不生效，开发团队查日志查到怀疑人生，因为数据库里明明有数据。\n那时候我才意识到，很多架构书上只教你怎么配置主从复制，却没告诉你复制延迟带来的“数据幽灵”有多要命。\n对于中小团队来说，读写分离往往不是性能救星，而是复杂度噩梦的开始。今天我想复盘一下，在不具备大厂完善中间件支撑的情况下，我们在落地读写分离时最容易踩的三个坑，以及低成本的填坑方案。\n刚写完就读不到？别让“主从延迟”背锅\r这是最经典的场景，也是最容易引发信任危机的坑。\n真实案例： 当时我们的用户注册流程是这样的：用户提交注册信息（写主库） -&gt; 跳转到登录页 -&gt; 自动登录并获取用户信息（读从库）。 但在网络波动或从库负载稍高时，主从同步会有毫秒级甚至秒级的延迟。结果就是：用户明明刚注册成功，系统却提示“账号不存在”。\n当时的临时方案是让前端在跳转前强制等待1秒，但这简直是用户体验的灾难。\n硬核解法： 别指望MySQL能做到强一致性的实时同步，必须要从代码层面规避。我们后来制定了一个**“强制路由原则”**：\n核心业务强制读主： 对于注册、下单、支付回调、库存扣减后立即查询等强一致性场景，直接在代码或注解中标注，强制走主库查询。 缓存标记法（Cache Aside Latch）： 如果不想改动太多老代码，可以用Redis做一个“写后标记”。\n// 伪代码示例 public User getUser(long userId) { // 1. 检查Redis里是否有“刚更新”的标记 if (redis.hasKey(&#34;user_update_&#34; + userId)) { // 2. 有标记，说明刚写过，强制走主库 return masterDb.selectUser(userId); } // 3. 没标记，走从库（默认） return slaveDb.selectUser(userId); } public void updateUser(User user) { // 1. 更新主库 masterDb.update(user); // 2. 设置标记，过期时间设为预估的主从延迟时间（如2秒） redis.setEx(&#34;user_update_&#34; + user.id, 2, &#34;1&#34;); } 这个方案我用了三年，成本极低，完美解决了99%的“写完读不到”问题，而且对从库的压力分担影响很小。\n事务里的“隐形杀手”：所有请求都去了主库\r很多资深开发在做代码Review时，容易忽略框架层的默认行为，导致读写分离形同虚设。\n真实案例： 有一次大促，我们监控到主库CPU飙升到95%，而三台从库的负载只有5%。排查代码发现，一位新来的兄弟为了省事，在一个涉及复杂查询的Service方法上直接加了 @Transactional 注解。\n">
-<meta property='og:url' content='https://blog.irudder.me/tech/zhongxiaoxingxiangmujiagoushejizhinan/shujukuduxiefenlideluodikengdian.html'>
-<meta property='og:site_name' content='SelfTechHub'>
-<meta property='og:type' content='article'><meta property='article:section' content='Tech' /><meta property='article:tag' content='数据库读写分离的落地坑点' /><meta property='article:published_time' content='2021-03-04T00:00:00&#43;00:00'/><meta property='article:modified_time' content='2021-03-04T00:00:00&#43;00:00'/>
-<meta name="twitter:title" content="读写分离差点搞挂项目？这3个“隐形大坑”不得不防">
-<meta name="twitter:description" content="2018年，我负责重构一个电商后台，当时为了追求所谓的“高性能架构”，在QPS刚破千的时候就强行上了读写分离。\n结果上线第一周，客服电话被打爆了。用户刚下的订单在列表里找不到，运营修改了活动配置前台却不生效，开发团队查日志查到怀疑人生，因为数据库里明明有数据。\n那时候我才意识到，很多架构书上只教你怎么配置主从复制，却没告诉你复制延迟带来的“数据幽灵”有多要命。\n对于中小团队来说，读写分离往往不是性能救星，而是复杂度噩梦的开始。今天我想复盘一下，在不具备大厂完善中间件支撑的情况下，我们在落地读写分离时最容易踩的三个坑，以及低成本的填坑方案。\n刚写完就读不到？别让“主从延迟”背锅\r这是最经典的场景，也是最容易引发信任危机的坑。\n真实案例： 当时我们的用户注册流程是这样的：用户提交注册信息（写主库） -&gt; 跳转到登录页 -&gt; 自动登录并获取用户信息（读从库）。 但在网络波动或从库负载稍高时，主从同步会有毫秒级甚至秒级的延迟。结果就是：用户明明刚注册成功，系统却提示“账号不存在”。\n当时的临时方案是让前端在跳转前强制等待1秒，但这简直是用户体验的灾难。\n硬核解法： 别指望MySQL能做到强一致性的实时同步，必须要从代码层面规避。我们后来制定了一个**“强制路由原则”**：\n核心业务强制读主： 对于注册、下单、支付回调、库存扣减后立即查询等强一致性场景，直接在代码或注解中标注，强制走主库查询。 缓存标记法（Cache Aside Latch）： 如果不想改动太多老代码，可以用Redis做一个“写后标记”。\n// 伪代码示例 public User getUser(long userId) { // 1. 检查Redis里是否有“刚更新”的标记 if (redis.hasKey(&#34;user_update_&#34; + userId)) { // 2. 有标记，说明刚写过，强制走主库 return masterDb.selectUser(userId); } // 3. 没标记，走从库（默认） return slaveDb.selectUser(userId); } public void updateUser(User user) { // 1. 更新主库 masterDb.update(user); // 2. 设置标记，过期时间设为预估的主从延迟时间（如2秒） redis.setEx(&#34;user_update_&#34; + user.id, 2, &#34;1&#34;); } 这个方案我用了三年，成本极低，完美解决了99%的“写完读不到”问题，而且对从库的压力分担影响很小。\n事务里的“隐形杀手”：所有请求都去了主库\r很多资深开发在做代码Review时，容易忽略框架层的默认行为，导致读写分离形同虚设。\n真实案例： 有一次大促，我们监控到主库CPU飙升到95%，而三台从库的负载只有5%。排查代码发现，一位新来的兄弟为了省事，在一个涉及复杂查询的Service方法上直接加了 @Transactional 注解。\n">
-    </head>
-    <body class="
-    article-page
-    ">
-    <script>
-        (function() {
-            const colorSchemeKey = 'StackColorScheme';
-            if(!localStorage.getItem(colorSchemeKey)){
-                localStorage.setItem(colorSchemeKey, "auto");
-            }
-        })();
-    </script><script>
-    (function() {
-        const colorSchemeKey = 'StackColorScheme';
-        const colorSchemeItem = localStorage.getItem(colorSchemeKey);
-        const supportDarkMode = window.matchMedia('(prefers-color-scheme: dark)').matches === true;
-
-        if (colorSchemeItem == 'dark' || colorSchemeItem === 'auto' && supportDarkMode) {
-            
-
-            document.documentElement.dataset.scheme = 'dark';
-        } else {
-            document.documentElement.dataset.scheme = 'light';
-        }
-    })();
-</script>
-<div class="container main-container flex on-phone--column compact"><aside class="sidebar left-sidebar sticky ">
-    <button class="hamburger hamburger--spin" type="button" id="toggle-menu" aria-label="切换菜单">
-        <span class="hamburger-box">
-            <span class="hamburger-inner"></span>
-        </span>
-    </button>
-
-    <header>
-        
-            
-            <figure class="site-avatar">
-                <a href="/">
-                
-                    
-                    
-                    
-                        
-                        <img src="/img/avatar_hu_8588ce14af1147e2.png" width="300"
-                            height="286" class="site-logo" loading="lazy" alt="Avatar">
-                    
-                
-                </a>
-                
-            </figure>
-            
-        
-        
-        <div class="site-meta">
-            <h1 class="site-name"><a href="/">SelfTechHub</a></h1>
-            <h2 class="site-description"></h2>
-        </div>
-    </header><ol class="menu" id="main-menu">
-        
-        
-        <li class="menu-bottom-section">
-            <ol class="menu">
-
-                
-                    <li id="dark-mode-toggle">
-                        <svg xmlns="http://www.w3.org/2000/svg" class="icon icon-tabler icon-tabler-toggle-left" width="24" height="24" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor" fill="none" stroke-linecap="round" stroke-linejoin="round">
-  <path stroke="none" d="M0 0h24v24H0z"/>
-  <circle cx="8" cy="12" r="2" />
-  <rect x="2" y="6" width="20" height="12" rx="6" />
-</svg>
-
-
-
-                        <svg xmlns="http://www.w3.org/2000/svg" class="icon icon-tabler icon-tabler-toggle-right" width="24" height="24" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor" fill="none" stroke-linecap="round" stroke-linejoin="round">
-  <path stroke="none" d="M0 0h24v24H0z"/>
-  <circle cx="16" cy="12" r="2" />
-  <rect x="2" y="6" width="20" height="12" rx="6" />
-</svg>
-
-
-
-                        <span>暗色模式</span>
-                    </li>
-                
-            </ol>
-        </li>
-    </ol>
-</aside>
-
-    
-
-            <main class="main full-width">
-    <article class="main-article">
-    <header class="article-header">
-
-    <div class="article-details">
-    
-    <header class="article-category">
-        
-            <a href="/categories/%E6%8A%80%E6%9C%AF.html" >
-                技术精进
-            </a>
-        
-    </header>
-    
-
-    <div class="article-title-wrapper">
-        <h2 class="article-title">
-            <a href="/tech/zhongxiaoxingxiangmujiagoushejizhinan/shujukuduxiefenlideluodikengdian.html">读写分离差点搞挂项目？这3个“隐形大坑”不得不防</a>
-        </h2>
-    
-        
-    </div>
-
-    
-    
-    
-    
-    <footer class="article-time">
-        
-            <div>
-                <svg xmlns="http://www.w3.org/2000/svg" class="icon icon-tabler icon-tabler-calendar-time" width="56" height="56" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor" fill="none" stroke-linecap="round" stroke-linejoin="round">
-  <path stroke="none" d="M0 0h24v24H0z"/>
-  <path d="M11.795 21h-6.795a2 2 0 0 1 -2 -2v-12a2 2 0 0 1 2 -2h12a2 2 0 0 1 2 2v4" />
-  <circle cx="18" cy="18" r="4" />
-  <path d="M15 3v4" />
-  <path d="M7 3v4" />
-  <path d="M3 11h16" />
-  <path d="M18 16.496v1.504l1 1" />
-</svg>
-                <time class="article-time--published" datetime='2021-03-04T00:00:00Z'>Mar 04, 2021</time>
-            </div>
-        
-
-        
-            <div>
-                <svg xmlns="http://www.w3.org/2000/svg" class="icon icon-tabler icon-tabler-clock" width="24" height="24" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor" fill="none" stroke-linecap="round" stroke-linejoin="round">
-  <path stroke="none" d="M0 0h24v24H0z"/>
-  <circle cx="12" cy="12" r="9" />
-  <polyline points="12 7 12 12 15 15" />
-</svg>
-
-
-
-                <time class="article-time--reading">
-                    阅读时长: 1 分钟
-                </time>
-            </div>
-        
-    </footer>
-    
-
-    
-</div>
-
-</header>
-
-    <section class="article-content">
-    
-    
-    <p>2018年，我负责重构一个电商后台，当时为了追求所谓的“高性能架构”，在QPS刚破千的时候就强行上了读写分离。</p>
-<p><img src="https://picsum.photos/800/450?random=1768451838141"
-	
-	
-	
-	loading="lazy"
-	
-		alt="配图"
-	
-	
-></p>
-<p>结果上线第一周，客服电话被打爆了。用户刚下的订单在列表里找不到，运营修改了活动配置前台却不生效，开发团队查日志查到怀疑人生，因为数据库里明明有数据。</p>
-<p>那时候我才意识到，<strong>很多架构书上只教你怎么配置主从复制，却没告诉你复制延迟带来的“数据幽灵”有多要命。</strong></p>
-<p>对于中小团队来说，读写分离往往不是性能救星，而是复杂度噩梦的开始。今天我想复盘一下，在不具备大厂完善中间件支撑的情况下，我们在落地读写分离时最容易踩的三个坑，以及低成本的填坑方案。</p>
-<h2 id="刚写完就读不到别让主从延迟背锅">刚写完就读不到？别让“主从延迟”背锅
-</h2><p>这是最经典的场景，也是最容易引发信任危机的坑。</p>
-<p><strong>真实案例：</strong>
-当时我们的用户注册流程是这样的：用户提交注册信息（写主库） -&gt; 跳转到登录页 -&gt; 自动登录并获取用户信息（读从库）。
-但在网络波动或从库负载稍高时，主从同步会有毫秒级甚至秒级的延迟。结果就是：用户明明刚注册成功，系统却提示“账号不存在”。</p>
-<p>当时的临时方案是让前端在跳转前强制等待1秒，但这简直是用户体验的灾难。</p>
-<p><strong>硬核解法：</strong>
-别指望MySQL能做到强一致性的实时同步，必须要从代码层面规避。我们后来制定了一个**“强制路由原则”**：</p>
-<ol>
-<li><strong>核心业务强制读主：</strong> 对于注册、下单、支付回调、库存扣减后立即查询等强一致性场景，直接在代码或注解中标注，强制走主库查询。</li>
-<li><strong>缓存标记法（Cache Aside Latch）：</strong></li>
-</ol>
-<p>如果不想改动太多老代码，可以用Redis做一个“写后标记”。</p>
-<div class="highlight"><pre tabindex="0" style="color:#f8f8f2;background-color:#272822;-moz-tab-size:4;-o-tab-size:4;tab-size:4;"><code class="language-java" data-lang="java"><span style="display:flex;"><span><span style="color:#75715e">// 伪代码示例</span>
-</span></span><span style="display:flex;"><span><span style="color:#66d9ef">public</span> User <span style="color:#a6e22e">getUser</span>(<span style="color:#66d9ef">long</span> userId) {
-</span></span><span style="display:flex;"><span>    <span style="color:#75715e">// 1. 检查Redis里是否有“刚更新”的标记</span>
-</span></span><span style="display:flex;"><span>    <span style="color:#66d9ef">if</span> (redis.<span style="color:#a6e22e">hasKey</span>(<span style="color:#e6db74">&#34;user_update_&#34;</span> <span style="color:#f92672">+</span> userId)) {
-</span></span><span style="display:flex;"><span>        <span style="color:#75715e">// 2. 有标记，说明刚写过，强制走主库</span>
-</span></span><span style="display:flex;"><span>        <span style="color:#66d9ef">return</span> masterDb.<span style="color:#a6e22e">selectUser</span>(userId);
-</span></span><span style="display:flex;"><span>    }
-</span></span><span style="display:flex;"><span>    <span style="color:#75715e">// 3. 没标记，走从库（默认）</span>
-</span></span><span style="display:flex;"><span>    <span style="color:#66d9ef">return</span> slaveDb.<span style="color:#a6e22e">selectUser</span>(userId);
-</span></span><span style="display:flex;"><span>}
-</span></span><span style="display:flex;"><span>
-</span></span><span style="display:flex;"><span><span style="color:#66d9ef">public</span> <span style="color:#66d9ef">void</span> <span style="color:#a6e22e">updateUser</span>(User user) {
-</span></span><span style="display:flex;"><span>    <span style="color:#75715e">// 1. 更新主库</span>
-</span></span><span style="display:flex;"><span>    masterDb.<span style="color:#a6e22e">update</span>(user);
-</span></span><span style="display:flex;"><span>    <span style="color:#75715e">// 2. 设置标记，过期时间设为预估的主从延迟时间（如2秒）</span>
-</span></span><span style="display:flex;"><span>    redis.<span style="color:#a6e22e">setEx</span>(<span style="color:#e6db74">&#34;user_update_&#34;</span> <span style="color:#f92672">+</span> user.<span style="color:#a6e22e">id</span>, 2, <span style="color:#e6db74">&#34;1&#34;</span>);
-</span></span><span style="display:flex;"><span>}
-</span></span></code></pre></div><p>这个方案我用了三年，成本极低，完美解决了99%的“写完读不到”问题，而且对从库的压力分担影响很小。</p>
-<h2 id="事务里的隐形杀手所有请求都去了主库">事务里的“隐形杀手”：所有请求都去了主库
-</h2><p>很多资深开发在做代码Review时，容易忽略框架层的默认行为，导致读写分离形同虚设。</p>
-<p><strong>真实案例：</strong>
-有一次大促，我们监控到主库CPU飙升到95%，而三台从库的负载只有5%。排查代码发现，一位新来的兄弟为了省事，在一个涉及复杂查询的Service方法上直接加了 <code>@Transactional</code> 注解。</p>
-<p>在Spring等主流框架中，<strong>一旦开启了事务，为了保证读视图的一致性，默认连接上下文会绑定到主库。</strong> 这意味着，在这个事务方法里，哪怕你做了99次查询，只有1次写入，这99次查询也全部打到了主库上！</p>
-<p><strong>硬核解法：</strong>
-这是架构师必须对团队进行的规范教育。</p>
-<p><img src="https://picsum.photos/800/450?random=1768451842337"
-	
-	
-	
-	loading="lazy"
-	
-		alt="配图"
-	
-	
-></p>
-<ol>
-<li><strong>缩小事务粒度：</strong> 坚决禁止在Controller层或大Service方法上直接加 <code>@Transactional</code>。只在真正执行 <code>save/update/delete</code> 的原子操作上加事务。</li>
-<li><strong>使用编程式事务：</strong> 对于复杂的业务逻辑，建议手动控制事务边界，把耗时的查询操作剥离在事务之外。</li>
-</ol>
-<div class="highlight"><pre tabindex="0" style="color:#f8f8f2;background-color:#272822;-moz-tab-size:4;-o-tab-size:4;tab-size:4;"><code class="language-java" data-lang="java"><span style="display:flex;"><span><span style="color:#75715e">// 错误示范：整个方法都在事务中，查询也走主库</span>
-</span></span><span style="display:flex;"><span><span style="color:#a6e22e">@Transactional</span>
-</span></span><span style="display:flex;"><span><span style="color:#66d9ef">public</span> <span style="color:#66d9ef">void</span> <span style="color:#a6e22e">processOrder</span>() {
-</span></span><span style="display:flex;"><span>    User user <span style="color:#f92672">=</span> userMapper.<span style="color:#a6e22e">selectById</span>(uid); <span style="color:#75715e">// 走了主库！</span>
-</span></span><span style="display:flex;"><span>    List<span style="color:#f92672">&lt;</span>Product<span style="color:#f92672">&gt;</span> products <span style="color:#f92672">=</span> productMapper.<span style="color:#a6e22e">selectList</span>(ids); <span style="color:#75715e">// 走了主库！</span>
-</span></span><span style="display:flex;"><span>    orderMapper.<span style="color:#a6e22e">insert</span>(order);
-</span></span><span style="display:flex;"><span>}
-</span></span><span style="display:flex;"><span>
-</span></span><span style="display:flex;"><span><span style="color:#75715e">// 修正方案</span>
-</span></span><span style="display:flex;"><span><span style="color:#66d9ef">public</span> <span style="color:#66d9ef">void</span> <span style="color:#a6e22e">processOrder</span>() {
-</span></span><span style="display:flex;"><span>    <span style="color:#75715e">// 查询走从库</span>
-</span></span><span style="display:flex;"><span>    User user <span style="color:#f92672">=</span> userMapper.<span style="color:#a6e22e">selectById</span>(uid); 
-</span></span><span style="display:flex;"><span>    List<span style="color:#f92672">&lt;</span>Product<span style="color:#f92672">&gt;</span> products <span style="color:#f92672">=</span> productMapper.<span style="color:#a6e22e">selectList</span>(ids);
-</span></span><span style="display:flex;"><span>    
-</span></span><span style="display:flex;"><span>    <span style="color:#75715e">// 只有写入逻辑开启事务</span>
-</span></span><span style="display:flex;"><span>    transactionTemplate.<span style="color:#a6e22e">execute</span>(status <span style="color:#f92672">-&gt;</span> {
-</span></span><span style="display:flex;"><span>        orderMapper.<span style="color:#a6e22e">insert</span>(order);
-</span></span><span style="display:flex;"><span>        <span style="color:#66d9ef">return</span> <span style="color:#66d9ef">null</span>;
-</span></span><span style="display:flex;"><span>    });
-</span></span><span style="display:flex;"><span>}
-</span></span></code></pre></div><h2 id="真的需要读写分离吗有时候钞能力更好用">真的需要读写分离吗？有时候“钞能力”更好用
-</h2><p>这一点可能比较反常识。很多架构师觉得上了读写分离才显得技术有深度。</p>
-<p><strong>真实案例：</strong>
-2020年，我帮一个朋友的初创团队做咨询。他们日活才2万，数据量不到500万行，但技术负责人规划了一套“一主四从 + 读写分离中间件 + 分库分表”的豪华架构。结果运维成本极高，经常因为中间件bug导致服务不可用。</p>
-<p>我给的建议是：<strong>全砍掉。</strong>
-直接买一台高配置的RDS（比如32核64G），把MySQL调优做好，加个Redis缓存热点数据。</p>
-<p><strong>硬核解法：</strong>
-对于中小团队，硬件成本往往比人力成本和维护成本低得多。</p>
-<ul>
-<li><strong>算笔账：</strong> 搞读写分离，你需要引入中间件（ShardingSphere/MyCat等），需要处理同步延迟，需要防范主从切换的数据丢失。这至少需要消耗你团队里最资深的那个人20%的精力。</li>
-<li><strong>替代方案：</strong> 在QPS未破5000，单表未破1000万之前，<strong>“升级硬件 + Redis缓存 + 索引优化”</strong> 才是性价比最高的方案。</li>
-</ul>
-<p>不要为了架构而架构，<strong>架构的本质是解决问题，而不是引入新问题。</strong></p>
-<h2 id="写在最后">写在最后
-</h2><p>读写分离在流量增长期确实是提升吞吐量的利器，但它不是免费的午餐。它牺牲了数据的一致性（虽然是暂时的）来换取可用性，同时也引入了系统复杂性。</p>
-<p>如果你正准备在团队落地读写分离，建议先问自己三个问题：</p>
-<ol>
-<li>现在的数据库真的到瓶颈了吗？加内存能不能解决？</li>
-<li>你能容忍数据延迟带来的业务客诉吗？</li>
-<li>团队有能力处理主从切换时的数据不一致吗？</li>
-</ol>
-<p><strong>落地行动指南：</strong></p>
-<ol>
-<li><strong>盘点现状：</strong> 检查现有项目中 <code>@Transactional</code> 的使用范围，是否存在大事务包裹大量查询的情况。</li>
-<li><strong>监控先行：</strong> 在上线读写分离前，必须先部署“主从延迟监控”，一旦延迟超过阈值（如1秒），报警给开发人员。</li>
-<li><strong>制定规范：</strong> 明确哪些业务场景必须强制读主库，并落实到代码Review清单中。</li>
-</ol>
-<p><strong>你在项目中遇到过因为主从延迟导致的“灵异事件”吗？或者是用过哪些好用的读写分离中间件？欢迎在评论区分享你的填坑经历。</strong></p>
-
-</section>
-
-
-    <footer class="article-footer">
-    
-    <section class="article-tags">
-        
-            <a href="/tags/%E6%95%B0%E6%8D%AE%E5%BA%93%E8%AF%BB%E5%86%99%E5%88%86%E7%A6%BB%E7%9A%84%E8%90%BD%E5%9C%B0%E5%9D%91%E7%82%B9.html">数据库读写分离的落地坑点</a>
-        
-    </section>
-
-
-    </footer>
-
-
-    
-</article>
-
-    
-
-    
-
-     
-    
-        
-    <script
-    src="https://giscus.app/client.js"
-    data-repo="pastor17/bloggiscus"
-    data-repo-id="R_kgDOQ6H9qQ"
-    data-category=""
-    data-category-id="DIC_kwDOQ6H9qc4C0-T8"
-    data-mapping="pathname"
-    data-strict="0"
-    data-reactions-enabled="1"
-    data-emit-metadata="0"
-    data-input-position="bottom"
-    data-theme="light"
-    data-lang="zh-CN"
-    data-loading="lazy"
-    crossorigin="anonymous"
-    async
-></script>
-<script>
-    function setGiscusTheme(theme) {
-        let giscus = document.querySelector("iframe.giscus-frame");
-        if (giscus) {
-            giscus.contentWindow.postMessage(
-                {
-                    giscus: {
-                        setConfig: {
-                            theme: theme,
-                        },
-                    },
-                },
-                "https://giscus.app"
-            );
-        }
-    }
-
-    (function () {
-        addEventListener("message", (e) => {
-            if (event.origin !== "https://giscus.app") return;
-            handler();
-        });
-        window.addEventListener("onColorSchemeChange", handler);
-
-        function handler() {
-            if (document.documentElement.dataset.scheme === "light") {
-                setGiscusTheme('light');
-            } else {
-                setGiscusTheme('dark_dimmed');
-            }
-        }
-    })();
-</script>
-
-    
-
-    <footer class="site-footer">
-    <section class="copyright">
-        &copy; 
-        
-        2026 SelfTechHub
-    </section>
-    
-    <section class="powerby">
-        
-
-    </section>
-</footer>
-
-
-    
-<div class="pswp" tabindex="-1" role="dialog" aria-hidden="true">
-
-    
-    <div class="pswp__bg"></div>
-
-    
-    <div class="pswp__scroll-wrap">
-
-        
-        <div class="pswp__container">
-            <div class="pswp__item"></div>
-            <div class="pswp__item"></div>
-            <div class="pswp__item"></div>
-        </div>
-
-        
-        <div class="pswp__ui pswp__ui--hidden">
-
-            <div class="pswp__top-bar">
-
-                
-
-                <div class="pswp__counter"></div>
-
-                <button class="pswp__button pswp__button--close" title="Close (Esc)"></button>
-
-                <button class="pswp__button pswp__button--share" title="Share"></button>
-
-                <button class="pswp__button pswp__button--fs" title="Toggle fullscreen"></button>
-
-                <button class="pswp__button pswp__button--zoom" title="Zoom in/out"></button>
-
-                
-                
-                <div class="pswp__preloader">
-                    <div class="pswp__preloader__icn">
-                        <div class="pswp__preloader__cut">
-                            <div class="pswp__preloader__donut"></div>
-                        </div>
-                    </div>
-                </div>
-            </div>
-
-            <div class="pswp__share-modal pswp__share-modal--hidden pswp__single-tap">
-                <div class="pswp__share-tooltip"></div>
-            </div>
-
-            <button class="pswp__button pswp__button--arrow--left" title="Previous (arrow left)">
-            </button>
-
-            <button class="pswp__button pswp__button--arrow--right" title="Next (arrow right)">
-            </button>
-
-            <div class="pswp__caption">
-                <div class="pswp__caption__center"></div>
-            </div>
-
-        </div>
-
-    </div>
-
-</div><script 
-                src="https://cdn.jsdelivr.net/npm/photoswipe@4.1.3/dist/photoswipe.min.js"integrity="sha256-ePwmChbbvXbsO02lbM3HoHbSHTHFAeChekF1xKJdleo="crossorigin="anonymous"
-                defer
-                >
-            </script><script 
-                src="https://cdn.jsdelivr.net/npm/photoswipe@4.1.3/dist/photoswipe-ui-default.min.js"integrity="sha256-UKkzOn/w1mBxRmLLGrSeyB4e1xbrp4xylgAWb3M42pU="crossorigin="anonymous"
-                defer
-                >
-            </script><link 
-                rel="stylesheet" 
-                href="https://cdn.jsdelivr.net/npm/photoswipe@4.1.3/dist/default-skin/default-skin.min.css"crossorigin="anonymous"
-            ><link 
-                rel="stylesheet" 
-                href="https://cdn.jsdelivr.net/npm/photoswipe@4.1.3/dist/photoswipe.min.css"crossorigin="anonymous"
-            >
-    
-
-            </main>
-        </div>
-        <script 
-                src="https://cdn.jsdelivr.net/npm/node-vibrant@3.1.6/dist/vibrant.min.js"integrity="sha256-awcR2jno4kI5X0zL8ex0vi2z&#43;KMkF24hUW8WePSA9HM="crossorigin="anonymous"
-                
-                >
-            </script><script type="text/javascript" src="/ts/main.c922af694cc257bf1ecc41c0dd7b0430f9114ec280ccf67cd2c6ad55f5316c4e.js" defer></script>
-<script>
-    (function () {
-        const customFont = document.createElement('link');
-        customFont.href = "https://fonts.googleapis.com/css2?family=Lato:wght@300;400;700&display=swap";
-
-        customFont.type = "text/css";
-        customFont.rel = "stylesheet";
-
-        document.head.appendChild(customFont);
-    }());
-</script>
-
-    </body>
-</html>
+<!doctype html><html lang=zh-cn dir=ltr><head><meta charset=utf-8><meta name=viewport content='width=device-width,initial-scale=1'><meta name=description content="年，我负责重构一个电商后台，当时为了追求所谓的“高性能架构”，在QPS刚破千的时候就强行上了读写分离。结果上线第一周，客服电话被打爆了。"><title>读写分离差点搞挂项目？这3个“隐形大坑”不得不防</title><link rel=canonical href=https://blog.irudder.me/tech/zhongxiaoxingxiangmujiagoushejizhinan/shujukuduxiefenlideluodikengdian.html><link rel=stylesheet href=/scss/style.min.c77ce1b874b29b2ee9e54a89066c79ebf35cbe9cf399b31ab5d79167f9a965c9.css><meta property='og:title' content="读写分离差点搞挂项目？这3个“隐形大坑”不得不防"><meta property='og:description' content="年，我负责重构一个电商后台，当时为了追求所谓的“高性能架构”，在QPS刚破千的时候就强行上了读写分离。结果上线第一周，客服电话被打爆了。"><meta property='og:url' content='https://blog.irudder.me/tech/zhongxiaoxingxiangmujiagoushejizhinan/shujukuduxiefenlideluodikengdian.html'><meta property='og:site_name' content='SelfTechHub'><meta property='og:type' content='article'><meta property='article:section' content='Tech'><meta property='article:tag' content='数据库读写分离的落地坑点'><meta property='article:published_time' content='2021-03-04T00:00:00+08:00'><meta property='article:modified_time' content='2021-03-04T00:00:00+08:00'><meta name=twitter:title content="读写分离差点搞挂项目？这3个“隐形大坑”不得不防"><meta name=twitter:description content="年，我负责重构一个电商后台，当时为了追求所谓的“高性能架构”，在QPS刚破千的时候就强行上了读写分离。结果上线第一周，客服电话被打爆了。"><link rel="shortcut icon" href=/images/logo.png></head><body class=article-page><script>(function(){const e="StackColorScheme";localStorage.getItem(e)||localStorage.setItem(e,"auto")})()</script><script>(function(){const t="StackColorScheme",e=localStorage.getItem(t),n=window.matchMedia("(prefers-color-scheme: dark)").matches===!0;e=="dark"||e==="auto"&&n?document.documentElement.dataset.scheme="dark":document.documentElement.dataset.scheme="light"})()</script><div class="container main-container flex on-phone--column extended"><aside class="sidebar left-sidebar sticky"><button class="hamburger hamburger--spin" type=button id=toggle-menu aria-label=切换菜单>
+<span class=hamburger-box><span class=hamburger-inner></span></span></button><header><figure class=site-avatar><a href=/><img src=/img/avatar_hu_8588ce14af1147e2.png width=300 height=286 class=site-logo loading=lazy alt=Avatar>
+</a><span class=emoji>🧠</span></figure><div class=site-meta><h1 class=site-name><a href=/>SelfTechHub</a></h1><h2 class=site-description>成长 · 技术 · 商业 · AI —— 把碎片知识沉淀为可复用的记忆体系</h2></div></header><ol class=menu-social><li><a href=https://github.com/pastor17 target=_blank title=GitHub rel=me><svg class="icon icon-tabler icon-tabler-brand-github" width="24" height="24" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor" fill="none" stroke-linecap="round" stroke-linejoin="round"><path stroke="none" d="M0 0h24v24H0z" fill="none"/><path d="M9 19c-4.3 1.4-4.3-2.5-6-3m12 5v-3.5c0-1 .1-1.4-.5-2 2.8-.3 5.5-1.4 5.5-6a4.6 4.6.0 00-1.3-3.2 4.2 4.2.0 00-.1-3.2s-1.1-.3-3.5 1.3a12.3 12.3.0 00-6.2.0C6.5 2.8 5.4 3.1 5.4 3.1a4.2 4.2.0 00-.1 3.2A4.6 4.6.0 004 9.5c0 4.6 2.7 5.7 5.5 6-.6.6-.6 1.2-.5 2V21"/></svg></a></li></ol><ol class=menu id=main-menu><li><a href=/><svg class="icon icon-tabler icon-tabler-home" width="24" height="24" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor" fill="none" stroke-linecap="round" stroke-linejoin="round"><path stroke="none" d="M0 0h24v24H0z"/><polyline points="5 12 3 12 12 3 21 12 19 12"/><path d="M5 12v7a2 2 0 002 2h10a2 2 0 002-2v-7"/><path d="M9 21v-6a2 2 0 012-2h2a2 2 0 012 2v6"/></svg>
+<span>首页</span></a></li><li><a href=/categories/%E6%88%90%E9%95%BF.html><span>成长认知</span></a></li><li><a href=/categories/%E6%8A%80%E6%9C%AF.html><span>技术精进</span></a></li><li><a href=/categories/%E5%95%86%E4%B8%9A.html><span>商业·财富</span></a></li><li><a href=/categories/ai.html><span>探索AI</span></a></li><li><a href=/about/><svg class="icon icon-tabler icon-tabler-user" width="24" height="24" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor" fill="none" stroke-linecap="round" stroke-linejoin="round"><path stroke="none" d="M0 0h24v24H0z"/><circle cx="12" cy="7" r="4"/><path d="M6 21v-2a4 4 0 014-4h4a4 4 0 014 4v2"/></svg>
+<span>关于</span></a></li><li class=menu-bottom-section><ol class=menu><li id=dark-mode-toggle><svg class="icon icon-tabler icon-tabler-toggle-left" width="24" height="24" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor" fill="none" stroke-linecap="round" stroke-linejoin="round"><path stroke="none" d="M0 0h24v24H0z"/><circle cx="8" cy="12" r="2"/><rect x="2" y="6" width="20" height="12" rx="6"/></svg>
+<svg class="icon icon-tabler icon-tabler-toggle-right" width="24" height="24" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor" fill="none" stroke-linecap="round" stroke-linejoin="round"><path stroke="none" d="M0 0h24v24H0z"/><circle cx="16" cy="12" r="2"/><rect x="2" y="6" width="20" height="12" rx="6"/></svg>
+<span>暗色模式</span></li></ol></li></ol></aside><aside class="sidebar right-sidebar sticky"><section class="widget archives"><div class=widget-icon><svg class="icon icon-tabler icon-tabler-hash" width="24" height="24" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor" fill="none" stroke-linecap="round" stroke-linejoin="round"><path stroke="none" d="M0 0h24v24H0z"/><line x1="5" y1="9" x2="19" y2="9"/><line x1="5" y1="15" x2="19" y2="15"/><line x1="11" y1="4" x2="7" y2="20"/><line x1="17" y1="4" x2="13" y2="20"/></svg></div><h2 class="widget-title section-title">目录</h2><div class=widget--toc><nav id=TableOfContents><ul><li><a href=#刚写完就读不到别让主从延迟背锅>刚写完就读不到？别让“主从延迟”背锅</a></li><li><a href=#事务里的隐形杀手所有请求都去了主库>事务里的“隐形杀手”：所有请求都去了主库</a></li><li><a href=#真的需要读写分离吗有时候钞能力更好用>真的需要读写分离吗？有时候“钞能力”更好用</a></li><li><a href=#写在最后>写在最后</a></li></ul></nav></div></section></aside><main class="main full-width"><article class=main-article><header class=article-header><div class=article-details><header class=article-category><a href=/categories/%E6%8A%80%E6%9C%AF.html>技术精进</a></header><div class=article-title-wrapper><h2 class=article-title><a href=/tech/zhongxiaoxingxiangmujiagoushejizhinan/shujukuduxiefenlideluodikengdian.html>读写分离差点搞挂项目？这3个“隐形大坑”不得不防</a></h2><h3 class=article-subtitle>年，我负责重构一个电商后台，当时为了追求所谓的“高性能架构”，在QPS刚破千的时候就强行上了读写分离。结果上线第一周，客服电话被打爆了。</h3></div><footer class=article-time><div><svg class="icon icon-tabler icon-tabler-calendar-time" width="56" height="56" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor" fill="none" stroke-linecap="round" stroke-linejoin="round"><path stroke="none" d="M0 0h24v24H0z"/><path d="M11.795 21H5a2 2 0 01-2-2V7a2 2 0 012-2h12a2 2 0 012 2v4"/><circle cx="18" cy="18" r="4"/><path d="M15 3v4"/><path d="M7 3v4"/><path d="M3 11h16"/><path d="M18 16.496V18l1 1"/></svg>
+<time class=article-time--published datetime=2021-03-04T00:00:00+08:00>2021-03-04</time></div><div><svg class="icon icon-tabler icon-tabler-clock" width="24" height="24" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor" fill="none" stroke-linecap="round" stroke-linejoin="round"><path stroke="none" d="M0 0h24v24H0z"/><circle cx="12" cy="12" r="9"/><polyline points="12 7 12 12 15 15"/></svg>
+<time class=article-time--reading>阅读时长: 5 分钟</time></div></footer></div></header><section class=article-content><p>2018年，我负责重构一个电商后台，当时为了追求所谓的“高性能架构”，在QPS刚破千的时候就强行上了读写分离。</p><p><img src="https://picsum.photos/800/450?random=1768451838141" loading=lazy alt=配图></p><p>结果上线第一周，客服电话被打爆了。用户刚下的订单在列表里找不到，运营修改了活动配置前台却不生效，开发团队查日志查到怀疑人生，因为数据库里明明有数据。</p><p>那时候我才意识到，<strong>很多架构书上只教你怎么配置主从复制，却没告诉你复制延迟带来的“数据幽灵”有多要命。</strong></p><p>对于中小团队来说，读写分离往往不是性能救星，而是复杂度噩梦的开始。今天我想复盘一下，在不具备大厂完善中间件支撑的情况下，我们在落地读写分离时最容易踩的三个坑，以及低成本的填坑方案。</p><h2 id=刚写完就读不到别让主从延迟背锅>刚写完就读不到？别让“主从延迟”背锅</h2><p>这是最经典的场景，也是最容易引发信任危机的坑。</p><p><strong>真实案例：</strong>
+当时我们的用户注册流程是这样的：用户提交注册信息（写主库） -> 跳转到登录页 -> 自动登录并获取用户信息（读从库）。
+但在网络波动或从库负载稍高时，主从同步会有毫秒级甚至秒级的延迟。结果就是：用户明明刚注册成功，系统却提示“账号不存在”。</p><p>当时的临时方案是让前端在跳转前强制等待1秒，但这简直是用户体验的灾难。</p><p><strong>硬核解法：</strong>
+别指望MySQL能做到强一致性的实时同步，必须要从代码层面规避。我们后来制定了一个**“强制路由原则”**：</p><ol><li><strong>核心业务强制读主：</strong> 对于注册、下单、支付回调、库存扣减后立即查询等强一致性场景，直接在代码或注解中标注，强制走主库查询。</li><li><strong>缓存标记法（Cache Aside Latch）：</strong></li></ol><p>如果不想改动太多老代码，可以用Redis做一个“写后标记”。</p><div class=highlight><div class=chroma><table class=lntable><tr><td class=lntd><pre tabindex=0 class=chroma><code><span class=lnt> 1
+</span><span class=lnt> 2
+</span><span class=lnt> 3
+</span><span class=lnt> 4
+</span><span class=lnt> 5
+</span><span class=lnt> 6
+</span><span class=lnt> 7
+</span><span class=lnt> 8
+</span><span class=lnt> 9
+</span><span class=lnt>10
+</span><span class=lnt>11
+</span><span class=lnt>12
+</span><span class=lnt>13
+</span><span class=lnt>14
+</span><span class=lnt>15
+</span><span class=lnt>16
+</span><span class=lnt>17
+</span></code></pre></td><td class=lntd><pre tabindex=0 class=chroma><code class=language-java data-lang=java><span class=line><span class=cl><span class=c1>// 伪代码示例</span><span class=w>
+</span></span></span><span class=line><span class=cl><span class=w></span><span class=kd>public</span><span class=w> </span><span class=n>User</span><span class=w> </span><span class=nf>getUser</span><span class=p>(</span><span class=kt>long</span><span class=w> </span><span class=n>userId</span><span class=p>)</span><span class=w> </span><span class=p>{</span><span class=w>
+</span></span></span><span class=line><span class=cl><span class=w>    </span><span class=c1>// 1. 检查Redis里是否有“刚更新”的标记</span><span class=w>
+</span></span></span><span class=line><span class=cl><span class=w>    </span><span class=k>if</span><span class=w> </span><span class=p>(</span><span class=n>redis</span><span class=p>.</span><span class=na>hasKey</span><span class=p>(</span><span class=s>&#34;user_update_&#34;</span><span class=w> </span><span class=o>+</span><span class=w> </span><span class=n>userId</span><span class=p>))</span><span class=w> </span><span class=p>{</span><span class=w>
+</span></span></span><span class=line><span class=cl><span class=w>        </span><span class=c1>// 2. 有标记，说明刚写过，强制走主库</span><span class=w>
+</span></span></span><span class=line><span class=cl><span class=w>        </span><span class=k>return</span><span class=w> </span><span class=n>masterDb</span><span class=p>.</span><span class=na>selectUser</span><span class=p>(</span><span class=n>userId</span><span class=p>);</span><span class=w>
+</span></span></span><span class=line><span class=cl><span class=w>    </span><span class=p>}</span><span class=w>
+</span></span></span><span class=line><span class=cl><span class=w>    </span><span class=c1>// 3. 没标记，走从库（默认）</span><span class=w>
+</span></span></span><span class=line><span class=cl><span class=w>    </span><span class=k>return</span><span class=w> </span><span class=n>slaveDb</span><span class=p>.</span><span class=na>selectUser</span><span class=p>(</span><span class=n>userId</span><span class=p>);</span><span class=w>
+</span></span></span><span class=line><span class=cl><span class=w></span><span class=p>}</span><span class=w>
+</span></span></span><span class=line><span class=cl><span class=w>
+</span></span></span><span class=line><span class=cl><span class=w></span><span class=kd>public</span><span class=w> </span><span class=kt>void</span><span class=w> </span><span class=nf>updateUser</span><span class=p>(</span><span class=n>User</span><span class=w> </span><span class=n>user</span><span class=p>)</span><span class=w> </span><span class=p>{</span><span class=w>
+</span></span></span><span class=line><span class=cl><span class=w>    </span><span class=c1>// 1. 更新主库</span><span class=w>
+</span></span></span><span class=line><span class=cl><span class=w>    </span><span class=n>masterDb</span><span class=p>.</span><span class=na>update</span><span class=p>(</span><span class=n>user</span><span class=p>);</span><span class=w>
+</span></span></span><span class=line><span class=cl><span class=w>    </span><span class=c1>// 2. 设置标记，过期时间设为预估的主从延迟时间（如2秒）</span><span class=w>
+</span></span></span><span class=line><span class=cl><span class=w>    </span><span class=n>redis</span><span class=p>.</span><span class=na>setEx</span><span class=p>(</span><span class=s>&#34;user_update_&#34;</span><span class=w> </span><span class=o>+</span><span class=w> </span><span class=n>user</span><span class=p>.</span><span class=na>id</span><span class=p>,</span><span class=w> </span><span class=n>2</span><span class=p>,</span><span class=w> </span><span class=s>&#34;1&#34;</span><span class=p>);</span><span class=w>
+</span></span></span><span class=line><span class=cl><span class=w></span><span class=p>}</span><span class=w>
+</span></span></span></code></pre></td></tr></table></div></div><p>这个方案我用了三年，成本极低，完美解决了99%的“写完读不到”问题，而且对从库的压力分担影响很小。</p><h2 id=事务里的隐形杀手所有请求都去了主库>事务里的“隐形杀手”：所有请求都去了主库</h2><p>很多资深开发在做代码Review时，容易忽略框架层的默认行为，导致读写分离形同虚设。</p><p><strong>真实案例：</strong>
+有一次大促，我们监控到主库CPU飙升到95%，而三台从库的负载只有5%。排查代码发现，一位新来的兄弟为了省事，在一个涉及复杂查询的Service方法上直接加了 <code>@Transactional</code> 注解。</p><p>在Spring等主流框架中，<strong>一旦开启了事务，为了保证读视图的一致性，默认连接上下文会绑定到主库。</strong> 这意味着，在这个事务方法里，哪怕你做了99次查询，只有1次写入，这99次查询也全部打到了主库上！</p><p><strong>硬核解法：</strong>
+这是架构师必须对团队进行的规范教育。</p><p><img src="https://picsum.photos/800/450?random=1768451842337" loading=lazy alt=配图></p><ol><li><strong>缩小事务粒度：</strong> 坚决禁止在Controller层或大Service方法上直接加 <code>@Transactional</code>。只在真正执行 <code>save/update/delete</code> 的原子操作上加事务。</li><li><strong>使用编程式事务：</strong> 对于复杂的业务逻辑，建议手动控制事务边界，把耗时的查询操作剥离在事务之外。</li></ol><div class=highlight><div class=chroma><table class=lntable><tr><td class=lntd><pre tabindex=0 class=chroma><code><span class=lnt> 1
+</span><span class=lnt> 2
+</span><span class=lnt> 3
+</span><span class=lnt> 4
+</span><span class=lnt> 5
+</span><span class=lnt> 6
+</span><span class=lnt> 7
+</span><span class=lnt> 8
+</span><span class=lnt> 9
+</span><span class=lnt>10
+</span><span class=lnt>11
+</span><span class=lnt>12
+</span><span class=lnt>13
+</span><span class=lnt>14
+</span><span class=lnt>15
+</span><span class=lnt>16
+</span><span class=lnt>17
+</span><span class=lnt>18
+</span><span class=lnt>19
+</span><span class=lnt>20
+</span></code></pre></td><td class=lntd><pre tabindex=0 class=chroma><code class=language-java data-lang=java><span class=line><span class=cl><span class=c1>// 错误示范：整个方法都在事务中，查询也走主库</span><span class=w>
+</span></span></span><span class=line><span class=cl><span class=w></span><span class=nd>@Transactional</span><span class=w>
+</span></span></span><span class=line><span class=cl><span class=w></span><span class=kd>public</span><span class=w> </span><span class=kt>void</span><span class=w> </span><span class=nf>processOrder</span><span class=p>()</span><span class=w> </span><span class=p>{</span><span class=w>
+</span></span></span><span class=line><span class=cl><span class=w>    </span><span class=n>User</span><span class=w> </span><span class=n>user</span><span class=w> </span><span class=o>=</span><span class=w> </span><span class=n>userMapper</span><span class=p>.</span><span class=na>selectById</span><span class=p>(</span><span class=n>uid</span><span class=p>);</span><span class=w> </span><span class=c1>// 走了主库！</span><span class=w>
+</span></span></span><span class=line><span class=cl><span class=w>    </span><span class=n>List</span><span class=o>&lt;</span><span class=n>Product</span><span class=o>&gt;</span><span class=w> </span><span class=n>products</span><span class=w> </span><span class=o>=</span><span class=w> </span><span class=n>productMapper</span><span class=p>.</span><span class=na>selectList</span><span class=p>(</span><span class=n>ids</span><span class=p>);</span><span class=w> </span><span class=c1>// 走了主库！</span><span class=w>
+</span></span></span><span class=line><span class=cl><span class=w>    </span><span class=n>orderMapper</span><span class=p>.</span><span class=na>insert</span><span class=p>(</span><span class=n>order</span><span class=p>);</span><span class=w>
+</span></span></span><span class=line><span class=cl><span class=w></span><span class=p>}</span><span class=w>
+</span></span></span><span class=line><span class=cl><span class=w>
+</span></span></span><span class=line><span class=cl><span class=w></span><span class=c1>// 修正方案</span><span class=w>
+</span></span></span><span class=line><span class=cl><span class=w></span><span class=kd>public</span><span class=w> </span><span class=kt>void</span><span class=w> </span><span class=nf>processOrder</span><span class=p>()</span><span class=w> </span><span class=p>{</span><span class=w>
+</span></span></span><span class=line><span class=cl><span class=w>    </span><span class=c1>// 查询走从库</span><span class=w>
+</span></span></span><span class=line><span class=cl><span class=w>    </span><span class=n>User</span><span class=w> </span><span class=n>user</span><span class=w> </span><span class=o>=</span><span class=w> </span><span class=n>userMapper</span><span class=p>.</span><span class=na>selectById</span><span class=p>(</span><span class=n>uid</span><span class=p>);</span><span class=w> 
+</span></span></span><span class=line><span class=cl><span class=w>    </span><span class=n>List</span><span class=o>&lt;</span><span class=n>Product</span><span class=o>&gt;</span><span class=w> </span><span class=n>products</span><span class=w> </span><span class=o>=</span><span class=w> </span><span class=n>productMapper</span><span class=p>.</span><span class=na>selectList</span><span class=p>(</span><span class=n>ids</span><span class=p>);</span><span class=w>
+</span></span></span><span class=line><span class=cl><span class=w>    
+</span></span></span><span class=line><span class=cl><span class=w>    </span><span class=c1>// 只有写入逻辑开启事务</span><span class=w>
+</span></span></span><span class=line><span class=cl><span class=w>    </span><span class=n>transactionTemplate</span><span class=p>.</span><span class=na>execute</span><span class=p>(</span><span class=n>status</span><span class=w> </span><span class=o>-&gt;</span><span class=w> </span><span class=p>{</span><span class=w>
+</span></span></span><span class=line><span class=cl><span class=w>        </span><span class=n>orderMapper</span><span class=p>.</span><span class=na>insert</span><span class=p>(</span><span class=n>order</span><span class=p>);</span><span class=w>
+</span></span></span><span class=line><span class=cl><span class=w>        </span><span class=k>return</span><span class=w> </span><span class=kc>null</span><span class=p>;</span><span class=w>
+</span></span></span><span class=line><span class=cl><span class=w>    </span><span class=p>});</span><span class=w>
+</span></span></span><span class=line><span class=cl><span class=w></span><span class=p>}</span><span class=w>
+</span></span></span></code></pre></td></tr></table></div></div><h2 id=真的需要读写分离吗有时候钞能力更好用>真的需要读写分离吗？有时候“钞能力”更好用</h2><p>这一点可能比较反常识。很多架构师觉得上了读写分离才显得技术有深度。</p><p><strong>真实案例：</strong>
+2020年，我帮一个朋友的初创团队做咨询。他们日活才2万，数据量不到500万行，但技术负责人规划了一套“一主四从 + 读写分离中间件 + 分库分表”的豪华架构。结果运维成本极高，经常因为中间件bug导致服务不可用。</p><p>我给的建议是：<strong>全砍掉。</strong>
+直接买一台高配置的RDS（比如32核64G），把MySQL调优做好，加个Redis缓存热点数据。</p><p><strong>硬核解法：</strong>
+对于中小团队，硬件成本往往比人力成本和维护成本低得多。</p><ul><li><strong>算笔账：</strong> 搞读写分离，你需要引入中间件（ShardingSphere/MyCat等），需要处理同步延迟，需要防范主从切换的数据丢失。这至少需要消耗你团队里最资深的那个人20%的精力。</li><li><strong>替代方案：</strong> 在QPS未破5000，单表未破1000万之前，<strong>“升级硬件 + Redis缓存 + 索引优化”</strong> 才是性价比最高的方案。</li></ul><p>不要为了架构而架构，<strong>架构的本质是解决问题，而不是引入新问题。</strong></p><h2 id=写在最后>写在最后</h2><p>读写分离在流量增长期确实是提升吞吐量的利器，但它不是免费的午餐。它牺牲了数据的一致性（虽然是暂时的）来换取可用性，同时也引入了系统复杂性。</p><p>如果你正准备在团队落地读写分离，建议先问自己三个问题：</p><ol><li>现在的数据库真的到瓶颈了吗？加内存能不能解决？</li><li>你能容忍数据延迟带来的业务客诉吗？</li><li>团队有能力处理主从切换时的数据不一致吗？</li></ol><p><strong>落地行动指南：</strong></p><ol><li><strong>盘点现状：</strong> 检查现有项目中 <code>@Transactional</code> 的使用范围，是否存在大事务包裹大量查询的情况。</li><li><strong>监控先行：</strong> 在上线读写分离前，必须先部署“主从延迟监控”，一旦延迟超过阈值（如1秒），报警给开发人员。</li><li><strong>制定规范：</strong> 明确哪些业务场景必须强制读主库，并落实到代码Review清单中。</li></ol><p><strong>你在项目中遇到过因为主从延迟导致的“灵异事件”吗？或者是用过哪些好用的读写分离中间件？欢迎在评论区分享你的填坑经历。</strong></p></section><footer class=article-footer><section class=article-tags><a href=/tags/%E6%95%B0%E6%8D%AE%E5%BA%93%E8%AF%BB%E5%86%99%E5%88%86%E7%A6%BB%E7%9A%84%E8%90%BD%E5%9C%B0%E5%9D%91%E7%82%B9.html>数据库读写分离的落地坑点</a></section></footer></article><script src=https://giscus.app/client.js data-repo=pastor17/bloggiscus data-repo-id=R_kgDOQ6H9qQ data-category data-category-id=DIC_kwDOQ6H9qc4C0-T8 data-mapping=pathname data-strict=0 data-reactions-enabled=1 data-emit-metadata=0 data-input-position=bottom data-theme=light data-lang=zh-CN data-loading=lazy crossorigin=anonymous async></script><script>function setGiscusTheme(e){let t=document.querySelector("iframe.giscus-frame");t&&t.contentWindow.postMessage({giscus:{setConfig:{theme:e}}},"https://giscus.app")}(function(){addEventListener("message",t=>{if(event.origin!=="https://giscus.app")return;e()}),window.addEventListener("onColorSchemeChange",e);function e(){setGiscusTheme(document.documentElement.dataset.scheme==="light"?"light":"dark_dimmed")}})()</script><footer class=site-footer><section class=copyright>&copy;
+2021 -
+2026 SelfTechHub</section><section class=powerby>拒绝一次性认知，把碎片知识沉淀为可复用的记忆体系<br></section></footer><div class=pswp tabindex=-1 role=dialog aria-hidden=true><div class=pswp__bg></div><div class=pswp__scroll-wrap><div class=pswp__container><div class=pswp__item></div><div class=pswp__item></div><div class=pswp__item></div></div><div class="pswp__ui pswp__ui--hidden"><div class=pswp__top-bar><div class=pswp__counter></div><button class="pswp__button pswp__button--close" title="Close (Esc)"></button>
+<button class="pswp__button pswp__button--share" title=Share></button>
+<button class="pswp__button pswp__button--fs" title="Toggle fullscreen"></button>
+<button class="pswp__button pswp__button--zoom" title="Zoom in/out"></button><div class=pswp__preloader><div class=pswp__preloader__icn><div class=pswp__preloader__cut><div class=pswp__preloader__donut></div></div></div></div></div><div class="pswp__share-modal pswp__share-modal--hidden pswp__single-tap"><div class=pswp__share-tooltip></div></div><button class="pswp__button pswp__button--arrow--left" title="Previous (arrow left)">
+</button>
+<button class="pswp__button pswp__button--arrow--right" title="Next (arrow right)"></button><div class=pswp__caption><div class=pswp__caption__center></div></div></div></div></div><script src=https://cdn.jsdelivr.net/npm/photoswipe@4.1.3/dist/photoswipe.min.js integrity="sha256-ePwmChbbvXbsO02lbM3HoHbSHTHFAeChekF1xKJdleo=" crossorigin=anonymous defer></script><script src=https://cdn.jsdelivr.net/npm/photoswipe@4.1.3/dist/photoswipe-ui-default.min.js integrity="sha256-UKkzOn/w1mBxRmLLGrSeyB4e1xbrp4xylgAWb3M42pU=" crossorigin=anonymous defer></script><link rel=stylesheet href=https://cdn.jsdelivr.net/npm/photoswipe@4.1.3/dist/default-skin/default-skin.min.css crossorigin=anonymous><link rel=stylesheet href=https://cdn.jsdelivr.net/npm/photoswipe@4.1.3/dist/photoswipe.min.css crossorigin=anonymous></main></div><script src=https://cdn.jsdelivr.net/npm/node-vibrant@3.1.6/dist/vibrant.min.js integrity="sha256-awcR2jno4kI5X0zL8ex0vi2z+KMkF24hUW8WePSA9HM=" crossorigin=anonymous></script><script type=text/javascript src=/ts/main.c922af694cc257bf1ecc41c0dd7b0430f9114ec280ccf67cd2c6ad55f5316c4e.js defer></script><script>(function(){const e=document.createElement("link");e.href="https://fonts.googleapis.com/css2?family=Lato:wght@300;400;700&display=swap",e.type="text/css",e.rel="stylesheet",document.head.appendChild(e)})()</script></body></html>

@@ -1,67 +1,80 @@
-<?xml version="1.0" encoding="utf-8" standalone="yes"?>
-<rss version="2.0" xmlns:atom="http://www.w3.org/2005/Atom">
-    <channel>
-        <title>容器化改造：Docker Compose入门实战 on SelfTechHub</title>
-        <link>https://blog.irudder.me/tags/%E5%AE%B9%E5%99%A8%E5%8C%96%E6%94%B9%E9%80%A0Docker-Compose%E5%85%A5%E9%97%A8%E5%AE%9E%E6%88%98.html</link>
-        <description>Recent content in 容器化改造：Docker Compose入门实战 on SelfTechHub</description>
-        <generator>Hugo -- gohugo.io</generator>
-        <language>zh-cn</language>
-        <lastBuildDate>Sat, 13 May 2023 00:00:00 +0000</lastBuildDate><atom:link href="https://blog.irudder.me/tags/%E5%AE%B9%E5%99%A8%E5%8C%96%E6%94%B9%E9%80%A0Docker-Compose%E5%85%A5%E9%97%A8%E5%AE%9E%E6%88%98/index.xml" rel="self" type="application/rss+xml" /><item>
-        <title>别上K8s！中小项目用Docker Compose构建高可用架构实战</title>
-        <link>https://blog.irudder.me/tech/zhongxiaoxingxiangmujiagoushejizhinan/rongqihuagaizao_docker-composerumenshizhan.html</link>
-        <pubDate>Sat, 13 May 2023 00:00:00 +0000</pubDate>
-        
-        <guid>https://blog.irudder.me/tech/zhongxiaoxingxiangmujiagoushejizhinan/rongqihuagaizao_docker-composerumenshizhan.html</guid>
-        <description>&lt;p&gt;两年前，我接手过一个烂摊子。&lt;/p&gt;
+<?xml version="1.0" encoding="utf-8" standalone="yes"?><rss version="2.0" xmlns:atom="http://www.w3.org/2005/Atom"><channel><title>容器化改造：Docker Compose入门实战 on SelfTechHub</title><link>https://blog.irudder.me/tags/%E5%AE%B9%E5%99%A8%E5%8C%96%E6%94%B9%E9%80%A0Docker-Compose%E5%85%A5%E9%97%A8%E5%AE%9E%E6%88%98.html</link><description>Recent content in 容器化改造：Docker Compose入门实战 on SelfTechHub</description><generator>Hugo -- gohugo.io</generator><language>zh-cn</language><lastBuildDate>Sat, 13 May 2023 00:00:00 +0800</lastBuildDate><atom:link href="https://blog.irudder.me/tags/%E5%AE%B9%E5%99%A8%E5%8C%96%E6%94%B9%E9%80%A0Docker-Compose%E5%85%A5%E9%97%A8%E5%AE%9E%E6%88%98/index.xml" rel="self" type="application/rss+xml"/><item><title>别上K8s！中小项目用Docker Compose构建高可用架构实战</title><link>https://blog.irudder.me/tech/zhongxiaoxingxiangmujiagoushejizhinan/rongqihuagaizao_docker-composerumenshizhan.html</link><pubDate>Sat, 13 May 2023 00:00:00 +0800</pubDate><guid>https://blog.irudder.me/tech/zhongxiaoxingxiangmujiagoushejizhinan/rongqihuagaizao_docker-composerumenshizhan.html</guid><description>&lt;p&gt;两年前，我接手过一个烂摊子。&lt;/p&gt;
 &lt;p&gt;当时那个创业团队只有5个后端开发，却维护着一套复杂的Kubernetes集群。前任架构师为了追求&amp;quot;技术先进性&amp;quot;，把原本简单的电商SaaS拆成了几十个微服务。结果呢？&lt;strong&gt;业务代码没写多少，大家每天都在折腾Pod驱逐、网络插件冲突和证书过期。&lt;/strong&gt;&lt;/p&gt;
 &lt;p&gt;这其实是很多中小团队的缩影：&lt;strong&gt;陷入了&amp;quot;简历驱动开发&amp;quot;的陷阱，用屠龙刀去切土豆。&lt;/strong&gt;&lt;/p&gt;
 &lt;p&gt;在没有专职运维（Ops）的情况下，对于大多数日活（DAU）在10万以下、服务器规模在10台以内的项目，Docker Compose 配合合理的架构设计，不仅够用，而且&lt;strong&gt;真香&lt;/strong&gt;。&lt;/p&gt;
 &lt;p&gt;今天咱们不聊那些花里胡哨的概念，就聊聊我是如何用 Docker Compose 帮那个团队把架构&amp;quot;降级&amp;quot;，反而让系统稳定性提升了 99.9% 的实战经验。&lt;/p&gt;
-&lt;h2 id=&#34;一-摆脱环境玄学把基础设施代码化&#34;&gt;一、 摆脱&amp;quot;环境玄学&amp;quot;，把基础设施代码化
+&lt;h2 id="一-摆脱环境玄学把基础设施代码化"&gt;一、 摆脱&amp;quot;环境玄学&amp;quot;，把基础设施代码化
 &lt;/h2&gt;&lt;p&gt;很多资深开发都经历过这种绝望时刻：代码在本地跑得欢，一部署到测试环境就崩，到了生产环境直接报错 &lt;code&gt;Connection Refused&lt;/code&gt;。然后大家聚在一起排查半天，发现是测试环境的 Redis 版本低了，或者生产环境的防火墙没开。&lt;/p&gt;
 &lt;p&gt;&lt;strong&gt;Docker Compose 的核心价值，不仅仅是启动容器，而是&amp;quot;基础设施即代码&amp;quot;（IaC）的最简化落地。&lt;/strong&gt;&lt;/p&gt;
 &lt;p&gt;在重构那个项目时，我发现他们每个人的本地开发环境都不一样，有人用 Mac 的 Docker Desktop，有人直接在物理机装 MySQL。&lt;/p&gt;
 &lt;p&gt;&lt;strong&gt;落地动作：&lt;/strong&gt;
 我强制要求项目根目录必须包含一份标准化的 &lt;code&gt;docker-compose.yml&lt;/code&gt;，并且配合 &lt;code&gt;.env&lt;/code&gt; 文件管理差异。&lt;/p&gt;
-&lt;p&gt;&lt;img src=&#34;https://picsum.photos/800/450?random=1768456041035&#34;
-	
-	
-	
-	loading=&#34;lazy&#34;
-	
-		alt=&#34;配图&#34;
-	
-	
+&lt;p&gt;&lt;img src="https://picsum.photos/800/450?random=1768456041035"
+loading="lazy"
+alt="配图"
 &gt;&lt;/p&gt;
-&lt;div class=&#34;highlight&#34;&gt;&lt;pre tabindex=&#34;0&#34; style=&#34;color:#f8f8f2;background-color:#272822;-moz-tab-size:4;-o-tab-size:4;tab-size:4;&#34;&gt;&lt;code class=&#34;language-yaml&#34; data-lang=&#34;yaml&#34;&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;&lt;span style=&#34;color:#f92672&#34;&gt;version&lt;/span&gt;: &lt;span style=&#34;color:#e6db74&#34;&gt;&amp;#39;3.8&amp;#39;&lt;/span&gt;
-&lt;/span&gt;&lt;/span&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;&lt;span style=&#34;color:#f92672&#34;&gt;services&lt;/span&gt;:
-&lt;/span&gt;&lt;/span&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;  &lt;span style=&#34;color:#f92672&#34;&gt;api_server&lt;/span&gt;:
-&lt;/span&gt;&lt;/span&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;    &lt;span style=&#34;color:#f92672&#34;&gt;image&lt;/span&gt;: &lt;span style=&#34;color:#ae81ff&#34;&gt;myapp/backend:${TAG:-latest}&lt;/span&gt;
-&lt;/span&gt;&lt;/span&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;    &lt;span style=&#34;color:#f92672&#34;&gt;restart&lt;/span&gt;: &lt;span style=&#34;color:#ae81ff&#34;&gt;always&lt;/span&gt;
-&lt;/span&gt;&lt;/span&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;    &lt;span style=&#34;color:#f92672&#34;&gt;environment&lt;/span&gt;:
-&lt;/span&gt;&lt;/span&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;      - &lt;span style=&#34;color:#ae81ff&#34;&gt;DB_HOST=db&lt;/span&gt;
-&lt;/span&gt;&lt;/span&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;      - &lt;span style=&#34;color:#ae81ff&#34;&gt;REDIS_HOST=cache&lt;/span&gt;
-&lt;/span&gt;&lt;/span&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;    &lt;span style=&#34;color:#75715e&#34;&gt;# 关键点：用Healthcheck保证依赖就绪&lt;/span&gt;
-&lt;/span&gt;&lt;/span&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;    &lt;span style=&#34;color:#f92672&#34;&gt;healthcheck&lt;/span&gt;:
-&lt;/span&gt;&lt;/span&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;      &lt;span style=&#34;color:#f92672&#34;&gt;test&lt;/span&gt;: [&lt;span style=&#34;color:#e6db74&#34;&gt;&amp;#34;CMD&amp;#34;&lt;/span&gt;, &lt;span style=&#34;color:#e6db74&#34;&gt;&amp;#34;curl&amp;#34;&lt;/span&gt;, &lt;span style=&#34;color:#e6db74&#34;&gt;&amp;#34;-f&amp;#34;&lt;/span&gt;, &lt;span style=&#34;color:#e6db74&#34;&gt;&amp;#34;http://localhost:8080/health&amp;#34;&lt;/span&gt;]
-&lt;/span&gt;&lt;/span&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;      &lt;span style=&#34;color:#f92672&#34;&gt;interval&lt;/span&gt;: &lt;span style=&#34;color:#ae81ff&#34;&gt;30s&lt;/span&gt;
-&lt;/span&gt;&lt;/span&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;      &lt;span style=&#34;color:#f92672&#34;&gt;timeout&lt;/span&gt;: &lt;span style=&#34;color:#ae81ff&#34;&gt;10s&lt;/span&gt;
-&lt;/span&gt;&lt;/span&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;      &lt;span style=&#34;color:#f92672&#34;&gt;retries&lt;/span&gt;: &lt;span style=&#34;color:#ae81ff&#34;&gt;3&lt;/span&gt;
-&lt;/span&gt;&lt;/span&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;    &lt;span style=&#34;color:#f92672&#34;&gt;depends_on&lt;/span&gt;:
-&lt;/span&gt;&lt;/span&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;      &lt;span style=&#34;color:#f92672&#34;&gt;db&lt;/span&gt;:
-&lt;/span&gt;&lt;/span&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;        &lt;span style=&#34;color:#f92672&#34;&gt;condition&lt;/span&gt;: &lt;span style=&#34;color:#ae81ff&#34;&gt;service_healthy&lt;/span&gt;
-&lt;/span&gt;&lt;/span&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;  
-&lt;/span&gt;&lt;/span&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;  &lt;span style=&#34;color:#f92672&#34;&gt;db&lt;/span&gt;:
-&lt;/span&gt;&lt;/span&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;    &lt;span style=&#34;color:#f92672&#34;&gt;image&lt;/span&gt;: &lt;span style=&#34;color:#ae81ff&#34;&gt;mysql:5.7&lt;/span&gt;
-&lt;/span&gt;&lt;/span&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;    &lt;span style=&#34;color:#75715e&#34;&gt;# 生产环境挂载数据卷，别直接用容器内存储&lt;/span&gt;
-&lt;/span&gt;&lt;/span&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;    &lt;span style=&#34;color:#f92672&#34;&gt;volumes&lt;/span&gt;:
-&lt;/span&gt;&lt;/span&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;      - &lt;span style=&#34;color:#ae81ff&#34;&gt;./data/mysql:/var/lib/mysql&lt;/span&gt;
-&lt;/span&gt;&lt;/span&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;    &lt;span style=&#34;color:#f92672&#34;&gt;healthcheck&lt;/span&gt;:
-&lt;/span&gt;&lt;/span&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;      &lt;span style=&#34;color:#f92672&#34;&gt;test&lt;/span&gt;: [&lt;span style=&#34;color:#e6db74&#34;&gt;&amp;#34;CMD&amp;#34;&lt;/span&gt;, &lt;span style=&#34;color:#e6db74&#34;&gt;&amp;#34;mysqladmin&amp;#34;&lt;/span&gt; ,&lt;span style=&#34;color:#e6db74&#34;&gt;&amp;#34;ping&amp;#34;&lt;/span&gt;, &lt;span style=&#34;color:#e6db74&#34;&gt;&amp;#34;-h&amp;#34;&lt;/span&gt;, &lt;span style=&#34;color:#e6db74&#34;&gt;&amp;#34;localhost&amp;#34;&lt;/span&gt;]
-&lt;/span&gt;&lt;/span&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;      &lt;span style=&#34;color:#f92672&#34;&gt;timeout&lt;/span&gt;: &lt;span style=&#34;color:#ae81ff&#34;&gt;20s&lt;/span&gt;
-&lt;/span&gt;&lt;/span&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;      &lt;span style=&#34;color:#f92672&#34;&gt;retries&lt;/span&gt;: &lt;span style=&#34;color:#ae81ff&#34;&gt;10&lt;/span&gt;
-&lt;/span&gt;&lt;/span&gt;&lt;/code&gt;&lt;/pre&gt;&lt;/div&gt;&lt;p&gt;&lt;strong&gt;效果立竿见影：&lt;/strong&gt; 新来的实习生，以前配置环境要花一天，现在 &lt;code&gt;git clone&lt;/code&gt; 下来，敲一行 &lt;code&gt;docker-compose up -d&lt;/code&gt;，5分钟内就能开始写业务代码。&lt;strong&gt;环境一致性带来的效率提升，远比你想象的要大。&lt;/strong&gt;&lt;/p&gt;
-&lt;h2 id=&#34;二-单机部署也能做高可用&#34;&gt;二、 单机部署也能做&amp;quot;高可用&amp;quot;
+&lt;div class="highlight"&gt;&lt;div class="chroma"&gt;
+&lt;table class="lntable"&gt;&lt;tr&gt;&lt;td class="lntd"&gt;
+&lt;pre tabindex="0" class="chroma"&gt;&lt;code&gt;&lt;span class="lnt"&gt; 1
+&lt;/span&gt;&lt;span class="lnt"&gt; 2
+&lt;/span&gt;&lt;span class="lnt"&gt; 3
+&lt;/span&gt;&lt;span class="lnt"&gt; 4
+&lt;/span&gt;&lt;span class="lnt"&gt; 5
+&lt;/span&gt;&lt;span class="lnt"&gt; 6
+&lt;/span&gt;&lt;span class="lnt"&gt; 7
+&lt;/span&gt;&lt;span class="lnt"&gt; 8
+&lt;/span&gt;&lt;span class="lnt"&gt; 9
+&lt;/span&gt;&lt;span class="lnt"&gt;10
+&lt;/span&gt;&lt;span class="lnt"&gt;11
+&lt;/span&gt;&lt;span class="lnt"&gt;12
+&lt;/span&gt;&lt;span class="lnt"&gt;13
+&lt;/span&gt;&lt;span class="lnt"&gt;14
+&lt;/span&gt;&lt;span class="lnt"&gt;15
+&lt;/span&gt;&lt;span class="lnt"&gt;16
+&lt;/span&gt;&lt;span class="lnt"&gt;17
+&lt;/span&gt;&lt;span class="lnt"&gt;18
+&lt;/span&gt;&lt;span class="lnt"&gt;19
+&lt;/span&gt;&lt;span class="lnt"&gt;20
+&lt;/span&gt;&lt;span class="lnt"&gt;21
+&lt;/span&gt;&lt;span class="lnt"&gt;22
+&lt;/span&gt;&lt;span class="lnt"&gt;23
+&lt;/span&gt;&lt;span class="lnt"&gt;24
+&lt;/span&gt;&lt;span class="lnt"&gt;25
+&lt;/span&gt;&lt;span class="lnt"&gt;26
+&lt;/span&gt;&lt;span class="lnt"&gt;27
+&lt;/span&gt;&lt;/code&gt;&lt;/pre&gt;&lt;/td&gt;
+&lt;td class="lntd"&gt;
+&lt;pre tabindex="0" class="chroma"&gt;&lt;code class="language-yaml" data-lang="yaml"&gt;&lt;span class="line"&gt;&lt;span class="cl"&gt;&lt;span class="nt"&gt;version&lt;/span&gt;&lt;span class="p"&gt;:&lt;/span&gt;&lt;span class="w"&gt; &lt;/span&gt;&lt;span class="s1"&gt;&amp;#39;3.8&amp;#39;&lt;/span&gt;&lt;span class="w"&gt;
+&lt;/span&gt;&lt;/span&gt;&lt;/span&gt;&lt;span class="line"&gt;&lt;span class="cl"&gt;&lt;span class="w"&gt;&lt;/span&gt;&lt;span class="nt"&gt;services&lt;/span&gt;&lt;span class="p"&gt;:&lt;/span&gt;&lt;span class="w"&gt;
+&lt;/span&gt;&lt;/span&gt;&lt;/span&gt;&lt;span class="line"&gt;&lt;span class="cl"&gt;&lt;span class="w"&gt; &lt;/span&gt;&lt;span class="nt"&gt;api_server&lt;/span&gt;&lt;span class="p"&gt;:&lt;/span&gt;&lt;span class="w"&gt;
+&lt;/span&gt;&lt;/span&gt;&lt;/span&gt;&lt;span class="line"&gt;&lt;span class="cl"&gt;&lt;span class="w"&gt; &lt;/span&gt;&lt;span class="nt"&gt;image&lt;/span&gt;&lt;span class="p"&gt;:&lt;/span&gt;&lt;span class="w"&gt; &lt;/span&gt;&lt;span class="l"&gt;myapp/backend:${TAG:-latest}&lt;/span&gt;&lt;span class="w"&gt;
+&lt;/span&gt;&lt;/span&gt;&lt;/span&gt;&lt;span class="line"&gt;&lt;span class="cl"&gt;&lt;span class="w"&gt; &lt;/span&gt;&lt;span class="nt"&gt;restart&lt;/span&gt;&lt;span class="p"&gt;:&lt;/span&gt;&lt;span class="w"&gt; &lt;/span&gt;&lt;span class="l"&gt;always&lt;/span&gt;&lt;span class="w"&gt;
+&lt;/span&gt;&lt;/span&gt;&lt;/span&gt;&lt;span class="line"&gt;&lt;span class="cl"&gt;&lt;span class="w"&gt; &lt;/span&gt;&lt;span class="nt"&gt;environment&lt;/span&gt;&lt;span class="p"&gt;:&lt;/span&gt;&lt;span class="w"&gt;
+&lt;/span&gt;&lt;/span&gt;&lt;/span&gt;&lt;span class="line"&gt;&lt;span class="cl"&gt;&lt;span class="w"&gt; &lt;/span&gt;- &lt;span class="l"&gt;DB_HOST=db&lt;/span&gt;&lt;span class="w"&gt;
+&lt;/span&gt;&lt;/span&gt;&lt;/span&gt;&lt;span class="line"&gt;&lt;span class="cl"&gt;&lt;span class="w"&gt; &lt;/span&gt;- &lt;span class="l"&gt;REDIS_HOST=cache&lt;/span&gt;&lt;span class="w"&gt;
+&lt;/span&gt;&lt;/span&gt;&lt;/span&gt;&lt;span class="line"&gt;&lt;span class="cl"&gt;&lt;span class="w"&gt; &lt;/span&gt;&lt;span class="c"&gt;# 关键点：用Healthcheck保证依赖就绪&lt;/span&gt;&lt;span class="w"&gt;
+&lt;/span&gt;&lt;/span&gt;&lt;/span&gt;&lt;span class="line"&gt;&lt;span class="cl"&gt;&lt;span class="w"&gt; &lt;/span&gt;&lt;span class="nt"&gt;healthcheck&lt;/span&gt;&lt;span class="p"&gt;:&lt;/span&gt;&lt;span class="w"&gt;
+&lt;/span&gt;&lt;/span&gt;&lt;/span&gt;&lt;span class="line"&gt;&lt;span class="cl"&gt;&lt;span class="w"&gt; &lt;/span&gt;&lt;span class="nt"&gt;test&lt;/span&gt;&lt;span class="p"&gt;:&lt;/span&gt;&lt;span class="w"&gt; &lt;/span&gt;&lt;span class="p"&gt;[&lt;/span&gt;&lt;span class="s2"&gt;&amp;#34;CMD&amp;#34;&lt;/span&gt;&lt;span class="p"&gt;,&lt;/span&gt;&lt;span class="w"&gt; &lt;/span&gt;&lt;span class="s2"&gt;&amp;#34;curl&amp;#34;&lt;/span&gt;&lt;span class="p"&gt;,&lt;/span&gt;&lt;span class="w"&gt; &lt;/span&gt;&lt;span class="s2"&gt;&amp;#34;-f&amp;#34;&lt;/span&gt;&lt;span class="p"&gt;,&lt;/span&gt;&lt;span class="w"&gt; &lt;/span&gt;&lt;span class="s2"&gt;&amp;#34;http://localhost:8080/health&amp;#34;&lt;/span&gt;&lt;span class="p"&gt;]&lt;/span&gt;&lt;span class="w"&gt;
+&lt;/span&gt;&lt;/span&gt;&lt;/span&gt;&lt;span class="line"&gt;&lt;span class="cl"&gt;&lt;span class="w"&gt; &lt;/span&gt;&lt;span class="nt"&gt;interval&lt;/span&gt;&lt;span class="p"&gt;:&lt;/span&gt;&lt;span class="w"&gt; &lt;/span&gt;&lt;span class="l"&gt;30s&lt;/span&gt;&lt;span class="w"&gt;
+&lt;/span&gt;&lt;/span&gt;&lt;/span&gt;&lt;span class="line"&gt;&lt;span class="cl"&gt;&lt;span class="w"&gt; &lt;/span&gt;&lt;span class="nt"&gt;timeout&lt;/span&gt;&lt;span class="p"&gt;:&lt;/span&gt;&lt;span class="w"&gt; &lt;/span&gt;&lt;span class="l"&gt;10s&lt;/span&gt;&lt;span class="w"&gt;
+&lt;/span&gt;&lt;/span&gt;&lt;/span&gt;&lt;span class="line"&gt;&lt;span class="cl"&gt;&lt;span class="w"&gt; &lt;/span&gt;&lt;span class="nt"&gt;retries&lt;/span&gt;&lt;span class="p"&gt;:&lt;/span&gt;&lt;span class="w"&gt; &lt;/span&gt;&lt;span class="m"&gt;3&lt;/span&gt;&lt;span class="w"&gt;
+&lt;/span&gt;&lt;/span&gt;&lt;/span&gt;&lt;span class="line"&gt;&lt;span class="cl"&gt;&lt;span class="w"&gt; &lt;/span&gt;&lt;span class="nt"&gt;depends_on&lt;/span&gt;&lt;span class="p"&gt;:&lt;/span&gt;&lt;span class="w"&gt;
+&lt;/span&gt;&lt;/span&gt;&lt;/span&gt;&lt;span class="line"&gt;&lt;span class="cl"&gt;&lt;span class="w"&gt; &lt;/span&gt;&lt;span class="nt"&gt;db&lt;/span&gt;&lt;span class="p"&gt;:&lt;/span&gt;&lt;span class="w"&gt;
+&lt;/span&gt;&lt;/span&gt;&lt;/span&gt;&lt;span class="line"&gt;&lt;span class="cl"&gt;&lt;span class="w"&gt; &lt;/span&gt;&lt;span class="nt"&gt;condition&lt;/span&gt;&lt;span class="p"&gt;:&lt;/span&gt;&lt;span class="w"&gt; &lt;/span&gt;&lt;span class="l"&gt;service_healthy&lt;/span&gt;&lt;span class="w"&gt;
+&lt;/span&gt;&lt;/span&gt;&lt;/span&gt;&lt;span class="line"&gt;&lt;span class="cl"&gt;&lt;span class="w"&gt;
+&lt;/span&gt;&lt;/span&gt;&lt;/span&gt;&lt;span class="line"&gt;&lt;span class="cl"&gt;&lt;span class="w"&gt; &lt;/span&gt;&lt;span class="nt"&gt;db&lt;/span&gt;&lt;span class="p"&gt;:&lt;/span&gt;&lt;span class="w"&gt;
+&lt;/span&gt;&lt;/span&gt;&lt;/span&gt;&lt;span class="line"&gt;&lt;span class="cl"&gt;&lt;span class="w"&gt; &lt;/span&gt;&lt;span class="nt"&gt;image&lt;/span&gt;&lt;span class="p"&gt;:&lt;/span&gt;&lt;span class="w"&gt; &lt;/span&gt;&lt;span class="l"&gt;mysql:5.7&lt;/span&gt;&lt;span class="w"&gt;
+&lt;/span&gt;&lt;/span&gt;&lt;/span&gt;&lt;span class="line"&gt;&lt;span class="cl"&gt;&lt;span class="w"&gt; &lt;/span&gt;&lt;span class="c"&gt;# 生产环境挂载数据卷，别直接用容器内存储&lt;/span&gt;&lt;span class="w"&gt;
+&lt;/span&gt;&lt;/span&gt;&lt;/span&gt;&lt;span class="line"&gt;&lt;span class="cl"&gt;&lt;span class="w"&gt; &lt;/span&gt;&lt;span class="nt"&gt;volumes&lt;/span&gt;&lt;span class="p"&gt;:&lt;/span&gt;&lt;span class="w"&gt;
+&lt;/span&gt;&lt;/span&gt;&lt;/span&gt;&lt;span class="line"&gt;&lt;span class="cl"&gt;&lt;span class="w"&gt; &lt;/span&gt;- &lt;span class="l"&gt;./data/mysql:/var/lib/mysql&lt;/span&gt;&lt;span class="w"&gt;
+&lt;/span&gt;&lt;/span&gt;&lt;/span&gt;&lt;span class="line"&gt;&lt;span class="cl"&gt;&lt;span class="w"&gt; &lt;/span&gt;&lt;span class="nt"&gt;healthcheck&lt;/span&gt;&lt;span class="p"&gt;:&lt;/span&gt;&lt;span class="w"&gt;
+&lt;/span&gt;&lt;/span&gt;&lt;/span&gt;&lt;span class="line"&gt;&lt;span class="cl"&gt;&lt;span class="w"&gt; &lt;/span&gt;&lt;span class="nt"&gt;test&lt;/span&gt;&lt;span class="p"&gt;:&lt;/span&gt;&lt;span class="w"&gt; &lt;/span&gt;&lt;span class="p"&gt;[&lt;/span&gt;&lt;span class="s2"&gt;&amp;#34;CMD&amp;#34;&lt;/span&gt;&lt;span class="p"&gt;,&lt;/span&gt;&lt;span class="w"&gt; &lt;/span&gt;&lt;span class="s2"&gt;&amp;#34;mysqladmin&amp;#34;&lt;/span&gt;&lt;span class="w"&gt; &lt;/span&gt;&lt;span class="p"&gt;,&lt;/span&gt;&lt;span class="s2"&gt;&amp;#34;ping&amp;#34;&lt;/span&gt;&lt;span class="p"&gt;,&lt;/span&gt;&lt;span class="w"&gt; &lt;/span&gt;&lt;span class="s2"&gt;&amp;#34;-h&amp;#34;&lt;/span&gt;&lt;span class="p"&gt;,&lt;/span&gt;&lt;span class="w"&gt; &lt;/span&gt;&lt;span class="s2"&gt;&amp;#34;localhost&amp;#34;&lt;/span&gt;&lt;span class="p"&gt;]&lt;/span&gt;&lt;span class="w"&gt;
+&lt;/span&gt;&lt;/span&gt;&lt;/span&gt;&lt;span class="line"&gt;&lt;span class="cl"&gt;&lt;span class="w"&gt; &lt;/span&gt;&lt;span class="nt"&gt;timeout&lt;/span&gt;&lt;span class="p"&gt;:&lt;/span&gt;&lt;span class="w"&gt; &lt;/span&gt;&lt;span class="l"&gt;20s&lt;/span&gt;&lt;span class="w"&gt;
+&lt;/span&gt;&lt;/span&gt;&lt;/span&gt;&lt;span class="line"&gt;&lt;span class="cl"&gt;&lt;span class="w"&gt; &lt;/span&gt;&lt;span class="nt"&gt;retries&lt;/span&gt;&lt;span class="p"&gt;:&lt;/span&gt;&lt;span class="w"&gt; &lt;/span&gt;&lt;span class="m"&gt;10&lt;/span&gt;&lt;span class="w"&gt;
+&lt;/span&gt;&lt;/span&gt;&lt;/span&gt;&lt;/code&gt;&lt;/pre&gt;&lt;/td&gt;&lt;/tr&gt;&lt;/table&gt;
+&lt;/div&gt;
+&lt;/div&gt;&lt;p&gt;&lt;strong&gt;效果立竿见影：&lt;/strong&gt; 新来的实习生，以前配置环境要花一天，现在 &lt;code&gt;git clone&lt;/code&gt; 下来，敲一行 &lt;code&gt;docker-compose up -d&lt;/code&gt;，5分钟内就能开始写业务代码。&lt;strong&gt;环境一致性带来的效率提升，远比你想象的要大。&lt;/strong&gt;&lt;/p&gt;
+&lt;h2 id="二-单机部署也能做高可用"&gt;二、 单机部署也能做&amp;quot;高可用&amp;quot;
 &lt;/h2&gt;&lt;p&gt;有人会反驳我：&amp;ldquo;Docker Compose 只是单机编排，生产环境单点故障怎么办？&amp;rdquo;&lt;/p&gt;
 &lt;p&gt;这是个误区。对于中小项目，&lt;strong&gt;真正的可用性瓶颈通常不在于服务器挂了，而在于发布时的服务中断，或者内存泄漏导致的进程崩溃。&lt;/strong&gt;&lt;/p&gt;
 &lt;p&gt;我之前带过一个营销活动项目，流量突增。因为代码里有个低级 Bug 导致内存泄漏，服务每隔几小时就 OOM（内存溢出）挂掉。&lt;/p&gt;
@@ -70,24 +83,32 @@
 &lt;li&gt;&lt;strong&gt;资源限制（Deploy Resources）：&lt;/strong&gt; 既然会泄露，就限制它最大只能吃 1G 内存，别把宿主机拖死。&lt;/li&gt;
 &lt;li&gt;&lt;strong&gt;重启策略（Restart Policy）：&lt;/strong&gt; 挂了立刻自动重启。&lt;/li&gt;
 &lt;/ol&gt;
-&lt;div class=&#34;highlight&#34;&gt;&lt;pre tabindex=&#34;0&#34; style=&#34;color:#f8f8f2;background-color:#272822;-moz-tab-size:4;-o-tab-size:4;tab-size:4;&#34;&gt;&lt;code class=&#34;language-yaml&#34; data-lang=&#34;yaml&#34;&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;&lt;span style=&#34;color:#f92672&#34;&gt;services&lt;/span&gt;:
-&lt;/span&gt;&lt;/span&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;  &lt;span style=&#34;color:#f92672&#34;&gt;campaign_service&lt;/span&gt;:
-&lt;/span&gt;&lt;/span&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;    &lt;span style=&#34;color:#f92672&#34;&gt;deploy&lt;/span&gt;:
-&lt;/span&gt;&lt;/span&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;      &lt;span style=&#34;color:#f92672&#34;&gt;resources&lt;/span&gt;:
-&lt;/span&gt;&lt;/span&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;        &lt;span style=&#34;color:#f92672&#34;&gt;limits&lt;/span&gt;:
-&lt;/span&gt;&lt;/span&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;          &lt;span style=&#34;color:#f92672&#34;&gt;cpus&lt;/span&gt;: &lt;span style=&#34;color:#e6db74&#34;&gt;&amp;#39;0.50&amp;#39;&lt;/span&gt;
-&lt;/span&gt;&lt;/span&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;          &lt;span style=&#34;color:#f92672&#34;&gt;memory&lt;/span&gt;: &lt;span style=&#34;color:#ae81ff&#34;&gt;1G&lt;/span&gt;
-&lt;/span&gt;&lt;/span&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;    &lt;span style=&#34;color:#f92672&#34;&gt;restart&lt;/span&gt;: &lt;span style=&#34;color:#ae81ff&#34;&gt;always&lt;/span&gt; &lt;span style=&#34;color:#75715e&#34;&gt;# 哪怕进程崩了，Docker守护进程也会秒级拉起它&lt;/span&gt;
-&lt;/span&gt;&lt;/span&gt;&lt;/code&gt;&lt;/pre&gt;&lt;/div&gt;&lt;p&gt;&lt;strong&gt;关于&amp;quot;零宕机&amp;quot;发布的实操：&lt;/strong&gt;&lt;/p&gt;
-&lt;p&gt;&lt;img src=&#34;https://picsum.photos/800/450?random=1768456042042&#34;
-	
-	
-	
-	loading=&#34;lazy&#34;
-	
-		alt=&#34;配图&#34;
-	
-	
+&lt;div class="highlight"&gt;&lt;div class="chroma"&gt;
+&lt;table class="lntable"&gt;&lt;tr&gt;&lt;td class="lntd"&gt;
+&lt;pre tabindex="0" class="chroma"&gt;&lt;code&gt;&lt;span class="lnt"&gt;1
+&lt;/span&gt;&lt;span class="lnt"&gt;2
+&lt;/span&gt;&lt;span class="lnt"&gt;3
+&lt;/span&gt;&lt;span class="lnt"&gt;4
+&lt;/span&gt;&lt;span class="lnt"&gt;5
+&lt;/span&gt;&lt;span class="lnt"&gt;6
+&lt;/span&gt;&lt;span class="lnt"&gt;7
+&lt;/span&gt;&lt;span class="lnt"&gt;8
+&lt;/span&gt;&lt;/code&gt;&lt;/pre&gt;&lt;/td&gt;
+&lt;td class="lntd"&gt;
+&lt;pre tabindex="0" class="chroma"&gt;&lt;code class="language-yaml" data-lang="yaml"&gt;&lt;span class="line"&gt;&lt;span class="cl"&gt;&lt;span class="nt"&gt;services&lt;/span&gt;&lt;span class="p"&gt;:&lt;/span&gt;&lt;span class="w"&gt;
+&lt;/span&gt;&lt;/span&gt;&lt;/span&gt;&lt;span class="line"&gt;&lt;span class="cl"&gt;&lt;span class="w"&gt; &lt;/span&gt;&lt;span class="nt"&gt;campaign_service&lt;/span&gt;&lt;span class="p"&gt;:&lt;/span&gt;&lt;span class="w"&gt;
+&lt;/span&gt;&lt;/span&gt;&lt;/span&gt;&lt;span class="line"&gt;&lt;span class="cl"&gt;&lt;span class="w"&gt; &lt;/span&gt;&lt;span class="nt"&gt;deploy&lt;/span&gt;&lt;span class="p"&gt;:&lt;/span&gt;&lt;span class="w"&gt;
+&lt;/span&gt;&lt;/span&gt;&lt;/span&gt;&lt;span class="line"&gt;&lt;span class="cl"&gt;&lt;span class="w"&gt; &lt;/span&gt;&lt;span class="nt"&gt;resources&lt;/span&gt;&lt;span class="p"&gt;:&lt;/span&gt;&lt;span class="w"&gt;
+&lt;/span&gt;&lt;/span&gt;&lt;/span&gt;&lt;span class="line"&gt;&lt;span class="cl"&gt;&lt;span class="w"&gt; &lt;/span&gt;&lt;span class="nt"&gt;limits&lt;/span&gt;&lt;span class="p"&gt;:&lt;/span&gt;&lt;span class="w"&gt;
+&lt;/span&gt;&lt;/span&gt;&lt;/span&gt;&lt;span class="line"&gt;&lt;span class="cl"&gt;&lt;span class="w"&gt; &lt;/span&gt;&lt;span class="nt"&gt;cpus&lt;/span&gt;&lt;span class="p"&gt;:&lt;/span&gt;&lt;span class="w"&gt; &lt;/span&gt;&lt;span class="s1"&gt;&amp;#39;0.50&amp;#39;&lt;/span&gt;&lt;span class="w"&gt;
+&lt;/span&gt;&lt;/span&gt;&lt;/span&gt;&lt;span class="line"&gt;&lt;span class="cl"&gt;&lt;span class="w"&gt; &lt;/span&gt;&lt;span class="nt"&gt;memory&lt;/span&gt;&lt;span class="p"&gt;:&lt;/span&gt;&lt;span class="w"&gt; &lt;/span&gt;&lt;span class="l"&gt;1G&lt;/span&gt;&lt;span class="w"&gt;
+&lt;/span&gt;&lt;/span&gt;&lt;/span&gt;&lt;span class="line"&gt;&lt;span class="cl"&gt;&lt;span class="w"&gt; &lt;/span&gt;&lt;span class="nt"&gt;restart&lt;/span&gt;&lt;span class="p"&gt;:&lt;/span&gt;&lt;span class="w"&gt; &lt;/span&gt;&lt;span class="l"&gt;always&lt;/span&gt;&lt;span class="w"&gt; &lt;/span&gt;&lt;span class="c"&gt;# 哪怕进程崩了，Docker守护进程也会秒级拉起它&lt;/span&gt;&lt;span class="w"&gt;
+&lt;/span&gt;&lt;/span&gt;&lt;/span&gt;&lt;/code&gt;&lt;/pre&gt;&lt;/td&gt;&lt;/tr&gt;&lt;/table&gt;
+&lt;/div&gt;
+&lt;/div&gt;&lt;p&gt;&lt;strong&gt;关于&amp;quot;零宕机&amp;quot;发布的实操：&lt;/strong&gt;&lt;/p&gt;
+&lt;p&gt;&lt;img src="https://picsum.photos/800/450?random=1768456042042"
+loading="lazy"
+alt="配图"
 &gt;&lt;/p&gt;
 &lt;p&gt;很多团队用 Compose 发布是直接 &lt;code&gt;down&lt;/code&gt; 掉再 &lt;code&gt;up&lt;/code&gt;，这中间会有几秒甚至几十秒的服务中断。&lt;/p&gt;
 &lt;p&gt;我常用的一个土办法，非常有效：&lt;strong&gt;蓝绿部署的&amp;quot;乞丐版&amp;quot;实现&lt;/strong&gt;。&lt;/p&gt;
@@ -100,16 +121,10 @@
 &lt;li&gt;停掉 Blue 容器。&lt;/li&gt;
 &lt;/ol&gt;
 &lt;p&gt;这个脚本我写完用了两年，至今还在那家公司的 Jenkins 里跑着，稳得一匹。&lt;/p&gt;
-&lt;h2 id=&#34;三-日志与监控别等到报警才抓瞎&#34;&gt;三、 日志与监控：别等到报警才抓瞎
-&lt;/h2&gt;&lt;p&gt;&lt;img src=&#34;https://picsum.photos/800/450?random=1768456043757&#34;
-	
-	
-	
-	loading=&#34;lazy&#34;
-	
-		alt=&#34;配图&#34;
-	
-	
+&lt;h2 id="三-日志与监控别等到报警才抓瞎"&gt;三、 日志与监控：别等到报警才抓瞎
+&lt;/h2&gt;&lt;p&gt;&lt;img src="https://picsum.photos/800/450?random=1768456043757"
+loading="lazy"
+alt="配图"
 &gt;&lt;/p&gt;
 &lt;p&gt;容器化改造最怕的是&amp;quot;黑盒化&amp;quot;。以前应用跑在宿主机上，我要看日志，直接 &lt;code&gt;tail -f&lt;/code&gt; 完事。容器化后，日志散落在各个 Container 里，一旦出问题，排查起来非常痛苦。&lt;/p&gt;
 &lt;p&gt;踩过几次坑后，我总结了一条铁律：&lt;strong&gt;中小团队别碰 ELK（Elasticsearch, Logstash, Kibana），那玩意儿维护成本太高。&lt;/strong&gt;&lt;/p&gt;
@@ -118,7 +133,7 @@
 &lt;p&gt;&lt;strong&gt;真实场景复盘：&lt;/strong&gt;
 有次周五下午（往往是事故高发期），客服反馈用户登录慢。我没登服务器，直接打开 Grafana 看板，通过 Loki 聚合的日志，1分钟内定位到是某个 SQL 查询在 Docker 容器内超时了。&lt;/p&gt;
 &lt;p&gt;如果当时我要去 5 台服务器上分别 grep 日志，估计晚饭就得在公司吃了。&lt;/p&gt;
-&lt;h2 id=&#34;写在最后&#34;&gt;写在最后
+&lt;h2 id="写在最后"&gt;写在最后
 &lt;/h2&gt;&lt;p&gt;技术圈有个怪象，好像不用 K8s、不搞微服务就不够&amp;quot;架构&amp;quot;。但对于大多数中小团队的架构师来说，&lt;strong&gt;技术的 ROI（投入产出比）才是最重要的衡量标准。&lt;/strong&gt;&lt;/p&gt;
 &lt;p&gt;Docker Compose 也许不够&amp;quot;高大上&amp;quot;，但它简单、直观、易于调试。在业务快速迭代、人员变动频繁的早期阶段，&lt;strong&gt;&amp;ldquo;简单&amp;quot;本身就是最大的&amp;quot;稳健&amp;rdquo;。&lt;/strong&gt;&lt;/p&gt;
 &lt;p&gt;&lt;strong&gt;关于容器化选型，你更倾向于哪种？&lt;/strong&gt;
@@ -130,9 +145,4 @@ B. 先用 Docker Compose 跑通，业务量大了再迁移。
 &lt;li&gt;&lt;strong&gt;盘点现状：&lt;/strong&gt; 找出目前最容易因为环境不一致导致 Bug 的服务，作为试点。&lt;/li&gt;
 &lt;li&gt;&lt;strong&gt;标准化配置：&lt;/strong&gt; 编写通用的 &lt;code&gt;Dockerfile&lt;/code&gt; 基础镜像，和一份包含 Healthcheck 的 &lt;code&gt;docker-compose.yml&lt;/code&gt; 模板。&lt;/li&gt;
 &lt;li&gt;&lt;strong&gt;脚本化发布：&lt;/strong&gt; 写一个简单的 Shell 脚本，把 &lt;code&gt;docker-compose up -d&lt;/code&gt; 和健康检查串联起来，接入 Jenkins 或 GitLab CI。&lt;/li&gt;
-&lt;/ol&gt;
-</description>
-        </item>
-        
-    </channel>
-</rss>
+&lt;/ol&gt;</description></item></channel></rss>

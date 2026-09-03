@@ -1,480 +1,71 @@
-<!DOCTYPE html>
-<html lang="zh-cn" dir="ltr">
-    <head><meta charset='utf-8'>
-<meta name='viewport' content='width=device-width, initial-scale=1'><meta name='description' content="不知你是否经历过这种时刻：手机在凌晨疯狂震动，告警群里全是红色的[CRITICAL]，服务器CPU监控线笔直地拉成一条横线，且居高不下。\n我一直信奉&quot;周五不发布&quot;的铁律，但两年前的那次破例，让我结结实实地踩了一个大坑。当时为了赶一个看似简单的&quot;数据同步优化&quot;功能，我在周五傍晚匆忙上了一个补丁。结果当天凌晨3点，负责核心结算的微服务集群CPU全线打满，业务响应时间从20ms飙升到超时。\n这不仅是一次事故复盘，更是我对&quot;防御性编程&quot;认知的转折点。在那之前，我以为代码逻辑跑通就行；在那之后，我明白了什么是敬畏生产环境。\n拒绝重启，现场保留&quot;作案证据&quot;\r面对线上CPU爆表，很多运维或新手的本能反应是——重启试试。\n重启确实能暂时止血，但它同时也销毁了&quot;犯罪现场&quot;。如果不知道病因，重启只是把定时炸弹的时间重置了，下一次爆炸会来得更猛烈。\n我当时强行按住了想去点重启按钮的手，坚持要先抓取堆栈信息。\n这就好比破案，你得先留存指纹。在Linux环境下，定位Java应用CPU高的标准动作其实就那几步，但我发现很多人在紧张时容易乱。\n定位进程：top 命令一敲，PID为 18920 的Java进程稳居榜首，CPU占用率达到了惊人的 780%（8核机器）。 定位线程：光知道进程没用，得知道是哪个线程在捣乱。执行 top -Hp 18920，我看到 PID 为 19011 的线程一直占用着单核的99%。 转换进制：将线程ID 19011 转换为16进制 4a43（因为jstack里用的是16进制）。 导出堆栈：执行 jstack 18920 | grep -A 20 4a43。 思考题：如果你的生产环境没有权限执行 jstack 或者 top 命令被阉割了，你们现有的监控系统（如Prometheus, SkyWalking）能直接定位到代码行吗？\n这一套组合拳打完，仅仅耗时2分钟。屏幕上清晰地打印出了罪魁祸首的代码行数。看到那个类名的时候，我后背一阵发凉——正是我下午提交的那个&quot;优化&quot;代码。\n死循环：隐藏在异常处理里的杀手\r堆栈指向了一行看似人畜无害的代码：一个处理Redis消息队列的 while 循环。\n在这个案例中，我的初衷是好的。为了保证数据不丢失，我写了一个消费者线程，不断从Redis中拉取数据进行处理。代码逻辑大致如下（简化版）：\n// 错误示范：造成CPU 100%的逻辑 while (true) { try { String msg = redisService.pop(key); if (msg != null) { process(msg); } } catch (Exception e) { log.error(&#34;Redis error&#34;, e); // 致命疏忽：这里没有做任何休眠或退避 } } ">
-<title>凌晨3点CPU飙升100%：排查过程与血泪教训</title>
-
-<link rel='canonical' href='https://blog.irudder.me/tech/jiagouyouhuashizhananlijiexi/jiyicixianshangcpu-100%depaichayujiejueguocheng.html'>
-
-<link rel="stylesheet" href="/scss/style.min.b9e9128fec450ebccecc4ec9900157f32b85d0609bcd5ee3293968bcaa1235f2.css"><meta property='og:title' content="凌晨3点CPU飙升100%：排查过程与血泪教训">
-<meta property='og:description' content="不知你是否经历过这种时刻：手机在凌晨疯狂震动，告警群里全是红色的[CRITICAL]，服务器CPU监控线笔直地拉成一条横线，且居高不下。\n我一直信奉&quot;周五不发布&quot;的铁律，但两年前的那次破例，让我结结实实地踩了一个大坑。当时为了赶一个看似简单的&quot;数据同步优化&quot;功能，我在周五傍晚匆忙上了一个补丁。结果当天凌晨3点，负责核心结算的微服务集群CPU全线打满，业务响应时间从20ms飙升到超时。\n这不仅是一次事故复盘，更是我对&quot;防御性编程&quot;认知的转折点。在那之前，我以为代码逻辑跑通就行；在那之后，我明白了什么是敬畏生产环境。\n拒绝重启，现场保留&quot;作案证据&quot;\r面对线上CPU爆表，很多运维或新手的本能反应是——重启试试。\n重启确实能暂时止血，但它同时也销毁了&quot;犯罪现场&quot;。如果不知道病因，重启只是把定时炸弹的时间重置了，下一次爆炸会来得更猛烈。\n我当时强行按住了想去点重启按钮的手，坚持要先抓取堆栈信息。\n这就好比破案，你得先留存指纹。在Linux环境下，定位Java应用CPU高的标准动作其实就那几步，但我发现很多人在紧张时容易乱。\n定位进程：top 命令一敲，PID为 18920 的Java进程稳居榜首，CPU占用率达到了惊人的 780%（8核机器）。 定位线程：光知道进程没用，得知道是哪个线程在捣乱。执行 top -Hp 18920，我看到 PID 为 19011 的线程一直占用着单核的99%。 转换进制：将线程ID 19011 转换为16进制 4a43（因为jstack里用的是16进制）。 导出堆栈：执行 jstack 18920 | grep -A 20 4a43。 思考题：如果你的生产环境没有权限执行 jstack 或者 top 命令被阉割了，你们现有的监控系统（如Prometheus, SkyWalking）能直接定位到代码行吗？\n这一套组合拳打完，仅仅耗时2分钟。屏幕上清晰地打印出了罪魁祸首的代码行数。看到那个类名的时候，我后背一阵发凉——正是我下午提交的那个&quot;优化&quot;代码。\n死循环：隐藏在异常处理里的杀手\r堆栈指向了一行看似人畜无害的代码：一个处理Redis消息队列的 while 循环。\n在这个案例中，我的初衷是好的。为了保证数据不丢失，我写了一个消费者线程，不断从Redis中拉取数据进行处理。代码逻辑大致如下（简化版）：\n// 错误示范：造成CPU 100%的逻辑 while (true) { try { String msg = redisService.pop(key); if (msg != null) { process(msg); } } catch (Exception e) { log.error(&#34;Redis error&#34;, e); // 致命疏忽：这里没有做任何休眠或退避 } } ">
-<meta property='og:url' content='https://blog.irudder.me/tech/jiagouyouhuashizhananlijiexi/jiyicixianshangcpu-100%depaichayujiejueguocheng.html'>
-<meta property='og:site_name' content='SelfTechHub'>
-<meta property='og:type' content='article'><meta property='article:section' content='Tech' /><meta property='article:tag' content='记一次线上CPU 100%的排查与解决过程' /><meta property='article:published_time' content='2023-03-26T00:00:00&#43;00:00'/><meta property='article:modified_time' content='2023-03-26T00:00:00&#43;00:00'/>
-<meta name="twitter:title" content="凌晨3点CPU飙升100%：排查过程与血泪教训">
-<meta name="twitter:description" content="不知你是否经历过这种时刻：手机在凌晨疯狂震动，告警群里全是红色的[CRITICAL]，服务器CPU监控线笔直地拉成一条横线，且居高不下。\n我一直信奉&quot;周五不发布&quot;的铁律，但两年前的那次破例，让我结结实实地踩了一个大坑。当时为了赶一个看似简单的&quot;数据同步优化&quot;功能，我在周五傍晚匆忙上了一个补丁。结果当天凌晨3点，负责核心结算的微服务集群CPU全线打满，业务响应时间从20ms飙升到超时。\n这不仅是一次事故复盘，更是我对&quot;防御性编程&quot;认知的转折点。在那之前，我以为代码逻辑跑通就行；在那之后，我明白了什么是敬畏生产环境。\n拒绝重启，现场保留&quot;作案证据&quot;\r面对线上CPU爆表，很多运维或新手的本能反应是——重启试试。\n重启确实能暂时止血，但它同时也销毁了&quot;犯罪现场&quot;。如果不知道病因，重启只是把定时炸弹的时间重置了，下一次爆炸会来得更猛烈。\n我当时强行按住了想去点重启按钮的手，坚持要先抓取堆栈信息。\n这就好比破案，你得先留存指纹。在Linux环境下，定位Java应用CPU高的标准动作其实就那几步，但我发现很多人在紧张时容易乱。\n定位进程：top 命令一敲，PID为 18920 的Java进程稳居榜首，CPU占用率达到了惊人的 780%（8核机器）。 定位线程：光知道进程没用，得知道是哪个线程在捣乱。执行 top -Hp 18920，我看到 PID 为 19011 的线程一直占用着单核的99%。 转换进制：将线程ID 19011 转换为16进制 4a43（因为jstack里用的是16进制）。 导出堆栈：执行 jstack 18920 | grep -A 20 4a43。 思考题：如果你的生产环境没有权限执行 jstack 或者 top 命令被阉割了，你们现有的监控系统（如Prometheus, SkyWalking）能直接定位到代码行吗？\n这一套组合拳打完，仅仅耗时2分钟。屏幕上清晰地打印出了罪魁祸首的代码行数。看到那个类名的时候，我后背一阵发凉——正是我下午提交的那个&quot;优化&quot;代码。\n死循环：隐藏在异常处理里的杀手\r堆栈指向了一行看似人畜无害的代码：一个处理Redis消息队列的 while 循环。\n在这个案例中，我的初衷是好的。为了保证数据不丢失，我写了一个消费者线程，不断从Redis中拉取数据进行处理。代码逻辑大致如下（简化版）：\n// 错误示范：造成CPU 100%的逻辑 while (true) { try { String msg = redisService.pop(key); if (msg != null) { process(msg); } } catch (Exception e) { log.error(&#34;Redis error&#34;, e); // 致命疏忽：这里没有做任何休眠或退避 } } ">
-    </head>
-    <body class="
-    article-page
-    ">
-    <script>
-        (function() {
-            const colorSchemeKey = 'StackColorScheme';
-            if(!localStorage.getItem(colorSchemeKey)){
-                localStorage.setItem(colorSchemeKey, "auto");
-            }
-        })();
-    </script><script>
-    (function() {
-        const colorSchemeKey = 'StackColorScheme';
-        const colorSchemeItem = localStorage.getItem(colorSchemeKey);
-        const supportDarkMode = window.matchMedia('(prefers-color-scheme: dark)').matches === true;
-
-        if (colorSchemeItem == 'dark' || colorSchemeItem === 'auto' && supportDarkMode) {
-            
-
-            document.documentElement.dataset.scheme = 'dark';
-        } else {
-            document.documentElement.dataset.scheme = 'light';
-        }
-    })();
-</script>
-<div class="container main-container flex on-phone--column compact"><aside class="sidebar left-sidebar sticky ">
-    <button class="hamburger hamburger--spin" type="button" id="toggle-menu" aria-label="切换菜单">
-        <span class="hamburger-box">
-            <span class="hamburger-inner"></span>
-        </span>
-    </button>
-
-    <header>
-        
-            
-            <figure class="site-avatar">
-                <a href="/">
-                
-                    
-                    
-                    
-                        
-                        <img src="/img/avatar_hu_8588ce14af1147e2.png" width="300"
-                            height="286" class="site-logo" loading="lazy" alt="Avatar">
-                    
-                
-                </a>
-                
-            </figure>
-            
-        
-        
-        <div class="site-meta">
-            <h1 class="site-name"><a href="/">SelfTechHub</a></h1>
-            <h2 class="site-description"></h2>
-        </div>
-    </header><ol class="menu" id="main-menu">
-        
-        
-        <li class="menu-bottom-section">
-            <ol class="menu">
-
-                
-                    <li id="dark-mode-toggle">
-                        <svg xmlns="http://www.w3.org/2000/svg" class="icon icon-tabler icon-tabler-toggle-left" width="24" height="24" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor" fill="none" stroke-linecap="round" stroke-linejoin="round">
-  <path stroke="none" d="M0 0h24v24H0z"/>
-  <circle cx="8" cy="12" r="2" />
-  <rect x="2" y="6" width="20" height="12" rx="6" />
-</svg>
-
-
-
-                        <svg xmlns="http://www.w3.org/2000/svg" class="icon icon-tabler icon-tabler-toggle-right" width="24" height="24" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor" fill="none" stroke-linecap="round" stroke-linejoin="round">
-  <path stroke="none" d="M0 0h24v24H0z"/>
-  <circle cx="16" cy="12" r="2" />
-  <rect x="2" y="6" width="20" height="12" rx="6" />
-</svg>
-
-
-
-                        <span>暗色模式</span>
-                    </li>
-                
-            </ol>
-        </li>
-    </ol>
-</aside>
-
-    
-
-            <main class="main full-width">
-    <article class="main-article">
-    <header class="article-header">
-
-    <div class="article-details">
-    
-    <header class="article-category">
-        
-            <a href="/categories/%E6%8A%80%E6%9C%AF.html" >
-                技术精进
-            </a>
-        
-    </header>
-    
-
-    <div class="article-title-wrapper">
-        <h2 class="article-title">
-            <a href="/tech/jiagouyouhuashizhananlijiexi/jiyicixianshangcpu-100%depaichayujiejueguocheng.html">凌晨3点CPU飙升100%：排查过程与血泪教训</a>
-        </h2>
-    
-        
-    </div>
-
-    
-    
-    
-    
-    <footer class="article-time">
-        
-            <div>
-                <svg xmlns="http://www.w3.org/2000/svg" class="icon icon-tabler icon-tabler-calendar-time" width="56" height="56" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor" fill="none" stroke-linecap="round" stroke-linejoin="round">
-  <path stroke="none" d="M0 0h24v24H0z"/>
-  <path d="M11.795 21h-6.795a2 2 0 0 1 -2 -2v-12a2 2 0 0 1 2 -2h12a2 2 0 0 1 2 2v4" />
-  <circle cx="18" cy="18" r="4" />
-  <path d="M15 3v4" />
-  <path d="M7 3v4" />
-  <path d="M3 11h16" />
-  <path d="M18 16.496v1.504l1 1" />
-</svg>
-                <time class="article-time--published" datetime='2023-03-26T00:00:00Z'>Mar 26, 2023</time>
-            </div>
-        
-
-        
-            <div>
-                <svg xmlns="http://www.w3.org/2000/svg" class="icon icon-tabler icon-tabler-clock" width="24" height="24" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor" fill="none" stroke-linecap="round" stroke-linejoin="round">
-  <path stroke="none" d="M0 0h24v24H0z"/>
-  <circle cx="12" cy="12" r="9" />
-  <polyline points="12 7 12 12 15 15" />
-</svg>
-
-
-
-                <time class="article-time--reading">
-                    阅读时长: 1 分钟
-                </time>
-            </div>
-        
-    </footer>
-    
-
-    
-</div>
-
-</header>
-
-    <section class="article-content">
-    
-    
-    <p>不知你是否经历过这种时刻：手机在凌晨疯狂震动，告警群里全是红色的<code>[CRITICAL]</code>，服务器CPU监控线笔直地拉成一条横线，且居高不下。</p>
-<p>我一直信奉&quot;周五不发布&quot;的铁律，但两年前的那次破例，让我结结实实地踩了一个大坑。当时为了赶一个看似简单的&quot;数据同步优化&quot;功能，我在周五傍晚匆忙上了一个补丁。结果当天凌晨3点，负责核心结算的微服务集群CPU全线打满，业务响应时间从20ms飙升到超时。</p>
-<p>这不仅是一次事故复盘，更是我对&quot;防御性编程&quot;认知的转折点。在那之前，我以为代码逻辑跑通就行；在那之后，我明白了什么是<strong>敬畏生产环境</strong>。</p>
-<h2 id="拒绝重启现场保留作案证据">拒绝重启，现场保留&quot;作案证据&quot;
-</h2><p>面对线上CPU爆表，很多运维或新手的本能反应是——<strong>重启试试</strong>。</p>
-<p>重启确实能暂时止血，但它同时也销毁了&quot;犯罪现场&quot;。如果不知道病因，重启只是把定时炸弹的时间重置了，下一次爆炸会来得更猛烈。</p>
-<p><strong>我当时强行按住了想去点重启按钮的手，坚持要先抓取堆栈信息。</strong></p>
-<p><img src="https://picsum.photos/800/450?random=1768457134097"
-	
-	
-	
-	loading="lazy"
-	
-		alt="配图"
-	
-	
-></p>
-<p>这就好比破案，你得先留存指纹。在Linux环境下，定位Java应用CPU高的标准动作其实就那几步，但我发现很多人在紧张时容易乱。</p>
-<ol>
-<li><strong>定位进程</strong>：<code>top</code> 命令一敲，PID为 <code>18920</code> 的Java进程稳居榜首，CPU占用率达到了惊人的 780%（8核机器）。</li>
-<li><strong>定位线程</strong>：光知道进程没用，得知道是哪个线程在捣乱。执行 <code>top -Hp 18920</code>，我看到 PID 为 <code>19011</code> 的线程一直占用着单核的99%。</li>
-<li><strong>转换进制</strong>：将线程ID <code>19011</code> 转换为16进制 <code>4a43</code>（因为jstack里用的是16进制）。</li>
-<li><strong>导出堆栈</strong>：执行 <code>jstack 18920 | grep -A 20 4a43</code>。</li>
-</ol>
-<blockquote>
-<p><strong>思考题</strong>：如果你的生产环境没有权限执行 jstack 或者 top 命令被阉割了，你们现有的监控系统（如Prometheus, SkyWalking）能直接定位到代码行吗？</p>
-</blockquote>
-<p>这一套组合拳打完，仅仅耗时2分钟。屏幕上清晰地打印出了罪魁祸首的代码行数。看到那个类名的时候，我后背一阵发凉——正是我下午提交的那个&quot;优化&quot;代码。</p>
-<h2 id="死循环隐藏在异常处理里的杀手">死循环：隐藏在异常处理里的杀手
-</h2><p><img src="https://picsum.photos/800/450?random=1768457132484"
-	
-	
-	
-	loading="lazy"
-	
-		alt="配图"
-	
-	
-></p>
-<p>堆栈指向了一行看似人畜无害的代码：一个处理Redis消息队列的 <code>while</code> 循环。</p>
-<p>在这个案例中，我的初衷是好的。为了保证数据不丢失，我写了一个消费者线程，不断从Redis中拉取数据进行处理。代码逻辑大致如下（简化版）：</p>
-<div class="highlight"><pre tabindex="0" style="color:#f8f8f2;background-color:#272822;-moz-tab-size:4;-o-tab-size:4;tab-size:4;"><code class="language-java" data-lang="java"><span style="display:flex;"><span><span style="color:#75715e">// 错误示范：造成CPU 100%的逻辑</span>
-</span></span><span style="display:flex;"><span><span style="color:#66d9ef">while</span> (<span style="color:#66d9ef">true</span>) {
-</span></span><span style="display:flex;"><span>    <span style="color:#66d9ef">try</span> {
-</span></span><span style="display:flex;"><span>        String msg <span style="color:#f92672">=</span> redisService.<span style="color:#a6e22e">pop</span>(key);
-</span></span><span style="display:flex;"><span>        <span style="color:#66d9ef">if</span> (msg <span style="color:#f92672">!=</span> <span style="color:#66d9ef">null</span>) {
-</span></span><span style="display:flex;"><span>            process(msg);
-</span></span><span style="display:flex;"><span>        }
-</span></span><span style="display:flex;"><span>    } <span style="color:#66d9ef">catch</span> (Exception e) {
-</span></span><span style="display:flex;"><span>        log.<span style="color:#a6e22e">error</span>(<span style="color:#e6db74">&#34;Redis error&#34;</span>, e);
-</span></span><span style="display:flex;"><span>        <span style="color:#75715e">// 致命疏忽：这里没有做任何休眠或退避</span>
-</span></span><span style="display:flex;"><span>    }
-</span></span><span style="display:flex;"><span>}
-</span></span></code></pre></div><p><img src="https://picsum.photos/800/450?random=1768457131032"
-	
-	
-	
-	loading="lazy"
-	
-		alt="配图"
-	
-	
-></p>
-<p>问题出在哪里？</p>
-<p>当晚凌晨，云服务商的Redis实例发生了一次短暂的内网抖动。<code>redisService.pop(key)</code> 抛出了连接异常。</p>
-<p>按照正常的逻辑，异常被捕获，打印日志。但是，<strong>由于catch块中没有哪怕1毫秒的 sleep，也没有跳出循环</strong>，这个 <code>while(true)</code> 瞬间变成了一个极其紧密的死循环。</p>
-<p>线程疯狂地 抛出异常 -&gt; 捕获异常 -&gt; 打印日志 -&gt; 再次重试。</p>
-<p>JVM在极短时间内进行了数百万次的方法调用和对象创建，日志文件以每秒几百MB的速度疯狂膨胀（导致磁盘IO也跟着报警），CPU直接被吃干抹净。</p>
-<p><strong>这是一个典型的&quot;假死循环&quot;。它不是逻辑上的死锁，而是由于缺乏退避机制（Backoff）导致的资源耗尽。</strong></p>
-<p>我曾在Code Review中多次强调NPE（空指针）的检查，却忽略了这种在异常态下的资源保护。你是否也曾觉得：&ldquo;加了try-catch就万事大吉了&rdquo;？</p>
-<h2 id="加上熔断与退避才是成熟的代码">加上&quot;熔断&quot;与&quot;退避&quot;，才是成熟的代码
-</h2><p>定位到问题后，修复方案其实很简单。紧急发布修复包，加上了指数退避策略，服务恢复了平静。</p>
-<p>但这件事让我反思了很久：<strong>为什么一个中间件的抖动，能搞垮我的核心服务？</strong></p>
-<p>这暴露出架构设计上的脆弱性。我们在设计系统时，往往假设依赖服务是永远可靠的，网络是永远通畅的。</p>
-<p>针对这次事故，我后续落地了三层防护体系，这套方法我沿用至今：</p>
-<h3 id="1-强制性的退避策略">1. 强制性的退避策略
-</h3><p>在任何 <code>while</code> 循环或重试逻辑中，必须包含休眠机制。</p>
-<div class="highlight"><pre tabindex="0" style="color:#f8f8f2;background-color:#272822;-moz-tab-size:4;-o-tab-size:4;tab-size:4;"><code class="language-java" data-lang="java"><span style="display:flex;"><span><span style="color:#75715e">// 改进后的逻辑</span>
-</span></span><span style="display:flex;"><span><span style="color:#66d9ef">int</span> retryCount <span style="color:#f92672">=</span> 0;
-</span></span><span style="display:flex;"><span><span style="color:#66d9ef">while</span> (<span style="color:#66d9ef">true</span>) {
-</span></span><span style="display:flex;"><span>    <span style="color:#66d9ef">try</span> {
-</span></span><span style="display:flex;"><span>        String msg <span style="color:#f92672">=</span> redisService.<span style="color:#a6e22e">pop</span>(key);
-</span></span><span style="display:flex;"><span>        <span style="color:#75715e">// ...处理逻辑</span>
-</span></span><span style="display:flex;"><span>        retryCount <span style="color:#f92672">=</span> 0; <span style="color:#75715e">// 成功则重置</span>
-</span></span><span style="display:flex;"><span>    } <span style="color:#66d9ef">catch</span> (Exception e) {
-</span></span><span style="display:flex;"><span>        log.<span style="color:#a6e22e">error</span>(<span style="color:#e6db74">&#34;Redis error&#34;</span>, e);
-</span></span><span style="display:flex;"><span>        retryCount<span style="color:#f92672">++</span>;
-</span></span><span style="display:flex;"><span>        <span style="color:#75715e">// 指数退避：发生错误时，休息时间越来越长，避免把下游打死</span>
-</span></span><span style="display:flex;"><span>        <span style="color:#66d9ef">long</span> sleepTime <span style="color:#f92672">=</span> Math.<span style="color:#a6e22e">min</span>(1000 <span style="color:#f92672">*</span> (1 <span style="color:#f92672">&lt;&lt;</span> retryCount), 60000); 
-</span></span><span style="display:flex;"><span>        Thread.<span style="color:#a6e22e">sleep</span>(sleepTime); 
-</span></span><span style="display:flex;"><span>    }
-</span></span><span style="display:flex;"><span>}
-</span></span></code></pre></div><h3 id="2-引入轻量级熔断">2. 引入轻量级熔断
-</h3><p>不要盲目自信地一直重试。如果Redis真的挂了，你的应用应该&quot;认怂&quot;。我们引入了 Resilience4j 这样的轻量级库，当异常比例达到阈值（比如50%），直接熔断该功能，降级为记录本地文件或内存队列，等待人工介入或自动恢复。</p>
-<h3 id="3-资源隔离bulkhead">3. 资源隔离（Bulkhead）
-</h3><p>之前那个处理线程直接使用了默认的线程池。一旦死循环，虽然只是单线程，但也可能因为疯狂GC影响整个JVM。后来我们将关键任务分配到独立的线程池中，并限制了最大线程数和队列长度。即使这个池子炸了，也不会拖垮处理HTTP请求的主线程池。</p>
-<h2 id="总结与行动指南">总结与行动指南
-</h2><p>那次事故后，我养成了一个习惯：<strong>写任何循环（Loop）的时候，先问自己三个问题：</strong></p>
-<ol>
-<li>它什么时候结束？</li>
-<li>如果内部报错了，它会狂转吗？</li>
-<li>它会不会把CPU或内存吃光？</li>
-</ol>
-<p>如果你正在经历或想要预防类似的问题，以下是3个可落地的建议：</p>
-<ol>
-<li><strong>实战演练定位命令</strong>：不要等到故障发生时再去百度&quot;Linux CPU 100% 怎么查&quot;。找一台测试机，写一个死循环程序，亲自用 <code>top</code> 和 <code>jstack</code> 抓一次，形成肌肉记忆。</li>
-<li><strong>审查所有 <code>while(true)</code></strong>：利用IDE的全局搜索，检查项目中所有的无限循环和递归调用，确保在 <code>catch</code> 块中有 <code>Thread.sleep</code> 或退出机制。</li>
-<li><strong>配置JVM监控告警</strong>：不要只看系统级CPU。确保你的Prometheus/Grafana监控了 JVM 的 GC 频率和线程数。很多时候，CPU 100% 并不是死循环，而是因为内存泄漏导致的频繁 Full GC。</li>
-</ol>
-<p><strong>最后，留一个问题给各位同行：</strong>
-在你的项目中，如果数据库或Redis突然断连1分钟，你的服务是会优雅降级，还是会像无头苍蝇一样疯狂报错直到崩溃？</p>
-<p>愿你的CPU常年保持在 20% 以下，愿你所有的报警都发生在工作日上班时间。</p>
-
-</section>
-
-
-    <footer class="article-footer">
-    
-    <section class="article-tags">
-        
-            <a href="/tags/%E8%AE%B0%E4%B8%80%E6%AC%A1%E7%BA%BF%E4%B8%8ACPU-100%E7%9A%84%E6%8E%92%E6%9F%A5%E4%B8%8E%E8%A7%A3%E5%86%B3%E8%BF%87%E7%A8%8B.html">记一次线上CPU 100%的排查与解决过程</a>
-        
-    </section>
-
-
-    </footer>
-
-
-    
-</article>
-
-    
-
-    
-
-     
-    
-        
-    <script
-    src="https://giscus.app/client.js"
-    data-repo="pastor17/bloggiscus"
-    data-repo-id="R_kgDOQ6H9qQ"
-    data-category=""
-    data-category-id="DIC_kwDOQ6H9qc4C0-T8"
-    data-mapping="pathname"
-    data-strict="0"
-    data-reactions-enabled="1"
-    data-emit-metadata="0"
-    data-input-position="bottom"
-    data-theme="light"
-    data-lang="zh-CN"
-    data-loading="lazy"
-    crossorigin="anonymous"
-    async
-></script>
-<script>
-    function setGiscusTheme(theme) {
-        let giscus = document.querySelector("iframe.giscus-frame");
-        if (giscus) {
-            giscus.contentWindow.postMessage(
-                {
-                    giscus: {
-                        setConfig: {
-                            theme: theme,
-                        },
-                    },
-                },
-                "https://giscus.app"
-            );
-        }
-    }
-
-    (function () {
-        addEventListener("message", (e) => {
-            if (event.origin !== "https://giscus.app") return;
-            handler();
-        });
-        window.addEventListener("onColorSchemeChange", handler);
-
-        function handler() {
-            if (document.documentElement.dataset.scheme === "light") {
-                setGiscusTheme('light');
-            } else {
-                setGiscusTheme('dark_dimmed');
-            }
-        }
-    })();
-</script>
-
-    
-
-    <footer class="site-footer">
-    <section class="copyright">
-        &copy; 
-        
-        2026 SelfTechHub
-    </section>
-    
-    <section class="powerby">
-        
-
-    </section>
-</footer>
-
-
-    
-<div class="pswp" tabindex="-1" role="dialog" aria-hidden="true">
-
-    
-    <div class="pswp__bg"></div>
-
-    
-    <div class="pswp__scroll-wrap">
-
-        
-        <div class="pswp__container">
-            <div class="pswp__item"></div>
-            <div class="pswp__item"></div>
-            <div class="pswp__item"></div>
-        </div>
-
-        
-        <div class="pswp__ui pswp__ui--hidden">
-
-            <div class="pswp__top-bar">
-
-                
-
-                <div class="pswp__counter"></div>
-
-                <button class="pswp__button pswp__button--close" title="Close (Esc)"></button>
-
-                <button class="pswp__button pswp__button--share" title="Share"></button>
-
-                <button class="pswp__button pswp__button--fs" title="Toggle fullscreen"></button>
-
-                <button class="pswp__button pswp__button--zoom" title="Zoom in/out"></button>
-
-                
-                
-                <div class="pswp__preloader">
-                    <div class="pswp__preloader__icn">
-                        <div class="pswp__preloader__cut">
-                            <div class="pswp__preloader__donut"></div>
-                        </div>
-                    </div>
-                </div>
-            </div>
-
-            <div class="pswp__share-modal pswp__share-modal--hidden pswp__single-tap">
-                <div class="pswp__share-tooltip"></div>
-            </div>
-
-            <button class="pswp__button pswp__button--arrow--left" title="Previous (arrow left)">
-            </button>
-
-            <button class="pswp__button pswp__button--arrow--right" title="Next (arrow right)">
-            </button>
-
-            <div class="pswp__caption">
-                <div class="pswp__caption__center"></div>
-            </div>
-
-        </div>
-
-    </div>
-
-</div><script 
-                src="https://cdn.jsdelivr.net/npm/photoswipe@4.1.3/dist/photoswipe.min.js"integrity="sha256-ePwmChbbvXbsO02lbM3HoHbSHTHFAeChekF1xKJdleo="crossorigin="anonymous"
-                defer
-                >
-            </script><script 
-                src="https://cdn.jsdelivr.net/npm/photoswipe@4.1.3/dist/photoswipe-ui-default.min.js"integrity="sha256-UKkzOn/w1mBxRmLLGrSeyB4e1xbrp4xylgAWb3M42pU="crossorigin="anonymous"
-                defer
-                >
-            </script><link 
-                rel="stylesheet" 
-                href="https://cdn.jsdelivr.net/npm/photoswipe@4.1.3/dist/default-skin/default-skin.min.css"crossorigin="anonymous"
-            ><link 
-                rel="stylesheet" 
-                href="https://cdn.jsdelivr.net/npm/photoswipe@4.1.3/dist/photoswipe.min.css"crossorigin="anonymous"
-            >
-    
-
-            </main>
-        </div>
-        <script 
-                src="https://cdn.jsdelivr.net/npm/node-vibrant@3.1.6/dist/vibrant.min.js"integrity="sha256-awcR2jno4kI5X0zL8ex0vi2z&#43;KMkF24hUW8WePSA9HM="crossorigin="anonymous"
-                
-                >
-            </script><script type="text/javascript" src="/ts/main.c922af694cc257bf1ecc41c0dd7b0430f9114ec280ccf67cd2c6ad55f5316c4e.js" defer></script>
-<script>
-    (function () {
-        const customFont = document.createElement('link');
-        customFont.href = "https://fonts.googleapis.com/css2?family=Lato:wght@300;400;700&display=swap";
-
-        customFont.type = "text/css";
-        customFont.rel = "stylesheet";
-
-        document.head.appendChild(customFont);
-    }());
-</script>
-
-    </body>
-</html>
+<!doctype html><html lang=zh-cn dir=ltr><head><meta charset=utf-8><meta name=viewport content='width=device-width,initial-scale=1'><meta name=description content="不知你是否经历过这种时刻：手机在凌晨疯狂震动，告警群里全是红色的[CRITICAL]，服务器CPU监控线笔直地拉成一条横线，且居高不下。"><title>凌晨3点CPU飙升100%：排查过程与血泪教训</title><link rel=canonical href=https://blog.irudder.me/tech/jiagouyouhuashizhananlijiexi/jiyicixianshangcpu-100%depaichayujiejueguocheng.html><link rel=stylesheet href=/scss/style.min.c77ce1b874b29b2ee9e54a89066c79ebf35cbe9cf399b31ab5d79167f9a965c9.css><meta property='og:title' content="凌晨3点CPU飙升100%：排查过程与血泪教训"><meta property='og:description' content="不知你是否经历过这种时刻：手机在凌晨疯狂震动，告警群里全是红色的[CRITICAL]，服务器CPU监控线笔直地拉成一条横线，且居高不下。"><meta property='og:url' content='https://blog.irudder.me/tech/jiagouyouhuashizhananlijiexi/jiyicixianshangcpu-100%depaichayujiejueguocheng.html'><meta property='og:site_name' content='SelfTechHub'><meta property='og:type' content='article'><meta property='article:section' content='Tech'><meta property='article:tag' content='记一次线上CPU 100%的排查与解决过程'><meta property='article:published_time' content='2023-03-26T00:00:00+08:00'><meta property='article:modified_time' content='2023-03-26T00:00:00+08:00'><meta name=twitter:title content="凌晨3点CPU飙升100%：排查过程与血泪教训"><meta name=twitter:description content="不知你是否经历过这种时刻：手机在凌晨疯狂震动，告警群里全是红色的[CRITICAL]，服务器CPU监控线笔直地拉成一条横线，且居高不下。"><link rel="shortcut icon" href=/images/logo.png></head><body class=article-page><script>(function(){const e="StackColorScheme";localStorage.getItem(e)||localStorage.setItem(e,"auto")})()</script><script>(function(){const t="StackColorScheme",e=localStorage.getItem(t),n=window.matchMedia("(prefers-color-scheme: dark)").matches===!0;e=="dark"||e==="auto"&&n?document.documentElement.dataset.scheme="dark":document.documentElement.dataset.scheme="light"})()</script><div class="container main-container flex on-phone--column extended"><aside class="sidebar left-sidebar sticky"><button class="hamburger hamburger--spin" type=button id=toggle-menu aria-label=切换菜单>
+<span class=hamburger-box><span class=hamburger-inner></span></span></button><header><figure class=site-avatar><a href=/><img src=/img/avatar_hu_8588ce14af1147e2.png width=300 height=286 class=site-logo loading=lazy alt=Avatar>
+</a><span class=emoji>🧠</span></figure><div class=site-meta><h1 class=site-name><a href=/>SelfTechHub</a></h1><h2 class=site-description>成长 · 技术 · 商业 · AI —— 把碎片知识沉淀为可复用的记忆体系</h2></div></header><ol class=menu-social><li><a href=https://github.com/pastor17 target=_blank title=GitHub rel=me><svg class="icon icon-tabler icon-tabler-brand-github" width="24" height="24" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor" fill="none" stroke-linecap="round" stroke-linejoin="round"><path stroke="none" d="M0 0h24v24H0z" fill="none"/><path d="M9 19c-4.3 1.4-4.3-2.5-6-3m12 5v-3.5c0-1 .1-1.4-.5-2 2.8-.3 5.5-1.4 5.5-6a4.6 4.6.0 00-1.3-3.2 4.2 4.2.0 00-.1-3.2s-1.1-.3-3.5 1.3a12.3 12.3.0 00-6.2.0C6.5 2.8 5.4 3.1 5.4 3.1a4.2 4.2.0 00-.1 3.2A4.6 4.6.0 004 9.5c0 4.6 2.7 5.7 5.5 6-.6.6-.6 1.2-.5 2V21"/></svg></a></li></ol><ol class=menu id=main-menu><li><a href=/><svg class="icon icon-tabler icon-tabler-home" width="24" height="24" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor" fill="none" stroke-linecap="round" stroke-linejoin="round"><path stroke="none" d="M0 0h24v24H0z"/><polyline points="5 12 3 12 12 3 21 12 19 12"/><path d="M5 12v7a2 2 0 002 2h10a2 2 0 002-2v-7"/><path d="M9 21v-6a2 2 0 012-2h2a2 2 0 012 2v6"/></svg>
+<span>首页</span></a></li><li><a href=/categories/%E6%88%90%E9%95%BF.html><span>成长认知</span></a></li><li><a href=/categories/%E6%8A%80%E6%9C%AF.html><span>技术精进</span></a></li><li><a href=/categories/%E5%95%86%E4%B8%9A.html><span>商业·财富</span></a></li><li><a href=/categories/ai.html><span>探索AI</span></a></li><li><a href=/about/><svg class="icon icon-tabler icon-tabler-user" width="24" height="24" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor" fill="none" stroke-linecap="round" stroke-linejoin="round"><path stroke="none" d="M0 0h24v24H0z"/><circle cx="12" cy="7" r="4"/><path d="M6 21v-2a4 4 0 014-4h4a4 4 0 014 4v2"/></svg>
+<span>关于</span></a></li><li class=menu-bottom-section><ol class=menu><li id=dark-mode-toggle><svg class="icon icon-tabler icon-tabler-toggle-left" width="24" height="24" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor" fill="none" stroke-linecap="round" stroke-linejoin="round"><path stroke="none" d="M0 0h24v24H0z"/><circle cx="8" cy="12" r="2"/><rect x="2" y="6" width="20" height="12" rx="6"/></svg>
+<svg class="icon icon-tabler icon-tabler-toggle-right" width="24" height="24" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor" fill="none" stroke-linecap="round" stroke-linejoin="round"><path stroke="none" d="M0 0h24v24H0z"/><circle cx="16" cy="12" r="2"/><rect x="2" y="6" width="20" height="12" rx="6"/></svg>
+<span>暗色模式</span></li></ol></li></ol></aside><aside class="sidebar right-sidebar sticky"><section class="widget archives"><div class=widget-icon><svg class="icon icon-tabler icon-tabler-hash" width="24" height="24" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor" fill="none" stroke-linecap="round" stroke-linejoin="round"><path stroke="none" d="M0 0h24v24H0z"/><line x1="5" y1="9" x2="19" y2="9"/><line x1="5" y1="15" x2="19" y2="15"/><line x1="11" y1="4" x2="7" y2="20"/><line x1="17" y1="4" x2="13" y2="20"/></svg></div><h2 class="widget-title section-title">目录</h2><div class=widget--toc><nav id=TableOfContents><ul><li><a href=#拒绝重启现场保留作案证据>拒绝重启，现场保留"作案证据"</a></li><li><a href=#死循环隐藏在异常处理里的杀手>死循环：隐藏在异常处理里的杀手</a></li><li><a href=#加上熔断与退避才是成熟的代码>加上"熔断"与"退避"，才是成熟的代码</a><ul><li><a href=#1-强制性的退避策略>1. 强制性的退避策略</a></li><li><a href=#2-引入轻量级熔断>2. 引入轻量级熔断</a></li><li><a href=#3-资源隔离bulkhead>3. 资源隔离（Bulkhead）</a></li></ul></li><li><a href=#总结与行动指南>总结与行动指南</a></li></ul></nav></div></section></aside><main class="main full-width"><article class=main-article><header class=article-header><div class=article-details><header class=article-category><a href=/categories/%E6%8A%80%E6%9C%AF.html>技术精进</a></header><div class=article-title-wrapper><h2 class=article-title><a href=/tech/jiagouyouhuashizhananlijiexi/jiyicixianshangcpu-100%depaichayujiejueguocheng.html>凌晨3点CPU飙升100%：排查过程与血泪教训</a></h2><h3 class=article-subtitle>不知你是否经历过这种时刻：手机在凌晨疯狂震动，告警群里全是红色的[CRITICAL]，服务器CPU监控线笔直地拉成一条横线，且居高不下。</h3></div><footer class=article-time><div><svg class="icon icon-tabler icon-tabler-calendar-time" width="56" height="56" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor" fill="none" stroke-linecap="round" stroke-linejoin="round"><path stroke="none" d="M0 0h24v24H0z"/><path d="M11.795 21H5a2 2 0 01-2-2V7a2 2 0 012-2h12a2 2 0 012 2v4"/><circle cx="18" cy="18" r="4"/><path d="M15 3v4"/><path d="M7 3v4"/><path d="M3 11h16"/><path d="M18 16.496V18l1 1"/></svg>
+<time class=article-time--published datetime=2023-03-26T00:00:00+08:00>2023-03-26</time></div><div><svg class="icon icon-tabler icon-tabler-clock" width="24" height="24" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor" fill="none" stroke-linecap="round" stroke-linejoin="round"><path stroke="none" d="M0 0h24v24H0z"/><circle cx="12" cy="12" r="9"/><polyline points="12 7 12 12 15 15"/></svg>
+<time class=article-time--reading>阅读时长: 5 分钟</time></div></footer></div></header><section class=article-content><p>不知你是否经历过这种时刻：手机在凌晨疯狂震动，告警群里全是红色的<code>[CRITICAL]</code>，服务器CPU监控线笔直地拉成一条横线，且居高不下。</p><p>我一直信奉"周五不发布"的铁律，但两年前的那次破例，让我结结实实地踩了一个大坑。当时为了赶一个看似简单的"数据同步优化"功能，我在周五傍晚匆忙上了一个补丁。结果当天凌晨3点，负责核心结算的微服务集群CPU全线打满，业务响应时间从20ms飙升到超时。</p><p>这不仅是一次事故复盘，更是我对"防御性编程"认知的转折点。在那之前，我以为代码逻辑跑通就行；在那之后，我明白了什么是<strong>敬畏生产环境</strong>。</p><h2 id=拒绝重启现场保留作案证据>拒绝重启，现场保留"作案证据"</h2><p>面对线上CPU爆表，很多运维或新手的本能反应是——<strong>重启试试</strong>。</p><p>重启确实能暂时止血，但它同时也销毁了"犯罪现场"。如果不知道病因，重启只是把定时炸弹的时间重置了，下一次爆炸会来得更猛烈。</p><p><strong>我当时强行按住了想去点重启按钮的手，坚持要先抓取堆栈信息。</strong></p><p><img src="https://picsum.photos/800/450?random=1768457134097" loading=lazy alt=配图></p><p>这就好比破案，你得先留存指纹。在Linux环境下，定位Java应用CPU高的标准动作其实就那几步，但我发现很多人在紧张时容易乱。</p><ol><li><strong>定位进程</strong>：<code>top</code> 命令一敲，PID为 <code>18920</code> 的Java进程稳居榜首，CPU占用率达到了惊人的 780%（8核机器）。</li><li><strong>定位线程</strong>：光知道进程没用，得知道是哪个线程在捣乱。执行 <code>top -Hp 18920</code>，我看到 PID 为 <code>19011</code> 的线程一直占用着单核的99%。</li><li><strong>转换进制</strong>：将线程ID <code>19011</code> 转换为16进制 <code>4a43</code>（因为jstack里用的是16进制）。</li><li><strong>导出堆栈</strong>：执行 <code>jstack 18920 | grep -A 20 4a43</code>。</li></ol><blockquote><p><strong>思考题</strong>：如果你的生产环境没有权限执行 jstack 或者 top 命令被阉割了，你们现有的监控系统（如Prometheus, SkyWalking）能直接定位到代码行吗？</p></blockquote><p>这一套组合拳打完，仅仅耗时2分钟。屏幕上清晰地打印出了罪魁祸首的代码行数。看到那个类名的时候，我后背一阵发凉——正是我下午提交的那个"优化"代码。</p><h2 id=死循环隐藏在异常处理里的杀手>死循环：隐藏在异常处理里的杀手</h2><p><img src="https://picsum.photos/800/450?random=1768457132484" loading=lazy alt=配图></p><p>堆栈指向了一行看似人畜无害的代码：一个处理Redis消息队列的 <code>while</code> 循环。</p><p>在这个案例中，我的初衷是好的。为了保证数据不丢失，我写了一个消费者线程，不断从Redis中拉取数据进行处理。代码逻辑大致如下（简化版）：</p><div class=highlight><div class=chroma><table class=lntable><tr><td class=lntd><pre tabindex=0 class=chroma><code><span class=lnt> 1
+</span><span class=lnt> 2
+</span><span class=lnt> 3
+</span><span class=lnt> 4
+</span><span class=lnt> 5
+</span><span class=lnt> 6
+</span><span class=lnt> 7
+</span><span class=lnt> 8
+</span><span class=lnt> 9
+</span><span class=lnt>10
+</span><span class=lnt>11
+</span><span class=lnt>12
+</span></code></pre></td><td class=lntd><pre tabindex=0 class=chroma><code class=language-java data-lang=java><span class=line><span class=cl><span class=c1>// 错误示范：造成CPU 100%的逻辑</span><span class=w>
+</span></span></span><span class=line><span class=cl><span class=w></span><span class=k>while</span><span class=w> </span><span class=p>(</span><span class=kc>true</span><span class=p>)</span><span class=w> </span><span class=p>{</span><span class=w>
+</span></span></span><span class=line><span class=cl><span class=w>    </span><span class=k>try</span><span class=w> </span><span class=p>{</span><span class=w>
+</span></span></span><span class=line><span class=cl><span class=w>        </span><span class=n>String</span><span class=w> </span><span class=n>msg</span><span class=w> </span><span class=o>=</span><span class=w> </span><span class=n>redisService</span><span class=p>.</span><span class=na>pop</span><span class=p>(</span><span class=n>key</span><span class=p>);</span><span class=w>
+</span></span></span><span class=line><span class=cl><span class=w>        </span><span class=k>if</span><span class=w> </span><span class=p>(</span><span class=n>msg</span><span class=w> </span><span class=o>!=</span><span class=w> </span><span class=kc>null</span><span class=p>)</span><span class=w> </span><span class=p>{</span><span class=w>
+</span></span></span><span class=line><span class=cl><span class=w>            </span><span class=n>process</span><span class=p>(</span><span class=n>msg</span><span class=p>);</span><span class=w>
+</span></span></span><span class=line><span class=cl><span class=w>        </span><span class=p>}</span><span class=w>
+</span></span></span><span class=line><span class=cl><span class=w>    </span><span class=p>}</span><span class=w> </span><span class=k>catch</span><span class=w> </span><span class=p>(</span><span class=n>Exception</span><span class=w> </span><span class=n>e</span><span class=p>)</span><span class=w> </span><span class=p>{</span><span class=w>
+</span></span></span><span class=line><span class=cl><span class=w>        </span><span class=n>log</span><span class=p>.</span><span class=na>error</span><span class=p>(</span><span class=s>&#34;Redis error&#34;</span><span class=p>,</span><span class=w> </span><span class=n>e</span><span class=p>);</span><span class=w>
+</span></span></span><span class=line><span class=cl><span class=w>        </span><span class=c1>// 致命疏忽：这里没有做任何休眠或退避</span><span class=w>
+</span></span></span><span class=line><span class=cl><span class=w>    </span><span class=p>}</span><span class=w>
+</span></span></span><span class=line><span class=cl><span class=w></span><span class=p>}</span><span class=w>
+</span></span></span></code></pre></td></tr></table></div></div><p><img src="https://picsum.photos/800/450?random=1768457131032" loading=lazy alt=配图></p><p>问题出在哪里？</p><p>当晚凌晨，云服务商的Redis实例发生了一次短暂的内网抖动。<code>redisService.pop(key)</code> 抛出了连接异常。</p><p>按照正常的逻辑，异常被捕获，打印日志。但是，<strong>由于catch块中没有哪怕1毫秒的 sleep，也没有跳出循环</strong>，这个 <code>while(true)</code> 瞬间变成了一个极其紧密的死循环。</p><p>线程疯狂地 抛出异常 -> 捕获异常 -> 打印日志 -> 再次重试。</p><p>JVM在极短时间内进行了数百万次的方法调用和对象创建，日志文件以每秒几百MB的速度疯狂膨胀（导致磁盘IO也跟着报警），CPU直接被吃干抹净。</p><p><strong>这是一个典型的"假死循环"。它不是逻辑上的死锁，而是由于缺乏退避机制（Backoff）导致的资源耗尽。</strong></p><p>我曾在Code Review中多次强调NPE（空指针）的检查，却忽略了这种在异常态下的资源保护。你是否也曾觉得：&ldquo;加了try-catch就万事大吉了&rdquo;？</p><h2 id=加上熔断与退避才是成熟的代码>加上"熔断"与"退避"，才是成熟的代码</h2><p>定位到问题后，修复方案其实很简单。紧急发布修复包，加上了指数退避策略，服务恢复了平静。</p><p>但这件事让我反思了很久：<strong>为什么一个中间件的抖动，能搞垮我的核心服务？</strong></p><p>这暴露出架构设计上的脆弱性。我们在设计系统时，往往假设依赖服务是永远可靠的，网络是永远通畅的。</p><p>针对这次事故，我后续落地了三层防护体系，这套方法我沿用至今：</p><h3 id=1-强制性的退避策略>1. 强制性的退避策略</h3><p>在任何 <code>while</code> 循环或重试逻辑中，必须包含休眠机制。</p><div class=highlight><div class=chroma><table class=lntable><tr><td class=lntd><pre tabindex=0 class=chroma><code><span class=lnt> 1
+</span><span class=lnt> 2
+</span><span class=lnt> 3
+</span><span class=lnt> 4
+</span><span class=lnt> 5
+</span><span class=lnt> 6
+</span><span class=lnt> 7
+</span><span class=lnt> 8
+</span><span class=lnt> 9
+</span><span class=lnt>10
+</span><span class=lnt>11
+</span><span class=lnt>12
+</span><span class=lnt>13
+</span><span class=lnt>14
+</span><span class=lnt>15
+</span></code></pre></td><td class=lntd><pre tabindex=0 class=chroma><code class=language-java data-lang=java><span class=line><span class=cl><span class=c1>// 改进后的逻辑</span><span class=w>
+</span></span></span><span class=line><span class=cl><span class=w></span><span class=kt>int</span><span class=w> </span><span class=n>retryCount</span><span class=w> </span><span class=o>=</span><span class=w> </span><span class=n>0</span><span class=p>;</span><span class=w>
+</span></span></span><span class=line><span class=cl><span class=w></span><span class=k>while</span><span class=w> </span><span class=p>(</span><span class=kc>true</span><span class=p>)</span><span class=w> </span><span class=p>{</span><span class=w>
+</span></span></span><span class=line><span class=cl><span class=w>    </span><span class=k>try</span><span class=w> </span><span class=p>{</span><span class=w>
+</span></span></span><span class=line><span class=cl><span class=w>        </span><span class=n>String</span><span class=w> </span><span class=n>msg</span><span class=w> </span><span class=o>=</span><span class=w> </span><span class=n>redisService</span><span class=p>.</span><span class=na>pop</span><span class=p>(</span><span class=n>key</span><span class=p>);</span><span class=w>
+</span></span></span><span class=line><span class=cl><span class=w>        </span><span class=c1>// ...处理逻辑</span><span class=w>
+</span></span></span><span class=line><span class=cl><span class=w>        </span><span class=n>retryCount</span><span class=w> </span><span class=o>=</span><span class=w> </span><span class=n>0</span><span class=p>;</span><span class=w> </span><span class=c1>// 成功则重置</span><span class=w>
+</span></span></span><span class=line><span class=cl><span class=w>    </span><span class=p>}</span><span class=w> </span><span class=k>catch</span><span class=w> </span><span class=p>(</span><span class=n>Exception</span><span class=w> </span><span class=n>e</span><span class=p>)</span><span class=w> </span><span class=p>{</span><span class=w>
+</span></span></span><span class=line><span class=cl><span class=w>        </span><span class=n>log</span><span class=p>.</span><span class=na>error</span><span class=p>(</span><span class=s>&#34;Redis error&#34;</span><span class=p>,</span><span class=w> </span><span class=n>e</span><span class=p>);</span><span class=w>
+</span></span></span><span class=line><span class=cl><span class=w>        </span><span class=n>retryCount</span><span class=o>++</span><span class=p>;</span><span class=w>
+</span></span></span><span class=line><span class=cl><span class=w>        </span><span class=c1>// 指数退避：发生错误时，休息时间越来越长，避免把下游打死</span><span class=w>
+</span></span></span><span class=line><span class=cl><span class=w>        </span><span class=kt>long</span><span class=w> </span><span class=n>sleepTime</span><span class=w> </span><span class=o>=</span><span class=w> </span><span class=n>Math</span><span class=p>.</span><span class=na>min</span><span class=p>(</span><span class=n>1000</span><span class=w> </span><span class=o>*</span><span class=w> </span><span class=p>(</span><span class=n>1</span><span class=w> </span><span class=o>&lt;&lt;</span><span class=w> </span><span class=n>retryCount</span><span class=p>),</span><span class=w> </span><span class=n>60000</span><span class=p>);</span><span class=w> 
+</span></span></span><span class=line><span class=cl><span class=w>        </span><span class=n>Thread</span><span class=p>.</span><span class=na>sleep</span><span class=p>(</span><span class=n>sleepTime</span><span class=p>);</span><span class=w> 
+</span></span></span><span class=line><span class=cl><span class=w>    </span><span class=p>}</span><span class=w>
+</span></span></span><span class=line><span class=cl><span class=w></span><span class=p>}</span><span class=w>
+</span></span></span></code></pre></td></tr></table></div></div><h3 id=2-引入轻量级熔断>2. 引入轻量级熔断</h3><p>不要盲目自信地一直重试。如果Redis真的挂了，你的应用应该"认怂"。我们引入了 Resilience4j 这样的轻量级库，当异常比例达到阈值（比如50%），直接熔断该功能，降级为记录本地文件或内存队列，等待人工介入或自动恢复。</p><h3 id=3-资源隔离bulkhead>3. 资源隔离（Bulkhead）</h3><p>之前那个处理线程直接使用了默认的线程池。一旦死循环，虽然只是单线程，但也可能因为疯狂GC影响整个JVM。后来我们将关键任务分配到独立的线程池中，并限制了最大线程数和队列长度。即使这个池子炸了，也不会拖垮处理HTTP请求的主线程池。</p><h2 id=总结与行动指南>总结与行动指南</h2><p>那次事故后，我养成了一个习惯：<strong>写任何循环（Loop）的时候，先问自己三个问题：</strong></p><ol><li>它什么时候结束？</li><li>如果内部报错了，它会狂转吗？</li><li>它会不会把CPU或内存吃光？</li></ol><p>如果你正在经历或想要预防类似的问题，以下是3个可落地的建议：</p><ol><li><strong>实战演练定位命令</strong>：不要等到故障发生时再去百度"Linux CPU 100% 怎么查"。找一台测试机，写一个死循环程序，亲自用 <code>top</code> 和 <code>jstack</code> 抓一次，形成肌肉记忆。</li><li><strong>审查所有 <code>while(true)</code></strong>：利用IDE的全局搜索，检查项目中所有的无限循环和递归调用，确保在 <code>catch</code> 块中有 <code>Thread.sleep</code> 或退出机制。</li><li><strong>配置JVM监控告警</strong>：不要只看系统级CPU。确保你的Prometheus/Grafana监控了 JVM 的 GC 频率和线程数。很多时候，CPU 100% 并不是死循环，而是因为内存泄漏导致的频繁 Full GC。</li></ol><p><strong>最后，留一个问题给各位同行：</strong>
+在你的项目中，如果数据库或Redis突然断连1分钟，你的服务是会优雅降级，还是会像无头苍蝇一样疯狂报错直到崩溃？</p><p>愿你的CPU常年保持在 20% 以下，愿你所有的报警都发生在工作日上班时间。</p></section><footer class=article-footer><section class=article-tags><a href=/tags/%E8%AE%B0%E4%B8%80%E6%AC%A1%E7%BA%BF%E4%B8%8ACPU-100%E7%9A%84%E6%8E%92%E6%9F%A5%E4%B8%8E%E8%A7%A3%E5%86%B3%E8%BF%87%E7%A8%8B.html>记一次线上CPU 100%的排查与解决过程</a></section></footer></article><script src=https://giscus.app/client.js data-repo=pastor17/bloggiscus data-repo-id=R_kgDOQ6H9qQ data-category data-category-id=DIC_kwDOQ6H9qc4C0-T8 data-mapping=pathname data-strict=0 data-reactions-enabled=1 data-emit-metadata=0 data-input-position=bottom data-theme=light data-lang=zh-CN data-loading=lazy crossorigin=anonymous async></script><script>function setGiscusTheme(e){let t=document.querySelector("iframe.giscus-frame");t&&t.contentWindow.postMessage({giscus:{setConfig:{theme:e}}},"https://giscus.app")}(function(){addEventListener("message",t=>{if(event.origin!=="https://giscus.app")return;e()}),window.addEventListener("onColorSchemeChange",e);function e(){setGiscusTheme(document.documentElement.dataset.scheme==="light"?"light":"dark_dimmed")}})()</script><footer class=site-footer><section class=copyright>&copy;
+2021 -
+2026 SelfTechHub</section><section class=powerby>拒绝一次性认知，把碎片知识沉淀为可复用的记忆体系<br></section></footer><div class=pswp tabindex=-1 role=dialog aria-hidden=true><div class=pswp__bg></div><div class=pswp__scroll-wrap><div class=pswp__container><div class=pswp__item></div><div class=pswp__item></div><div class=pswp__item></div></div><div class="pswp__ui pswp__ui--hidden"><div class=pswp__top-bar><div class=pswp__counter></div><button class="pswp__button pswp__button--close" title="Close (Esc)"></button>
+<button class="pswp__button pswp__button--share" title=Share></button>
+<button class="pswp__button pswp__button--fs" title="Toggle fullscreen"></button>
+<button class="pswp__button pswp__button--zoom" title="Zoom in/out"></button><div class=pswp__preloader><div class=pswp__preloader__icn><div class=pswp__preloader__cut><div class=pswp__preloader__donut></div></div></div></div></div><div class="pswp__share-modal pswp__share-modal--hidden pswp__single-tap"><div class=pswp__share-tooltip></div></div><button class="pswp__button pswp__button--arrow--left" title="Previous (arrow left)">
+</button>
+<button class="pswp__button pswp__button--arrow--right" title="Next (arrow right)"></button><div class=pswp__caption><div class=pswp__caption__center></div></div></div></div></div><script src=https://cdn.jsdelivr.net/npm/photoswipe@4.1.3/dist/photoswipe.min.js integrity="sha256-ePwmChbbvXbsO02lbM3HoHbSHTHFAeChekF1xKJdleo=" crossorigin=anonymous defer></script><script src=https://cdn.jsdelivr.net/npm/photoswipe@4.1.3/dist/photoswipe-ui-default.min.js integrity="sha256-UKkzOn/w1mBxRmLLGrSeyB4e1xbrp4xylgAWb3M42pU=" crossorigin=anonymous defer></script><link rel=stylesheet href=https://cdn.jsdelivr.net/npm/photoswipe@4.1.3/dist/default-skin/default-skin.min.css crossorigin=anonymous><link rel=stylesheet href=https://cdn.jsdelivr.net/npm/photoswipe@4.1.3/dist/photoswipe.min.css crossorigin=anonymous></main></div><script src=https://cdn.jsdelivr.net/npm/node-vibrant@3.1.6/dist/vibrant.min.js integrity="sha256-awcR2jno4kI5X0zL8ex0vi2z+KMkF24hUW8WePSA9HM=" crossorigin=anonymous></script><script type=text/javascript src=/ts/main.c922af694cc257bf1ecc41c0dd7b0430f9114ec280ccf67cd2c6ad55f5316c4e.js defer></script><script>(function(){const e=document.createElement("link");e.href="https://fonts.googleapis.com/css2?family=Lato:wght@300;400;700&display=swap",e.type="text/css",e.rel="stylesheet",document.head.appendChild(e)})()</script></body></html>

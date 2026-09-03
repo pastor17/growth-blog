@@ -1,450 +1,59 @@
-<!DOCTYPE html>
-<html lang="zh-cn" dir="ltr">
-    <head><meta charset='utf-8'>
-<meta name='viewport' content='width=device-width, initial-scale=1'><meta name='description' content="\n不知你是否经历过这种名场面：为了快速修复一个线上Bug，直接登录云控制台手动改了安全组规则，想着“回头再补文档”。结果三个月后，系统扩容，新的实例自动应用了旧的配置，服务直接不可用，所有人都在排查代码，最后发现是基础设施配置漂移。\n我曾经也是“控制台点点点（ClickOps）”的忠实拥趸，觉得写代码管理服务器太麻烦。直到三年前的一个周五下午，因为手动操作失误，我不小心把生产环境的RDS实例当成测试环境给重启了——那几分钟的报警声，我现在想起来还手心冒汗。\n从那时候起，我开始死磕Terraform，强制自己和团队走IaC（基础设施即代码）路线。这几年踩坑无数，今天想复盘一下，从“能用”到“好用”，我们到底做对了哪些事。\n拒绝“巨石”配置，模块化才是解药\r刚开始接触Terraform时，为了图省事，我把所有的资源定义（VPC、EC2、RDS、S3）全塞进了一个 main.tf 文件里。起初看着挺爽，一个文件掌控天下。\n但随着业务扩张，问题来了： 我们的核心业务系统竟然有几千行代码堆在一个文件里。每次执行 terraform plan，光是刷新状态就要等上5分钟。更可怕的是，有次新来的同事想改一下S3的权限，结果因为没看清上下文，手滑删掉了一段VPC的配置，差点造成整个网络层重建。\n这次事故让我意识到：基础设施也需要“微服务化”。\n我们后来的做法是，严格遵循**模块化（Modules）**原则。不要重复造轮子，也不要搞大杂烩。我们将基础设施拆解为基础网络、应用服务、数据存储三个层级。\n# 现在的调用方式：清晰、解耦 module &#34;vpc&#34; { source = &#34;./modules/network&#34; cidr = &#34;10.0.0.0/16&#34; } module &#34;app_cluster&#34; { source = &#34;./modules/compute&#34; vpc_id = module.vpc.vpc_id instance_count = 3 } 落地建议： 建立一个标准的目录结构至关重要。我推荐使用 modules/ 存放通用模板（如创建一个标准的Web服务器），而在 environments/（dev, stage, prod）中去调用这些模块。这样，你只需要测试一次模块代码，就能放心地在生产环境复用，彻底消灭“开发环境没问题，上线就崩”的玄学。\n别把状态文件（State）留在本地\r这大概是新手最容易踩的坑，没有之一。\nTerraform的核心在于 tfstate 文件，它记录了云上资源的实际状态。最开始，我们团队只有两个人，大家都在自己电脑上跑代码，tfstate 文件就存在各自的本地硬盘里。\n有一次，我休假去露营了，同事急需扩容服务器。但他电脑上的状态文件是旧的（因为我上次更新完没同步给他），他一执行 terraform apply，Terraform以为现有的几台服务器是“多余的”或者“不存在的”，试图重建资源，直接导致了严重的资源冲突和状态锁死。\n解决方法其实很简单，但必须强制执行：远端存储（Remote State）。\n我们将状态文件托管在AWS S3（配合DynamoDB做锁机制）或者阿里云OSS上。这样，无论谁在操作，Terraform读取的永远是唯一的、最新的“真理”。\n“基础设施的状态，是团队的共同资产，绝不是某个工程师电脑里的私有文件。”\n具体操作： 配置 Backend 是项目初始化的第一步。\nterraform { backend &#34;s3&#34; { bucket = &#34;my-company-tfstate&#34; key = &#34;prod/app.tfstate&#34; region = &#34;ap-northeast-1&#34; dynamodb_table = &#34;terraform-locks&#34; # 防止两个人同时操作 } } 这就好比代码必须进Git仓库一样，状态文件必须进云端存储。自从上了这个锁机制，我们再也没出现过多人协作导致配置被覆盖的乌龙。\n">
-<title>手滑删库才后悔？Terraform重构基础设施的3个血泪教训</title>
-
-<link rel='canonical' href='https://blog.irudder.me/tech/devopsjichugongjurumenyushicao/shiyongterraformguanliyunziyuaniac.html'>
-
-<link rel="stylesheet" href="/scss/style.min.b9e9128fec450ebccecc4ec9900157f32b85d0609bcd5ee3293968bcaa1235f2.css"><meta property='og:title' content="手滑删库才后悔？Terraform重构基础设施的3个血泪教训">
-<meta property='og:description' content="\n不知你是否经历过这种名场面：为了快速修复一个线上Bug，直接登录云控制台手动改了安全组规则，想着“回头再补文档”。结果三个月后，系统扩容，新的实例自动应用了旧的配置，服务直接不可用，所有人都在排查代码，最后发现是基础设施配置漂移。\n我曾经也是“控制台点点点（ClickOps）”的忠实拥趸，觉得写代码管理服务器太麻烦。直到三年前的一个周五下午，因为手动操作失误，我不小心把生产环境的RDS实例当成测试环境给重启了——那几分钟的报警声，我现在想起来还手心冒汗。\n从那时候起，我开始死磕Terraform，强制自己和团队走IaC（基础设施即代码）路线。这几年踩坑无数，今天想复盘一下，从“能用”到“好用”，我们到底做对了哪些事。\n拒绝“巨石”配置，模块化才是解药\r刚开始接触Terraform时，为了图省事，我把所有的资源定义（VPC、EC2、RDS、S3）全塞进了一个 main.tf 文件里。起初看着挺爽，一个文件掌控天下。\n但随着业务扩张，问题来了： 我们的核心业务系统竟然有几千行代码堆在一个文件里。每次执行 terraform plan，光是刷新状态就要等上5分钟。更可怕的是，有次新来的同事想改一下S3的权限，结果因为没看清上下文，手滑删掉了一段VPC的配置，差点造成整个网络层重建。\n这次事故让我意识到：基础设施也需要“微服务化”。\n我们后来的做法是，严格遵循**模块化（Modules）**原则。不要重复造轮子，也不要搞大杂烩。我们将基础设施拆解为基础网络、应用服务、数据存储三个层级。\n# 现在的调用方式：清晰、解耦 module &#34;vpc&#34; { source = &#34;./modules/network&#34; cidr = &#34;10.0.0.0/16&#34; } module &#34;app_cluster&#34; { source = &#34;./modules/compute&#34; vpc_id = module.vpc.vpc_id instance_count = 3 } 落地建议： 建立一个标准的目录结构至关重要。我推荐使用 modules/ 存放通用模板（如创建一个标准的Web服务器），而在 environments/（dev, stage, prod）中去调用这些模块。这样，你只需要测试一次模块代码，就能放心地在生产环境复用，彻底消灭“开发环境没问题，上线就崩”的玄学。\n别把状态文件（State）留在本地\r这大概是新手最容易踩的坑，没有之一。\nTerraform的核心在于 tfstate 文件，它记录了云上资源的实际状态。最开始，我们团队只有两个人，大家都在自己电脑上跑代码，tfstate 文件就存在各自的本地硬盘里。\n有一次，我休假去露营了，同事急需扩容服务器。但他电脑上的状态文件是旧的（因为我上次更新完没同步给他），他一执行 terraform apply，Terraform以为现有的几台服务器是“多余的”或者“不存在的”，试图重建资源，直接导致了严重的资源冲突和状态锁死。\n解决方法其实很简单，但必须强制执行：远端存储（Remote State）。\n我们将状态文件托管在AWS S3（配合DynamoDB做锁机制）或者阿里云OSS上。这样，无论谁在操作，Terraform读取的永远是唯一的、最新的“真理”。\n“基础设施的状态，是团队的共同资产，绝不是某个工程师电脑里的私有文件。”\n具体操作： 配置 Backend 是项目初始化的第一步。\nterraform { backend &#34;s3&#34; { bucket = &#34;my-company-tfstate&#34; key = &#34;prod/app.tfstate&#34; region = &#34;ap-northeast-1&#34; dynamodb_table = &#34;terraform-locks&#34; # 防止两个人同时操作 } } 这就好比代码必须进Git仓库一样，状态文件必须进云端存储。自从上了这个锁机制，我们再也没出现过多人协作导致配置被覆盖的乌龙。\n">
-<meta property='og:url' content='https://blog.irudder.me/tech/devopsjichugongjurumenyushicao/shiyongterraformguanliyunziyuaniac.html'>
-<meta property='og:site_name' content='SelfTechHub'>
-<meta property='og:type' content='article'><meta property='article:section' content='Tech' /><meta property='article:tag' content='使用Terraform管理云资源（IaC）' /><meta property='article:published_time' content='2020-02-06T00:00:00&#43;00:00'/><meta property='article:modified_time' content='2020-02-06T00:00:00&#43;00:00'/>
-<meta name="twitter:title" content="手滑删库才后悔？Terraform重构基础设施的3个血泪教训">
-<meta name="twitter:description" content="\n不知你是否经历过这种名场面：为了快速修复一个线上Bug，直接登录云控制台手动改了安全组规则，想着“回头再补文档”。结果三个月后，系统扩容，新的实例自动应用了旧的配置，服务直接不可用，所有人都在排查代码，最后发现是基础设施配置漂移。\n我曾经也是“控制台点点点（ClickOps）”的忠实拥趸，觉得写代码管理服务器太麻烦。直到三年前的一个周五下午，因为手动操作失误，我不小心把生产环境的RDS实例当成测试环境给重启了——那几分钟的报警声，我现在想起来还手心冒汗。\n从那时候起，我开始死磕Terraform，强制自己和团队走IaC（基础设施即代码）路线。这几年踩坑无数，今天想复盘一下，从“能用”到“好用”，我们到底做对了哪些事。\n拒绝“巨石”配置，模块化才是解药\r刚开始接触Terraform时，为了图省事，我把所有的资源定义（VPC、EC2、RDS、S3）全塞进了一个 main.tf 文件里。起初看着挺爽，一个文件掌控天下。\n但随着业务扩张，问题来了： 我们的核心业务系统竟然有几千行代码堆在一个文件里。每次执行 terraform plan，光是刷新状态就要等上5分钟。更可怕的是，有次新来的同事想改一下S3的权限，结果因为没看清上下文，手滑删掉了一段VPC的配置，差点造成整个网络层重建。\n这次事故让我意识到：基础设施也需要“微服务化”。\n我们后来的做法是，严格遵循**模块化（Modules）**原则。不要重复造轮子，也不要搞大杂烩。我们将基础设施拆解为基础网络、应用服务、数据存储三个层级。\n# 现在的调用方式：清晰、解耦 module &#34;vpc&#34; { source = &#34;./modules/network&#34; cidr = &#34;10.0.0.0/16&#34; } module &#34;app_cluster&#34; { source = &#34;./modules/compute&#34; vpc_id = module.vpc.vpc_id instance_count = 3 } 落地建议： 建立一个标准的目录结构至关重要。我推荐使用 modules/ 存放通用模板（如创建一个标准的Web服务器），而在 environments/（dev, stage, prod）中去调用这些模块。这样，你只需要测试一次模块代码，就能放心地在生产环境复用，彻底消灭“开发环境没问题，上线就崩”的玄学。\n别把状态文件（State）留在本地\r这大概是新手最容易踩的坑，没有之一。\nTerraform的核心在于 tfstate 文件，它记录了云上资源的实际状态。最开始，我们团队只有两个人，大家都在自己电脑上跑代码，tfstate 文件就存在各自的本地硬盘里。\n有一次，我休假去露营了，同事急需扩容服务器。但他电脑上的状态文件是旧的（因为我上次更新完没同步给他），他一执行 terraform apply，Terraform以为现有的几台服务器是“多余的”或者“不存在的”，试图重建资源，直接导致了严重的资源冲突和状态锁死。\n解决方法其实很简单，但必须强制执行：远端存储（Remote State）。\n我们将状态文件托管在AWS S3（配合DynamoDB做锁机制）或者阿里云OSS上。这样，无论谁在操作，Terraform读取的永远是唯一的、最新的“真理”。\n“基础设施的状态，是团队的共同资产，绝不是某个工程师电脑里的私有文件。”\n具体操作： 配置 Backend 是项目初始化的第一步。\nterraform { backend &#34;s3&#34; { bucket = &#34;my-company-tfstate&#34; key = &#34;prod/app.tfstate&#34; region = &#34;ap-northeast-1&#34; dynamodb_table = &#34;terraform-locks&#34; # 防止两个人同时操作 } } 这就好比代码必须进Git仓库一样，状态文件必须进云端存储。自从上了这个锁机制，我们再也没出现过多人协作导致配置被覆盖的乌龙。\n">
-    </head>
-    <body class="
-    article-page
-    ">
-    <script>
-        (function() {
-            const colorSchemeKey = 'StackColorScheme';
-            if(!localStorage.getItem(colorSchemeKey)){
-                localStorage.setItem(colorSchemeKey, "auto");
-            }
-        })();
-    </script><script>
-    (function() {
-        const colorSchemeKey = 'StackColorScheme';
-        const colorSchemeItem = localStorage.getItem(colorSchemeKey);
-        const supportDarkMode = window.matchMedia('(prefers-color-scheme: dark)').matches === true;
-
-        if (colorSchemeItem == 'dark' || colorSchemeItem === 'auto' && supportDarkMode) {
-            
-
-            document.documentElement.dataset.scheme = 'dark';
-        } else {
-            document.documentElement.dataset.scheme = 'light';
-        }
-    })();
-</script>
-<div class="container main-container flex on-phone--column compact"><aside class="sidebar left-sidebar sticky ">
-    <button class="hamburger hamburger--spin" type="button" id="toggle-menu" aria-label="切换菜单">
-        <span class="hamburger-box">
-            <span class="hamburger-inner"></span>
-        </span>
-    </button>
-
-    <header>
-        
-            
-            <figure class="site-avatar">
-                <a href="/">
-                
-                    
-                    
-                    
-                        
-                        <img src="/img/avatar_hu_8588ce14af1147e2.png" width="300"
-                            height="286" class="site-logo" loading="lazy" alt="Avatar">
-                    
-                
-                </a>
-                
-            </figure>
-            
-        
-        
-        <div class="site-meta">
-            <h1 class="site-name"><a href="/">SelfTechHub</a></h1>
-            <h2 class="site-description"></h2>
-        </div>
-    </header><ol class="menu" id="main-menu">
-        
-        
-        <li class="menu-bottom-section">
-            <ol class="menu">
-
-                
-                    <li id="dark-mode-toggle">
-                        <svg xmlns="http://www.w3.org/2000/svg" class="icon icon-tabler icon-tabler-toggle-left" width="24" height="24" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor" fill="none" stroke-linecap="round" stroke-linejoin="round">
-  <path stroke="none" d="M0 0h24v24H0z"/>
-  <circle cx="8" cy="12" r="2" />
-  <rect x="2" y="6" width="20" height="12" rx="6" />
-</svg>
-
-
-
-                        <svg xmlns="http://www.w3.org/2000/svg" class="icon icon-tabler icon-tabler-toggle-right" width="24" height="24" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor" fill="none" stroke-linecap="round" stroke-linejoin="round">
-  <path stroke="none" d="M0 0h24v24H0z"/>
-  <circle cx="16" cy="12" r="2" />
-  <rect x="2" y="6" width="20" height="12" rx="6" />
-</svg>
-
-
-
-                        <span>暗色模式</span>
-                    </li>
-                
-            </ol>
-        </li>
-    </ol>
-</aside>
-
-    
-
-            <main class="main full-width">
-    <article class="main-article">
-    <header class="article-header">
-
-    <div class="article-details">
-    
-    <header class="article-category">
-        
-            <a href="/categories/%E6%8A%80%E6%9C%AF.html" >
-                技术精进
-            </a>
-        
-    </header>
-    
-
-    <div class="article-title-wrapper">
-        <h2 class="article-title">
-            <a href="/tech/devopsjichugongjurumenyushicao/shiyongterraformguanliyunziyuaniac.html">手滑删库才后悔？Terraform重构基础设施的3个血泪教训</a>
-        </h2>
-    
-        
-    </div>
-
-    
-    
-    
-    
-    <footer class="article-time">
-        
-            <div>
-                <svg xmlns="http://www.w3.org/2000/svg" class="icon icon-tabler icon-tabler-calendar-time" width="56" height="56" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor" fill="none" stroke-linecap="round" stroke-linejoin="round">
-  <path stroke="none" d="M0 0h24v24H0z"/>
-  <path d="M11.795 21h-6.795a2 2 0 0 1 -2 -2v-12a2 2 0 0 1 2 -2h12a2 2 0 0 1 2 2v4" />
-  <circle cx="18" cy="18" r="4" />
-  <path d="M15 3v4" />
-  <path d="M7 3v4" />
-  <path d="M3 11h16" />
-  <path d="M18 16.496v1.504l1 1" />
-</svg>
-                <time class="article-time--published" datetime='2020-02-06T00:00:00Z'>Feb 06, 2020</time>
-            </div>
-        
-
-        
-            <div>
-                <svg xmlns="http://www.w3.org/2000/svg" class="icon icon-tabler icon-tabler-clock" width="24" height="24" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor" fill="none" stroke-linecap="round" stroke-linejoin="round">
-  <path stroke="none" d="M0 0h24v24H0z"/>
-  <circle cx="12" cy="12" r="9" />
-  <polyline points="12 7 12 12 15 15" />
-</svg>
-
-
-
-                <time class="article-time--reading">
-                    阅读时长: 1 分钟
-                </time>
-            </div>
-        
-    </footer>
-    
-
-    
-</div>
-
-</header>
-
-    <section class="article-content">
-    
-    
-    <p><img src="https://picsum.photos/800/450?random=1768388010817"
-	
-	
-	
-	loading="lazy"
-	
-		alt="配图"
-	
-	
-></p>
-<p>不知你是否经历过这种名场面：为了快速修复一个线上Bug，直接登录云控制台手动改了安全组规则，想着“回头再补文档”。结果三个月后，系统扩容，新的实例自动应用了旧的配置，服务直接不可用，所有人都在排查代码，最后发现是基础设施配置漂移。</p>
-<p>我曾经也是“控制台点点点（ClickOps）”的忠实拥趸，觉得写代码管理服务器太麻烦。直到三年前的一个周五下午，因为手动操作失误，我不小心把生产环境的RDS实例当成测试环境给重启了——那几分钟的报警声，我现在想起来还手心冒汗。</p>
-<p>从那时候起，我开始死磕Terraform，强制自己和团队走IaC（基础设施即代码）路线。这几年踩坑无数，今天想复盘一下，从“能用”到“好用”，我们到底做对了哪些事。</p>
-<h2 id="拒绝巨石配置模块化才是解药">拒绝“巨石”配置，模块化才是解药
-</h2><p>刚开始接触Terraform时，为了图省事，我把所有的资源定义（VPC、EC2、RDS、S3）全塞进了一个 <code>main.tf</code> 文件里。起初看着挺爽，一个文件掌控天下。</p>
-<p><strong>但随着业务扩张，问题来了：</strong>
-我们的核心业务系统竟然有几千行代码堆在一个文件里。每次执行 <code>terraform plan</code>，光是刷新状态就要等上5分钟。更可怕的是，有次新来的同事想改一下S3的权限，结果因为没看清上下文，手滑删掉了一段VPC的配置，差点造成整个网络层重建。</p>
-<p><strong>这次事故让我意识到：基础设施也需要“微服务化”。</strong></p>
-<p>我们后来的做法是，严格遵循**模块化（Modules）**原则。不要重复造轮子，也不要搞大杂烩。我们将基础设施拆解为基础网络、应用服务、数据存储三个层级。</p>
-<div class="highlight"><pre tabindex="0" style="color:#f8f8f2;background-color:#272822;-moz-tab-size:4;-o-tab-size:4;tab-size:4;"><code class="language-hcl" data-lang="hcl"><span style="display:flex;"><span><span style="color:#75715e"># 现在的调用方式：清晰、解耦
-</span></span></span><span style="display:flex;"><span><span style="color:#75715e"></span><span style="color:#66d9ef">module</span> <span style="color:#e6db74">&#34;vpc&#34;</span> {
-</span></span><span style="display:flex;"><span>  source <span style="color:#f92672">=</span> <span style="color:#e6db74">&#34;./modules/network&#34;</span>
-</span></span><span style="display:flex;"><span>  cidr   <span style="color:#f92672">=</span> <span style="color:#e6db74">&#34;10.0.0.0/16&#34;</span>
-</span></span><span style="display:flex;"><span>}
-</span></span><span style="display:flex;"><span>
-</span></span><span style="display:flex;"><span><span style="color:#66d9ef">module</span> <span style="color:#e6db74">&#34;app_cluster&#34;</span> {
-</span></span><span style="display:flex;"><span>  source    <span style="color:#f92672">=</span> <span style="color:#e6db74">&#34;./modules/compute&#34;</span>
-</span></span><span style="display:flex;"><span>  vpc_id    <span style="color:#f92672">=</span> <span style="color:#66d9ef">module</span>.<span style="color:#66d9ef">vpc</span>.<span style="color:#66d9ef">vpc_id</span>
-</span></span><span style="display:flex;"><span>  instance_count <span style="color:#f92672">=</span> <span style="color:#ae81ff">3</span>
-</span></span><span style="display:flex;"><span>}
-</span></span></code></pre></div><p><strong>落地建议：</strong>
-建立一个标准的目录结构至关重要。我推荐使用 <code>modules/</code> 存放通用模板（如创建一个标准的Web服务器），而在 <code>environments/</code>（dev, stage, prod）中去调用这些模块。这样，你只需要测试一次模块代码，就能放心地在生产环境复用，彻底消灭“开发环境没问题，上线就崩”的玄学。</p>
-<h2 id="别把状态文件state留在本地">别把状态文件（State）留在本地
-</h2><p>这大概是新手最容易踩的坑，没有之一。</p>
-<p>Terraform的核心在于 <code>tfstate</code> 文件，它记录了云上资源的实际状态。最开始，我们团队只有两个人，大家都在自己电脑上跑代码，<code>tfstate</code> 文件就存在各自的本地硬盘里。</p>
-<p>有一次，我休假去露营了，同事急需扩容服务器。但他电脑上的状态文件是旧的（因为我上次更新完没同步给他），他一执行 <code>terraform apply</code>，Terraform以为现有的几台服务器是“多余的”或者“不存在的”，试图重建资源，直接导致了严重的资源冲突和状态锁死。</p>
-<p><strong>解决方法其实很简单，但必须强制执行：远端存储（Remote State）。</strong></p>
-<p>我们将状态文件托管在AWS S3（配合DynamoDB做锁机制）或者阿里云OSS上。这样，无论谁在操作，Terraform读取的永远是唯一的、最新的“真理”。</p>
-<blockquote>
-<p>“基础设施的状态，是团队的共同资产，绝不是某个工程师电脑里的私有文件。”</p>
-</blockquote>
-<p><strong>具体操作：</strong>
-配置 Backend 是项目初始化的第一步。</p>
-<div class="highlight"><pre tabindex="0" style="color:#f8f8f2;background-color:#272822;-moz-tab-size:4;-o-tab-size:4;tab-size:4;"><code class="language-hcl" data-lang="hcl"><span style="display:flex;"><span><span style="color:#66d9ef">terraform</span> {
-</span></span><span style="display:flex;"><span>  <span style="color:#66d9ef">backend</span> <span style="color:#e6db74">&#34;s3&#34;</span> {
-</span></span><span style="display:flex;"><span>    bucket         <span style="color:#f92672">=</span> <span style="color:#e6db74">&#34;my-company-tfstate&#34;</span>
-</span></span><span style="display:flex;"><span>    key            <span style="color:#f92672">=</span> <span style="color:#e6db74">&#34;prod/app.tfstate&#34;</span>
-</span></span><span style="display:flex;"><span>    region         <span style="color:#f92672">=</span> <span style="color:#e6db74">&#34;ap-northeast-1&#34;</span>
-</span></span><span style="display:flex;"><span>    dynamodb_table <span style="color:#f92672">=</span> <span style="color:#e6db74">&#34;terraform-locks&#34;</span><span style="color:#75715e"> # 防止两个人同时操作
-</span></span></span><span style="display:flex;"><span><span style="color:#75715e"></span>  }
-</span></span><span style="display:flex;"><span>}
-</span></span></code></pre></div><p>这就好比代码必须进Git仓库一样，状态文件必须进云端存储。自从上了这个锁机制，我们再也没出现过多人协作导致配置被覆盖的乌龙。</p>
-<h2 id="告别裸奔把plan作为代码审查的一部分">告别“裸奔”，把Plan作为代码审查的一部分
-</h2><p>以前我们的发布流程是这样的：开发写好 <code>.tf</code> 文件 -&gt; 本地跑 <code>terraform plan</code> 看一眼（甚至不看） -&gt; 直接 <code>terraform apply</code> -&gt; 祈祷不报错。</p>
-<p>这种“裸奔”上线非常危险。因为人眼是会疲劳的，面对控制台输出的几百行绿字（新增）和红字（删除），你很难瞬间发现那个关键的数据库参数被修改了。</p>
-<p><strong>我们引入了 GitOps 的工作流。</strong></p>
-<p><img src="https://picsum.photos/800/450?random=1768388010843"
-	
-	
-	
-	loading="lazy"
-	
-		alt="配图"
-	
-	
-></p>
-<p>现在，任何基础设施的变更，都必须提 Pull Request (PR)。我们配置了 CI 工具（如 GitHub Actions 或 GitLab CI），当 PR 提交时，机器人自动运行 <code>terraform plan</code>，并将输出结果以评论的形式贴在 PR 里。</p>
-<p><strong>真实收益：</strong>
-就在上个月，这个机制救了我们要命的一击。一个实习生在调整负载均衡配置时，误删了一个关键的 Listener 规则。如果不看 Plan，直接 Apply，线上流量瞬间就会中断。但在 PR 评论区，那个显眼的红色 <strong>&quot;-&quot;</strong> 号（表示删除）被资深运维一眼揪了出来，直接驳回了合并请求。</p>
-<p>这不仅仅是工具的升级，更是流程的规范。它强制我们在执行毁灭性打击之前，有一个冷静的“二次确认”窗口。</p>
-<h2 id="写在最后">写在最后
-</h2><p>使用 Terraform 管理云资源，最大的门槛其实不是 HCL 语法，而是思维方式的转变——<strong>从“命令式”（告诉机器怎么做）转变为“声明式”（告诉机器我要什么）</strong>。</p>
-<p>虽然前期编写代码、梳理资源、导入现有架构会非常痛苦（我花了整整两个月才把遗留资产理顺），但当你在周五下午只需合并一行代码，就能优雅、安全地完成全套环境部署时，你会发现这一切都是值得的。</p>
-<p><strong>现在，我想把麦克风交给你：</strong>
-你在管理云资源时，是更倾向于“控制台可视化操作”带来的直观，还是“IaC代码化”带来的可追溯？或者你有更惨痛的“删库”经历？</p>
-<p>欢迎在评论区分享你的故事，哪怕是吐槽也好。</p>
-<p><strong>给想落地的朋友3个具体行动建议：</strong></p>
-<ol>
-<li><strong>从非核心业务入手：</strong> 别上来就重构生产数据库，先拿测试环境的一台跳板机或者日志服务器练手。</li>
-<li><strong>开启状态锁：</strong> 哪怕团队只有你一个人，也请配置 Remote Backend 和 State Locking，这是职业素养。</li>
-<li><strong>善用 <code>terraform import</code>：</strong> 只有新资源才能用代码管理是误区，花点时间把旧资源 import 进来，哪怕只是为了看清楚现状。</li>
-</ol>
-
-</section>
-
-
-    <footer class="article-footer">
-    
-    <section class="article-tags">
-        
-            <a href="/tags/%E4%BD%BF%E7%94%A8Terraform%E7%AE%A1%E7%90%86%E4%BA%91%E8%B5%84%E6%BA%90IaC.html">使用Terraform管理云资源（IaC）</a>
-        
-    </section>
-
-
-    </footer>
-
-
-    
-</article>
-
-    
-
-    
-
-     
-    
-        
-    <script
-    src="https://giscus.app/client.js"
-    data-repo="pastor17/bloggiscus"
-    data-repo-id="R_kgDOQ6H9qQ"
-    data-category=""
-    data-category-id="DIC_kwDOQ6H9qc4C0-T8"
-    data-mapping="pathname"
-    data-strict="0"
-    data-reactions-enabled="1"
-    data-emit-metadata="0"
-    data-input-position="bottom"
-    data-theme="light"
-    data-lang="zh-CN"
-    data-loading="lazy"
-    crossorigin="anonymous"
-    async
-></script>
-<script>
-    function setGiscusTheme(theme) {
-        let giscus = document.querySelector("iframe.giscus-frame");
-        if (giscus) {
-            giscus.contentWindow.postMessage(
-                {
-                    giscus: {
-                        setConfig: {
-                            theme: theme,
-                        },
-                    },
-                },
-                "https://giscus.app"
-            );
-        }
-    }
-
-    (function () {
-        addEventListener("message", (e) => {
-            if (event.origin !== "https://giscus.app") return;
-            handler();
-        });
-        window.addEventListener("onColorSchemeChange", handler);
-
-        function handler() {
-            if (document.documentElement.dataset.scheme === "light") {
-                setGiscusTheme('light');
-            } else {
-                setGiscusTheme('dark_dimmed');
-            }
-        }
-    })();
-</script>
-
-    
-
-    <footer class="site-footer">
-    <section class="copyright">
-        &copy; 
-        
-        2026 SelfTechHub
-    </section>
-    
-    <section class="powerby">
-        
-
-    </section>
-</footer>
-
-
-    
-<div class="pswp" tabindex="-1" role="dialog" aria-hidden="true">
-
-    
-    <div class="pswp__bg"></div>
-
-    
-    <div class="pswp__scroll-wrap">
-
-        
-        <div class="pswp__container">
-            <div class="pswp__item"></div>
-            <div class="pswp__item"></div>
-            <div class="pswp__item"></div>
-        </div>
-
-        
-        <div class="pswp__ui pswp__ui--hidden">
-
-            <div class="pswp__top-bar">
-
-                
-
-                <div class="pswp__counter"></div>
-
-                <button class="pswp__button pswp__button--close" title="Close (Esc)"></button>
-
-                <button class="pswp__button pswp__button--share" title="Share"></button>
-
-                <button class="pswp__button pswp__button--fs" title="Toggle fullscreen"></button>
-
-                <button class="pswp__button pswp__button--zoom" title="Zoom in/out"></button>
-
-                
-                
-                <div class="pswp__preloader">
-                    <div class="pswp__preloader__icn">
-                        <div class="pswp__preloader__cut">
-                            <div class="pswp__preloader__donut"></div>
-                        </div>
-                    </div>
-                </div>
-            </div>
-
-            <div class="pswp__share-modal pswp__share-modal--hidden pswp__single-tap">
-                <div class="pswp__share-tooltip"></div>
-            </div>
-
-            <button class="pswp__button pswp__button--arrow--left" title="Previous (arrow left)">
-            </button>
-
-            <button class="pswp__button pswp__button--arrow--right" title="Next (arrow right)">
-            </button>
-
-            <div class="pswp__caption">
-                <div class="pswp__caption__center"></div>
-            </div>
-
-        </div>
-
-    </div>
-
-</div><script 
-                src="https://cdn.jsdelivr.net/npm/photoswipe@4.1.3/dist/photoswipe.min.js"integrity="sha256-ePwmChbbvXbsO02lbM3HoHbSHTHFAeChekF1xKJdleo="crossorigin="anonymous"
-                defer
-                >
-            </script><script 
-                src="https://cdn.jsdelivr.net/npm/photoswipe@4.1.3/dist/photoswipe-ui-default.min.js"integrity="sha256-UKkzOn/w1mBxRmLLGrSeyB4e1xbrp4xylgAWb3M42pU="crossorigin="anonymous"
-                defer
-                >
-            </script><link 
-                rel="stylesheet" 
-                href="https://cdn.jsdelivr.net/npm/photoswipe@4.1.3/dist/default-skin/default-skin.min.css"crossorigin="anonymous"
-            ><link 
-                rel="stylesheet" 
-                href="https://cdn.jsdelivr.net/npm/photoswipe@4.1.3/dist/photoswipe.min.css"crossorigin="anonymous"
-            >
-    
-
-            </main>
-        </div>
-        <script 
-                src="https://cdn.jsdelivr.net/npm/node-vibrant@3.1.6/dist/vibrant.min.js"integrity="sha256-awcR2jno4kI5X0zL8ex0vi2z&#43;KMkF24hUW8WePSA9HM="crossorigin="anonymous"
-                
-                >
-            </script><script type="text/javascript" src="/ts/main.c922af694cc257bf1ecc41c0dd7b0430f9114ec280ccf67cd2c6ad55f5316c4e.js" defer></script>
-<script>
-    (function () {
-        const customFont = document.createElement('link');
-        customFont.href = "https://fonts.googleapis.com/css2?family=Lato:wght@300;400;700&display=swap";
-
-        customFont.type = "text/css";
-        customFont.rel = "stylesheet";
-
-        document.head.appendChild(customFont);
-    }());
-</script>
-
-    </body>
-</html>
+<!doctype html><html lang=zh-cn dir=ltr><head><meta charset=utf-8><meta name=viewport content='width=device-width,initial-scale=1'><meta name=description content="不知你是否经历过这种名场面：为了快速修复一个线上Bug，直接登录云控制台手动改了安全组规则，想着“回头再补文档”。"><title>手滑删库才后悔？Terraform重构基础设施的3个血泪教训</title><link rel=canonical href=https://blog.irudder.me/tech/devopsjichugongjurumenyushicao/shiyongterraformguanliyunziyuaniac.html><link rel=stylesheet href=/scss/style.min.c77ce1b874b29b2ee9e54a89066c79ebf35cbe9cf399b31ab5d79167f9a965c9.css><meta property='og:title' content="手滑删库才后悔？Terraform重构基础设施的3个血泪教训"><meta property='og:description' content="不知你是否经历过这种名场面：为了快速修复一个线上Bug，直接登录云控制台手动改了安全组规则，想着“回头再补文档”。"><meta property='og:url' content='https://blog.irudder.me/tech/devopsjichugongjurumenyushicao/shiyongterraformguanliyunziyuaniac.html'><meta property='og:site_name' content='SelfTechHub'><meta property='og:type' content='article'><meta property='article:section' content='Tech'><meta property='article:tag' content='使用Terraform管理云资源（IaC）'><meta property='article:published_time' content='2020-02-06T00:00:00+08:00'><meta property='article:modified_time' content='2020-02-06T00:00:00+08:00'><meta name=twitter:title content="手滑删库才后悔？Terraform重构基础设施的3个血泪教训"><meta name=twitter:description content="不知你是否经历过这种名场面：为了快速修复一个线上Bug，直接登录云控制台手动改了安全组规则，想着“回头再补文档”。"><link rel="shortcut icon" href=/images/logo.png></head><body class=article-page><script>(function(){const e="StackColorScheme";localStorage.getItem(e)||localStorage.setItem(e,"auto")})()</script><script>(function(){const t="StackColorScheme",e=localStorage.getItem(t),n=window.matchMedia("(prefers-color-scheme: dark)").matches===!0;e=="dark"||e==="auto"&&n?document.documentElement.dataset.scheme="dark":document.documentElement.dataset.scheme="light"})()</script><div class="container main-container flex on-phone--column extended"><aside class="sidebar left-sidebar sticky"><button class="hamburger hamburger--spin" type=button id=toggle-menu aria-label=切换菜单>
+<span class=hamburger-box><span class=hamburger-inner></span></span></button><header><figure class=site-avatar><a href=/><img src=/img/avatar_hu_8588ce14af1147e2.png width=300 height=286 class=site-logo loading=lazy alt=Avatar>
+</a><span class=emoji>🧠</span></figure><div class=site-meta><h1 class=site-name><a href=/>SelfTechHub</a></h1><h2 class=site-description>成长 · 技术 · 商业 · AI —— 把碎片知识沉淀为可复用的记忆体系</h2></div></header><ol class=menu-social><li><a href=https://github.com/pastor17 target=_blank title=GitHub rel=me><svg class="icon icon-tabler icon-tabler-brand-github" width="24" height="24" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor" fill="none" stroke-linecap="round" stroke-linejoin="round"><path stroke="none" d="M0 0h24v24H0z" fill="none"/><path d="M9 19c-4.3 1.4-4.3-2.5-6-3m12 5v-3.5c0-1 .1-1.4-.5-2 2.8-.3 5.5-1.4 5.5-6a4.6 4.6.0 00-1.3-3.2 4.2 4.2.0 00-.1-3.2s-1.1-.3-3.5 1.3a12.3 12.3.0 00-6.2.0C6.5 2.8 5.4 3.1 5.4 3.1a4.2 4.2.0 00-.1 3.2A4.6 4.6.0 004 9.5c0 4.6 2.7 5.7 5.5 6-.6.6-.6 1.2-.5 2V21"/></svg></a></li></ol><ol class=menu id=main-menu><li><a href=/><svg class="icon icon-tabler icon-tabler-home" width="24" height="24" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor" fill="none" stroke-linecap="round" stroke-linejoin="round"><path stroke="none" d="M0 0h24v24H0z"/><polyline points="5 12 3 12 12 3 21 12 19 12"/><path d="M5 12v7a2 2 0 002 2h10a2 2 0 002-2v-7"/><path d="M9 21v-6a2 2 0 012-2h2a2 2 0 012 2v6"/></svg>
+<span>首页</span></a></li><li><a href=/categories/%E6%88%90%E9%95%BF.html><span>成长认知</span></a></li><li><a href=/categories/%E6%8A%80%E6%9C%AF.html><span>技术精进</span></a></li><li><a href=/categories/%E5%95%86%E4%B8%9A.html><span>商业·财富</span></a></li><li><a href=/categories/ai.html><span>探索AI</span></a></li><li><a href=/about/><svg class="icon icon-tabler icon-tabler-user" width="24" height="24" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor" fill="none" stroke-linecap="round" stroke-linejoin="round"><path stroke="none" d="M0 0h24v24H0z"/><circle cx="12" cy="7" r="4"/><path d="M6 21v-2a4 4 0 014-4h4a4 4 0 014 4v2"/></svg>
+<span>关于</span></a></li><li class=menu-bottom-section><ol class=menu><li id=dark-mode-toggle><svg class="icon icon-tabler icon-tabler-toggle-left" width="24" height="24" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor" fill="none" stroke-linecap="round" stroke-linejoin="round"><path stroke="none" d="M0 0h24v24H0z"/><circle cx="8" cy="12" r="2"/><rect x="2" y="6" width="20" height="12" rx="6"/></svg>
+<svg class="icon icon-tabler icon-tabler-toggle-right" width="24" height="24" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor" fill="none" stroke-linecap="round" stroke-linejoin="round"><path stroke="none" d="M0 0h24v24H0z"/><circle cx="16" cy="12" r="2"/><rect x="2" y="6" width="20" height="12" rx="6"/></svg>
+<span>暗色模式</span></li></ol></li></ol></aside><aside class="sidebar right-sidebar sticky"><section class="widget archives"><div class=widget-icon><svg class="icon icon-tabler icon-tabler-hash" width="24" height="24" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor" fill="none" stroke-linecap="round" stroke-linejoin="round"><path stroke="none" d="M0 0h24v24H0z"/><line x1="5" y1="9" x2="19" y2="9"/><line x1="5" y1="15" x2="19" y2="15"/><line x1="11" y1="4" x2="7" y2="20"/><line x1="17" y1="4" x2="13" y2="20"/></svg></div><h2 class="widget-title section-title">目录</h2><div class=widget--toc><nav id=TableOfContents><ul><li><a href=#拒绝巨石配置模块化才是解药>拒绝“巨石”配置，模块化才是解药</a></li><li><a href=#别把状态文件state留在本地>别把状态文件（State）留在本地</a></li><li><a href=#告别裸奔把plan作为代码审查的一部分>告别“裸奔”，把Plan作为代码审查的一部分</a></li><li><a href=#写在最后>写在最后</a></li></ul></nav></div></section></aside><main class="main full-width"><article class=main-article><header class=article-header><div class=article-details><header class=article-category><a href=/categories/%E6%8A%80%E6%9C%AF.html>技术精进</a></header><div class=article-title-wrapper><h2 class=article-title><a href=/tech/devopsjichugongjurumenyushicao/shiyongterraformguanliyunziyuaniac.html>手滑删库才后悔？Terraform重构基础设施的3个血泪教训</a></h2><h3 class=article-subtitle>不知你是否经历过这种名场面：为了快速修复一个线上Bug，直接登录云控制台手动改了安全组规则，想着“回头再补文档”。</h3></div><footer class=article-time><div><svg class="icon icon-tabler icon-tabler-calendar-time" width="56" height="56" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor" fill="none" stroke-linecap="round" stroke-linejoin="round"><path stroke="none" d="M0 0h24v24H0z"/><path d="M11.795 21H5a2 2 0 01-2-2V7a2 2 0 012-2h12a2 2 0 012 2v4"/><circle cx="18" cy="18" r="4"/><path d="M15 3v4"/><path d="M7 3v4"/><path d="M3 11h16"/><path d="M18 16.496V18l1 1"/></svg>
+<time class=article-time--published datetime=2020-02-06T00:00:00+08:00>2020-02-06</time></div><div><svg class="icon icon-tabler icon-tabler-clock" width="24" height="24" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor" fill="none" stroke-linecap="round" stroke-linejoin="round"><path stroke="none" d="M0 0h24v24H0z"/><circle cx="12" cy="12" r="9"/><polyline points="12 7 12 12 15 15"/></svg>
+<time class=article-time--reading>阅读时长: 5 分钟</time></div></footer></div></header><section class=article-content><p><img src="https://picsum.photos/800/450?random=1768388010817" loading=lazy alt=配图></p><p>不知你是否经历过这种名场面：为了快速修复一个线上Bug，直接登录云控制台手动改了安全组规则，想着“回头再补文档”。结果三个月后，系统扩容，新的实例自动应用了旧的配置，服务直接不可用，所有人都在排查代码，最后发现是基础设施配置漂移。</p><p>我曾经也是“控制台点点点（ClickOps）”的忠实拥趸，觉得写代码管理服务器太麻烦。直到三年前的一个周五下午，因为手动操作失误，我不小心把生产环境的RDS实例当成测试环境给重启了——那几分钟的报警声，我现在想起来还手心冒汗。</p><p>从那时候起，我开始死磕Terraform，强制自己和团队走IaC（基础设施即代码）路线。这几年踩坑无数，今天想复盘一下，从“能用”到“好用”，我们到底做对了哪些事。</p><h2 id=拒绝巨石配置模块化才是解药>拒绝“巨石”配置，模块化才是解药</h2><p>刚开始接触Terraform时，为了图省事，我把所有的资源定义（VPC、EC2、RDS、S3）全塞进了一个 <code>main.tf</code> 文件里。起初看着挺爽，一个文件掌控天下。</p><p><strong>但随着业务扩张，问题来了：</strong>
+我们的核心业务系统竟然有几千行代码堆在一个文件里。每次执行 <code>terraform plan</code>，光是刷新状态就要等上5分钟。更可怕的是，有次新来的同事想改一下S3的权限，结果因为没看清上下文，手滑删掉了一段VPC的配置，差点造成整个网络层重建。</p><p><strong>这次事故让我意识到：基础设施也需要“微服务化”。</strong></p><p>我们后来的做法是，严格遵循**模块化（Modules）**原则。不要重复造轮子，也不要搞大杂烩。我们将基础设施拆解为基础网络、应用服务、数据存储三个层级。</p><div class=highlight><div class=chroma><table class=lntable><tr><td class=lntd><pre tabindex=0 class=chroma><code><span class=lnt> 1
+</span><span class=lnt> 2
+</span><span class=lnt> 3
+</span><span class=lnt> 4
+</span><span class=lnt> 5
+</span><span class=lnt> 6
+</span><span class=lnt> 7
+</span><span class=lnt> 8
+</span><span class=lnt> 9
+</span><span class=lnt>10
+</span><span class=lnt>11
+</span></code></pre></td><td class=lntd><pre tabindex=0 class=chroma><code class=language-hcl data-lang=hcl><span class=line><span class=cl><span class=c1># 现在的调用方式：清晰、解耦
+</span></span></span><span class=line><span class=cl><span class=c1></span><span class=k>module</span> <span class=s2>&#34;vpc&#34;</span> {
+</span></span><span class=line><span class=cl><span class=n>  source</span> <span class=o>=</span> <span class=s2>&#34;./modules/network&#34;</span>
+</span></span><span class=line><span class=cl><span class=n>  cidr</span>   <span class=o>=</span> <span class=s2>&#34;10.0.0.0/16&#34;</span>
+</span></span><span class=line><span class=cl>}
+</span></span><span class=line><span class=cl>
+</span></span><span class=line><span class=cl><span class=k>module</span> <span class=s2>&#34;app_cluster&#34;</span> {
+</span></span><span class=line><span class=cl><span class=n>  source</span>    <span class=o>=</span> <span class=s2>&#34;./modules/compute&#34;</span>
+</span></span><span class=line><span class=cl><span class=n>  vpc_id</span>    <span class=o>=</span> <span class=k>module</span><span class=p>.</span><span class=k>vpc</span><span class=p>.</span><span class=k>vpc_id</span>
+</span></span><span class=line><span class=cl><span class=n>  instance_count</span> <span class=o>=</span> <span class=m>3</span>
+</span></span><span class=line><span class=cl>}
+</span></span></code></pre></td></tr></table></div></div><p><strong>落地建议：</strong>
+建立一个标准的目录结构至关重要。我推荐使用 <code>modules/</code> 存放通用模板（如创建一个标准的Web服务器），而在 <code>environments/</code>（dev, stage, prod）中去调用这些模块。这样，你只需要测试一次模块代码，就能放心地在生产环境复用，彻底消灭“开发环境没问题，上线就崩”的玄学。</p><h2 id=别把状态文件state留在本地>别把状态文件（State）留在本地</h2><p>这大概是新手最容易踩的坑，没有之一。</p><p>Terraform的核心在于 <code>tfstate</code> 文件，它记录了云上资源的实际状态。最开始，我们团队只有两个人，大家都在自己电脑上跑代码，<code>tfstate</code> 文件就存在各自的本地硬盘里。</p><p>有一次，我休假去露营了，同事急需扩容服务器。但他电脑上的状态文件是旧的（因为我上次更新完没同步给他），他一执行 <code>terraform apply</code>，Terraform以为现有的几台服务器是“多余的”或者“不存在的”，试图重建资源，直接导致了严重的资源冲突和状态锁死。</p><p><strong>解决方法其实很简单，但必须强制执行：远端存储（Remote State）。</strong></p><p>我们将状态文件托管在AWS S3（配合DynamoDB做锁机制）或者阿里云OSS上。这样，无论谁在操作，Terraform读取的永远是唯一的、最新的“真理”。</p><blockquote><p>“基础设施的状态，是团队的共同资产，绝不是某个工程师电脑里的私有文件。”</p></blockquote><p><strong>具体操作：</strong>
+配置 Backend 是项目初始化的第一步。</p><div class=highlight><div class=chroma><table class=lntable><tr><td class=lntd><pre tabindex=0 class=chroma><code><span class=lnt>1
+</span><span class=lnt>2
+</span><span class=lnt>3
+</span><span class=lnt>4
+</span><span class=lnt>5
+</span><span class=lnt>6
+</span><span class=lnt>7
+</span><span class=lnt>8
+</span></code></pre></td><td class=lntd><pre tabindex=0 class=chroma><code class=language-hcl data-lang=hcl><span class=line><span class=cl><span class=k>terraform</span> {
+</span></span><span class=line><span class=cl>  <span class=k>backend</span> <span class=s2>&#34;s3&#34;</span> {
+</span></span><span class=line><span class=cl><span class=n>    bucket</span>         <span class=o>=</span> <span class=s2>&#34;my-company-tfstate&#34;</span>
+</span></span><span class=line><span class=cl><span class=n>    key</span>            <span class=o>=</span> <span class=s2>&#34;prod/app.tfstate&#34;</span>
+</span></span><span class=line><span class=cl><span class=n>    region</span>         <span class=o>=</span> <span class=s2>&#34;ap-northeast-1&#34;</span>
+</span></span><span class=line><span class=cl><span class=n>    dynamodb_table</span> <span class=o>=</span> <span class=s2>&#34;terraform-locks&#34;</span><span class=c1> # 防止两个人同时操作
+</span></span></span><span class=line><span class=cl><span class=c1></span>  }
+</span></span><span class=line><span class=cl>}
+</span></span></code></pre></td></tr></table></div></div><p>这就好比代码必须进Git仓库一样，状态文件必须进云端存储。自从上了这个锁机制，我们再也没出现过多人协作导致配置被覆盖的乌龙。</p><h2 id=告别裸奔把plan作为代码审查的一部分>告别“裸奔”，把Plan作为代码审查的一部分</h2><p>以前我们的发布流程是这样的：开发写好 <code>.tf</code> 文件 -> 本地跑 <code>terraform plan</code> 看一眼（甚至不看） -> 直接 <code>terraform apply</code> -> 祈祷不报错。</p><p>这种“裸奔”上线非常危险。因为人眼是会疲劳的，面对控制台输出的几百行绿字（新增）和红字（删除），你很难瞬间发现那个关键的数据库参数被修改了。</p><p><strong>我们引入了 GitOps 的工作流。</strong></p><p><img src="https://picsum.photos/800/450?random=1768388010843" loading=lazy alt=配图></p><p>现在，任何基础设施的变更，都必须提 Pull Request (PR)。我们配置了 CI 工具（如 GitHub Actions 或 GitLab CI），当 PR 提交时，机器人自动运行 <code>terraform plan</code>，并将输出结果以评论的形式贴在 PR 里。</p><p><strong>真实收益：</strong>
+就在上个月，这个机制救了我们要命的一击。一个实习生在调整负载均衡配置时，误删了一个关键的 Listener 规则。如果不看 Plan，直接 Apply，线上流量瞬间就会中断。但在 PR 评论区，那个显眼的红色 <strong>"-"</strong> 号（表示删除）被资深运维一眼揪了出来，直接驳回了合并请求。</p><p>这不仅仅是工具的升级，更是流程的规范。它强制我们在执行毁灭性打击之前，有一个冷静的“二次确认”窗口。</p><h2 id=写在最后>写在最后</h2><p>使用 Terraform 管理云资源，最大的门槛其实不是 HCL 语法，而是思维方式的转变——<strong>从“命令式”（告诉机器怎么做）转变为“声明式”（告诉机器我要什么）</strong>。</p><p>虽然前期编写代码、梳理资源、导入现有架构会非常痛苦（我花了整整两个月才把遗留资产理顺），但当你在周五下午只需合并一行代码，就能优雅、安全地完成全套环境部署时，你会发现这一切都是值得的。</p><p><strong>现在，我想把麦克风交给你：</strong>
+你在管理云资源时，是更倾向于“控制台可视化操作”带来的直观，还是“IaC代码化”带来的可追溯？或者你有更惨痛的“删库”经历？</p><p>欢迎在评论区分享你的故事，哪怕是吐槽也好。</p><p><strong>给想落地的朋友3个具体行动建议：</strong></p><ol><li><strong>从非核心业务入手：</strong> 别上来就重构生产数据库，先拿测试环境的一台跳板机或者日志服务器练手。</li><li><strong>开启状态锁：</strong> 哪怕团队只有你一个人，也请配置 Remote Backend 和 State Locking，这是职业素养。</li><li><strong>善用 <code>terraform import</code>：</strong> 只有新资源才能用代码管理是误区，花点时间把旧资源 import 进来，哪怕只是为了看清楚现状。</li></ol></section><footer class=article-footer><section class=article-tags><a href=/tags/%E4%BD%BF%E7%94%A8Terraform%E7%AE%A1%E7%90%86%E4%BA%91%E8%B5%84%E6%BA%90IaC.html>使用Terraform管理云资源（IaC）</a></section></footer></article><script src=https://giscus.app/client.js data-repo=pastor17/bloggiscus data-repo-id=R_kgDOQ6H9qQ data-category data-category-id=DIC_kwDOQ6H9qc4C0-T8 data-mapping=pathname data-strict=0 data-reactions-enabled=1 data-emit-metadata=0 data-input-position=bottom data-theme=light data-lang=zh-CN data-loading=lazy crossorigin=anonymous async></script><script>function setGiscusTheme(e){let t=document.querySelector("iframe.giscus-frame");t&&t.contentWindow.postMessage({giscus:{setConfig:{theme:e}}},"https://giscus.app")}(function(){addEventListener("message",t=>{if(event.origin!=="https://giscus.app")return;e()}),window.addEventListener("onColorSchemeChange",e);function e(){setGiscusTheme(document.documentElement.dataset.scheme==="light"?"light":"dark_dimmed")}})()</script><footer class=site-footer><section class=copyright>&copy;
+2021 -
+2026 SelfTechHub</section><section class=powerby>拒绝一次性认知，把碎片知识沉淀为可复用的记忆体系<br></section></footer><div class=pswp tabindex=-1 role=dialog aria-hidden=true><div class=pswp__bg></div><div class=pswp__scroll-wrap><div class=pswp__container><div class=pswp__item></div><div class=pswp__item></div><div class=pswp__item></div></div><div class="pswp__ui pswp__ui--hidden"><div class=pswp__top-bar><div class=pswp__counter></div><button class="pswp__button pswp__button--close" title="Close (Esc)"></button>
+<button class="pswp__button pswp__button--share" title=Share></button>
+<button class="pswp__button pswp__button--fs" title="Toggle fullscreen"></button>
+<button class="pswp__button pswp__button--zoom" title="Zoom in/out"></button><div class=pswp__preloader><div class=pswp__preloader__icn><div class=pswp__preloader__cut><div class=pswp__preloader__donut></div></div></div></div></div><div class="pswp__share-modal pswp__share-modal--hidden pswp__single-tap"><div class=pswp__share-tooltip></div></div><button class="pswp__button pswp__button--arrow--left" title="Previous (arrow left)">
+</button>
+<button class="pswp__button pswp__button--arrow--right" title="Next (arrow right)"></button><div class=pswp__caption><div class=pswp__caption__center></div></div></div></div></div><script src=https://cdn.jsdelivr.net/npm/photoswipe@4.1.3/dist/photoswipe.min.js integrity="sha256-ePwmChbbvXbsO02lbM3HoHbSHTHFAeChekF1xKJdleo=" crossorigin=anonymous defer></script><script src=https://cdn.jsdelivr.net/npm/photoswipe@4.1.3/dist/photoswipe-ui-default.min.js integrity="sha256-UKkzOn/w1mBxRmLLGrSeyB4e1xbrp4xylgAWb3M42pU=" crossorigin=anonymous defer></script><link rel=stylesheet href=https://cdn.jsdelivr.net/npm/photoswipe@4.1.3/dist/default-skin/default-skin.min.css crossorigin=anonymous><link rel=stylesheet href=https://cdn.jsdelivr.net/npm/photoswipe@4.1.3/dist/photoswipe.min.css crossorigin=anonymous></main></div><script src=https://cdn.jsdelivr.net/npm/node-vibrant@3.1.6/dist/vibrant.min.js integrity="sha256-awcR2jno4kI5X0zL8ex0vi2z+KMkF24hUW8WePSA9HM=" crossorigin=anonymous></script><script type=text/javascript src=/ts/main.c922af694cc257bf1ecc41c0dd7b0430f9114ec280ccf67cd2c6ad55f5316c4e.js defer></script><script>(function(){const e=document.createElement("link");e.href="https://fonts.googleapis.com/css2?family=Lato:wght@300;400;700&display=swap",e.type="text/css",e.rel="stylesheet",document.head.appendChild(e)})()</script></body></html>

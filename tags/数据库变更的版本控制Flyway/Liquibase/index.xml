@@ -1,38 +1,17 @@
-<?xml version="1.0" encoding="utf-8" standalone="yes"?>
-<rss version="2.0" xmlns:atom="http://www.w3.org/2005/Atom">
-    <channel>
-        <title>数据库变更的版本控制（Flyway/Liquibase） on SelfTechHub</title>
-        <link>https://blog.irudder.me/tags/%E6%95%B0%E6%8D%AE%E5%BA%93%E5%8F%98%E6%9B%B4%E7%9A%84%E7%89%88%E6%9C%AC%E6%8E%A7%E5%88%B6Flyway/Liquibase.html</link>
-        <description>Recent content in 数据库变更的版本控制（Flyway/Liquibase） on SelfTechHub</description>
-        <generator>Hugo -- gohugo.io</generator>
-        <language>zh-cn</language>
-        <lastBuildDate>Mon, 18 Nov 2024 00:00:00 +0000</lastBuildDate><atom:link href="https://blog.irudder.me/tags/%E6%95%B0%E6%8D%AE%E5%BA%93%E5%8F%98%E6%9B%B4%E7%9A%84%E7%89%88%E6%9C%AC%E6%8E%A7%E5%88%B6Flyway/Liquibase/index.xml" rel="self" type="application/rss+xml" /><item>
-        <title>炸过一次生产库后，我强制全员上了Flyway</title>
-        <link>https://blog.irudder.me/tech/zhongxiaoxingtuanduidevopsluodifangan/shujukubiangengdebanbenkongzhiflyway_liquibase.html</link>
-        <pubDate>Mon, 18 Nov 2024 00:00:00 +0000</pubDate>
-        
-        <guid>https://blog.irudder.me/tech/zhongxiaoxingtuanduidevopsluodifangan/shujukubiangengdebanbenkongzhiflyway_liquibase.html</guid>
-        <description>&lt;p&gt;我曾天真地以为，只要代码用Git管好了，数据库脚本随便在群里发个 &lt;code&gt;update.sql&lt;/code&gt; 文件，大家同步执行一下就行。&lt;/p&gt;
+<?xml version="1.0" encoding="utf-8" standalone="yes"?><rss version="2.0" xmlns:atom="http://www.w3.org/2005/Atom"><channel><title>数据库变更的版本控制（Flyway/Liquibase） on SelfTechHub</title><link>https://blog.irudder.me/tags/%E6%95%B0%E6%8D%AE%E5%BA%93%E5%8F%98%E6%9B%B4%E7%9A%84%E7%89%88%E6%9C%AC%E6%8E%A7%E5%88%B6Flyway/Liquibase.html</link><description>Recent content in 数据库变更的版本控制（Flyway/Liquibase） on SelfTechHub</description><generator>Hugo -- gohugo.io</generator><language>zh-cn</language><lastBuildDate>Mon, 18 Nov 2024 00:00:00 +0800</lastBuildDate><atom:link href="https://blog.irudder.me/tags/%E6%95%B0%E6%8D%AE%E5%BA%93%E5%8F%98%E6%9B%B4%E7%9A%84%E7%89%88%E6%9C%AC%E6%8E%A7%E5%88%B6Flyway/Liquibase/index.xml" rel="self" type="application/rss+xml"/><item><title>炸过一次生产库后，我强制全员上了Flyway</title><link>https://blog.irudder.me/tech/zhongxiaoxingtuanduidevopsluodifangan/shujukubiangengdebanbenkongzhiflyway_liquibase.html</link><pubDate>Mon, 18 Nov 2024 00:00:00 +0800</pubDate><guid>https://blog.irudder.me/tech/zhongxiaoxingtuanduidevopsluodifangan/shujukubiangengdebanbenkongzhiflyway_liquibase.html</guid><description>&lt;p&gt;我曾天真地以为，只要代码用Git管好了，数据库脚本随便在群里发个 &lt;code&gt;update.sql&lt;/code&gt; 文件，大家同步执行一下就行。&lt;/p&gt;
 &lt;p&gt;直到2018年那个黑色的周五晚上。&lt;/p&gt;
 &lt;p&gt;为了赶一个紧急的营销活动上线，后端老张手动连上生产库，把准备好的5个SQL脚本跑了一遍。结果，活动一开启，全站500报错。排查了整整两小时才发现：&lt;strong&gt;老张漏跑了第3个脚本，而第5个脚本因为字段不存在并没有执行成功，但他当时太困，根本没看控制台的报错日志。&lt;/strong&gt;&lt;/p&gt;
 &lt;p&gt;那天之后，我就立了一条铁律：&lt;strong&gt;谁再敢手动连生产库跑DDL（数据定义语言），直接走人。&lt;/strong&gt;&lt;/p&gt;
 &lt;p&gt;如果你现在的团队还在用“文档记录变更”、“群里发SQL”、“口头通知运维”这种方式管理数据库，请停下来读读这篇文章。这是我用真金白银的事故换来的血泪复盘。&lt;/p&gt;
-&lt;h2 id=&#34;一-代码在裸奔数据库在穿开裆裤&#34;&gt;一、 代码在裸奔，数据库在穿开裆裤
+&lt;h2 id="一-代码在裸奔数据库在穿开裆裤"&gt;一、 代码在裸奔，数据库在穿开裆裤
 &lt;/h2&gt;&lt;p&gt;很多中小团队的技术负责人都有个错觉：&lt;strong&gt;DevOps = CI/CD流水线。&lt;/strong&gt;&lt;/p&gt;
 &lt;p&gt;于是大家费劲巴拉把Jenkins搭建起来，代码自动部署了，结果数据库变更还是处于石器时代。这种割裂会导致一个极度尴尬的场景：&lt;/p&gt;
 &lt;blockquote&gt;
-&lt;p&gt;代码已经部署了新版本（依赖新字段 &lt;code&gt;user_status&lt;/code&gt;），但数据库脚本还没跑。应用启动瞬间，JDBC直接抛出异常，服务起不来。&lt;/p&gt;
-&lt;/blockquote&gt;
+&lt;p&gt;代码已经部署了新版本（依赖新字段 &lt;code&gt;user_status&lt;/code&gt;），但数据库脚本还没跑。应用启动瞬间，JDBC直接抛出异常，服务起不来。&lt;/p&gt;&lt;/blockquote&gt;
 &lt;p&gt;这就是典型的&lt;strong&gt;应用版本与数据库版本不一致&lt;/strong&gt;。&lt;/p&gt;
-&lt;p&gt;&lt;img src=&#34;https://picsum.photos/800/450?random=1768389495861&#34;
-	
-	
-	
-	loading=&#34;lazy&#34;
-	
-		alt=&#34;配图&#34;
-	
-	
+&lt;p&gt;&lt;img src="https://picsum.photos/800/450?random=1768389495861"
+loading="lazy"
+alt="配图"
 &gt;&lt;/p&gt;
 &lt;p&gt;在没有引入版本控制工具前，我们团队面临的真实痛点是：&lt;/p&gt;
 &lt;ol&gt;
@@ -41,7 +20,7 @@
 &lt;li&gt;&lt;strong&gt;无法回溯&lt;/strong&gt;：生产库出问题了，没人知道现在的数据库结构到底是哪个版本的，更不知道上一次变更是谁在什么时候执行的。&lt;/li&gt;
 &lt;/ol&gt;
 &lt;p&gt;&lt;strong&gt;数据库也是代码，必须进版本控制。&lt;/strong&gt; 这是解决所有问题的根源。&lt;/p&gt;
-&lt;h2 id=&#34;二-选型复盘为什么我劝中小团队首选flyway&#34;&gt;二、 选型复盘：为什么我劝中小团队首选Flyway
+&lt;h2 id="二-选型复盘为什么我劝中小团队首选flyway"&gt;二、 选型复盘：为什么我劝中小团队首选Flyway
 &lt;/h2&gt;&lt;p&gt;市面上主流的就两款：&lt;strong&gt;Liquibase&lt;/strong&gt; 和 &lt;strong&gt;Flyway&lt;/strong&gt;。&lt;/p&gt;
 &lt;p&gt;刚开始调研时，我被Liquibase的强大功能吸引了——支持XML/YAML/JSON定义，号称“写一次代码，到处运行”，还能自动生成回滚脚本。&lt;/p&gt;
 &lt;p&gt;但我带着团队试用了两周，差点引发“起义”。&lt;/p&gt;
@@ -60,12 +39,11 @@
 &lt;li&gt;没跑过的脚本，它按顺序自动执行；跑过的，跳过。&lt;/li&gt;
 &lt;/ol&gt;
 &lt;blockquote&gt;
-&lt;p&gt;&lt;strong&gt;我的建议&lt;/strong&gt;：如果你的团队没有专职DBA，且后端开发人员对SQL比较熟悉，&lt;strong&gt;无脑选Flyway&lt;/strong&gt;。不要为了那是1%可能用不到的“数据库无关性”去牺牲99%的开发体验。&lt;/p&gt;
-&lt;/blockquote&gt;
-&lt;h2 id=&#34;三-落地实战别让工具变成新的负担&#34;&gt;三、 落地实战：别让工具变成新的负担
+&lt;p&gt;&lt;strong&gt;我的建议&lt;/strong&gt;：如果你的团队没有专职DBA，且后端开发人员对SQL比较熟悉，&lt;strong&gt;无脑选Flyway&lt;/strong&gt;。不要为了那是1%可能用不到的“数据库无关性”去牺牲99%的开发体验。&lt;/p&gt;&lt;/blockquote&gt;
+&lt;h2 id="三-落地实战别让工具变成新的负担"&gt;三、 落地实战：别让工具变成新的负担
 &lt;/h2&gt;&lt;p&gt;工具选好了，怎么落地才是关键。我见过很多团队引入Flyway后，反而搞得开发怨声载道。&lt;/p&gt;
 &lt;p&gt;我在团队里推行了这套**“三步走”**策略，目前已经稳定运行了3年。&lt;/p&gt;
-&lt;h3 id=&#34;1-严格的命名规范死刑线&#34;&gt;1. 严格的命名规范（死刑线）
+&lt;h3 id="1-严格的命名规范死刑线"&gt;1. 严格的命名规范（死刑线）
 &lt;/h3&gt;&lt;p&gt;Flyway 默认依靠文件名排序。如果文件名乱起，执行顺序就乱了。
 我强制要求命名格式为：&lt;code&gt;V{版本号}__{描述}.sql&lt;/code&gt;（注意是两个下划线）。&lt;/p&gt;
 &lt;ul&gt;
@@ -74,18 +52,29 @@
 &lt;li&gt;✅ 正确：&lt;code&gt;V2023.10.27.01__add_user_status.sql&lt;/code&gt;&lt;/li&gt;
 &lt;/ul&gt;
 &lt;p&gt;&lt;strong&gt;小技巧&lt;/strong&gt;：我们后来放弃了 &lt;code&gt;V1, V2&lt;/code&gt; 这种简单的数字，改用&lt;strong&gt;日期+序号&lt;/strong&gt;。因为多人开发时，大家都抢着占 &lt;code&gt;V3&lt;/code&gt;，合并代码时冲突冲突到想死。用日期大大降低了“撞号”概率。&lt;/p&gt;
-&lt;h3 id=&#34;2-集成到springboot启动流程&#34;&gt;2. 集成到SpringBoot启动流程
+&lt;h3 id="2-集成到springboot启动流程"&gt;2. 集成到SpringBoot启动流程
 &lt;/h3&gt;&lt;p&gt;对于中小团队，我&lt;strong&gt;极其不推荐&lt;/strong&gt;在Jenkins流水线里单独挂一个步骤去跑Flyway。&lt;/p&gt;
 &lt;p&gt;为什么？因为如果不小心配错了环境，你可能把测试环境的脚本跑到了生产环境。&lt;/p&gt;
 &lt;p&gt;我最推荐的做法是：&lt;strong&gt;随应用启动自动迁移&lt;/strong&gt;。
 在 &lt;code&gt;application.yml&lt;/code&gt; 里简单配置一下：&lt;/p&gt;
-&lt;div class=&#34;highlight&#34;&gt;&lt;pre tabindex=&#34;0&#34; style=&#34;color:#f8f8f2;background-color:#272822;-moz-tab-size:4;-o-tab-size:4;tab-size:4;&#34;&gt;&lt;code class=&#34;language-yaml&#34; data-lang=&#34;yaml&#34;&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;&lt;span style=&#34;color:#f92672&#34;&gt;spring&lt;/span&gt;:
-&lt;/span&gt;&lt;/span&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;  &lt;span style=&#34;color:#f92672&#34;&gt;flyway&lt;/span&gt;:
-&lt;/span&gt;&lt;/span&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;    &lt;span style=&#34;color:#f92672&#34;&gt;enabled&lt;/span&gt;: &lt;span style=&#34;color:#66d9ef&#34;&gt;true&lt;/span&gt;
-&lt;/span&gt;&lt;/span&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;    &lt;span style=&#34;color:#f92672&#34;&gt;baseline-on-migrate&lt;/span&gt;: &lt;span style=&#34;color:#66d9ef&#34;&gt;true&lt;/span&gt; &lt;span style=&#34;color:#75715e&#34;&gt;# 如果是旧项目改造，这个必须开&lt;/span&gt;
-&lt;/span&gt;&lt;/span&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;    &lt;span style=&#34;color:#f92672&#34;&gt;locations&lt;/span&gt;: &lt;span style=&#34;color:#ae81ff&#34;&gt;classpath:db/migration&lt;/span&gt;
-&lt;/span&gt;&lt;/span&gt;&lt;/code&gt;&lt;/pre&gt;&lt;/div&gt;&lt;p&gt;这样，当应用启动时，Flyway会先抢占一把分布式锁，检查数据库状态，把缺的脚本跑完，然后再启动Spring容器。&lt;strong&gt;这保证了代码逻辑执行时，数据库结构一定是最新的。&lt;/strong&gt;&lt;/p&gt;
-&lt;h3 id=&#34;3-禁止修改已提交的脚本checksum陷阱&#34;&gt;3. 禁止修改已提交的脚本（Checksum陷阱）
+&lt;div class="highlight"&gt;&lt;div class="chroma"&gt;
+&lt;table class="lntable"&gt;&lt;tr&gt;&lt;td class="lntd"&gt;
+&lt;pre tabindex="0" class="chroma"&gt;&lt;code&gt;&lt;span class="lnt"&gt;1
+&lt;/span&gt;&lt;span class="lnt"&gt;2
+&lt;/span&gt;&lt;span class="lnt"&gt;3
+&lt;/span&gt;&lt;span class="lnt"&gt;4
+&lt;/span&gt;&lt;span class="lnt"&gt;5
+&lt;/span&gt;&lt;/code&gt;&lt;/pre&gt;&lt;/td&gt;
+&lt;td class="lntd"&gt;
+&lt;pre tabindex="0" class="chroma"&gt;&lt;code class="language-yaml" data-lang="yaml"&gt;&lt;span class="line"&gt;&lt;span class="cl"&gt;&lt;span class="nt"&gt;spring&lt;/span&gt;&lt;span class="p"&gt;:&lt;/span&gt;&lt;span class="w"&gt;
+&lt;/span&gt;&lt;/span&gt;&lt;/span&gt;&lt;span class="line"&gt;&lt;span class="cl"&gt;&lt;span class="w"&gt; &lt;/span&gt;&lt;span class="nt"&gt;flyway&lt;/span&gt;&lt;span class="p"&gt;:&lt;/span&gt;&lt;span class="w"&gt;
+&lt;/span&gt;&lt;/span&gt;&lt;/span&gt;&lt;span class="line"&gt;&lt;span class="cl"&gt;&lt;span class="w"&gt; &lt;/span&gt;&lt;span class="nt"&gt;enabled&lt;/span&gt;&lt;span class="p"&gt;:&lt;/span&gt;&lt;span class="w"&gt; &lt;/span&gt;&lt;span class="kc"&gt;true&lt;/span&gt;&lt;span class="w"&gt;
+&lt;/span&gt;&lt;/span&gt;&lt;/span&gt;&lt;span class="line"&gt;&lt;span class="cl"&gt;&lt;span class="w"&gt; &lt;/span&gt;&lt;span class="nt"&gt;baseline-on-migrate&lt;/span&gt;&lt;span class="p"&gt;:&lt;/span&gt;&lt;span class="w"&gt; &lt;/span&gt;&lt;span class="kc"&gt;true&lt;/span&gt;&lt;span class="w"&gt; &lt;/span&gt;&lt;span class="c"&gt;# 如果是旧项目改造，这个必须开&lt;/span&gt;&lt;span class="w"&gt;
+&lt;/span&gt;&lt;/span&gt;&lt;/span&gt;&lt;span class="line"&gt;&lt;span class="cl"&gt;&lt;span class="w"&gt; &lt;/span&gt;&lt;span class="nt"&gt;locations&lt;/span&gt;&lt;span class="p"&gt;:&lt;/span&gt;&lt;span class="w"&gt; &lt;/span&gt;&lt;span class="l"&gt;classpath:db/migration&lt;/span&gt;&lt;span class="w"&gt;
+&lt;/span&gt;&lt;/span&gt;&lt;/span&gt;&lt;/code&gt;&lt;/pre&gt;&lt;/td&gt;&lt;/tr&gt;&lt;/table&gt;
+&lt;/div&gt;
+&lt;/div&gt;&lt;p&gt;这样，当应用启动时，Flyway会先抢占一把分布式锁，检查数据库状态，把缺的脚本跑完，然后再启动Spring容器。&lt;strong&gt;这保证了代码逻辑执行时，数据库结构一定是最新的。&lt;/strong&gt;&lt;/p&gt;
+&lt;h3 id="3-禁止修改已提交的脚本checksum陷阱"&gt;3. 禁止修改已提交的脚本（Checksum陷阱）
 &lt;/h3&gt;&lt;p&gt;这是新手最容易踩的坑。
 小王提交了 &lt;code&gt;V5__update.sql&lt;/code&gt;，测试环境跑完了。突然发现少加了个索引，他&lt;strong&gt;直接修改&lt;/strong&gt;了 &lt;code&gt;V5&lt;/code&gt; 文件的内容又提交了一次。&lt;/p&gt;
 &lt;p&gt;结果其他同事一拉代码，启动直接报错：&lt;code&gt;Checksum mismatch&lt;/code&gt;。&lt;/p&gt;
@@ -93,9 +82,8 @@
 &lt;p&gt;&lt;strong&gt;解决方案&lt;/strong&gt;：&lt;/p&gt;
 &lt;blockquote&gt;
 &lt;p&gt;&lt;strong&gt;一旦脚本被合并到主分支，它就是只读的“化石”。&lt;/strong&gt;
-如果写错了，请创建一个新的 &lt;code&gt;V6__fix_v5_error.sql&lt;/code&gt; 去修正，绝对不要回头改历史。&lt;/p&gt;
-&lt;/blockquote&gt;
-&lt;h2 id=&#34;四-避坑指南devops路上的绊脚石&#34;&gt;四、 避坑指南：DevOps路上的绊脚石
+如果写错了，请创建一个新的 &lt;code&gt;V6__fix_v5_error.sql&lt;/code&gt; 去修正，绝对不要回头改历史。&lt;/p&gt;&lt;/blockquote&gt;
+&lt;h2 id="四-避坑指南devops路上的绊脚石"&gt;四、 避坑指南：DevOps路上的绊脚石
 &lt;/h2&gt;&lt;p&gt;在推进这套方案的头半年，我们还是遇到了一些痛点：&lt;/p&gt;
 &lt;p&gt;&lt;strong&gt;痛点1：大表变更导致启动超时&lt;/strong&gt;
 有次我们在生产环境给一张2000万行数据的表加字段。Flyway随着应用启动执行，结果数据库锁表了5分钟。Kubernetes健康检查以为应用挂了，疯狂重启Pod，导致数据库死锁更严重。&lt;/p&gt;
@@ -109,27 +97,15 @@ B后上线，Flyway发现生产库已经有 &lt;code&gt;V10&lt;/code&gt; 了，�
 &lt;p&gt;但如果是B先上线（有 &lt;code&gt;V11&lt;/code&gt;），A后上线（带 &lt;code&gt;V10&lt;/code&gt;）。Flyway默认会报错，因为它不允许“插队”。&lt;/p&gt;
 &lt;p&gt;&lt;strong&gt;修正方案&lt;/strong&gt;：
 开启 &lt;code&gt;outOfOrder: true&lt;/code&gt; 配置。允许不按顺序执行迁移。这对多分支并行开发的中小团队来说，是&lt;strong&gt;救命稻草&lt;/strong&gt;。&lt;/p&gt;
-&lt;h2 id=&#34;结语&#34;&gt;结语
-&lt;/h2&gt;&lt;p&gt;&lt;img src=&#34;https://picsum.photos/800/450?random=1768389493516&#34;
-	
-	
-	
-	loading=&#34;lazy&#34;
-	
-		alt=&#34;配图&#34;
-	
-	
+&lt;h2 id="结语"&gt;结语
+&lt;/h2&gt;&lt;p&gt;&lt;img src="https://picsum.photos/800/450?random=1768389493516"
+loading="lazy"
+alt="配图"
 &gt;&lt;/p&gt;
 &lt;p&gt;自从上了Flyway，我每周五下午发布时的心率从120降到了80。&lt;/p&gt;
-&lt;p&gt;&lt;img src=&#34;https://picsum.photos/800/450?random=1768389494311&#34;
-	
-	
-	
-	loading=&#34;lazy&#34;
-	
-		alt=&#34;配图&#34;
-	
-	
+&lt;p&gt;&lt;img src="https://picsum.photos/800/450?random=1768389494311"
+loading="lazy"
+alt="配图"
 &gt;&lt;/p&gt;
 &lt;p&gt;数据库变更不再是一个需要“开会确认”的高危动作，而变成了代码提交记录里一行普通的 Commit。每当看到 CI/CD 流水线全绿通过，我知道，那个曾经因为漏跑脚本而全员通宵修复数据的日子，再也不会回来了。&lt;/p&gt;
 &lt;p&gt;&lt;strong&gt;最后，送给各位3个马上能落地的行动步骤：&lt;/strong&gt;&lt;/p&gt;
@@ -138,9 +114,4 @@ B后上线，Flyway发现生产库已经有 &lt;code&gt;V10&lt;/code&gt; 了，�
 &lt;li&gt;&lt;strong&gt;定规矩&lt;/strong&gt;：从今天起，所有DDL语句禁止在聊天工具传输，必须落成SQL文件。&lt;/li&gt;
 &lt;li&gt;&lt;strong&gt;检查现有项目&lt;/strong&gt;：如果是遗留老系统，使用 Flyway 的 &lt;code&gt;baseline&lt;/code&gt; 功能，以当前数据库状态为基准，从此开始版本化。&lt;/li&gt;
 &lt;/ol&gt;
-&lt;p&gt;&lt;strong&gt;你在数据库变更管理中遇到过最离谱的“坑”是什么？是删库跑路还是字段消失？欢迎在评论区分享你的血泪史。&lt;/strong&gt;&lt;/p&gt;
-</description>
-        </item>
-        
-    </channel>
-</rss>
+&lt;p&gt;&lt;strong&gt;你在数据库变更管理中遇到过最离谱的“坑”是什么？是删库跑路还是字段消失？欢迎在评论区分享你的血泪史。&lt;/strong&gt;&lt;/p&gt;</description></item></channel></rss>

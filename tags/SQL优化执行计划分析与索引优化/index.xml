@@ -1,32 +1,12 @@
-<?xml version="1.0" encoding="utf-8" standalone="yes"?>
-<rss version="2.0" xmlns:atom="http://www.w3.org/2005/Atom">
-    <channel>
-        <title>SQL优化：执行计划分析与索引优化 on SelfTechHub</title>
-        <link>https://blog.irudder.me/tags/SQL%E4%BC%98%E5%8C%96%E6%89%A7%E8%A1%8C%E8%AE%A1%E5%88%92%E5%88%86%E6%9E%90%E4%B8%8E%E7%B4%A2%E5%BC%95%E4%BC%98%E5%8C%96.html</link>
-        <description>Recent content in SQL优化：执行计划分析与索引优化 on SelfTechHub</description>
-        <generator>Hugo -- gohugo.io</generator>
-        <language>zh-cn</language>
-        <lastBuildDate>Thu, 10 Aug 2023 00:00:00 +0000</lastBuildDate><atom:link href="https://blog.irudder.me/tags/SQL%E4%BC%98%E5%8C%96%E6%89%A7%E8%A1%8C%E8%AE%A1%E5%88%92%E5%88%86%E6%9E%90%E4%B8%8E%E7%B4%A2%E5%BC%95%E4%BC%98%E5%8C%96/index.xml" rel="self" type="application/rss+xml" /><item>
-        <title>加了索引反而慢？深度复盘2个让CPU飙升的“见鬼”现场</title>
-        <link>https://blog.irudder.me/tech/jiagouyouhuashizhananlijiexi/sqlyouhua_zhixingjihuafenxiyusuoyinyouhua.html</link>
-        <pubDate>Thu, 10 Aug 2023 00:00:00 +0000</pubDate>
-        
-        <guid>https://blog.irudder.me/tech/jiagouyouhuashizhananlijiexi/sqlyouhua_zhixingjihuafenxiyusuoyinyouhua.html</guid>
-        <description>&lt;p&gt;早些年我刚带团队那会儿，有个执念：&lt;strong&gt;“只要SQL慢，加个索引准没错。”&lt;/strong&gt;&lt;/p&gt;
+<?xml version="1.0" encoding="utf-8" standalone="yes"?><rss version="2.0" xmlns:atom="http://www.w3.org/2005/Atom"><channel><title>SQL优化：执行计划分析与索引优化 on SelfTechHub</title><link>https://blog.irudder.me/tags/SQL%E4%BC%98%E5%8C%96%E6%89%A7%E8%A1%8C%E8%AE%A1%E5%88%92%E5%88%86%E6%9E%90%E4%B8%8E%E7%B4%A2%E5%BC%95%E4%BC%98%E5%8C%96.html</link><description>Recent content in SQL优化：执行计划分析与索引优化 on SelfTechHub</description><generator>Hugo -- gohugo.io</generator><language>zh-cn</language><lastBuildDate>Thu, 10 Aug 2023 00:00:00 +0800</lastBuildDate><atom:link href="https://blog.irudder.me/tags/SQL%E4%BC%98%E5%8C%96%E6%89%A7%E8%A1%8C%E8%AE%A1%E5%88%92%E5%88%86%E6%9E%90%E4%B8%8E%E7%B4%A2%E5%BC%95%E4%BC%98%E5%8C%96/index.xml" rel="self" type="application/rss+xml"/><item><title>加了索引反而慢？深度复盘2个让CPU飙升的“见鬼”现场</title><link>https://blog.irudder.me/tech/jiagouyouhuashizhananlijiexi/sqlyouhua_zhixingjihuafenxiyusuoyinyouhua.html</link><pubDate>Thu, 10 Aug 2023 00:00:00 +0800</pubDate><guid>https://blog.irudder.me/tech/jiagouyouhuashizhananlijiexi/sqlyouhua_zhixingjihuafenxiyusuoyinyouhua.html</guid><description>&lt;p&gt;早些年我刚带团队那会儿，有个执念：&lt;strong&gt;“只要SQL慢，加个索引准没错。”&lt;/strong&gt;&lt;/p&gt;
 &lt;p&gt;直到有次大促前的压测，一个核心查询接口响应时间突然从200ms飙到了2秒，DBA那边的CPU报警响个不停。我自信满满地打开代码，指着屏幕说：“这字段肯定没加索引。”结果一查，索引健在，而且是独立索引。&lt;/p&gt;
 &lt;p&gt;那种“明明做了优化，数据库却不买账”的挫败感，相信很多人都体会过。&lt;/p&gt;
 &lt;p&gt;后来我才明白，索引不是万能药，有时候它反而是拖慢系统的毒药。今天不聊那些教科书上的B+树原理，我想结合这几年踩过的坑，复盘两个真实的“反常识”案例，聊聊怎么透过&lt;code&gt;EXPLAIN&lt;/code&gt;看透数据库的“小心思”。&lt;/p&gt;
-&lt;p&gt;&lt;img src=&#34;https://picsum.photos/800/450?random=1768457786942&#34;
-	
-	
-	
-	loading=&#34;lazy&#34;
-	
-		alt=&#34;配图&#34;
-	
-	
+&lt;p&gt;&lt;img src="https://picsum.photos/800/450?random=1768457786942"
+loading="lazy"
+alt="配图"
 &gt;&lt;/p&gt;
-&lt;h2 id=&#34;隐形杀手因为懒而引发的全表扫描&#34;&gt;隐形杀手：因为“懒”而引发的全表扫描
+&lt;h2 id="隐形杀手因为懒而引发的全表扫描"&gt;隐形杀手：因为“懒”而引发的全表扫描
 &lt;/h2&gt;&lt;p&gt;很多时候，性能问题不是因为技术多难，而是因为开发习惯上的“想当然”。&lt;/p&gt;
 &lt;p&gt;&lt;strong&gt;观点：&lt;/strong&gt; 类型隐式转换是索引失效的头号隐形杀手，且往往在测试环境很难发现（数据量不够大）。&lt;/p&gt;
 &lt;p&gt;&lt;strong&gt;真实案例：&lt;/strong&gt;
@@ -34,8 +14,15 @@
 &lt;p&gt;代码上线后，平时跑得好好的。结果某天下午，运营搞了个活动，瞬间涌入几十万请求，数据库直接被打挂了。&lt;/p&gt;
 &lt;p&gt;&lt;strong&gt;排查过程：&lt;/strong&gt;
 我们抓到了那条慢SQL，长这样：&lt;/p&gt;
-&lt;div class=&#34;highlight&#34;&gt;&lt;pre tabindex=&#34;0&#34; style=&#34;color:#f8f8f2;background-color:#272822;-moz-tab-size:4;-o-tab-size:4;tab-size:4;&#34;&gt;&lt;code class=&#34;language-sql&#34; data-lang=&#34;sql&#34;&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;&lt;span style=&#34;color:#66d9ef&#34;&gt;SELECT&lt;/span&gt; user_id, status &lt;span style=&#34;color:#66d9ef&#34;&gt;FROM&lt;/span&gt; users &lt;span style=&#34;color:#66d9ef&#34;&gt;WHERE&lt;/span&gt; phone &lt;span style=&#34;color:#f92672&#34;&gt;=&lt;/span&gt; &lt;span style=&#34;color:#ae81ff&#34;&gt;13800138000&lt;/span&gt;;
-&lt;/span&gt;&lt;/span&gt;&lt;/code&gt;&lt;/pre&gt;&lt;/div&gt;&lt;p&gt;咋一看没毛病对吧？但当你执行 &lt;code&gt;EXPLAIN&lt;/code&gt; 时，诡异的事情发生了：&lt;/p&gt;
+&lt;div class="highlight"&gt;&lt;div class="chroma"&gt;
+&lt;table class="lntable"&gt;&lt;tr&gt;&lt;td class="lntd"&gt;
+&lt;pre tabindex="0" class="chroma"&gt;&lt;code&gt;&lt;span class="lnt"&gt;1
+&lt;/span&gt;&lt;/code&gt;&lt;/pre&gt;&lt;/td&gt;
+&lt;td class="lntd"&gt;
+&lt;pre tabindex="0" class="chroma"&gt;&lt;code class="language-sql" data-lang="sql"&gt;&lt;span class="line"&gt;&lt;span class="cl"&gt;&lt;span class="k"&gt;SELECT&lt;/span&gt;&lt;span class="w"&gt; &lt;/span&gt;&lt;span class="n"&gt;user_id&lt;/span&gt;&lt;span class="p"&gt;,&lt;/span&gt;&lt;span class="w"&gt; &lt;/span&gt;&lt;span class="n"&gt;status&lt;/span&gt;&lt;span class="w"&gt; &lt;/span&gt;&lt;span class="k"&gt;FROM&lt;/span&gt;&lt;span class="w"&gt; &lt;/span&gt;&lt;span class="n"&gt;users&lt;/span&gt;&lt;span class="w"&gt; &lt;/span&gt;&lt;span class="k"&gt;WHERE&lt;/span&gt;&lt;span class="w"&gt; &lt;/span&gt;&lt;span class="n"&gt;phone&lt;/span&gt;&lt;span class="w"&gt; &lt;/span&gt;&lt;span class="o"&gt;=&lt;/span&gt;&lt;span class="w"&gt; &lt;/span&gt;&lt;span class="mi"&gt;13800138000&lt;/span&gt;&lt;span class="p"&gt;;&lt;/span&gt;&lt;span class="w"&gt;
+&lt;/span&gt;&lt;/span&gt;&lt;/span&gt;&lt;/code&gt;&lt;/pre&gt;&lt;/td&gt;&lt;/tr&gt;&lt;/table&gt;
+&lt;/div&gt;
+&lt;/div&gt;&lt;p&gt;咋一看没毛病对吧？但当你执行 &lt;code&gt;EXPLAIN&lt;/code&gt; 时，诡异的事情发生了：&lt;/p&gt;
 &lt;ul&gt;
 &lt;li&gt;&lt;code&gt;type&lt;/code&gt;: ALL (全表扫描)&lt;/li&gt;
 &lt;li&gt;&lt;code&gt;key&lt;/code&gt;: NULL (没用索引)&lt;/li&gt;
@@ -46,71 +33,101 @@
 &lt;p&gt;MySQL有个潜规则：&lt;strong&gt;当字符串索引字段与数字进行比较时，MySQL会自动把字符串转换成数字再比较。&lt;/strong&gt; 这就意味着，数据库必须把每一行的 &lt;code&gt;phone&lt;/code&gt; 字段都拎出来转一下格式，索引自然就失效了，直接退化成全表扫描。&lt;/p&gt;
 &lt;p&gt;&lt;strong&gt;解决方法：&lt;/strong&gt;
 这种问题改起来最快，把参数类型强转成 String 就行。但更重要的是防范。我现在习惯在Code Review时专门盯着 &lt;code&gt;WHERE&lt;/code&gt; 后面的字段类型看。&lt;/p&gt;
-&lt;div class=&#34;highlight&#34;&gt;&lt;pre tabindex=&#34;0&#34; style=&#34;color:#f8f8f2;background-color:#272822;-moz-tab-size:4;-o-tab-size:4;tab-size:4;&#34;&gt;&lt;code class=&#34;language-sql&#34; data-lang=&#34;sql&#34;&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;&lt;span style=&#34;color:#75715e&#34;&gt;-- 优化后，强制使用字符串字面量
-&lt;/span&gt;&lt;/span&gt;&lt;/span&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;&lt;span style=&#34;color:#75715e&#34;&gt;&lt;/span&gt;&lt;span style=&#34;color:#66d9ef&#34;&gt;SELECT&lt;/span&gt; user_id, status &lt;span style=&#34;color:#66d9ef&#34;&gt;FROM&lt;/span&gt; users &lt;span style=&#34;color:#66d9ef&#34;&gt;WHERE&lt;/span&gt; phone &lt;span style=&#34;color:#f92672&#34;&gt;=&lt;/span&gt; &lt;span style=&#34;color:#e6db74&#34;&gt;&amp;#39;13800138000&amp;#39;&lt;/span&gt;;
-&lt;/span&gt;&lt;/span&gt;&lt;/code&gt;&lt;/pre&gt;&lt;/div&gt;&lt;p&gt;一看执行计划：&lt;/p&gt;
+&lt;div class="highlight"&gt;&lt;div class="chroma"&gt;
+&lt;table class="lntable"&gt;&lt;tr&gt;&lt;td class="lntd"&gt;
+&lt;pre tabindex="0" class="chroma"&gt;&lt;code&gt;&lt;span class="lnt"&gt;1
+&lt;/span&gt;&lt;span class="lnt"&gt;2
+&lt;/span&gt;&lt;/code&gt;&lt;/pre&gt;&lt;/td&gt;
+&lt;td class="lntd"&gt;
+&lt;pre tabindex="0" class="chroma"&gt;&lt;code class="language-sql" data-lang="sql"&gt;&lt;span class="line"&gt;&lt;span class="cl"&gt;&lt;span class="c1"&gt;-- 优化后，强制使用字符串字面量
+&lt;/span&gt;&lt;/span&gt;&lt;/span&gt;&lt;span class="line"&gt;&lt;span class="cl"&gt;&lt;span class="c1"&gt;&lt;/span&gt;&lt;span class="k"&gt;SELECT&lt;/span&gt;&lt;span class="w"&gt; &lt;/span&gt;&lt;span class="n"&gt;user_id&lt;/span&gt;&lt;span class="p"&gt;,&lt;/span&gt;&lt;span class="w"&gt; &lt;/span&gt;&lt;span class="n"&gt;status&lt;/span&gt;&lt;span class="w"&gt; &lt;/span&gt;&lt;span class="k"&gt;FROM&lt;/span&gt;&lt;span class="w"&gt; &lt;/span&gt;&lt;span class="n"&gt;users&lt;/span&gt;&lt;span class="w"&gt; &lt;/span&gt;&lt;span class="k"&gt;WHERE&lt;/span&gt;&lt;span class="w"&gt; &lt;/span&gt;&lt;span class="n"&gt;phone&lt;/span&gt;&lt;span class="w"&gt; &lt;/span&gt;&lt;span class="o"&gt;=&lt;/span&gt;&lt;span class="w"&gt; &lt;/span&gt;&lt;span class="s1"&gt;&amp;#39;13800138000&amp;#39;&lt;/span&gt;&lt;span class="p"&gt;;&lt;/span&gt;&lt;span class="w"&gt;
+&lt;/span&gt;&lt;/span&gt;&lt;/span&gt;&lt;/code&gt;&lt;/pre&gt;&lt;/td&gt;&lt;/tr&gt;&lt;/table&gt;
+&lt;/div&gt;
+&lt;/div&gt;&lt;p&gt;一看执行计划：&lt;/p&gt;
 &lt;ul&gt;
 &lt;li&gt;&lt;code&gt;type&lt;/code&gt;: const&lt;/li&gt;
 &lt;li&gt;&lt;code&gt;rows&lt;/code&gt;: 1&lt;/li&gt;
 &lt;li&gt;&lt;code&gt;Extra&lt;/code&gt;: Using index&lt;/li&gt;
 &lt;/ul&gt;
 &lt;p&gt;这就舒服了。&lt;/p&gt;
-&lt;h2 id=&#34;深度分页跑得越远死得越惨&#34;&gt;深度分页：跑得越远，死得越惨
+&lt;h2 id="深度分页跑得越远死得越惨"&gt;深度分页：跑得越远，死得越惨
 &lt;/h2&gt;&lt;p&gt;做ToB业务或者后台管理系统的朋友，大概率都遇到过“列表页点到第1000页就转圈圈”的现象。&lt;/p&gt;
 &lt;p&gt;&lt;strong&gt;观点：&lt;/strong&gt; 传统的 &lt;code&gt;LIMIT offset, size&lt;/code&gt; 在大数据量下是性能杀手，必须改变“先查后丢”的逻辑。&lt;/p&gt;
 &lt;p&gt;&lt;strong&gt;真实案例：&lt;/strong&gt;
 这是我接手的一个老项目，有一张 &lt;code&gt;orders&lt;/code&gt; 表，数据量大概在800万左右。业务方反馈，导出最近一个月的订单数据时，经常超时报错。&lt;/p&gt;
 &lt;p&gt;我看了一下导出逻辑，它是通过循环分页来跑的，大概逻辑是这样：&lt;/p&gt;
-&lt;div class=&#34;highlight&#34;&gt;&lt;pre tabindex=&#34;0&#34; style=&#34;color:#f8f8f2;background-color:#272822;-moz-tab-size:4;-o-tab-size:4;tab-size:4;&#34;&gt;&lt;code class=&#34;language-sql&#34; data-lang=&#34;sql&#34;&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;&lt;span style=&#34;color:#75715e&#34;&gt;-- 第1页很快
-&lt;/span&gt;&lt;/span&gt;&lt;/span&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;&lt;span style=&#34;color:#75715e&#34;&gt;&lt;/span&gt;&lt;span style=&#34;color:#66d9ef&#34;&gt;SELECT&lt;/span&gt; &lt;span style=&#34;color:#f92672&#34;&gt;*&lt;/span&gt; &lt;span style=&#34;color:#66d9ef&#34;&gt;FROM&lt;/span&gt; orders &lt;span style=&#34;color:#66d9ef&#34;&gt;WHERE&lt;/span&gt; create_time &lt;span style=&#34;color:#f92672&#34;&gt;&amp;gt;&lt;/span&gt; &lt;span style=&#34;color:#e6db74&#34;&gt;&amp;#39;2023-01-01&amp;#39;&lt;/span&gt; &lt;span style=&#34;color:#66d9ef&#34;&gt;LIMIT&lt;/span&gt; &lt;span style=&#34;color:#ae81ff&#34;&gt;0&lt;/span&gt;, &lt;span style=&#34;color:#ae81ff&#34;&gt;20&lt;/span&gt;;
-&lt;/span&gt;&lt;/span&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;
-&lt;/span&gt;&lt;/span&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;&lt;span style=&#34;color:#75715e&#34;&gt;-- ...到了第10万页
-&lt;/span&gt;&lt;/span&gt;&lt;/span&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;&lt;span style=&#34;color:#75715e&#34;&gt;&lt;/span&gt;&lt;span style=&#34;color:#66d9ef&#34;&gt;SELECT&lt;/span&gt; &lt;span style=&#34;color:#f92672&#34;&gt;*&lt;/span&gt; &lt;span style=&#34;color:#66d9ef&#34;&gt;FROM&lt;/span&gt; orders &lt;span style=&#34;color:#66d9ef&#34;&gt;WHERE&lt;/span&gt; create_time &lt;span style=&#34;color:#f92672&#34;&gt;&amp;gt;&lt;/span&gt; &lt;span style=&#34;color:#e6db74&#34;&gt;&amp;#39;2023-01-01&amp;#39;&lt;/span&gt; &lt;span style=&#34;color:#66d9ef&#34;&gt;LIMIT&lt;/span&gt; &lt;span style=&#34;color:#ae81ff&#34;&gt;2000000&lt;/span&gt;, &lt;span style=&#34;color:#ae81ff&#34;&gt;20&lt;/span&gt;;
-&lt;/span&gt;&lt;/span&gt;&lt;/code&gt;&lt;/pre&gt;&lt;/div&gt;&lt;p&gt;&lt;strong&gt;深度分析：&lt;/strong&gt;
+&lt;div class="highlight"&gt;&lt;div class="chroma"&gt;
+&lt;table class="lntable"&gt;&lt;tr&gt;&lt;td class="lntd"&gt;
+&lt;pre tabindex="0" class="chroma"&gt;&lt;code&gt;&lt;span class="lnt"&gt;1
+&lt;/span&gt;&lt;span class="lnt"&gt;2
+&lt;/span&gt;&lt;span class="lnt"&gt;3
+&lt;/span&gt;&lt;span class="lnt"&gt;4
+&lt;/span&gt;&lt;span class="lnt"&gt;5
+&lt;/span&gt;&lt;/code&gt;&lt;/pre&gt;&lt;/td&gt;
+&lt;td class="lntd"&gt;
+&lt;pre tabindex="0" class="chroma"&gt;&lt;code class="language-sql" data-lang="sql"&gt;&lt;span class="line"&gt;&lt;span class="cl"&gt;&lt;span class="c1"&gt;-- 第1页很快
+&lt;/span&gt;&lt;/span&gt;&lt;/span&gt;&lt;span class="line"&gt;&lt;span class="cl"&gt;&lt;span class="c1"&gt;&lt;/span&gt;&lt;span class="k"&gt;SELECT&lt;/span&gt;&lt;span class="w"&gt; &lt;/span&gt;&lt;span class="o"&gt;*&lt;/span&gt;&lt;span class="w"&gt; &lt;/span&gt;&lt;span class="k"&gt;FROM&lt;/span&gt;&lt;span class="w"&gt; &lt;/span&gt;&lt;span class="n"&gt;orders&lt;/span&gt;&lt;span class="w"&gt; &lt;/span&gt;&lt;span class="k"&gt;WHERE&lt;/span&gt;&lt;span class="w"&gt; &lt;/span&gt;&lt;span class="n"&gt;create_time&lt;/span&gt;&lt;span class="w"&gt; &lt;/span&gt;&lt;span class="o"&gt;&amp;gt;&lt;/span&gt;&lt;span class="w"&gt; &lt;/span&gt;&lt;span class="s1"&gt;&amp;#39;2023-01-01&amp;#39;&lt;/span&gt;&lt;span class="w"&gt; &lt;/span&gt;&lt;span class="k"&gt;LIMIT&lt;/span&gt;&lt;span class="w"&gt; &lt;/span&gt;&lt;span class="mi"&gt;0&lt;/span&gt;&lt;span class="p"&gt;,&lt;/span&gt;&lt;span class="w"&gt; &lt;/span&gt;&lt;span class="mi"&gt;20&lt;/span&gt;&lt;span class="p"&gt;;&lt;/span&gt;&lt;span class="w"&gt;
+&lt;/span&gt;&lt;/span&gt;&lt;/span&gt;&lt;span class="line"&gt;&lt;span class="cl"&gt;&lt;span class="w"&gt;
+&lt;/span&gt;&lt;/span&gt;&lt;/span&gt;&lt;span class="line"&gt;&lt;span class="cl"&gt;&lt;span class="w"&gt;&lt;/span&gt;&lt;span class="c1"&gt;-- ...到了第10万页
+&lt;/span&gt;&lt;/span&gt;&lt;/span&gt;&lt;span class="line"&gt;&lt;span class="cl"&gt;&lt;span class="c1"&gt;&lt;/span&gt;&lt;span class="k"&gt;SELECT&lt;/span&gt;&lt;span class="w"&gt; &lt;/span&gt;&lt;span class="o"&gt;*&lt;/span&gt;&lt;span class="w"&gt; &lt;/span&gt;&lt;span class="k"&gt;FROM&lt;/span&gt;&lt;span class="w"&gt; &lt;/span&gt;&lt;span class="n"&gt;orders&lt;/span&gt;&lt;span class="w"&gt; &lt;/span&gt;&lt;span class="k"&gt;WHERE&lt;/span&gt;&lt;span class="w"&gt; &lt;/span&gt;&lt;span class="n"&gt;create_time&lt;/span&gt;&lt;span class="w"&gt; &lt;/span&gt;&lt;span class="o"&gt;&amp;gt;&lt;/span&gt;&lt;span class="w"&gt; &lt;/span&gt;&lt;span class="s1"&gt;&amp;#39;2023-01-01&amp;#39;&lt;/span&gt;&lt;span class="w"&gt; &lt;/span&gt;&lt;span class="k"&gt;LIMIT&lt;/span&gt;&lt;span class="w"&gt; &lt;/span&gt;&lt;span class="mi"&gt;2000000&lt;/span&gt;&lt;span class="p"&gt;,&lt;/span&gt;&lt;span class="w"&gt; &lt;/span&gt;&lt;span class="mi"&gt;20&lt;/span&gt;&lt;span class="p"&gt;;&lt;/span&gt;&lt;span class="w"&gt;
+&lt;/span&gt;&lt;/span&gt;&lt;/span&gt;&lt;/code&gt;&lt;/pre&gt;&lt;/td&gt;&lt;/tr&gt;&lt;/table&gt;
+&lt;/div&gt;
+&lt;/div&gt;&lt;p&gt;&lt;strong&gt;深度分析：&lt;/strong&gt;
 大家要理解MySQL执行 &lt;code&gt;LIMIT 2000000, 20&lt;/code&gt; 是怎么干的。它不是直接跳到第200万行，而是&lt;strong&gt;先扫描读取200万+20行数据&lt;/strong&gt;，然后把前200万行全部扔掉，只给你最后那20行。&lt;/p&gt;
-&lt;p&gt;&lt;img src=&#34;https://picsum.photos/800/450?random=1768457784787&#34;
-	
-	
-	
-	loading=&#34;lazy&#34;
-	
-		alt=&#34;配图&#34;
-	
-	
+&lt;p&gt;&lt;img src="https://picsum.photos/800/450?random=1768457784787"
+loading="lazy"
+alt="配图"
 &gt;&lt;/p&gt;
 &lt;p&gt;这纯属“由于太老实而累死”。那200万行数据的IO开销和CPU转换开销，全是无用功。&lt;/p&gt;
 &lt;p&gt;&lt;strong&gt;落地优化：&lt;/strong&gt;
 我们当时采用了**“延迟关联”（Deferred Join）** 的方法，效果立竿见影，查询时间从8秒优化到了0.5秒。&lt;/p&gt;
 &lt;p&gt;核心思路是：&lt;strong&gt;先利用覆盖索引快速把目标ID找出来，再去回表查完整数据。&lt;/strong&gt;&lt;/p&gt;
-&lt;div class=&#34;highlight&#34;&gt;&lt;pre tabindex=&#34;0&#34; style=&#34;color:#f8f8f2;background-color:#272822;-moz-tab-size:4;-o-tab-size:4;tab-size:4;&#34;&gt;&lt;code class=&#34;language-sql&#34; data-lang=&#34;sql&#34;&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;&lt;span style=&#34;color:#75715e&#34;&gt;-- 优化方案：
-&lt;/span&gt;&lt;/span&gt;&lt;/span&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;&lt;span style=&#34;color:#75715e&#34;&gt;&lt;/span&gt;&lt;span style=&#34;color:#66d9ef&#34;&gt;SELECT&lt;/span&gt; t1.&lt;span style=&#34;color:#f92672&#34;&gt;*&lt;/span&gt; 
-&lt;/span&gt;&lt;/span&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;&lt;span style=&#34;color:#66d9ef&#34;&gt;FROM&lt;/span&gt; orders t1
-&lt;/span&gt;&lt;/span&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;&lt;span style=&#34;color:#66d9ef&#34;&gt;INNER&lt;/span&gt; &lt;span style=&#34;color:#66d9ef&#34;&gt;JOIN&lt;/span&gt; (
-&lt;/span&gt;&lt;/span&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;    &lt;span style=&#34;color:#75715e&#34;&gt;-- 这一步只查ID，走索引覆盖，不用回表，速度极快
-&lt;/span&gt;&lt;/span&gt;&lt;/span&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;&lt;span style=&#34;color:#75715e&#34;&gt;&lt;/span&gt;    &lt;span style=&#34;color:#66d9ef&#34;&gt;SELECT&lt;/span&gt; id 
-&lt;/span&gt;&lt;/span&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;    &lt;span style=&#34;color:#66d9ef&#34;&gt;FROM&lt;/span&gt; orders 
-&lt;/span&gt;&lt;/span&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;    &lt;span style=&#34;color:#66d9ef&#34;&gt;WHERE&lt;/span&gt; create_time &lt;span style=&#34;color:#f92672&#34;&gt;&amp;gt;&lt;/span&gt; &lt;span style=&#34;color:#e6db74&#34;&gt;&amp;#39;2023-01-01&amp;#39;&lt;/span&gt; 
-&lt;/span&gt;&lt;/span&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;    &lt;span style=&#34;color:#66d9ef&#34;&gt;LIMIT&lt;/span&gt; &lt;span style=&#34;color:#ae81ff&#34;&gt;2000000&lt;/span&gt;, &lt;span style=&#34;color:#ae81ff&#34;&gt;20&lt;/span&gt;
-&lt;/span&gt;&lt;/span&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;) t2 &lt;span style=&#34;color:#66d9ef&#34;&gt;ON&lt;/span&gt; t1.id &lt;span style=&#34;color:#f92672&#34;&gt;=&lt;/span&gt; t2.id;
-&lt;/span&gt;&lt;/span&gt;&lt;/code&gt;&lt;/pre&gt;&lt;/div&gt;&lt;p&gt;&lt;img src=&#34;https://picsum.photos/800/450?random=1768457784359&#34;
-	
-	
-	
-	loading=&#34;lazy&#34;
-	
-		alt=&#34;配图&#34;
-	
-	
+&lt;div class="highlight"&gt;&lt;div class="chroma"&gt;
+&lt;table class="lntable"&gt;&lt;tr&gt;&lt;td class="lntd"&gt;
+&lt;pre tabindex="0" class="chroma"&gt;&lt;code&gt;&lt;span class="lnt"&gt; 1
+&lt;/span&gt;&lt;span class="lnt"&gt; 2
+&lt;/span&gt;&lt;span class="lnt"&gt; 3
+&lt;/span&gt;&lt;span class="lnt"&gt; 4
+&lt;/span&gt;&lt;span class="lnt"&gt; 5
+&lt;/span&gt;&lt;span class="lnt"&gt; 6
+&lt;/span&gt;&lt;span class="lnt"&gt; 7
+&lt;/span&gt;&lt;span class="lnt"&gt; 8
+&lt;/span&gt;&lt;span class="lnt"&gt; 9
+&lt;/span&gt;&lt;span class="lnt"&gt;10
+&lt;/span&gt;&lt;/code&gt;&lt;/pre&gt;&lt;/td&gt;
+&lt;td class="lntd"&gt;
+&lt;pre tabindex="0" class="chroma"&gt;&lt;code class="language-sql" data-lang="sql"&gt;&lt;span class="line"&gt;&lt;span class="cl"&gt;&lt;span class="c1"&gt;-- 优化方案：
+&lt;/span&gt;&lt;/span&gt;&lt;/span&gt;&lt;span class="line"&gt;&lt;span class="cl"&gt;&lt;span class="c1"&gt;&lt;/span&gt;&lt;span class="k"&gt;SELECT&lt;/span&gt;&lt;span class="w"&gt; &lt;/span&gt;&lt;span class="n"&gt;t1&lt;/span&gt;&lt;span class="p"&gt;.&lt;/span&gt;&lt;span class="o"&gt;*&lt;/span&gt;&lt;span class="w"&gt;
+&lt;/span&gt;&lt;/span&gt;&lt;/span&gt;&lt;span class="line"&gt;&lt;span class="cl"&gt;&lt;span class="w"&gt;&lt;/span&gt;&lt;span class="k"&gt;FROM&lt;/span&gt;&lt;span class="w"&gt; &lt;/span&gt;&lt;span class="n"&gt;orders&lt;/span&gt;&lt;span class="w"&gt; &lt;/span&gt;&lt;span class="n"&gt;t1&lt;/span&gt;&lt;span class="w"&gt;
+&lt;/span&gt;&lt;/span&gt;&lt;/span&gt;&lt;span class="line"&gt;&lt;span class="cl"&gt;&lt;span class="w"&gt;&lt;/span&gt;&lt;span class="k"&gt;INNER&lt;/span&gt;&lt;span class="w"&gt; &lt;/span&gt;&lt;span class="k"&gt;JOIN&lt;/span&gt;&lt;span class="w"&gt; &lt;/span&gt;&lt;span class="p"&gt;(&lt;/span&gt;&lt;span class="w"&gt;
+&lt;/span&gt;&lt;/span&gt;&lt;/span&gt;&lt;span class="line"&gt;&lt;span class="cl"&gt;&lt;span class="w"&gt; &lt;/span&gt;&lt;span class="c1"&gt;-- 这一步只查ID，走索引覆盖，不用回表，速度极快
+&lt;/span&gt;&lt;/span&gt;&lt;/span&gt;&lt;span class="line"&gt;&lt;span class="cl"&gt;&lt;span class="c1"&gt;&lt;/span&gt;&lt;span class="w"&gt; &lt;/span&gt;&lt;span class="k"&gt;SELECT&lt;/span&gt;&lt;span class="w"&gt; &lt;/span&gt;&lt;span class="n"&gt;id&lt;/span&gt;&lt;span class="w"&gt;
+&lt;/span&gt;&lt;/span&gt;&lt;/span&gt;&lt;span class="line"&gt;&lt;span class="cl"&gt;&lt;span class="w"&gt; &lt;/span&gt;&lt;span class="k"&gt;FROM&lt;/span&gt;&lt;span class="w"&gt; &lt;/span&gt;&lt;span class="n"&gt;orders&lt;/span&gt;&lt;span class="w"&gt;
+&lt;/span&gt;&lt;/span&gt;&lt;/span&gt;&lt;span class="line"&gt;&lt;span class="cl"&gt;&lt;span class="w"&gt; &lt;/span&gt;&lt;span class="k"&gt;WHERE&lt;/span&gt;&lt;span class="w"&gt; &lt;/span&gt;&lt;span class="n"&gt;create_time&lt;/span&gt;&lt;span class="w"&gt; &lt;/span&gt;&lt;span class="o"&gt;&amp;gt;&lt;/span&gt;&lt;span class="w"&gt; &lt;/span&gt;&lt;span class="s1"&gt;&amp;#39;2023-01-01&amp;#39;&lt;/span&gt;&lt;span class="w"&gt;
+&lt;/span&gt;&lt;/span&gt;&lt;/span&gt;&lt;span class="line"&gt;&lt;span class="cl"&gt;&lt;span class="w"&gt; &lt;/span&gt;&lt;span class="k"&gt;LIMIT&lt;/span&gt;&lt;span class="w"&gt; &lt;/span&gt;&lt;span class="mi"&gt;2000000&lt;/span&gt;&lt;span class="p"&gt;,&lt;/span&gt;&lt;span class="w"&gt; &lt;/span&gt;&lt;span class="mi"&gt;20&lt;/span&gt;&lt;span class="w"&gt;
+&lt;/span&gt;&lt;/span&gt;&lt;/span&gt;&lt;span class="line"&gt;&lt;span class="cl"&gt;&lt;span class="w"&gt;&lt;/span&gt;&lt;span class="p"&gt;)&lt;/span&gt;&lt;span class="w"&gt; &lt;/span&gt;&lt;span class="n"&gt;t2&lt;/span&gt;&lt;span class="w"&gt; &lt;/span&gt;&lt;span class="k"&gt;ON&lt;/span&gt;&lt;span class="w"&gt; &lt;/span&gt;&lt;span class="n"&gt;t1&lt;/span&gt;&lt;span class="p"&gt;.&lt;/span&gt;&lt;span class="n"&gt;id&lt;/span&gt;&lt;span class="w"&gt; &lt;/span&gt;&lt;span class="o"&gt;=&lt;/span&gt;&lt;span class="w"&gt; &lt;/span&gt;&lt;span class="n"&gt;t2&lt;/span&gt;&lt;span class="p"&gt;.&lt;/span&gt;&lt;span class="n"&gt;id&lt;/span&gt;&lt;span class="p"&gt;;&lt;/span&gt;&lt;span class="w"&gt;
+&lt;/span&gt;&lt;/span&gt;&lt;/span&gt;&lt;/code&gt;&lt;/pre&gt;&lt;/td&gt;&lt;/tr&gt;&lt;/table&gt;
+&lt;/div&gt;
+&lt;/div&gt;&lt;p&gt;&lt;img src="https://picsum.photos/800/450?random=1768457784359"
+loading="lazy"
+alt="配图"
 &gt;&lt;/p&gt;
 &lt;p&gt;如果你的ID是连续自增的（虽然现在很少见），甚至可以记录上一次查询的最大ID，直接用 &lt;code&gt;WHERE id &amp;gt; last_max_id LIMIT 20&lt;/code&gt;，那性能更是起飞。&lt;/p&gt;
-&lt;h2 id=&#34;索引选择困难症优化器也会脑抽&#34;&gt;索引选择困难症：优化器也会“脑抽”
+&lt;h2 id="索引选择困难症优化器也会脑抽"&gt;索引选择困难症：优化器也会“脑抽”
 &lt;/h2&gt;&lt;p&gt;有时候你索引建得好好的，SQL也没写错，但MySQL就是不用你的索引，非要去全表扫描，或者选了个更烂的索引。&lt;/p&gt;
 &lt;p&gt;&lt;strong&gt;观点：&lt;/strong&gt; 优化器是根据“统计信息”来估算成本的。如果统计信息不准（比如数据分布倾斜），优化器就会误判。&lt;/p&gt;
 &lt;p&gt;&lt;strong&gt;真实案例：&lt;/strong&gt;
 有个任务表 &lt;code&gt;jobs&lt;/code&gt;，里面有个字段 &lt;code&gt;status&lt;/code&gt;（0:待处理, 1:处理中, 2:已完成）。这就好比漏斗，绝大多数数据都是“已完成”。
 有个定时任务要捞出“待处理”的数据：&lt;/p&gt;
-&lt;div class=&#34;highlight&#34;&gt;&lt;pre tabindex=&#34;0&#34; style=&#34;color:#f8f8f2;background-color:#272822;-moz-tab-size:4;-o-tab-size:4;tab-size:4;&#34;&gt;&lt;code class=&#34;language-sql&#34; data-lang=&#34;sql&#34;&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;&lt;span style=&#34;color:#66d9ef&#34;&gt;SELECT&lt;/span&gt; &lt;span style=&#34;color:#f92672&#34;&gt;*&lt;/span&gt; &lt;span style=&#34;color:#66d9ef&#34;&gt;FROM&lt;/span&gt; jobs &lt;span style=&#34;color:#66d9ef&#34;&gt;WHERE&lt;/span&gt; status &lt;span style=&#34;color:#f92672&#34;&gt;=&lt;/span&gt; &lt;span style=&#34;color:#ae81ff&#34;&gt;0&lt;/span&gt;;
-&lt;/span&gt;&lt;/span&gt;&lt;/code&gt;&lt;/pre&gt;&lt;/div&gt;&lt;p&gt;我们给了 &lt;code&gt;status&lt;/code&gt; 索引。起初很快，后来随着历史数据积累到千万级，这语句突然慢了。&lt;/p&gt;
+&lt;div class="highlight"&gt;&lt;div class="chroma"&gt;
+&lt;table class="lntable"&gt;&lt;tr&gt;&lt;td class="lntd"&gt;
+&lt;pre tabindex="0" class="chroma"&gt;&lt;code&gt;&lt;span class="lnt"&gt;1
+&lt;/span&gt;&lt;/code&gt;&lt;/pre&gt;&lt;/td&gt;
+&lt;td class="lntd"&gt;
+&lt;pre tabindex="0" class="chroma"&gt;&lt;code class="language-sql" data-lang="sql"&gt;&lt;span class="line"&gt;&lt;span class="cl"&gt;&lt;span class="k"&gt;SELECT&lt;/span&gt;&lt;span class="w"&gt; &lt;/span&gt;&lt;span class="o"&gt;*&lt;/span&gt;&lt;span class="w"&gt; &lt;/span&gt;&lt;span class="k"&gt;FROM&lt;/span&gt;&lt;span class="w"&gt; &lt;/span&gt;&lt;span class="n"&gt;jobs&lt;/span&gt;&lt;span class="w"&gt; &lt;/span&gt;&lt;span class="k"&gt;WHERE&lt;/span&gt;&lt;span class="w"&gt; &lt;/span&gt;&lt;span class="n"&gt;status&lt;/span&gt;&lt;span class="w"&gt; &lt;/span&gt;&lt;span class="o"&gt;=&lt;/span&gt;&lt;span class="w"&gt; &lt;/span&gt;&lt;span class="mi"&gt;0&lt;/span&gt;&lt;span class="p"&gt;;&lt;/span&gt;&lt;span class="w"&gt;
+&lt;/span&gt;&lt;/span&gt;&lt;/span&gt;&lt;/code&gt;&lt;/pre&gt;&lt;/td&gt;&lt;/tr&gt;&lt;/table&gt;
+&lt;/div&gt;
+&lt;/div&gt;&lt;p&gt;我们给了 &lt;code&gt;status&lt;/code&gt; 索引。起初很快，后来随着历史数据积累到千万级，这语句突然慢了。&lt;/p&gt;
 &lt;p&gt;&lt;strong&gt;原因复盘：&lt;/strong&gt;
 通过 &lt;code&gt;EXPLAIN&lt;/code&gt; 发现，MySQL竟然走了全表扫描！
 原因是当时表中99%的数据都是 &lt;code&gt;status=2&lt;/code&gt;（已完成）。但由于某些原因（比如频繁的大批量更新），导致MySQL的统计信息出现了偏差（Cardinality估算错误），它认为 &lt;code&gt;status=0&lt;/code&gt; 的数据也很多，觉得“反正都要回表查那么多数据，不如直接全表扫描算了”。&lt;/p&gt;
@@ -121,7 +138,7 @@
 &lt;li&gt;&lt;strong&gt;架构优化：&lt;/strong&gt; 这种状态驱动的表，历史数据如果不归档，索引效率注定越来越低。我们后来做了&lt;strong&gt;冷热分离&lt;/strong&gt;，把已完成的任务移到历史表，主表只留活跃数据，索引效率瞬间满血复活。&lt;/li&gt;
 &lt;/ol&gt;
 &lt;hr&gt;
-&lt;h2 id=&#34;总结与行动指南&#34;&gt;总结与行动指南
+&lt;h2 id="总结与行动指南"&gt;总结与行动指南
 &lt;/h2&gt;&lt;p&gt;做了这么多年架构，我最大的感触是：&lt;strong&gt;SQL优化本质上是在和数据库的IO作斗争。&lt;/strong&gt;&lt;/p&gt;
 &lt;p&gt;所有的技巧，归根结底就是三个字：&lt;strong&gt;少干活&lt;/strong&gt;。&lt;/p&gt;
 &lt;ul&gt;
@@ -137,9 +154,4 @@
 &lt;/ol&gt;
 &lt;p&gt;&lt;strong&gt;最后搞个小互动：&lt;/strong&gt;
 面对上面提到的“深度分页”问题，除了“延迟关联”和“记录最大ID”，你们团队还有什么野路子吗？是上ES？还是限制用户只能看前100页？
-&lt;strong&gt;欢迎在评论区聊聊你的方案，或者是你遇到过的最奇葩的慢SQL。&lt;/strong&gt;&lt;/p&gt;
-</description>
-        </item>
-        
-    </channel>
-</rss>
+&lt;strong&gt;欢迎在评论区聊聊你的方案，或者是你遇到过的最奇葩的慢SQL。&lt;/strong&gt;&lt;/p&gt;</description></item></channel></rss>

@@ -1,476 +1,75 @@
-<!DOCTYPE html>
-<html lang="zh-cn" dir="ltr">
-    <head><meta charset='utf-8'>
-<meta name='viewport' content='width=device-width, initial-scale=1'><meta name='description' content="记得是三年前的一个周五晚上，那时候我刚加入一家电商创业团队做架构重构。晚上10点，客服群突然炸了：“用户说充值了一笔钱，但是余额里多了两倍的数额！”\n排查下来，原因简单得让人想哭：用户在弱网环境下点击“确认支付”，前端Loading转圈没反应，用户心急多点了几下。请求因为网络抖动几乎同时到达后端，不仅扣款流水记了两笔，用户余额也加了两次。\n那天晚上我们紧急回滚数据、安抚用户，折腾到凌晨三点。\n很多资深开发在面试时能把“幂等性”背得滚瓜烂熟，但真到了中小项目的实战中，往往因为赶进度、觉得“概率小”或者过度依赖前端限制，而埋下巨大的隐患。\n对于我们这种资源有限、没有庞大风控系统的中小团队来说，如何用最低的成本构建一套防重复提交的防线？结合我这几年的踩坑经验，聊聊三个最实用的设计策略。\n策略一：数据库唯一索引 —— 最后的兜底防线\r这是最粗暴但也最有效的方法，特别适合**新增类（Insert）**的操作。\n刚接手那个出事故的项目时，我发现很多核心表居然没有唯一约束，完全依赖代码逻辑去查重。代码逻辑是脆弱的，特别是在并发场景下，“先查后写”的各种检查就是个摆设。\n真实案例： 我们的优惠券领取接口。起初，开发小哥写了段逻辑：先查用户是否领过该券，没领过则插入领取记录。结果大促由于并发高，同一个用户在毫秒级内发了三个请求，三个线程同时读到“未领取”，然后哐哐哐插入了三条记录。\n解决方案： 我们立刻调整了数据库Schema，利用数据库的强一致性机制。\n建立联合唯一索引（Unique Index）。比如在优惠券领取记录表中，将 user_id 和 coupon_id 设为联合唯一索引。\nALTER TABLE user_coupon ADD CONSTRAINT uk_user_coupon UNIQUE (user_id, coupon_id); 落地效果： 当重复请求打进来时，第一个请求成功插入，后续请求会直接报 DuplicateKeyException。我们在Service层捕获这个异常，直接返回“领取成功”或者“您已领取”给前端。\n踩坑提醒： 很多同学觉得报异常不好看。其实对于幂等性设计，吞掉报错并返回成功结果是常见做法。因为对用户来说，他的意图是“拥有这张券”，既然数据库里已经有了，告诉他“成功”在业务语义上是完全正确的。\n策略二：Redis Token机制 —— 拦截90%的“手抖”\r数据库约束虽然稳，但它是基于磁盘IO的，如果前端因为Bug搞了个死循环请求，数据库很容易被打挂。所以，我们需要在请求到达数据库之前，在内存层挡一道。\n这也就是经典的“一锁二判三更新”中的“锁”。\n真实场景： 我们的后台管理系统，运营人员上传Excel批量发货。文件比较大，解析要5秒。运营人员以为没点上，疯狂点击“上传”。结果服务器开启了8个线程同时解析同一个Excel，CPU瞬间飙到100%，整个后台瘫痪。\n解决方案： 我们引入了基于Redis的Token（或者叫防重Key）机制。对于非C端的复杂操作，我推荐**“参数指纹锁”**。\n不需要客户端先申请Token（那样交互太复杂，前端兄弟会骂人），而是由服务端根据请求参数生成Key。\n生成Key： 将 用户ID + 接口名 + 关键参数（MD5） 拼接成一个字符串。 原子操作： 使用Redis的 setNx (Set if Not eXists)。 // 伪代码示例：使用Redis实现分布式锁 String lockKey = &#34;lock:upload:&#34; + userId + &#34;:&#34; + fileMd5; // 设置30秒过期，防止死锁 boolean isLocked = redisTemplate.opsForValue().setIfAbsent(lockKey, &#34;1&#34;, 30, TimeUnit.SECONDS); if (!isLocked) { throw new BusinessException(&#34;系统正在处理中，请勿重复操作&#34;); } try { // 执行耗时业务逻辑 processExcelFile(file); } finally { // 任务完成后释放锁 // 注意：这里是否释放锁取决于业务。如果是防刷，可以不释放，等它自动过期 redisTemplate.delete(lockKey); } 落地细节： 这个方法我用了两年多，非常稳定。重点在于Key的过期时间设计。\n">
-<title>用户手抖点两下，公司损失一万八：中小团队的幂等性实战</title>
-
-<link rel='canonical' href='https://blog.irudder.me/tech/zhongxiaoxingxiangmujiagoushejizhinan/jiekoumidengxing_fangzhichongfutijiaodesheji.html'>
-
-<link rel="stylesheet" href="/scss/style.min.b9e9128fec450ebccecc4ec9900157f32b85d0609bcd5ee3293968bcaa1235f2.css"><meta property='og:title' content="用户手抖点两下，公司损失一万八：中小团队的幂等性实战">
-<meta property='og:description' content="记得是三年前的一个周五晚上，那时候我刚加入一家电商创业团队做架构重构。晚上10点，客服群突然炸了：“用户说充值了一笔钱，但是余额里多了两倍的数额！”\n排查下来，原因简单得让人想哭：用户在弱网环境下点击“确认支付”，前端Loading转圈没反应，用户心急多点了几下。请求因为网络抖动几乎同时到达后端，不仅扣款流水记了两笔，用户余额也加了两次。\n那天晚上我们紧急回滚数据、安抚用户，折腾到凌晨三点。\n很多资深开发在面试时能把“幂等性”背得滚瓜烂熟，但真到了中小项目的实战中，往往因为赶进度、觉得“概率小”或者过度依赖前端限制，而埋下巨大的隐患。\n对于我们这种资源有限、没有庞大风控系统的中小团队来说，如何用最低的成本构建一套防重复提交的防线？结合我这几年的踩坑经验，聊聊三个最实用的设计策略。\n策略一：数据库唯一索引 —— 最后的兜底防线\r这是最粗暴但也最有效的方法，特别适合**新增类（Insert）**的操作。\n刚接手那个出事故的项目时，我发现很多核心表居然没有唯一约束，完全依赖代码逻辑去查重。代码逻辑是脆弱的，特别是在并发场景下，“先查后写”的各种检查就是个摆设。\n真实案例： 我们的优惠券领取接口。起初，开发小哥写了段逻辑：先查用户是否领过该券，没领过则插入领取记录。结果大促由于并发高，同一个用户在毫秒级内发了三个请求，三个线程同时读到“未领取”，然后哐哐哐插入了三条记录。\n解决方案： 我们立刻调整了数据库Schema，利用数据库的强一致性机制。\n建立联合唯一索引（Unique Index）。比如在优惠券领取记录表中，将 user_id 和 coupon_id 设为联合唯一索引。\nALTER TABLE user_coupon ADD CONSTRAINT uk_user_coupon UNIQUE (user_id, coupon_id); 落地效果： 当重复请求打进来时，第一个请求成功插入，后续请求会直接报 DuplicateKeyException。我们在Service层捕获这个异常，直接返回“领取成功”或者“您已领取”给前端。\n踩坑提醒： 很多同学觉得报异常不好看。其实对于幂等性设计，吞掉报错并返回成功结果是常见做法。因为对用户来说，他的意图是“拥有这张券”，既然数据库里已经有了，告诉他“成功”在业务语义上是完全正确的。\n策略二：Redis Token机制 —— 拦截90%的“手抖”\r数据库约束虽然稳，但它是基于磁盘IO的，如果前端因为Bug搞了个死循环请求，数据库很容易被打挂。所以，我们需要在请求到达数据库之前，在内存层挡一道。\n这也就是经典的“一锁二判三更新”中的“锁”。\n真实场景： 我们的后台管理系统，运营人员上传Excel批量发货。文件比较大，解析要5秒。运营人员以为没点上，疯狂点击“上传”。结果服务器开启了8个线程同时解析同一个Excel，CPU瞬间飙到100%，整个后台瘫痪。\n解决方案： 我们引入了基于Redis的Token（或者叫防重Key）机制。对于非C端的复杂操作，我推荐**“参数指纹锁”**。\n不需要客户端先申请Token（那样交互太复杂，前端兄弟会骂人），而是由服务端根据请求参数生成Key。\n生成Key： 将 用户ID + 接口名 + 关键参数（MD5） 拼接成一个字符串。 原子操作： 使用Redis的 setNx (Set if Not eXists)。 // 伪代码示例：使用Redis实现分布式锁 String lockKey = &#34;lock:upload:&#34; + userId + &#34;:&#34; + fileMd5; // 设置30秒过期，防止死锁 boolean isLocked = redisTemplate.opsForValue().setIfAbsent(lockKey, &#34;1&#34;, 30, TimeUnit.SECONDS); if (!isLocked) { throw new BusinessException(&#34;系统正在处理中，请勿重复操作&#34;); } try { // 执行耗时业务逻辑 processExcelFile(file); } finally { // 任务完成后释放锁 // 注意：这里是否释放锁取决于业务。如果是防刷，可以不释放，等它自动过期 redisTemplate.delete(lockKey); } 落地细节： 这个方法我用了两年多，非常稳定。重点在于Key的过期时间设计。\n">
-<meta property='og:url' content='https://blog.irudder.me/tech/zhongxiaoxingxiangmujiagoushejizhinan/jiekoumidengxing_fangzhichongfutijiaodesheji.html'>
-<meta property='og:site_name' content='SelfTechHub'>
-<meta property='og:type' content='article'><meta property='article:section' content='Tech' /><meta property='article:tag' content='接口幂等性：防止重复提交的设计' /><meta property='article:published_time' content='2025-12-17T00:00:00&#43;00:00'/><meta property='article:modified_time' content='2025-12-17T00:00:00&#43;00:00'/>
-<meta name="twitter:title" content="用户手抖点两下，公司损失一万八：中小团队的幂等性实战">
-<meta name="twitter:description" content="记得是三年前的一个周五晚上，那时候我刚加入一家电商创业团队做架构重构。晚上10点，客服群突然炸了：“用户说充值了一笔钱，但是余额里多了两倍的数额！”\n排查下来，原因简单得让人想哭：用户在弱网环境下点击“确认支付”，前端Loading转圈没反应，用户心急多点了几下。请求因为网络抖动几乎同时到达后端，不仅扣款流水记了两笔，用户余额也加了两次。\n那天晚上我们紧急回滚数据、安抚用户，折腾到凌晨三点。\n很多资深开发在面试时能把“幂等性”背得滚瓜烂熟，但真到了中小项目的实战中，往往因为赶进度、觉得“概率小”或者过度依赖前端限制，而埋下巨大的隐患。\n对于我们这种资源有限、没有庞大风控系统的中小团队来说，如何用最低的成本构建一套防重复提交的防线？结合我这几年的踩坑经验，聊聊三个最实用的设计策略。\n策略一：数据库唯一索引 —— 最后的兜底防线\r这是最粗暴但也最有效的方法，特别适合**新增类（Insert）**的操作。\n刚接手那个出事故的项目时，我发现很多核心表居然没有唯一约束，完全依赖代码逻辑去查重。代码逻辑是脆弱的，特别是在并发场景下，“先查后写”的各种检查就是个摆设。\n真实案例： 我们的优惠券领取接口。起初，开发小哥写了段逻辑：先查用户是否领过该券，没领过则插入领取记录。结果大促由于并发高，同一个用户在毫秒级内发了三个请求，三个线程同时读到“未领取”，然后哐哐哐插入了三条记录。\n解决方案： 我们立刻调整了数据库Schema，利用数据库的强一致性机制。\n建立联合唯一索引（Unique Index）。比如在优惠券领取记录表中，将 user_id 和 coupon_id 设为联合唯一索引。\nALTER TABLE user_coupon ADD CONSTRAINT uk_user_coupon UNIQUE (user_id, coupon_id); 落地效果： 当重复请求打进来时，第一个请求成功插入，后续请求会直接报 DuplicateKeyException。我们在Service层捕获这个异常，直接返回“领取成功”或者“您已领取”给前端。\n踩坑提醒： 很多同学觉得报异常不好看。其实对于幂等性设计，吞掉报错并返回成功结果是常见做法。因为对用户来说，他的意图是“拥有这张券”，既然数据库里已经有了，告诉他“成功”在业务语义上是完全正确的。\n策略二：Redis Token机制 —— 拦截90%的“手抖”\r数据库约束虽然稳，但它是基于磁盘IO的，如果前端因为Bug搞了个死循环请求，数据库很容易被打挂。所以，我们需要在请求到达数据库之前，在内存层挡一道。\n这也就是经典的“一锁二判三更新”中的“锁”。\n真实场景： 我们的后台管理系统，运营人员上传Excel批量发货。文件比较大，解析要5秒。运营人员以为没点上，疯狂点击“上传”。结果服务器开启了8个线程同时解析同一个Excel，CPU瞬间飙到100%，整个后台瘫痪。\n解决方案： 我们引入了基于Redis的Token（或者叫防重Key）机制。对于非C端的复杂操作，我推荐**“参数指纹锁”**。\n不需要客户端先申请Token（那样交互太复杂，前端兄弟会骂人），而是由服务端根据请求参数生成Key。\n生成Key： 将 用户ID + 接口名 + 关键参数（MD5） 拼接成一个字符串。 原子操作： 使用Redis的 setNx (Set if Not eXists)。 // 伪代码示例：使用Redis实现分布式锁 String lockKey = &#34;lock:upload:&#34; + userId + &#34;:&#34; + fileMd5; // 设置30秒过期，防止死锁 boolean isLocked = redisTemplate.opsForValue().setIfAbsent(lockKey, &#34;1&#34;, 30, TimeUnit.SECONDS); if (!isLocked) { throw new BusinessException(&#34;系统正在处理中，请勿重复操作&#34;); } try { // 执行耗时业务逻辑 processExcelFile(file); } finally { // 任务完成后释放锁 // 注意：这里是否释放锁取决于业务。如果是防刷，可以不释放，等它自动过期 redisTemplate.delete(lockKey); } 落地细节： 这个方法我用了两年多，非常稳定。重点在于Key的过期时间设计。\n">
-    </head>
-    <body class="
-    article-page
-    ">
-    <script>
-        (function() {
-            const colorSchemeKey = 'StackColorScheme';
-            if(!localStorage.getItem(colorSchemeKey)){
-                localStorage.setItem(colorSchemeKey, "auto");
-            }
-        })();
-    </script><script>
-    (function() {
-        const colorSchemeKey = 'StackColorScheme';
-        const colorSchemeItem = localStorage.getItem(colorSchemeKey);
-        const supportDarkMode = window.matchMedia('(prefers-color-scheme: dark)').matches === true;
-
-        if (colorSchemeItem == 'dark' || colorSchemeItem === 'auto' && supportDarkMode) {
-            
-
-            document.documentElement.dataset.scheme = 'dark';
-        } else {
-            document.documentElement.dataset.scheme = 'light';
-        }
-    })();
-</script>
-<div class="container main-container flex on-phone--column compact"><aside class="sidebar left-sidebar sticky ">
-    <button class="hamburger hamburger--spin" type="button" id="toggle-menu" aria-label="切换菜单">
-        <span class="hamburger-box">
-            <span class="hamburger-inner"></span>
-        </span>
-    </button>
-
-    <header>
-        
-            
-            <figure class="site-avatar">
-                <a href="/">
-                
-                    
-                    
-                    
-                        
-                        <img src="/img/avatar_hu_8588ce14af1147e2.png" width="300"
-                            height="286" class="site-logo" loading="lazy" alt="Avatar">
-                    
-                
-                </a>
-                
-            </figure>
-            
-        
-        
-        <div class="site-meta">
-            <h1 class="site-name"><a href="/">SelfTechHub</a></h1>
-            <h2 class="site-description"></h2>
-        </div>
-    </header><ol class="menu" id="main-menu">
-        
-        
-        <li class="menu-bottom-section">
-            <ol class="menu">
-
-                
-                    <li id="dark-mode-toggle">
-                        <svg xmlns="http://www.w3.org/2000/svg" class="icon icon-tabler icon-tabler-toggle-left" width="24" height="24" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor" fill="none" stroke-linecap="round" stroke-linejoin="round">
-  <path stroke="none" d="M0 0h24v24H0z"/>
-  <circle cx="8" cy="12" r="2" />
-  <rect x="2" y="6" width="20" height="12" rx="6" />
-</svg>
-
-
-
-                        <svg xmlns="http://www.w3.org/2000/svg" class="icon icon-tabler icon-tabler-toggle-right" width="24" height="24" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor" fill="none" stroke-linecap="round" stroke-linejoin="round">
-  <path stroke="none" d="M0 0h24v24H0z"/>
-  <circle cx="16" cy="12" r="2" />
-  <rect x="2" y="6" width="20" height="12" rx="6" />
-</svg>
-
-
-
-                        <span>暗色模式</span>
-                    </li>
-                
-            </ol>
-        </li>
-    </ol>
-</aside>
-
-    
-
-            <main class="main full-width">
-    <article class="main-article">
-    <header class="article-header">
-
-    <div class="article-details">
-    
-    <header class="article-category">
-        
-            <a href="/categories/%E6%8A%80%E6%9C%AF.html" >
-                技术精进
-            </a>
-        
-    </header>
-    
-
-    <div class="article-title-wrapper">
-        <h2 class="article-title">
-            <a href="/tech/zhongxiaoxingxiangmujiagoushejizhinan/jiekoumidengxing_fangzhichongfutijiaodesheji.html">用户手抖点两下，公司损失一万八：中小团队的幂等性实战</a>
-        </h2>
-    
-        
-    </div>
-
-    
-    
-    
-    
-    <footer class="article-time">
-        
-            <div>
-                <svg xmlns="http://www.w3.org/2000/svg" class="icon icon-tabler icon-tabler-calendar-time" width="56" height="56" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor" fill="none" stroke-linecap="round" stroke-linejoin="round">
-  <path stroke="none" d="M0 0h24v24H0z"/>
-  <path d="M11.795 21h-6.795a2 2 0 0 1 -2 -2v-12a2 2 0 0 1 2 -2h12a2 2 0 0 1 2 2v4" />
-  <circle cx="18" cy="18" r="4" />
-  <path d="M15 3v4" />
-  <path d="M7 3v4" />
-  <path d="M3 11h16" />
-  <path d="M18 16.496v1.504l1 1" />
-</svg>
-                <time class="article-time--published" datetime='2025-12-17T00:00:00Z'>Dec 17, 2025</time>
-            </div>
-        
-
-        
-            <div>
-                <svg xmlns="http://www.w3.org/2000/svg" class="icon icon-tabler icon-tabler-clock" width="24" height="24" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor" fill="none" stroke-linecap="round" stroke-linejoin="round">
-  <path stroke="none" d="M0 0h24v24H0z"/>
-  <circle cx="12" cy="12" r="9" />
-  <polyline points="12 7 12 12 15 15" />
-</svg>
-
-
-
-                <time class="article-time--reading">
-                    阅读时长: 1 分钟
-                </time>
-            </div>
-        
-    </footer>
-    
-
-    
-</div>
-
-</header>
-
-    <section class="article-content">
-    
-    
-    <p>记得是三年前的一个周五晚上，那时候我刚加入一家电商创业团队做架构重构。晚上10点，客服群突然炸了：“用户说充值了一笔钱，但是余额里多了两倍的数额！”</p>
-<p>排查下来，原因简单得让人想哭：用户在弱网环境下点击“确认支付”，前端Loading转圈没反应，用户心急多点了几下。请求因为网络抖动几乎同时到达后端，不仅扣款流水记了两笔，用户余额也加了两次。</p>
-<p>那天晚上我们紧急回滚数据、安抚用户，折腾到凌晨三点。</p>
-<p>很多资深开发在面试时能把“幂等性”背得滚瓜烂熟，但真到了中小项目的实战中，往往因为赶进度、觉得“概率小”或者过度依赖前端限制，而埋下巨大的隐患。</p>
-<p>对于我们这种资源有限、没有庞大风控系统的中小团队来说，如何用最低的成本构建一套防重复提交的防线？结合我这几年的踩坑经验，聊聊三个最实用的设计策略。</p>
-<h2 id="策略一数据库唯一索引--最后的兜底防线">策略一：数据库唯一索引 —— 最后的兜底防线
-</h2><p>这是最粗暴但也最有效的方法，特别适合**新增类（Insert）**的操作。</p>
-<p>刚接手那个出事故的项目时，我发现很多核心表居然没有唯一约束，完全依赖代码逻辑去查重。代码逻辑是脆弱的，特别是在并发场景下，“先查后写”的各种检查就是个摆设。</p>
-<p><strong>真实案例：</strong>
-我们的优惠券领取接口。起初，开发小哥写了段逻辑：先查用户是否领过该券，没领过则插入领取记录。结果大促由于并发高，同一个用户在毫秒级内发了三个请求，三个线程同时读到“未领取”，然后哐哐哐插入了三条记录。</p>
-<p><strong>解决方案：</strong>
-我们立刻调整了数据库Schema，利用数据库的强一致性机制。</p>
-<p>建立联合唯一索引（Unique Index）。比如在优惠券领取记录表中，将 <code>user_id</code> 和 <code>coupon_id</code> 设为联合唯一索引。</p>
-<div class="highlight"><pre tabindex="0" style="color:#f8f8f2;background-color:#272822;-moz-tab-size:4;-o-tab-size:4;tab-size:4;"><code class="language-sql" data-lang="sql"><span style="display:flex;"><span><span style="color:#66d9ef">ALTER</span> <span style="color:#66d9ef">TABLE</span> user_coupon
-</span></span><span style="display:flex;"><span><span style="color:#66d9ef">ADD</span> <span style="color:#66d9ef">CONSTRAINT</span> uk_user_coupon <span style="color:#66d9ef">UNIQUE</span> (user_id, coupon_id);
-</span></span></code></pre></div><p><img src="https://picsum.photos/800/450?random=1768456517977"
-	
-	
-	
-	loading="lazy"
-	
-		alt="配图"
-	
-	
-></p>
-<p><strong>落地效果：</strong>
-当重复请求打进来时，第一个请求成功插入，后续请求会直接报 <code>DuplicateKeyException</code>。我们在Service层捕获这个异常，直接返回“领取成功”或者“您已领取”给前端。</p>
-<blockquote>
-<p><strong>踩坑提醒：</strong>
-很多同学觉得报异常不好看。其实对于幂等性设计，<strong>吞掉报错并返回成功结果</strong>是常见做法。因为对用户来说，他的意图是“拥有这张券”，既然数据库里已经有了，告诉他“成功”在业务语义上是完全正确的。</p>
-</blockquote>
-<h2 id="策略二redis-token机制--拦截90的手抖">策略二：Redis Token机制 —— 拦截90%的“手抖”
-</h2><p>数据库约束虽然稳，但它是基于磁盘IO的，如果前端因为Bug搞了个死循环请求，数据库很容易被打挂。所以，我们需要在请求到达数据库之前，在内存层挡一道。</p>
-<p>这也就是经典的“一锁二判三更新”中的“锁”。</p>
-<p><strong>真实场景：</strong>
-我们的后台管理系统，运营人员上传Excel批量发货。文件比较大，解析要5秒。运营人员以为没点上，疯狂点击“上传”。结果服务器开启了8个线程同时解析同一个Excel，CPU瞬间飙到100%，整个后台瘫痪。</p>
-<p><strong>解决方案：</strong>
-我们引入了基于Redis的Token（或者叫防重Key）机制。对于非C端的复杂操作，我推荐**“参数指纹锁”**。</p>
-<p>不需要客户端先申请Token（那样交互太复杂，前端兄弟会骂人），而是由服务端根据请求参数生成Key。</p>
-<ol>
-<li><strong>生成Key：</strong> 将 <code>用户ID + 接口名 + 关键参数（MD5）</code> 拼接成一个字符串。</li>
-<li><strong>原子操作：</strong> 使用Redis的 <code>setNx</code> (Set if Not eXists)。</li>
-</ol>
-<div class="highlight"><pre tabindex="0" style="color:#f8f8f2;background-color:#272822;-moz-tab-size:4;-o-tab-size:4;tab-size:4;"><code class="language-java" data-lang="java"><span style="display:flex;"><span><span style="color:#75715e">// 伪代码示例：使用Redis实现分布式锁</span>
-</span></span><span style="display:flex;"><span>String lockKey <span style="color:#f92672">=</span> <span style="color:#e6db74">&#34;lock:upload:&#34;</span> <span style="color:#f92672">+</span> userId <span style="color:#f92672">+</span> <span style="color:#e6db74">&#34;:&#34;</span> <span style="color:#f92672">+</span> fileMd5;
-</span></span><span style="display:flex;"><span><span style="color:#75715e">// 设置30秒过期，防止死锁</span>
-</span></span><span style="display:flex;"><span><span style="color:#66d9ef">boolean</span> isLocked <span style="color:#f92672">=</span> redisTemplate.<span style="color:#a6e22e">opsForValue</span>().<span style="color:#a6e22e">setIfAbsent</span>(lockKey, <span style="color:#e6db74">&#34;1&#34;</span>, 30, TimeUnit.<span style="color:#a6e22e">SECONDS</span>);
-</span></span><span style="display:flex;"><span>
-</span></span><span style="display:flex;"><span><span style="color:#66d9ef">if</span> (<span style="color:#f92672">!</span>isLocked) {
-</span></span><span style="display:flex;"><span>    <span style="color:#66d9ef">throw</span> <span style="color:#66d9ef">new</span> BusinessException(<span style="color:#e6db74">&#34;系统正在处理中，请勿重复操作&#34;</span>);
-</span></span><span style="display:flex;"><span>}
-</span></span><span style="display:flex;"><span>
-</span></span><span style="display:flex;"><span><span style="color:#66d9ef">try</span> {
-</span></span><span style="display:flex;"><span>    <span style="color:#75715e">// 执行耗时业务逻辑</span>
-</span></span><span style="display:flex;"><span>    processExcelFile(file);
-</span></span><span style="display:flex;"><span>} <span style="color:#66d9ef">finally</span> {
-</span></span><span style="display:flex;"><span>    <span style="color:#75715e">// 任务完成后释放锁</span>
-</span></span><span style="display:flex;"><span>    <span style="color:#75715e">// 注意：这里是否释放锁取决于业务。如果是防刷，可以不释放，等它自动过期</span>
-</span></span><span style="display:flex;"><span>    redisTemplate.<span style="color:#a6e22e">delete</span>(lockKey);
-</span></span><span style="display:flex;"><span>}
-</span></span></code></pre></div><p><strong>落地细节：</strong>
-这个方法我用了两年多，非常稳定。重点在于<strong>Key的过期时间设计</strong>。</p>
-<ul>
-<li>如果是<strong>防手抖</strong>（如支付）：过期时间设置短一点（如5秒），业务执行完必须释放锁。</li>
-<li>如果是<strong>防刷单</strong>：过期时间设置长一点（如1分钟），业务执行完<strong>不</strong>释放锁，强行让用户冷静一下。</li>
-</ul>
-<h2 id="策略三状态机幂等--业务逻辑的免疫系统">策略三：状态机幂等 —— 业务逻辑的“免疫系统”
-</h2><p>前两种是技术手段，而状态机是业务层面的终极保障，特别是针对**更新类（Update）**操作。</p>
-<p><strong>真实案例：</strong>
-在订单系统中，订单状态流转是：<code>待支付 -&gt; 已支付 -&gt; 待发货</code>。
-曾出现过一个诡异Bug：支付回调接口被第三方支付公司重复调用了（这是常态，人家要确保你收到了）。第一次调用将订单改为“已支付”，并触发了发货逻辑；第二次调用又触发了一次发货逻辑。结果仓库发了两份货。</p>
-<p><img src="https://picsum.photos/800/450?random=1768456518076"
-	
-	
-	
-	loading="lazy"
-	
-		alt="配图"
-	
-	
-></p>
-<p><strong>解决方案：</strong>
-利用SQL的行级锁和状态条件更新，实现天然幂等。</p>
-<p>不要写这样的代码：</p>
-<div class="highlight"><pre tabindex="0" style="color:#f8f8f2;background-color:#272822;-moz-tab-size:4;-o-tab-size:4;tab-size:4;"><code class="language-sql" data-lang="sql"><span style="display:flex;"><span><span style="color:#75715e">-- 危险代码
-</span></span></span><span style="display:flex;"><span><span style="color:#75715e"></span><span style="color:#66d9ef">UPDATE</span> <span style="color:#66d9ef">order</span> <span style="color:#66d9ef">SET</span> status <span style="color:#f92672">=</span> <span style="color:#e6db74">&#39;PAID&#39;</span> <span style="color:#66d9ef">WHERE</span> order_id <span style="color:#f92672">=</span> <span style="color:#ae81ff">123</span>;
-</span></span></code></pre></div><p>要写这样的代码：</p>
-<div class="highlight"><pre tabindex="0" style="color:#f8f8f2;background-color:#272822;-moz-tab-size:4;-o-tab-size:4;tab-size:4;"><code class="language-sql" data-lang="sql"><span style="display:flex;"><span><span style="color:#75715e">-- 幂等代码
-</span></span></span><span style="display:flex;"><span><span style="color:#75715e"></span><span style="color:#66d9ef">UPDATE</span> <span style="color:#66d9ef">order</span> <span style="color:#66d9ef">SET</span> status <span style="color:#f92672">=</span> <span style="color:#e6db74">&#39;PAID&#39;</span> 
-</span></span><span style="display:flex;"><span><span style="color:#66d9ef">WHERE</span> order_id <span style="color:#f92672">=</span> <span style="color:#ae81ff">123</span> <span style="color:#66d9ef">AND</span> status <span style="color:#f92672">=</span> <span style="color:#e6db74">&#39;PENDING&#39;</span>; <span style="color:#75715e">-- 核心在这里
-</span></span></span></code></pre></div><p><strong>落地效果：</strong>
-通过 <code>affected_rows</code>（受影响行数）来判断。</p>
-<ul>
-<li>如果是1：说明更新成功，执行后续发货逻辑。</li>
-<li>如果是0：说明订单已经不是 <code>PENDING</code> 状态（可能是已经支付了），直接返回“处理成功”给回调方，停止后续所有业务逻辑。</li>
-</ul>
-<p>这种方式利用了数据库的当前读（Current Read）特性，即使是高并发场景，数据库也会帮我们将请求排队，保证只有一个请求能修改状态成功。</p>
-<h2 id="思考与行动">思考与行动
-</h2><p>写到这里，我想问大家一个问题：<strong>你现在的项目中，有哪些涉及资金或核心资源变动的接口，完全依赖前端按钮置灰来防止重复提交？</strong></p>
-<p>如果答案是肯定的，这大概率是一个待引爆的地雷。</p>
-<p>幂等性设计不是要为了炫技去引入分布式事务框架（如Seata对于小团队太重了），而是用最简单的手段解决80%的问题。</p>
-<p><strong>给中小团队架构师的3个落地建议：</strong></p>
-<ol>
-<li><strong>盘点高危接口：</strong> 这周花1小时，拉出支付、退款、发券、Excel导入这几类接口，检查是否有数据库唯一索引兜底。</li>
-<li><strong>封装通用注解：</strong> 写一个 <code>@Idempotent</code> 注解，结合Redis，切面处理重复请求。让开发同学只需要加一个注解就能防手抖，降低推广难度。</li>
-<li><strong>统一响应规范：</strong> 与前端约定好，当触发幂等拦截时，是报错提示“请勿重复提交”，还是静默返回“操作成功”。对于用户体验来说，查询类的幂等通常静默处理，修改类的建议给与适当提示。</li>
-</ol>
-<p>架构设计的本质不是追求完美，而是管理风险。希望这些实战经验能帮你守住系统的“防洪堤”。</p>
-
-</section>
-
-
-    <footer class="article-footer">
-    
-    <section class="article-tags">
-        
-            <a href="/tags/%E6%8E%A5%E5%8F%A3%E5%B9%82%E7%AD%89%E6%80%A7%E9%98%B2%E6%AD%A2%E9%87%8D%E5%A4%8D%E6%8F%90%E4%BA%A4%E7%9A%84%E8%AE%BE%E8%AE%A1.html">接口幂等性：防止重复提交的设计</a>
-        
-    </section>
-
-
-    </footer>
-
-
-    
-</article>
-
-    
-
-    
-
-     
-    
-        
-    <script
-    src="https://giscus.app/client.js"
-    data-repo="pastor17/bloggiscus"
-    data-repo-id="R_kgDOQ6H9qQ"
-    data-category=""
-    data-category-id="DIC_kwDOQ6H9qc4C0-T8"
-    data-mapping="pathname"
-    data-strict="0"
-    data-reactions-enabled="1"
-    data-emit-metadata="0"
-    data-input-position="bottom"
-    data-theme="light"
-    data-lang="zh-CN"
-    data-loading="lazy"
-    crossorigin="anonymous"
-    async
-></script>
-<script>
-    function setGiscusTheme(theme) {
-        let giscus = document.querySelector("iframe.giscus-frame");
-        if (giscus) {
-            giscus.contentWindow.postMessage(
-                {
-                    giscus: {
-                        setConfig: {
-                            theme: theme,
-                        },
-                    },
-                },
-                "https://giscus.app"
-            );
-        }
-    }
-
-    (function () {
-        addEventListener("message", (e) => {
-            if (event.origin !== "https://giscus.app") return;
-            handler();
-        });
-        window.addEventListener("onColorSchemeChange", handler);
-
-        function handler() {
-            if (document.documentElement.dataset.scheme === "light") {
-                setGiscusTheme('light');
-            } else {
-                setGiscusTheme('dark_dimmed');
-            }
-        }
-    })();
-</script>
-
-    
-
-    <footer class="site-footer">
-    <section class="copyright">
-        &copy; 
-        
-        2026 SelfTechHub
-    </section>
-    
-    <section class="powerby">
-        
-
-    </section>
-</footer>
-
-
-    
-<div class="pswp" tabindex="-1" role="dialog" aria-hidden="true">
-
-    
-    <div class="pswp__bg"></div>
-
-    
-    <div class="pswp__scroll-wrap">
-
-        
-        <div class="pswp__container">
-            <div class="pswp__item"></div>
-            <div class="pswp__item"></div>
-            <div class="pswp__item"></div>
-        </div>
-
-        
-        <div class="pswp__ui pswp__ui--hidden">
-
-            <div class="pswp__top-bar">
-
-                
-
-                <div class="pswp__counter"></div>
-
-                <button class="pswp__button pswp__button--close" title="Close (Esc)"></button>
-
-                <button class="pswp__button pswp__button--share" title="Share"></button>
-
-                <button class="pswp__button pswp__button--fs" title="Toggle fullscreen"></button>
-
-                <button class="pswp__button pswp__button--zoom" title="Zoom in/out"></button>
-
-                
-                
-                <div class="pswp__preloader">
-                    <div class="pswp__preloader__icn">
-                        <div class="pswp__preloader__cut">
-                            <div class="pswp__preloader__donut"></div>
-                        </div>
-                    </div>
-                </div>
-            </div>
-
-            <div class="pswp__share-modal pswp__share-modal--hidden pswp__single-tap">
-                <div class="pswp__share-tooltip"></div>
-            </div>
-
-            <button class="pswp__button pswp__button--arrow--left" title="Previous (arrow left)">
-            </button>
-
-            <button class="pswp__button pswp__button--arrow--right" title="Next (arrow right)">
-            </button>
-
-            <div class="pswp__caption">
-                <div class="pswp__caption__center"></div>
-            </div>
-
-        </div>
-
-    </div>
-
-</div><script 
-                src="https://cdn.jsdelivr.net/npm/photoswipe@4.1.3/dist/photoswipe.min.js"integrity="sha256-ePwmChbbvXbsO02lbM3HoHbSHTHFAeChekF1xKJdleo="crossorigin="anonymous"
-                defer
-                >
-            </script><script 
-                src="https://cdn.jsdelivr.net/npm/photoswipe@4.1.3/dist/photoswipe-ui-default.min.js"integrity="sha256-UKkzOn/w1mBxRmLLGrSeyB4e1xbrp4xylgAWb3M42pU="crossorigin="anonymous"
-                defer
-                >
-            </script><link 
-                rel="stylesheet" 
-                href="https://cdn.jsdelivr.net/npm/photoswipe@4.1.3/dist/default-skin/default-skin.min.css"crossorigin="anonymous"
-            ><link 
-                rel="stylesheet" 
-                href="https://cdn.jsdelivr.net/npm/photoswipe@4.1.3/dist/photoswipe.min.css"crossorigin="anonymous"
-            >
-    
-
-            </main>
-        </div>
-        <script 
-                src="https://cdn.jsdelivr.net/npm/node-vibrant@3.1.6/dist/vibrant.min.js"integrity="sha256-awcR2jno4kI5X0zL8ex0vi2z&#43;KMkF24hUW8WePSA9HM="crossorigin="anonymous"
-                
-                >
-            </script><script type="text/javascript" src="/ts/main.c922af694cc257bf1ecc41c0dd7b0430f9114ec280ccf67cd2c6ad55f5316c4e.js" defer></script>
-<script>
-    (function () {
-        const customFont = document.createElement('link');
-        customFont.href = "https://fonts.googleapis.com/css2?family=Lato:wght@300;400;700&display=swap";
-
-        customFont.type = "text/css";
-        customFont.rel = "stylesheet";
-
-        document.head.appendChild(customFont);
-    }());
-</script>
-
-    </body>
-</html>
+<!doctype html><html lang=zh-cn dir=ltr><head><meta charset=utf-8><meta name=viewport content='width=device-width,initial-scale=1'><meta name=description content="记得是三年前的一个周五晚上，那时候我刚加入一家电商创业团队做架构重构。晚上10点，客服群突然炸了：“用户说充值了一笔钱，但是余额里多了两倍的数额！"><title>用户手抖点两下，公司损失一万八：中小团队的幂等性实战</title><link rel=canonical href=https://blog.irudder.me/tech/zhongxiaoxingxiangmujiagoushejizhinan/jiekoumidengxing_fangzhichongfutijiaodesheji.html><link rel=stylesheet href=/scss/style.min.c77ce1b874b29b2ee9e54a89066c79ebf35cbe9cf399b31ab5d79167f9a965c9.css><meta property='og:title' content="用户手抖点两下，公司损失一万八：中小团队的幂等性实战"><meta property='og:description' content="记得是三年前的一个周五晚上，那时候我刚加入一家电商创业团队做架构重构。晚上10点，客服群突然炸了：“用户说充值了一笔钱，但是余额里多了两倍的数额！"><meta property='og:url' content='https://blog.irudder.me/tech/zhongxiaoxingxiangmujiagoushejizhinan/jiekoumidengxing_fangzhichongfutijiaodesheji.html'><meta property='og:site_name' content='SelfTechHub'><meta property='og:type' content='article'><meta property='article:section' content='Tech'><meta property='article:tag' content='接口幂等性：防止重复提交的设计'><meta property='article:published_time' content='2025-12-17T00:00:00+08:00'><meta property='article:modified_time' content='2025-12-17T00:00:00+08:00'><meta name=twitter:title content="用户手抖点两下，公司损失一万八：中小团队的幂等性实战"><meta name=twitter:description content="记得是三年前的一个周五晚上，那时候我刚加入一家电商创业团队做架构重构。晚上10点，客服群突然炸了：“用户说充值了一笔钱，但是余额里多了两倍的数额！"><link rel="shortcut icon" href=/images/logo.png></head><body class=article-page><script>(function(){const e="StackColorScheme";localStorage.getItem(e)||localStorage.setItem(e,"auto")})()</script><script>(function(){const t="StackColorScheme",e=localStorage.getItem(t),n=window.matchMedia("(prefers-color-scheme: dark)").matches===!0;e=="dark"||e==="auto"&&n?document.documentElement.dataset.scheme="dark":document.documentElement.dataset.scheme="light"})()</script><div class="container main-container flex on-phone--column extended"><aside class="sidebar left-sidebar sticky"><button class="hamburger hamburger--spin" type=button id=toggle-menu aria-label=切换菜单>
+<span class=hamburger-box><span class=hamburger-inner></span></span></button><header><figure class=site-avatar><a href=/><img src=/img/avatar_hu_8588ce14af1147e2.png width=300 height=286 class=site-logo loading=lazy alt=Avatar>
+</a><span class=emoji>🧠</span></figure><div class=site-meta><h1 class=site-name><a href=/>SelfTechHub</a></h1><h2 class=site-description>成长 · 技术 · 商业 · AI —— 把碎片知识沉淀为可复用的记忆体系</h2></div></header><ol class=menu-social><li><a href=https://github.com/pastor17 target=_blank title=GitHub rel=me><svg class="icon icon-tabler icon-tabler-brand-github" width="24" height="24" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor" fill="none" stroke-linecap="round" stroke-linejoin="round"><path stroke="none" d="M0 0h24v24H0z" fill="none"/><path d="M9 19c-4.3 1.4-4.3-2.5-6-3m12 5v-3.5c0-1 .1-1.4-.5-2 2.8-.3 5.5-1.4 5.5-6a4.6 4.6.0 00-1.3-3.2 4.2 4.2.0 00-.1-3.2s-1.1-.3-3.5 1.3a12.3 12.3.0 00-6.2.0C6.5 2.8 5.4 3.1 5.4 3.1a4.2 4.2.0 00-.1 3.2A4.6 4.6.0 004 9.5c0 4.6 2.7 5.7 5.5 6-.6.6-.6 1.2-.5 2V21"/></svg></a></li></ol><ol class=menu id=main-menu><li><a href=/><svg class="icon icon-tabler icon-tabler-home" width="24" height="24" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor" fill="none" stroke-linecap="round" stroke-linejoin="round"><path stroke="none" d="M0 0h24v24H0z"/><polyline points="5 12 3 12 12 3 21 12 19 12"/><path d="M5 12v7a2 2 0 002 2h10a2 2 0 002-2v-7"/><path d="M9 21v-6a2 2 0 012-2h2a2 2 0 012 2v6"/></svg>
+<span>首页</span></a></li><li><a href=/categories/%E6%88%90%E9%95%BF.html><span>成长认知</span></a></li><li><a href=/categories/%E6%8A%80%E6%9C%AF.html><span>技术精进</span></a></li><li><a href=/categories/%E5%95%86%E4%B8%9A.html><span>商业·财富</span></a></li><li><a href=/categories/ai.html><span>探索AI</span></a></li><li><a href=/about/><svg class="icon icon-tabler icon-tabler-user" width="24" height="24" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor" fill="none" stroke-linecap="round" stroke-linejoin="round"><path stroke="none" d="M0 0h24v24H0z"/><circle cx="12" cy="7" r="4"/><path d="M6 21v-2a4 4 0 014-4h4a4 4 0 014 4v2"/></svg>
+<span>关于</span></a></li><li class=menu-bottom-section><ol class=menu><li id=dark-mode-toggle><svg class="icon icon-tabler icon-tabler-toggle-left" width="24" height="24" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor" fill="none" stroke-linecap="round" stroke-linejoin="round"><path stroke="none" d="M0 0h24v24H0z"/><circle cx="8" cy="12" r="2"/><rect x="2" y="6" width="20" height="12" rx="6"/></svg>
+<svg class="icon icon-tabler icon-tabler-toggle-right" width="24" height="24" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor" fill="none" stroke-linecap="round" stroke-linejoin="round"><path stroke="none" d="M0 0h24v24H0z"/><circle cx="16" cy="12" r="2"/><rect x="2" y="6" width="20" height="12" rx="6"/></svg>
+<span>暗色模式</span></li></ol></li></ol></aside><aside class="sidebar right-sidebar sticky"><section class="widget archives"><div class=widget-icon><svg class="icon icon-tabler icon-tabler-hash" width="24" height="24" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor" fill="none" stroke-linecap="round" stroke-linejoin="round"><path stroke="none" d="M0 0h24v24H0z"/><line x1="5" y1="9" x2="19" y2="9"/><line x1="5" y1="15" x2="19" y2="15"/><line x1="11" y1="4" x2="7" y2="20"/><line x1="17" y1="4" x2="13" y2="20"/></svg></div><h2 class="widget-title section-title">目录</h2><div class=widget--toc><nav id=TableOfContents><ul><li><a href=#策略一数据库唯一索引--最后的兜底防线>策略一：数据库唯一索引 —— 最后的兜底防线</a></li><li><a href=#策略二redis-token机制--拦截90的手抖>策略二：Redis Token机制 —— 拦截90%的“手抖”</a></li><li><a href=#策略三状态机幂等--业务逻辑的免疫系统>策略三：状态机幂等 —— 业务逻辑的“免疫系统”</a></li><li><a href=#思考与行动>思考与行动</a></li></ul></nav></div></section></aside><main class="main full-width"><article class=main-article><header class=article-header><div class=article-details><header class=article-category><a href=/categories/%E6%8A%80%E6%9C%AF.html>技术精进</a></header><div class=article-title-wrapper><h2 class=article-title><a href=/tech/zhongxiaoxingxiangmujiagoushejizhinan/jiekoumidengxing_fangzhichongfutijiaodesheji.html>用户手抖点两下，公司损失一万八：中小团队的幂等性实战</a></h2><h3 class=article-subtitle>记得是三年前的一个周五晚上，那时候我刚加入一家电商创业团队做架构重构。晚上10点，客服群突然炸了：“用户说充值了一笔钱，但是余额里多了两倍的数额！</h3></div><footer class=article-time><div><svg class="icon icon-tabler icon-tabler-calendar-time" width="56" height="56" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor" fill="none" stroke-linecap="round" stroke-linejoin="round"><path stroke="none" d="M0 0h24v24H0z"/><path d="M11.795 21H5a2 2 0 01-2-2V7a2 2 0 012-2h12a2 2 0 012 2v4"/><circle cx="18" cy="18" r="4"/><path d="M15 3v4"/><path d="M7 3v4"/><path d="M3 11h16"/><path d="M18 16.496V18l1 1"/></svg>
+<time class=article-time--published datetime=2025-12-17T00:00:00+08:00>2025-12-17</time></div><div><svg class="icon icon-tabler icon-tabler-clock" width="24" height="24" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor" fill="none" stroke-linecap="round" stroke-linejoin="round"><path stroke="none" d="M0 0h24v24H0z"/><circle cx="12" cy="12" r="9"/><polyline points="12 7 12 12 15 15"/></svg>
+<time class=article-time--reading>阅读时长: 5 分钟</time></div></footer></div></header><section class=article-content><p>记得是三年前的一个周五晚上，那时候我刚加入一家电商创业团队做架构重构。晚上10点，客服群突然炸了：“用户说充值了一笔钱，但是余额里多了两倍的数额！”</p><p>排查下来，原因简单得让人想哭：用户在弱网环境下点击“确认支付”，前端Loading转圈没反应，用户心急多点了几下。请求因为网络抖动几乎同时到达后端，不仅扣款流水记了两笔，用户余额也加了两次。</p><p>那天晚上我们紧急回滚数据、安抚用户，折腾到凌晨三点。</p><p>很多资深开发在面试时能把“幂等性”背得滚瓜烂熟，但真到了中小项目的实战中，往往因为赶进度、觉得“概率小”或者过度依赖前端限制，而埋下巨大的隐患。</p><p>对于我们这种资源有限、没有庞大风控系统的中小团队来说，如何用最低的成本构建一套防重复提交的防线？结合我这几年的踩坑经验，聊聊三个最实用的设计策略。</p><h2 id=策略一数据库唯一索引--最后的兜底防线>策略一：数据库唯一索引 —— 最后的兜底防线</h2><p>这是最粗暴但也最有效的方法，特别适合**新增类（Insert）**的操作。</p><p>刚接手那个出事故的项目时，我发现很多核心表居然没有唯一约束，完全依赖代码逻辑去查重。代码逻辑是脆弱的，特别是在并发场景下，“先查后写”的各种检查就是个摆设。</p><p><strong>真实案例：</strong>
+我们的优惠券领取接口。起初，开发小哥写了段逻辑：先查用户是否领过该券，没领过则插入领取记录。结果大促由于并发高，同一个用户在毫秒级内发了三个请求，三个线程同时读到“未领取”，然后哐哐哐插入了三条记录。</p><p><strong>解决方案：</strong>
+我们立刻调整了数据库Schema，利用数据库的强一致性机制。</p><p>建立联合唯一索引（Unique Index）。比如在优惠券领取记录表中，将 <code>user_id</code> 和 <code>coupon_id</code> 设为联合唯一索引。</p><div class=highlight><div class=chroma><table class=lntable><tr><td class=lntd><pre tabindex=0 class=chroma><code><span class=lnt>1
+</span><span class=lnt>2
+</span></code></pre></td><td class=lntd><pre tabindex=0 class=chroma><code class=language-sql data-lang=sql><span class=line><span class=cl><span class=k>ALTER</span><span class=w> </span><span class=k>TABLE</span><span class=w> </span><span class=n>user_coupon</span><span class=w>
+</span></span></span><span class=line><span class=cl><span class=w></span><span class=k>ADD</span><span class=w> </span><span class=k>CONSTRAINT</span><span class=w> </span><span class=n>uk_user_coupon</span><span class=w> </span><span class=k>UNIQUE</span><span class=w> </span><span class=p>(</span><span class=n>user_id</span><span class=p>,</span><span class=w> </span><span class=n>coupon_id</span><span class=p>);</span><span class=w>
+</span></span></span></code></pre></td></tr></table></div></div><p><img src="https://picsum.photos/800/450?random=1768456517977" loading=lazy alt=配图></p><p><strong>落地效果：</strong>
+当重复请求打进来时，第一个请求成功插入，后续请求会直接报 <code>DuplicateKeyException</code>。我们在Service层捕获这个异常，直接返回“领取成功”或者“您已领取”给前端。</p><blockquote><p><strong>踩坑提醒：</strong>
+很多同学觉得报异常不好看。其实对于幂等性设计，<strong>吞掉报错并返回成功结果</strong>是常见做法。因为对用户来说，他的意图是“拥有这张券”，既然数据库里已经有了，告诉他“成功”在业务语义上是完全正确的。</p></blockquote><h2 id=策略二redis-token机制--拦截90的手抖>策略二：Redis Token机制 —— 拦截90%的“手抖”</h2><p>数据库约束虽然稳，但它是基于磁盘IO的，如果前端因为Bug搞了个死循环请求，数据库很容易被打挂。所以，我们需要在请求到达数据库之前，在内存层挡一道。</p><p>这也就是经典的“一锁二判三更新”中的“锁”。</p><p><strong>真实场景：</strong>
+我们的后台管理系统，运营人员上传Excel批量发货。文件比较大，解析要5秒。运营人员以为没点上，疯狂点击“上传”。结果服务器开启了8个线程同时解析同一个Excel，CPU瞬间飙到100%，整个后台瘫痪。</p><p><strong>解决方案：</strong>
+我们引入了基于Redis的Token（或者叫防重Key）机制。对于非C端的复杂操作，我推荐**“参数指纹锁”**。</p><p>不需要客户端先申请Token（那样交互太复杂，前端兄弟会骂人），而是由服务端根据请求参数生成Key。</p><ol><li><strong>生成Key：</strong> 将 <code>用户ID + 接口名 + 关键参数（MD5）</code> 拼接成一个字符串。</li><li><strong>原子操作：</strong> 使用Redis的 <code>setNx</code> (Set if Not eXists)。</li></ol><div class=highlight><div class=chroma><table class=lntable><tr><td class=lntd><pre tabindex=0 class=chroma><code><span class=lnt> 1
+</span><span class=lnt> 2
+</span><span class=lnt> 3
+</span><span class=lnt> 4
+</span><span class=lnt> 5
+</span><span class=lnt> 6
+</span><span class=lnt> 7
+</span><span class=lnt> 8
+</span><span class=lnt> 9
+</span><span class=lnt>10
+</span><span class=lnt>11
+</span><span class=lnt>12
+</span><span class=lnt>13
+</span><span class=lnt>14
+</span><span class=lnt>15
+</span><span class=lnt>16
+</span><span class=lnt>17
+</span></code></pre></td><td class=lntd><pre tabindex=0 class=chroma><code class=language-java data-lang=java><span class=line><span class=cl><span class=c1>// 伪代码示例：使用Redis实现分布式锁</span><span class=w>
+</span></span></span><span class=line><span class=cl><span class=w></span><span class=n>String</span><span class=w> </span><span class=n>lockKey</span><span class=w> </span><span class=o>=</span><span class=w> </span><span class=s>&#34;lock:upload:&#34;</span><span class=w> </span><span class=o>+</span><span class=w> </span><span class=n>userId</span><span class=w> </span><span class=o>+</span><span class=w> </span><span class=s>&#34;:&#34;</span><span class=w> </span><span class=o>+</span><span class=w> </span><span class=n>fileMd5</span><span class=p>;</span><span class=w>
+</span></span></span><span class=line><span class=cl><span class=w></span><span class=c1>// 设置30秒过期，防止死锁</span><span class=w>
+</span></span></span><span class=line><span class=cl><span class=w></span><span class=kt>boolean</span><span class=w> </span><span class=n>isLocked</span><span class=w> </span><span class=o>=</span><span class=w> </span><span class=n>redisTemplate</span><span class=p>.</span><span class=na>opsForValue</span><span class=p>().</span><span class=na>setIfAbsent</span><span class=p>(</span><span class=n>lockKey</span><span class=p>,</span><span class=w> </span><span class=s>&#34;1&#34;</span><span class=p>,</span><span class=w> </span><span class=n>30</span><span class=p>,</span><span class=w> </span><span class=n>TimeUnit</span><span class=p>.</span><span class=na>SECONDS</span><span class=p>);</span><span class=w>
+</span></span></span><span class=line><span class=cl><span class=w>
+</span></span></span><span class=line><span class=cl><span class=w></span><span class=k>if</span><span class=w> </span><span class=p>(</span><span class=o>!</span><span class=n>isLocked</span><span class=p>)</span><span class=w> </span><span class=p>{</span><span class=w>
+</span></span></span><span class=line><span class=cl><span class=w>    </span><span class=k>throw</span><span class=w> </span><span class=k>new</span><span class=w> </span><span class=n>BusinessException</span><span class=p>(</span><span class=s>&#34;系统正在处理中，请勿重复操作&#34;</span><span class=p>);</span><span class=w>
+</span></span></span><span class=line><span class=cl><span class=w></span><span class=p>}</span><span class=w>
+</span></span></span><span class=line><span class=cl><span class=w>
+</span></span></span><span class=line><span class=cl><span class=w></span><span class=k>try</span><span class=w> </span><span class=p>{</span><span class=w>
+</span></span></span><span class=line><span class=cl><span class=w>    </span><span class=c1>// 执行耗时业务逻辑</span><span class=w>
+</span></span></span><span class=line><span class=cl><span class=w>    </span><span class=n>processExcelFile</span><span class=p>(</span><span class=n>file</span><span class=p>);</span><span class=w>
+</span></span></span><span class=line><span class=cl><span class=w></span><span class=p>}</span><span class=w> </span><span class=k>finally</span><span class=w> </span><span class=p>{</span><span class=w>
+</span></span></span><span class=line><span class=cl><span class=w>    </span><span class=c1>// 任务完成后释放锁</span><span class=w>
+</span></span></span><span class=line><span class=cl><span class=w>    </span><span class=c1>// 注意：这里是否释放锁取决于业务。如果是防刷，可以不释放，等它自动过期</span><span class=w>
+</span></span></span><span class=line><span class=cl><span class=w>    </span><span class=n>redisTemplate</span><span class=p>.</span><span class=na>delete</span><span class=p>(</span><span class=n>lockKey</span><span class=p>);</span><span class=w>
+</span></span></span><span class=line><span class=cl><span class=w></span><span class=p>}</span><span class=w>
+</span></span></span></code></pre></td></tr></table></div></div><p><strong>落地细节：</strong>
+这个方法我用了两年多，非常稳定。重点在于<strong>Key的过期时间设计</strong>。</p><ul><li>如果是<strong>防手抖</strong>（如支付）：过期时间设置短一点（如5秒），业务执行完必须释放锁。</li><li>如果是<strong>防刷单</strong>：过期时间设置长一点（如1分钟），业务执行完<strong>不</strong>释放锁，强行让用户冷静一下。</li></ul><h2 id=策略三状态机幂等--业务逻辑的免疫系统>策略三：状态机幂等 —— 业务逻辑的“免疫系统”</h2><p>前两种是技术手段，而状态机是业务层面的终极保障，特别是针对**更新类（Update）**操作。</p><p><strong>真实案例：</strong>
+在订单系统中，订单状态流转是：<code>待支付 -> 已支付 -> 待发货</code>。
+曾出现过一个诡异Bug：支付回调接口被第三方支付公司重复调用了（这是常态，人家要确保你收到了）。第一次调用将订单改为“已支付”，并触发了发货逻辑；第二次调用又触发了一次发货逻辑。结果仓库发了两份货。</p><p><img src="https://picsum.photos/800/450?random=1768456518076" loading=lazy alt=配图></p><p><strong>解决方案：</strong>
+利用SQL的行级锁和状态条件更新，实现天然幂等。</p><p>不要写这样的代码：</p><div class=highlight><div class=chroma><table class=lntable><tr><td class=lntd><pre tabindex=0 class=chroma><code><span class=lnt>1
+</span><span class=lnt>2
+</span></code></pre></td><td class=lntd><pre tabindex=0 class=chroma><code class=language-sql data-lang=sql><span class=line><span class=cl><span class=c1>-- 危险代码
+</span></span></span><span class=line><span class=cl><span class=c1></span><span class=k>UPDATE</span><span class=w> </span><span class=k>order</span><span class=w> </span><span class=k>SET</span><span class=w> </span><span class=n>status</span><span class=w> </span><span class=o>=</span><span class=w> </span><span class=s1>&#39;PAID&#39;</span><span class=w> </span><span class=k>WHERE</span><span class=w> </span><span class=n>order_id</span><span class=w> </span><span class=o>=</span><span class=w> </span><span class=mi>123</span><span class=p>;</span><span class=w>
+</span></span></span></code></pre></td></tr></table></div></div><p>要写这样的代码：</p><div class=highlight><div class=chroma><table class=lntable><tr><td class=lntd><pre tabindex=0 class=chroma><code><span class=lnt>1
+</span><span class=lnt>2
+</span><span class=lnt>3
+</span></code></pre></td><td class=lntd><pre tabindex=0 class=chroma><code class=language-sql data-lang=sql><span class=line><span class=cl><span class=c1>-- 幂等代码
+</span></span></span><span class=line><span class=cl><span class=c1></span><span class=k>UPDATE</span><span class=w> </span><span class=k>order</span><span class=w> </span><span class=k>SET</span><span class=w> </span><span class=n>status</span><span class=w> </span><span class=o>=</span><span class=w> </span><span class=s1>&#39;PAID&#39;</span><span class=w> 
+</span></span></span><span class=line><span class=cl><span class=w></span><span class=k>WHERE</span><span class=w> </span><span class=n>order_id</span><span class=w> </span><span class=o>=</span><span class=w> </span><span class=mi>123</span><span class=w> </span><span class=k>AND</span><span class=w> </span><span class=n>status</span><span class=w> </span><span class=o>=</span><span class=w> </span><span class=s1>&#39;PENDING&#39;</span><span class=p>;</span><span class=w> </span><span class=c1>-- 核心在这里
+</span></span></span></code></pre></td></tr></table></div></div><p><strong>落地效果：</strong>
+通过 <code>affected_rows</code>（受影响行数）来判断。</p><ul><li>如果是1：说明更新成功，执行后续发货逻辑。</li><li>如果是0：说明订单已经不是 <code>PENDING</code> 状态（可能是已经支付了），直接返回“处理成功”给回调方，停止后续所有业务逻辑。</li></ul><p>这种方式利用了数据库的当前读（Current Read）特性，即使是高并发场景，数据库也会帮我们将请求排队，保证只有一个请求能修改状态成功。</p><h2 id=思考与行动>思考与行动</h2><p>写到这里，我想问大家一个问题：<strong>你现在的项目中，有哪些涉及资金或核心资源变动的接口，完全依赖前端按钮置灰来防止重复提交？</strong></p><p>如果答案是肯定的，这大概率是一个待引爆的地雷。</p><p>幂等性设计不是要为了炫技去引入分布式事务框架（如Seata对于小团队太重了），而是用最简单的手段解决80%的问题。</p><p><strong>给中小团队架构师的3个落地建议：</strong></p><ol><li><strong>盘点高危接口：</strong> 这周花1小时，拉出支付、退款、发券、Excel导入这几类接口，检查是否有数据库唯一索引兜底。</li><li><strong>封装通用注解：</strong> 写一个 <code>@Idempotent</code> 注解，结合Redis，切面处理重复请求。让开发同学只需要加一个注解就能防手抖，降低推广难度。</li><li><strong>统一响应规范：</strong> 与前端约定好，当触发幂等拦截时，是报错提示“请勿重复提交”，还是静默返回“操作成功”。对于用户体验来说，查询类的幂等通常静默处理，修改类的建议给与适当提示。</li></ol><p>架构设计的本质不是追求完美，而是管理风险。希望这些实战经验能帮你守住系统的“防洪堤”。</p></section><footer class=article-footer><section class=article-tags><a href=/tags/%E6%8E%A5%E5%8F%A3%E5%B9%82%E7%AD%89%E6%80%A7%E9%98%B2%E6%AD%A2%E9%87%8D%E5%A4%8D%E6%8F%90%E4%BA%A4%E7%9A%84%E8%AE%BE%E8%AE%A1.html>接口幂等性：防止重复提交的设计</a></section></footer></article><script src=https://giscus.app/client.js data-repo=pastor17/bloggiscus data-repo-id=R_kgDOQ6H9qQ data-category data-category-id=DIC_kwDOQ6H9qc4C0-T8 data-mapping=pathname data-strict=0 data-reactions-enabled=1 data-emit-metadata=0 data-input-position=bottom data-theme=light data-lang=zh-CN data-loading=lazy crossorigin=anonymous async></script><script>function setGiscusTheme(e){let t=document.querySelector("iframe.giscus-frame");t&&t.contentWindow.postMessage({giscus:{setConfig:{theme:e}}},"https://giscus.app")}(function(){addEventListener("message",t=>{if(event.origin!=="https://giscus.app")return;e()}),window.addEventListener("onColorSchemeChange",e);function e(){setGiscusTheme(document.documentElement.dataset.scheme==="light"?"light":"dark_dimmed")}})()</script><footer class=site-footer><section class=copyright>&copy;
+2021 -
+2026 SelfTechHub</section><section class=powerby>拒绝一次性认知，把碎片知识沉淀为可复用的记忆体系<br></section></footer><div class=pswp tabindex=-1 role=dialog aria-hidden=true><div class=pswp__bg></div><div class=pswp__scroll-wrap><div class=pswp__container><div class=pswp__item></div><div class=pswp__item></div><div class=pswp__item></div></div><div class="pswp__ui pswp__ui--hidden"><div class=pswp__top-bar><div class=pswp__counter></div><button class="pswp__button pswp__button--close" title="Close (Esc)"></button>
+<button class="pswp__button pswp__button--share" title=Share></button>
+<button class="pswp__button pswp__button--fs" title="Toggle fullscreen"></button>
+<button class="pswp__button pswp__button--zoom" title="Zoom in/out"></button><div class=pswp__preloader><div class=pswp__preloader__icn><div class=pswp__preloader__cut><div class=pswp__preloader__donut></div></div></div></div></div><div class="pswp__share-modal pswp__share-modal--hidden pswp__single-tap"><div class=pswp__share-tooltip></div></div><button class="pswp__button pswp__button--arrow--left" title="Previous (arrow left)">
+</button>
+<button class="pswp__button pswp__button--arrow--right" title="Next (arrow right)"></button><div class=pswp__caption><div class=pswp__caption__center></div></div></div></div></div><script src=https://cdn.jsdelivr.net/npm/photoswipe@4.1.3/dist/photoswipe.min.js integrity="sha256-ePwmChbbvXbsO02lbM3HoHbSHTHFAeChekF1xKJdleo=" crossorigin=anonymous defer></script><script src=https://cdn.jsdelivr.net/npm/photoswipe@4.1.3/dist/photoswipe-ui-default.min.js integrity="sha256-UKkzOn/w1mBxRmLLGrSeyB4e1xbrp4xylgAWb3M42pU=" crossorigin=anonymous defer></script><link rel=stylesheet href=https://cdn.jsdelivr.net/npm/photoswipe@4.1.3/dist/default-skin/default-skin.min.css crossorigin=anonymous><link rel=stylesheet href=https://cdn.jsdelivr.net/npm/photoswipe@4.1.3/dist/photoswipe.min.css crossorigin=anonymous></main></div><script src=https://cdn.jsdelivr.net/npm/node-vibrant@3.1.6/dist/vibrant.min.js integrity="sha256-awcR2jno4kI5X0zL8ex0vi2z+KMkF24hUW8WePSA9HM=" crossorigin=anonymous></script><script type=text/javascript src=/ts/main.c922af694cc257bf1ecc41c0dd7b0430f9114ec280ccf67cd2c6ad55f5316c4e.js defer></script><script>(function(){const e=document.createElement("link");e.href="https://fonts.googleapis.com/css2?family=Lato:wght@300;400;700&display=swap",e.type="text/css",e.rel="stylesheet",document.head.appendChild(e)})()</script></body></html>

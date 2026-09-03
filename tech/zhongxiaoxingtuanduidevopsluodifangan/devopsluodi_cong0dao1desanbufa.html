@@ -1,499 +1,120 @@
-<!DOCTYPE html>
-<html lang="zh-cn" dir="ltr">
-    <head><meta charset='utf-8'>
-<meta name='viewport' content='width=device-width, initial-scale=1'><meta name='description' content="很多技术负责人或者CTO在接手一个十来人的中小团队时，往往会面临一个尴尬的局面：代码上线全靠吼，回滚全靠手，环境配置在每个人电脑上都不一样。\n为了解决这个问题，我曾见过不少团队陷入“工具崇拜”的怪圈。他们一上来就搭建庞大的Jenkins集群，甚至在只有单体应用的时候就强上K8s。结果呢？因为没有专职运维，开发人员每天要花20%的时间去维护这些“自动化工具”，效率反倒不如以前手动传包。\n我曾在一家B轮创业公司带过两年的技术团队，接手时只有8个开发，没有运维。那时候每逢周五下午发版，我心跳都会加速，生怕那个手动打包的JAR文件少传了配置文件。\n经过几轮血泪教训，我摸索出了一套适合中小团队（特别是无专职运维团队）的DevOps落地路径。这里的核心逻辑不是“引入大厂工具”，而是**“将重复动作标准化”**。\nDevOps不应该是负担，而应该是像呼吸一样自然的基础设施。以下是三个具体的落地阶段。\n阶段一：脚本化——把“人工操作”翻译成代码\r很多团队所谓的“部署”，其实是依赖某个核心开发的“肌肉记忆”。比如，“先连VPN，再SSH到服务器，杀掉进程，上传包，重启”。这种流程极度脆弱。\nDevOps落地的第一步，绝不是搭建CI/CD平台，而是写脚本。\n真实案例\r我之前带过一个电商SaaS团队，最开始发布流程非常原始：后端把WAR包发给前端，前端用FTP上传。有一次，因为负责上传的同事感冒头晕，把测试环境的数据库配置带到了生产环境，导致所有支付接口报错，直接损失了几万块的流水。\n落地方法\r在那次事故后，我没有引入任何复杂的平台，只是强制推行了一个规则：“所有操作，必须通过脚本执行”。\n我们在项目根目录下建立了一个 ops/ 文件夹，里面只有三个Shell脚本：\nbuild.sh：负责编译、打包； deploy_test.sh：一键部署到测试机； deploy_prod.sh：一键部署到生产机（包含备份逻辑）。 我们约定，任何人不得手动SSH上去敲命令，必须在本地运行这些脚本。\n硬核建议：如果你连一个能在本地稳定运行的 deploy.sh 都写不出来，千万别去碰Jenkins。自动化只是把脚本搬到了服务器上跑，脚本本身的质量决定了自动化的成败。\n阶段二：容器化与标准化——消灭“在我电脑上是好的”\r脚本化解决的是操作流程的一致性，但解决不了环境的一致性。中小团队最痛苦的莫过于：开发环境用Java 17，服务器上却是Java 8；本地装了ImageMagick，服务器上没装。\n真实案例\r这是一个发生在我朋友公司的惨案。他们为了省钱，生产服务器用了几台配置不一的云主机。某次上线，代码在A服务器运行正常，在B服务器疯狂报错。排查了一整晚，发现是B服务器的系统时区设置错了，导致定时任务触发时间混乱。\n落地方法\r这时候，Docker就是你的救命稻草。对于中小团队，不要去搞复杂的K8s编排，Docker Compose足矣。\n我们的做法是：\n强制Dockerfile交付：代码库里必须包含Dockerfile，开发交付的不再是代码，而是镜像。 环境配置代码化：利用 docker-compose.yml 来定义运行环境。数据库、Redis、应用服务，全部写在文件里。 这样做的最大好处是，新来的实习生，只需要一句 docker-compose up，就能在本地拉起一套和生产环境一模一样的系统。\n这里分享一段我用了很久的 Makefile 片段，我习惯把它放在项目根目录，通过简单的命令屏蔽复杂的Docker指令：\n# Makefile 示例 .PHONY: build deploy IMAGE_NAME = my-app VERSION = $(shell git rev-parse --short HEAD) build: @echo &#34;Building Docker image...&#34; docker build -t $(IMAGE_NAME):$(VERSION) . ![配图](https://picsum.photos/800/450?random=1768389901005) deploy: @echo &#34;Deploying to remote server...&#34; # 这里的逻辑是：构建镜像 -&gt; 保存镜像 -&gt; 传输到服务器 -&gt; 加载镜像 -&gt; 重启容器 docker save $(IMAGE_NAME):$(VERSION) | ssh user@remote-server &#39;docker load &amp;&amp; docker-compose up -d --no-deps --build app&#39; 阶段三：轻量级流水线——让机器代替人熬夜\r当你有了脚本，也有了标准化的容器环境，这时候才轮到CI/CD工具登场。\n">
-<title>别盲目上Jenkins：中小团队DevOps落地的三步法</title>
-
-<link rel='canonical' href='https://blog.irudder.me/tech/zhongxiaoxingtuanduidevopsluodifangan/devopsluodi_cong0dao1desanbufa.html'>
-
-<link rel="stylesheet" href="/scss/style.min.b9e9128fec450ebccecc4ec9900157f32b85d0609bcd5ee3293968bcaa1235f2.css"><meta property='og:title' content="别盲目上Jenkins：中小团队DevOps落地的三步法">
-<meta property='og:description' content="很多技术负责人或者CTO在接手一个十来人的中小团队时，往往会面临一个尴尬的局面：代码上线全靠吼，回滚全靠手，环境配置在每个人电脑上都不一样。\n为了解决这个问题，我曾见过不少团队陷入“工具崇拜”的怪圈。他们一上来就搭建庞大的Jenkins集群，甚至在只有单体应用的时候就强上K8s。结果呢？因为没有专职运维，开发人员每天要花20%的时间去维护这些“自动化工具”，效率反倒不如以前手动传包。\n我曾在一家B轮创业公司带过两年的技术团队，接手时只有8个开发，没有运维。那时候每逢周五下午发版，我心跳都会加速，生怕那个手动打包的JAR文件少传了配置文件。\n经过几轮血泪教训，我摸索出了一套适合中小团队（特别是无专职运维团队）的DevOps落地路径。这里的核心逻辑不是“引入大厂工具”，而是**“将重复动作标准化”**。\nDevOps不应该是负担，而应该是像呼吸一样自然的基础设施。以下是三个具体的落地阶段。\n阶段一：脚本化——把“人工操作”翻译成代码\r很多团队所谓的“部署”，其实是依赖某个核心开发的“肌肉记忆”。比如，“先连VPN，再SSH到服务器，杀掉进程，上传包，重启”。这种流程极度脆弱。\nDevOps落地的第一步，绝不是搭建CI/CD平台，而是写脚本。\n真实案例\r我之前带过一个电商SaaS团队，最开始发布流程非常原始：后端把WAR包发给前端，前端用FTP上传。有一次，因为负责上传的同事感冒头晕，把测试环境的数据库配置带到了生产环境，导致所有支付接口报错，直接损失了几万块的流水。\n落地方法\r在那次事故后，我没有引入任何复杂的平台，只是强制推行了一个规则：“所有操作，必须通过脚本执行”。\n我们在项目根目录下建立了一个 ops/ 文件夹，里面只有三个Shell脚本：\nbuild.sh：负责编译、打包； deploy_test.sh：一键部署到测试机； deploy_prod.sh：一键部署到生产机（包含备份逻辑）。 我们约定，任何人不得手动SSH上去敲命令，必须在本地运行这些脚本。\n硬核建议：如果你连一个能在本地稳定运行的 deploy.sh 都写不出来，千万别去碰Jenkins。自动化只是把脚本搬到了服务器上跑，脚本本身的质量决定了自动化的成败。\n阶段二：容器化与标准化——消灭“在我电脑上是好的”\r脚本化解决的是操作流程的一致性，但解决不了环境的一致性。中小团队最痛苦的莫过于：开发环境用Java 17，服务器上却是Java 8；本地装了ImageMagick，服务器上没装。\n真实案例\r这是一个发生在我朋友公司的惨案。他们为了省钱，生产服务器用了几台配置不一的云主机。某次上线，代码在A服务器运行正常，在B服务器疯狂报错。排查了一整晚，发现是B服务器的系统时区设置错了，导致定时任务触发时间混乱。\n落地方法\r这时候，Docker就是你的救命稻草。对于中小团队，不要去搞复杂的K8s编排，Docker Compose足矣。\n我们的做法是：\n强制Dockerfile交付：代码库里必须包含Dockerfile，开发交付的不再是代码，而是镜像。 环境配置代码化：利用 docker-compose.yml 来定义运行环境。数据库、Redis、应用服务，全部写在文件里。 这样做的最大好处是，新来的实习生，只需要一句 docker-compose up，就能在本地拉起一套和生产环境一模一样的系统。\n这里分享一段我用了很久的 Makefile 片段，我习惯把它放在项目根目录，通过简单的命令屏蔽复杂的Docker指令：\n# Makefile 示例 .PHONY: build deploy IMAGE_NAME = my-app VERSION = $(shell git rev-parse --short HEAD) build: @echo &#34;Building Docker image...&#34; docker build -t $(IMAGE_NAME):$(VERSION) . ![配图](https://picsum.photos/800/450?random=1768389901005) deploy: @echo &#34;Deploying to remote server...&#34; # 这里的逻辑是：构建镜像 -&gt; 保存镜像 -&gt; 传输到服务器 -&gt; 加载镜像 -&gt; 重启容器 docker save $(IMAGE_NAME):$(VERSION) | ssh user@remote-server &#39;docker load &amp;&amp; docker-compose up -d --no-deps --build app&#39; 阶段三：轻量级流水线——让机器代替人熬夜\r当你有了脚本，也有了标准化的容器环境，这时候才轮到CI/CD工具登场。\n">
-<meta property='og:url' content='https://blog.irudder.me/tech/zhongxiaoxingtuanduidevopsluodifangan/devopsluodi_cong0dao1desanbufa.html'>
-<meta property='og:site_name' content='SelfTechHub'>
-<meta property='og:type' content='article'><meta property='article:section' content='Tech' /><meta property='article:tag' content='DevOps落地：从0到1的三步法' /><meta property='article:published_time' content='2021-03-03T00:00:00&#43;00:00'/><meta property='article:modified_time' content='2021-03-03T00:00:00&#43;00:00'/>
-<meta name="twitter:title" content="别盲目上Jenkins：中小团队DevOps落地的三步法">
-<meta name="twitter:description" content="很多技术负责人或者CTO在接手一个十来人的中小团队时，往往会面临一个尴尬的局面：代码上线全靠吼，回滚全靠手，环境配置在每个人电脑上都不一样。\n为了解决这个问题，我曾见过不少团队陷入“工具崇拜”的怪圈。他们一上来就搭建庞大的Jenkins集群，甚至在只有单体应用的时候就强上K8s。结果呢？因为没有专职运维，开发人员每天要花20%的时间去维护这些“自动化工具”，效率反倒不如以前手动传包。\n我曾在一家B轮创业公司带过两年的技术团队，接手时只有8个开发，没有运维。那时候每逢周五下午发版，我心跳都会加速，生怕那个手动打包的JAR文件少传了配置文件。\n经过几轮血泪教训，我摸索出了一套适合中小团队（特别是无专职运维团队）的DevOps落地路径。这里的核心逻辑不是“引入大厂工具”，而是**“将重复动作标准化”**。\nDevOps不应该是负担，而应该是像呼吸一样自然的基础设施。以下是三个具体的落地阶段。\n阶段一：脚本化——把“人工操作”翻译成代码\r很多团队所谓的“部署”，其实是依赖某个核心开发的“肌肉记忆”。比如，“先连VPN，再SSH到服务器，杀掉进程，上传包，重启”。这种流程极度脆弱。\nDevOps落地的第一步，绝不是搭建CI/CD平台，而是写脚本。\n真实案例\r我之前带过一个电商SaaS团队，最开始发布流程非常原始：后端把WAR包发给前端，前端用FTP上传。有一次，因为负责上传的同事感冒头晕，把测试环境的数据库配置带到了生产环境，导致所有支付接口报错，直接损失了几万块的流水。\n落地方法\r在那次事故后，我没有引入任何复杂的平台，只是强制推行了一个规则：“所有操作，必须通过脚本执行”。\n我们在项目根目录下建立了一个 ops/ 文件夹，里面只有三个Shell脚本：\nbuild.sh：负责编译、打包； deploy_test.sh：一键部署到测试机； deploy_prod.sh：一键部署到生产机（包含备份逻辑）。 我们约定，任何人不得手动SSH上去敲命令，必须在本地运行这些脚本。\n硬核建议：如果你连一个能在本地稳定运行的 deploy.sh 都写不出来，千万别去碰Jenkins。自动化只是把脚本搬到了服务器上跑，脚本本身的质量决定了自动化的成败。\n阶段二：容器化与标准化——消灭“在我电脑上是好的”\r脚本化解决的是操作流程的一致性，但解决不了环境的一致性。中小团队最痛苦的莫过于：开发环境用Java 17，服务器上却是Java 8；本地装了ImageMagick，服务器上没装。\n真实案例\r这是一个发生在我朋友公司的惨案。他们为了省钱，生产服务器用了几台配置不一的云主机。某次上线，代码在A服务器运行正常，在B服务器疯狂报错。排查了一整晚，发现是B服务器的系统时区设置错了，导致定时任务触发时间混乱。\n落地方法\r这时候，Docker就是你的救命稻草。对于中小团队，不要去搞复杂的K8s编排，Docker Compose足矣。\n我们的做法是：\n强制Dockerfile交付：代码库里必须包含Dockerfile，开发交付的不再是代码，而是镜像。 环境配置代码化：利用 docker-compose.yml 来定义运行环境。数据库、Redis、应用服务，全部写在文件里。 这样做的最大好处是，新来的实习生，只需要一句 docker-compose up，就能在本地拉起一套和生产环境一模一样的系统。\n这里分享一段我用了很久的 Makefile 片段，我习惯把它放在项目根目录，通过简单的命令屏蔽复杂的Docker指令：\n# Makefile 示例 .PHONY: build deploy IMAGE_NAME = my-app VERSION = $(shell git rev-parse --short HEAD) build: @echo &#34;Building Docker image...&#34; docker build -t $(IMAGE_NAME):$(VERSION) . ![配图](https://picsum.photos/800/450?random=1768389901005) deploy: @echo &#34;Deploying to remote server...&#34; # 这里的逻辑是：构建镜像 -&gt; 保存镜像 -&gt; 传输到服务器 -&gt; 加载镜像 -&gt; 重启容器 docker save $(IMAGE_NAME):$(VERSION) | ssh user@remote-server &#39;docker load &amp;&amp; docker-compose up -d --no-deps --build app&#39; 阶段三：轻量级流水线——让机器代替人熬夜\r当你有了脚本，也有了标准化的容器环境，这时候才轮到CI/CD工具登场。\n">
-    </head>
-    <body class="
-    article-page
-    ">
-    <script>
-        (function() {
-            const colorSchemeKey = 'StackColorScheme';
-            if(!localStorage.getItem(colorSchemeKey)){
-                localStorage.setItem(colorSchemeKey, "auto");
-            }
-        })();
-    </script><script>
-    (function() {
-        const colorSchemeKey = 'StackColorScheme';
-        const colorSchemeItem = localStorage.getItem(colorSchemeKey);
-        const supportDarkMode = window.matchMedia('(prefers-color-scheme: dark)').matches === true;
-
-        if (colorSchemeItem == 'dark' || colorSchemeItem === 'auto' && supportDarkMode) {
-            
-
-            document.documentElement.dataset.scheme = 'dark';
-        } else {
-            document.documentElement.dataset.scheme = 'light';
-        }
-    })();
-</script>
-<div class="container main-container flex on-phone--column compact"><aside class="sidebar left-sidebar sticky ">
-    <button class="hamburger hamburger--spin" type="button" id="toggle-menu" aria-label="切换菜单">
-        <span class="hamburger-box">
-            <span class="hamburger-inner"></span>
-        </span>
-    </button>
-
-    <header>
-        
-            
-            <figure class="site-avatar">
-                <a href="/">
-                
-                    
-                    
-                    
-                        
-                        <img src="/img/avatar_hu_8588ce14af1147e2.png" width="300"
-                            height="286" class="site-logo" loading="lazy" alt="Avatar">
-                    
-                
-                </a>
-                
-            </figure>
-            
-        
-        
-        <div class="site-meta">
-            <h1 class="site-name"><a href="/">SelfTechHub</a></h1>
-            <h2 class="site-description"></h2>
-        </div>
-    </header><ol class="menu" id="main-menu">
-        
-        
-        <li class="menu-bottom-section">
-            <ol class="menu">
-
-                
-                    <li id="dark-mode-toggle">
-                        <svg xmlns="http://www.w3.org/2000/svg" class="icon icon-tabler icon-tabler-toggle-left" width="24" height="24" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor" fill="none" stroke-linecap="round" stroke-linejoin="round">
-  <path stroke="none" d="M0 0h24v24H0z"/>
-  <circle cx="8" cy="12" r="2" />
-  <rect x="2" y="6" width="20" height="12" rx="6" />
-</svg>
-
-
-
-                        <svg xmlns="http://www.w3.org/2000/svg" class="icon icon-tabler icon-tabler-toggle-right" width="24" height="24" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor" fill="none" stroke-linecap="round" stroke-linejoin="round">
-  <path stroke="none" d="M0 0h24v24H0z"/>
-  <circle cx="16" cy="12" r="2" />
-  <rect x="2" y="6" width="20" height="12" rx="6" />
-</svg>
-
-
-
-                        <span>暗色模式</span>
-                    </li>
-                
-            </ol>
-        </li>
-    </ol>
-</aside>
-
-    
-
-            <main class="main full-width">
-    <article class="main-article">
-    <header class="article-header">
-
-    <div class="article-details">
-    
-    <header class="article-category">
-        
-            <a href="/categories/%E6%8A%80%E6%9C%AF.html" >
-                技术精进
-            </a>
-        
-    </header>
-    
-
-    <div class="article-title-wrapper">
-        <h2 class="article-title">
-            <a href="/tech/zhongxiaoxingtuanduidevopsluodifangan/devopsluodi_cong0dao1desanbufa.html">别盲目上Jenkins：中小团队DevOps落地的三步法</a>
-        </h2>
-    
-        
-    </div>
-
-    
-    
-    
-    
-    <footer class="article-time">
-        
-            <div>
-                <svg xmlns="http://www.w3.org/2000/svg" class="icon icon-tabler icon-tabler-calendar-time" width="56" height="56" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor" fill="none" stroke-linecap="round" stroke-linejoin="round">
-  <path stroke="none" d="M0 0h24v24H0z"/>
-  <path d="M11.795 21h-6.795a2 2 0 0 1 -2 -2v-12a2 2 0 0 1 2 -2h12a2 2 0 0 1 2 2v4" />
-  <circle cx="18" cy="18" r="4" />
-  <path d="M15 3v4" />
-  <path d="M7 3v4" />
-  <path d="M3 11h16" />
-  <path d="M18 16.496v1.504l1 1" />
-</svg>
-                <time class="article-time--published" datetime='2021-03-03T00:00:00Z'>Mar 03, 2021</time>
-            </div>
-        
-
-        
-            <div>
-                <svg xmlns="http://www.w3.org/2000/svg" class="icon icon-tabler icon-tabler-clock" width="24" height="24" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor" fill="none" stroke-linecap="round" stroke-linejoin="round">
-  <path stroke="none" d="M0 0h24v24H0z"/>
-  <circle cx="12" cy="12" r="9" />
-  <polyline points="12 7 12 12 15 15" />
-</svg>
-
-
-
-                <time class="article-time--reading">
-                    阅读时长: 2 分钟
-                </time>
-            </div>
-        
-    </footer>
-    
-
-    
-</div>
-
-</header>
-
-    <section class="article-content">
-    
-    
-    <p>很多技术负责人或者CTO在接手一个十来人的中小团队时，往往会面临一个尴尬的局面：代码上线全靠吼，回滚全靠手，环境配置在每个人电脑上都不一样。</p>
-<p>为了解决这个问题，我曾见过不少团队陷入“工具崇拜”的怪圈。他们一上来就搭建庞大的Jenkins集群，甚至在只有单体应用的时候就强上K8s。结果呢？<strong>因为没有专职运维，开发人员每天要花20%的时间去维护这些“自动化工具”，效率反倒不如以前手动传包。</strong></p>
-<p>我曾在一家B轮创业公司带过两年的技术团队，接手时只有8个开发，没有运维。那时候每逢周五下午发版，我心跳都会加速，生怕那个手动打包的JAR文件少传了配置文件。</p>
-<p>经过几轮血泪教训，我摸索出了一套适合中小团队（特别是无专职运维团队）的DevOps落地路径。这里的核心逻辑不是“引入大厂工具”，而是**“将重复动作标准化”**。</p>
-<p>DevOps不应该是负担，而应该是像呼吸一样自然的基础设施。以下是三个具体的落地阶段。</p>
-<h2 id="阶段一脚本化把人工操作翻译成代码">阶段一：脚本化——把“人工操作”翻译成代码
-</h2><p>很多团队所谓的“部署”，其实是依赖某个核心开发的“肌肉记忆”。比如，“先连VPN，再SSH到服务器，杀掉进程，上传包，重启”。这种流程极度脆弱。</p>
-<p><img src="https://picsum.photos/800/450?random=1768389899625"
-	
-	
-	
-	loading="lazy"
-	
-		alt="配图"
-	
-	
-></p>
-<p><strong>DevOps落地的第一步，绝不是搭建CI/CD平台，而是写脚本。</strong></p>
-<h3 id="真实案例">真实案例
-</h3><p>我之前带过一个电商SaaS团队，最开始发布流程非常原始：后端把WAR包发给前端，前端用FTP上传。有一次，因为负责上传的同事感冒头晕，把测试环境的数据库配置带到了生产环境，导致所有支付接口报错，直接损失了几万块的流水。</p>
-<h3 id="落地方法">落地方法
-</h3><p>在那次事故后，我没有引入任何复杂的平台，只是强制推行了一个规则：<strong>“所有操作，必须通过脚本执行”</strong>。</p>
-<p>我们在项目根目录下建立了一个 <code>ops/</code> 文件夹，里面只有三个Shell脚本：</p>
-<ol>
-<li><code>build.sh</code>：负责编译、打包；</li>
-<li><code>deploy_test.sh</code>：一键部署到测试机；</li>
-<li><code>deploy_prod.sh</code>：一键部署到生产机（包含备份逻辑）。</li>
-</ol>
-<p><img src="https://picsum.photos/800/450?random=1768389904729"
-	
-	
-	
-	loading="lazy"
-	
-		alt="配图"
-	
-	
-></p>
-<p>我们约定，任何人不得手动SSH上去敲命令，必须在本地运行这些脚本。</p>
-<blockquote>
-<p><strong>硬核建议</strong>：如果你连一个能在本地稳定运行的 <code>deploy.sh</code> 都写不出来，千万别去碰Jenkins。自动化只是把脚本搬到了服务器上跑，脚本本身的质量决定了自动化的成败。</p>
-</blockquote>
-<h2 id="阶段二容器化与标准化消灭在我电脑上是好的">阶段二：容器化与标准化——消灭“在我电脑上是好的”
-</h2><p>脚本化解决的是操作流程的一致性，但解决不了环境的一致性。中小团队最痛苦的莫过于：开发环境用Java 17，服务器上却是Java 8；本地装了ImageMagick，服务器上没装。</p>
-<h3 id="真实案例-1">真实案例
-</h3><p>这是一个发生在我朋友公司的惨案。他们为了省钱，生产服务器用了几台配置不一的云主机。某次上线，代码在A服务器运行正常，在B服务器疯狂报错。排查了一整晚，发现是B服务器的系统时区设置错了，导致定时任务触发时间混乱。</p>
-<h3 id="落地方法-1">落地方法
-</h3><p>这时候，Docker就是你的救命稻草。对于中小团队，<strong>不要去搞复杂的K8s编排，Docker Compose足矣。</strong></p>
-<p>我们的做法是：</p>
-<ol>
-<li><strong>强制Dockerfile交付</strong>：代码库里必须包含Dockerfile，开发交付的不再是代码，而是镜像。</li>
-<li><strong>环境配置代码化</strong>：利用 <code>docker-compose.yml</code> 来定义运行环境。数据库、Redis、应用服务，全部写在文件里。</li>
-</ol>
-<p>这样做的最大好处是，新来的实习生，只需要一句 <code>docker-compose up</code>，就能在本地拉起一套和生产环境一模一样的系统。</p>
-<p>这里分享一段我用了很久的 <code>Makefile</code> 片段，我习惯把它放在项目根目录，通过简单的命令屏蔽复杂的Docker指令：</p>
-<div class="highlight"><pre tabindex="0" style="color:#f8f8f2;background-color:#272822;-moz-tab-size:4;-o-tab-size:4;tab-size:4;"><code class="language-makefile" data-lang="makefile"><span style="display:flex;"><span><span style="color:#75715e"># Makefile 示例
-</span></span></span><span style="display:flex;"><span><span style="color:#75715e"></span><span style="color:#a6e22e">.PHONY</span><span style="color:#f92672">:</span> build deploy
-</span></span><span style="display:flex;"><span>
-</span></span><span style="display:flex;"><span>IMAGE_NAME <span style="color:#f92672">=</span> my-app
-</span></span><span style="display:flex;"><span>VERSION <span style="color:#f92672">=</span> <span style="color:#66d9ef">$(</span>shell git rev-parse --short HEAD<span style="color:#66d9ef">)</span>
-</span></span><span style="display:flex;"><span>
-</span></span><span style="display:flex;"><span><span style="color:#a6e22e">build</span><span style="color:#f92672">:</span>
-</span></span><span style="display:flex;"><span>    @echo <span style="color:#e6db74">&#34;Building Docker image...&#34;</span>
-</span></span><span style="display:flex;"><span>    docker build -t <span style="color:#66d9ef">$(</span>IMAGE_NAME<span style="color:#66d9ef">)</span>:<span style="color:#66d9ef">$(</span>VERSION<span style="color:#66d9ef">)</span> .
-</span></span><span style="display:flex;"><span>
-</span></span><span style="display:flex;"><span><span style="color:#a6e22e">![配图](https</span><span style="color:#f92672">:</span>//picsum.photos/800/450?random=1768389901005)
-</span></span><span style="display:flex;"><span>
-</span></span><span style="display:flex;"><span><span style="color:#a6e22e">deploy</span><span style="color:#f92672">:</span>
-</span></span><span style="display:flex;"><span>    @echo <span style="color:#e6db74">&#34;Deploying to remote server...&#34;</span>
-</span></span><span style="display:flex;"><span>    <span style="color:#75715e"># 这里的逻辑是：构建镜像 -&gt; 保存镜像 -&gt; 传输到服务器 -&gt; 加载镜像 -&gt; 重启容器</span>
-</span></span><span style="display:flex;"><span>    docker save <span style="color:#66d9ef">$(</span>IMAGE_NAME<span style="color:#66d9ef">)</span>:<span style="color:#66d9ef">$(</span>VERSION<span style="color:#66d9ef">)</span> | ssh user@remote-server <span style="color:#e6db74">&#39;docker load &amp;&amp; docker-compose up -d --no-deps --build app&#39;</span>
-</span></span></code></pre></div><h2 id="阶段三轻量级流水线让机器代替人熬夜">阶段三：轻量级流水线——让机器代替人熬夜
-</h2><p>当你有了脚本，也有了标准化的容器环境，这时候才轮到CI/CD工具登场。</p>
-<p>但我强烈建议：<strong>除非由于安全合规要求必须内网部署，否则中小团队请直接使用SaaS版的CI工具（如GitHub Actions, GitLab SaaS, 阿里云效）。</strong> 自己维护一套Jenkins或者GitLab Runner，光是磁盘清理、插件升级、节点掉线这些破事，就足够消耗掉你一个高级开发的半个人力。</p>
-<h3 id="真实案例-2">真实案例
-</h3><p>我在2021年接手的一个项目，前任负责人搭了一套非常复杂的Jenkins，配置了十几个插件。结果由于插件版本冲突，导致整个构建服务瘫痪了两天，全员无法合并代码。</p>
-<p>后来我们花了一周时间，把所有流程迁移到了GitHub Actions。没有运维成本，不仅免费额度够用，而且配置文件直接放在代码库里（<code>.github/workflows</code>），开发人员自己就能看懂改懂。</p>
-<h3 id="落地方法-2">落地方法
-</h3><p>对于中小团队，一个合格的流水线只需要做三件事：</p>
-<ol>
-<li><strong>代码提交自动跑单元测试</strong>（哪怕只有核心业务的几个测试用例）；</li>
-<li><strong>合并到主分支自动构建Docker镜像</strong>；</li>
-<li><strong>调用SSH推送到服务器</strong>（或者触发Webhook让服务器自己拉取）。</li>
-</ol>
-<p>这种“极简主义”的流水线，稳定性远高于那些花哨的仪表盘。</p>
-<h2 id="拿来即用的落地工具箱">拿来即用的落地工具箱
-</h2><p>DevOps的本质不是工具，而是<strong>文化和纪律</strong>。对于中小团队，能跑通流程的方案就是好方案。</p>
-<p>最后，分享一个我个人常用的 <strong>“GitLab CI 极简部署模板”</strong>。如果你正在用GitLab，直接把这个文件复制到项目根目录命名为 <code>.gitlab-ci.yml</code>，配合上面的Shell脚本思路，半天就能搭起一套自动化发布系统。</p>
-<div class="highlight"><pre tabindex="0" style="color:#f8f8f2;background-color:#272822;-moz-tab-size:4;-o-tab-size:4;tab-size:4;"><code class="language-yaml" data-lang="yaml"><span style="display:flex;"><span><span style="color:#f92672">stages</span>:
-</span></span><span style="display:flex;"><span>  - <span style="color:#ae81ff">build</span>
-</span></span><span style="display:flex;"><span>  - <span style="color:#ae81ff">deploy</span>
-</span></span><span style="display:flex;"><span>
-</span></span><span style="display:flex;"><span><span style="color:#f92672">variables</span>:
-</span></span><span style="display:flex;"><span>  <span style="color:#75715e"># 建议在GitLab后台设置变量，不要明文写在代码里</span>
-</span></span><span style="display:flex;"><span>  <span style="color:#f92672">IMAGE_TAG</span>: <span style="color:#ae81ff">$CI_REGISTRY_IMAGE:$CI_COMMIT_SHORT_SHA</span>
-</span></span><span style="display:flex;"><span>
-</span></span><span style="display:flex;"><span><span style="color:#f92672">build_image</span>:
-</span></span><span style="display:flex;"><span>  <span style="color:#f92672">stage</span>: <span style="color:#ae81ff">build</span>
-</span></span><span style="display:flex;"><span>  <span style="color:#f92672">image</span>: <span style="color:#ae81ff">docker:latest</span>
-</span></span><span style="display:flex;"><span>  <span style="color:#f92672">services</span>:
-</span></span><span style="display:flex;"><span>    - <span style="color:#ae81ff">docker:dind</span>
-</span></span><span style="display:flex;"><span>  <span style="color:#f92672">script</span>:
-</span></span><span style="display:flex;"><span>    - <span style="color:#ae81ff">docker login -u $CI_REGISTRY_USER -p $CI_REGISTRY_PASSWORD $CI_REGISTRY</span>
-</span></span><span style="display:flex;"><span>    - <span style="color:#ae81ff">docker build -t $IMAGE_TAG .</span>
-</span></span><span style="display:flex;"><span>    - <span style="color:#ae81ff">docker push $IMAGE_TAG</span>
-</span></span><span style="display:flex;"><span>  <span style="color:#f92672">only</span>:
-</span></span><span style="display:flex;"><span>    - <span style="color:#ae81ff">master</span>
-</span></span><span style="display:flex;"><span>
-</span></span><span style="display:flex;"><span><span style="color:#f92672">deploy_prod</span>:
-</span></span><span style="display:flex;"><span>  <span style="color:#f92672">stage</span>: <span style="color:#ae81ff">deploy</span>
-</span></span><span style="display:flex;"><span>  <span style="color:#f92672">image</span>: <span style="color:#ae81ff">alpine:latest</span>
-</span></span><span style="display:flex;"><span>  <span style="color:#f92672">before_script</span>:
-</span></span><span style="display:flex;"><span>    <span style="color:#75715e"># 配置SSH免密登录</span>
-</span></span><span style="display:flex;"><span>    - <span style="color:#ae81ff">apk add --no-cache openssh-client</span>
-</span></span><span style="display:flex;"><span>    - <span style="color:#ae81ff">eval $(ssh-agent -s)</span>
-</span></span><span style="display:flex;"><span>    - <span style="color:#ae81ff">echo &#34;$SSH_PRIVATE_KEY&#34; | tr -d &#39;\r&#39; | ssh-add -</span>
-</span></span><span style="display:flex;"><span>    - <span style="color:#ae81ff">mkdir -p ~/.ssh</span>
-</span></span><span style="display:flex;"><span>    - <span style="color:#ae81ff">chmod 700 ~/.ssh</span>
-</span></span><span style="display:flex;"><span>    - <span style="color:#ae81ff">echo -e &#34;Host *\n\tStrictHostKeyChecking no\n\n&#34; &gt; ~/.ssh/config</span>
-</span></span><span style="display:flex;"><span>  <span style="color:#f92672">script</span>:
-</span></span><span style="display:flex;"><span>    <span style="color:#75715e"># 远程执行部署命令</span>
-</span></span><span style="display:flex;"><span>    - <span style="color:#ae81ff">ssh $SERVER_USER@$SERVER_IP &#34;cd /opt/app &amp;&amp; export IMAGE_TAG=$IMAGE_TAG &amp;&amp; docker-compose up -d&#34;</span>
-</span></span><span style="display:flex;"><span>  <span style="color:#f92672">only</span>:
-</span></span><span style="display:flex;"><span>    - <span style="color:#ae81ff">master</span>
-</span></span></code></pre></div><h3 id="接下来你可以做的3个具体行动">接下来你可以做的3个具体行动：
-</h3><ol>
-<li><strong>盘点现状</strong>：把你现在的发布流程写在白板上，圈出所有需要“手动输入命令”或“手动修改配置”的环节。</li>
-<li><strong>脚本化改造</strong>：挑选最痛的一个环节（通常是打包或上传），在本周内用Shell脚本或Python脚本替代，并提交到代码库。</li>
-<li><strong>容器化尝试</strong>：找一个非核心边缘服务，尝试为其编写Dockerfile，并确保能用Docker运行起来。</li>
-</ol>
-<p>DevOps是一场长跑，不要试图一步登天。从写好第一个脚本开始，你就已经在路上了。</p>
-
-</section>
-
-
-    <footer class="article-footer">
-    
-    <section class="article-tags">
-        
-            <a href="/tags/DevOps%E8%90%BD%E5%9C%B0%E4%BB%8E0%E5%88%B01%E7%9A%84%E4%B8%89%E6%AD%A5%E6%B3%95.html">DevOps落地：从0到1的三步法</a>
-        
-    </section>
-
-
-    </footer>
-
-
-    
-</article>
-
-    
-
-    
-
-     
-    
-        
-    <script
-    src="https://giscus.app/client.js"
-    data-repo="pastor17/bloggiscus"
-    data-repo-id="R_kgDOQ6H9qQ"
-    data-category=""
-    data-category-id="DIC_kwDOQ6H9qc4C0-T8"
-    data-mapping="pathname"
-    data-strict="0"
-    data-reactions-enabled="1"
-    data-emit-metadata="0"
-    data-input-position="bottom"
-    data-theme="light"
-    data-lang="zh-CN"
-    data-loading="lazy"
-    crossorigin="anonymous"
-    async
-></script>
-<script>
-    function setGiscusTheme(theme) {
-        let giscus = document.querySelector("iframe.giscus-frame");
-        if (giscus) {
-            giscus.contentWindow.postMessage(
-                {
-                    giscus: {
-                        setConfig: {
-                            theme: theme,
-                        },
-                    },
-                },
-                "https://giscus.app"
-            );
-        }
-    }
-
-    (function () {
-        addEventListener("message", (e) => {
-            if (event.origin !== "https://giscus.app") return;
-            handler();
-        });
-        window.addEventListener("onColorSchemeChange", handler);
-
-        function handler() {
-            if (document.documentElement.dataset.scheme === "light") {
-                setGiscusTheme('light');
-            } else {
-                setGiscusTheme('dark_dimmed');
-            }
-        }
-    })();
-</script>
-
-    
-
-    <footer class="site-footer">
-    <section class="copyright">
-        &copy; 
-        
-        2026 SelfTechHub
-    </section>
-    
-    <section class="powerby">
-        
-
-    </section>
-</footer>
-
-
-    
-<div class="pswp" tabindex="-1" role="dialog" aria-hidden="true">
-
-    
-    <div class="pswp__bg"></div>
-
-    
-    <div class="pswp__scroll-wrap">
-
-        
-        <div class="pswp__container">
-            <div class="pswp__item"></div>
-            <div class="pswp__item"></div>
-            <div class="pswp__item"></div>
-        </div>
-
-        
-        <div class="pswp__ui pswp__ui--hidden">
-
-            <div class="pswp__top-bar">
-
-                
-
-                <div class="pswp__counter"></div>
-
-                <button class="pswp__button pswp__button--close" title="Close (Esc)"></button>
-
-                <button class="pswp__button pswp__button--share" title="Share"></button>
-
-                <button class="pswp__button pswp__button--fs" title="Toggle fullscreen"></button>
-
-                <button class="pswp__button pswp__button--zoom" title="Zoom in/out"></button>
-
-                
-                
-                <div class="pswp__preloader">
-                    <div class="pswp__preloader__icn">
-                        <div class="pswp__preloader__cut">
-                            <div class="pswp__preloader__donut"></div>
-                        </div>
-                    </div>
-                </div>
-            </div>
-
-            <div class="pswp__share-modal pswp__share-modal--hidden pswp__single-tap">
-                <div class="pswp__share-tooltip"></div>
-            </div>
-
-            <button class="pswp__button pswp__button--arrow--left" title="Previous (arrow left)">
-            </button>
-
-            <button class="pswp__button pswp__button--arrow--right" title="Next (arrow right)">
-            </button>
-
-            <div class="pswp__caption">
-                <div class="pswp__caption__center"></div>
-            </div>
-
-        </div>
-
-    </div>
-
-</div><script 
-                src="https://cdn.jsdelivr.net/npm/photoswipe@4.1.3/dist/photoswipe.min.js"integrity="sha256-ePwmChbbvXbsO02lbM3HoHbSHTHFAeChekF1xKJdleo="crossorigin="anonymous"
-                defer
-                >
-            </script><script 
-                src="https://cdn.jsdelivr.net/npm/photoswipe@4.1.3/dist/photoswipe-ui-default.min.js"integrity="sha256-UKkzOn/w1mBxRmLLGrSeyB4e1xbrp4xylgAWb3M42pU="crossorigin="anonymous"
-                defer
-                >
-            </script><link 
-                rel="stylesheet" 
-                href="https://cdn.jsdelivr.net/npm/photoswipe@4.1.3/dist/default-skin/default-skin.min.css"crossorigin="anonymous"
-            ><link 
-                rel="stylesheet" 
-                href="https://cdn.jsdelivr.net/npm/photoswipe@4.1.3/dist/photoswipe.min.css"crossorigin="anonymous"
-            >
-    
-
-            </main>
-        </div>
-        <script 
-                src="https://cdn.jsdelivr.net/npm/node-vibrant@3.1.6/dist/vibrant.min.js"integrity="sha256-awcR2jno4kI5X0zL8ex0vi2z&#43;KMkF24hUW8WePSA9HM="crossorigin="anonymous"
-                
-                >
-            </script><script type="text/javascript" src="/ts/main.c922af694cc257bf1ecc41c0dd7b0430f9114ec280ccf67cd2c6ad55f5316c4e.js" defer></script>
-<script>
-    (function () {
-        const customFont = document.createElement('link');
-        customFont.href = "https://fonts.googleapis.com/css2?family=Lato:wght@300;400;700&display=swap";
-
-        customFont.type = "text/css";
-        customFont.rel = "stylesheet";
-
-        document.head.appendChild(customFont);
-    }());
-</script>
-
-    </body>
-</html>
+<!doctype html><html lang=zh-cn dir=ltr><head><meta charset=utf-8><meta name=viewport content='width=device-width,initial-scale=1'><meta name=description content="很多技术负责人或者CTO在接手一个十来人的中小团队时，往往会面临一个尴尬的局面：代码上线全靠吼，回滚全靠手，环境配置在每个人电脑上都不一样。"><title>别盲目上Jenkins：中小团队DevOps落地的三步法</title><link rel=canonical href=https://blog.irudder.me/tech/zhongxiaoxingtuanduidevopsluodifangan/devopsluodi_cong0dao1desanbufa.html><link rel=stylesheet href=/scss/style.min.c77ce1b874b29b2ee9e54a89066c79ebf35cbe9cf399b31ab5d79167f9a965c9.css><meta property='og:title' content="别盲目上Jenkins：中小团队DevOps落地的三步法"><meta property='og:description' content="很多技术负责人或者CTO在接手一个十来人的中小团队时，往往会面临一个尴尬的局面：代码上线全靠吼，回滚全靠手，环境配置在每个人电脑上都不一样。"><meta property='og:url' content='https://blog.irudder.me/tech/zhongxiaoxingtuanduidevopsluodifangan/devopsluodi_cong0dao1desanbufa.html'><meta property='og:site_name' content='SelfTechHub'><meta property='og:type' content='article'><meta property='article:section' content='Tech'><meta property='article:tag' content='DevOps落地：从0到1的三步法'><meta property='article:published_time' content='2021-03-03T00:00:00+08:00'><meta property='article:modified_time' content='2021-03-03T00:00:00+08:00'><meta name=twitter:title content="别盲目上Jenkins：中小团队DevOps落地的三步法"><meta name=twitter:description content="很多技术负责人或者CTO在接手一个十来人的中小团队时，往往会面临一个尴尬的局面：代码上线全靠吼，回滚全靠手，环境配置在每个人电脑上都不一样。"><link rel="shortcut icon" href=/images/logo.png></head><body class=article-page><script>(function(){const e="StackColorScheme";localStorage.getItem(e)||localStorage.setItem(e,"auto")})()</script><script>(function(){const t="StackColorScheme",e=localStorage.getItem(t),n=window.matchMedia("(prefers-color-scheme: dark)").matches===!0;e=="dark"||e==="auto"&&n?document.documentElement.dataset.scheme="dark":document.documentElement.dataset.scheme="light"})()</script><div class="container main-container flex on-phone--column extended"><aside class="sidebar left-sidebar sticky"><button class="hamburger hamburger--spin" type=button id=toggle-menu aria-label=切换菜单>
+<span class=hamburger-box><span class=hamburger-inner></span></span></button><header><figure class=site-avatar><a href=/><img src=/img/avatar_hu_8588ce14af1147e2.png width=300 height=286 class=site-logo loading=lazy alt=Avatar>
+</a><span class=emoji>🧠</span></figure><div class=site-meta><h1 class=site-name><a href=/>SelfTechHub</a></h1><h2 class=site-description>成长 · 技术 · 商业 · AI —— 把碎片知识沉淀为可复用的记忆体系</h2></div></header><ol class=menu-social><li><a href=https://github.com/pastor17 target=_blank title=GitHub rel=me><svg class="icon icon-tabler icon-tabler-brand-github" width="24" height="24" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor" fill="none" stroke-linecap="round" stroke-linejoin="round"><path stroke="none" d="M0 0h24v24H0z" fill="none"/><path d="M9 19c-4.3 1.4-4.3-2.5-6-3m12 5v-3.5c0-1 .1-1.4-.5-2 2.8-.3 5.5-1.4 5.5-6a4.6 4.6.0 00-1.3-3.2 4.2 4.2.0 00-.1-3.2s-1.1-.3-3.5 1.3a12.3 12.3.0 00-6.2.0C6.5 2.8 5.4 3.1 5.4 3.1a4.2 4.2.0 00-.1 3.2A4.6 4.6.0 004 9.5c0 4.6 2.7 5.7 5.5 6-.6.6-.6 1.2-.5 2V21"/></svg></a></li></ol><ol class=menu id=main-menu><li><a href=/><svg class="icon icon-tabler icon-tabler-home" width="24" height="24" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor" fill="none" stroke-linecap="round" stroke-linejoin="round"><path stroke="none" d="M0 0h24v24H0z"/><polyline points="5 12 3 12 12 3 21 12 19 12"/><path d="M5 12v7a2 2 0 002 2h10a2 2 0 002-2v-7"/><path d="M9 21v-6a2 2 0 012-2h2a2 2 0 012 2v6"/></svg>
+<span>首页</span></a></li><li><a href=/categories/%E6%88%90%E9%95%BF.html><span>成长认知</span></a></li><li><a href=/categories/%E6%8A%80%E6%9C%AF.html><span>技术精进</span></a></li><li><a href=/categories/%E5%95%86%E4%B8%9A.html><span>商业·财富</span></a></li><li><a href=/categories/ai.html><span>探索AI</span></a></li><li><a href=/about/><svg class="icon icon-tabler icon-tabler-user" width="24" height="24" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor" fill="none" stroke-linecap="round" stroke-linejoin="round"><path stroke="none" d="M0 0h24v24H0z"/><circle cx="12" cy="7" r="4"/><path d="M6 21v-2a4 4 0 014-4h4a4 4 0 014 4v2"/></svg>
+<span>关于</span></a></li><li class=menu-bottom-section><ol class=menu><li id=dark-mode-toggle><svg class="icon icon-tabler icon-tabler-toggle-left" width="24" height="24" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor" fill="none" stroke-linecap="round" stroke-linejoin="round"><path stroke="none" d="M0 0h24v24H0z"/><circle cx="8" cy="12" r="2"/><rect x="2" y="6" width="20" height="12" rx="6"/></svg>
+<svg class="icon icon-tabler icon-tabler-toggle-right" width="24" height="24" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor" fill="none" stroke-linecap="round" stroke-linejoin="round"><path stroke="none" d="M0 0h24v24H0z"/><circle cx="16" cy="12" r="2"/><rect x="2" y="6" width="20" height="12" rx="6"/></svg>
+<span>暗色模式</span></li></ol></li></ol></aside><aside class="sidebar right-sidebar sticky"><section class="widget archives"><div class=widget-icon><svg class="icon icon-tabler icon-tabler-hash" width="24" height="24" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor" fill="none" stroke-linecap="round" stroke-linejoin="round"><path stroke="none" d="M0 0h24v24H0z"/><line x1="5" y1="9" x2="19" y2="9"/><line x1="5" y1="15" x2="19" y2="15"/><line x1="11" y1="4" x2="7" y2="20"/><line x1="17" y1="4" x2="13" y2="20"/></svg></div><h2 class="widget-title section-title">目录</h2><div class=widget--toc><nav id=TableOfContents><ul><li><a href=#阶段一脚本化把人工操作翻译成代码>阶段一：脚本化——把“人工操作”翻译成代码</a><ul><li><a href=#真实案例>真实案例</a></li><li><a href=#落地方法>落地方法</a></li></ul></li><li><a href=#阶段二容器化与标准化消灭在我电脑上是好的>阶段二：容器化与标准化——消灭“在我电脑上是好的”</a><ul><li><a href=#真实案例-1>真实案例</a></li><li><a href=#落地方法-1>落地方法</a></li></ul></li><li><a href=#阶段三轻量级流水线让机器代替人熬夜>阶段三：轻量级流水线——让机器代替人熬夜</a><ul><li><a href=#真实案例-2>真实案例</a></li><li><a href=#落地方法-2>落地方法</a></li></ul></li><li><a href=#拿来即用的落地工具箱>拿来即用的落地工具箱</a><ul><li><a href=#接下来你可以做的3个具体行动>接下来你可以做的3个具体行动：</a></li></ul></li></ul></nav></div></section></aside><main class="main full-width"><article class=main-article><header class=article-header><div class=article-details><header class=article-category><a href=/categories/%E6%8A%80%E6%9C%AF.html>技术精进</a></header><div class=article-title-wrapper><h2 class=article-title><a href=/tech/zhongxiaoxingtuanduidevopsluodifangan/devopsluodi_cong0dao1desanbufa.html>别盲目上Jenkins：中小团队DevOps落地的三步法</a></h2><h3 class=article-subtitle>很多技术负责人或者CTO在接手一个十来人的中小团队时，往往会面临一个尴尬的局面：代码上线全靠吼，回滚全靠手，环境配置在每个人电脑上都不一样。</h3></div><footer class=article-time><div><svg class="icon icon-tabler icon-tabler-calendar-time" width="56" height="56" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor" fill="none" stroke-linecap="round" stroke-linejoin="round"><path stroke="none" d="M0 0h24v24H0z"/><path d="M11.795 21H5a2 2 0 01-2-2V7a2 2 0 012-2h12a2 2 0 012 2v4"/><circle cx="18" cy="18" r="4"/><path d="M15 3v4"/><path d="M7 3v4"/><path d="M3 11h16"/><path d="M18 16.496V18l1 1"/></svg>
+<time class=article-time--published datetime=2021-03-03T00:00:00+08:00>2021-03-03</time></div><div><svg class="icon icon-tabler icon-tabler-clock" width="24" height="24" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor" fill="none" stroke-linecap="round" stroke-linejoin="round"><path stroke="none" d="M0 0h24v24H0z"/><circle cx="12" cy="12" r="9"/><polyline points="12 7 12 12 15 15"/></svg>
+<time class=article-time--reading>阅读时长: 6 分钟</time></div></footer></div></header><section class=article-content><p>很多技术负责人或者CTO在接手一个十来人的中小团队时，往往会面临一个尴尬的局面：代码上线全靠吼，回滚全靠手，环境配置在每个人电脑上都不一样。</p><p>为了解决这个问题，我曾见过不少团队陷入“工具崇拜”的怪圈。他们一上来就搭建庞大的Jenkins集群，甚至在只有单体应用的时候就强上K8s。结果呢？<strong>因为没有专职运维，开发人员每天要花20%的时间去维护这些“自动化工具”，效率反倒不如以前手动传包。</strong></p><p>我曾在一家B轮创业公司带过两年的技术团队，接手时只有8个开发，没有运维。那时候每逢周五下午发版，我心跳都会加速，生怕那个手动打包的JAR文件少传了配置文件。</p><p>经过几轮血泪教训，我摸索出了一套适合中小团队（特别是无专职运维团队）的DevOps落地路径。这里的核心逻辑不是“引入大厂工具”，而是**“将重复动作标准化”**。</p><p>DevOps不应该是负担，而应该是像呼吸一样自然的基础设施。以下是三个具体的落地阶段。</p><h2 id=阶段一脚本化把人工操作翻译成代码>阶段一：脚本化——把“人工操作”翻译成代码</h2><p>很多团队所谓的“部署”，其实是依赖某个核心开发的“肌肉记忆”。比如，“先连VPN，再SSH到服务器，杀掉进程，上传包，重启”。这种流程极度脆弱。</p><p><img src="https://picsum.photos/800/450?random=1768389899625" loading=lazy alt=配图></p><p><strong>DevOps落地的第一步，绝不是搭建CI/CD平台，而是写脚本。</strong></p><h3 id=真实案例>真实案例</h3><p>我之前带过一个电商SaaS团队，最开始发布流程非常原始：后端把WAR包发给前端，前端用FTP上传。有一次，因为负责上传的同事感冒头晕，把测试环境的数据库配置带到了生产环境，导致所有支付接口报错，直接损失了几万块的流水。</p><h3 id=落地方法>落地方法</h3><p>在那次事故后，我没有引入任何复杂的平台，只是强制推行了一个规则：<strong>“所有操作，必须通过脚本执行”</strong>。</p><p>我们在项目根目录下建立了一个 <code>ops/</code> 文件夹，里面只有三个Shell脚本：</p><ol><li><code>build.sh</code>：负责编译、打包；</li><li><code>deploy_test.sh</code>：一键部署到测试机；</li><li><code>deploy_prod.sh</code>：一键部署到生产机（包含备份逻辑）。</li></ol><p><img src="https://picsum.photos/800/450?random=1768389904729" loading=lazy alt=配图></p><p>我们约定，任何人不得手动SSH上去敲命令，必须在本地运行这些脚本。</p><blockquote><p><strong>硬核建议</strong>：如果你连一个能在本地稳定运行的 <code>deploy.sh</code> 都写不出来，千万别去碰Jenkins。自动化只是把脚本搬到了服务器上跑，脚本本身的质量决定了自动化的成败。</p></blockquote><h2 id=阶段二容器化与标准化消灭在我电脑上是好的>阶段二：容器化与标准化——消灭“在我电脑上是好的”</h2><p>脚本化解决的是操作流程的一致性，但解决不了环境的一致性。中小团队最痛苦的莫过于：开发环境用Java 17，服务器上却是Java 8；本地装了ImageMagick，服务器上没装。</p><h3 id=真实案例-1>真实案例</h3><p>这是一个发生在我朋友公司的惨案。他们为了省钱，生产服务器用了几台配置不一的云主机。某次上线，代码在A服务器运行正常，在B服务器疯狂报错。排查了一整晚，发现是B服务器的系统时区设置错了，导致定时任务触发时间混乱。</p><h3 id=落地方法-1>落地方法</h3><p>这时候，Docker就是你的救命稻草。对于中小团队，<strong>不要去搞复杂的K8s编排，Docker Compose足矣。</strong></p><p>我们的做法是：</p><ol><li><strong>强制Dockerfile交付</strong>：代码库里必须包含Dockerfile，开发交付的不再是代码，而是镜像。</li><li><strong>环境配置代码化</strong>：利用 <code>docker-compose.yml</code> 来定义运行环境。数据库、Redis、应用服务，全部写在文件里。</li></ol><p>这样做的最大好处是，新来的实习生，只需要一句 <code>docker-compose up</code>，就能在本地拉起一套和生产环境一模一样的系统。</p><p>这里分享一段我用了很久的 <code>Makefile</code> 片段，我习惯把它放在项目根目录，通过简单的命令屏蔽复杂的Docker指令：</p><div class=highlight><div class=chroma><table class=lntable><tr><td class=lntd><pre tabindex=0 class=chroma><code><span class=lnt> 1
+</span><span class=lnt> 2
+</span><span class=lnt> 3
+</span><span class=lnt> 4
+</span><span class=lnt> 5
+</span><span class=lnt> 6
+</span><span class=lnt> 7
+</span><span class=lnt> 8
+</span><span class=lnt> 9
+</span><span class=lnt>10
+</span><span class=lnt>11
+</span><span class=lnt>12
+</span><span class=lnt>13
+</span><span class=lnt>14
+</span><span class=lnt>15
+</span><span class=lnt>16
+</span></code></pre></td><td class=lntd><pre tabindex=0 class=chroma><code class=language-makefile data-lang=makefile><span class=line><span class=cl><span class=c># Makefile 示例
+</span></span></span><span class=line><span class=cl><span class=c></span><span class=nf>.PHONY</span><span class=o>:</span> <span class=n>build</span> <span class=n>deploy</span>
+</span></span><span class=line><span class=cl>
+</span></span><span class=line><span class=cl><span class=nv>IMAGE_NAME</span> <span class=o>=</span> my-app
+</span></span><span class=line><span class=cl><span class=nv>VERSION</span> <span class=o>=</span> <span class=k>$(</span>shell git rev-parse --short HEAD<span class=k>)</span>
+</span></span><span class=line><span class=cl>
+</span></span><span class=line><span class=cl><span class=nf>build</span><span class=o>:</span>
+</span></span><span class=line><span class=cl>    @echo <span class=s2>&#34;Building Docker image...&#34;</span>
+</span></span><span class=line><span class=cl>    docker build -t <span class=k>$(</span>IMAGE_NAME<span class=k>)</span>:<span class=k>$(</span>VERSION<span class=k>)</span> .
+</span></span><span class=line><span class=cl>
+</span></span><span class=line><span class=cl><span class=nf>![配图](https</span><span class=o>:</span>//<span class=n>picsum</span>.<span class=n>photos</span>/800/450?<span class=n>random</span>=1768389901005)
+</span></span><span class=line><span class=cl>
+</span></span><span class=line><span class=cl><span class=nf>deploy</span><span class=o>:</span>
+</span></span><span class=line><span class=cl>    @echo <span class=s2>&#34;Deploying to remote server...&#34;</span>
+</span></span><span class=line><span class=cl>    <span class=c1># 这里的逻辑是：构建镜像 -&gt; 保存镜像 -&gt; 传输到服务器 -&gt; 加载镜像 -&gt; 重启容器</span>
+</span></span><span class=line><span class=cl>    docker save <span class=k>$(</span>IMAGE_NAME<span class=k>)</span>:<span class=k>$(</span>VERSION<span class=k>)</span> <span class=p>|</span> ssh user@remote-server <span class=s1>&#39;docker load &amp;&amp; docker-compose up -d --no-deps --build app&#39;</span>
+</span></span></code></pre></td></tr></table></div></div><h2 id=阶段三轻量级流水线让机器代替人熬夜>阶段三：轻量级流水线——让机器代替人熬夜</h2><p>当你有了脚本，也有了标准化的容器环境，这时候才轮到CI/CD工具登场。</p><p>但我强烈建议：<strong>除非由于安全合规要求必须内网部署，否则中小团队请直接使用SaaS版的CI工具（如GitHub Actions, GitLab SaaS, 阿里云效）。</strong> 自己维护一套Jenkins或者GitLab Runner，光是磁盘清理、插件升级、节点掉线这些破事，就足够消耗掉你一个高级开发的半个人力。</p><h3 id=真实案例-2>真实案例</h3><p>我在2021年接手的一个项目，前任负责人搭了一套非常复杂的Jenkins，配置了十几个插件。结果由于插件版本冲突，导致整个构建服务瘫痪了两天，全员无法合并代码。</p><p>后来我们花了一周时间，把所有流程迁移到了GitHub Actions。没有运维成本，不仅免费额度够用，而且配置文件直接放在代码库里（<code>.github/workflows</code>），开发人员自己就能看懂改懂。</p><h3 id=落地方法-2>落地方法</h3><p>对于中小团队，一个合格的流水线只需要做三件事：</p><ol><li><strong>代码提交自动跑单元测试</strong>（哪怕只有核心业务的几个测试用例）；</li><li><strong>合并到主分支自动构建Docker镜像</strong>；</li><li><strong>调用SSH推送到服务器</strong>（或者触发Webhook让服务器自己拉取）。</li></ol><p>这种“极简主义”的流水线，稳定性远高于那些花哨的仪表盘。</p><h2 id=拿来即用的落地工具箱>拿来即用的落地工具箱</h2><p>DevOps的本质不是工具，而是<strong>文化和纪律</strong>。对于中小团队，能跑通流程的方案就是好方案。</p><p>最后，分享一个我个人常用的 <strong>“GitLab CI 极简部署模板”</strong>。如果你正在用GitLab，直接把这个文件复制到项目根目录命名为 <code>.gitlab-ci.yml</code>，配合上面的Shell脚本思路，半天就能搭起一套自动化发布系统。</p><div class=highlight><div class=chroma><table class=lntable><tr><td class=lntd><pre tabindex=0 class=chroma><code><span class=lnt> 1
+</span><span class=lnt> 2
+</span><span class=lnt> 3
+</span><span class=lnt> 4
+</span><span class=lnt> 5
+</span><span class=lnt> 6
+</span><span class=lnt> 7
+</span><span class=lnt> 8
+</span><span class=lnt> 9
+</span><span class=lnt>10
+</span><span class=lnt>11
+</span><span class=lnt>12
+</span><span class=lnt>13
+</span><span class=lnt>14
+</span><span class=lnt>15
+</span><span class=lnt>16
+</span><span class=lnt>17
+</span><span class=lnt>18
+</span><span class=lnt>19
+</span><span class=lnt>20
+</span><span class=lnt>21
+</span><span class=lnt>22
+</span><span class=lnt>23
+</span><span class=lnt>24
+</span><span class=lnt>25
+</span><span class=lnt>26
+</span><span class=lnt>27
+</span><span class=lnt>28
+</span><span class=lnt>29
+</span><span class=lnt>30
+</span><span class=lnt>31
+</span><span class=lnt>32
+</span><span class=lnt>33
+</span><span class=lnt>34
+</span><span class=lnt>35
+</span><span class=lnt>36
+</span></code></pre></td><td class=lntd><pre tabindex=0 class=chroma><code class=language-yaml data-lang=yaml><span class=line><span class=cl><span class=nt>stages</span><span class=p>:</span><span class=w>
+</span></span></span><span class=line><span class=cl><span class=w>  </span>- <span class=l>build</span><span class=w>
+</span></span></span><span class=line><span class=cl><span class=w>  </span>- <span class=l>deploy</span><span class=w>
+</span></span></span><span class=line><span class=cl><span class=w>
+</span></span></span><span class=line><span class=cl><span class=w></span><span class=nt>variables</span><span class=p>:</span><span class=w>
+</span></span></span><span class=line><span class=cl><span class=w>  </span><span class=c># 建议在GitLab后台设置变量，不要明文写在代码里</span><span class=w>
+</span></span></span><span class=line><span class=cl><span class=w>  </span><span class=nt>IMAGE_TAG</span><span class=p>:</span><span class=w> </span><span class=l>$CI_REGISTRY_IMAGE:$CI_COMMIT_SHORT_SHA</span><span class=w>
+</span></span></span><span class=line><span class=cl><span class=w>
+</span></span></span><span class=line><span class=cl><span class=w></span><span class=nt>build_image</span><span class=p>:</span><span class=w>
+</span></span></span><span class=line><span class=cl><span class=w>  </span><span class=nt>stage</span><span class=p>:</span><span class=w> </span><span class=l>build</span><span class=w>
+</span></span></span><span class=line><span class=cl><span class=w>  </span><span class=nt>image</span><span class=p>:</span><span class=w> </span><span class=l>docker:latest</span><span class=w>
+</span></span></span><span class=line><span class=cl><span class=w>  </span><span class=nt>services</span><span class=p>:</span><span class=w>
+</span></span></span><span class=line><span class=cl><span class=w>    </span>- <span class=l>docker:dind</span><span class=w>
+</span></span></span><span class=line><span class=cl><span class=w>  </span><span class=nt>script</span><span class=p>:</span><span class=w>
+</span></span></span><span class=line><span class=cl><span class=w>    </span>- <span class=l>docker login -u $CI_REGISTRY_USER -p $CI_REGISTRY_PASSWORD $CI_REGISTRY</span><span class=w>
+</span></span></span><span class=line><span class=cl><span class=w>    </span>- <span class=l>docker build -t $IMAGE_TAG .</span><span class=w>
+</span></span></span><span class=line><span class=cl><span class=w>    </span>- <span class=l>docker push $IMAGE_TAG</span><span class=w>
+</span></span></span><span class=line><span class=cl><span class=w>  </span><span class=nt>only</span><span class=p>:</span><span class=w>
+</span></span></span><span class=line><span class=cl><span class=w>    </span>- <span class=l>master</span><span class=w>
+</span></span></span><span class=line><span class=cl><span class=w>
+</span></span></span><span class=line><span class=cl><span class=w></span><span class=nt>deploy_prod</span><span class=p>:</span><span class=w>
+</span></span></span><span class=line><span class=cl><span class=w>  </span><span class=nt>stage</span><span class=p>:</span><span class=w> </span><span class=l>deploy</span><span class=w>
+</span></span></span><span class=line><span class=cl><span class=w>  </span><span class=nt>image</span><span class=p>:</span><span class=w> </span><span class=l>alpine:latest</span><span class=w>
+</span></span></span><span class=line><span class=cl><span class=w>  </span><span class=nt>before_script</span><span class=p>:</span><span class=w>
+</span></span></span><span class=line><span class=cl><span class=w>    </span><span class=c># 配置SSH免密登录</span><span class=w>
+</span></span></span><span class=line><span class=cl><span class=w>    </span>- <span class=l>apk add --no-cache openssh-client</span><span class=w>
+</span></span></span><span class=line><span class=cl><span class=w>    </span>- <span class=l>eval $(ssh-agent -s)</span><span class=w>
+</span></span></span><span class=line><span class=cl><span class=w>    </span>- <span class=l>echo &#34;$SSH_PRIVATE_KEY&#34; | tr -d &#39;\r&#39; | ssh-add -</span><span class=w>
+</span></span></span><span class=line><span class=cl><span class=w>    </span>- <span class=l>mkdir -p ~/.ssh</span><span class=w>
+</span></span></span><span class=line><span class=cl><span class=w>    </span>- <span class=l>chmod 700 ~/.ssh</span><span class=w>
+</span></span></span><span class=line><span class=cl><span class=w>    </span>- <span class=l>echo -e &#34;Host *\n\tStrictHostKeyChecking no\n\n&#34; &gt; ~/.ssh/config</span><span class=w>
+</span></span></span><span class=line><span class=cl><span class=w>  </span><span class=nt>script</span><span class=p>:</span><span class=w>
+</span></span></span><span class=line><span class=cl><span class=w>    </span><span class=c># 远程执行部署命令</span><span class=w>
+</span></span></span><span class=line><span class=cl><span class=w>    </span>- <span class=l>ssh $SERVER_USER@$SERVER_IP &#34;cd /opt/app &amp;&amp; export IMAGE_TAG=$IMAGE_TAG &amp;&amp; docker-compose up -d&#34;</span><span class=w>
+</span></span></span><span class=line><span class=cl><span class=w>  </span><span class=nt>only</span><span class=p>:</span><span class=w>
+</span></span></span><span class=line><span class=cl><span class=w>    </span>- <span class=l>master</span><span class=w>
+</span></span></span></code></pre></td></tr></table></div></div><h3 id=接下来你可以做的3个具体行动>接下来你可以做的3个具体行动：</h3><ol><li><strong>盘点现状</strong>：把你现在的发布流程写在白板上，圈出所有需要“手动输入命令”或“手动修改配置”的环节。</li><li><strong>脚本化改造</strong>：挑选最痛的一个环节（通常是打包或上传），在本周内用Shell脚本或Python脚本替代，并提交到代码库。</li><li><strong>容器化尝试</strong>：找一个非核心边缘服务，尝试为其编写Dockerfile，并确保能用Docker运行起来。</li></ol><p>DevOps是一场长跑，不要试图一步登天。从写好第一个脚本开始，你就已经在路上了。</p></section><footer class=article-footer><section class=article-tags><a href=/tags/DevOps%E8%90%BD%E5%9C%B0%E4%BB%8E0%E5%88%B01%E7%9A%84%E4%B8%89%E6%AD%A5%E6%B3%95.html>DevOps落地：从0到1的三步法</a></section></footer></article><script src=https://giscus.app/client.js data-repo=pastor17/bloggiscus data-repo-id=R_kgDOQ6H9qQ data-category data-category-id=DIC_kwDOQ6H9qc4C0-T8 data-mapping=pathname data-strict=0 data-reactions-enabled=1 data-emit-metadata=0 data-input-position=bottom data-theme=light data-lang=zh-CN data-loading=lazy crossorigin=anonymous async></script><script>function setGiscusTheme(e){let t=document.querySelector("iframe.giscus-frame");t&&t.contentWindow.postMessage({giscus:{setConfig:{theme:e}}},"https://giscus.app")}(function(){addEventListener("message",t=>{if(event.origin!=="https://giscus.app")return;e()}),window.addEventListener("onColorSchemeChange",e);function e(){setGiscusTheme(document.documentElement.dataset.scheme==="light"?"light":"dark_dimmed")}})()</script><footer class=site-footer><section class=copyright>&copy;
+2021 -
+2026 SelfTechHub</section><section class=powerby>拒绝一次性认知，把碎片知识沉淀为可复用的记忆体系<br></section></footer><div class=pswp tabindex=-1 role=dialog aria-hidden=true><div class=pswp__bg></div><div class=pswp__scroll-wrap><div class=pswp__container><div class=pswp__item></div><div class=pswp__item></div><div class=pswp__item></div></div><div class="pswp__ui pswp__ui--hidden"><div class=pswp__top-bar><div class=pswp__counter></div><button class="pswp__button pswp__button--close" title="Close (Esc)"></button>
+<button class="pswp__button pswp__button--share" title=Share></button>
+<button class="pswp__button pswp__button--fs" title="Toggle fullscreen"></button>
+<button class="pswp__button pswp__button--zoom" title="Zoom in/out"></button><div class=pswp__preloader><div class=pswp__preloader__icn><div class=pswp__preloader__cut><div class=pswp__preloader__donut></div></div></div></div></div><div class="pswp__share-modal pswp__share-modal--hidden pswp__single-tap"><div class=pswp__share-tooltip></div></div><button class="pswp__button pswp__button--arrow--left" title="Previous (arrow left)">
+</button>
+<button class="pswp__button pswp__button--arrow--right" title="Next (arrow right)"></button><div class=pswp__caption><div class=pswp__caption__center></div></div></div></div></div><script src=https://cdn.jsdelivr.net/npm/photoswipe@4.1.3/dist/photoswipe.min.js integrity="sha256-ePwmChbbvXbsO02lbM3HoHbSHTHFAeChekF1xKJdleo=" crossorigin=anonymous defer></script><script src=https://cdn.jsdelivr.net/npm/photoswipe@4.1.3/dist/photoswipe-ui-default.min.js integrity="sha256-UKkzOn/w1mBxRmLLGrSeyB4e1xbrp4xylgAWb3M42pU=" crossorigin=anonymous defer></script><link rel=stylesheet href=https://cdn.jsdelivr.net/npm/photoswipe@4.1.3/dist/default-skin/default-skin.min.css crossorigin=anonymous><link rel=stylesheet href=https://cdn.jsdelivr.net/npm/photoswipe@4.1.3/dist/photoswipe.min.css crossorigin=anonymous></main></div><script src=https://cdn.jsdelivr.net/npm/node-vibrant@3.1.6/dist/vibrant.min.js integrity="sha256-awcR2jno4kI5X0zL8ex0vi2z+KMkF24hUW8WePSA9HM=" crossorigin=anonymous></script><script type=text/javascript src=/ts/main.c922af694cc257bf1ecc41c0dd7b0430f9114ec280ccf67cd2c6ad55f5316c4e.js defer></script><script>(function(){const e=document.createElement("link");e.href="https://fonts.googleapis.com/css2?family=Lato:wght@300;400;700&display=swap",e.type="text/css",e.rel="stylesheet",document.head.appendChild(e)})()</script></body></html>

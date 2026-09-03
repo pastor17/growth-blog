@@ -1,65 +1,32 @@
-<?xml version="1.0" encoding="utf-8" standalone="yes"?>
-<rss version="2.0" xmlns:atom="http://www.w3.org/2005/Atom">
-    <channel>
-        <title>前端首屏加载速度从3s优化到0.8s的实战 on SelfTechHub</title>
-        <link>https://blog.irudder.me/tags/%E5%89%8D%E7%AB%AF%E9%A6%96%E5%B1%8F%E5%8A%A0%E8%BD%BD%E9%80%9F%E5%BA%A6%E4%BB%8E3s%E4%BC%98%E5%8C%96%E5%88%B00.8s%E7%9A%84%E5%AE%9E%E6%88%98.html</link>
-        <description>Recent content in 前端首屏加载速度从3s优化到0.8s的实战 on SelfTechHub</description>
-        <generator>Hugo -- gohugo.io</generator>
-        <language>zh-cn</language>
-        <lastBuildDate>Mon, 18 Apr 2022 00:00:00 +0000</lastBuildDate><atom:link href="https://blog.irudder.me/tags/%E5%89%8D%E7%AB%AF%E9%A6%96%E5%B1%8F%E5%8A%A0%E8%BD%BD%E9%80%9F%E5%BA%A6%E4%BB%8E3s%E4%BC%98%E5%8C%96%E5%88%B00.8s%E7%9A%84%E5%AE%9E%E6%88%98/index.xml" rel="self" type="application/rss+xml" /><item>
-        <title>首屏3s到0.8s：一场&#34;外科手术式&#34;的架构优化复盘</title>
-        <link>https://blog.irudder.me/tech/jiagouyouhuashizhananlijiexi/qianduanshoupingjiazaisuducong3syouhuadao0.8sdeshizhan.html</link>
-        <pubDate>Mon, 18 Apr 2022 00:00:00 +0000</pubDate>
-        
-        <guid>https://blog.irudder.me/tech/jiagouyouhuashizhananlijiexi/qianduanshoupingjiazaisuducong3syouhuadao0.8sdeshizhan.html</guid>
-        <description>&lt;p&gt;&lt;strong&gt;&amp;ldquo;为什么用户在4G网络下打开我们的H5，白屏时间够我喝口水了？&amp;rdquo;&lt;/strong&gt;&lt;/p&gt;
+<?xml version="1.0" encoding="utf-8" standalone="yes"?><rss version="2.0" xmlns:atom="http://www.w3.org/2005/Atom"><channel><title>前端首屏加载速度从3s优化到0.8s的实战 on SelfTechHub</title><link>https://blog.irudder.me/tags/%E5%89%8D%E7%AB%AF%E9%A6%96%E5%B1%8F%E5%8A%A0%E8%BD%BD%E9%80%9F%E5%BA%A6%E4%BB%8E3s%E4%BC%98%E5%8C%96%E5%88%B00.8s%E7%9A%84%E5%AE%9E%E6%88%98.html</link><description>Recent content in 前端首屏加载速度从3s优化到0.8s的实战 on SelfTechHub</description><generator>Hugo -- gohugo.io</generator><language>zh-cn</language><lastBuildDate>Mon, 18 Apr 2022 00:00:00 +0800</lastBuildDate><atom:link href="https://blog.irudder.me/tags/%E5%89%8D%E7%AB%AF%E9%A6%96%E5%B1%8F%E5%8A%A0%E8%BD%BD%E9%80%9F%E5%BA%A6%E4%BB%8E3s%E4%BC%98%E5%8C%96%E5%88%B00.8s%E7%9A%84%E5%AE%9E%E6%88%98/index.xml" rel="self" type="application/rss+xml"/><item><title>首屏3s到0.8s：一场"外科手术式"的架构优化复盘</title><link>https://blog.irudder.me/tech/jiagouyouhuashizhananlijiexi/qianduanshoupingjiazaisuducong3syouhuadao0.8sdeshizhan.html</link><pubDate>Mon, 18 Apr 2022 00:00:00 +0800</pubDate><guid>https://blog.irudder.me/tech/jiagouyouhuashizhananlijiexi/qianduanshoupingjiazaisuducong3syouhuadao0.8sdeshizhan.html</guid><description>&lt;p&gt;&lt;strong&gt;&amp;ldquo;为什么用户在4G网络下打开我们的H5，白屏时间够我喝口水了？&amp;rdquo;&lt;/strong&gt;&lt;/p&gt;
 &lt;p&gt;半年前的周一早会，当业务负责人把手机扔在会议桌上时，空气安静得可怕。那是我们核心的C端交易链路，理论上应该是最快的，但真实监控数据显示，P99的首屏加载时间（FCP）飙到了3.2秒。&lt;/p&gt;
 &lt;p&gt;我曾以为，前端优化无非就是压压图片、搞搞懒加载、把代码写得&amp;quot;漂亮&amp;quot;点。直到这次为了把3秒压到0.8s以内，我带着团队把整个链路翻了个底朝天，才发现：&lt;strong&gt;性能优化从来不是单点突破的技术问题，而是一场涉及架构设计、网络传输和运维协同的系统工程。&lt;/strong&gt;&lt;/p&gt;
 &lt;p&gt;这半年折腾下来，踩了不少坑，也总结了一套还算能打的方法论。今天不聊虚的，就把我们当时怎么&amp;quot;动刀子&amp;quot;的全过程复盘一下。&lt;/p&gt;
-&lt;h2 id=&#34;拒绝盲人摸象先给系统做个ct&#34;&gt;拒绝&amp;quot;盲人摸象&amp;quot;，先给系统做个CT
+&lt;h2 id="拒绝盲人摸象先给系统做个ct"&gt;拒绝&amp;quot;盲人摸象&amp;quot;，先给系统做个CT
 &lt;/h2&gt;&lt;p&gt;很多兄弟接到优化任务，第一反应是去改代码：压缩图片、去注释、甚至重写组件。这其实是个大坑。&lt;strong&gt;没有数据的优化，就是耍流氓。&lt;/strong&gt;&lt;/p&gt;
-&lt;p&gt;&lt;img src=&#34;https://picsum.photos/800/450?random=1768457308344&#34;
-	
-	
-	
-	loading=&#34;lazy&#34;
-	
-		alt=&#34;配图&#34;
-	
-	
+&lt;p&gt;&lt;img src="https://picsum.photos/800/450?random=1768457308344"
+loading="lazy"
+alt="配图"
 &gt;&lt;/p&gt;
 &lt;p&gt;在项目初期，我们最大的问题是&amp;quot;觉得慢&amp;quot;，但不知道&amp;quot;慢在哪&amp;quot;。是DNS解析慢？是后端接口慢？还是JS执行慢？&lt;/p&gt;
 &lt;p&gt;为了搞清楚病灶，我强制要求团队暂停所有盲目的代码修改，先花了三天时间接入了全链路监控。我们基于 Performance API 做了一套简单的埋点上报，结合 Chrome DevTools 的 Performance 面板进行深度分析。&lt;/p&gt;
 &lt;p&gt;&lt;strong&gt;结果让我们大跌眼镜：&lt;/strong&gt;&lt;/p&gt;
 &lt;p&gt;我们一直以为是资源包太大导致的慢，结果数据显示，&lt;strong&gt;从 HTML 下载完成到开始请求 JS 资源，中间竟然有 400ms 的空窗期！&lt;/strong&gt;&lt;/p&gt;
 &lt;p&gt;原来，为了追求所谓的&amp;quot;架构整洁&amp;quot;，我们在 HTML &lt;code&gt;&amp;lt;head&amp;gt;&lt;/code&gt; 里塞了一堆同步执行的第三方 SDK（埋点、风控、AB测试）。这些脚本阻塞了浏览器的解析线程，导致关键资源迟迟无法并发下载。&lt;/p&gt;
-&lt;p&gt;&lt;img src=&#34;https://picsum.photos/800/450?random=1768457309063&#34;
-	
-	
-	
-	loading=&#34;lazy&#34;
-	
-		alt=&#34;配图&#34;
-	
-	
+&lt;p&gt;&lt;img src="https://picsum.photos/800/450?random=1768457309063"
+loading="lazy"
+alt="配图"
 &gt;&lt;/p&gt;
 &lt;p&gt;&lt;strong&gt;落地动作：&lt;/strong&gt;&lt;/p&gt;
 &lt;p&gt;我们把所有非关键路径的 SDK 全部挪到 &lt;code&gt;requestIdleCallback&lt;/code&gt; 或者 &lt;code&gt;window.onload&lt;/code&gt; 之后执行。仅这一项改动，FCP 就直接下降了 300ms。&lt;/p&gt;
 &lt;blockquote&gt;
-&lt;p&gt;&lt;strong&gt;经验之谈：&lt;/strong&gt; 优化前，请先盯着 Network 的瀑布图（Waterfall）看十分钟。任何&amp;quot;串行&amp;quot;的请求都是罪恶的，想办法把它们变成&amp;quot;并行&amp;quot;。&lt;/p&gt;
-&lt;/blockquote&gt;
-&lt;h2 id=&#34;你的-bundle-真的需要那么大吗&#34;&gt;你的 Bundle 真的需要那么大吗？
+&lt;p&gt;&lt;strong&gt;经验之谈：&lt;/strong&gt; 优化前，请先盯着 Network 的瀑布图（Waterfall）看十分钟。任何&amp;quot;串行&amp;quot;的请求都是罪恶的，想办法把它们变成&amp;quot;并行&amp;quot;。&lt;/p&gt;&lt;/blockquote&gt;
+&lt;h2 id="你的-bundle-真的需要那么大吗"&gt;你的 Bundle 真的需要那么大吗？
 &lt;/h2&gt;&lt;p&gt;解决了阻塞问题，我们开始啃硬骨头：JS 体积。&lt;/p&gt;
 &lt;p&gt;当时的 &lt;code&gt;main.js&lt;/code&gt; 经过 Gzip 压缩后依然有 600KB。对于移动端设备，这意味着不仅下载耗时，&lt;strong&gt;JS 的解析和执行（Parse &amp;amp; Compile）更是耗电大户。&lt;/strong&gt;&lt;/p&gt;
-&lt;p&gt;&lt;img src=&#34;https://picsum.photos/800/450?random=1768457303430&#34;
-	
-	
-	
-	loading=&#34;lazy&#34;
-	
-		alt=&#34;配图&#34;
-	
-	
+&lt;p&gt;&lt;img src="https://picsum.photos/800/450?random=1768457303430"
+loading="lazy"
+alt="配图"
 &gt;&lt;/p&gt;
 &lt;p&gt;我让团队用 &lt;code&gt;webpack-bundle-analyzer&lt;/code&gt; 跑了一遍分析，发现一个非常有意思的现象：我们的登录页竟然打包进了 &lt;code&gt;ECharts&lt;/code&gt; 和 &lt;code&gt;Three.js&lt;/code&gt; ——仅仅因为某个深层组件引用了一个通用工具函数，而那个工具函数所在的 &lt;code&gt;utils.js&lt;/code&gt; 文件里不小心为了方便，把所有重型库都 import 进来了。&lt;/p&gt;
 &lt;p&gt;这是一个典型的 Tree Shaking 失效案例。&lt;/p&gt;
@@ -68,21 +35,34 @@
 &lt;li&gt;
 &lt;p&gt;&lt;strong&gt;激进的路由懒加载与组件拆分&lt;/strong&gt;：
 不仅仅是路由层面的 &lt;code&gt;React.lazy&lt;/code&gt; 或 &lt;code&gt;Vue&lt;/code&gt; 的异步组件。我们对首屏视口（Above the Fold）不可见的部分，全部做了动态导入。&lt;/p&gt;
-&lt;div class=&#34;highlight&#34;&gt;&lt;pre tabindex=&#34;0&#34; style=&#34;color:#f8f8f2;background-color:#272822;-moz-tab-size:4;-o-tab-size:4;tab-size:4;&#34;&gt;&lt;code class=&#34;language-javascript&#34; data-lang=&#34;javascript&#34;&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;&lt;span style=&#34;color:#75715e&#34;&gt;// 优化前：直接引入重型组件
-&lt;/span&gt;&lt;/span&gt;&lt;/span&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;&lt;span style=&#34;color:#75715e&#34;&gt;&lt;/span&gt;&lt;span style=&#34;color:#66d9ef&#34;&gt;import&lt;/span&gt; &lt;span style=&#34;color:#a6e22e&#34;&gt;HeavyChart&lt;/span&gt; &lt;span style=&#34;color:#a6e22e&#34;&gt;from&lt;/span&gt; &lt;span style=&#34;color:#e6db74&#34;&gt;&amp;#39;./HeavyChart&amp;#39;&lt;/span&gt;;
-&lt;/span&gt;&lt;/span&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;
-&lt;/span&gt;&lt;/span&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;&lt;span style=&#34;color:#75715e&#34;&gt;// 优化后：利用 IntersectionObserver 实现视口才加载
-&lt;/span&gt;&lt;/span&gt;&lt;/span&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;&lt;span style=&#34;color:#75715e&#34;&gt;&lt;/span&gt;&lt;span style=&#34;color:#66d9ef&#34;&gt;const&lt;/span&gt; &lt;span style=&#34;color:#a6e22e&#34;&gt;HeavyChart&lt;/span&gt; &lt;span style=&#34;color:#f92672&#34;&gt;=&lt;/span&gt; &lt;span style=&#34;color:#a6e22e&#34;&gt;dynamic&lt;/span&gt;(() =&amp;gt; &lt;span style=&#34;color:#66d9ef&#34;&gt;import&lt;/span&gt;(&lt;span style=&#34;color:#e6db74&#34;&gt;&amp;#39;./HeavyChart&amp;#39;&lt;/span&gt;), {
-&lt;/span&gt;&lt;/span&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;  &lt;span style=&#34;color:#a6e22e&#34;&gt;loading&lt;/span&gt;&lt;span style=&#34;color:#f92672&#34;&gt;:&lt;/span&gt; () =&amp;gt; &lt;span style=&#34;color:#f92672&#34;&gt;&amp;lt;&lt;/span&gt;&lt;span style=&#34;color:#a6e22e&#34;&gt;Skeleton&lt;/span&gt; &lt;span style=&#34;color:#f92672&#34;&gt;/&amp;gt;&lt;/span&gt;,
-&lt;/span&gt;&lt;/span&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;});
-&lt;/span&gt;&lt;/span&gt;&lt;/code&gt;&lt;/pre&gt;&lt;/div&gt;&lt;/li&gt;
+&lt;div class="highlight"&gt;&lt;div class="chroma"&gt;
+&lt;table class="lntable"&gt;&lt;tr&gt;&lt;td class="lntd"&gt;
+&lt;pre tabindex="0" class="chroma"&gt;&lt;code&gt;&lt;span class="lnt"&gt;1
+&lt;/span&gt;&lt;span class="lnt"&gt;2
+&lt;/span&gt;&lt;span class="lnt"&gt;3
+&lt;/span&gt;&lt;span class="lnt"&gt;4
+&lt;/span&gt;&lt;span class="lnt"&gt;5
+&lt;/span&gt;&lt;span class="lnt"&gt;6
+&lt;/span&gt;&lt;span class="lnt"&gt;7
+&lt;/span&gt;&lt;/code&gt;&lt;/pre&gt;&lt;/td&gt;
+&lt;td class="lntd"&gt;
+&lt;pre tabindex="0" class="chroma"&gt;&lt;code class="language-javascript" data-lang="javascript"&gt;&lt;span class="line"&gt;&lt;span class="cl"&gt;&lt;span class="c1"&gt;// 优化前：直接引入重型组件
+&lt;/span&gt;&lt;/span&gt;&lt;/span&gt;&lt;span class="line"&gt;&lt;span class="cl"&gt;&lt;span class="c1"&gt;&lt;/span&gt;&lt;span class="kr"&gt;import&lt;/span&gt; &lt;span class="nx"&gt;HeavyChart&lt;/span&gt; &lt;span class="nx"&gt;from&lt;/span&gt; &lt;span class="s1"&gt;&amp;#39;./HeavyChart&amp;#39;&lt;/span&gt;&lt;span class="p"&gt;;&lt;/span&gt;
+&lt;/span&gt;&lt;/span&gt;&lt;span class="line"&gt;&lt;span class="cl"&gt;
+&lt;/span&gt;&lt;/span&gt;&lt;span class="line"&gt;&lt;span class="cl"&gt;&lt;span class="c1"&gt;// 优化后：利用 IntersectionObserver 实现视口才加载
+&lt;/span&gt;&lt;/span&gt;&lt;/span&gt;&lt;span class="line"&gt;&lt;span class="cl"&gt;&lt;span class="c1"&gt;&lt;/span&gt;&lt;span class="kr"&gt;const&lt;/span&gt; &lt;span class="nx"&gt;HeavyChart&lt;/span&gt; &lt;span class="o"&gt;=&lt;/span&gt; &lt;span class="nx"&gt;dynamic&lt;/span&gt;&lt;span class="p"&gt;(()&lt;/span&gt; &lt;span class="p"&gt;=&amp;gt;&lt;/span&gt; &lt;span class="kr"&gt;import&lt;/span&gt;&lt;span class="p"&gt;(&lt;/span&gt;&lt;span class="s1"&gt;&amp;#39;./HeavyChart&amp;#39;&lt;/span&gt;&lt;span class="p"&gt;),&lt;/span&gt; &lt;span class="p"&gt;{&lt;/span&gt;
+&lt;/span&gt;&lt;/span&gt;&lt;span class="line"&gt;&lt;span class="cl"&gt; &lt;span class="nx"&gt;loading&lt;/span&gt;&lt;span class="o"&gt;:&lt;/span&gt; &lt;span class="p"&gt;()&lt;/span&gt; &lt;span class="p"&gt;=&amp;gt;&lt;/span&gt; &lt;span class="o"&gt;&amp;lt;&lt;/span&gt;&lt;span class="nx"&gt;Skeleton&lt;/span&gt; &lt;span class="o"&gt;/&amp;gt;&lt;/span&gt;&lt;span class="p"&gt;,&lt;/span&gt;
+&lt;/span&gt;&lt;/span&gt;&lt;span class="line"&gt;&lt;span class="cl"&gt;&lt;span class="p"&gt;});&lt;/span&gt;
+&lt;/span&gt;&lt;/span&gt;&lt;/code&gt;&lt;/pre&gt;&lt;/td&gt;&lt;/tr&gt;&lt;/table&gt;
+&lt;/div&gt;
+&lt;/div&gt;&lt;/li&gt;
 &lt;li&gt;
 &lt;p&gt;&lt;strong&gt;重构&amp;quot;万能&amp;quot;工具库&lt;/strong&gt;：
 把那个几千行的 &lt;code&gt;utils.js&lt;/code&gt; 拆成了多个独立的模块（如 &lt;code&gt;date-utils&lt;/code&gt;, &lt;code&gt;math-utils&lt;/code&gt;），确保 Tree Shaking 能真正生效。&lt;/p&gt;
 &lt;/li&gt;
 &lt;/ol&gt;
 &lt;p&gt;结果不仅包体积减少了 40%，配合现代浏览器的 Module Federation（如果是微前端架构），复用率也大幅提升。&lt;/p&gt;
-&lt;h2 id=&#34;网络层的降维打击运维也是你的战友&#34;&gt;网络层的&amp;quot;降维打击&amp;quot;：运维也是你的战友
+&lt;h2 id="网络层的降维打击运维也是你的战友"&gt;网络层的&amp;quot;降维打击&amp;quot;：运维也是你的战友
 &lt;/h2&gt;&lt;p&gt;这块往往是前端开发的盲区。很多前端觉得代码推送到服务器，任务就结束了。其实，&lt;strong&gt;从服务器到浏览器的这段路，才是性能优化的&amp;quot;高速公路&amp;quot;。&lt;/strong&gt;&lt;/p&gt;
 &lt;p&gt;在优化的瓶颈期，我找到了运维组的同事老张。我们一起对着 Nginx 配置和 CDN 策略撸了一下午。&lt;/p&gt;
 &lt;p&gt;&lt;strong&gt;发现两个惊天大漏：&lt;/strong&gt;&lt;/p&gt;
@@ -98,17 +78,16 @@
 &lt;/ol&gt;
 &lt;p&gt;此外，我们还配合后端做了一个大胆的决定：&lt;strong&gt;关键接口预加载&lt;/strong&gt;。&lt;/p&gt;
 &lt;p&gt;在 HTML 返回的 Header 中，我们加入了 &lt;code&gt;Link: &amp;lt;...&amp;gt;; rel=preload&lt;/code&gt;，或者直接在 HTML 解析早期发起核心业务数据的请求，而不是等到 JS 执行完再去请求数据。这一招实现了&amp;quot;代码下载&amp;quot;和&amp;quot;数据请求&amp;quot;的并行。&lt;/p&gt;
-&lt;h2 id=&#34;最后的-100ms感知性能的欺骗艺术&#34;&gt;最后的 100ms：感知性能的欺骗艺术
+&lt;h2 id="最后的-100ms感知性能的欺骗艺术"&gt;最后的 100ms：感知性能的欺骗艺术
 &lt;/h2&gt;&lt;p&gt;经过上面一系列硬核操作，FCP 降到了 1s 左右，但离 0.8s 的极致目标还差一点。这时候，技术手段已经边际效应递减了，我们需要一点&amp;quot;心理学&amp;quot;。&lt;/p&gt;
 &lt;p&gt;&lt;strong&gt;白屏是用户焦虑的根源。&lt;/strong&gt;&lt;/p&gt;
 &lt;p&gt;我们不再执着于&amp;quot;真实内容&amp;quot;的渲染速度，而是引入了&lt;strong&gt;骨架屏（Skeleton Screen）&lt;/strong&gt;。不同于通用的灰色方块，我们复刻了UI的布局结构。&lt;/p&gt;
 &lt;p&gt;同时，为了防止页面闪动（Layout Thrashing），我们在 CSS 中提前锁定了图片容器的宽高比（Aspect Ratio）。&lt;/p&gt;
 &lt;blockquote&gt;
-&lt;p&gt;&amp;ldquo;用户其实分不清0.8秒和1秒的区别，但他们能分清楚页面是&amp;rsquo;跳出来&amp;rsquo;的还是&amp;rsquo;滑出来&amp;rsquo;的。&amp;rdquo;&lt;/p&gt;
-&lt;/blockquote&gt;
+&lt;p&gt;&amp;ldquo;用户其实分不清0.8秒和1秒的区别，但他们能分清楚页面是&amp;rsquo;跳出来&amp;rsquo;的还是&amp;rsquo;滑出来&amp;rsquo;的。&amp;rdquo;&lt;/p&gt;&lt;/blockquote&gt;
 &lt;p&gt;通过 CSS 动画配合骨架屏的平滑过渡，虽然实际数据到达时间可能没变，但在视觉感官上，页面实现了&amp;quot;秒开&amp;quot;。&lt;/p&gt;
 &lt;hr&gt;
-&lt;h2 id=&#34;总结与下一步&#34;&gt;总结与下一步
+&lt;h2 id="总结与下一步"&gt;总结与下一步
 &lt;/h2&gt;&lt;p&gt;从 3s 到 0.8s，我们用的不是什么黑科技，而是把&lt;strong&gt;加载策略、构建调优、网络协议、感知体验&lt;/strong&gt;这四个维度串联了起来。&lt;/p&gt;
 &lt;p&gt;如果你准备着手优化你们的项目，我建议你明天上班后先做这三件事，这比写代码更有用：&lt;/p&gt;
 &lt;ol&gt;
@@ -117,9 +96,4 @@
 &lt;li&gt;&lt;strong&gt;配置构建分析&lt;/strong&gt;：在构建脚本里加上 &lt;code&gt;webpack-bundle-analyzer&lt;/code&gt;（或者 Vite 的对应插件），看看到底是哪个胖子拖累了你的首屏。&lt;/li&gt;
 &lt;/ol&gt;
 &lt;p&gt;&lt;strong&gt;最后留个开放问题：&lt;/strong&gt;&lt;/p&gt;
-&lt;p&gt;在你的优化经历中，遇到过最离谱的&amp;quot;性能刺客&amp;quot;是什么？是几兆的高清大图？还是一个死循环的 &lt;code&gt;useEffect&lt;/code&gt;？欢迎在评论区聊聊你的&amp;quot;踩坑&amp;quot;故事。&lt;/p&gt;
-</description>
-        </item>
-        
-    </channel>
-</rss>
+&lt;p&gt;在你的优化经历中，遇到过最离谱的&amp;quot;性能刺客&amp;quot;是什么？是几兆的高清大图？还是一个死循环的 &lt;code&gt;useEffect&lt;/code&gt;？欢迎在评论区聊聊你的&amp;quot;踩坑&amp;quot;故事。&lt;/p&gt;</description></item></channel></rss>

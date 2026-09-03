@@ -1,62 +1,55 @@
-<?xml version="1.0" encoding="utf-8" standalone="yes"?>
-<rss version="2.0" xmlns:atom="http://www.w3.org/2005/Atom">
-    <channel>
-        <title>Nginx反向代理与负载均衡配置详解 on SelfTechHub</title>
-        <link>https://blog.irudder.me/tags/Nginx%E5%8F%8D%E5%90%91%E4%BB%A3%E7%90%86%E4%B8%8E%E8%B4%9F%E8%BD%BD%E5%9D%87%E8%A1%A1%E9%85%8D%E7%BD%AE%E8%AF%A6%E8%A7%A3.html</link>
-        <description>Recent content in Nginx反向代理与负载均衡配置详解 on SelfTechHub</description>
-        <generator>Hugo -- gohugo.io</generator>
-        <language>zh-cn</language>
-        <lastBuildDate>Sun, 25 Jun 2023 00:00:00 +0000</lastBuildDate><atom:link href="https://blog.irudder.me/tags/Nginx%E5%8F%8D%E5%90%91%E4%BB%A3%E7%90%86%E4%B8%8E%E8%B4%9F%E8%BD%BD%E5%9D%87%E8%A1%A1%E9%85%8D%E7%BD%AE%E8%AF%A6%E8%A7%A3/index.xml" rel="self" type="application/rss+xml" /><item>
-        <title>3次生产事故后，我总结的Nginx反代与负载均衡实战</title>
-        <link>https://blog.irudder.me/tech/devopsjichugongjurumenyushicao/nginxfanxiangdailiyufuzaijunhengpeizhixiangjie.html</link>
-        <pubDate>Sun, 25 Jun 2023 00:00:00 +0000</pubDate>
-        
-        <guid>https://blog.irudder.me/tech/devopsjichugongjurumenyushicao/nginxfanxiangdailiyufuzaijunhengpeizhixiangjie.html</guid>
-        <description>&lt;p&gt;记得刚入行那年，我最怕看到的画面不是满屏的代码报错，而是浏览器里那个冷冰冰的 &lt;strong&gt;&amp;ldquo;502 Bad Gateway&amp;rdquo;&lt;/strong&gt;。&lt;/p&gt;
+<?xml version="1.0" encoding="utf-8" standalone="yes"?><rss version="2.0" xmlns:atom="http://www.w3.org/2005/Atom"><channel><title>Nginx反向代理与负载均衡配置详解 on SelfTechHub</title><link>https://blog.irudder.me/tags/Nginx%E5%8F%8D%E5%90%91%E4%BB%A3%E7%90%86%E4%B8%8E%E8%B4%9F%E8%BD%BD%E5%9D%87%E8%A1%A1%E9%85%8D%E7%BD%AE%E8%AF%A6%E8%A7%A3.html</link><description>Recent content in Nginx反向代理与负载均衡配置详解 on SelfTechHub</description><generator>Hugo -- gohugo.io</generator><language>zh-cn</language><lastBuildDate>Sun, 25 Jun 2023 00:00:00 +0800</lastBuildDate><atom:link href="https://blog.irudder.me/tags/Nginx%E5%8F%8D%E5%90%91%E4%BB%A3%E7%90%86%E4%B8%8E%E8%B4%9F%E8%BD%BD%E5%9D%87%E8%A1%A1%E9%85%8D%E7%BD%AE%E8%AF%A6%E8%A7%A3/index.xml" rel="self" type="application/rss+xml"/><item><title>3次生产事故后，我总结的Nginx反代与负载均衡实战</title><link>https://blog.irudder.me/tech/devopsjichugongjurumenyushicao/nginxfanxiangdailiyufuzaijunhengpeizhixiangjie.html</link><pubDate>Sun, 25 Jun 2023 00:00:00 +0800</pubDate><guid>https://blog.irudder.me/tech/devopsjichugongjurumenyushicao/nginxfanxiangdailiyufuzaijunhengpeizhixiangjie.html</guid><description>&lt;p&gt;记得刚入行那年，我最怕看到的画面不是满屏的代码报错，而是浏览器里那个冷冰冰的 &lt;strong&gt;&amp;ldquo;502 Bad Gateway&amp;rdquo;&lt;/strong&gt;。&lt;/p&gt;
 &lt;p&gt;那时候觉得 Nginx 就是个黑盒，配置文件里的每一行指令都像是在对着服务器念咒语——念对了万事大吉，念错了一个分号，服务直接趴窝。我曾天真地以为，照着网上的教程把 &lt;code&gt;proxy_pass&lt;/code&gt; 粘贴进去就算完事了，直到我经历了那几个心惊肉跳的深夜。&lt;/p&gt;
-&lt;p&gt;&lt;img src=&#34;https://picsum.photos/800/450?random=1768387964200&#34;
-	
-	
-	
-	loading=&#34;lazy&#34;
-	
-		alt=&#34;配图&#34;
-	
-	
+&lt;p&gt;&lt;img src="https://picsum.photos/800/450?random=1768387964200"
+loading="lazy"
+alt="配图"
 &gt;&lt;/p&gt;
 &lt;p&gt;DevOps 的路上，我们大概率都会遇到这样的时刻：代码逻辑明明没问题，但请求就是发不到后端；或者明明加了机器做负载均衡，用户却总抱怨登录状态莫名丢失。&lt;/p&gt;
 &lt;p&gt;今天，我想把自己这几年记在备忘录里的 Nginx 实操经验翻出来，不讲晦涩的原理，只聊聊在真实业务场景下，怎么配置反向代理和负载均衡，才能让你睡个安稳觉。&lt;/p&gt;
-&lt;h2 id=&#34;别让反向代理成为黑洞不仅是转发更是伪装&#34;&gt;别让“反向代理”成为黑洞：不仅是转发，更是“伪装”
+&lt;h2 id="别让反向代理成为黑洞不仅是转发更是伪装"&gt;别让“反向代理”成为黑洞：不仅是转发，更是“伪装”
 &lt;/h2&gt;&lt;p&gt;很多新手（包括当年的我）在配置反向代理时，往往只写一行 &lt;code&gt;proxy_pass&lt;/code&gt;。&lt;/p&gt;
 &lt;p&gt;我就踩过这样一个坑。当时我们有一个内部管理系统，后端用的 Spring Boot，前端 Nginx 做代理。上线第一天，运营同事就跑来吼：“为什么我生成的重定向链接，跳回的是 &lt;code&gt;localhost&lt;/code&gt;？”&lt;/p&gt;
 &lt;p&gt;原来，当 Nginx 将请求转发给后端应用时，如果不做特殊配置，后端拿到的 &lt;code&gt;Host&lt;/code&gt; 信息往往是 Nginx 所在的内网 IP 或者 &lt;code&gt;localhost&lt;/code&gt;，而不是用户真正访问的域名。这导致后端在生成重定向 URL 或记录日志时，完全搞错了对象。&lt;/p&gt;
 &lt;p&gt;&lt;strong&gt;解决这个问题的关键，在于“透传”。&lt;/strong&gt; 我们需要把用户真实的请求头信息，原封不动地告诉后端。&lt;/p&gt;
 &lt;p&gt;&lt;strong&gt;实战配置建议：&lt;/strong&gt;&lt;/p&gt;
 &lt;p&gt;建议你把下面这几行配置，作为所有反向代理的“标配”。我习惯在公司内部维护一个 &lt;code&gt;proxy_params&lt;/code&gt; 文件，每次直接 include 进去，省心又安全。&lt;/p&gt;
-&lt;div class=&#34;highlight&#34;&gt;&lt;pre tabindex=&#34;0&#34; style=&#34;color:#f8f8f2;background-color:#272822;-moz-tab-size:4;-o-tab-size:4;tab-size:4;&#34;&gt;&lt;code class=&#34;language-nginx&#34; data-lang=&#34;nginx&#34;&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;&lt;span style=&#34;color:#66d9ef&#34;&gt;location&lt;/span&gt; &lt;span style=&#34;color:#e6db74&#34;&gt;/api/&lt;/span&gt; {
-&lt;/span&gt;&lt;/span&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;    &lt;span style=&#34;color:#f92672&#34;&gt;proxy_pass&lt;/span&gt; &lt;span style=&#34;color:#e6db74&#34;&gt;http://127.0.0.1:8080&lt;/span&gt;;
-&lt;/span&gt;&lt;/span&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;
-&lt;/span&gt;&lt;/span&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;    &lt;span style=&#34;color:#75715e&#34;&gt;# 核心：保留客户端真实的 Host 域名
-&lt;/span&gt;&lt;/span&gt;&lt;/span&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;&lt;span style=&#34;color:#75715e&#34;&gt;&lt;/span&gt;    &lt;span style=&#34;color:#f92672&#34;&gt;proxy_set_header&lt;/span&gt; &lt;span style=&#34;color:#e6db74&#34;&gt;Host&lt;/span&gt; $host; 
-&lt;/span&gt;&lt;/span&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;    
-&lt;/span&gt;&lt;/span&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;    &lt;span style=&#34;color:#75715e&#34;&gt;# 核心：传递客户端真实的 IP 地址，而不是 Nginx 的内网 IP
-&lt;/span&gt;&lt;/span&gt;&lt;/span&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;&lt;span style=&#34;color:#75715e&#34;&gt;&lt;/span&gt;    &lt;span style=&#34;color:#f92672&#34;&gt;proxy_set_header&lt;/span&gt; &lt;span style=&#34;color:#e6db74&#34;&gt;X-Real-IP&lt;/span&gt; $remote_addr;
-&lt;/span&gt;&lt;/span&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;    &lt;span style=&#34;color:#f92672&#34;&gt;proxy_set_header&lt;/span&gt; &lt;span style=&#34;color:#e6db74&#34;&gt;X-Forwarded-For&lt;/span&gt; $proxy_add_x_forwarded_for;
-&lt;/span&gt;&lt;/span&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;    
-&lt;/span&gt;&lt;/span&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;    &lt;span style=&#34;color:#75715e&#34;&gt;# 告诉后端当前的协议是 http 还是 https
-&lt;/span&gt;&lt;/span&gt;&lt;/span&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;&lt;span style=&#34;color:#75715e&#34;&gt;&lt;/span&gt;    &lt;span style=&#34;color:#f92672&#34;&gt;proxy_set_header&lt;/span&gt; &lt;span style=&#34;color:#e6db74&#34;&gt;X-Forwarded-Proto&lt;/span&gt; $scheme;
-&lt;/span&gt;&lt;/span&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;}
-&lt;/span&gt;&lt;/span&gt;&lt;/code&gt;&lt;/pre&gt;&lt;/div&gt;&lt;p&gt;自从加上这几行，后端日志里再也没出现过满屏的 &lt;code&gt;127.0.0.1&lt;/code&gt;，排查问题时的效率提升了不止一倍。&lt;/p&gt;
-&lt;h2 id=&#34;负载均衡的玄学不只是轮询更要专一&#34;&gt;负载均衡的“玄学”：不只是轮询，更要“专一”
-&lt;/h2&gt;&lt;p&gt;&lt;img src=&#34;https://picsum.photos/800/450?random=1768387968026&#34;
-	
-	
-	
-	loading=&#34;lazy&#34;
-	
-		alt=&#34;配图&#34;
-	
-	
+&lt;div class="highlight"&gt;&lt;div class="chroma"&gt;
+&lt;table class="lntable"&gt;&lt;tr&gt;&lt;td class="lntd"&gt;
+&lt;pre tabindex="0" class="chroma"&gt;&lt;code&gt;&lt;span class="lnt"&gt; 1
+&lt;/span&gt;&lt;span class="lnt"&gt; 2
+&lt;/span&gt;&lt;span class="lnt"&gt; 3
+&lt;/span&gt;&lt;span class="lnt"&gt; 4
+&lt;/span&gt;&lt;span class="lnt"&gt; 5
+&lt;/span&gt;&lt;span class="lnt"&gt; 6
+&lt;/span&gt;&lt;span class="lnt"&gt; 7
+&lt;/span&gt;&lt;span class="lnt"&gt; 8
+&lt;/span&gt;&lt;span class="lnt"&gt; 9
+&lt;/span&gt;&lt;span class="lnt"&gt;10
+&lt;/span&gt;&lt;span class="lnt"&gt;11
+&lt;/span&gt;&lt;span class="lnt"&gt;12
+&lt;/span&gt;&lt;span class="lnt"&gt;13
+&lt;/span&gt;&lt;/code&gt;&lt;/pre&gt;&lt;/td&gt;
+&lt;td class="lntd"&gt;
+&lt;pre tabindex="0" class="chroma"&gt;&lt;code class="language-nginx" data-lang="nginx"&gt;&lt;span class="line"&gt;&lt;span class="cl"&gt;&lt;span class="k"&gt;location&lt;/span&gt; &lt;span class="s"&gt;/api/&lt;/span&gt; &lt;span class="p"&gt;{&lt;/span&gt;
+&lt;/span&gt;&lt;/span&gt;&lt;span class="line"&gt;&lt;span class="cl"&gt; &lt;span class="kn"&gt;proxy_pass&lt;/span&gt; &lt;span class="s"&gt;http://127.0.0.1:8080&lt;/span&gt;&lt;span class="p"&gt;;&lt;/span&gt;
+&lt;/span&gt;&lt;/span&gt;&lt;span class="line"&gt;&lt;span class="cl"&gt;
+&lt;/span&gt;&lt;/span&gt;&lt;span class="line"&gt;&lt;span class="cl"&gt; &lt;span class="c1"&gt;# 核心：保留客户端真实的 Host 域名
+&lt;/span&gt;&lt;/span&gt;&lt;/span&gt;&lt;span class="line"&gt;&lt;span class="cl"&gt;&lt;span class="c1"&gt;&lt;/span&gt; &lt;span class="kn"&gt;proxy_set_header&lt;/span&gt; &lt;span class="s"&gt;Host&lt;/span&gt; &lt;span class="nv"&gt;$host&lt;/span&gt;&lt;span class="p"&gt;;&lt;/span&gt;
+&lt;/span&gt;&lt;/span&gt;&lt;span class="line"&gt;&lt;span class="cl"&gt;
+&lt;/span&gt;&lt;/span&gt;&lt;span class="line"&gt;&lt;span class="cl"&gt; &lt;span class="c1"&gt;# 核心：传递客户端真实的 IP 地址，而不是 Nginx 的内网 IP
+&lt;/span&gt;&lt;/span&gt;&lt;/span&gt;&lt;span class="line"&gt;&lt;span class="cl"&gt;&lt;span class="c1"&gt;&lt;/span&gt; &lt;span class="kn"&gt;proxy_set_header&lt;/span&gt; &lt;span class="s"&gt;X-Real-IP&lt;/span&gt; &lt;span class="nv"&gt;$remote_addr&lt;/span&gt;&lt;span class="p"&gt;;&lt;/span&gt;
+&lt;/span&gt;&lt;/span&gt;&lt;span class="line"&gt;&lt;span class="cl"&gt; &lt;span class="kn"&gt;proxy_set_header&lt;/span&gt; &lt;span class="s"&gt;X-Forwarded-For&lt;/span&gt; &lt;span class="nv"&gt;$proxy_add_x_forwarded_for&lt;/span&gt;&lt;span class="p"&gt;;&lt;/span&gt;
+&lt;/span&gt;&lt;/span&gt;&lt;span class="line"&gt;&lt;span class="cl"&gt;
+&lt;/span&gt;&lt;/span&gt;&lt;span class="line"&gt;&lt;span class="cl"&gt; &lt;span class="c1"&gt;# 告诉后端当前的协议是 http 还是 https
+&lt;/span&gt;&lt;/span&gt;&lt;/span&gt;&lt;span class="line"&gt;&lt;span class="cl"&gt;&lt;span class="c1"&gt;&lt;/span&gt; &lt;span class="kn"&gt;proxy_set_header&lt;/span&gt; &lt;span class="s"&gt;X-Forwarded-Proto&lt;/span&gt; &lt;span class="nv"&gt;$scheme&lt;/span&gt;&lt;span class="p"&gt;;&lt;/span&gt;
+&lt;/span&gt;&lt;/span&gt;&lt;span class="line"&gt;&lt;span class="cl"&gt;&lt;span class="p"&gt;}&lt;/span&gt;
+&lt;/span&gt;&lt;/span&gt;&lt;/code&gt;&lt;/pre&gt;&lt;/td&gt;&lt;/tr&gt;&lt;/table&gt;
+&lt;/div&gt;
+&lt;/div&gt;&lt;p&gt;自从加上这几行，后端日志里再也没出现过满屏的 &lt;code&gt;127.0.0.1&lt;/code&gt;，排查问题时的效率提升了不止一倍。&lt;/p&gt;
+&lt;h2 id="负载均衡的玄学不只是轮询更要专一"&gt;负载均衡的“玄学”：不只是轮询，更要“专一”
+&lt;/h2&gt;&lt;p&gt;&lt;img src="https://picsum.photos/800/450?random=1768387968026"
+loading="lazy"
+alt="配图"
 &gt;&lt;/p&gt;
 &lt;p&gt;随着业务量增长，单台服务器撑不住了，我们自然会想到加机器，上负载均衡。&lt;/p&gt;
 &lt;p&gt;大概两年前，我们要搞一个线上的抢购活动。为了保险，我临时加了两台服务器，配置了最简单的 &lt;code&gt;upstream&lt;/code&gt; 轮询。我想着，三台机器平均分担压力，这下稳了吧？&lt;/p&gt;
@@ -65,52 +58,100 @@
 &lt;p&gt;虽然现在更推荐用 Redis 集中管理 Session，但在很多中小型项目或遗留系统中，&lt;strong&gt;IP 哈希（ip_hash）&lt;/strong&gt; 依然是解决这个问题的最快救命稻草。&lt;/p&gt;
 &lt;p&gt;&lt;strong&gt;实战配置建议：&lt;/strong&gt;&lt;/p&gt;
 &lt;p&gt;如果你的应用涉及用户登录状态，且没有做分布式的 Session 共享，&lt;strong&gt;请务必加上 &lt;code&gt;ip_hash&lt;/code&gt;&lt;/strong&gt;。它能保证同一个 IP 的请求固定打到同一台后端服务器上。&lt;/p&gt;
-&lt;div class=&#34;highlight&#34;&gt;&lt;pre tabindex=&#34;0&#34; style=&#34;color:#f8f8f2;background-color:#272822;-moz-tab-size:4;-o-tab-size:4;tab-size:4;&#34;&gt;&lt;code class=&#34;language-nginx&#34; data-lang=&#34;nginx&#34;&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;&lt;span style=&#34;color:#66d9ef&#34;&gt;upstream&lt;/span&gt; &lt;span style=&#34;color:#e6db74&#34;&gt;backend_server_group&lt;/span&gt; {
-&lt;/span&gt;&lt;/span&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;    &lt;span style=&#34;color:#75715e&#34;&gt;# 关键指令：保证会话粘性
-&lt;/span&gt;&lt;/span&gt;&lt;/span&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;&lt;span style=&#34;color:#75715e&#34;&gt;&lt;/span&gt;    &lt;span style=&#34;color:#f92672&#34;&gt;ip_hash&lt;/span&gt;; 
-&lt;/span&gt;&lt;/span&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;    
-&lt;/span&gt;&lt;/span&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;    &lt;span style=&#34;color:#75715e&#34;&gt;# weight 代表权重，权重越高分配的请求越多
-&lt;/span&gt;&lt;/span&gt;&lt;/span&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;&lt;span style=&#34;color:#75715e&#34;&gt;&lt;/span&gt;    &lt;span style=&#34;color:#f92672&#34;&gt;server&lt;/span&gt; 192.168.1.101:&lt;span style=&#34;color:#ae81ff&#34;&gt;8080&lt;/span&gt; &lt;span style=&#34;color:#e6db74&#34;&gt;weight=3&lt;/span&gt;;
-&lt;/span&gt;&lt;/span&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;    &lt;span style=&#34;color:#f92672&#34;&gt;server&lt;/span&gt; 192.168.1.102:&lt;span style=&#34;color:#ae81ff&#34;&gt;8080&lt;/span&gt; &lt;span style=&#34;color:#e6db74&#34;&gt;weight=1&lt;/span&gt;;
-&lt;/span&gt;&lt;/span&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;    
-&lt;/span&gt;&lt;/span&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;    &lt;span style=&#34;color:#75715e&#34;&gt;# max_fails=3 fail_timeout=30s 代表：
-&lt;/span&gt;&lt;/span&gt;&lt;/span&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;&lt;span style=&#34;color:#75715e&#34;&gt;&lt;/span&gt;    &lt;span style=&#34;color:#75715e&#34;&gt;# 如果这台机器在30秒内失败了3次，Nginx会在接下来的30秒内不再给它发请求
-&lt;/span&gt;&lt;/span&gt;&lt;/span&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;&lt;span style=&#34;color:#75715e&#34;&gt;&lt;/span&gt;    &lt;span style=&#34;color:#75715e&#34;&gt;# 这就是简单的健康检查
-&lt;/span&gt;&lt;/span&gt;&lt;/span&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;&lt;span style=&#34;color:#75715e&#34;&gt;&lt;/span&gt;    &lt;span style=&#34;color:#f92672&#34;&gt;server&lt;/span&gt; 192.168.1.103:&lt;span style=&#34;color:#ae81ff&#34;&gt;8080&lt;/span&gt; &lt;span style=&#34;color:#e6db74&#34;&gt;max_fails=3&lt;/span&gt; &lt;span style=&#34;color:#e6db74&#34;&gt;fail_timeout=30s&lt;/span&gt;;
-&lt;/span&gt;&lt;/span&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;}
-&lt;/span&gt;&lt;/span&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;
-&lt;/span&gt;&lt;/span&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;&lt;span style=&#34;color:#66d9ef&#34;&gt;server&lt;/span&gt; {
-&lt;/span&gt;&lt;/span&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;    &lt;span style=&#34;color:#f92672&#34;&gt;listen&lt;/span&gt; &lt;span style=&#34;color:#ae81ff&#34;&gt;80&lt;/span&gt;;
-&lt;/span&gt;&lt;/span&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;    &lt;span style=&#34;color:#f92672&#34;&gt;server_name&lt;/span&gt; &lt;span style=&#34;color:#e6db74&#34;&gt;example.com&lt;/span&gt;;
-&lt;/span&gt;&lt;/span&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;
-&lt;/span&gt;&lt;/span&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;    &lt;span style=&#34;color:#f92672&#34;&gt;location&lt;/span&gt; &lt;span style=&#34;color:#e6db74&#34;&gt;/&lt;/span&gt; {
-&lt;/span&gt;&lt;/span&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;        &lt;span style=&#34;color:#f92672&#34;&gt;proxy_pass&lt;/span&gt; &lt;span style=&#34;color:#e6db74&#34;&gt;http://backend_server_group&lt;/span&gt;;
-&lt;/span&gt;&lt;/span&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;        &lt;span style=&#34;color:#f92672&#34;&gt;include&lt;/span&gt; &lt;span style=&#34;color:#e6db74&#34;&gt;proxy_params&lt;/span&gt;; &lt;span style=&#34;color:#75715e&#34;&gt;# 记得加上上一节提到的标配
-&lt;/span&gt;&lt;/span&gt;&lt;/span&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;&lt;span style=&#34;color:#75715e&#34;&gt;&lt;/span&gt;    }
-&lt;/span&gt;&lt;/span&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;}
-&lt;/span&gt;&lt;/span&gt;&lt;/code&gt;&lt;/pre&gt;&lt;/div&gt;&lt;p&gt;这个配置我用了很久，在很多不需要极致扩展性的中小项目中，它既简单又管用。&lt;/p&gt;
-&lt;h2 id=&#34;那些看不见的隐形杀手超时与缓冲区&#34;&gt;那些看不见的“隐形杀手”：超时与缓冲区
+&lt;div class="highlight"&gt;&lt;div class="chroma"&gt;
+&lt;table class="lntable"&gt;&lt;tr&gt;&lt;td class="lntd"&gt;
+&lt;pre tabindex="0" class="chroma"&gt;&lt;code&gt;&lt;span class="lnt"&gt; 1
+&lt;/span&gt;&lt;span class="lnt"&gt; 2
+&lt;/span&gt;&lt;span class="lnt"&gt; 3
+&lt;/span&gt;&lt;span class="lnt"&gt; 4
+&lt;/span&gt;&lt;span class="lnt"&gt; 5
+&lt;/span&gt;&lt;span class="lnt"&gt; 6
+&lt;/span&gt;&lt;span class="lnt"&gt; 7
+&lt;/span&gt;&lt;span class="lnt"&gt; 8
+&lt;/span&gt;&lt;span class="lnt"&gt; 9
+&lt;/span&gt;&lt;span class="lnt"&gt;10
+&lt;/span&gt;&lt;span class="lnt"&gt;11
+&lt;/span&gt;&lt;span class="lnt"&gt;12
+&lt;/span&gt;&lt;span class="lnt"&gt;13
+&lt;/span&gt;&lt;span class="lnt"&gt;14
+&lt;/span&gt;&lt;span class="lnt"&gt;15
+&lt;/span&gt;&lt;span class="lnt"&gt;16
+&lt;/span&gt;&lt;span class="lnt"&gt;17
+&lt;/span&gt;&lt;span class="lnt"&gt;18
+&lt;/span&gt;&lt;span class="lnt"&gt;19
+&lt;/span&gt;&lt;span class="lnt"&gt;20
+&lt;/span&gt;&lt;span class="lnt"&gt;21
+&lt;/span&gt;&lt;span class="lnt"&gt;22
+&lt;/span&gt;&lt;span class="lnt"&gt;23
+&lt;/span&gt;&lt;/code&gt;&lt;/pre&gt;&lt;/td&gt;
+&lt;td class="lntd"&gt;
+&lt;pre tabindex="0" class="chroma"&gt;&lt;code class="language-nginx" data-lang="nginx"&gt;&lt;span class="line"&gt;&lt;span class="cl"&gt;&lt;span class="k"&gt;upstream&lt;/span&gt; &lt;span class="s"&gt;backend_server_group&lt;/span&gt; &lt;span class="p"&gt;{&lt;/span&gt;
+&lt;/span&gt;&lt;/span&gt;&lt;span class="line"&gt;&lt;span class="cl"&gt; &lt;span class="c1"&gt;# 关键指令：保证会话粘性
+&lt;/span&gt;&lt;/span&gt;&lt;/span&gt;&lt;span class="line"&gt;&lt;span class="cl"&gt;&lt;span class="c1"&gt;&lt;/span&gt; &lt;span class="kn"&gt;ip_hash&lt;/span&gt;&lt;span class="p"&gt;;&lt;/span&gt;
+&lt;/span&gt;&lt;/span&gt;&lt;span class="line"&gt;&lt;span class="cl"&gt;
+&lt;/span&gt;&lt;/span&gt;&lt;span class="line"&gt;&lt;span class="cl"&gt; &lt;span class="c1"&gt;# weight 代表权重，权重越高分配的请求越多
+&lt;/span&gt;&lt;/span&gt;&lt;/span&gt;&lt;span class="line"&gt;&lt;span class="cl"&gt;&lt;span class="c1"&gt;&lt;/span&gt; &lt;span class="kn"&gt;server&lt;/span&gt; &lt;span class="n"&gt;192.168.1.101&lt;/span&gt;&lt;span class="p"&gt;:&lt;/span&gt;&lt;span class="mi"&gt;8080&lt;/span&gt; &lt;span class="s"&gt;weight=3&lt;/span&gt;&lt;span class="p"&gt;;&lt;/span&gt;
+&lt;/span&gt;&lt;/span&gt;&lt;span class="line"&gt;&lt;span class="cl"&gt; &lt;span class="kn"&gt;server&lt;/span&gt; &lt;span class="n"&gt;192.168.1.102&lt;/span&gt;&lt;span class="p"&gt;:&lt;/span&gt;&lt;span class="mi"&gt;8080&lt;/span&gt; &lt;span class="s"&gt;weight=1&lt;/span&gt;&lt;span class="p"&gt;;&lt;/span&gt;
+&lt;/span&gt;&lt;/span&gt;&lt;span class="line"&gt;&lt;span class="cl"&gt;
+&lt;/span&gt;&lt;/span&gt;&lt;span class="line"&gt;&lt;span class="cl"&gt; &lt;span class="c1"&gt;# max_fails=3 fail_timeout=30s 代表：
+&lt;/span&gt;&lt;/span&gt;&lt;/span&gt;&lt;span class="line"&gt;&lt;span class="cl"&gt;&lt;span class="c1"&gt;&lt;/span&gt; &lt;span class="c1"&gt;# 如果这台机器在30秒内失败了3次，Nginx会在接下来的30秒内不再给它发请求
+&lt;/span&gt;&lt;/span&gt;&lt;/span&gt;&lt;span class="line"&gt;&lt;span class="cl"&gt;&lt;span class="c1"&gt;&lt;/span&gt; &lt;span class="c1"&gt;# 这就是简单的健康检查
+&lt;/span&gt;&lt;/span&gt;&lt;/span&gt;&lt;span class="line"&gt;&lt;span class="cl"&gt;&lt;span class="c1"&gt;&lt;/span&gt; &lt;span class="kn"&gt;server&lt;/span&gt; &lt;span class="n"&gt;192.168.1.103&lt;/span&gt;&lt;span class="p"&gt;:&lt;/span&gt;&lt;span class="mi"&gt;8080&lt;/span&gt; &lt;span class="s"&gt;max_fails=3&lt;/span&gt; &lt;span class="s"&gt;fail_timeout=30s&lt;/span&gt;&lt;span class="p"&gt;;&lt;/span&gt;
+&lt;/span&gt;&lt;/span&gt;&lt;span class="line"&gt;&lt;span class="cl"&gt;&lt;span class="p"&gt;}&lt;/span&gt;
+&lt;/span&gt;&lt;/span&gt;&lt;span class="line"&gt;&lt;span class="cl"&gt;
+&lt;/span&gt;&lt;/span&gt;&lt;span class="line"&gt;&lt;span class="cl"&gt;&lt;span class="k"&gt;server&lt;/span&gt; &lt;span class="p"&gt;{&lt;/span&gt;
+&lt;/span&gt;&lt;/span&gt;&lt;span class="line"&gt;&lt;span class="cl"&gt; &lt;span class="kn"&gt;listen&lt;/span&gt; &lt;span class="mi"&gt;80&lt;/span&gt;&lt;span class="p"&gt;;&lt;/span&gt;
+&lt;/span&gt;&lt;/span&gt;&lt;span class="line"&gt;&lt;span class="cl"&gt; &lt;span class="kn"&gt;server_name&lt;/span&gt; &lt;span class="s"&gt;example.com&lt;/span&gt;&lt;span class="p"&gt;;&lt;/span&gt;
+&lt;/span&gt;&lt;/span&gt;&lt;span class="line"&gt;&lt;span class="cl"&gt;
+&lt;/span&gt;&lt;/span&gt;&lt;span class="line"&gt;&lt;span class="cl"&gt; &lt;span class="kn"&gt;location&lt;/span&gt; &lt;span class="s"&gt;/&lt;/span&gt; &lt;span class="p"&gt;{&lt;/span&gt;
+&lt;/span&gt;&lt;/span&gt;&lt;span class="line"&gt;&lt;span class="cl"&gt; &lt;span class="kn"&gt;proxy_pass&lt;/span&gt; &lt;span class="s"&gt;http://backend_server_group&lt;/span&gt;&lt;span class="p"&gt;;&lt;/span&gt;
+&lt;/span&gt;&lt;/span&gt;&lt;span class="line"&gt;&lt;span class="cl"&gt; &lt;span class="kn"&gt;include&lt;/span&gt; &lt;span class="s"&gt;proxy_params&lt;/span&gt;&lt;span class="p"&gt;;&lt;/span&gt; &lt;span class="c1"&gt;# 记得加上上一节提到的标配
+&lt;/span&gt;&lt;/span&gt;&lt;/span&gt;&lt;span class="line"&gt;&lt;span class="cl"&gt;&lt;span class="c1"&gt;&lt;/span&gt; &lt;span class="p"&gt;}&lt;/span&gt;
+&lt;/span&gt;&lt;/span&gt;&lt;span class="line"&gt;&lt;span class="cl"&gt;&lt;span class="p"&gt;}&lt;/span&gt;
+&lt;/span&gt;&lt;/span&gt;&lt;/code&gt;&lt;/pre&gt;&lt;/td&gt;&lt;/tr&gt;&lt;/table&gt;
+&lt;/div&gt;
+&lt;/div&gt;&lt;p&gt;这个配置我用了很久，在很多不需要极致扩展性的中小项目中，它既简单又管用。&lt;/p&gt;
+&lt;h2 id="那些看不见的隐形杀手超时与缓冲区"&gt;那些看不见的“隐形杀手”：超时与缓冲区
 &lt;/h2&gt;&lt;p&gt;有时候，服务既没宕机，配置也没错，但用户体验就是极差。&lt;/p&gt;
 &lt;p&gt;我曾接手过一个旧项目，主要功能是文件上传。开发人员跟我抱怨：“小文件没事，一上传超过 1MB 的 Excel 表格，Nginx 直接报 413 错误；有时候报表生成慢一点，Nginx 就报 504 Gateway Time-out。”&lt;/p&gt;
 &lt;p&gt;这种挫败感很强，因为大家第一反应往往是代码写得烂，其实很多时候是 Nginx 的默认限制太“保守”了。Nginx 默认的请求体大小限制通常只有 1MB，这在富媒体时代显然不够用。&lt;/p&gt;
 &lt;p&gt;&lt;strong&gt;运维不仅要保稳定，更要懂业务场景。&lt;/strong&gt; 遇到大文件上传或长耗时任务，我们需要给 Nginx 一点“耐心”。&lt;/p&gt;
 &lt;p&gt;&lt;strong&gt;实战配置建议：&lt;/strong&gt;&lt;/p&gt;
 &lt;p&gt;不用盲目调大所有参数，建议针对特定的 URL 路径进行优化，避免全局配置带来的安全风险。&lt;/p&gt;
-&lt;div class=&#34;highlight&#34;&gt;&lt;pre tabindex=&#34;0&#34; style=&#34;color:#f8f8f2;background-color:#272822;-moz-tab-size:4;-o-tab-size:4;tab-size:4;&#34;&gt;&lt;code class=&#34;language-nginx&#34; data-lang=&#34;nginx&#34;&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;&lt;span style=&#34;color:#75715e&#34;&gt;# 针对上传接口的特殊配置
-&lt;/span&gt;&lt;/span&gt;&lt;/span&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;&lt;span style=&#34;color:#75715e&#34;&gt;&lt;/span&gt;&lt;span style=&#34;color:#66d9ef&#34;&gt;location&lt;/span&gt; &lt;span style=&#34;color:#e6db74&#34;&gt;/api/upload&lt;/span&gt; {
-&lt;/span&gt;&lt;/span&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;    &lt;span style=&#34;color:#f92672&#34;&gt;proxy_pass&lt;/span&gt; &lt;span style=&#34;color:#e6db74&#34;&gt;http://backend_server_group&lt;/span&gt;;
-&lt;/span&gt;&lt;/span&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;    
-&lt;/span&gt;&lt;/span&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;    &lt;span style=&#34;color:#75715e&#34;&gt;# 允许客户端上传的最大文件大小，按需调整
-&lt;/span&gt;&lt;/span&gt;&lt;/span&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;&lt;span style=&#34;color:#75715e&#34;&gt;&lt;/span&gt;    &lt;span style=&#34;color:#f92672&#34;&gt;client_max_body_size&lt;/span&gt; &lt;span style=&#34;color:#ae81ff&#34;&gt;100m&lt;/span&gt;; 
-&lt;/span&gt;&lt;/span&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;    
-&lt;/span&gt;&lt;/span&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;    &lt;span style=&#34;color:#75715e&#34;&gt;# 增加后端连接和读取的超时时间
-&lt;/span&gt;&lt;/span&gt;&lt;/span&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;&lt;span style=&#34;color:#75715e&#34;&gt;&lt;/span&gt;    &lt;span style=&#34;color:#75715e&#34;&gt;# 默认通常是60s，对于复杂业务逻辑可能不够
-&lt;/span&gt;&lt;/span&gt;&lt;/span&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;&lt;span style=&#34;color:#75715e&#34;&gt;&lt;/span&gt;    &lt;span style=&#34;color:#f92672&#34;&gt;proxy_connect_timeout&lt;/span&gt; &lt;span style=&#34;color:#e6db74&#34;&gt;300s&lt;/span&gt;;
-&lt;/span&gt;&lt;/span&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;    &lt;span style=&#34;color:#f92672&#34;&gt;proxy_read_timeout&lt;/span&gt; &lt;span style=&#34;color:#e6db74&#34;&gt;300s&lt;/span&gt;;
-&lt;/span&gt;&lt;/span&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;    &lt;span style=&#34;color:#f92672&#34;&gt;proxy_send_timeout&lt;/span&gt; &lt;span style=&#34;color:#e6db74&#34;&gt;300s&lt;/span&gt;;
-&lt;/span&gt;&lt;/span&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;}
-&lt;/span&gt;&lt;/span&gt;&lt;/code&gt;&lt;/pre&gt;&lt;/div&gt;&lt;p&gt;调整完这几个参数后，那个文件上传的功能瞬间顺滑了，开发同事看我的眼神都多了几分信任。&lt;/p&gt;
-&lt;h2 id=&#34;写在最后&#34;&gt;写在最后
+&lt;div class="highlight"&gt;&lt;div class="chroma"&gt;
+&lt;table class="lntable"&gt;&lt;tr&gt;&lt;td class="lntd"&gt;
+&lt;pre tabindex="0" class="chroma"&gt;&lt;code&gt;&lt;span class="lnt"&gt; 1
+&lt;/span&gt;&lt;span class="lnt"&gt; 2
+&lt;/span&gt;&lt;span class="lnt"&gt; 3
+&lt;/span&gt;&lt;span class="lnt"&gt; 4
+&lt;/span&gt;&lt;span class="lnt"&gt; 5
+&lt;/span&gt;&lt;span class="lnt"&gt; 6
+&lt;/span&gt;&lt;span class="lnt"&gt; 7
+&lt;/span&gt;&lt;span class="lnt"&gt; 8
+&lt;/span&gt;&lt;span class="lnt"&gt; 9
+&lt;/span&gt;&lt;span class="lnt"&gt;10
+&lt;/span&gt;&lt;span class="lnt"&gt;11
+&lt;/span&gt;&lt;span class="lnt"&gt;12
+&lt;/span&gt;&lt;span class="lnt"&gt;13
+&lt;/span&gt;&lt;/code&gt;&lt;/pre&gt;&lt;/td&gt;
+&lt;td class="lntd"&gt;
+&lt;pre tabindex="0" class="chroma"&gt;&lt;code class="language-nginx" data-lang="nginx"&gt;&lt;span class="line"&gt;&lt;span class="cl"&gt;&lt;span class="c1"&gt;# 针对上传接口的特殊配置
+&lt;/span&gt;&lt;/span&gt;&lt;/span&gt;&lt;span class="line"&gt;&lt;span class="cl"&gt;&lt;span class="c1"&gt;&lt;/span&gt;&lt;span class="k"&gt;location&lt;/span&gt; &lt;span class="s"&gt;/api/upload&lt;/span&gt; &lt;span class="p"&gt;{&lt;/span&gt;
+&lt;/span&gt;&lt;/span&gt;&lt;span class="line"&gt;&lt;span class="cl"&gt; &lt;span class="kn"&gt;proxy_pass&lt;/span&gt; &lt;span class="s"&gt;http://backend_server_group&lt;/span&gt;&lt;span class="p"&gt;;&lt;/span&gt;
+&lt;/span&gt;&lt;/span&gt;&lt;span class="line"&gt;&lt;span class="cl"&gt;
+&lt;/span&gt;&lt;/span&gt;&lt;span class="line"&gt;&lt;span class="cl"&gt; &lt;span class="c1"&gt;# 允许客户端上传的最大文件大小，按需调整
+&lt;/span&gt;&lt;/span&gt;&lt;/span&gt;&lt;span class="line"&gt;&lt;span class="cl"&gt;&lt;span class="c1"&gt;&lt;/span&gt; &lt;span class="kn"&gt;client_max_body_size&lt;/span&gt; &lt;span class="mi"&gt;100m&lt;/span&gt;&lt;span class="p"&gt;;&lt;/span&gt;
+&lt;/span&gt;&lt;/span&gt;&lt;span class="line"&gt;&lt;span class="cl"&gt;
+&lt;/span&gt;&lt;/span&gt;&lt;span class="line"&gt;&lt;span class="cl"&gt; &lt;span class="c1"&gt;# 增加后端连接和读取的超时时间
+&lt;/span&gt;&lt;/span&gt;&lt;/span&gt;&lt;span class="line"&gt;&lt;span class="cl"&gt;&lt;span class="c1"&gt;&lt;/span&gt; &lt;span class="c1"&gt;# 默认通常是60s，对于复杂业务逻辑可能不够
+&lt;/span&gt;&lt;/span&gt;&lt;/span&gt;&lt;span class="line"&gt;&lt;span class="cl"&gt;&lt;span class="c1"&gt;&lt;/span&gt; &lt;span class="kn"&gt;proxy_connect_timeout&lt;/span&gt; &lt;span class="s"&gt;300s&lt;/span&gt;&lt;span class="p"&gt;;&lt;/span&gt;
+&lt;/span&gt;&lt;/span&gt;&lt;span class="line"&gt;&lt;span class="cl"&gt; &lt;span class="kn"&gt;proxy_read_timeout&lt;/span&gt; &lt;span class="s"&gt;300s&lt;/span&gt;&lt;span class="p"&gt;;&lt;/span&gt;
+&lt;/span&gt;&lt;/span&gt;&lt;span class="line"&gt;&lt;span class="cl"&gt; &lt;span class="kn"&gt;proxy_send_timeout&lt;/span&gt; &lt;span class="s"&gt;300s&lt;/span&gt;&lt;span class="p"&gt;;&lt;/span&gt;
+&lt;/span&gt;&lt;/span&gt;&lt;span class="line"&gt;&lt;span class="cl"&gt;&lt;span class="p"&gt;}&lt;/span&gt;
+&lt;/span&gt;&lt;/span&gt;&lt;/code&gt;&lt;/pre&gt;&lt;/td&gt;&lt;/tr&gt;&lt;/table&gt;
+&lt;/div&gt;
+&lt;/div&gt;&lt;p&gt;调整完这几个参数后，那个文件上传的功能瞬间顺滑了，开发同事看我的眼神都多了几分信任。&lt;/p&gt;
+&lt;h2 id="写在最后"&gt;写在最后
 &lt;/h2&gt;&lt;p&gt;技术这东西，往往是“纸上得来终觉浅”。&lt;/p&gt;
 &lt;p&gt;我看过无数篇《Nginx 权威指南》，但真正让我记住这些配置的，是那次重定向错误的尴尬，是用户被踢下线的焦灼，是上传失败时的无奈。每一个配置指令背后，其实都是一个真实的业务痛点。&lt;/p&gt;
 &lt;p&gt;如果你是刚开始接触 Nginx 的朋友，我想告诉你：&lt;strong&gt;不要怕报错。&lt;/strong&gt; 打开 Nginx 的 &lt;code&gt;error.log&lt;/code&gt;（通常在 &lt;code&gt;/var/log/nginx/&lt;/code&gt; 下），那里藏着最好的老师。每次配置变更后，记得用 &lt;code&gt;nginx -t&lt;/code&gt; 测试一下语法，这是我们对自己工作的敬畏。&lt;/p&gt;
@@ -121,9 +162,4 @@
 &lt;li&gt;&lt;strong&gt;日志巡检：&lt;/strong&gt; 去服务器上看一眼 &lt;code&gt;error.log&lt;/code&gt;，有没有因为 &lt;code&gt;client_max_body_size&lt;/code&gt; 导致的 413 错误被你忽略了？&lt;/li&gt;
 &lt;li&gt;&lt;strong&gt;配置备份：&lt;/strong&gt; 我习惯每周五把调试好的 &lt;code&gt;nginx.conf&lt;/code&gt; 备份到 Git 仓库，相信我，当你手抖误删配置时，这个备份会救你的命。&lt;/li&gt;
 &lt;/ol&gt;
-&lt;p&gt;&lt;strong&gt;你在配置 Nginx 或其他网关工具时，遇到过什么让你“抓狂”的坑吗？&lt;/strong&gt; 欢迎在评论区聊聊，说不定你的分享能帮另一位熬夜的兄弟少掉几根头发。&lt;/p&gt;
-</description>
-        </item>
-        
-    </channel>
-</rss>
+&lt;p&gt;&lt;strong&gt;你在配置 Nginx 或其他网关工具时，遇到过什么让你“抓狂”的坑吗？&lt;/strong&gt; 欢迎在评论区聊聊，说不定你的分享能帮另一位熬夜的兄弟少掉几根头发。&lt;/p&gt;</description></item></channel></rss>

@@ -1,33 +1,13 @@
-<?xml version="1.0" encoding="utf-8" standalone="yes"?>
-<rss version="2.0" xmlns:atom="http://www.w3.org/2005/Atom">
-    <channel>
-        <title>数据库设计：范式与反范式的权衡 on SelfTechHub</title>
-        <link>https://blog.irudder.me/tags/%E6%95%B0%E6%8D%AE%E5%BA%93%E8%AE%BE%E8%AE%A1%E8%8C%83%E5%BC%8F%E4%B8%8E%E5%8F%8D%E8%8C%83%E5%BC%8F%E7%9A%84%E6%9D%83%E8%A1%A1.html</link>
-        <description>Recent content in 数据库设计：范式与反范式的权衡 on SelfTechHub</description>
-        <generator>Hugo -- gohugo.io</generator>
-        <language>zh-cn</language>
-        <lastBuildDate>Tue, 09 Jan 2024 00:00:00 +0000</lastBuildDate><atom:link href="https://blog.irudder.me/tags/%E6%95%B0%E6%8D%AE%E5%BA%93%E8%AE%BE%E8%AE%A1%E8%8C%83%E5%BC%8F%E4%B8%8E%E5%8F%8D%E8%8C%83%E5%BC%8F%E7%9A%84%E6%9D%83%E8%A1%A1/index.xml" rel="self" type="application/rss+xml" /><item>
-        <title>死守范式差点搞垮项目？聊聊数据库设计的“灰度哲学”</title>
-        <link>https://blog.irudder.me/tech/danxiangmuquanliuchengchaijie10fenzhongkedu/shujukusheji_fanshiyufanfanshidequanheng.html</link>
-        <pubDate>Tue, 09 Jan 2024 00:00:00 +0000</pubDate>
-        
-        <guid>https://blog.irudder.me/tech/danxiangmuquanliuchengchaijie10fenzhongkedu/shujukusheji_fanshiyufanfanshidequanheng.html</guid>
-        <description>&lt;p&gt;2019年的一个深夜，为了解决一个查询耗时8秒的订单列表接口，我盯着屏幕上那个包含了12个&lt;code&gt;LEFT JOIN&lt;/code&gt;的SQL语句，陷入了深深的自我怀疑。&lt;/p&gt;
+<?xml version="1.0" encoding="utf-8" standalone="yes"?><rss version="2.0" xmlns:atom="http://www.w3.org/2005/Atom"><channel><title>数据库设计：范式与反范式的权衡 on SelfTechHub</title><link>https://blog.irudder.me/tags/%E6%95%B0%E6%8D%AE%E5%BA%93%E8%AE%BE%E8%AE%A1%E8%8C%83%E5%BC%8F%E4%B8%8E%E5%8F%8D%E8%8C%83%E5%BC%8F%E7%9A%84%E6%9D%83%E8%A1%A1.html</link><description>Recent content in 数据库设计：范式与反范式的权衡 on SelfTechHub</description><generator>Hugo -- gohugo.io</generator><language>zh-cn</language><lastBuildDate>Tue, 09 Jan 2024 00:00:00 +0800</lastBuildDate><atom:link href="https://blog.irudder.me/tags/%E6%95%B0%E6%8D%AE%E5%BA%93%E8%AE%BE%E8%AE%A1%E8%8C%83%E5%BC%8F%E4%B8%8E%E5%8F%8D%E8%8C%83%E5%BC%8F%E7%9A%84%E6%9D%83%E8%A1%A1/index.xml" rel="self" type="application/rss+xml"/><item><title>死守范式差点搞垮项目？聊聊数据库设计的“灰度哲学”</title><link>https://blog.irudder.me/tech/danxiangmuquanliuchengchaijie10fenzhongkedu/shujukusheji_fanshiyufanfanshidequanheng.html</link><pubDate>Tue, 09 Jan 2024 00:00:00 +0800</pubDate><guid>https://blog.irudder.me/tech/danxiangmuquanliuchengchaijie10fenzhongkedu/shujukusheji_fanshiyufanfanshidequanheng.html</guid><description>&lt;p&gt;2019年的一个深夜，为了解决一个查询耗时8秒的订单列表接口，我盯着屏幕上那个包含了12个&lt;code&gt;LEFT JOIN&lt;/code&gt;的SQL语句，陷入了深深的自我怀疑。&lt;/p&gt;
 &lt;p&gt;当时的我认为，数据库设计必须严格遵守“第三范式（3NF）”，任何数据冗余都是不可饶恕的“罪过”。直到那个项目上线后，数据库CPU长期飙升到90%，我才意识到：&lt;strong&gt;教科书里的完美范式，在真实的业务洪流面前，有时甚至是一种灾难。&lt;/strong&gt;&lt;/p&gt;
 &lt;p&gt;在这几年的技术管理复盘中，我发现很多中小团队在数据库设计上非左即右：要么是死扣范式的“洁癖派”，要么是一张宽表走天下的“野路子”。今天，我想结合两次真实的“翻车”经历，聊聊如何在范式与反范式之间，找到那个性价比最高的平衡点。&lt;/p&gt;
-&lt;p&gt;&lt;img src=&#34;https://picsum.photos/800/450?random=1768448906502&#34;
-	
-	
-	
-	loading=&#34;lazy&#34;
-	
-		alt=&#34;配图&#34;
-	
-	
+&lt;p&gt;&lt;img src="https://picsum.photos/800/450?random=1768448906502"
+loading="lazy"
+alt="配图"
 &gt;&lt;/p&gt;
-&lt;h2 id=&#34;一-掉进完美洁癖的陷阱当join成为性能杀手&#34;&gt;一、 掉进“完美洁癖”的陷阱：当Join成为性能杀手
+&lt;h2 id="一-掉进完美洁癖的陷阱当join成为性能杀手"&gt;一、 掉进“完美洁癖”的陷阱：当Join成为性能杀手
 &lt;/h2&gt;&lt;p&gt;这发生在我刚做架构师不久的一个电商SaaS项目上。为了追求数据结构的极致纯净，我将用户信息拆分得“支离破碎”。&lt;/p&gt;
-&lt;h3 id=&#34;案例复盘被拆碎的用户表&#34;&gt;案例复盘：被拆碎的用户表
+&lt;h3 id="案例复盘被拆碎的用户表"&gt;案例复盘：被拆碎的用户表
 &lt;/h3&gt;&lt;p&gt;为了避免数据冗余，我设计了如下结构：&lt;/p&gt;
 &lt;ul&gt;
 &lt;li&gt;&lt;code&gt;users&lt;/code&gt; (基础信息)&lt;/li&gt;
@@ -39,20 +19,34 @@
 &lt;p&gt;&lt;strong&gt;遇到的痛点：&lt;/strong&gt;
 运营部门提出了一个看似简单的需求：“导出所有包含‘VIP’标签且收货地址在上海的用户列表，带上他们的等级名称。”&lt;/p&gt;
 &lt;p&gt;结果，开发同学写出的SQL简直是噩梦：&lt;/p&gt;
-&lt;div class=&#34;highlight&#34;&gt;&lt;pre tabindex=&#34;0&#34; style=&#34;color:#f8f8f2;background-color:#272822;-moz-tab-size:4;-o-tab-size:4;tab-size:4;&#34;&gt;&lt;code class=&#34;language-sql&#34; data-lang=&#34;sql&#34;&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;&lt;span style=&#34;color:#66d9ef&#34;&gt;SELECT&lt;/span&gt; u.id, u.name, l.level_name, a.city 
-&lt;/span&gt;&lt;/span&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;&lt;span style=&#34;color:#66d9ef&#34;&gt;FROM&lt;/span&gt; users u
-&lt;/span&gt;&lt;/span&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;&lt;span style=&#34;color:#66d9ef&#34;&gt;JOIN&lt;/span&gt; user_profiles p &lt;span style=&#34;color:#66d9ef&#34;&gt;ON&lt;/span&gt; u.id &lt;span style=&#34;color:#f92672&#34;&gt;=&lt;/span&gt; p.user_id
-&lt;/span&gt;&lt;/span&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;&lt;span style=&#34;color:#66d9ef&#34;&gt;JOIN&lt;/span&gt; user_levels l &lt;span style=&#34;color:#66d9ef&#34;&gt;ON&lt;/span&gt; u.level_id &lt;span style=&#34;color:#f92672&#34;&gt;=&lt;/span&gt; l.id
-&lt;/span&gt;&lt;/span&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;&lt;span style=&#34;color:#66d9ef&#34;&gt;JOIN&lt;/span&gt; user_addresses a &lt;span style=&#34;color:#66d9ef&#34;&gt;ON&lt;/span&gt; u.id &lt;span style=&#34;color:#f92672&#34;&gt;=&lt;/span&gt; a.user_id
-&lt;/span&gt;&lt;/span&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;&lt;span style=&#34;color:#66d9ef&#34;&gt;JOIN&lt;/span&gt; user_tags_relation tr &lt;span style=&#34;color:#66d9ef&#34;&gt;ON&lt;/span&gt; u.id &lt;span style=&#34;color:#f92672&#34;&gt;=&lt;/span&gt; tr.user_id
-&lt;/span&gt;&lt;/span&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;&lt;span style=&#34;color:#66d9ef&#34;&gt;WHERE&lt;/span&gt; tr.tag_id &lt;span style=&#34;color:#f92672&#34;&gt;=&lt;/span&gt; &lt;span style=&#34;color:#ae81ff&#34;&gt;101&lt;/span&gt; &lt;span style=&#34;color:#66d9ef&#34;&gt;AND&lt;/span&gt; a.city &lt;span style=&#34;color:#f92672&#34;&gt;=&lt;/span&gt; &lt;span style=&#34;color:#e6db74&#34;&gt;&amp;#39;Shanghai&amp;#39;&lt;/span&gt;;
-&lt;/span&gt;&lt;/span&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;&lt;span style=&#34;color:#75715e&#34;&gt;-- 实际场景中，还有更多关联表
-&lt;/span&gt;&lt;/span&gt;&lt;/span&gt;&lt;/code&gt;&lt;/pre&gt;&lt;/div&gt;&lt;p&gt;随着用户量突破50万，这个查询即使加了索引，响应时间也经常超时。数据库连接池频繁被打满，导致其他简单查询也被拖垮。&lt;/p&gt;
+&lt;div class="highlight"&gt;&lt;div class="chroma"&gt;
+&lt;table class="lntable"&gt;&lt;tr&gt;&lt;td class="lntd"&gt;
+&lt;pre tabindex="0" class="chroma"&gt;&lt;code&gt;&lt;span class="lnt"&gt;1
+&lt;/span&gt;&lt;span class="lnt"&gt;2
+&lt;/span&gt;&lt;span class="lnt"&gt;3
+&lt;/span&gt;&lt;span class="lnt"&gt;4
+&lt;/span&gt;&lt;span class="lnt"&gt;5
+&lt;/span&gt;&lt;span class="lnt"&gt;6
+&lt;/span&gt;&lt;span class="lnt"&gt;7
+&lt;/span&gt;&lt;span class="lnt"&gt;8
+&lt;/span&gt;&lt;/code&gt;&lt;/pre&gt;&lt;/td&gt;
+&lt;td class="lntd"&gt;
+&lt;pre tabindex="0" class="chroma"&gt;&lt;code class="language-sql" data-lang="sql"&gt;&lt;span class="line"&gt;&lt;span class="cl"&gt;&lt;span class="k"&gt;SELECT&lt;/span&gt;&lt;span class="w"&gt; &lt;/span&gt;&lt;span class="n"&gt;u&lt;/span&gt;&lt;span class="p"&gt;.&lt;/span&gt;&lt;span class="n"&gt;id&lt;/span&gt;&lt;span class="p"&gt;,&lt;/span&gt;&lt;span class="w"&gt; &lt;/span&gt;&lt;span class="n"&gt;u&lt;/span&gt;&lt;span class="p"&gt;.&lt;/span&gt;&lt;span class="n"&gt;name&lt;/span&gt;&lt;span class="p"&gt;,&lt;/span&gt;&lt;span class="w"&gt; &lt;/span&gt;&lt;span class="n"&gt;l&lt;/span&gt;&lt;span class="p"&gt;.&lt;/span&gt;&lt;span class="n"&gt;level_name&lt;/span&gt;&lt;span class="p"&gt;,&lt;/span&gt;&lt;span class="w"&gt; &lt;/span&gt;&lt;span class="n"&gt;a&lt;/span&gt;&lt;span class="p"&gt;.&lt;/span&gt;&lt;span class="n"&gt;city&lt;/span&gt;&lt;span class="w"&gt;
+&lt;/span&gt;&lt;/span&gt;&lt;/span&gt;&lt;span class="line"&gt;&lt;span class="cl"&gt;&lt;span class="w"&gt;&lt;/span&gt;&lt;span class="k"&gt;FROM&lt;/span&gt;&lt;span class="w"&gt; &lt;/span&gt;&lt;span class="n"&gt;users&lt;/span&gt;&lt;span class="w"&gt; &lt;/span&gt;&lt;span class="n"&gt;u&lt;/span&gt;&lt;span class="w"&gt;
+&lt;/span&gt;&lt;/span&gt;&lt;/span&gt;&lt;span class="line"&gt;&lt;span class="cl"&gt;&lt;span class="w"&gt;&lt;/span&gt;&lt;span class="k"&gt;JOIN&lt;/span&gt;&lt;span class="w"&gt; &lt;/span&gt;&lt;span class="n"&gt;user_profiles&lt;/span&gt;&lt;span class="w"&gt; &lt;/span&gt;&lt;span class="n"&gt;p&lt;/span&gt;&lt;span class="w"&gt; &lt;/span&gt;&lt;span class="k"&gt;ON&lt;/span&gt;&lt;span class="w"&gt; &lt;/span&gt;&lt;span class="n"&gt;u&lt;/span&gt;&lt;span class="p"&gt;.&lt;/span&gt;&lt;span class="n"&gt;id&lt;/span&gt;&lt;span class="w"&gt; &lt;/span&gt;&lt;span class="o"&gt;=&lt;/span&gt;&lt;span class="w"&gt; &lt;/span&gt;&lt;span class="n"&gt;p&lt;/span&gt;&lt;span class="p"&gt;.&lt;/span&gt;&lt;span class="n"&gt;user_id&lt;/span&gt;&lt;span class="w"&gt;
+&lt;/span&gt;&lt;/span&gt;&lt;/span&gt;&lt;span class="line"&gt;&lt;span class="cl"&gt;&lt;span class="w"&gt;&lt;/span&gt;&lt;span class="k"&gt;JOIN&lt;/span&gt;&lt;span class="w"&gt; &lt;/span&gt;&lt;span class="n"&gt;user_levels&lt;/span&gt;&lt;span class="w"&gt; &lt;/span&gt;&lt;span class="n"&gt;l&lt;/span&gt;&lt;span class="w"&gt; &lt;/span&gt;&lt;span class="k"&gt;ON&lt;/span&gt;&lt;span class="w"&gt; &lt;/span&gt;&lt;span class="n"&gt;u&lt;/span&gt;&lt;span class="p"&gt;.&lt;/span&gt;&lt;span class="n"&gt;level_id&lt;/span&gt;&lt;span class="w"&gt; &lt;/span&gt;&lt;span class="o"&gt;=&lt;/span&gt;&lt;span class="w"&gt; &lt;/span&gt;&lt;span class="n"&gt;l&lt;/span&gt;&lt;span class="p"&gt;.&lt;/span&gt;&lt;span class="n"&gt;id&lt;/span&gt;&lt;span class="w"&gt;
+&lt;/span&gt;&lt;/span&gt;&lt;/span&gt;&lt;span class="line"&gt;&lt;span class="cl"&gt;&lt;span class="w"&gt;&lt;/span&gt;&lt;span class="k"&gt;JOIN&lt;/span&gt;&lt;span class="w"&gt; &lt;/span&gt;&lt;span class="n"&gt;user_addresses&lt;/span&gt;&lt;span class="w"&gt; &lt;/span&gt;&lt;span class="n"&gt;a&lt;/span&gt;&lt;span class="w"&gt; &lt;/span&gt;&lt;span class="k"&gt;ON&lt;/span&gt;&lt;span class="w"&gt; &lt;/span&gt;&lt;span class="n"&gt;u&lt;/span&gt;&lt;span class="p"&gt;.&lt;/span&gt;&lt;span class="n"&gt;id&lt;/span&gt;&lt;span class="w"&gt; &lt;/span&gt;&lt;span class="o"&gt;=&lt;/span&gt;&lt;span class="w"&gt; &lt;/span&gt;&lt;span class="n"&gt;a&lt;/span&gt;&lt;span class="p"&gt;.&lt;/span&gt;&lt;span class="n"&gt;user_id&lt;/span&gt;&lt;span class="w"&gt;
+&lt;/span&gt;&lt;/span&gt;&lt;/span&gt;&lt;span class="line"&gt;&lt;span class="cl"&gt;&lt;span class="w"&gt;&lt;/span&gt;&lt;span class="k"&gt;JOIN&lt;/span&gt;&lt;span class="w"&gt; &lt;/span&gt;&lt;span class="n"&gt;user_tags_relation&lt;/span&gt;&lt;span class="w"&gt; &lt;/span&gt;&lt;span class="n"&gt;tr&lt;/span&gt;&lt;span class="w"&gt; &lt;/span&gt;&lt;span class="k"&gt;ON&lt;/span&gt;&lt;span class="w"&gt; &lt;/span&gt;&lt;span class="n"&gt;u&lt;/span&gt;&lt;span class="p"&gt;.&lt;/span&gt;&lt;span class="n"&gt;id&lt;/span&gt;&lt;span class="w"&gt; &lt;/span&gt;&lt;span class="o"&gt;=&lt;/span&gt;&lt;span class="w"&gt; &lt;/span&gt;&lt;span class="n"&gt;tr&lt;/span&gt;&lt;span class="p"&gt;.&lt;/span&gt;&lt;span class="n"&gt;user_id&lt;/span&gt;&lt;span class="w"&gt;
+&lt;/span&gt;&lt;/span&gt;&lt;/span&gt;&lt;span class="line"&gt;&lt;span class="cl"&gt;&lt;span class="w"&gt;&lt;/span&gt;&lt;span class="k"&gt;WHERE&lt;/span&gt;&lt;span class="w"&gt; &lt;/span&gt;&lt;span class="n"&gt;tr&lt;/span&gt;&lt;span class="p"&gt;.&lt;/span&gt;&lt;span class="n"&gt;tag_id&lt;/span&gt;&lt;span class="w"&gt; &lt;/span&gt;&lt;span class="o"&gt;=&lt;/span&gt;&lt;span class="w"&gt; &lt;/span&gt;&lt;span class="mi"&gt;101&lt;/span&gt;&lt;span class="w"&gt; &lt;/span&gt;&lt;span class="k"&gt;AND&lt;/span&gt;&lt;span class="w"&gt; &lt;/span&gt;&lt;span class="n"&gt;a&lt;/span&gt;&lt;span class="p"&gt;.&lt;/span&gt;&lt;span class="n"&gt;city&lt;/span&gt;&lt;span class="w"&gt; &lt;/span&gt;&lt;span class="o"&gt;=&lt;/span&gt;&lt;span class="w"&gt; &lt;/span&gt;&lt;span class="s1"&gt;&amp;#39;Shanghai&amp;#39;&lt;/span&gt;&lt;span class="p"&gt;;&lt;/span&gt;&lt;span class="w"&gt;
+&lt;/span&gt;&lt;/span&gt;&lt;/span&gt;&lt;span class="line"&gt;&lt;span class="cl"&gt;&lt;span class="w"&gt;&lt;/span&gt;&lt;span class="c1"&gt;-- 实际场景中，还有更多关联表
+&lt;/span&gt;&lt;/span&gt;&lt;/span&gt;&lt;/code&gt;&lt;/pre&gt;&lt;/td&gt;&lt;/tr&gt;&lt;/table&gt;
+&lt;/div&gt;
+&lt;/div&gt;&lt;p&gt;随着用户量突破50万，这个查询即使加了索引，响应时间也经常超时。数据库连接池频繁被打满，导致其他简单查询也被拖垮。&lt;/p&gt;
 &lt;p&gt;&lt;strong&gt;反思与教训：&lt;/strong&gt;
 范式的初衷是为了&lt;strong&gt;节省存储空间&lt;/strong&gt;和&lt;strong&gt;保证数据一致性&lt;/strong&gt;。但在存储极其廉价的今天，用昂贵的计算资源（CPU/IO）去换取廉价的存储空间，是一笔亏本买卖。对于高频读取的列表页，过度的Join就是性能的头号杀手。&lt;/p&gt;
-&lt;h2 id=&#34;二-暴力反范式的代价由于懒而引发的数据地狱&#34;&gt;二、 暴力反范式的代价：由于“懒”而引发的数据地狱
+&lt;h2 id="二-暴力反范式的代价由于懒而引发的数据地狱"&gt;二、 暴力反范式的代价：由于“懒”而引发的数据地狱
 &lt;/h2&gt;&lt;p&gt;吸取了上个项目的教训，在随后的一个物流管理系统中，团队走了另一个极端。为了开发快、查询快，我们大量使用了“宽表”和“JSON字段”，结果却踩了另一个大坑。&lt;/p&gt;
-&lt;h3 id=&#34;案例复盘难以维护的订单状态&#34;&gt;案例复盘：难以维护的订单状态
+&lt;h3 id="案例复盘难以维护的订单状态"&gt;案例复盘：难以维护的订单状态
 &lt;/h3&gt;&lt;p&gt;我们将客户的&lt;code&gt;电话&lt;/code&gt;、&lt;code&gt;地址&lt;/code&gt;、&lt;code&gt;公司名称&lt;/code&gt;直接冗余在了&lt;code&gt;orders&lt;/code&gt;（订单表）中。起初一切都很美好，查询订单详情只需要&lt;code&gt;SELECT * FROM orders&lt;/code&gt;，速度飞快。&lt;/p&gt;
 &lt;p&gt;直到有一天，客户发起了投诉：某家大客户更换了公司名称和联系电话，要求我们将系统中所有历史订单的抬头都改过来，方便他们财务审计。&lt;/p&gt;
 &lt;p&gt;&lt;strong&gt;遇到的痛点：&lt;/strong&gt;&lt;/p&gt;
@@ -62,9 +56,9 @@
 &lt;/ol&gt;
 &lt;p&gt;&lt;strong&gt;反思与教训：&lt;/strong&gt;
 反范式（冗余）虽然提升了读取性能，但它极大地增加了&lt;strong&gt;写入成本&lt;/strong&gt;和&lt;strong&gt;维护一致性的难度&lt;/strong&gt;。如果你无法保证冗余数据在更新时的强一致性或最终一致性，那么反范式设计就是一颗定时炸弹。&lt;/p&gt;
-&lt;h2 id=&#34;三-寻找平衡点基于业务特征的灰度设计&#34;&gt;三、 寻找平衡点：基于“业务特征”的灰度设计
+&lt;h2 id="三-寻找平衡点基于业务特征的灰度设计"&gt;三、 寻找平衡点：基于“业务特征”的灰度设计
 &lt;/h2&gt;&lt;p&gt;经过这两次“毒打”，我现在做设计review时，不再纠结于是否符合范式，而是看&lt;strong&gt;读写比（Read/Write Ratio）&lt;strong&gt;和&lt;/strong&gt;数据生命周期&lt;/strong&gt;。我总结了一套“适度冗余”的方法论，目前在团队内部运行良好。&lt;/p&gt;
-&lt;h3 id=&#34;方法1区分快照数据与引用数据&#34;&gt;方法1：区分“快照数据”与“引用数据”
+&lt;h3 id="方法1区分快照数据与引用数据"&gt;方法1：区分“快照数据”与“引用数据”
 &lt;/h3&gt;&lt;p&gt;这是最重要的一条原则。&lt;/p&gt;
 &lt;ul&gt;
 &lt;li&gt;&lt;strong&gt;引用数据（需范式化）：&lt;/strong&gt; 随主体变化而变化。例如用户的“当前等级”、“当前手机号”。这类数据不建议冗余，或者冗余后必须有完善的MQ同步机制。&lt;/li&gt;
@@ -72,7 +66,7 @@
 &lt;/ul&gt;
 &lt;p&gt;&lt;strong&gt;实操建议：&lt;/strong&gt;
 在订单表中，&lt;strong&gt;必须&lt;/strong&gt;冗余&lt;code&gt;user_address_snapshot&lt;/code&gt;（下单时的地址快照）。因为即便用户后来搬家了，也不应该影响两年前那个订单的收货地址记录。这不仅是性能优化，更是业务逻辑的正确性要求。&lt;/p&gt;
-&lt;h3 id=&#34;方法2巧用计数器与汇总表&#34;&gt;方法2：巧用“计数器”与“汇总表”
+&lt;h3 id="方法2巧用计数器与汇总表"&gt;方法2：巧用“计数器”与“汇总表”
 &lt;/h3&gt;&lt;p&gt;针对列表页常见的“评论数”、“点赞数”、“订单总额”等统计需求，不要每次都去&lt;code&gt;count(*)&lt;/code&gt;或&lt;code&gt;sum()&lt;/code&gt;。&lt;/p&gt;
 &lt;p&gt;&lt;strong&gt;实操建议：&lt;/strong&gt;
 在主表中增加冗余字段，如 &lt;code&gt;article&lt;/code&gt; 表中增加 &lt;code&gt;comment_count&lt;/code&gt; 字段。&lt;/p&gt;
@@ -80,29 +74,36 @@
 &lt;li&gt;&lt;strong&gt;写入时：&lt;/strong&gt; 新增评论 -&amp;gt; 事务中更新 &lt;code&gt;comment_count + 1&lt;/code&gt;。&lt;/li&gt;
 &lt;li&gt;&lt;strong&gt;兜底：&lt;/strong&gt; 我习惯每周五凌晨跑一个校对脚本，对比&lt;code&gt;count(*)&lt;/code&gt;和冗余字段的值，修正可能因并发导致的细微误差。&lt;/li&gt;
 &lt;/ul&gt;
-&lt;h3 id=&#34;方法3冷热分离与json的合理使用&#34;&gt;方法3：冷热分离与JSON的合理使用
+&lt;h3 id="方法3冷热分离与json的合理使用"&gt;方法3：冷热分离与JSON的合理使用
 &lt;/h3&gt;&lt;p&gt;对于那些“展示用、但不参与搜索条件”的字段，完全不需要单独建表。&lt;/p&gt;
 &lt;p&gt;&lt;strong&gt;实操案例：&lt;/strong&gt;
 在SaaS产品的“自定义表单”功能中，客户可能会配置几十个不同的字段。与其搞复杂的EAV（Entity-Attribute-Value）模型，不如直接利用MySQL 5.7+的JSON特性。&lt;/p&gt;
-&lt;p&gt;&lt;img src=&#34;https://picsum.photos/800/450?random=1768448910637&#34;
-	
-	
-	
-	loading=&#34;lazy&#34;
-	
-		alt=&#34;配图&#34;
-	
-	
+&lt;p&gt;&lt;img src="https://picsum.photos/800/450?random=1768448910637"
+loading="lazy"
+alt="配图"
 &gt;&lt;/p&gt;
-&lt;div class=&#34;highlight&#34;&gt;&lt;pre tabindex=&#34;0&#34; style=&#34;color:#f8f8f2;background-color:#272822;-moz-tab-size:4;-o-tab-size:4;tab-size:4;&#34;&gt;&lt;code class=&#34;language-sql&#34; data-lang=&#34;sql&#34;&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;&lt;span style=&#34;color:#75715e&#34;&gt;-- 推荐设计：核心字段独立，扩展字段进JSON
-&lt;/span&gt;&lt;/span&gt;&lt;/span&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;&lt;span style=&#34;color:#75715e&#34;&gt;&lt;/span&gt;&lt;span style=&#34;color:#66d9ef&#34;&gt;CREATE&lt;/span&gt; &lt;span style=&#34;color:#66d9ef&#34;&gt;TABLE&lt;/span&gt; implementation_logs (
-&lt;/span&gt;&lt;/span&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;    id BIGINT &lt;span style=&#34;color:#66d9ef&#34;&gt;PRIMARY&lt;/span&gt; &lt;span style=&#34;color:#66d9ef&#34;&gt;KEY&lt;/span&gt;,
-&lt;/span&gt;&lt;/span&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;    project_id INT &lt;span style=&#34;color:#66d9ef&#34;&gt;NOT&lt;/span&gt; &lt;span style=&#34;color:#66d9ef&#34;&gt;NULL&lt;/span&gt;, &lt;span style=&#34;color:#75715e&#34;&gt;-- 核心索引字段，用于搜索
-&lt;/span&gt;&lt;/span&gt;&lt;/span&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;&lt;span style=&#34;color:#75715e&#34;&gt;&lt;/span&gt;    status TINYINT &lt;span style=&#34;color:#66d9ef&#34;&gt;NOT&lt;/span&gt; &lt;span style=&#34;color:#66d9ef&#34;&gt;NULL&lt;/span&gt;, &lt;span style=&#34;color:#75715e&#34;&gt;-- 核心状态，用于筛选
-&lt;/span&gt;&lt;/span&gt;&lt;/span&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;&lt;span style=&#34;color:#75715e&#34;&gt;&lt;/span&gt;    extra_data JSON          &lt;span style=&#34;color:#75715e&#34;&gt;-- 冗余字段：如具体的报错堆栈、备注、扩展属性
-&lt;/span&gt;&lt;/span&gt;&lt;/span&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;&lt;span style=&#34;color:#75715e&#34;&gt;&lt;/span&gt;);
-&lt;/span&gt;&lt;/span&gt;&lt;/code&gt;&lt;/pre&gt;&lt;/div&gt;&lt;p&gt;这样既保证了基于&lt;code&gt;project_id&lt;/code&gt;查询的高效，又避免了改表结构的痛苦。&lt;/p&gt;
-&lt;h2 id=&#34;结语&#34;&gt;结语
+&lt;div class="highlight"&gt;&lt;div class="chroma"&gt;
+&lt;table class="lntable"&gt;&lt;tr&gt;&lt;td class="lntd"&gt;
+&lt;pre tabindex="0" class="chroma"&gt;&lt;code&gt;&lt;span class="lnt"&gt;1
+&lt;/span&gt;&lt;span class="lnt"&gt;2
+&lt;/span&gt;&lt;span class="lnt"&gt;3
+&lt;/span&gt;&lt;span class="lnt"&gt;4
+&lt;/span&gt;&lt;span class="lnt"&gt;5
+&lt;/span&gt;&lt;span class="lnt"&gt;6
+&lt;/span&gt;&lt;span class="lnt"&gt;7
+&lt;/span&gt;&lt;/code&gt;&lt;/pre&gt;&lt;/td&gt;
+&lt;td class="lntd"&gt;
+&lt;pre tabindex="0" class="chroma"&gt;&lt;code class="language-sql" data-lang="sql"&gt;&lt;span class="line"&gt;&lt;span class="cl"&gt;&lt;span class="c1"&gt;-- 推荐设计：核心字段独立，扩展字段进JSON
+&lt;/span&gt;&lt;/span&gt;&lt;/span&gt;&lt;span class="line"&gt;&lt;span class="cl"&gt;&lt;span class="c1"&gt;&lt;/span&gt;&lt;span class="k"&gt;CREATE&lt;/span&gt;&lt;span class="w"&gt; &lt;/span&gt;&lt;span class="k"&gt;TABLE&lt;/span&gt;&lt;span class="w"&gt; &lt;/span&gt;&lt;span class="n"&gt;implementation_logs&lt;/span&gt;&lt;span class="w"&gt; &lt;/span&gt;&lt;span class="p"&gt;(&lt;/span&gt;&lt;span class="w"&gt;
+&lt;/span&gt;&lt;/span&gt;&lt;/span&gt;&lt;span class="line"&gt;&lt;span class="cl"&gt;&lt;span class="w"&gt; &lt;/span&gt;&lt;span class="n"&gt;id&lt;/span&gt;&lt;span class="w"&gt; &lt;/span&gt;&lt;span class="nb"&gt;BIGINT&lt;/span&gt;&lt;span class="w"&gt; &lt;/span&gt;&lt;span class="k"&gt;PRIMARY&lt;/span&gt;&lt;span class="w"&gt; &lt;/span&gt;&lt;span class="k"&gt;KEY&lt;/span&gt;&lt;span class="p"&gt;,&lt;/span&gt;&lt;span class="w"&gt;
+&lt;/span&gt;&lt;/span&gt;&lt;/span&gt;&lt;span class="line"&gt;&lt;span class="cl"&gt;&lt;span class="w"&gt; &lt;/span&gt;&lt;span class="n"&gt;project_id&lt;/span&gt;&lt;span class="w"&gt; &lt;/span&gt;&lt;span class="nb"&gt;INT&lt;/span&gt;&lt;span class="w"&gt; &lt;/span&gt;&lt;span class="k"&gt;NOT&lt;/span&gt;&lt;span class="w"&gt; &lt;/span&gt;&lt;span class="k"&gt;NULL&lt;/span&gt;&lt;span class="p"&gt;,&lt;/span&gt;&lt;span class="w"&gt; &lt;/span&gt;&lt;span class="c1"&gt;-- 核心索引字段，用于搜索
+&lt;/span&gt;&lt;/span&gt;&lt;/span&gt;&lt;span class="line"&gt;&lt;span class="cl"&gt;&lt;span class="c1"&gt;&lt;/span&gt;&lt;span class="w"&gt; &lt;/span&gt;&lt;span class="n"&gt;status&lt;/span&gt;&lt;span class="w"&gt; &lt;/span&gt;&lt;span class="n"&gt;TINYINT&lt;/span&gt;&lt;span class="w"&gt; &lt;/span&gt;&lt;span class="k"&gt;NOT&lt;/span&gt;&lt;span class="w"&gt; &lt;/span&gt;&lt;span class="k"&gt;NULL&lt;/span&gt;&lt;span class="p"&gt;,&lt;/span&gt;&lt;span class="w"&gt; &lt;/span&gt;&lt;span class="c1"&gt;-- 核心状态，用于筛选
+&lt;/span&gt;&lt;/span&gt;&lt;/span&gt;&lt;span class="line"&gt;&lt;span class="cl"&gt;&lt;span class="c1"&gt;&lt;/span&gt;&lt;span class="w"&gt; &lt;/span&gt;&lt;span class="n"&gt;extra_data&lt;/span&gt;&lt;span class="w"&gt; &lt;/span&gt;&lt;span class="n"&gt;JSON&lt;/span&gt;&lt;span class="w"&gt; &lt;/span&gt;&lt;span class="c1"&gt;-- 冗余字段：如具体的报错堆栈、备注、扩展属性
+&lt;/span&gt;&lt;/span&gt;&lt;/span&gt;&lt;span class="line"&gt;&lt;span class="cl"&gt;&lt;span class="c1"&gt;&lt;/span&gt;&lt;span class="p"&gt;);&lt;/span&gt;&lt;span class="w"&gt;
+&lt;/span&gt;&lt;/span&gt;&lt;/span&gt;&lt;/code&gt;&lt;/pre&gt;&lt;/td&gt;&lt;/tr&gt;&lt;/table&gt;
+&lt;/div&gt;
+&lt;/div&gt;&lt;p&gt;这样既保证了基于&lt;code&gt;project_id&lt;/code&gt;查询的高效，又避免了改表结构的痛苦。&lt;/p&gt;
+&lt;h2 id="结语"&gt;结语
 &lt;/h2&gt;&lt;p&gt;数据库设计从来不是非黑即白的二选一，而是一场关于&lt;strong&gt;一致性、性能与开发效率&lt;/strong&gt;的博弈。&lt;/p&gt;
 &lt;p&gt;我现在评估一个设计是否合理，只看三点：&lt;/p&gt;
 &lt;ol&gt;
@@ -116,9 +117,4 @@
 &lt;li&gt;&lt;strong&gt;识别快照：&lt;/strong&gt; 检查你的订单表、日志表，确认是否引用了可能会变化的外部数据（如商品名、价格、地址），如果有，请立刻计划重构为冗余存储。&lt;/li&gt;
 &lt;li&gt;&lt;strong&gt;备注原因：&lt;/strong&gt; 如果你决定反范式设计，请务必在建表注释里写上原因（例如：&lt;code&gt;-- 冗余用户昵称，用于列表页展示，避免连表&lt;/code&gt;），你的继任者会感谢你的。&lt;/li&gt;
 &lt;/ol&gt;
-&lt;p&gt;你在项目中遇到过最离谱的数据库设计是什么样的？或者在重构时踩过什么坑？欢迎在评论区分享你的“血泪史”。&lt;/p&gt;
-</description>
-        </item>
-        
-    </channel>
-</rss>
+&lt;p&gt;你在项目中遇到过最离谱的数据库设计是什么样的？或者在重构时踩过什么坑？欢迎在评论区分享你的“血泪史”。&lt;/p&gt;</description></item></channel></rss>

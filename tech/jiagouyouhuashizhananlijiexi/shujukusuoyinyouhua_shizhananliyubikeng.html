@@ -1,480 +1,58 @@
-<!DOCTYPE html>
-<html lang="zh-cn" dir="ltr">
-    <head><meta charset='utf-8'>
-<meta name='viewport' content='width=device-width, initial-scale=1'><meta name='description' content="不知道大家有没有这种经历：明明给表加了索引，查询速度不仅没起飞，数据库的CPU反而先爆表了，甚至连写入都开始阻塞。\n我以前总觉得，“慢查询”最好的解药就是加索引。只要业务方喊慢，我就去 ADD INDEX。直到三年前那次双11大促前的压测，我亲手搞挂了一个核心服务的数据库，才彻底明白：索引这把双刃剑，很多时候是拿反了的。\n今天咱们不聊那些枯燥的B+树原理，我想复盘这几年在一线实战中踩过的3个典型“坑”。这些都是真金白银砸出来的教训，希望能帮大家避开半夜两点的报警电话。\n一、 “为了快，我把所有字段都加了索引”\r这大概是很多新手（包括当年的我）最容易犯的错。\n【真实场景】 当时我们在做一个用户行为日志表，数据量增长很快，每天大概新增500万条。业务方需求很多，今天想按 user_id 查，明天想按 event_type 查，后天又要按 device_id 统计。\n为了省事，也为了“未雨绸缪”，我一股脑给这几个高频字段全加了单列索引。心想：这下总没问题了吧？\n【踩坑结果】 上线运行了一周，问题来了。虽然查询没问题，但写入性能（Insert TPS）直线下降。原本每秒能抗3000次写入，现在到了1500次就开始报错超时。DBA直接把监控图甩我脸上：磁盘IO几乎被打满，Buffer Pool全是脏页。\n【复盘与改进】 这就是典型的“索引过度”。每一条 INSERT 语句，数据库不仅要写主键数据，还要维护那5、6棵额外的B+树。对于写多读少的日志型业务，这简直是灾难。\n我后来做了两件事来救火：\n砍掉单列索引：只保留了 user_id，其他非核心字段的索引全部删掉。 建立联合索引：根据最长用的查询模式，建了一个 (user_id, event_time) 的联合索引，覆盖了80%的查询场景。 【避坑指南】\n如果你的表是“写多读少”（比如日志、流水表），单表索引数量建议控制在3个以内。别为了那1%的查询需求，牺牲99%的写入性能。\n二、 联合索引的“顺序”陷阱：并不只是为了好看\r既然单列索引不好用，那我就用联合索引呗？这里面的坑更隐蔽。\n【真实场景】 有个订单表 orders，业务代码里有一个最高频的查询：查找某个店铺、在某个时间段内、特定状态的订单。\n代码大概是这样的：\nSELECT * FROM orders WHERE shop_id = 10086 AND create_time &gt; &#39;2023-10-01 00:00:00&#39; AND status = &#39;PAID&#39;; 我当时自信满满地建了个索引：idx_shop_time_status (shop_id, create_time, status)。 我觉得这三个字段都覆盖了，肯定也是完美的。\n【踩坑结果】 查询确实比没索引快，但依然有几百毫秒的延迟。用 EXPLAIN 一看，key_len 的长度不对，只有前两个字段生效了，status 字段压根没用上索引！\n【复盘与改进】 这里触碰了MySQL联合索引的一个硬核规则：范围查询（Range）会阻断最左前缀的匹配。\n在我的索引 (shop_id, create_time, status) 中：\n">
-<title>半夜报警？这3个索引“负优化”案例让我长记性了</title>
-
-<link rel='canonical' href='https://blog.irudder.me/tech/jiagouyouhuashizhananlijiexi/shujukusuoyinyouhua_shizhananliyubikeng.html'>
-
-<link rel="stylesheet" href="/scss/style.min.b9e9128fec450ebccecc4ec9900157f32b85d0609bcd5ee3293968bcaa1235f2.css"><meta property='og:title' content="半夜报警？这3个索引“负优化”案例让我长记性了">
-<meta property='og:description' content="不知道大家有没有这种经历：明明给表加了索引，查询速度不仅没起飞，数据库的CPU反而先爆表了，甚至连写入都开始阻塞。\n我以前总觉得，“慢查询”最好的解药就是加索引。只要业务方喊慢，我就去 ADD INDEX。直到三年前那次双11大促前的压测，我亲手搞挂了一个核心服务的数据库，才彻底明白：索引这把双刃剑，很多时候是拿反了的。\n今天咱们不聊那些枯燥的B+树原理，我想复盘这几年在一线实战中踩过的3个典型“坑”。这些都是真金白银砸出来的教训，希望能帮大家避开半夜两点的报警电话。\n一、 “为了快，我把所有字段都加了索引”\r这大概是很多新手（包括当年的我）最容易犯的错。\n【真实场景】 当时我们在做一个用户行为日志表，数据量增长很快，每天大概新增500万条。业务方需求很多，今天想按 user_id 查，明天想按 event_type 查，后天又要按 device_id 统计。\n为了省事，也为了“未雨绸缪”，我一股脑给这几个高频字段全加了单列索引。心想：这下总没问题了吧？\n【踩坑结果】 上线运行了一周，问题来了。虽然查询没问题，但写入性能（Insert TPS）直线下降。原本每秒能抗3000次写入，现在到了1500次就开始报错超时。DBA直接把监控图甩我脸上：磁盘IO几乎被打满，Buffer Pool全是脏页。\n【复盘与改进】 这就是典型的“索引过度”。每一条 INSERT 语句，数据库不仅要写主键数据，还要维护那5、6棵额外的B+树。对于写多读少的日志型业务，这简直是灾难。\n我后来做了两件事来救火：\n砍掉单列索引：只保留了 user_id，其他非核心字段的索引全部删掉。 建立联合索引：根据最长用的查询模式，建了一个 (user_id, event_time) 的联合索引，覆盖了80%的查询场景。 【避坑指南】\n如果你的表是“写多读少”（比如日志、流水表），单表索引数量建议控制在3个以内。别为了那1%的查询需求，牺牲99%的写入性能。\n二、 联合索引的“顺序”陷阱：并不只是为了好看\r既然单列索引不好用，那我就用联合索引呗？这里面的坑更隐蔽。\n【真实场景】 有个订单表 orders，业务代码里有一个最高频的查询：查找某个店铺、在某个时间段内、特定状态的订单。\n代码大概是这样的：\nSELECT * FROM orders WHERE shop_id = 10086 AND create_time &gt; &#39;2023-10-01 00:00:00&#39; AND status = &#39;PAID&#39;; 我当时自信满满地建了个索引：idx_shop_time_status (shop_id, create_time, status)。 我觉得这三个字段都覆盖了，肯定也是完美的。\n【踩坑结果】 查询确实比没索引快，但依然有几百毫秒的延迟。用 EXPLAIN 一看，key_len 的长度不对，只有前两个字段生效了，status 字段压根没用上索引！\n【复盘与改进】 这里触碰了MySQL联合索引的一个硬核规则：范围查询（Range）会阻断最左前缀的匹配。\n在我的索引 (shop_id, create_time, status) 中：\n">
-<meta property='og:url' content='https://blog.irudder.me/tech/jiagouyouhuashizhananlijiexi/shujukusuoyinyouhua_shizhananliyubikeng.html'>
-<meta property='og:site_name' content='SelfTechHub'>
-<meta property='og:type' content='article'><meta property='article:section' content='Tech' /><meta property='article:tag' content='数据库索引优化：实战案例与避坑' /><meta property='article:published_time' content='2025-09-26T00:00:00&#43;00:00'/><meta property='article:modified_time' content='2025-09-26T00:00:00&#43;00:00'/>
-<meta name="twitter:title" content="半夜报警？这3个索引“负优化”案例让我长记性了">
-<meta name="twitter:description" content="不知道大家有没有这种经历：明明给表加了索引，查询速度不仅没起飞，数据库的CPU反而先爆表了，甚至连写入都开始阻塞。\n我以前总觉得，“慢查询”最好的解药就是加索引。只要业务方喊慢，我就去 ADD INDEX。直到三年前那次双11大促前的压测，我亲手搞挂了一个核心服务的数据库，才彻底明白：索引这把双刃剑，很多时候是拿反了的。\n今天咱们不聊那些枯燥的B+树原理，我想复盘这几年在一线实战中踩过的3个典型“坑”。这些都是真金白银砸出来的教训，希望能帮大家避开半夜两点的报警电话。\n一、 “为了快，我把所有字段都加了索引”\r这大概是很多新手（包括当年的我）最容易犯的错。\n【真实场景】 当时我们在做一个用户行为日志表，数据量增长很快，每天大概新增500万条。业务方需求很多，今天想按 user_id 查，明天想按 event_type 查，后天又要按 device_id 统计。\n为了省事，也为了“未雨绸缪”，我一股脑给这几个高频字段全加了单列索引。心想：这下总没问题了吧？\n【踩坑结果】 上线运行了一周，问题来了。虽然查询没问题，但写入性能（Insert TPS）直线下降。原本每秒能抗3000次写入，现在到了1500次就开始报错超时。DBA直接把监控图甩我脸上：磁盘IO几乎被打满，Buffer Pool全是脏页。\n【复盘与改进】 这就是典型的“索引过度”。每一条 INSERT 语句，数据库不仅要写主键数据，还要维护那5、6棵额外的B+树。对于写多读少的日志型业务，这简直是灾难。\n我后来做了两件事来救火：\n砍掉单列索引：只保留了 user_id，其他非核心字段的索引全部删掉。 建立联合索引：根据最长用的查询模式，建了一个 (user_id, event_time) 的联合索引，覆盖了80%的查询场景。 【避坑指南】\n如果你的表是“写多读少”（比如日志、流水表），单表索引数量建议控制在3个以内。别为了那1%的查询需求，牺牲99%的写入性能。\n二、 联合索引的“顺序”陷阱：并不只是为了好看\r既然单列索引不好用，那我就用联合索引呗？这里面的坑更隐蔽。\n【真实场景】 有个订单表 orders，业务代码里有一个最高频的查询：查找某个店铺、在某个时间段内、特定状态的订单。\n代码大概是这样的：\nSELECT * FROM orders WHERE shop_id = 10086 AND create_time &gt; &#39;2023-10-01 00:00:00&#39; AND status = &#39;PAID&#39;; 我当时自信满满地建了个索引：idx_shop_time_status (shop_id, create_time, status)。 我觉得这三个字段都覆盖了，肯定也是完美的。\n【踩坑结果】 查询确实比没索引快，但依然有几百毫秒的延迟。用 EXPLAIN 一看，key_len 的长度不对，只有前两个字段生效了，status 字段压根没用上索引！\n【复盘与改进】 这里触碰了MySQL联合索引的一个硬核规则：范围查询（Range）会阻断最左前缀的匹配。\n在我的索引 (shop_id, create_time, status) 中：\n">
-    </head>
-    <body class="
-    article-page
-    ">
-    <script>
-        (function() {
-            const colorSchemeKey = 'StackColorScheme';
-            if(!localStorage.getItem(colorSchemeKey)){
-                localStorage.setItem(colorSchemeKey, "auto");
-            }
-        })();
-    </script><script>
-    (function() {
-        const colorSchemeKey = 'StackColorScheme';
-        const colorSchemeItem = localStorage.getItem(colorSchemeKey);
-        const supportDarkMode = window.matchMedia('(prefers-color-scheme: dark)').matches === true;
-
-        if (colorSchemeItem == 'dark' || colorSchemeItem === 'auto' && supportDarkMode) {
-            
-
-            document.documentElement.dataset.scheme = 'dark';
-        } else {
-            document.documentElement.dataset.scheme = 'light';
-        }
-    })();
-</script>
-<div class="container main-container flex on-phone--column compact"><aside class="sidebar left-sidebar sticky ">
-    <button class="hamburger hamburger--spin" type="button" id="toggle-menu" aria-label="切换菜单">
-        <span class="hamburger-box">
-            <span class="hamburger-inner"></span>
-        </span>
-    </button>
-
-    <header>
-        
-            
-            <figure class="site-avatar">
-                <a href="/">
-                
-                    
-                    
-                    
-                        
-                        <img src="/img/avatar_hu_8588ce14af1147e2.png" width="300"
-                            height="286" class="site-logo" loading="lazy" alt="Avatar">
-                    
-                
-                </a>
-                
-            </figure>
-            
-        
-        
-        <div class="site-meta">
-            <h1 class="site-name"><a href="/">SelfTechHub</a></h1>
-            <h2 class="site-description"></h2>
-        </div>
-    </header><ol class="menu" id="main-menu">
-        
-        
-        <li class="menu-bottom-section">
-            <ol class="menu">
-
-                
-                    <li id="dark-mode-toggle">
-                        <svg xmlns="http://www.w3.org/2000/svg" class="icon icon-tabler icon-tabler-toggle-left" width="24" height="24" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor" fill="none" stroke-linecap="round" stroke-linejoin="round">
-  <path stroke="none" d="M0 0h24v24H0z"/>
-  <circle cx="8" cy="12" r="2" />
-  <rect x="2" y="6" width="20" height="12" rx="6" />
-</svg>
-
-
-
-                        <svg xmlns="http://www.w3.org/2000/svg" class="icon icon-tabler icon-tabler-toggle-right" width="24" height="24" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor" fill="none" stroke-linecap="round" stroke-linejoin="round">
-  <path stroke="none" d="M0 0h24v24H0z"/>
-  <circle cx="16" cy="12" r="2" />
-  <rect x="2" y="6" width="20" height="12" rx="6" />
-</svg>
-
-
-
-                        <span>暗色模式</span>
-                    </li>
-                
-            </ol>
-        </li>
-    </ol>
-</aside>
-
-    
-
-            <main class="main full-width">
-    <article class="main-article">
-    <header class="article-header">
-
-    <div class="article-details">
-    
-    <header class="article-category">
-        
-            <a href="/categories/%E6%8A%80%E6%9C%AF.html" >
-                技术精进
-            </a>
-        
-    </header>
-    
-
-    <div class="article-title-wrapper">
-        <h2 class="article-title">
-            <a href="/tech/jiagouyouhuashizhananlijiexi/shujukusuoyinyouhua_shizhananliyubikeng.html">半夜报警？这3个索引“负优化”案例让我长记性了</a>
-        </h2>
-    
-        
-    </div>
-
-    
-    
-    
-    
-    <footer class="article-time">
-        
-            <div>
-                <svg xmlns="http://www.w3.org/2000/svg" class="icon icon-tabler icon-tabler-calendar-time" width="56" height="56" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor" fill="none" stroke-linecap="round" stroke-linejoin="round">
-  <path stroke="none" d="M0 0h24v24H0z"/>
-  <path d="M11.795 21h-6.795a2 2 0 0 1 -2 -2v-12a2 2 0 0 1 2 -2h12a2 2 0 0 1 2 2v4" />
-  <circle cx="18" cy="18" r="4" />
-  <path d="M15 3v4" />
-  <path d="M7 3v4" />
-  <path d="M3 11h16" />
-  <path d="M18 16.496v1.504l1 1" />
-</svg>
-                <time class="article-time--published" datetime='2025-09-26T00:00:00Z'>Sep 26, 2025</time>
-            </div>
-        
-
-        
-            <div>
-                <svg xmlns="http://www.w3.org/2000/svg" class="icon icon-tabler icon-tabler-clock" width="24" height="24" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor" fill="none" stroke-linecap="round" stroke-linejoin="round">
-  <path stroke="none" d="M0 0h24v24H0z"/>
-  <circle cx="12" cy="12" r="9" />
-  <polyline points="12 7 12 12 15 15" />
-</svg>
-
-
-
-                <time class="article-time--reading">
-                    阅读时长: 1 分钟
-                </time>
-            </div>
-        
-    </footer>
-    
-
-    
-</div>
-
-</header>
-
-    <section class="article-content">
-    
-    
-    <p>不知道大家有没有这种经历：明明给表加了索引，查询速度不仅没起飞，数据库的CPU反而先爆表了，甚至连写入都开始阻塞。</p>
-<p>我以前总觉得，“慢查询”最好的解药就是加索引。只要业务方喊慢，我就去 <code>ADD INDEX</code>。直到三年前那次双11大促前的压测，我亲手搞挂了一个核心服务的数据库，才彻底明白：<strong>索引这把双刃剑，很多时候是拿反了的。</strong></p>
-<p>今天咱们不聊那些枯燥的B+树原理，我想复盘这几年在一线实战中踩过的3个典型“坑”。这些都是真金白银砸出来的教训，希望能帮大家避开半夜两点的报警电话。</p>
-<h2 id="一-为了快我把所有字段都加了索引">一、 “为了快，我把所有字段都加了索引”
-</h2><p><img src="https://picsum.photos/800/450?random=1768458454016"
-	
-	
-	
-	loading="lazy"
-	
-		alt="配图"
-	
-	
-></p>
-<p>这大概是很多新手（包括当年的我）最容易犯的错。</p>
-<p><strong>【真实场景】</strong>
-当时我们在做一个用户行为日志表，数据量增长很快，每天大概新增500万条。业务方需求很多，今天想按 <code>user_id</code> 查，明天想按 <code>event_type</code> 查，后天又要按 <code>device_id</code> 统计。</p>
-<p>为了省事，也为了“未雨绸缪”，我一股脑给这几个高频字段全加了单列索引。心想：这下总没问题了吧？</p>
-<p><strong>【踩坑结果】</strong>
-上线运行了一周，问题来了。虽然查询没问题，但<strong>写入性能（Insert TPS）直线下降</strong>。原本每秒能抗3000次写入，现在到了1500次就开始报错超时。DBA直接把监控图甩我脸上：磁盘IO几乎被打满，Buffer Pool全是脏页。</p>
-<p><strong>【复盘与改进】</strong>
-这就是典型的“索引过度”。每一条 <code>INSERT</code> 语句，数据库不仅要写主键数据，还要维护那5、6棵额外的B+树。对于写多读少的日志型业务，这简直是灾难。</p>
-<p>我后来做了两件事来救火：</p>
-<ol>
-<li><strong>砍掉单列索引</strong>：只保留了 <code>user_id</code>，其他非核心字段的索引全部删掉。</li>
-<li><strong>建立联合索引</strong>：根据最长用的查询模式，建了一个 <code>(user_id, event_time)</code> 的联合索引，覆盖了80%的查询场景。</li>
-</ol>
-<p><strong>【避坑指南】</strong></p>
-<blockquote>
-<p>如果你的表是“写多读少”（比如日志、流水表），单表索引数量建议控制在3个以内。别为了那1%的查询需求，牺牲99%的写入性能。</p>
-</blockquote>
-<h2 id="二-联合索引的顺序陷阱并不只是为了好看">二、 联合索引的“顺序”陷阱：并不只是为了好看
-</h2><p>既然单列索引不好用，那我就用联合索引呗？这里面的坑更隐蔽。</p>
-<p><strong>【真实场景】</strong>
-有个订单表 <code>orders</code>，业务代码里有一个最高频的查询：查找某个店铺、在某个时间段内、特定状态的订单。</p>
-<p>代码大概是这样的：</p>
-<div class="highlight"><pre tabindex="0" style="color:#f8f8f2;background-color:#272822;-moz-tab-size:4;-o-tab-size:4;tab-size:4;"><code class="language-sql" data-lang="sql"><span style="display:flex;"><span><span style="color:#66d9ef">SELECT</span> <span style="color:#f92672">*</span> <span style="color:#66d9ef">FROM</span> orders 
-</span></span><span style="display:flex;"><span><span style="color:#66d9ef">WHERE</span> shop_id <span style="color:#f92672">=</span> <span style="color:#ae81ff">10086</span> 
-</span></span><span style="display:flex;"><span><span style="color:#66d9ef">AND</span> create_time <span style="color:#f92672">&gt;</span> <span style="color:#e6db74">&#39;2023-10-01 00:00:00&#39;</span> 
-</span></span><span style="display:flex;"><span><span style="color:#66d9ef">AND</span> status <span style="color:#f92672">=</span> <span style="color:#e6db74">&#39;PAID&#39;</span>;
-</span></span></code></pre></div><p><img src="https://picsum.photos/800/450?random=1768458460139"
-	
-	
-	
-	loading="lazy"
-	
-		alt="配图"
-	
-	
-></p>
-<p>我当时自信满满地建了个索引：<code>idx_shop_time_status (shop_id, create_time, status)</code>。
-我觉得这三个字段都覆盖了，肯定也是完美的。</p>
-<p><strong>【踩坑结果】</strong>
-查询确实比没索引快，但依然有几百毫秒的延迟。用 <code>EXPLAIN</code> 一看，<code>key_len</code> 的长度不对，只有前两个字段生效了，<code>status</code> 字段压根没用上索引！</p>
-<p><strong>【复盘与改进】</strong>
-这里触碰了MySQL联合索引的一个硬核规则：<strong>范围查询（Range）会阻断最左前缀的匹配</strong>。</p>
-<p>在我的索引 <code>(shop_id, create_time, status)</code> 中：</p>
-<ol>
-<li><code>shop_id</code> 是等值匹配，没问题。</li>
-<li><code>create_time</code> 是范围查询（<code>&gt;</code>），索引在这里虽然生效了，但<strong>索引的匹配就到此为止了</strong>。</li>
-<li>后面的 <code>status</code> 字段，数据库只能回表后一个个过滤，或者在索引树上硬扫，无法利用索引的快速定位能力。</li>
-</ol>
-<p><strong>【修正方案】</strong>
+<!doctype html><html lang=zh-cn dir=ltr><head><meta charset=utf-8><meta name=viewport content='width=device-width,initial-scale=1'><meta name=description content="不知道大家有没有这种经历：明明给表加了索引，查询速度不仅没起飞，数据库的CPU反而先爆表了，甚至连写入都开始阻塞。我以前总觉得，“慢查询”最好的解药就是加索引。"><title>半夜报警？这3个索引“负优化”案例让我长记性了</title><link rel=canonical href=https://blog.irudder.me/tech/jiagouyouhuashizhananlijiexi/shujukusuoyinyouhua_shizhananliyubikeng.html><link rel=stylesheet href=/scss/style.min.c77ce1b874b29b2ee9e54a89066c79ebf35cbe9cf399b31ab5d79167f9a965c9.css><meta property='og:title' content="半夜报警？这3个索引“负优化”案例让我长记性了"><meta property='og:description' content="不知道大家有没有这种经历：明明给表加了索引，查询速度不仅没起飞，数据库的CPU反而先爆表了，甚至连写入都开始阻塞。我以前总觉得，“慢查询”最好的解药就是加索引。"><meta property='og:url' content='https://blog.irudder.me/tech/jiagouyouhuashizhananlijiexi/shujukusuoyinyouhua_shizhananliyubikeng.html'><meta property='og:site_name' content='SelfTechHub'><meta property='og:type' content='article'><meta property='article:section' content='Tech'><meta property='article:tag' content='数据库索引优化：实战案例与避坑'><meta property='article:published_time' content='2025-09-26T00:00:00+08:00'><meta property='article:modified_time' content='2025-09-26T00:00:00+08:00'><meta name=twitter:title content="半夜报警？这3个索引“负优化”案例让我长记性了"><meta name=twitter:description content="不知道大家有没有这种经历：明明给表加了索引，查询速度不仅没起飞，数据库的CPU反而先爆表了，甚至连写入都开始阻塞。我以前总觉得，“慢查询”最好的解药就是加索引。"><link rel="shortcut icon" href=/images/logo.png></head><body class=article-page><script>(function(){const e="StackColorScheme";localStorage.getItem(e)||localStorage.setItem(e,"auto")})()</script><script>(function(){const t="StackColorScheme",e=localStorage.getItem(t),n=window.matchMedia("(prefers-color-scheme: dark)").matches===!0;e=="dark"||e==="auto"&&n?document.documentElement.dataset.scheme="dark":document.documentElement.dataset.scheme="light"})()</script><div class="container main-container flex on-phone--column extended"><aside class="sidebar left-sidebar sticky"><button class="hamburger hamburger--spin" type=button id=toggle-menu aria-label=切换菜单>
+<span class=hamburger-box><span class=hamburger-inner></span></span></button><header><figure class=site-avatar><a href=/><img src=/img/avatar_hu_8588ce14af1147e2.png width=300 height=286 class=site-logo loading=lazy alt=Avatar>
+</a><span class=emoji>🧠</span></figure><div class=site-meta><h1 class=site-name><a href=/>SelfTechHub</a></h1><h2 class=site-description>成长 · 技术 · 商业 · AI —— 把碎片知识沉淀为可复用的记忆体系</h2></div></header><ol class=menu-social><li><a href=https://github.com/pastor17 target=_blank title=GitHub rel=me><svg class="icon icon-tabler icon-tabler-brand-github" width="24" height="24" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor" fill="none" stroke-linecap="round" stroke-linejoin="round"><path stroke="none" d="M0 0h24v24H0z" fill="none"/><path d="M9 19c-4.3 1.4-4.3-2.5-6-3m12 5v-3.5c0-1 .1-1.4-.5-2 2.8-.3 5.5-1.4 5.5-6a4.6 4.6.0 00-1.3-3.2 4.2 4.2.0 00-.1-3.2s-1.1-.3-3.5 1.3a12.3 12.3.0 00-6.2.0C6.5 2.8 5.4 3.1 5.4 3.1a4.2 4.2.0 00-.1 3.2A4.6 4.6.0 004 9.5c0 4.6 2.7 5.7 5.5 6-.6.6-.6 1.2-.5 2V21"/></svg></a></li></ol><ol class=menu id=main-menu><li><a href=/><svg class="icon icon-tabler icon-tabler-home" width="24" height="24" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor" fill="none" stroke-linecap="round" stroke-linejoin="round"><path stroke="none" d="M0 0h24v24H0z"/><polyline points="5 12 3 12 12 3 21 12 19 12"/><path d="M5 12v7a2 2 0 002 2h10a2 2 0 002-2v-7"/><path d="M9 21v-6a2 2 0 012-2h2a2 2 0 012 2v6"/></svg>
+<span>首页</span></a></li><li><a href=/categories/%E6%88%90%E9%95%BF.html><span>成长认知</span></a></li><li><a href=/categories/%E6%8A%80%E6%9C%AF.html><span>技术精进</span></a></li><li><a href=/categories/%E5%95%86%E4%B8%9A.html><span>商业·财富</span></a></li><li><a href=/categories/ai.html><span>探索AI</span></a></li><li><a href=/about/><svg class="icon icon-tabler icon-tabler-user" width="24" height="24" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor" fill="none" stroke-linecap="round" stroke-linejoin="round"><path stroke="none" d="M0 0h24v24H0z"/><circle cx="12" cy="7" r="4"/><path d="M6 21v-2a4 4 0 014-4h4a4 4 0 014 4v2"/></svg>
+<span>关于</span></a></li><li class=menu-bottom-section><ol class=menu><li id=dark-mode-toggle><svg class="icon icon-tabler icon-tabler-toggle-left" width="24" height="24" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor" fill="none" stroke-linecap="round" stroke-linejoin="round"><path stroke="none" d="M0 0h24v24H0z"/><circle cx="8" cy="12" r="2"/><rect x="2" y="6" width="20" height="12" rx="6"/></svg>
+<svg class="icon icon-tabler icon-tabler-toggle-right" width="24" height="24" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor" fill="none" stroke-linecap="round" stroke-linejoin="round"><path stroke="none" d="M0 0h24v24H0z"/><circle cx="16" cy="12" r="2"/><rect x="2" y="6" width="20" height="12" rx="6"/></svg>
+<span>暗色模式</span></li></ol></li></ol></aside><aside class="sidebar right-sidebar sticky"><section class="widget archives"><div class=widget-icon><svg class="icon icon-tabler icon-tabler-hash" width="24" height="24" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor" fill="none" stroke-linecap="round" stroke-linejoin="round"><path stroke="none" d="M0 0h24v24H0z"/><line x1="5" y1="9" x2="19" y2="9"/><line x1="5" y1="15" x2="19" y2="15"/><line x1="11" y1="4" x2="7" y2="20"/><line x1="17" y1="4" x2="13" y2="20"/></svg></div><h2 class="widget-title section-title">目录</h2><div class=widget--toc><nav id=TableOfContents><ul><li><a href=#一-为了快我把所有字段都加了索引>一、 “为了快，我把所有字段都加了索引”</a></li><li><a href=#二-联合索引的顺序陷阱并不只是为了好看>二、 联合索引的“顺序”陷阱：并不只是为了好看</a></li><li><a href=#三-隐式转换代码里一个微小的疏忽搞挂了数据库>三、 隐式转换：代码里一个微小的疏忽，搞挂了数据库</a></li><li><a href=#总结与落地>总结与落地</a></li></ul></nav></div></section></aside><main class="main full-width"><article class=main-article><header class=article-header><div class=article-details><header class=article-category><a href=/categories/%E6%8A%80%E6%9C%AF.html>技术精进</a></header><div class=article-title-wrapper><h2 class=article-title><a href=/tech/jiagouyouhuashizhananlijiexi/shujukusuoyinyouhua_shizhananliyubikeng.html>半夜报警？这3个索引“负优化”案例让我长记性了</a></h2><h3 class=article-subtitle>不知道大家有没有这种经历：明明给表加了索引，查询速度不仅没起飞，数据库的CPU反而先爆表了，甚至连写入都开始阻塞。我以前总觉得，“慢查询”最好的解药就是加索引。</h3></div><footer class=article-time><div><svg class="icon icon-tabler icon-tabler-calendar-time" width="56" height="56" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor" fill="none" stroke-linecap="round" stroke-linejoin="round"><path stroke="none" d="M0 0h24v24H0z"/><path d="M11.795 21H5a2 2 0 01-2-2V7a2 2 0 012-2h12a2 2 0 012 2v4"/><circle cx="18" cy="18" r="4"/><path d="M15 3v4"/><path d="M7 3v4"/><path d="M3 11h16"/><path d="M18 16.496V18l1 1"/></svg>
+<time class=article-time--published datetime=2025-09-26T00:00:00+08:00>2025-09-26</time></div><div><svg class="icon icon-tabler icon-tabler-clock" width="24" height="24" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor" fill="none" stroke-linecap="round" stroke-linejoin="round"><path stroke="none" d="M0 0h24v24H0z"/><circle cx="12" cy="12" r="9"/><polyline points="12 7 12 12 15 15"/></svg>
+<time class=article-time--reading>阅读时长: 5 分钟</time></div></footer></div></header><section class=article-content><p>不知道大家有没有这种经历：明明给表加了索引，查询速度不仅没起飞，数据库的CPU反而先爆表了，甚至连写入都开始阻塞。</p><p>我以前总觉得，“慢查询”最好的解药就是加索引。只要业务方喊慢，我就去 <code>ADD INDEX</code>。直到三年前那次双11大促前的压测，我亲手搞挂了一个核心服务的数据库，才彻底明白：<strong>索引这把双刃剑，很多时候是拿反了的。</strong></p><p>今天咱们不聊那些枯燥的B+树原理，我想复盘这几年在一线实战中踩过的3个典型“坑”。这些都是真金白银砸出来的教训，希望能帮大家避开半夜两点的报警电话。</p><h2 id=一-为了快我把所有字段都加了索引>一、 “为了快，我把所有字段都加了索引”</h2><p><img src="https://picsum.photos/800/450?random=1768458454016" loading=lazy alt=配图></p><p>这大概是很多新手（包括当年的我）最容易犯的错。</p><p><strong>【真实场景】</strong>
+当时我们在做一个用户行为日志表，数据量增长很快，每天大概新增500万条。业务方需求很多，今天想按 <code>user_id</code> 查，明天想按 <code>event_type</code> 查，后天又要按 <code>device_id</code> 统计。</p><p>为了省事，也为了“未雨绸缪”，我一股脑给这几个高频字段全加了单列索引。心想：这下总没问题了吧？</p><p><strong>【踩坑结果】</strong>
+上线运行了一周，问题来了。虽然查询没问题，但<strong>写入性能（Insert TPS）直线下降</strong>。原本每秒能抗3000次写入，现在到了1500次就开始报错超时。DBA直接把监控图甩我脸上：磁盘IO几乎被打满，Buffer Pool全是脏页。</p><p><strong>【复盘与改进】</strong>
+这就是典型的“索引过度”。每一条 <code>INSERT</code> 语句，数据库不仅要写主键数据，还要维护那5、6棵额外的B+树。对于写多读少的日志型业务，这简直是灾难。</p><p>我后来做了两件事来救火：</p><ol><li><strong>砍掉单列索引</strong>：只保留了 <code>user_id</code>，其他非核心字段的索引全部删掉。</li><li><strong>建立联合索引</strong>：根据最长用的查询模式，建了一个 <code>(user_id, event_time)</code> 的联合索引，覆盖了80%的查询场景。</li></ol><p><strong>【避坑指南】</strong></p><blockquote><p>如果你的表是“写多读少”（比如日志、流水表），单表索引数量建议控制在3个以内。别为了那1%的查询需求，牺牲99%的写入性能。</p></blockquote><h2 id=二-联合索引的顺序陷阱并不只是为了好看>二、 联合索引的“顺序”陷阱：并不只是为了好看</h2><p>既然单列索引不好用，那我就用联合索引呗？这里面的坑更隐蔽。</p><p><strong>【真实场景】</strong>
+有个订单表 <code>orders</code>，业务代码里有一个最高频的查询：查找某个店铺、在某个时间段内、特定状态的订单。</p><p>代码大概是这样的：</p><div class=highlight><div class=chroma><table class=lntable><tr><td class=lntd><pre tabindex=0 class=chroma><code><span class=lnt>1
+</span><span class=lnt>2
+</span><span class=lnt>3
+</span><span class=lnt>4
+</span></code></pre></td><td class=lntd><pre tabindex=0 class=chroma><code class=language-sql data-lang=sql><span class=line><span class=cl><span class=k>SELECT</span><span class=w> </span><span class=o>*</span><span class=w> </span><span class=k>FROM</span><span class=w> </span><span class=n>orders</span><span class=w> 
+</span></span></span><span class=line><span class=cl><span class=w></span><span class=k>WHERE</span><span class=w> </span><span class=n>shop_id</span><span class=w> </span><span class=o>=</span><span class=w> </span><span class=mi>10086</span><span class=w> 
+</span></span></span><span class=line><span class=cl><span class=w></span><span class=k>AND</span><span class=w> </span><span class=n>create_time</span><span class=w> </span><span class=o>&gt;</span><span class=w> </span><span class=s1>&#39;2023-10-01 00:00:00&#39;</span><span class=w> 
+</span></span></span><span class=line><span class=cl><span class=w></span><span class=k>AND</span><span class=w> </span><span class=n>status</span><span class=w> </span><span class=o>=</span><span class=w> </span><span class=s1>&#39;PAID&#39;</span><span class=p>;</span><span class=w>
+</span></span></span></code></pre></td></tr></table></div></div><p><img src="https://picsum.photos/800/450?random=1768458460139" loading=lazy alt=配图></p><p>我当时自信满满地建了个索引：<code>idx_shop_time_status (shop_id, create_time, status)</code>。
+我觉得这三个字段都覆盖了，肯定也是完美的。</p><p><strong>【踩坑结果】</strong>
+查询确实比没索引快，但依然有几百毫秒的延迟。用 <code>EXPLAIN</code> 一看，<code>key_len</code> 的长度不对，只有前两个字段生效了，<code>status</code> 字段压根没用上索引！</p><p><strong>【复盘与改进】</strong>
+这里触碰了MySQL联合索引的一个硬核规则：<strong>范围查询（Range）会阻断最左前缀的匹配</strong>。</p><p>在我的索引 <code>(shop_id, create_time, status)</code> 中：</p><ol><li><code>shop_id</code> 是等值匹配，没问题。</li><li><code>create_time</code> 是范围查询（<code>></code>），索引在这里虽然生效了，但<strong>索引的匹配就到此为止了</strong>。</li><li>后面的 <code>status</code> 字段，数据库只能回表后一个个过滤，或者在索引树上硬扫，无法利用索引的快速定位能力。</li></ol><p><strong>【修正方案】</strong>
 调整索引顺序，把涉及范围查询的字段放到最后：
-<strong>修改为：<code>idx_shop_status_time (shop_id, status, create_time)</code></strong></p>
-<p>再次执行 <code>EXPLAIN</code>，类型从 <code>range</code> 变成了 <code>ref</code>（或者更高效的利用），查询时间直接降到了几十毫秒。</p>
-<p><strong>【避坑指南】</strong>
-记住这个口诀：<strong>“等值在前，范围在后”</strong>。在设计联合索引时，把 <code>WHERE</code> 条件里用 <code>=</code> 的字段尽量往左边放，用 <code>&gt;</code>、<code>&lt;</code>、<code>BETWEEN</code> 的字段往右边放。</p>
-<h2 id="三-隐式转换代码里一个微小的疏忽搞挂了数据库">三、 隐式转换：代码里一个微小的疏忽，搞挂了数据库
-</h2><p>这个坑是最冤的，因为它看起来完全不是数据库的问题，而是代码写得不严谨。</p>
-<p><strong>【真实场景】</strong>
+<strong>修改为：<code>idx_shop_status_time (shop_id, status, create_time)</code></strong></p><p>再次执行 <code>EXPLAIN</code>，类型从 <code>range</code> 变成了 <code>ref</code>（或者更高效的利用），查询时间直接降到了几十毫秒。</p><p><strong>【避坑指南】</strong>
+记住这个口诀：<strong>“等值在前，范围在后”</strong>。在设计联合索引时，把 <code>WHERE</code> 条件里用 <code>=</code> 的字段尽量往左边放，用 <code>></code>、<code>&lt;</code>、<code>BETWEEN</code> 的字段往右边放。</p><h2 id=三-隐式转换代码里一个微小的疏忽搞挂了数据库>三、 隐式转换：代码里一个微小的疏忽，搞挂了数据库</h2><p>这个坑是最冤的，因为它看起来完全不是数据库的问题，而是代码写得不严谨。</p><p><strong>【真实场景】</strong>
 这是一个用户搜索接口，根据手机号查找用户信息。
-表结构：</p>
-<div class="highlight"><pre tabindex="0" style="color:#f8f8f2;background-color:#272822;-moz-tab-size:4;-o-tab-size:4;tab-size:4;"><code class="language-sql" data-lang="sql"><span style="display:flex;"><span><span style="color:#66d9ef">CREATE</span> <span style="color:#66d9ef">TABLE</span> users (
-</span></span><span style="display:flex;"><span>  id int <span style="color:#66d9ef">PRIMARY</span> <span style="color:#66d9ef">KEY</span>,
-</span></span><span style="display:flex;"><span>  phone varchar(<span style="color:#ae81ff">20</span>), <span style="color:#75715e">-- 注意这里是 varchar
-</span></span></span><span style="display:flex;"><span><span style="color:#75715e"></span>  name varchar(<span style="color:#ae81ff">50</span>),
-</span></span><span style="display:flex;"><span>  <span style="color:#66d9ef">KEY</span> idx_phone (phone)
-</span></span><span style="display:flex;"><span>);
-</span></span></code></pre></div><p>索引有了，SQL看起来也很简单：<code>SELECT * FROM users WHERE phone = 13800138000;</code></p>
-<p>某天下午，运营做活动群发短信，用户蜂拥而至查状态，数据库CPU瞬间飙到100%，整个应用直接卡死。</p>
-<p><strong>【踩坑结果】</strong>
+表结构：</p><div class=highlight><div class=chroma><table class=lntable><tr><td class=lntd><pre tabindex=0 class=chroma><code><span class=lnt>1
+</span><span class=lnt>2
+</span><span class=lnt>3
+</span><span class=lnt>4
+</span><span class=lnt>5
+</span><span class=lnt>6
+</span></code></pre></td><td class=lntd><pre tabindex=0 class=chroma><code class=language-sql data-lang=sql><span class=line><span class=cl><span class=k>CREATE</span><span class=w> </span><span class=k>TABLE</span><span class=w> </span><span class=n>users</span><span class=w> </span><span class=p>(</span><span class=w>
+</span></span></span><span class=line><span class=cl><span class=w>  </span><span class=n>id</span><span class=w> </span><span class=nb>int</span><span class=w> </span><span class=k>PRIMARY</span><span class=w> </span><span class=k>KEY</span><span class=p>,</span><span class=w>
+</span></span></span><span class=line><span class=cl><span class=w>  </span><span class=n>phone</span><span class=w> </span><span class=nb>varchar</span><span class=p>(</span><span class=mi>20</span><span class=p>),</span><span class=w> </span><span class=c1>-- 注意这里是 varchar
+</span></span></span><span class=line><span class=cl><span class=c1></span><span class=w>  </span><span class=n>name</span><span class=w> </span><span class=nb>varchar</span><span class=p>(</span><span class=mi>50</span><span class=p>),</span><span class=w>
+</span></span></span><span class=line><span class=cl><span class=w>  </span><span class=k>KEY</span><span class=w> </span><span class=n>idx_phone</span><span class=w> </span><span class=p>(</span><span class=n>phone</span><span class=p>)</span><span class=w>
+</span></span></span><span class=line><span class=cl><span class=w></span><span class=p>);</span><span class=w>
+</span></span></span></code></pre></td></tr></table></div></div><p>索引有了，SQL看起来也很简单：<code>SELECT * FROM users WHERE phone = 13800138000;</code></p><p>某天下午，运营做活动群发短信，用户蜂拥而至查状态，数据库CPU瞬间飙到100%，整个应用直接卡死。</p><p><strong>【踩坑结果】</strong>
 排查慢日志发现，这条简单的SQL扫描行数（Rows_examined）竟然是全表行数！
-原因在于：<strong>开发人员在Java代码里，把手机号当作 <code>Long</code> 类型传给了数据库，而数据库里存的是 <code>Varchar</code>。</strong></p>
-<p><strong>【复盘与改进】</strong>
+原因在于：<strong>开发人员在Java代码里，把手机号当作 <code>Long</code> 类型传给了数据库，而数据库里存的是 <code>Varchar</code>。</strong></p><p><strong>【复盘与改进】</strong>
 当字段类型是字符串，而查询条件是数字时，MySQL会做<strong>隐式类型转换</strong>。它会把表中每一行的 <code>phone</code> 字段转换成数字，再去和输入值比较。
-这就相当于每一行都执行了一次函数操作：<code>CAST(phone AS signed)</code>。<strong>在索引字段上做函数操作，索引直接失效，退化为全表扫描。</strong></p>
-<p><img src="https://picsum.photos/800/450?random=1768458459019"
-	
-	
-	
-	loading="lazy"
-	
-		alt="配图"
-	
-	
-></p>
-<p><strong>【修正方案】</strong>
-不需要改数据库，只需要改代码（或者SQL）：</p>
-<div class="highlight"><pre tabindex="0" style="color:#f8f8f2;background-color:#272822;-moz-tab-size:4;-o-tab-size:4;tab-size:4;"><code class="language-sql" data-lang="sql"><span style="display:flex;"><span><span style="color:#75715e">-- 加上引号，告诉MySQL这是个字符串
-</span></span></span><span style="display:flex;"><span><span style="color:#75715e"></span><span style="color:#66d9ef">SELECT</span> <span style="color:#f92672">*</span> <span style="color:#66d9ef">FROM</span> users <span style="color:#66d9ef">WHERE</span> phone <span style="color:#f92672">=</span> <span style="color:#e6db74">&#39;13800138000&#39;</span>; 
-</span></span></code></pre></div><p>改完上线，CPU立马降到了5%以下。从那以后，我在Code Review时，对涉及数据库字段类型的代码看得格外仔细。</p>
-<h2 id="总结与落地">总结与落地
-</h2><p>数据库索引优化，真不是背几个面试题就能搞定的。它需要你对业务场景有极深的理解，以及对执行计划（Explain）的敬畏。</p>
-<p>如果你想立刻改善手头项目的数据库性能，我有3个建议，明天上班就能做：</p>
-<ol>
-<li><strong>开启慢查询日志</strong>：设置阈值（比如1秒），跑一天，把抓到的Top 10慢SQL拉出来分析。这是最直接的线索。</li>
-<li><strong>检查“隐式转换”</strong>：搜索代码库，看看有没有用数字去查字符串字段的情况，尤其是在老旧系统中，这非常常见。</li>
-<li><strong>清理无效索引</strong>：用 <code>sys.schema_unused_indexes</code> (MySQL 5.7+) 看看哪些索引从来没被用过。它们在默默吃你的磁盘空间和写入性能，删了它们就是做减法优化。</li>
-</ol>
-<p><strong>最后想问问大家：</strong>
-你在生产环境中遇到过最离谱的“慢查询”是什么原因造成的？是没建索引，还是更奇葩的理由？欢迎在评论区分享你的“踩坑”故事，咱们一起避雷。</p>
-
-</section>
-
-
-    <footer class="article-footer">
-    
-    <section class="article-tags">
-        
-            <a href="/tags/%E6%95%B0%E6%8D%AE%E5%BA%93%E7%B4%A2%E5%BC%95%E4%BC%98%E5%8C%96%E5%AE%9E%E6%88%98%E6%A1%88%E4%BE%8B%E4%B8%8E%E9%81%BF%E5%9D%91.html">数据库索引优化：实战案例与避坑</a>
-        
-    </section>
-
-
-    </footer>
-
-
-    
-</article>
-
-    
-
-    
-
-     
-    
-        
-    <script
-    src="https://giscus.app/client.js"
-    data-repo="pastor17/bloggiscus"
-    data-repo-id="R_kgDOQ6H9qQ"
-    data-category=""
-    data-category-id="DIC_kwDOQ6H9qc4C0-T8"
-    data-mapping="pathname"
-    data-strict="0"
-    data-reactions-enabled="1"
-    data-emit-metadata="0"
-    data-input-position="bottom"
-    data-theme="light"
-    data-lang="zh-CN"
-    data-loading="lazy"
-    crossorigin="anonymous"
-    async
-></script>
-<script>
-    function setGiscusTheme(theme) {
-        let giscus = document.querySelector("iframe.giscus-frame");
-        if (giscus) {
-            giscus.contentWindow.postMessage(
-                {
-                    giscus: {
-                        setConfig: {
-                            theme: theme,
-                        },
-                    },
-                },
-                "https://giscus.app"
-            );
-        }
-    }
-
-    (function () {
-        addEventListener("message", (e) => {
-            if (event.origin !== "https://giscus.app") return;
-            handler();
-        });
-        window.addEventListener("onColorSchemeChange", handler);
-
-        function handler() {
-            if (document.documentElement.dataset.scheme === "light") {
-                setGiscusTheme('light');
-            } else {
-                setGiscusTheme('dark_dimmed');
-            }
-        }
-    })();
-</script>
-
-    
-
-    <footer class="site-footer">
-    <section class="copyright">
-        &copy; 
-        
-        2026 SelfTechHub
-    </section>
-    
-    <section class="powerby">
-        
-
-    </section>
-</footer>
-
-
-    
-<div class="pswp" tabindex="-1" role="dialog" aria-hidden="true">
-
-    
-    <div class="pswp__bg"></div>
-
-    
-    <div class="pswp__scroll-wrap">
-
-        
-        <div class="pswp__container">
-            <div class="pswp__item"></div>
-            <div class="pswp__item"></div>
-            <div class="pswp__item"></div>
-        </div>
-
-        
-        <div class="pswp__ui pswp__ui--hidden">
-
-            <div class="pswp__top-bar">
-
-                
-
-                <div class="pswp__counter"></div>
-
-                <button class="pswp__button pswp__button--close" title="Close (Esc)"></button>
-
-                <button class="pswp__button pswp__button--share" title="Share"></button>
-
-                <button class="pswp__button pswp__button--fs" title="Toggle fullscreen"></button>
-
-                <button class="pswp__button pswp__button--zoom" title="Zoom in/out"></button>
-
-                
-                
-                <div class="pswp__preloader">
-                    <div class="pswp__preloader__icn">
-                        <div class="pswp__preloader__cut">
-                            <div class="pswp__preloader__donut"></div>
-                        </div>
-                    </div>
-                </div>
-            </div>
-
-            <div class="pswp__share-modal pswp__share-modal--hidden pswp__single-tap">
-                <div class="pswp__share-tooltip"></div>
-            </div>
-
-            <button class="pswp__button pswp__button--arrow--left" title="Previous (arrow left)">
-            </button>
-
-            <button class="pswp__button pswp__button--arrow--right" title="Next (arrow right)">
-            </button>
-
-            <div class="pswp__caption">
-                <div class="pswp__caption__center"></div>
-            </div>
-
-        </div>
-
-    </div>
-
-</div><script 
-                src="https://cdn.jsdelivr.net/npm/photoswipe@4.1.3/dist/photoswipe.min.js"integrity="sha256-ePwmChbbvXbsO02lbM3HoHbSHTHFAeChekF1xKJdleo="crossorigin="anonymous"
-                defer
-                >
-            </script><script 
-                src="https://cdn.jsdelivr.net/npm/photoswipe@4.1.3/dist/photoswipe-ui-default.min.js"integrity="sha256-UKkzOn/w1mBxRmLLGrSeyB4e1xbrp4xylgAWb3M42pU="crossorigin="anonymous"
-                defer
-                >
-            </script><link 
-                rel="stylesheet" 
-                href="https://cdn.jsdelivr.net/npm/photoswipe@4.1.3/dist/default-skin/default-skin.min.css"crossorigin="anonymous"
-            ><link 
-                rel="stylesheet" 
-                href="https://cdn.jsdelivr.net/npm/photoswipe@4.1.3/dist/photoswipe.min.css"crossorigin="anonymous"
-            >
-    
-
-            </main>
-        </div>
-        <script 
-                src="https://cdn.jsdelivr.net/npm/node-vibrant@3.1.6/dist/vibrant.min.js"integrity="sha256-awcR2jno4kI5X0zL8ex0vi2z&#43;KMkF24hUW8WePSA9HM="crossorigin="anonymous"
-                
-                >
-            </script><script type="text/javascript" src="/ts/main.c922af694cc257bf1ecc41c0dd7b0430f9114ec280ccf67cd2c6ad55f5316c4e.js" defer></script>
-<script>
-    (function () {
-        const customFont = document.createElement('link');
-        customFont.href = "https://fonts.googleapis.com/css2?family=Lato:wght@300;400;700&display=swap";
-
-        customFont.type = "text/css";
-        customFont.rel = "stylesheet";
-
-        document.head.appendChild(customFont);
-    }());
-</script>
-
-    </body>
-</html>
+这就相当于每一行都执行了一次函数操作：<code>CAST(phone AS signed)</code>。<strong>在索引字段上做函数操作，索引直接失效，退化为全表扫描。</strong></p><p><img src="https://picsum.photos/800/450?random=1768458459019" loading=lazy alt=配图></p><p><strong>【修正方案】</strong>
+不需要改数据库，只需要改代码（或者SQL）：</p><div class=highlight><div class=chroma><table class=lntable><tr><td class=lntd><pre tabindex=0 class=chroma><code><span class=lnt>1
+</span><span class=lnt>2
+</span></code></pre></td><td class=lntd><pre tabindex=0 class=chroma><code class=language-sql data-lang=sql><span class=line><span class=cl><span class=c1>-- 加上引号，告诉MySQL这是个字符串
+</span></span></span><span class=line><span class=cl><span class=c1></span><span class=k>SELECT</span><span class=w> </span><span class=o>*</span><span class=w> </span><span class=k>FROM</span><span class=w> </span><span class=n>users</span><span class=w> </span><span class=k>WHERE</span><span class=w> </span><span class=n>phone</span><span class=w> </span><span class=o>=</span><span class=w> </span><span class=s1>&#39;13800138000&#39;</span><span class=p>;</span><span class=w> 
+</span></span></span></code></pre></td></tr></table></div></div><p>改完上线，CPU立马降到了5%以下。从那以后，我在Code Review时，对涉及数据库字段类型的代码看得格外仔细。</p><h2 id=总结与落地>总结与落地</h2><p>数据库索引优化，真不是背几个面试题就能搞定的。它需要你对业务场景有极深的理解，以及对执行计划（Explain）的敬畏。</p><p>如果你想立刻改善手头项目的数据库性能，我有3个建议，明天上班就能做：</p><ol><li><strong>开启慢查询日志</strong>：设置阈值（比如1秒），跑一天，把抓到的Top 10慢SQL拉出来分析。这是最直接的线索。</li><li><strong>检查“隐式转换”</strong>：搜索代码库，看看有没有用数字去查字符串字段的情况，尤其是在老旧系统中，这非常常见。</li><li><strong>清理无效索引</strong>：用 <code>sys.schema_unused_indexes</code> (MySQL 5.7+) 看看哪些索引从来没被用过。它们在默默吃你的磁盘空间和写入性能，删了它们就是做减法优化。</li></ol><p><strong>最后想问问大家：</strong>
+你在生产环境中遇到过最离谱的“慢查询”是什么原因造成的？是没建索引，还是更奇葩的理由？欢迎在评论区分享你的“踩坑”故事，咱们一起避雷。</p></section><footer class=article-footer><section class=article-tags><a href=/tags/%E6%95%B0%E6%8D%AE%E5%BA%93%E7%B4%A2%E5%BC%95%E4%BC%98%E5%8C%96%E5%AE%9E%E6%88%98%E6%A1%88%E4%BE%8B%E4%B8%8E%E9%81%BF%E5%9D%91.html>数据库索引优化：实战案例与避坑</a></section></footer></article><script src=https://giscus.app/client.js data-repo=pastor17/bloggiscus data-repo-id=R_kgDOQ6H9qQ data-category data-category-id=DIC_kwDOQ6H9qc4C0-T8 data-mapping=pathname data-strict=0 data-reactions-enabled=1 data-emit-metadata=0 data-input-position=bottom data-theme=light data-lang=zh-CN data-loading=lazy crossorigin=anonymous async></script><script>function setGiscusTheme(e){let t=document.querySelector("iframe.giscus-frame");t&&t.contentWindow.postMessage({giscus:{setConfig:{theme:e}}},"https://giscus.app")}(function(){addEventListener("message",t=>{if(event.origin!=="https://giscus.app")return;e()}),window.addEventListener("onColorSchemeChange",e);function e(){setGiscusTheme(document.documentElement.dataset.scheme==="light"?"light":"dark_dimmed")}})()</script><footer class=site-footer><section class=copyright>&copy;
+2021 -
+2026 SelfTechHub</section><section class=powerby>拒绝一次性认知，把碎片知识沉淀为可复用的记忆体系<br></section></footer><div class=pswp tabindex=-1 role=dialog aria-hidden=true><div class=pswp__bg></div><div class=pswp__scroll-wrap><div class=pswp__container><div class=pswp__item></div><div class=pswp__item></div><div class=pswp__item></div></div><div class="pswp__ui pswp__ui--hidden"><div class=pswp__top-bar><div class=pswp__counter></div><button class="pswp__button pswp__button--close" title="Close (Esc)"></button>
+<button class="pswp__button pswp__button--share" title=Share></button>
+<button class="pswp__button pswp__button--fs" title="Toggle fullscreen"></button>
+<button class="pswp__button pswp__button--zoom" title="Zoom in/out"></button><div class=pswp__preloader><div class=pswp__preloader__icn><div class=pswp__preloader__cut><div class=pswp__preloader__donut></div></div></div></div></div><div class="pswp__share-modal pswp__share-modal--hidden pswp__single-tap"><div class=pswp__share-tooltip></div></div><button class="pswp__button pswp__button--arrow--left" title="Previous (arrow left)">
+</button>
+<button class="pswp__button pswp__button--arrow--right" title="Next (arrow right)"></button><div class=pswp__caption><div class=pswp__caption__center></div></div></div></div></div><script src=https://cdn.jsdelivr.net/npm/photoswipe@4.1.3/dist/photoswipe.min.js integrity="sha256-ePwmChbbvXbsO02lbM3HoHbSHTHFAeChekF1xKJdleo=" crossorigin=anonymous defer></script><script src=https://cdn.jsdelivr.net/npm/photoswipe@4.1.3/dist/photoswipe-ui-default.min.js integrity="sha256-UKkzOn/w1mBxRmLLGrSeyB4e1xbrp4xylgAWb3M42pU=" crossorigin=anonymous defer></script><link rel=stylesheet href=https://cdn.jsdelivr.net/npm/photoswipe@4.1.3/dist/default-skin/default-skin.min.css crossorigin=anonymous><link rel=stylesheet href=https://cdn.jsdelivr.net/npm/photoswipe@4.1.3/dist/photoswipe.min.css crossorigin=anonymous></main></div><script src=https://cdn.jsdelivr.net/npm/node-vibrant@3.1.6/dist/vibrant.min.js integrity="sha256-awcR2jno4kI5X0zL8ex0vi2z+KMkF24hUW8WePSA9HM=" crossorigin=anonymous></script><script type=text/javascript src=/ts/main.c922af694cc257bf1ecc41c0dd7b0430f9114ec280ccf67cd2c6ad55f5316c4e.js defer></script><script>(function(){const e=document.createElement("link");e.href="https://fonts.googleapis.com/css2?family=Lato:wght@300;400;700&display=swap",e.type="text/css",e.rel="stylesheet",document.head.appendChild(e)})()</script></body></html>

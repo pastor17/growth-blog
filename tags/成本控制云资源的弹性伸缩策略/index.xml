@@ -1,23 +1,9 @@
-<?xml version="1.0" encoding="utf-8" standalone="yes"?>
-<rss version="2.0" xmlns:atom="http://www.w3.org/2005/Atom">
-    <channel>
-        <title>成本控制：云资源的弹性伸缩策略 on SelfTechHub</title>
-        <link>https://blog.irudder.me/tags/%E6%88%90%E6%9C%AC%E6%8E%A7%E5%88%B6%E4%BA%91%E8%B5%84%E6%BA%90%E7%9A%84%E5%BC%B9%E6%80%A7%E4%BC%B8%E7%BC%A9%E7%AD%96%E7%95%A5.html</link>
-        <description>Recent content in 成本控制：云资源的弹性伸缩策略 on SelfTechHub</description>
-        <generator>Hugo -- gohugo.io</generator>
-        <language>zh-cn</language>
-        <lastBuildDate>Mon, 03 Feb 2025 00:00:00 +0000</lastBuildDate><atom:link href="https://blog.irudder.me/tags/%E6%88%90%E6%9C%AC%E6%8E%A7%E5%88%B6%E4%BA%91%E8%B5%84%E6%BA%90%E7%9A%84%E5%BC%B9%E6%80%A7%E4%BC%B8%E7%BC%A9%E7%AD%96%E7%95%A5/index.xml" rel="self" type="application/rss+xml" /><item>
-        <title>半夜报警耗光预算？中小团队的弹性伸缩避坑实录</title>
-        <link>https://blog.irudder.me/tech/zhongxiaoxingtuanduidevopsluodifangan/chengbenkongzhi_yunziyuandetanxingshensuocelve.html</link>
-        <pubDate>Mon, 03 Feb 2025 00:00:00 +0000</pubDate>
-        
-        <guid>https://blog.irudder.me/tech/zhongxiaoxingtuanduidevopsluodifangan/chengbenkongzhi_yunziyuandetanxingshensuocelve.html</guid>
-        <description>&lt;p&gt;如果不算上那次因为写死循环导致的账单爆炸，我大概是在两年前真正意识到“云资源弹性伸缩”是个精细活的。&lt;/p&gt;
+<?xml version="1.0" encoding="utf-8" standalone="yes"?><rss version="2.0" xmlns:atom="http://www.w3.org/2005/Atom"><channel><title>成本控制：云资源的弹性伸缩策略 on SelfTechHub</title><link>https://blog.irudder.me/tags/%E6%88%90%E6%9C%AC%E6%8E%A7%E5%88%B6%E4%BA%91%E8%B5%84%E6%BA%90%E7%9A%84%E5%BC%B9%E6%80%A7%E4%BC%B8%E7%BC%A9%E7%AD%96%E7%95%A5.html</link><description>Recent content in 成本控制：云资源的弹性伸缩策略 on SelfTechHub</description><generator>Hugo -- gohugo.io</generator><language>zh-cn</language><lastBuildDate>Mon, 03 Feb 2025 00:00:00 +0800</lastBuildDate><atom:link href="https://blog.irudder.me/tags/%E6%88%90%E6%9C%AC%E6%8E%A7%E5%88%B6%E4%BA%91%E8%B5%84%E6%BA%90%E7%9A%84%E5%BC%B9%E6%80%A7%E4%BC%B8%E7%BC%A9%E7%AD%96%E7%95%A5/index.xml" rel="self" type="application/rss+xml"/><item><title>半夜报警耗光预算？中小团队的弹性伸缩避坑实录</title><link>https://blog.irudder.me/tech/zhongxiaoxingtuanduidevopsluodifangan/chengbenkongzhi_yunziyuandetanxingshensuocelve.html</link><pubDate>Mon, 03 Feb 2025 00:00:00 +0800</pubDate><guid>https://blog.irudder.me/tech/zhongxiaoxingtuanduidevopsluodifangan/chengbenkongzhi_yunziyuandetanxingshensuocelve.html</guid><description>&lt;p&gt;如果不算上那次因为写死循环导致的账单爆炸，我大概是在两年前真正意识到“云资源弹性伸缩”是个精细活的。&lt;/p&gt;
 &lt;p&gt;那时候，我所在的一个20人左右的研发团队刚把核心业务全量上云。为了应对所谓的“突发流量”，我自信满满地给每组服务都配置了自动伸缩（Auto Scaling）。结果在一个周六的凌晨，流量没来，报警电话却被打爆了——不是服务挂了，而是财务打来的：我们的云账户余额触发了熔断线。&lt;/p&gt;
 &lt;p&gt;原来，一个由于日志轮转配置错误导致的磁盘IO飙升，欺骗了伸缩组的监控指标，导致机器疯狂扩容，在一夜之间烧掉了我们一个季度的测试预算。&lt;/p&gt;
 &lt;p&gt;很多技术负责人觉得，开启弹性伸缩就是点了控制台上的“开启”按钮那么简单。&lt;strong&gt;但这其实是一个巨大的误区。&lt;/strong&gt; 对于没有专职运维的中小团队来说，弹性伸缩既是省钱利器，也可能是吞金巨兽。&lt;/p&gt;
 &lt;p&gt;今天，我想结合我这两年的一线实操经验，聊聊怎么在不牺牲稳定性的前提下，把每一分钱都花在刀刃上。&lt;/p&gt;
-&lt;h2 id=&#34;既然是弹性就别只盯着-cpu-看&#34;&gt;既然是弹性，就别只盯着 CPU 看
+&lt;h2 id="既然是弹性就别只盯着-cpu-看"&gt;既然是弹性，就别只盯着 CPU 看
 &lt;/h2&gt;&lt;p&gt;早期的云服务商文档里，几乎都推荐用 CPU 使用率（例如 &amp;gt; 70%）作为触发扩容的标准。这是一个典型的“正确但无用”的建议，尤其是在现在的微服务架构下。&lt;/p&gt;
 &lt;p&gt;&lt;strong&gt;真实案例：&lt;/strong&gt;
 去年双11预演，我们的订单服务在流量高峰期频频超时，但伸缩组却纹丝不动。我登上去一看，CPU 占用率才 45%，完全没达到扩容阈值。
@@ -28,16 +14,31 @@
 &lt;li&gt;&lt;strong&gt;组合拳策略：&lt;/strong&gt; 对于 Web 服务，&lt;strong&gt;“请求数（RPS）”&lt;/strong&gt; 或 &lt;strong&gt;“平均响应时间”&lt;/strong&gt; 往往比 CPU 更敏感。我现在的标准配置是：CPU &amp;gt; 65% &lt;strong&gt;或者&lt;/strong&gt; 单机 QPS &amp;gt; 200 即触发扩容。&lt;/li&gt;
 &lt;li&gt;&lt;strong&gt;内存陷阱：&lt;/strong&gt; 如果你的应用是 Java 写的，务必监控内存。JVM 的堆内存如果没配置好，机器可能在频繁 Full GC 中假死，但 CPU 看起来还在“努力工作”，这时候扩容新机器根本救不了火，反而可能因为新节点冷启动导致雪崩。&lt;/li&gt;
 &lt;/ul&gt;
-&lt;div class=&#34;highlight&#34;&gt;&lt;pre tabindex=&#34;0&#34; style=&#34;color:#f8f8f2;background-color:#272822;-moz-tab-size:4;-o-tab-size:4;tab-size:4;&#34;&gt;&lt;code class=&#34;language-yaml&#34; data-lang=&#34;yaml&#34;&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;&lt;span style=&#34;color:#75715e&#34;&gt;# 伪代码示例：更合理的混合指标配置思路&lt;/span&gt;
-&lt;/span&gt;&lt;/span&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;&lt;span style=&#34;color:#f92672&#34;&gt;scaling_policy&lt;/span&gt;:
-&lt;/span&gt;&lt;/span&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;  &lt;span style=&#34;color:#f92672&#34;&gt;triggers&lt;/span&gt;:
-&lt;/span&gt;&lt;/span&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;    - &lt;span style=&#34;color:#f92672&#34;&gt;metric&lt;/span&gt;: &lt;span style=&#34;color:#ae81ff&#34;&gt;cpu_utilization&lt;/span&gt;
-&lt;/span&gt;&lt;/span&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;      &lt;span style=&#34;color:#f92672&#34;&gt;threshold&lt;/span&gt;: &lt;span style=&#34;color:#ae81ff&#34;&gt;65&lt;/span&gt;&lt;span style=&#34;color:#ae81ff&#34;&gt;%&lt;/span&gt;
-&lt;/span&gt;&lt;/span&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;      &lt;span style=&#34;color:#f92672&#34;&gt;duration&lt;/span&gt;: &lt;span style=&#34;color:#ae81ff&#34;&gt;3m&lt;/span&gt;
-&lt;/span&gt;&lt;/span&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;    - &lt;span style=&#34;color:#f92672&#34;&gt;metric&lt;/span&gt;: &lt;span style=&#34;color:#ae81ff&#34;&gt;request_count_per_target&lt;/span&gt; &lt;span style=&#34;color:#75715e&#34;&gt;# 关键指标&lt;/span&gt;
-&lt;/span&gt;&lt;/span&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;      &lt;span style=&#34;color:#f92672&#34;&gt;threshold&lt;/span&gt;: &lt;span style=&#34;color:#ae81ff&#34;&gt;200&lt;/span&gt;
-&lt;/span&gt;&lt;/span&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;      &lt;span style=&#34;color:#f92672&#34;&gt;duration&lt;/span&gt;: &lt;span style=&#34;color:#ae81ff&#34;&gt;1m&lt;/span&gt;
-&lt;/span&gt;&lt;/span&gt;&lt;/code&gt;&lt;/pre&gt;&lt;/div&gt;&lt;h2 id=&#34;拒绝抽风式伸缩请给机器一点冷却时间&#34;&gt;拒绝“抽风式”伸缩，请给机器一点冷却时间
+&lt;div class="highlight"&gt;&lt;div class="chroma"&gt;
+&lt;table class="lntable"&gt;&lt;tr&gt;&lt;td class="lntd"&gt;
+&lt;pre tabindex="0" class="chroma"&gt;&lt;code&gt;&lt;span class="lnt"&gt;1
+&lt;/span&gt;&lt;span class="lnt"&gt;2
+&lt;/span&gt;&lt;span class="lnt"&gt;3
+&lt;/span&gt;&lt;span class="lnt"&gt;4
+&lt;/span&gt;&lt;span class="lnt"&gt;5
+&lt;/span&gt;&lt;span class="lnt"&gt;6
+&lt;/span&gt;&lt;span class="lnt"&gt;7
+&lt;/span&gt;&lt;span class="lnt"&gt;8
+&lt;/span&gt;&lt;span class="lnt"&gt;9
+&lt;/span&gt;&lt;/code&gt;&lt;/pre&gt;&lt;/td&gt;
+&lt;td class="lntd"&gt;
+&lt;pre tabindex="0" class="chroma"&gt;&lt;code class="language-yaml" data-lang="yaml"&gt;&lt;span class="line"&gt;&lt;span class="cl"&gt;&lt;span class="c"&gt;# 伪代码示例：更合理的混合指标配置思路&lt;/span&gt;&lt;span class="w"&gt;
+&lt;/span&gt;&lt;/span&gt;&lt;/span&gt;&lt;span class="line"&gt;&lt;span class="cl"&gt;&lt;span class="w"&gt;&lt;/span&gt;&lt;span class="nt"&gt;scaling_policy&lt;/span&gt;&lt;span class="p"&gt;:&lt;/span&gt;&lt;span class="w"&gt;
+&lt;/span&gt;&lt;/span&gt;&lt;/span&gt;&lt;span class="line"&gt;&lt;span class="cl"&gt;&lt;span class="w"&gt; &lt;/span&gt;&lt;span class="nt"&gt;triggers&lt;/span&gt;&lt;span class="p"&gt;:&lt;/span&gt;&lt;span class="w"&gt;
+&lt;/span&gt;&lt;/span&gt;&lt;/span&gt;&lt;span class="line"&gt;&lt;span class="cl"&gt;&lt;span class="w"&gt; &lt;/span&gt;- &lt;span class="nt"&gt;metric&lt;/span&gt;&lt;span class="p"&gt;:&lt;/span&gt;&lt;span class="w"&gt; &lt;/span&gt;&lt;span class="l"&gt;cpu_utilization&lt;/span&gt;&lt;span class="w"&gt;
+&lt;/span&gt;&lt;/span&gt;&lt;/span&gt;&lt;span class="line"&gt;&lt;span class="cl"&gt;&lt;span class="w"&gt; &lt;/span&gt;&lt;span class="nt"&gt;threshold&lt;/span&gt;&lt;span class="p"&gt;:&lt;/span&gt;&lt;span class="w"&gt; &lt;/span&gt;&lt;span class="m"&gt;65&lt;/span&gt;&lt;span class="l"&gt;%&lt;/span&gt;&lt;span class="w"&gt;
+&lt;/span&gt;&lt;/span&gt;&lt;/span&gt;&lt;span class="line"&gt;&lt;span class="cl"&gt;&lt;span class="w"&gt; &lt;/span&gt;&lt;span class="nt"&gt;duration&lt;/span&gt;&lt;span class="p"&gt;:&lt;/span&gt;&lt;span class="w"&gt; &lt;/span&gt;&lt;span class="l"&gt;3m&lt;/span&gt;&lt;span class="w"&gt;
+&lt;/span&gt;&lt;/span&gt;&lt;/span&gt;&lt;span class="line"&gt;&lt;span class="cl"&gt;&lt;span class="w"&gt; &lt;/span&gt;- &lt;span class="nt"&gt;metric&lt;/span&gt;&lt;span class="p"&gt;:&lt;/span&gt;&lt;span class="w"&gt; &lt;/span&gt;&lt;span class="l"&gt;request_count_per_target&lt;/span&gt;&lt;span class="w"&gt; &lt;/span&gt;&lt;span class="c"&gt;# 关键指标&lt;/span&gt;&lt;span class="w"&gt;
+&lt;/span&gt;&lt;/span&gt;&lt;/span&gt;&lt;span class="line"&gt;&lt;span class="cl"&gt;&lt;span class="w"&gt; &lt;/span&gt;&lt;span class="nt"&gt;threshold&lt;/span&gt;&lt;span class="p"&gt;:&lt;/span&gt;&lt;span class="w"&gt; &lt;/span&gt;&lt;span class="m"&gt;200&lt;/span&gt;&lt;span class="w"&gt;
+&lt;/span&gt;&lt;/span&gt;&lt;/span&gt;&lt;span class="line"&gt;&lt;span class="cl"&gt;&lt;span class="w"&gt; &lt;/span&gt;&lt;span class="nt"&gt;duration&lt;/span&gt;&lt;span class="p"&gt;:&lt;/span&gt;&lt;span class="w"&gt; &lt;/span&gt;&lt;span class="l"&gt;1m&lt;/span&gt;&lt;span class="w"&gt;
+&lt;/span&gt;&lt;/span&gt;&lt;/span&gt;&lt;/code&gt;&lt;/pre&gt;&lt;/td&gt;&lt;/tr&gt;&lt;/table&gt;
+&lt;/div&gt;
+&lt;/div&gt;&lt;h2 id="拒绝抽风式伸缩请给机器一点冷却时间"&gt;拒绝“抽风式”伸缩，请给机器一点冷却时间
 &lt;/h2&gt;&lt;p&gt;你有没有遇到过监控图表像心电图一样剧烈跳动？刚扩容两台，流量稍微一降马上缩容，紧接着流量回来又扩容。&lt;/p&gt;
 &lt;p&gt;这种“抖动”极其危险。&lt;/p&gt;
 &lt;p&gt;&lt;strong&gt;真实案例：&lt;/strong&gt;
@@ -50,61 +51,73 @@
 &lt;li&gt;&lt;strong&gt;预留缓冲：&lt;/strong&gt; 永远不要把资源压榨到极限。保留 20% 的余量（Buffer），是给系统自我修复的空间。&lt;/li&gt;
 &lt;/ol&gt;
 &lt;blockquote&gt;
-&lt;p&gt;经验之谈：对于中小团队，如果你的业务有明显的波峰波谷（比如外卖应用的中午和晚上），放弃纯动态伸缩，&lt;strong&gt;配合“定时伸缩（Scheduled Scaling）”&lt;/strong&gt; 才是王道。我在每天上午 10:30 强制扩容 3 台，比依赖算法靠谱得多。&lt;/p&gt;
-&lt;/blockquote&gt;
-&lt;h2 id=&#34;善用-spot-实例但别让它成为定时炸弹&#34;&gt;善用 Spot 实例，但别让它成为定时炸弹
+&lt;p&gt;经验之谈：对于中小团队，如果你的业务有明显的波峰波谷（比如外卖应用的中午和晚上），放弃纯动态伸缩，&lt;strong&gt;配合“定时伸缩（Scheduled Scaling）”&lt;/strong&gt; 才是王道。我在每天上午 10:30 强制扩容 3 台，比依赖算法靠谱得多。&lt;/p&gt;&lt;/blockquote&gt;
+&lt;h2 id="善用-spot-实例但别让它成为定时炸弹"&gt;善用 Spot 实例，但别让它成为定时炸弹
 &lt;/h2&gt;&lt;p&gt;抢占式实例（Spot Instances / Preemptible VMs）确实便宜，价格往往是按量付费的 1/10。对于预算有限的团队，这诱惑太大了。但天下没有免费的午餐，云厂商随时可能把机器收回。&lt;/p&gt;
 &lt;p&gt;&lt;strong&gt;真实案例：&lt;/strong&gt;
 为了省钱，我曾经把 CI/CD 的构建节点全换成了 Spot 实例。结果某个周五下午发版高峰，因为该区域资源紧张，云厂商强制回收了所有 Spot 实例。
 后果就是，整个团队对着卡在 Pending 状态的流水线干瞪眼了两个小时，因为那时候申请按量付费的机器也需要排队。&lt;/p&gt;
 &lt;p&gt;&lt;strong&gt;怎么用才安全？&lt;/strong&gt;
 Spot 实例是个好东西，但必须讲究“混搭艺术”。&lt;/p&gt;
-&lt;p&gt;&lt;img src=&#34;https://picsum.photos/800/450?random=1768390041530&#34;
-	
-	
-	
-	loading=&#34;lazy&#34;
-	
-		alt=&#34;配图&#34;
-	
-	
+&lt;p&gt;&lt;img src="https://picsum.photos/800/450?random=1768390041530"
+loading="lazy"
+alt="配图"
 &gt;&lt;/p&gt;
 &lt;ol&gt;
 &lt;li&gt;&lt;strong&gt;无状态服务专用：&lt;/strong&gt; 只把 Spot 实例用于随时可以重试的任务，比如离线数据分析、图像转码、或者无状态的 Web 前端节点。&lt;/li&gt;
 &lt;li&gt;&lt;strong&gt;混合实例组：&lt;/strong&gt; 现在的云厂商都支持“混合模式”。我建议的黄金比例是：&lt;strong&gt;30% 的按量付费/预留实例作为保底（Base Capacity），70% 的弹性部分使用 Spot 实例&lt;/strong&gt;。&lt;/li&gt;
 &lt;li&gt;&lt;strong&gt;优雅退出：&lt;/strong&gt; 务必在应用中捕获云厂商发出的“回收中断信号”（通常提前 2分钟通知）。收到信号后，让应用停止接收新请求，并尽快处理完手头的活。&lt;/li&gt;
 &lt;/ol&gt;
-&lt;div class=&#34;highlight&#34;&gt;&lt;pre tabindex=&#34;0&#34; style=&#34;color:#f8f8f2;background-color:#272822;-moz-tab-size:4;-o-tab-size:4;tab-size:4;&#34;&gt;&lt;code class=&#34;language-python&#34; data-lang=&#34;python&#34;&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;&lt;span style=&#34;color:#75715e&#34;&gt;# 一个简单的Python监听示例，用于感知Spot实例将被回收&lt;/span&gt;
-&lt;/span&gt;&lt;/span&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;&lt;span style=&#34;color:#f92672&#34;&gt;import&lt;/span&gt; requests
-&lt;/span&gt;&lt;/span&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;&lt;span style=&#34;color:#f92672&#34;&gt;import&lt;/span&gt; time
-&lt;/span&gt;&lt;/span&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;
-&lt;/span&gt;&lt;/span&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;&lt;span style=&#34;color:#66d9ef&#34;&gt;def&lt;/span&gt; &lt;span style=&#34;color:#a6e22e&#34;&gt;check_termination_notice&lt;/span&gt;():
-&lt;/span&gt;&lt;/span&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;    &lt;span style=&#34;color:#66d9ef&#34;&gt;try&lt;/span&gt;:
-&lt;/span&gt;&lt;/span&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;        &lt;span style=&#34;color:#75715e&#34;&gt;# AWS的元数据地址示例&lt;/span&gt;
-&lt;/span&gt;&lt;/span&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;        response &lt;span style=&#34;color:#f92672&#34;&gt;=&lt;/span&gt; requests&lt;span style=&#34;color:#f92672&#34;&gt;.&lt;/span&gt;get(&lt;span style=&#34;color:#e6db74&#34;&gt;&amp;#34;http://169.254.169.254/latest/meta-data/spot/instance-action&amp;#34;&lt;/span&gt;)
-&lt;/span&gt;&lt;/span&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;        &lt;span style=&#34;color:#66d9ef&#34;&gt;if&lt;/span&gt; response&lt;span style=&#34;color:#f92672&#34;&gt;.&lt;/span&gt;status_code &lt;span style=&#34;color:#f92672&#34;&gt;==&lt;/span&gt; &lt;span style=&#34;color:#ae81ff&#34;&gt;200&lt;/span&gt;:
-&lt;/span&gt;&lt;/span&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;            print(&lt;span style=&#34;color:#e6db74&#34;&gt;&amp;#34;警告：实例将在2分钟内被回收，开始排水操作...&amp;#34;&lt;/span&gt;)
-&lt;/span&gt;&lt;/span&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;            &lt;span style=&#34;color:#75715e&#34;&gt;# 执行停止接收流量、保存状态等逻辑&lt;/span&gt;
-&lt;/span&gt;&lt;/span&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;            stop_accepting_traffic()
-&lt;/span&gt;&lt;/span&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;    &lt;span style=&#34;color:#66d9ef&#34;&gt;except&lt;/span&gt; &lt;span style=&#34;color:#a6e22e&#34;&gt;Exception&lt;/span&gt;:
-&lt;/span&gt;&lt;/span&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;        &lt;span style=&#34;color:#66d9ef&#34;&gt;pass&lt;/span&gt;
-&lt;/span&gt;&lt;/span&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;
-&lt;/span&gt;&lt;/span&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;&lt;span style=&#34;color:#75715e&#34;&gt;# 在后台线程运行&lt;/span&gt;
-&lt;/span&gt;&lt;/span&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;&lt;span style=&#34;color:#66d9ef&#34;&gt;while&lt;/span&gt; &lt;span style=&#34;color:#66d9ef&#34;&gt;True&lt;/span&gt;:
-&lt;/span&gt;&lt;/span&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;    check_termination_notice()
-&lt;/span&gt;&lt;/span&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;    time&lt;span style=&#34;color:#f92672&#34;&gt;.&lt;/span&gt;sleep(&lt;span style=&#34;color:#ae81ff&#34;&gt;5&lt;/span&gt;)
-&lt;/span&gt;&lt;/span&gt;&lt;/code&gt;&lt;/pre&gt;&lt;/div&gt;&lt;h2 id=&#34;别让僵尸资源吃掉你的利润&#34;&gt;别让“僵尸资源”吃掉你的利润
+&lt;div class="highlight"&gt;&lt;div class="chroma"&gt;
+&lt;table class="lntable"&gt;&lt;tr&gt;&lt;td class="lntd"&gt;
+&lt;pre tabindex="0" class="chroma"&gt;&lt;code&gt;&lt;span class="lnt"&gt; 1
+&lt;/span&gt;&lt;span class="lnt"&gt; 2
+&lt;/span&gt;&lt;span class="lnt"&gt; 3
+&lt;/span&gt;&lt;span class="lnt"&gt; 4
+&lt;/span&gt;&lt;span class="lnt"&gt; 5
+&lt;/span&gt;&lt;span class="lnt"&gt; 6
+&lt;/span&gt;&lt;span class="lnt"&gt; 7
+&lt;/span&gt;&lt;span class="lnt"&gt; 8
+&lt;/span&gt;&lt;span class="lnt"&gt; 9
+&lt;/span&gt;&lt;span class="lnt"&gt;10
+&lt;/span&gt;&lt;span class="lnt"&gt;11
+&lt;/span&gt;&lt;span class="lnt"&gt;12
+&lt;/span&gt;&lt;span class="lnt"&gt;13
+&lt;/span&gt;&lt;span class="lnt"&gt;14
+&lt;/span&gt;&lt;span class="lnt"&gt;15
+&lt;/span&gt;&lt;span class="lnt"&gt;16
+&lt;/span&gt;&lt;span class="lnt"&gt;17
+&lt;/span&gt;&lt;span class="lnt"&gt;18
+&lt;/span&gt;&lt;span class="lnt"&gt;19
+&lt;/span&gt;&lt;/code&gt;&lt;/pre&gt;&lt;/td&gt;
+&lt;td class="lntd"&gt;
+&lt;pre tabindex="0" class="chroma"&gt;&lt;code class="language-python" data-lang="python"&gt;&lt;span class="line"&gt;&lt;span class="cl"&gt;&lt;span class="c1"&gt;# 一个简单的Python监听示例，用于感知Spot实例将被回收&lt;/span&gt;
+&lt;/span&gt;&lt;/span&gt;&lt;span class="line"&gt;&lt;span class="cl"&gt;&lt;span class="kn"&gt;import&lt;/span&gt; &lt;span class="nn"&gt;requests&lt;/span&gt;
+&lt;/span&gt;&lt;/span&gt;&lt;span class="line"&gt;&lt;span class="cl"&gt;&lt;span class="kn"&gt;import&lt;/span&gt; &lt;span class="nn"&gt;time&lt;/span&gt;
+&lt;/span&gt;&lt;/span&gt;&lt;span class="line"&gt;&lt;span class="cl"&gt;
+&lt;/span&gt;&lt;/span&gt;&lt;span class="line"&gt;&lt;span class="cl"&gt;&lt;span class="k"&gt;def&lt;/span&gt; &lt;span class="nf"&gt;check_termination_notice&lt;/span&gt;&lt;span class="p"&gt;():&lt;/span&gt;
+&lt;/span&gt;&lt;/span&gt;&lt;span class="line"&gt;&lt;span class="cl"&gt; &lt;span class="k"&gt;try&lt;/span&gt;&lt;span class="p"&gt;:&lt;/span&gt;
+&lt;/span&gt;&lt;/span&gt;&lt;span class="line"&gt;&lt;span class="cl"&gt; &lt;span class="c1"&gt;# AWS的元数据地址示例&lt;/span&gt;
+&lt;/span&gt;&lt;/span&gt;&lt;span class="line"&gt;&lt;span class="cl"&gt; &lt;span class="n"&gt;response&lt;/span&gt; &lt;span class="o"&gt;=&lt;/span&gt; &lt;span class="n"&gt;requests&lt;/span&gt;&lt;span class="o"&gt;.&lt;/span&gt;&lt;span class="n"&gt;get&lt;/span&gt;&lt;span class="p"&gt;(&lt;/span&gt;&lt;span class="s2"&gt;&amp;#34;http://169.254.169.254/latest/meta-data/spot/instance-action&amp;#34;&lt;/span&gt;&lt;span class="p"&gt;)&lt;/span&gt;
+&lt;/span&gt;&lt;/span&gt;&lt;span class="line"&gt;&lt;span class="cl"&gt; &lt;span class="k"&gt;if&lt;/span&gt; &lt;span class="n"&gt;response&lt;/span&gt;&lt;span class="o"&gt;.&lt;/span&gt;&lt;span class="n"&gt;status_code&lt;/span&gt; &lt;span class="o"&gt;==&lt;/span&gt; &lt;span class="mi"&gt;200&lt;/span&gt;&lt;span class="p"&gt;:&lt;/span&gt;
+&lt;/span&gt;&lt;/span&gt;&lt;span class="line"&gt;&lt;span class="cl"&gt; &lt;span class="nb"&gt;print&lt;/span&gt;&lt;span class="p"&gt;(&lt;/span&gt;&lt;span class="s2"&gt;&amp;#34;警告：实例将在2分钟内被回收，开始排水操作...&amp;#34;&lt;/span&gt;&lt;span class="p"&gt;)&lt;/span&gt;
+&lt;/span&gt;&lt;/span&gt;&lt;span class="line"&gt;&lt;span class="cl"&gt; &lt;span class="c1"&gt;# 执行停止接收流量、保存状态等逻辑&lt;/span&gt;
+&lt;/span&gt;&lt;/span&gt;&lt;span class="line"&gt;&lt;span class="cl"&gt; &lt;span class="n"&gt;stop_accepting_traffic&lt;/span&gt;&lt;span class="p"&gt;()&lt;/span&gt;
+&lt;/span&gt;&lt;/span&gt;&lt;span class="line"&gt;&lt;span class="cl"&gt; &lt;span class="k"&gt;except&lt;/span&gt; &lt;span class="ne"&gt;Exception&lt;/span&gt;&lt;span class="p"&gt;:&lt;/span&gt;
+&lt;/span&gt;&lt;/span&gt;&lt;span class="line"&gt;&lt;span class="cl"&gt; &lt;span class="k"&gt;pass&lt;/span&gt;
+&lt;/span&gt;&lt;/span&gt;&lt;span class="line"&gt;&lt;span class="cl"&gt;
+&lt;/span&gt;&lt;/span&gt;&lt;span class="line"&gt;&lt;span class="cl"&gt;&lt;span class="c1"&gt;# 在后台线程运行&lt;/span&gt;
+&lt;/span&gt;&lt;/span&gt;&lt;span class="line"&gt;&lt;span class="cl"&gt;&lt;span class="k"&gt;while&lt;/span&gt; &lt;span class="kc"&gt;True&lt;/span&gt;&lt;span class="p"&gt;:&lt;/span&gt;
+&lt;/span&gt;&lt;/span&gt;&lt;span class="line"&gt;&lt;span class="cl"&gt; &lt;span class="n"&gt;check_termination_notice&lt;/span&gt;&lt;span class="p"&gt;()&lt;/span&gt;
+&lt;/span&gt;&lt;/span&gt;&lt;span class="line"&gt;&lt;span class="cl"&gt; &lt;span class="n"&gt;time&lt;/span&gt;&lt;span class="o"&gt;.&lt;/span&gt;&lt;span class="n"&gt;sleep&lt;/span&gt;&lt;span class="p"&gt;(&lt;/span&gt;&lt;span class="mi"&gt;5&lt;/span&gt;&lt;span class="p"&gt;)&lt;/span&gt;
+&lt;/span&gt;&lt;/span&gt;&lt;/code&gt;&lt;/pre&gt;&lt;/td&gt;&lt;/tr&gt;&lt;/table&gt;
+&lt;/div&gt;
+&lt;/div&gt;&lt;h2 id="别让僵尸资源吃掉你的利润"&gt;别让“僵尸资源”吃掉你的利润
 &lt;/h2&gt;&lt;p&gt;弹性伸缩最容易被忽视的成本，不是计算资源，而是那些“附属品”。&lt;/p&gt;
 &lt;p&gt;当你缩容了一台虚拟机，它的 CPU 和内存是不计费了。但是，挂载在上面的&lt;strong&gt;数据盘（EBS/Cloud Disk）&lt;/strong&gt; 如果没有勾选“随实例释放”，它们就会变成“僵尸磁盘”，静静地躺在那扣你的费。还有未绑定的&lt;strong&gt;弹性公网 IP (EIP)&lt;/strong&gt;，闲置时通常也是要收费的。&lt;/p&gt;
-&lt;p&gt;&lt;img src=&#34;https://picsum.photos/800/450?random=1768390046407&#34;
-	
-	
-	
-	loading=&#34;lazy&#34;
-	
-		alt=&#34;配图&#34;
-	
-	
+&lt;p&gt;&lt;img src="https://picsum.photos/800/450?random=1768390046407"
+loading="lazy"
+alt="配图"
 &gt;&lt;/p&gt;
 &lt;p&gt;&lt;strong&gt;我亲测有效的方法：&lt;/strong&gt;
 我每周一早上喝咖啡的时候，都会雷打不动地花 10 分钟看一眼账单明细。&lt;/p&gt;
@@ -112,7 +125,7 @@ Spot 实例是个好东西，但必须讲究“混搭艺术”。&lt;/p&gt;
 &lt;li&gt;&lt;strong&gt;标签致胜（Tagging）：&lt;/strong&gt; 给所有自动创建的资源打上标签，例如 &lt;code&gt;CreatedBy: AutoScaling&lt;/code&gt;。&lt;/li&gt;
 &lt;li&gt;&lt;strong&gt;自动化清理脚本：&lt;/strong&gt; 写一个简单的 Lambda/Function Compute 脚本，每天定时扫描。如果发现有未挂载的磁盘且标签是自动伸缩创建的，保留 24 小时后自动快照并删除。&lt;/li&gt;
 &lt;/ul&gt;
-&lt;h2 id=&#34;结语&#34;&gt;结语
+&lt;h2 id="结语"&gt;结语
 &lt;/h2&gt;&lt;p&gt;云资源的弹性伸缩，本质上是在**“可用性风险”&lt;strong&gt;和&lt;/strong&gt;“真金白银”&lt;strong&gt;之间走钢丝。对于中小团队，我们不需要像 Netflix 那样搞复杂的混沌工程，我们需要的是一套&lt;/strong&gt;“反脆弱”的兜底机制**。&lt;/p&gt;
 &lt;p&gt;与其迷信全自动的 AI 算法，不如多花点时间了解你的业务流量特征。&lt;/p&gt;
 &lt;p&gt;最后，我想给你三个马上就能落地的行动建议：&lt;/p&gt;
@@ -121,9 +134,4 @@ Spot 实例是个好东西，但必须讲究“混搭艺术”。&lt;/p&gt;
 &lt;li&gt;&lt;strong&gt;审计闲置资源：&lt;/strong&gt; 去控制台看看有没有未挂载的磁盘和未绑定的 IP，通常能帮你省下一顿火锅钱。&lt;/li&gt;
 &lt;li&gt;&lt;strong&gt;配置双重报警：&lt;/strong&gt; 除了技术指标报警，务必设置**“预算报警”**（比如预计本月超支 80% 时通知），这才是最后的防线。&lt;/li&gt;
 &lt;/ol&gt;
-&lt;p&gt;&lt;strong&gt;你在云资源管理中遇到过哪些“隐形刺客”？或者是让你心惊肉跳的账单时刻？欢迎在评论区分享，让我们一起避坑。&lt;/strong&gt;&lt;/p&gt;
-</description>
-        </item>
-        
-    </channel>
-</rss>
+&lt;p&gt;&lt;strong&gt;你在云资源管理中遇到过哪些“隐形刺客”？或者是让你心惊肉跳的账单时刻？欢迎在评论区分享，让我们一起避坑。&lt;/strong&gt;&lt;/p&gt;</description></item></channel></rss>

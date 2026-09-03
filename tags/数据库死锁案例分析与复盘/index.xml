@@ -1,21 +1,7 @@
-<?xml version="1.0" encoding="utf-8" standalone="yes"?>
-<rss version="2.0" xmlns:atom="http://www.w3.org/2005/Atom">
-    <channel>
-        <title>数据库死锁案例分析与复盘 on SelfTechHub</title>
-        <link>https://blog.irudder.me/tags/%E6%95%B0%E6%8D%AE%E5%BA%93%E6%AD%BB%E9%94%81%E6%A1%88%E4%BE%8B%E5%88%86%E6%9E%90%E4%B8%8E%E5%A4%8D%E7%9B%98.html</link>
-        <description>Recent content in 数据库死锁案例分析与复盘 on SelfTechHub</description>
-        <generator>Hugo -- gohugo.io</generator>
-        <language>zh-cn</language>
-        <lastBuildDate>Tue, 02 Jan 2024 00:00:00 +0000</lastBuildDate><atom:link href="https://blog.irudder.me/tags/%E6%95%B0%E6%8D%AE%E5%BA%93%E6%AD%BB%E9%94%81%E6%A1%88%E4%BE%8B%E5%88%86%E6%9E%90%E4%B8%8E%E5%A4%8D%E7%9B%98/index.xml" rel="self" type="application/rss+xml" /><item>
-        <title>凌晨3点的报警：一次MySQL死锁引发的P2故障复盘</title>
-        <link>https://blog.irudder.me/tech/jiagouyouhuashizhananlijiexi/shujukusisuoanlifenxiyufupan.html</link>
-        <pubDate>Tue, 02 Jan 2024 00:00:00 +0000</pubDate>
-        
-        <guid>https://blog.irudder.me/tech/jiagouyouhuashizhananlijiexi/shujukusisuoanlifenxiyufupan.html</guid>
-        <description>&lt;p&gt;还记得上个月那个周五，本该是我雷打不动的&amp;quot;代码Reivew时间&amp;quot;，结果凌晨3点12分，电话炸醒了我。监控报警群里一片红海：核心交易链路接口超时，数据库CPU飙升，应用层大量抛出 &lt;code&gt;Deadlock found when trying to get lock&lt;/code&gt; 异常。&lt;/p&gt;
+<?xml version="1.0" encoding="utf-8" standalone="yes"?><rss version="2.0" xmlns:atom="http://www.w3.org/2005/Atom"><channel><title>数据库死锁案例分析与复盘 on SelfTechHub</title><link>https://blog.irudder.me/tags/%E6%95%B0%E6%8D%AE%E5%BA%93%E6%AD%BB%E9%94%81%E6%A1%88%E4%BE%8B%E5%88%86%E6%9E%90%E4%B8%8E%E5%A4%8D%E7%9B%98.html</link><description>Recent content in 数据库死锁案例分析与复盘 on SelfTechHub</description><generator>Hugo -- gohugo.io</generator><language>zh-cn</language><lastBuildDate>Tue, 02 Jan 2024 00:00:00 +0800</lastBuildDate><atom:link href="https://blog.irudder.me/tags/%E6%95%B0%E6%8D%AE%E5%BA%93%E6%AD%BB%E9%94%81%E6%A1%88%E4%BE%8B%E5%88%86%E6%9E%90%E4%B8%8E%E5%A4%8D%E7%9B%98/index.xml" rel="self" type="application/rss+xml"/><item><title>凌晨3点的报警：一次MySQL死锁引发的P2故障复盘</title><link>https://blog.irudder.me/tech/jiagouyouhuashizhananlijiexi/shujukusisuoanlifenxiyufupan.html</link><pubDate>Tue, 02 Jan 2024 00:00:00 +0800</pubDate><guid>https://blog.irudder.me/tech/jiagouyouhuashizhananlijiexi/shujukusisuoanlifenxiyufupan.html</guid><description>&lt;p&gt;还记得上个月那个周五，本该是我雷打不动的&amp;quot;代码Reivew时间&amp;quot;，结果凌晨3点12分，电话炸醒了我。监控报警群里一片红海：核心交易链路接口超时，数据库CPU飙升，应用层大量抛出 &lt;code&gt;Deadlock found when trying to get lock&lt;/code&gt; 异常。&lt;/p&gt;
 &lt;p&gt;这次事故给我的教训极其深刻——我曾经以为只要SQL写得对，索引加得准，死锁就离我很远。直到这起P2级故障狠狠打脸：&lt;strong&gt;在高并发场景下，死锁往往不是代码写错了，而是这时候的数据库&amp;quot;太聪明&amp;quot;了。&lt;/strong&gt;&lt;/p&gt;
 &lt;p&gt;今天把这次事故的完整排查过程、踩坑细节和最终方案复盘出来，希望能帮大家避开这个隐蔽的深坑。&lt;/p&gt;
-&lt;h2 id=&#34;诡异的间隙当insert遇上delete&#34;&gt;诡异的&amp;quot;间隙&amp;quot;：当Insert遇上Delete
+&lt;h2 id="诡异的间隙当insert遇上delete"&gt;诡异的&amp;quot;间隙&amp;quot;：当Insert遇上Delete
 &lt;/h2&gt;&lt;p&gt;故障发生的背景是一个类似&amp;quot;抢券&amp;quot;的业务场景。为了防止用户重复领取，我们的逻辑很简单：先查一下有没有记录，没有则插入，有则更新状态。&lt;/p&gt;
 &lt;p&gt;这时候，你可能会觉得：&amp;ldquo;这逻辑没毛病啊，加了唯一索引，顶多报个主键冲突，怎么会死锁？&amp;rdquo;&lt;/p&gt;
 &lt;p&gt;我们也这么想的。但在排查 &lt;code&gt;SHOW ENGINE INNODB STATUS&lt;/code&gt; 日志时，我发现事情并不简单。死锁日志里频繁出现 &lt;code&gt;lock_mode X locks gap before rec insert intention waiting&lt;/code&gt; 字样。&lt;/p&gt;
@@ -29,17 +15,29 @@
 &lt;p&gt;当T1持有Gap Lock时，T2想要插入数据，需要获取 &lt;strong&gt;Insert Intention Lock（插入意向锁）&lt;/strong&gt;。关键点来了：&lt;strong&gt;间隙锁和插入意向锁是互斥的。&lt;/strong&gt;&lt;/p&gt;
 &lt;p&gt;如果此时T2也因为之前的某个查询持有了一个重叠的Gap Lock（这种情况在高并发重试逻辑中极易出现），两个事务就会互相持有对方需要的Gap Lock，同时等待对方释放，死锁瞬间形成。&lt;/p&gt;
 &lt;p&gt;我们在排查时，盯着代码里的 &lt;code&gt;Insert&lt;/code&gt; 看了半天，完全忽略了前置的 &lt;code&gt;Delete/Update&lt;/code&gt; 产生的隐形锁。&lt;/p&gt;
-&lt;h2 id=&#34;批量更新的噩梦顺序真的很重要&#34;&gt;批量更新的噩梦：顺序真的很重要
+&lt;h2 id="批量更新的噩梦顺序真的很重要"&gt;批量更新的噩梦：顺序真的很重要
 &lt;/h2&gt;&lt;p&gt;解决完上面的Gap Lock问题后，系统平稳了一周。但在一次大促压测中，死锁警报再次拉响。这次不是Insert了，而是纯粹的批量Update。&lt;/p&gt;
 &lt;p&gt;场景是这样的：我们需要批量扣减库存。
 代码逻辑大致如下：&lt;/p&gt;
-&lt;div class=&#34;highlight&#34;&gt;&lt;pre tabindex=&#34;0&#34; style=&#34;color:#f8f8f2;background-color:#272822;-moz-tab-size:4;-o-tab-size:4;tab-size:4;&#34;&gt;&lt;code class=&#34;language-java&#34; data-lang=&#34;java&#34;&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;&lt;span style=&#34;color:#a6e22e&#34;&gt;@Transactional&lt;/span&gt;
-&lt;/span&gt;&lt;/span&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;&lt;span style=&#34;color:#66d9ef&#34;&gt;public&lt;/span&gt; &lt;span style=&#34;color:#66d9ef&#34;&gt;void&lt;/span&gt; &lt;span style=&#34;color:#a6e22e&#34;&gt;batchDecreaseStock&lt;/span&gt;(List&lt;span style=&#34;color:#f92672&#34;&gt;&amp;lt;&lt;/span&gt;Long&lt;span style=&#34;color:#f92672&#34;&gt;&amp;gt;&lt;/span&gt; skuIds, &lt;span style=&#34;color:#66d9ef&#34;&gt;int&lt;/span&gt; quantity) {
-&lt;/span&gt;&lt;/span&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;    &lt;span style=&#34;color:#66d9ef&#34;&gt;for&lt;/span&gt; (Long skuId : skuIds) {
-&lt;/span&gt;&lt;/span&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;        stockRepository.&lt;span style=&#34;color:#a6e22e&#34;&gt;decrease&lt;/span&gt;(skuId, quantity);
-&lt;/span&gt;&lt;/span&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;    }
-&lt;/span&gt;&lt;/span&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;}
-&lt;/span&gt;&lt;/span&gt;&lt;/code&gt;&lt;/pre&gt;&lt;/div&gt;&lt;p&gt;乍一看，平平无奇。但在并发量达到 2000 QPS 时，数据库大量报错。&lt;/p&gt;
+&lt;div class="highlight"&gt;&lt;div class="chroma"&gt;
+&lt;table class="lntable"&gt;&lt;tr&gt;&lt;td class="lntd"&gt;
+&lt;pre tabindex="0" class="chroma"&gt;&lt;code&gt;&lt;span class="lnt"&gt;1
+&lt;/span&gt;&lt;span class="lnt"&gt;2
+&lt;/span&gt;&lt;span class="lnt"&gt;3
+&lt;/span&gt;&lt;span class="lnt"&gt;4
+&lt;/span&gt;&lt;span class="lnt"&gt;5
+&lt;/span&gt;&lt;span class="lnt"&gt;6
+&lt;/span&gt;&lt;/code&gt;&lt;/pre&gt;&lt;/td&gt;
+&lt;td class="lntd"&gt;
+&lt;pre tabindex="0" class="chroma"&gt;&lt;code class="language-java" data-lang="java"&gt;&lt;span class="line"&gt;&lt;span class="cl"&gt;&lt;span class="nd"&gt;@Transactional&lt;/span&gt;&lt;span class="w"&gt;
+&lt;/span&gt;&lt;/span&gt;&lt;/span&gt;&lt;span class="line"&gt;&lt;span class="cl"&gt;&lt;span class="w"&gt;&lt;/span&gt;&lt;span class="kd"&gt;public&lt;/span&gt;&lt;span class="w"&gt; &lt;/span&gt;&lt;span class="kt"&gt;void&lt;/span&gt;&lt;span class="w"&gt; &lt;/span&gt;&lt;span class="nf"&gt;batchDecreaseStock&lt;/span&gt;&lt;span class="p"&gt;(&lt;/span&gt;&lt;span class="n"&gt;List&lt;/span&gt;&lt;span class="o"&gt;&amp;lt;&lt;/span&gt;&lt;span class="n"&gt;Long&lt;/span&gt;&lt;span class="o"&gt;&amp;gt;&lt;/span&gt;&lt;span class="w"&gt; &lt;/span&gt;&lt;span class="n"&gt;skuIds&lt;/span&gt;&lt;span class="p"&gt;,&lt;/span&gt;&lt;span class="w"&gt; &lt;/span&gt;&lt;span class="kt"&gt;int&lt;/span&gt;&lt;span class="w"&gt; &lt;/span&gt;&lt;span class="n"&gt;quantity&lt;/span&gt;&lt;span class="p"&gt;)&lt;/span&gt;&lt;span class="w"&gt; &lt;/span&gt;&lt;span class="p"&gt;{&lt;/span&gt;&lt;span class="w"&gt;
+&lt;/span&gt;&lt;/span&gt;&lt;/span&gt;&lt;span class="line"&gt;&lt;span class="cl"&gt;&lt;span class="w"&gt; &lt;/span&gt;&lt;span class="k"&gt;for&lt;/span&gt;&lt;span class="w"&gt; &lt;/span&gt;&lt;span class="p"&gt;(&lt;/span&gt;&lt;span class="n"&gt;Long&lt;/span&gt;&lt;span class="w"&gt; &lt;/span&gt;&lt;span class="n"&gt;skuId&lt;/span&gt;&lt;span class="w"&gt; &lt;/span&gt;&lt;span class="p"&gt;:&lt;/span&gt;&lt;span class="w"&gt; &lt;/span&gt;&lt;span class="n"&gt;skuIds&lt;/span&gt;&lt;span class="p"&gt;)&lt;/span&gt;&lt;span class="w"&gt; &lt;/span&gt;&lt;span class="p"&gt;{&lt;/span&gt;&lt;span class="w"&gt;
+&lt;/span&gt;&lt;/span&gt;&lt;/span&gt;&lt;span class="line"&gt;&lt;span class="cl"&gt;&lt;span class="w"&gt; &lt;/span&gt;&lt;span class="n"&gt;stockRepository&lt;/span&gt;&lt;span class="p"&gt;.&lt;/span&gt;&lt;span class="na"&gt;decrease&lt;/span&gt;&lt;span class="p"&gt;(&lt;/span&gt;&lt;span class="n"&gt;skuId&lt;/span&gt;&lt;span class="p"&gt;,&lt;/span&gt;&lt;span class="w"&gt; &lt;/span&gt;&lt;span class="n"&gt;quantity&lt;/span&gt;&lt;span class="p"&gt;);&lt;/span&gt;&lt;span class="w"&gt;
+&lt;/span&gt;&lt;/span&gt;&lt;/span&gt;&lt;span class="line"&gt;&lt;span class="cl"&gt;&lt;span class="w"&gt; &lt;/span&gt;&lt;span class="p"&gt;}&lt;/span&gt;&lt;span class="w"&gt;
+&lt;/span&gt;&lt;/span&gt;&lt;/span&gt;&lt;span class="line"&gt;&lt;span class="cl"&gt;&lt;span class="w"&gt;&lt;/span&gt;&lt;span class="p"&gt;}&lt;/span&gt;&lt;span class="w"&gt;
+&lt;/span&gt;&lt;/span&gt;&lt;/span&gt;&lt;/code&gt;&lt;/pre&gt;&lt;/td&gt;&lt;/tr&gt;&lt;/table&gt;
+&lt;/div&gt;
+&lt;/div&gt;&lt;p&gt;乍一看，平平无奇。但在并发量达到 2000 QPS 时，数据库大量报错。&lt;/p&gt;
 &lt;p&gt;&lt;strong&gt;踩坑复盘：&lt;/strong&gt;
 前端传过来的 &lt;code&gt;skuIds&lt;/code&gt; 列表顺序是随机的！&lt;/p&gt;
 &lt;ul&gt;
@@ -49,14 +47,26 @@
 &lt;p&gt;当事务A锁住了Item_A，准备去锁Item_B时；事务B正好锁住了Item_B，准备去锁Item_A。典型的&lt;strong&gt;资源循环依赖&lt;/strong&gt;。&lt;/p&gt;
 &lt;p&gt;这个坑最隐蔽的地方在于，&lt;strong&gt;它只在特定数据分布下爆发&lt;/strong&gt;。平时测试量小，碰巧两个请求操作相同商品集合的概率低，根本测不出来。一旦上线遇到热点商品，瞬间爆炸。&lt;/p&gt;
 &lt;p&gt;&lt;strong&gt;修正方法&lt;/strong&gt;极其简单，简单到让我事后想抽自己一巴掌：&lt;strong&gt;在进入事务前，强制对资源ID进行排序。&lt;/strong&gt;&lt;/p&gt;
-&lt;div class=&#34;highlight&#34;&gt;&lt;pre tabindex=&#34;0&#34; style=&#34;color:#f8f8f2;background-color:#272822;-moz-tab-size:4;-o-tab-size:4;tab-size:4;&#34;&gt;&lt;code class=&#34;language-java&#34; data-lang=&#34;java&#34;&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;&lt;span style=&#34;color:#75715e&#34;&gt;// 修复后的代码片段&lt;/span&gt;
-&lt;/span&gt;&lt;/span&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;&lt;span style=&#34;color:#66d9ef&#34;&gt;public&lt;/span&gt; &lt;span style=&#34;color:#66d9ef&#34;&gt;void&lt;/span&gt; &lt;span style=&#34;color:#a6e22e&#34;&gt;batchDecreaseStock&lt;/span&gt;(List&lt;span style=&#34;color:#f92672&#34;&gt;&amp;lt;&lt;/span&gt;Long&lt;span style=&#34;color:#f92672&#34;&gt;&amp;gt;&lt;/span&gt; skuIds, &lt;span style=&#34;color:#66d9ef&#34;&gt;int&lt;/span&gt; quantity) {
-&lt;/span&gt;&lt;/span&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;    &lt;span style=&#34;color:#75715e&#34;&gt;// 强制排序，打破循环等待条件&lt;/span&gt;
-&lt;/span&gt;&lt;/span&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;    Collections.&lt;span style=&#34;color:#a6e22e&#34;&gt;sort&lt;/span&gt;(skuIds); 
-&lt;/span&gt;&lt;/span&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;    &lt;span style=&#34;color:#75715e&#34;&gt;// 开启事务处理...&lt;/span&gt;
-&lt;/span&gt;&lt;/span&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;}
-&lt;/span&gt;&lt;/span&gt;&lt;/code&gt;&lt;/pre&gt;&lt;/div&gt;&lt;p&gt;加上这一行代码后，压测TPS直接从波动的500飙升到稳稳的3000，死锁错误归零。&lt;/p&gt;
-&lt;h2 id=&#34;索引失效引发的锁全表恐慌&#34;&gt;索引失效引发的&amp;quot;锁全表&amp;quot;恐慌
+&lt;div class="highlight"&gt;&lt;div class="chroma"&gt;
+&lt;table class="lntable"&gt;&lt;tr&gt;&lt;td class="lntd"&gt;
+&lt;pre tabindex="0" class="chroma"&gt;&lt;code&gt;&lt;span class="lnt"&gt;1
+&lt;/span&gt;&lt;span class="lnt"&gt;2
+&lt;/span&gt;&lt;span class="lnt"&gt;3
+&lt;/span&gt;&lt;span class="lnt"&gt;4
+&lt;/span&gt;&lt;span class="lnt"&gt;5
+&lt;/span&gt;&lt;span class="lnt"&gt;6
+&lt;/span&gt;&lt;/code&gt;&lt;/pre&gt;&lt;/td&gt;
+&lt;td class="lntd"&gt;
+&lt;pre tabindex="0" class="chroma"&gt;&lt;code class="language-java" data-lang="java"&gt;&lt;span class="line"&gt;&lt;span class="cl"&gt;&lt;span class="c1"&gt;// 修复后的代码片段&lt;/span&gt;&lt;span class="w"&gt;
+&lt;/span&gt;&lt;/span&gt;&lt;/span&gt;&lt;span class="line"&gt;&lt;span class="cl"&gt;&lt;span class="w"&gt;&lt;/span&gt;&lt;span class="kd"&gt;public&lt;/span&gt;&lt;span class="w"&gt; &lt;/span&gt;&lt;span class="kt"&gt;void&lt;/span&gt;&lt;span class="w"&gt; &lt;/span&gt;&lt;span class="nf"&gt;batchDecreaseStock&lt;/span&gt;&lt;span class="p"&gt;(&lt;/span&gt;&lt;span class="n"&gt;List&lt;/span&gt;&lt;span class="o"&gt;&amp;lt;&lt;/span&gt;&lt;span class="n"&gt;Long&lt;/span&gt;&lt;span class="o"&gt;&amp;gt;&lt;/span&gt;&lt;span class="w"&gt; &lt;/span&gt;&lt;span class="n"&gt;skuIds&lt;/span&gt;&lt;span class="p"&gt;,&lt;/span&gt;&lt;span class="w"&gt; &lt;/span&gt;&lt;span class="kt"&gt;int&lt;/span&gt;&lt;span class="w"&gt; &lt;/span&gt;&lt;span class="n"&gt;quantity&lt;/span&gt;&lt;span class="p"&gt;)&lt;/span&gt;&lt;span class="w"&gt; &lt;/span&gt;&lt;span class="p"&gt;{&lt;/span&gt;&lt;span class="w"&gt;
+&lt;/span&gt;&lt;/span&gt;&lt;/span&gt;&lt;span class="line"&gt;&lt;span class="cl"&gt;&lt;span class="w"&gt; &lt;/span&gt;&lt;span class="c1"&gt;// 强制排序，打破循环等待条件&lt;/span&gt;&lt;span class="w"&gt;
+&lt;/span&gt;&lt;/span&gt;&lt;/span&gt;&lt;span class="line"&gt;&lt;span class="cl"&gt;&lt;span class="w"&gt; &lt;/span&gt;&lt;span class="n"&gt;Collections&lt;/span&gt;&lt;span class="p"&gt;.&lt;/span&gt;&lt;span class="na"&gt;sort&lt;/span&gt;&lt;span class="p"&gt;(&lt;/span&gt;&lt;span class="n"&gt;skuIds&lt;/span&gt;&lt;span class="p"&gt;);&lt;/span&gt;&lt;span class="w"&gt;
+&lt;/span&gt;&lt;/span&gt;&lt;/span&gt;&lt;span class="line"&gt;&lt;span class="cl"&gt;&lt;span class="w"&gt; &lt;/span&gt;&lt;span class="c1"&gt;// 开启事务处理...&lt;/span&gt;&lt;span class="w"&gt;
+&lt;/span&gt;&lt;/span&gt;&lt;/span&gt;&lt;span class="line"&gt;&lt;span class="cl"&gt;&lt;span class="w"&gt;&lt;/span&gt;&lt;span class="p"&gt;}&lt;/span&gt;&lt;span class="w"&gt;
+&lt;/span&gt;&lt;/span&gt;&lt;/span&gt;&lt;/code&gt;&lt;/pre&gt;&lt;/td&gt;&lt;/tr&gt;&lt;/table&gt;
+&lt;/div&gt;
+&lt;/div&gt;&lt;p&gt;加上这一行代码后，压测TPS直接从波动的500飙升到稳稳的3000，死锁错误归零。&lt;/p&gt;
+&lt;h2 id="索引失效引发的锁全表恐慌"&gt;索引失效引发的&amp;quot;锁全表&amp;quot;恐慌
 &lt;/h2&gt;&lt;p&gt;第三个案例，发生在一个看似无害的后台管理功能上。运营反馈说，每当他们批量修改订单状态时，前台用户下单就会变慢甚至超时。&lt;/p&gt;
 &lt;p&gt;查看慢查询日志，发现Update语句耗时惊人。再看锁等待列表，发现这波操作竟然锁住了大量无关的订单记录。&lt;/p&gt;
 &lt;p&gt;&lt;strong&gt;核心原因：&lt;/strong&gt; 并没有走我们预想的索引，或者说是走了索引但MySQL认为效率低改走了全表扫描/索引扫描。&lt;/p&gt;
@@ -68,59 +78,56 @@
 &lt;li&gt;&lt;strong&gt;区分度陷阱&lt;/strong&gt;：不要在低区分度字段上加锁更新，哪怕加了索引，MySQL也可能忽略。如果必须按状态更新，尝试加上时间范围或ID范围，强制其走索引。&lt;/li&gt;
 &lt;/ol&gt;
 &lt;hr&gt;
-&lt;h2 id=&#34;避坑指南与工具模板&#34;&gt;避坑指南与工具模板
+&lt;h2 id="避坑指南与工具模板"&gt;避坑指南与工具模板
 &lt;/h2&gt;&lt;p&gt;经过这几次折腾，我总结了一套针对死锁的&amp;quot;急救包&amp;quot;。我不建议大家遇到死锁就重启应用，那治标不治本。&lt;/p&gt;
-&lt;h3 id=&#34;1-常用排查工具模板&#34;&gt;1. 常用排查工具模板
-&lt;/h3&gt;&lt;p&gt;&lt;img src=&#34;https://picsum.photos/800/450?random=1768457494688&#34;
-	
-	
-	
-	loading=&#34;lazy&#34;
-	
-		alt=&#34;配图&#34;
-	
-	
+&lt;h3 id="1-常用排查工具模板"&gt;1. 常用排查工具模板
+&lt;/h3&gt;&lt;p&gt;&lt;img src="https://picsum.photos/800/450?random=1768457494688"
+loading="lazy"
+alt="配图"
 &gt;&lt;/p&gt;
 &lt;p&gt;当死锁发生时，不要慌，按照这个步骤抓取现场：&lt;/p&gt;
 &lt;p&gt;&lt;strong&gt;第一步：开启死锁日志记录（建议生产环境常态化开启，开销极小）&lt;/strong&gt;&lt;/p&gt;
-&lt;div class=&#34;highlight&#34;&gt;&lt;pre tabindex=&#34;0&#34; style=&#34;color:#f8f8f2;background-color:#272822;-moz-tab-size:4;-o-tab-size:4;tab-size:4;&#34;&gt;&lt;code class=&#34;language-sql&#34; data-lang=&#34;sql&#34;&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;&lt;span style=&#34;color:#75715e&#34;&gt;-- 确保这个参数是开启的，它会将死锁信息打印到 error log
-&lt;/span&gt;&lt;/span&gt;&lt;/span&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;&lt;span style=&#34;color:#75715e&#34;&gt;&lt;/span&gt;&lt;span style=&#34;color:#66d9ef&#34;&gt;set&lt;/span&gt; &lt;span style=&#34;color:#66d9ef&#34;&gt;global&lt;/span&gt; innodb_print_all_deadlocks &lt;span style=&#34;color:#f92672&#34;&gt;=&lt;/span&gt; &lt;span style=&#34;color:#ae81ff&#34;&gt;1&lt;/span&gt;;
-&lt;/span&gt;&lt;/span&gt;&lt;/code&gt;&lt;/pre&gt;&lt;/div&gt;&lt;p&gt;&lt;strong&gt;第二步：查看最近一次死锁的&amp;quot;验尸报告&amp;quot;&lt;/strong&gt;&lt;/p&gt;
-&lt;div class=&#34;highlight&#34;&gt;&lt;pre tabindex=&#34;0&#34; style=&#34;color:#f8f8f2;background-color:#272822;-moz-tab-size:4;-o-tab-size:4;tab-size:4;&#34;&gt;&lt;code class=&#34;language-sql&#34; data-lang=&#34;sql&#34;&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;&lt;span style=&#34;color:#66d9ef&#34;&gt;SHOW&lt;/span&gt; ENGINE INNODB STATUS&lt;span style=&#34;color:#960050;background-color:#1e0010&#34;&gt;\&lt;/span&gt;&lt;span style=&#34;color:#66d9ef&#34;&gt;G&lt;/span&gt;;
-&lt;/span&gt;&lt;/span&gt;&lt;/code&gt;&lt;/pre&gt;&lt;/div&gt;&lt;p&gt;&lt;em&gt;重点看 &lt;code&gt;LATEST DETECTED DEADLOCK&lt;/code&gt; 这一节，找到 &lt;code&gt;HOLDS THE LOCK&lt;/code&gt; 和 &lt;code&gt;WAITING FOR THIS LOCK&lt;/code&gt; 的具体SQL。&lt;/em&gt;&lt;/p&gt;
+&lt;div class="highlight"&gt;&lt;div class="chroma"&gt;
+&lt;table class="lntable"&gt;&lt;tr&gt;&lt;td class="lntd"&gt;
+&lt;pre tabindex="0" class="chroma"&gt;&lt;code&gt;&lt;span class="lnt"&gt;1
+&lt;/span&gt;&lt;span class="lnt"&gt;2
+&lt;/span&gt;&lt;/code&gt;&lt;/pre&gt;&lt;/td&gt;
+&lt;td class="lntd"&gt;
+&lt;pre tabindex="0" class="chroma"&gt;&lt;code class="language-sql" data-lang="sql"&gt;&lt;span class="line"&gt;&lt;span class="cl"&gt;&lt;span class="c1"&gt;-- 确保这个参数是开启的，它会将死锁信息打印到 error log
+&lt;/span&gt;&lt;/span&gt;&lt;/span&gt;&lt;span class="line"&gt;&lt;span class="cl"&gt;&lt;span class="c1"&gt;&lt;/span&gt;&lt;span class="k"&gt;set&lt;/span&gt;&lt;span class="w"&gt; &lt;/span&gt;&lt;span class="k"&gt;global&lt;/span&gt;&lt;span class="w"&gt; &lt;/span&gt;&lt;span class="n"&gt;innodb_print_all_deadlocks&lt;/span&gt;&lt;span class="w"&gt; &lt;/span&gt;&lt;span class="o"&gt;=&lt;/span&gt;&lt;span class="w"&gt; &lt;/span&gt;&lt;span class="mi"&gt;1&lt;/span&gt;&lt;span class="p"&gt;;&lt;/span&gt;&lt;span class="w"&gt;
+&lt;/span&gt;&lt;/span&gt;&lt;/span&gt;&lt;/code&gt;&lt;/pre&gt;&lt;/td&gt;&lt;/tr&gt;&lt;/table&gt;
+&lt;/div&gt;
+&lt;/div&gt;&lt;p&gt;&lt;strong&gt;第二步：查看最近一次死锁的&amp;quot;验尸报告&amp;quot;&lt;/strong&gt;&lt;/p&gt;
+&lt;div class="highlight"&gt;&lt;div class="chroma"&gt;
+&lt;table class="lntable"&gt;&lt;tr&gt;&lt;td class="lntd"&gt;
+&lt;pre tabindex="0" class="chroma"&gt;&lt;code&gt;&lt;span class="lnt"&gt;1
+&lt;/span&gt;&lt;/code&gt;&lt;/pre&gt;&lt;/td&gt;
+&lt;td class="lntd"&gt;
+&lt;pre tabindex="0" class="chroma"&gt;&lt;code class="language-sql" data-lang="sql"&gt;&lt;span class="line"&gt;&lt;span class="cl"&gt;&lt;span class="k"&gt;SHOW&lt;/span&gt;&lt;span class="w"&gt; &lt;/span&gt;&lt;span class="n"&gt;ENGINE&lt;/span&gt;&lt;span class="w"&gt; &lt;/span&gt;&lt;span class="n"&gt;INNODB&lt;/span&gt;&lt;span class="w"&gt; &lt;/span&gt;&lt;span class="n"&gt;STATUS&lt;/span&gt;&lt;span class="err"&gt;\&lt;/span&gt;&lt;span class="k"&gt;G&lt;/span&gt;&lt;span class="p"&gt;;&lt;/span&gt;&lt;span class="w"&gt;
+&lt;/span&gt;&lt;/span&gt;&lt;/span&gt;&lt;/code&gt;&lt;/pre&gt;&lt;/td&gt;&lt;/tr&gt;&lt;/table&gt;
+&lt;/div&gt;
+&lt;/div&gt;&lt;p&gt;&lt;em&gt;重点看 &lt;code&gt;LATEST DETECTED DEADLOCK&lt;/code&gt; 这一节，找到 &lt;code&gt;HOLDS THE LOCK&lt;/code&gt; 和 &lt;code&gt;WAITING FOR THIS LOCK&lt;/code&gt; 的具体SQL。&lt;/em&gt;&lt;/p&gt;
 &lt;p&gt;&lt;strong&gt;第三步：分析锁类型&lt;/strong&gt;&lt;/p&gt;
 &lt;ul&gt;
 &lt;li&gt;&lt;code&gt;RECORD LOCKS&lt;/code&gt;：行锁，最常见。&lt;/li&gt;
 &lt;li&gt;&lt;code&gt;GAP&lt;/code&gt; / &lt;code&gt;NEXT-KEY&lt;/code&gt;：间隙锁，重点排查范围查询或不存在的记录更新。&lt;/li&gt;
 &lt;li&gt;&lt;code&gt;INSERT INTENTION&lt;/code&gt;：插入意向锁，通常伴随GAP锁出现。&lt;/li&gt;
 &lt;/ul&gt;
-&lt;h3 id=&#34;2-三个落地的行动建议&#34;&gt;2. 三个落地的行动建议
-&lt;/h3&gt;&lt;p&gt;&lt;img src=&#34;https://picsum.photos/800/450?random=1768457492573&#34;
-	
-	
-	
-	loading=&#34;lazy&#34;
-	
-		alt=&#34;配图&#34;
-	
-	
+&lt;h3 id="2-三个落地的行动建议"&gt;2. 三个落地的行动建议
+&lt;/h3&gt;&lt;p&gt;&lt;img src="https://picsum.photos/800/450?random=1768457492573"
+loading="lazy"
+alt="配图"
 &gt;&lt;/p&gt;
 &lt;p&gt;如果你想彻底根治项目里的死锁隐患，建议明天上班就做这三件事：&lt;/p&gt;
 &lt;ol&gt;
 &lt;li&gt;&lt;strong&gt;代码审查（Code Review）专项&lt;/strong&gt;：
 重点搜索代码里的 &lt;code&gt;Update&lt;/code&gt; 和 &lt;code&gt;Delete&lt;/code&gt; 批量操作。检查入参集合&lt;strong&gt;是否进行了排序&lt;/strong&gt;。这是成本最低、收益最高的改动。&lt;/li&gt;
 &lt;/ol&gt;
-&lt;p&gt;&lt;img src=&#34;https://picsum.photos/800/450?random=1768457490669&#34;
-	
-	
-	
-	loading=&#34;lazy&#34;
-	
-		alt=&#34;配图&#34;
-	
-	
+&lt;p&gt;&lt;img src="https://picsum.photos/800/450?random=1768457490669"
+loading="lazy"
+alt="配图"
 &gt;&lt;/p&gt;
-&lt;ol start=&#34;2&#34;&gt;
+&lt;ol start="2"&gt;
 &lt;li&gt;
 &lt;p&gt;&lt;strong&gt;大事务瘦身&lt;/strong&gt;：
 我见过很多死锁是因为事务太长。把无关的查询、HTTP请求、计算逻辑全部挪出 &lt;code&gt;@Transactional&lt;/code&gt; 范围。&lt;strong&gt;持有锁的时间越短，发生碰撞的概率呈指数级下降。&lt;/strong&gt;&lt;/p&gt;
@@ -132,9 +139,4 @@
 &lt;/ol&gt;
 &lt;p&gt;&lt;strong&gt;写在最后：&lt;/strong&gt;&lt;/p&gt;
 &lt;p&gt;数据库死锁就像交通堵塞，没有绝对的&amp;quot;不堵车&amp;quot;，只有更科学的交通规则。作为技术人，我们不仅要会写代码，更要懂得代码背后，数据库为了保证数据一致性所做的那些&amp;quot;妥协&amp;quot;与&amp;quot;努力&amp;quot;。&lt;/p&gt;
-&lt;p&gt;希望这篇复盘能帮你省下几个通宵排查的时间。如果你也有类似的&amp;quot;血泪史&amp;quot;，欢迎在评论区交流。&lt;/p&gt;
-</description>
-        </item>
-        
-    </channel>
-</rss>
+&lt;p&gt;希望这篇复盘能帮你省下几个通宵排查的时间。如果你也有类似的&amp;quot;血泪史&amp;quot;，欢迎在评论区交流。&lt;/p&gt;</description></item></channel></rss>

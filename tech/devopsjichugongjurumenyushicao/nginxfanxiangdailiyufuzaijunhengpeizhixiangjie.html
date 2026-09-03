@@ -1,478 +1,114 @@
-<!DOCTYPE html>
-<html lang="zh-cn" dir="ltr">
-    <head><meta charset='utf-8'>
-<meta name='viewport' content='width=device-width, initial-scale=1'><meta name='description' content="记得刚入行那年，我最怕看到的画面不是满屏的代码报错，而是浏览器里那个冷冰冰的 &ldquo;502 Bad Gateway&rdquo;。\n那时候觉得 Nginx 就是个黑盒，配置文件里的每一行指令都像是在对着服务器念咒语——念对了万事大吉，念错了一个分号，服务直接趴窝。我曾天真地以为，照着网上的教程把 proxy_pass 粘贴进去就算完事了，直到我经历了那几个心惊肉跳的深夜。\nDevOps 的路上，我们大概率都会遇到这样的时刻：代码逻辑明明没问题，但请求就是发不到后端；或者明明加了机器做负载均衡，用户却总抱怨登录状态莫名丢失。\n今天，我想把自己这几年记在备忘录里的 Nginx 实操经验翻出来，不讲晦涩的原理，只聊聊在真实业务场景下，怎么配置反向代理和负载均衡，才能让你睡个安稳觉。\n别让“反向代理”成为黑洞：不仅是转发，更是“伪装”\r很多新手（包括当年的我）在配置反向代理时，往往只写一行 proxy_pass。\n我就踩过这样一个坑。当时我们有一个内部管理系统，后端用的 Spring Boot，前端 Nginx 做代理。上线第一天，运营同事就跑来吼：“为什么我生成的重定向链接，跳回的是 localhost？”\n原来，当 Nginx 将请求转发给后端应用时，如果不做特殊配置，后端拿到的 Host 信息往往是 Nginx 所在的内网 IP 或者 localhost，而不是用户真正访问的域名。这导致后端在生成重定向 URL 或记录日志时，完全搞错了对象。\n解决这个问题的关键，在于“透传”。 我们需要把用户真实的请求头信息，原封不动地告诉后端。\n实战配置建议：\n建议你把下面这几行配置，作为所有反向代理的“标配”。我习惯在公司内部维护一个 proxy_params 文件，每次直接 include 进去，省心又安全。\nlocation /api/ { proxy_pass http://127.0.0.1:8080; # 核心：保留客户端真实的 Host 域名 proxy_set_header Host $host; # 核心：传递客户端真实的 IP 地址，而不是 Nginx 的内网 IP proxy_set_header X-Real-IP $remote_addr; proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for; # 告诉后端当前的协议是 http 还是 https proxy_set_header X-Forwarded-Proto $scheme; } 自从加上这几行，后端日志里再也没出现过满屏的 127.0.0.1，排查问题时的效率提升了不止一倍。\n">
-<title>3次生产事故后，我总结的Nginx反代与负载均衡实战</title>
-
-<link rel='canonical' href='https://blog.irudder.me/tech/devopsjichugongjurumenyushicao/nginxfanxiangdailiyufuzaijunhengpeizhixiangjie.html'>
-
-<link rel="stylesheet" href="/scss/style.min.b9e9128fec450ebccecc4ec9900157f32b85d0609bcd5ee3293968bcaa1235f2.css"><meta property='og:title' content="3次生产事故后，我总结的Nginx反代与负载均衡实战">
-<meta property='og:description' content="记得刚入行那年，我最怕看到的画面不是满屏的代码报错，而是浏览器里那个冷冰冰的 &ldquo;502 Bad Gateway&rdquo;。\n那时候觉得 Nginx 就是个黑盒，配置文件里的每一行指令都像是在对着服务器念咒语——念对了万事大吉，念错了一个分号，服务直接趴窝。我曾天真地以为，照着网上的教程把 proxy_pass 粘贴进去就算完事了，直到我经历了那几个心惊肉跳的深夜。\nDevOps 的路上，我们大概率都会遇到这样的时刻：代码逻辑明明没问题，但请求就是发不到后端；或者明明加了机器做负载均衡，用户却总抱怨登录状态莫名丢失。\n今天，我想把自己这几年记在备忘录里的 Nginx 实操经验翻出来，不讲晦涩的原理，只聊聊在真实业务场景下，怎么配置反向代理和负载均衡，才能让你睡个安稳觉。\n别让“反向代理”成为黑洞：不仅是转发，更是“伪装”\r很多新手（包括当年的我）在配置反向代理时，往往只写一行 proxy_pass。\n我就踩过这样一个坑。当时我们有一个内部管理系统，后端用的 Spring Boot，前端 Nginx 做代理。上线第一天，运营同事就跑来吼：“为什么我生成的重定向链接，跳回的是 localhost？”\n原来，当 Nginx 将请求转发给后端应用时，如果不做特殊配置，后端拿到的 Host 信息往往是 Nginx 所在的内网 IP 或者 localhost，而不是用户真正访问的域名。这导致后端在生成重定向 URL 或记录日志时，完全搞错了对象。\n解决这个问题的关键，在于“透传”。 我们需要把用户真实的请求头信息，原封不动地告诉后端。\n实战配置建议：\n建议你把下面这几行配置，作为所有反向代理的“标配”。我习惯在公司内部维护一个 proxy_params 文件，每次直接 include 进去，省心又安全。\nlocation /api/ { proxy_pass http://127.0.0.1:8080; # 核心：保留客户端真实的 Host 域名 proxy_set_header Host $host; # 核心：传递客户端真实的 IP 地址，而不是 Nginx 的内网 IP proxy_set_header X-Real-IP $remote_addr; proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for; # 告诉后端当前的协议是 http 还是 https proxy_set_header X-Forwarded-Proto $scheme; } 自从加上这几行，后端日志里再也没出现过满屏的 127.0.0.1，排查问题时的效率提升了不止一倍。\n">
-<meta property='og:url' content='https://blog.irudder.me/tech/devopsjichugongjurumenyushicao/nginxfanxiangdailiyufuzaijunhengpeizhixiangjie.html'>
-<meta property='og:site_name' content='SelfTechHub'>
-<meta property='og:type' content='article'><meta property='article:section' content='Tech' /><meta property='article:tag' content='Nginx反向代理与负载均衡配置详解' /><meta property='article:published_time' content='2023-06-25T00:00:00&#43;00:00'/><meta property='article:modified_time' content='2023-06-25T00:00:00&#43;00:00'/>
-<meta name="twitter:title" content="3次生产事故后，我总结的Nginx反代与负载均衡实战">
-<meta name="twitter:description" content="记得刚入行那年，我最怕看到的画面不是满屏的代码报错，而是浏览器里那个冷冰冰的 &ldquo;502 Bad Gateway&rdquo;。\n那时候觉得 Nginx 就是个黑盒，配置文件里的每一行指令都像是在对着服务器念咒语——念对了万事大吉，念错了一个分号，服务直接趴窝。我曾天真地以为，照着网上的教程把 proxy_pass 粘贴进去就算完事了，直到我经历了那几个心惊肉跳的深夜。\nDevOps 的路上，我们大概率都会遇到这样的时刻：代码逻辑明明没问题，但请求就是发不到后端；或者明明加了机器做负载均衡，用户却总抱怨登录状态莫名丢失。\n今天，我想把自己这几年记在备忘录里的 Nginx 实操经验翻出来，不讲晦涩的原理，只聊聊在真实业务场景下，怎么配置反向代理和负载均衡，才能让你睡个安稳觉。\n别让“反向代理”成为黑洞：不仅是转发，更是“伪装”\r很多新手（包括当年的我）在配置反向代理时，往往只写一行 proxy_pass。\n我就踩过这样一个坑。当时我们有一个内部管理系统，后端用的 Spring Boot，前端 Nginx 做代理。上线第一天，运营同事就跑来吼：“为什么我生成的重定向链接，跳回的是 localhost？”\n原来，当 Nginx 将请求转发给后端应用时，如果不做特殊配置，后端拿到的 Host 信息往往是 Nginx 所在的内网 IP 或者 localhost，而不是用户真正访问的域名。这导致后端在生成重定向 URL 或记录日志时，完全搞错了对象。\n解决这个问题的关键，在于“透传”。 我们需要把用户真实的请求头信息，原封不动地告诉后端。\n实战配置建议：\n建议你把下面这几行配置，作为所有反向代理的“标配”。我习惯在公司内部维护一个 proxy_params 文件，每次直接 include 进去，省心又安全。\nlocation /api/ { proxy_pass http://127.0.0.1:8080; # 核心：保留客户端真实的 Host 域名 proxy_set_header Host $host; # 核心：传递客户端真实的 IP 地址，而不是 Nginx 的内网 IP proxy_set_header X-Real-IP $remote_addr; proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for; # 告诉后端当前的协议是 http 还是 https proxy_set_header X-Forwarded-Proto $scheme; } 自从加上这几行，后端日志里再也没出现过满屏的 127.0.0.1，排查问题时的效率提升了不止一倍。\n">
-    </head>
-    <body class="
-    article-page
-    ">
-    <script>
-        (function() {
-            const colorSchemeKey = 'StackColorScheme';
-            if(!localStorage.getItem(colorSchemeKey)){
-                localStorage.setItem(colorSchemeKey, "auto");
-            }
-        })();
-    </script><script>
-    (function() {
-        const colorSchemeKey = 'StackColorScheme';
-        const colorSchemeItem = localStorage.getItem(colorSchemeKey);
-        const supportDarkMode = window.matchMedia('(prefers-color-scheme: dark)').matches === true;
-
-        if (colorSchemeItem == 'dark' || colorSchemeItem === 'auto' && supportDarkMode) {
-            
-
-            document.documentElement.dataset.scheme = 'dark';
-        } else {
-            document.documentElement.dataset.scheme = 'light';
-        }
-    })();
-</script>
-<div class="container main-container flex on-phone--column compact"><aside class="sidebar left-sidebar sticky ">
-    <button class="hamburger hamburger--spin" type="button" id="toggle-menu" aria-label="切换菜单">
-        <span class="hamburger-box">
-            <span class="hamburger-inner"></span>
-        </span>
-    </button>
-
-    <header>
-        
-            
-            <figure class="site-avatar">
-                <a href="/">
-                
-                    
-                    
-                    
-                        
-                        <img src="/img/avatar_hu_8588ce14af1147e2.png" width="300"
-                            height="286" class="site-logo" loading="lazy" alt="Avatar">
-                    
-                
-                </a>
-                
-            </figure>
-            
-        
-        
-        <div class="site-meta">
-            <h1 class="site-name"><a href="/">SelfTechHub</a></h1>
-            <h2 class="site-description"></h2>
-        </div>
-    </header><ol class="menu" id="main-menu">
-        
-        
-        <li class="menu-bottom-section">
-            <ol class="menu">
-
-                
-                    <li id="dark-mode-toggle">
-                        <svg xmlns="http://www.w3.org/2000/svg" class="icon icon-tabler icon-tabler-toggle-left" width="24" height="24" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor" fill="none" stroke-linecap="round" stroke-linejoin="round">
-  <path stroke="none" d="M0 0h24v24H0z"/>
-  <circle cx="8" cy="12" r="2" />
-  <rect x="2" y="6" width="20" height="12" rx="6" />
-</svg>
-
-
-
-                        <svg xmlns="http://www.w3.org/2000/svg" class="icon icon-tabler icon-tabler-toggle-right" width="24" height="24" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor" fill="none" stroke-linecap="round" stroke-linejoin="round">
-  <path stroke="none" d="M0 0h24v24H0z"/>
-  <circle cx="16" cy="12" r="2" />
-  <rect x="2" y="6" width="20" height="12" rx="6" />
-</svg>
-
-
-
-                        <span>暗色模式</span>
-                    </li>
-                
-            </ol>
-        </li>
-    </ol>
-</aside>
-
-    
-
-            <main class="main full-width">
-    <article class="main-article">
-    <header class="article-header">
-
-    <div class="article-details">
-    
-    <header class="article-category">
-        
-            <a href="/categories/%E6%8A%80%E6%9C%AF.html" >
-                技术精进
-            </a>
-        
-    </header>
-    
-
-    <div class="article-title-wrapper">
-        <h2 class="article-title">
-            <a href="/tech/devopsjichugongjurumenyushicao/nginxfanxiangdailiyufuzaijunhengpeizhixiangjie.html">3次生产事故后，我总结的Nginx反代与负载均衡实战</a>
-        </h2>
-    
-        
-    </div>
-
-    
-    
-    
-    
-    <footer class="article-time">
-        
-            <div>
-                <svg xmlns="http://www.w3.org/2000/svg" class="icon icon-tabler icon-tabler-calendar-time" width="56" height="56" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor" fill="none" stroke-linecap="round" stroke-linejoin="round">
-  <path stroke="none" d="M0 0h24v24H0z"/>
-  <path d="M11.795 21h-6.795a2 2 0 0 1 -2 -2v-12a2 2 0 0 1 2 -2h12a2 2 0 0 1 2 2v4" />
-  <circle cx="18" cy="18" r="4" />
-  <path d="M15 3v4" />
-  <path d="M7 3v4" />
-  <path d="M3 11h16" />
-  <path d="M18 16.496v1.504l1 1" />
-</svg>
-                <time class="article-time--published" datetime='2023-06-25T00:00:00Z'>Jun 25, 2023</time>
-            </div>
-        
-
-        
-            <div>
-                <svg xmlns="http://www.w3.org/2000/svg" class="icon icon-tabler icon-tabler-clock" width="24" height="24" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor" fill="none" stroke-linecap="round" stroke-linejoin="round">
-  <path stroke="none" d="M0 0h24v24H0z"/>
-  <circle cx="12" cy="12" r="9" />
-  <polyline points="12 7 12 12 15 15" />
-</svg>
-
-
-
-                <time class="article-time--reading">
-                    阅读时长: 2 分钟
-                </time>
-            </div>
-        
-    </footer>
-    
-
-    
-</div>
-
-</header>
-
-    <section class="article-content">
-    
-    
-    <p>记得刚入行那年，我最怕看到的画面不是满屏的代码报错，而是浏览器里那个冷冰冰的 <strong>&ldquo;502 Bad Gateway&rdquo;</strong>。</p>
-<p>那时候觉得 Nginx 就是个黑盒，配置文件里的每一行指令都像是在对着服务器念咒语——念对了万事大吉，念错了一个分号，服务直接趴窝。我曾天真地以为，照着网上的教程把 <code>proxy_pass</code> 粘贴进去就算完事了，直到我经历了那几个心惊肉跳的深夜。</p>
-<p><img src="https://picsum.photos/800/450?random=1768387964200"
-	
-	
-	
-	loading="lazy"
-	
-		alt="配图"
-	
-	
-></p>
-<p>DevOps 的路上，我们大概率都会遇到这样的时刻：代码逻辑明明没问题，但请求就是发不到后端；或者明明加了机器做负载均衡，用户却总抱怨登录状态莫名丢失。</p>
-<p>今天，我想把自己这几年记在备忘录里的 Nginx 实操经验翻出来，不讲晦涩的原理，只聊聊在真实业务场景下，怎么配置反向代理和负载均衡，才能让你睡个安稳觉。</p>
-<h2 id="别让反向代理成为黑洞不仅是转发更是伪装">别让“反向代理”成为黑洞：不仅是转发，更是“伪装”
-</h2><p>很多新手（包括当年的我）在配置反向代理时，往往只写一行 <code>proxy_pass</code>。</p>
-<p>我就踩过这样一个坑。当时我们有一个内部管理系统，后端用的 Spring Boot，前端 Nginx 做代理。上线第一天，运营同事就跑来吼：“为什么我生成的重定向链接，跳回的是 <code>localhost</code>？”</p>
-<p>原来，当 Nginx 将请求转发给后端应用时，如果不做特殊配置，后端拿到的 <code>Host</code> 信息往往是 Nginx 所在的内网 IP 或者 <code>localhost</code>，而不是用户真正访问的域名。这导致后端在生成重定向 URL 或记录日志时，完全搞错了对象。</p>
-<p><strong>解决这个问题的关键，在于“透传”。</strong> 我们需要把用户真实的请求头信息，原封不动地告诉后端。</p>
-<p><strong>实战配置建议：</strong></p>
-<p>建议你把下面这几行配置，作为所有反向代理的“标配”。我习惯在公司内部维护一个 <code>proxy_params</code> 文件，每次直接 include 进去，省心又安全。</p>
-<div class="highlight"><pre tabindex="0" style="color:#f8f8f2;background-color:#272822;-moz-tab-size:4;-o-tab-size:4;tab-size:4;"><code class="language-nginx" data-lang="nginx"><span style="display:flex;"><span><span style="color:#66d9ef">location</span> <span style="color:#e6db74">/api/</span> {
-</span></span><span style="display:flex;"><span>    <span style="color:#f92672">proxy_pass</span> <span style="color:#e6db74">http://127.0.0.1:8080</span>;
-</span></span><span style="display:flex;"><span>
-</span></span><span style="display:flex;"><span>    <span style="color:#75715e"># 核心：保留客户端真实的 Host 域名
-</span></span></span><span style="display:flex;"><span><span style="color:#75715e"></span>    <span style="color:#f92672">proxy_set_header</span> <span style="color:#e6db74">Host</span> $host; 
-</span></span><span style="display:flex;"><span>    
-</span></span><span style="display:flex;"><span>    <span style="color:#75715e"># 核心：传递客户端真实的 IP 地址，而不是 Nginx 的内网 IP
-</span></span></span><span style="display:flex;"><span><span style="color:#75715e"></span>    <span style="color:#f92672">proxy_set_header</span> <span style="color:#e6db74">X-Real-IP</span> $remote_addr;
-</span></span><span style="display:flex;"><span>    <span style="color:#f92672">proxy_set_header</span> <span style="color:#e6db74">X-Forwarded-For</span> $proxy_add_x_forwarded_for;
-</span></span><span style="display:flex;"><span>    
-</span></span><span style="display:flex;"><span>    <span style="color:#75715e"># 告诉后端当前的协议是 http 还是 https
-</span></span></span><span style="display:flex;"><span><span style="color:#75715e"></span>    <span style="color:#f92672">proxy_set_header</span> <span style="color:#e6db74">X-Forwarded-Proto</span> $scheme;
-</span></span><span style="display:flex;"><span>}
-</span></span></code></pre></div><p>自从加上这几行，后端日志里再也没出现过满屏的 <code>127.0.0.1</code>，排查问题时的效率提升了不止一倍。</p>
-<h2 id="负载均衡的玄学不只是轮询更要专一">负载均衡的“玄学”：不只是轮询，更要“专一”
-</h2><p><img src="https://picsum.photos/800/450?random=1768387968026"
-	
-	
-	
-	loading="lazy"
-	
-		alt="配图"
-	
-	
-></p>
-<p>随着业务量增长，单台服务器撑不住了，我们自然会想到加机器，上负载均衡。</p>
-<p>大概两年前，我们要搞一个线上的抢购活动。为了保险，我临时加了两台服务器，配置了最简单的 <code>upstream</code> 轮询。我想着，三台机器平均分担压力，这下稳了吧？</p>
-<p>结果活动刚开始五分钟，客服电话就被打爆了。用户反馈：“我刚登录进去，一点‘立即购买’，就提示我请先登录！”</p>
-<p>即使是现在，回想起当时的冷汗直冒还心有余悸。排查后发现，问题出在 Session 上。默认的轮询策略（Round Robin）会把同一个用户的请求随机分发到不同的服务器上。用户在 A 服务器登录了，Session 存在 A 上；下一次点击被分发到了 B 服务器，B 上面没有 Session，自然就判定用户未登录。</p>
-<p>虽然现在更推荐用 Redis 集中管理 Session，但在很多中小型项目或遗留系统中，<strong>IP 哈希（ip_hash）</strong> 依然是解决这个问题的最快救命稻草。</p>
-<p><strong>实战配置建议：</strong></p>
-<p>如果你的应用涉及用户登录状态，且没有做分布式的 Session 共享，<strong>请务必加上 <code>ip_hash</code></strong>。它能保证同一个 IP 的请求固定打到同一台后端服务器上。</p>
-<div class="highlight"><pre tabindex="0" style="color:#f8f8f2;background-color:#272822;-moz-tab-size:4;-o-tab-size:4;tab-size:4;"><code class="language-nginx" data-lang="nginx"><span style="display:flex;"><span><span style="color:#66d9ef">upstream</span> <span style="color:#e6db74">backend_server_group</span> {
-</span></span><span style="display:flex;"><span>    <span style="color:#75715e"># 关键指令：保证会话粘性
-</span></span></span><span style="display:flex;"><span><span style="color:#75715e"></span>    <span style="color:#f92672">ip_hash</span>; 
-</span></span><span style="display:flex;"><span>    
-</span></span><span style="display:flex;"><span>    <span style="color:#75715e"># weight 代表权重，权重越高分配的请求越多
-</span></span></span><span style="display:flex;"><span><span style="color:#75715e"></span>    <span style="color:#f92672">server</span> 192.168.1.101:<span style="color:#ae81ff">8080</span> <span style="color:#e6db74">weight=3</span>;
-</span></span><span style="display:flex;"><span>    <span style="color:#f92672">server</span> 192.168.1.102:<span style="color:#ae81ff">8080</span> <span style="color:#e6db74">weight=1</span>;
-</span></span><span style="display:flex;"><span>    
-</span></span><span style="display:flex;"><span>    <span style="color:#75715e"># max_fails=3 fail_timeout=30s 代表：
-</span></span></span><span style="display:flex;"><span><span style="color:#75715e"></span>    <span style="color:#75715e"># 如果这台机器在30秒内失败了3次，Nginx会在接下来的30秒内不再给它发请求
-</span></span></span><span style="display:flex;"><span><span style="color:#75715e"></span>    <span style="color:#75715e"># 这就是简单的健康检查
-</span></span></span><span style="display:flex;"><span><span style="color:#75715e"></span>    <span style="color:#f92672">server</span> 192.168.1.103:<span style="color:#ae81ff">8080</span> <span style="color:#e6db74">max_fails=3</span> <span style="color:#e6db74">fail_timeout=30s</span>;
-</span></span><span style="display:flex;"><span>}
-</span></span><span style="display:flex;"><span>
-</span></span><span style="display:flex;"><span><span style="color:#66d9ef">server</span> {
-</span></span><span style="display:flex;"><span>    <span style="color:#f92672">listen</span> <span style="color:#ae81ff">80</span>;
-</span></span><span style="display:flex;"><span>    <span style="color:#f92672">server_name</span> <span style="color:#e6db74">example.com</span>;
-</span></span><span style="display:flex;"><span>
-</span></span><span style="display:flex;"><span>    <span style="color:#f92672">location</span> <span style="color:#e6db74">/</span> {
-</span></span><span style="display:flex;"><span>        <span style="color:#f92672">proxy_pass</span> <span style="color:#e6db74">http://backend_server_group</span>;
-</span></span><span style="display:flex;"><span>        <span style="color:#f92672">include</span> <span style="color:#e6db74">proxy_params</span>; <span style="color:#75715e"># 记得加上上一节提到的标配
-</span></span></span><span style="display:flex;"><span><span style="color:#75715e"></span>    }
-</span></span><span style="display:flex;"><span>}
-</span></span></code></pre></div><p>这个配置我用了很久，在很多不需要极致扩展性的中小项目中，它既简单又管用。</p>
-<h2 id="那些看不见的隐形杀手超时与缓冲区">那些看不见的“隐形杀手”：超时与缓冲区
-</h2><p>有时候，服务既没宕机，配置也没错，但用户体验就是极差。</p>
-<p>我曾接手过一个旧项目，主要功能是文件上传。开发人员跟我抱怨：“小文件没事，一上传超过 1MB 的 Excel 表格，Nginx 直接报 413 错误；有时候报表生成慢一点，Nginx 就报 504 Gateway Time-out。”</p>
-<p>这种挫败感很强，因为大家第一反应往往是代码写得烂，其实很多时候是 Nginx 的默认限制太“保守”了。Nginx 默认的请求体大小限制通常只有 1MB，这在富媒体时代显然不够用。</p>
-<p><strong>运维不仅要保稳定，更要懂业务场景。</strong> 遇到大文件上传或长耗时任务，我们需要给 Nginx 一点“耐心”。</p>
-<p><strong>实战配置建议：</strong></p>
-<p>不用盲目调大所有参数，建议针对特定的 URL 路径进行优化，避免全局配置带来的安全风险。</p>
-<div class="highlight"><pre tabindex="0" style="color:#f8f8f2;background-color:#272822;-moz-tab-size:4;-o-tab-size:4;tab-size:4;"><code class="language-nginx" data-lang="nginx"><span style="display:flex;"><span><span style="color:#75715e"># 针对上传接口的特殊配置
-</span></span></span><span style="display:flex;"><span><span style="color:#75715e"></span><span style="color:#66d9ef">location</span> <span style="color:#e6db74">/api/upload</span> {
-</span></span><span style="display:flex;"><span>    <span style="color:#f92672">proxy_pass</span> <span style="color:#e6db74">http://backend_server_group</span>;
-</span></span><span style="display:flex;"><span>    
-</span></span><span style="display:flex;"><span>    <span style="color:#75715e"># 允许客户端上传的最大文件大小，按需调整
-</span></span></span><span style="display:flex;"><span><span style="color:#75715e"></span>    <span style="color:#f92672">client_max_body_size</span> <span style="color:#ae81ff">100m</span>; 
-</span></span><span style="display:flex;"><span>    
-</span></span><span style="display:flex;"><span>    <span style="color:#75715e"># 增加后端连接和读取的超时时间
-</span></span></span><span style="display:flex;"><span><span style="color:#75715e"></span>    <span style="color:#75715e"># 默认通常是60s，对于复杂业务逻辑可能不够
-</span></span></span><span style="display:flex;"><span><span style="color:#75715e"></span>    <span style="color:#f92672">proxy_connect_timeout</span> <span style="color:#e6db74">300s</span>;
-</span></span><span style="display:flex;"><span>    <span style="color:#f92672">proxy_read_timeout</span> <span style="color:#e6db74">300s</span>;
-</span></span><span style="display:flex;"><span>    <span style="color:#f92672">proxy_send_timeout</span> <span style="color:#e6db74">300s</span>;
-</span></span><span style="display:flex;"><span>}
-</span></span></code></pre></div><p>调整完这几个参数后，那个文件上传的功能瞬间顺滑了，开发同事看我的眼神都多了几分信任。</p>
-<h2 id="写在最后">写在最后
-</h2><p>技术这东西，往往是“纸上得来终觉浅”。</p>
-<p>我看过无数篇《Nginx 权威指南》，但真正让我记住这些配置的，是那次重定向错误的尴尬，是用户被踢下线的焦灼，是上传失败时的无奈。每一个配置指令背后，其实都是一个真实的业务痛点。</p>
-<p>如果你是刚开始接触 Nginx 的朋友，我想告诉你：<strong>不要怕报错。</strong> 打开 Nginx 的 <code>error.log</code>（通常在 <code>/var/log/nginx/</code> 下），那里藏着最好的老师。每次配置变更后，记得用 <code>nginx -t</code> 测试一下语法，这是我们对自己工作的敬畏。</p>
-<p>从今天起，不妨试着给你的 Nginx 配置文件做一次“体检”。</p>
-<p><strong>给你的 3 个落地行动建议：</strong></p>
-<ol>
-<li><strong>查漏补缺：</strong> 检查你的 <code>location /</code> 配置，是否加上了 <code>Host</code> 和 <code>Real-IP</code> 的透传头。</li>
-<li><strong>日志巡检：</strong> 去服务器上看一眼 <code>error.log</code>，有没有因为 <code>client_max_body_size</code> 导致的 413 错误被你忽略了？</li>
-<li><strong>配置备份：</strong> 我习惯每周五把调试好的 <code>nginx.conf</code> 备份到 Git 仓库，相信我，当你手抖误删配置时，这个备份会救你的命。</li>
-</ol>
-<p><strong>你在配置 Nginx 或其他网关工具时，遇到过什么让你“抓狂”的坑吗？</strong> 欢迎在评论区聊聊，说不定你的分享能帮另一位熬夜的兄弟少掉几根头发。</p>
-
-</section>
-
-
-    <footer class="article-footer">
-    
-    <section class="article-tags">
-        
-            <a href="/tags/Nginx%E5%8F%8D%E5%90%91%E4%BB%A3%E7%90%86%E4%B8%8E%E8%B4%9F%E8%BD%BD%E5%9D%87%E8%A1%A1%E9%85%8D%E7%BD%AE%E8%AF%A6%E8%A7%A3.html">Nginx反向代理与负载均衡配置详解</a>
-        
-    </section>
-
-
-    </footer>
-
-
-    
-</article>
-
-    
-
-    
-
-     
-    
-        
-    <script
-    src="https://giscus.app/client.js"
-    data-repo="pastor17/bloggiscus"
-    data-repo-id="R_kgDOQ6H9qQ"
-    data-category=""
-    data-category-id="DIC_kwDOQ6H9qc4C0-T8"
-    data-mapping="pathname"
-    data-strict="0"
-    data-reactions-enabled="1"
-    data-emit-metadata="0"
-    data-input-position="bottom"
-    data-theme="light"
-    data-lang="zh-CN"
-    data-loading="lazy"
-    crossorigin="anonymous"
-    async
-></script>
-<script>
-    function setGiscusTheme(theme) {
-        let giscus = document.querySelector("iframe.giscus-frame");
-        if (giscus) {
-            giscus.contentWindow.postMessage(
-                {
-                    giscus: {
-                        setConfig: {
-                            theme: theme,
-                        },
-                    },
-                },
-                "https://giscus.app"
-            );
-        }
-    }
-
-    (function () {
-        addEventListener("message", (e) => {
-            if (event.origin !== "https://giscus.app") return;
-            handler();
-        });
-        window.addEventListener("onColorSchemeChange", handler);
-
-        function handler() {
-            if (document.documentElement.dataset.scheme === "light") {
-                setGiscusTheme('light');
-            } else {
-                setGiscusTheme('dark_dimmed');
-            }
-        }
-    })();
-</script>
-
-    
-
-    <footer class="site-footer">
-    <section class="copyright">
-        &copy; 
-        
-        2026 SelfTechHub
-    </section>
-    
-    <section class="powerby">
-        
-
-    </section>
-</footer>
-
-
-    
-<div class="pswp" tabindex="-1" role="dialog" aria-hidden="true">
-
-    
-    <div class="pswp__bg"></div>
-
-    
-    <div class="pswp__scroll-wrap">
-
-        
-        <div class="pswp__container">
-            <div class="pswp__item"></div>
-            <div class="pswp__item"></div>
-            <div class="pswp__item"></div>
-        </div>
-
-        
-        <div class="pswp__ui pswp__ui--hidden">
-
-            <div class="pswp__top-bar">
-
-                
-
-                <div class="pswp__counter"></div>
-
-                <button class="pswp__button pswp__button--close" title="Close (Esc)"></button>
-
-                <button class="pswp__button pswp__button--share" title="Share"></button>
-
-                <button class="pswp__button pswp__button--fs" title="Toggle fullscreen"></button>
-
-                <button class="pswp__button pswp__button--zoom" title="Zoom in/out"></button>
-
-                
-                
-                <div class="pswp__preloader">
-                    <div class="pswp__preloader__icn">
-                        <div class="pswp__preloader__cut">
-                            <div class="pswp__preloader__donut"></div>
-                        </div>
-                    </div>
-                </div>
-            </div>
-
-            <div class="pswp__share-modal pswp__share-modal--hidden pswp__single-tap">
-                <div class="pswp__share-tooltip"></div>
-            </div>
-
-            <button class="pswp__button pswp__button--arrow--left" title="Previous (arrow left)">
-            </button>
-
-            <button class="pswp__button pswp__button--arrow--right" title="Next (arrow right)">
-            </button>
-
-            <div class="pswp__caption">
-                <div class="pswp__caption__center"></div>
-            </div>
-
-        </div>
-
-    </div>
-
-</div><script 
-                src="https://cdn.jsdelivr.net/npm/photoswipe@4.1.3/dist/photoswipe.min.js"integrity="sha256-ePwmChbbvXbsO02lbM3HoHbSHTHFAeChekF1xKJdleo="crossorigin="anonymous"
-                defer
-                >
-            </script><script 
-                src="https://cdn.jsdelivr.net/npm/photoswipe@4.1.3/dist/photoswipe-ui-default.min.js"integrity="sha256-UKkzOn/w1mBxRmLLGrSeyB4e1xbrp4xylgAWb3M42pU="crossorigin="anonymous"
-                defer
-                >
-            </script><link 
-                rel="stylesheet" 
-                href="https://cdn.jsdelivr.net/npm/photoswipe@4.1.3/dist/default-skin/default-skin.min.css"crossorigin="anonymous"
-            ><link 
-                rel="stylesheet" 
-                href="https://cdn.jsdelivr.net/npm/photoswipe@4.1.3/dist/photoswipe.min.css"crossorigin="anonymous"
-            >
-    
-
-            </main>
-        </div>
-        <script 
-                src="https://cdn.jsdelivr.net/npm/node-vibrant@3.1.6/dist/vibrant.min.js"integrity="sha256-awcR2jno4kI5X0zL8ex0vi2z&#43;KMkF24hUW8WePSA9HM="crossorigin="anonymous"
-                
-                >
-            </script><script type="text/javascript" src="/ts/main.c922af694cc257bf1ecc41c0dd7b0430f9114ec280ccf67cd2c6ad55f5316c4e.js" defer></script>
-<script>
-    (function () {
-        const customFont = document.createElement('link');
-        customFont.href = "https://fonts.googleapis.com/css2?family=Lato:wght@300;400;700&display=swap";
-
-        customFont.type = "text/css";
-        customFont.rel = "stylesheet";
-
-        document.head.appendChild(customFont);
-    }());
-</script>
-
-    </body>
-</html>
+<!doctype html><html lang=zh-cn dir=ltr><head><meta charset=utf-8><meta name=viewport content='width=device-width,initial-scale=1'><meta name=description content="记得刚入行那年，我最怕看到的画面不是满屏的代码报错，而是浏览器里那个冷冰冰的 \" 502 bad gateway\"。"><title>3次生产事故后，我总结的Nginx反代与负载均衡实战</title><link rel=canonical href=https://blog.irudder.me/tech/devopsjichugongjurumenyushicao/nginxfanxiangdailiyufuzaijunhengpeizhixiangjie.html><link rel=stylesheet href=/scss/style.min.c77ce1b874b29b2ee9e54a89066c79ebf35cbe9cf399b31ab5d79167f9a965c9.css><meta property='og:title' content="3次生产事故后，我总结的Nginx反代与负载均衡实战"><meta property='og:description' content="记得刚入行那年，我最怕看到的画面不是满屏的代码报错，而是浏览器里那个冷冰冰的 \" 502 bad gateway\"。"><meta property='og:url' content='https://blog.irudder.me/tech/devopsjichugongjurumenyushicao/nginxfanxiangdailiyufuzaijunhengpeizhixiangjie.html'><meta property='og:site_name' content='SelfTechHub'><meta property='og:type' content='article'><meta property='article:section' content='Tech'><meta property='article:tag' content='Nginx反向代理与负载均衡配置详解'><meta property='article:published_time' content='2023-06-25T00:00:00+08:00'><meta property='article:modified_time' content='2023-06-25T00:00:00+08:00'><meta name=twitter:title content="3次生产事故后，我总结的Nginx反代与负载均衡实战"><meta name=twitter:description content="记得刚入行那年，我最怕看到的画面不是满屏的代码报错，而是浏览器里那个冷冰冰的 \" 502 bad gateway\"。"><link rel="shortcut icon" href=/images/logo.png></head><body class=article-page><script>(function(){const e="StackColorScheme";localStorage.getItem(e)||localStorage.setItem(e,"auto")})()</script><script>(function(){const t="StackColorScheme",e=localStorage.getItem(t),n=window.matchMedia("(prefers-color-scheme: dark)").matches===!0;e=="dark"||e==="auto"&&n?document.documentElement.dataset.scheme="dark":document.documentElement.dataset.scheme="light"})()</script><div class="container main-container flex on-phone--column extended"><aside class="sidebar left-sidebar sticky"><button class="hamburger hamburger--spin" type=button id=toggle-menu aria-label=切换菜单>
+<span class=hamburger-box><span class=hamburger-inner></span></span></button><header><figure class=site-avatar><a href=/><img src=/img/avatar_hu_8588ce14af1147e2.png width=300 height=286 class=site-logo loading=lazy alt=Avatar>
+</a><span class=emoji>🧠</span></figure><div class=site-meta><h1 class=site-name><a href=/>SelfTechHub</a></h1><h2 class=site-description>成长 · 技术 · 商业 · AI —— 把碎片知识沉淀为可复用的记忆体系</h2></div></header><ol class=menu-social><li><a href=https://github.com/pastor17 target=_blank title=GitHub rel=me><svg class="icon icon-tabler icon-tabler-brand-github" width="24" height="24" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor" fill="none" stroke-linecap="round" stroke-linejoin="round"><path stroke="none" d="M0 0h24v24H0z" fill="none"/><path d="M9 19c-4.3 1.4-4.3-2.5-6-3m12 5v-3.5c0-1 .1-1.4-.5-2 2.8-.3 5.5-1.4 5.5-6a4.6 4.6.0 00-1.3-3.2 4.2 4.2.0 00-.1-3.2s-1.1-.3-3.5 1.3a12.3 12.3.0 00-6.2.0C6.5 2.8 5.4 3.1 5.4 3.1a4.2 4.2.0 00-.1 3.2A4.6 4.6.0 004 9.5c0 4.6 2.7 5.7 5.5 6-.6.6-.6 1.2-.5 2V21"/></svg></a></li></ol><ol class=menu id=main-menu><li><a href=/><svg class="icon icon-tabler icon-tabler-home" width="24" height="24" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor" fill="none" stroke-linecap="round" stroke-linejoin="round"><path stroke="none" d="M0 0h24v24H0z"/><polyline points="5 12 3 12 12 3 21 12 19 12"/><path d="M5 12v7a2 2 0 002 2h10a2 2 0 002-2v-7"/><path d="M9 21v-6a2 2 0 012-2h2a2 2 0 012 2v6"/></svg>
+<span>首页</span></a></li><li><a href=/categories/%E6%88%90%E9%95%BF.html><span>成长认知</span></a></li><li><a href=/categories/%E6%8A%80%E6%9C%AF.html><span>技术精进</span></a></li><li><a href=/categories/%E5%95%86%E4%B8%9A.html><span>商业·财富</span></a></li><li><a href=/categories/ai.html><span>探索AI</span></a></li><li><a href=/about/><svg class="icon icon-tabler icon-tabler-user" width="24" height="24" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor" fill="none" stroke-linecap="round" stroke-linejoin="round"><path stroke="none" d="M0 0h24v24H0z"/><circle cx="12" cy="7" r="4"/><path d="M6 21v-2a4 4 0 014-4h4a4 4 0 014 4v2"/></svg>
+<span>关于</span></a></li><li class=menu-bottom-section><ol class=menu><li id=dark-mode-toggle><svg class="icon icon-tabler icon-tabler-toggle-left" width="24" height="24" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor" fill="none" stroke-linecap="round" stroke-linejoin="round"><path stroke="none" d="M0 0h24v24H0z"/><circle cx="8" cy="12" r="2"/><rect x="2" y="6" width="20" height="12" rx="6"/></svg>
+<svg class="icon icon-tabler icon-tabler-toggle-right" width="24" height="24" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor" fill="none" stroke-linecap="round" stroke-linejoin="round"><path stroke="none" d="M0 0h24v24H0z"/><circle cx="16" cy="12" r="2"/><rect x="2" y="6" width="20" height="12" rx="6"/></svg>
+<span>暗色模式</span></li></ol></li></ol></aside><aside class="sidebar right-sidebar sticky"><section class="widget archives"><div class=widget-icon><svg class="icon icon-tabler icon-tabler-hash" width="24" height="24" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor" fill="none" stroke-linecap="round" stroke-linejoin="round"><path stroke="none" d="M0 0h24v24H0z"/><line x1="5" y1="9" x2="19" y2="9"/><line x1="5" y1="15" x2="19" y2="15"/><line x1="11" y1="4" x2="7" y2="20"/><line x1="17" y1="4" x2="13" y2="20"/></svg></div><h2 class="widget-title section-title">目录</h2><div class=widget--toc><nav id=TableOfContents><ul><li><a href=#别让反向代理成为黑洞不仅是转发更是伪装>别让“反向代理”成为黑洞：不仅是转发，更是“伪装”</a></li><li><a href=#负载均衡的玄学不只是轮询更要专一>负载均衡的“玄学”：不只是轮询，更要“专一”</a></li><li><a href=#那些看不见的隐形杀手超时与缓冲区>那些看不见的“隐形杀手”：超时与缓冲区</a></li><li><a href=#写在最后>写在最后</a></li></ul></nav></div></section></aside><main class="main full-width"><article class=main-article><header class=article-header><div class=article-details><header class=article-category><a href=/categories/%E6%8A%80%E6%9C%AF.html>技术精进</a></header><div class=article-title-wrapper><h2 class=article-title><a href=/tech/devopsjichugongjurumenyushicao/nginxfanxiangdailiyufuzaijunhengpeizhixiangjie.html>3次生产事故后，我总结的Nginx反代与负载均衡实战</a></h2><h3 class=article-subtitle>记得刚入行那年，我最怕看到的画面不是满屏的代码报错，而是浏览器里那个冷冰冰的 "502 Bad Gateway"。</h3></div><footer class=article-time><div><svg class="icon icon-tabler icon-tabler-calendar-time" width="56" height="56" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor" fill="none" stroke-linecap="round" stroke-linejoin="round"><path stroke="none" d="M0 0h24v24H0z"/><path d="M11.795 21H5a2 2 0 01-2-2V7a2 2 0 012-2h12a2 2 0 012 2v4"/><circle cx="18" cy="18" r="4"/><path d="M15 3v4"/><path d="M7 3v4"/><path d="M3 11h16"/><path d="M18 16.496V18l1 1"/></svg>
+<time class=article-time--published datetime=2023-06-25T00:00:00+08:00>2023-06-25</time></div><div><svg class="icon icon-tabler icon-tabler-clock" width="24" height="24" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor" fill="none" stroke-linecap="round" stroke-linejoin="round"><path stroke="none" d="M0 0h24v24H0z"/><circle cx="12" cy="12" r="9"/><polyline points="12 7 12 12 15 15"/></svg>
+<time class=article-time--reading>阅读时长: 5 分钟</time></div></footer></div></header><section class=article-content><p>记得刚入行那年，我最怕看到的画面不是满屏的代码报错，而是浏览器里那个冷冰冰的 <strong>&ldquo;502 Bad Gateway&rdquo;</strong>。</p><p>那时候觉得 Nginx 就是个黑盒，配置文件里的每一行指令都像是在对着服务器念咒语——念对了万事大吉，念错了一个分号，服务直接趴窝。我曾天真地以为，照着网上的教程把 <code>proxy_pass</code> 粘贴进去就算完事了，直到我经历了那几个心惊肉跳的深夜。</p><p><img src="https://picsum.photos/800/450?random=1768387964200" loading=lazy alt=配图></p><p>DevOps 的路上，我们大概率都会遇到这样的时刻：代码逻辑明明没问题，但请求就是发不到后端；或者明明加了机器做负载均衡，用户却总抱怨登录状态莫名丢失。</p><p>今天，我想把自己这几年记在备忘录里的 Nginx 实操经验翻出来，不讲晦涩的原理，只聊聊在真实业务场景下，怎么配置反向代理和负载均衡，才能让你睡个安稳觉。</p><h2 id=别让反向代理成为黑洞不仅是转发更是伪装>别让“反向代理”成为黑洞：不仅是转发，更是“伪装”</h2><p>很多新手（包括当年的我）在配置反向代理时，往往只写一行 <code>proxy_pass</code>。</p><p>我就踩过这样一个坑。当时我们有一个内部管理系统，后端用的 Spring Boot，前端 Nginx 做代理。上线第一天，运营同事就跑来吼：“为什么我生成的重定向链接，跳回的是 <code>localhost</code>？”</p><p>原来，当 Nginx 将请求转发给后端应用时，如果不做特殊配置，后端拿到的 <code>Host</code> 信息往往是 Nginx 所在的内网 IP 或者 <code>localhost</code>，而不是用户真正访问的域名。这导致后端在生成重定向 URL 或记录日志时，完全搞错了对象。</p><p><strong>解决这个问题的关键，在于“透传”。</strong> 我们需要把用户真实的请求头信息，原封不动地告诉后端。</p><p><strong>实战配置建议：</strong></p><p>建议你把下面这几行配置，作为所有反向代理的“标配”。我习惯在公司内部维护一个 <code>proxy_params</code> 文件，每次直接 include 进去，省心又安全。</p><div class=highlight><div class=chroma><table class=lntable><tr><td class=lntd><pre tabindex=0 class=chroma><code><span class=lnt> 1
+</span><span class=lnt> 2
+</span><span class=lnt> 3
+</span><span class=lnt> 4
+</span><span class=lnt> 5
+</span><span class=lnt> 6
+</span><span class=lnt> 7
+</span><span class=lnt> 8
+</span><span class=lnt> 9
+</span><span class=lnt>10
+</span><span class=lnt>11
+</span><span class=lnt>12
+</span><span class=lnt>13
+</span></code></pre></td><td class=lntd><pre tabindex=0 class=chroma><code class=language-nginx data-lang=nginx><span class=line><span class=cl><span class=k>location</span> <span class=s>/api/</span> <span class=p>{</span>
+</span></span><span class=line><span class=cl>    <span class=kn>proxy_pass</span> <span class=s>http://127.0.0.1:8080</span><span class=p>;</span>
+</span></span><span class=line><span class=cl>
+</span></span><span class=line><span class=cl>    <span class=c1># 核心：保留客户端真实的 Host 域名
+</span></span></span><span class=line><span class=cl><span class=c1></span>    <span class=kn>proxy_set_header</span> <span class=s>Host</span> <span class=nv>$host</span><span class=p>;</span> 
+</span></span><span class=line><span class=cl>    
+</span></span><span class=line><span class=cl>    <span class=c1># 核心：传递客户端真实的 IP 地址，而不是 Nginx 的内网 IP
+</span></span></span><span class=line><span class=cl><span class=c1></span>    <span class=kn>proxy_set_header</span> <span class=s>X-Real-IP</span> <span class=nv>$remote_addr</span><span class=p>;</span>
+</span></span><span class=line><span class=cl>    <span class=kn>proxy_set_header</span> <span class=s>X-Forwarded-For</span> <span class=nv>$proxy_add_x_forwarded_for</span><span class=p>;</span>
+</span></span><span class=line><span class=cl>    
+</span></span><span class=line><span class=cl>    <span class=c1># 告诉后端当前的协议是 http 还是 https
+</span></span></span><span class=line><span class=cl><span class=c1></span>    <span class=kn>proxy_set_header</span> <span class=s>X-Forwarded-Proto</span> <span class=nv>$scheme</span><span class=p>;</span>
+</span></span><span class=line><span class=cl><span class=p>}</span>
+</span></span></code></pre></td></tr></table></div></div><p>自从加上这几行，后端日志里再也没出现过满屏的 <code>127.0.0.1</code>，排查问题时的效率提升了不止一倍。</p><h2 id=负载均衡的玄学不只是轮询更要专一>负载均衡的“玄学”：不只是轮询，更要“专一”</h2><p><img src="https://picsum.photos/800/450?random=1768387968026" loading=lazy alt=配图></p><p>随着业务量增长，单台服务器撑不住了，我们自然会想到加机器，上负载均衡。</p><p>大概两年前，我们要搞一个线上的抢购活动。为了保险，我临时加了两台服务器，配置了最简单的 <code>upstream</code> 轮询。我想着，三台机器平均分担压力，这下稳了吧？</p><p>结果活动刚开始五分钟，客服电话就被打爆了。用户反馈：“我刚登录进去，一点‘立即购买’，就提示我请先登录！”</p><p>即使是现在，回想起当时的冷汗直冒还心有余悸。排查后发现，问题出在 Session 上。默认的轮询策略（Round Robin）会把同一个用户的请求随机分发到不同的服务器上。用户在 A 服务器登录了，Session 存在 A 上；下一次点击被分发到了 B 服务器，B 上面没有 Session，自然就判定用户未登录。</p><p>虽然现在更推荐用 Redis 集中管理 Session，但在很多中小型项目或遗留系统中，<strong>IP 哈希（ip_hash）</strong> 依然是解决这个问题的最快救命稻草。</p><p><strong>实战配置建议：</strong></p><p>如果你的应用涉及用户登录状态，且没有做分布式的 Session 共享，<strong>请务必加上 <code>ip_hash</code></strong>。它能保证同一个 IP 的请求固定打到同一台后端服务器上。</p><div class=highlight><div class=chroma><table class=lntable><tr><td class=lntd><pre tabindex=0 class=chroma><code><span class=lnt> 1
+</span><span class=lnt> 2
+</span><span class=lnt> 3
+</span><span class=lnt> 4
+</span><span class=lnt> 5
+</span><span class=lnt> 6
+</span><span class=lnt> 7
+</span><span class=lnt> 8
+</span><span class=lnt> 9
+</span><span class=lnt>10
+</span><span class=lnt>11
+</span><span class=lnt>12
+</span><span class=lnt>13
+</span><span class=lnt>14
+</span><span class=lnt>15
+</span><span class=lnt>16
+</span><span class=lnt>17
+</span><span class=lnt>18
+</span><span class=lnt>19
+</span><span class=lnt>20
+</span><span class=lnt>21
+</span><span class=lnt>22
+</span><span class=lnt>23
+</span></code></pre></td><td class=lntd><pre tabindex=0 class=chroma><code class=language-nginx data-lang=nginx><span class=line><span class=cl><span class=k>upstream</span> <span class=s>backend_server_group</span> <span class=p>{</span>
+</span></span><span class=line><span class=cl>    <span class=c1># 关键指令：保证会话粘性
+</span></span></span><span class=line><span class=cl><span class=c1></span>    <span class=kn>ip_hash</span><span class=p>;</span> 
+</span></span><span class=line><span class=cl>    
+</span></span><span class=line><span class=cl>    <span class=c1># weight 代表权重，权重越高分配的请求越多
+</span></span></span><span class=line><span class=cl><span class=c1></span>    <span class=kn>server</span> <span class=n>192.168.1.101</span><span class=p>:</span><span class=mi>8080</span> <span class=s>weight=3</span><span class=p>;</span>
+</span></span><span class=line><span class=cl>    <span class=kn>server</span> <span class=n>192.168.1.102</span><span class=p>:</span><span class=mi>8080</span> <span class=s>weight=1</span><span class=p>;</span>
+</span></span><span class=line><span class=cl>    
+</span></span><span class=line><span class=cl>    <span class=c1># max_fails=3 fail_timeout=30s 代表：
+</span></span></span><span class=line><span class=cl><span class=c1></span>    <span class=c1># 如果这台机器在30秒内失败了3次，Nginx会在接下来的30秒内不再给它发请求
+</span></span></span><span class=line><span class=cl><span class=c1></span>    <span class=c1># 这就是简单的健康检查
+</span></span></span><span class=line><span class=cl><span class=c1></span>    <span class=kn>server</span> <span class=n>192.168.1.103</span><span class=p>:</span><span class=mi>8080</span> <span class=s>max_fails=3</span> <span class=s>fail_timeout=30s</span><span class=p>;</span>
+</span></span><span class=line><span class=cl><span class=p>}</span>
+</span></span><span class=line><span class=cl>
+</span></span><span class=line><span class=cl><span class=k>server</span> <span class=p>{</span>
+</span></span><span class=line><span class=cl>    <span class=kn>listen</span> <span class=mi>80</span><span class=p>;</span>
+</span></span><span class=line><span class=cl>    <span class=kn>server_name</span> <span class=s>example.com</span><span class=p>;</span>
+</span></span><span class=line><span class=cl>
+</span></span><span class=line><span class=cl>    <span class=kn>location</span> <span class=s>/</span> <span class=p>{</span>
+</span></span><span class=line><span class=cl>        <span class=kn>proxy_pass</span> <span class=s>http://backend_server_group</span><span class=p>;</span>
+</span></span><span class=line><span class=cl>        <span class=kn>include</span> <span class=s>proxy_params</span><span class=p>;</span> <span class=c1># 记得加上上一节提到的标配
+</span></span></span><span class=line><span class=cl><span class=c1></span>    <span class=p>}</span>
+</span></span><span class=line><span class=cl><span class=p>}</span>
+</span></span></code></pre></td></tr></table></div></div><p>这个配置我用了很久，在很多不需要极致扩展性的中小项目中，它既简单又管用。</p><h2 id=那些看不见的隐形杀手超时与缓冲区>那些看不见的“隐形杀手”：超时与缓冲区</h2><p>有时候，服务既没宕机，配置也没错，但用户体验就是极差。</p><p>我曾接手过一个旧项目，主要功能是文件上传。开发人员跟我抱怨：“小文件没事，一上传超过 1MB 的 Excel 表格，Nginx 直接报 413 错误；有时候报表生成慢一点，Nginx 就报 504 Gateway Time-out。”</p><p>这种挫败感很强，因为大家第一反应往往是代码写得烂，其实很多时候是 Nginx 的默认限制太“保守”了。Nginx 默认的请求体大小限制通常只有 1MB，这在富媒体时代显然不够用。</p><p><strong>运维不仅要保稳定，更要懂业务场景。</strong> 遇到大文件上传或长耗时任务，我们需要给 Nginx 一点“耐心”。</p><p><strong>实战配置建议：</strong></p><p>不用盲目调大所有参数，建议针对特定的 URL 路径进行优化，避免全局配置带来的安全风险。</p><div class=highlight><div class=chroma><table class=lntable><tr><td class=lntd><pre tabindex=0 class=chroma><code><span class=lnt> 1
+</span><span class=lnt> 2
+</span><span class=lnt> 3
+</span><span class=lnt> 4
+</span><span class=lnt> 5
+</span><span class=lnt> 6
+</span><span class=lnt> 7
+</span><span class=lnt> 8
+</span><span class=lnt> 9
+</span><span class=lnt>10
+</span><span class=lnt>11
+</span><span class=lnt>12
+</span><span class=lnt>13
+</span></code></pre></td><td class=lntd><pre tabindex=0 class=chroma><code class=language-nginx data-lang=nginx><span class=line><span class=cl><span class=c1># 针对上传接口的特殊配置
+</span></span></span><span class=line><span class=cl><span class=c1></span><span class=k>location</span> <span class=s>/api/upload</span> <span class=p>{</span>
+</span></span><span class=line><span class=cl>    <span class=kn>proxy_pass</span> <span class=s>http://backend_server_group</span><span class=p>;</span>
+</span></span><span class=line><span class=cl>    
+</span></span><span class=line><span class=cl>    <span class=c1># 允许客户端上传的最大文件大小，按需调整
+</span></span></span><span class=line><span class=cl><span class=c1></span>    <span class=kn>client_max_body_size</span> <span class=mi>100m</span><span class=p>;</span> 
+</span></span><span class=line><span class=cl>    
+</span></span><span class=line><span class=cl>    <span class=c1># 增加后端连接和读取的超时时间
+</span></span></span><span class=line><span class=cl><span class=c1></span>    <span class=c1># 默认通常是60s，对于复杂业务逻辑可能不够
+</span></span></span><span class=line><span class=cl><span class=c1></span>    <span class=kn>proxy_connect_timeout</span> <span class=s>300s</span><span class=p>;</span>
+</span></span><span class=line><span class=cl>    <span class=kn>proxy_read_timeout</span> <span class=s>300s</span><span class=p>;</span>
+</span></span><span class=line><span class=cl>    <span class=kn>proxy_send_timeout</span> <span class=s>300s</span><span class=p>;</span>
+</span></span><span class=line><span class=cl><span class=p>}</span>
+</span></span></code></pre></td></tr></table></div></div><p>调整完这几个参数后，那个文件上传的功能瞬间顺滑了，开发同事看我的眼神都多了几分信任。</p><h2 id=写在最后>写在最后</h2><p>技术这东西，往往是“纸上得来终觉浅”。</p><p>我看过无数篇《Nginx 权威指南》，但真正让我记住这些配置的，是那次重定向错误的尴尬，是用户被踢下线的焦灼，是上传失败时的无奈。每一个配置指令背后，其实都是一个真实的业务痛点。</p><p>如果你是刚开始接触 Nginx 的朋友，我想告诉你：<strong>不要怕报错。</strong> 打开 Nginx 的 <code>error.log</code>（通常在 <code>/var/log/nginx/</code> 下），那里藏着最好的老师。每次配置变更后，记得用 <code>nginx -t</code> 测试一下语法，这是我们对自己工作的敬畏。</p><p>从今天起，不妨试着给你的 Nginx 配置文件做一次“体检”。</p><p><strong>给你的 3 个落地行动建议：</strong></p><ol><li><strong>查漏补缺：</strong> 检查你的 <code>location /</code> 配置，是否加上了 <code>Host</code> 和 <code>Real-IP</code> 的透传头。</li><li><strong>日志巡检：</strong> 去服务器上看一眼 <code>error.log</code>，有没有因为 <code>client_max_body_size</code> 导致的 413 错误被你忽略了？</li><li><strong>配置备份：</strong> 我习惯每周五把调试好的 <code>nginx.conf</code> 备份到 Git 仓库，相信我，当你手抖误删配置时，这个备份会救你的命。</li></ol><p><strong>你在配置 Nginx 或其他网关工具时，遇到过什么让你“抓狂”的坑吗？</strong> 欢迎在评论区聊聊，说不定你的分享能帮另一位熬夜的兄弟少掉几根头发。</p></section><footer class=article-footer><section class=article-tags><a href=/tags/Nginx%E5%8F%8D%E5%90%91%E4%BB%A3%E7%90%86%E4%B8%8E%E8%B4%9F%E8%BD%BD%E5%9D%87%E8%A1%A1%E9%85%8D%E7%BD%AE%E8%AF%A6%E8%A7%A3.html>Nginx反向代理与负载均衡配置详解</a></section></footer></article><script src=https://giscus.app/client.js data-repo=pastor17/bloggiscus data-repo-id=R_kgDOQ6H9qQ data-category data-category-id=DIC_kwDOQ6H9qc4C0-T8 data-mapping=pathname data-strict=0 data-reactions-enabled=1 data-emit-metadata=0 data-input-position=bottom data-theme=light data-lang=zh-CN data-loading=lazy crossorigin=anonymous async></script><script>function setGiscusTheme(e){let t=document.querySelector("iframe.giscus-frame");t&&t.contentWindow.postMessage({giscus:{setConfig:{theme:e}}},"https://giscus.app")}(function(){addEventListener("message",t=>{if(event.origin!=="https://giscus.app")return;e()}),window.addEventListener("onColorSchemeChange",e);function e(){setGiscusTheme(document.documentElement.dataset.scheme==="light"?"light":"dark_dimmed")}})()</script><footer class=site-footer><section class=copyright>&copy;
+2021 -
+2026 SelfTechHub</section><section class=powerby>拒绝一次性认知，把碎片知识沉淀为可复用的记忆体系<br></section></footer><div class=pswp tabindex=-1 role=dialog aria-hidden=true><div class=pswp__bg></div><div class=pswp__scroll-wrap><div class=pswp__container><div class=pswp__item></div><div class=pswp__item></div><div class=pswp__item></div></div><div class="pswp__ui pswp__ui--hidden"><div class=pswp__top-bar><div class=pswp__counter></div><button class="pswp__button pswp__button--close" title="Close (Esc)"></button>
+<button class="pswp__button pswp__button--share" title=Share></button>
+<button class="pswp__button pswp__button--fs" title="Toggle fullscreen"></button>
+<button class="pswp__button pswp__button--zoom" title="Zoom in/out"></button><div class=pswp__preloader><div class=pswp__preloader__icn><div class=pswp__preloader__cut><div class=pswp__preloader__donut></div></div></div></div></div><div class="pswp__share-modal pswp__share-modal--hidden pswp__single-tap"><div class=pswp__share-tooltip></div></div><button class="pswp__button pswp__button--arrow--left" title="Previous (arrow left)">
+</button>
+<button class="pswp__button pswp__button--arrow--right" title="Next (arrow right)"></button><div class=pswp__caption><div class=pswp__caption__center></div></div></div></div></div><script src=https://cdn.jsdelivr.net/npm/photoswipe@4.1.3/dist/photoswipe.min.js integrity="sha256-ePwmChbbvXbsO02lbM3HoHbSHTHFAeChekF1xKJdleo=" crossorigin=anonymous defer></script><script src=https://cdn.jsdelivr.net/npm/photoswipe@4.1.3/dist/photoswipe-ui-default.min.js integrity="sha256-UKkzOn/w1mBxRmLLGrSeyB4e1xbrp4xylgAWb3M42pU=" crossorigin=anonymous defer></script><link rel=stylesheet href=https://cdn.jsdelivr.net/npm/photoswipe@4.1.3/dist/default-skin/default-skin.min.css crossorigin=anonymous><link rel=stylesheet href=https://cdn.jsdelivr.net/npm/photoswipe@4.1.3/dist/photoswipe.min.css crossorigin=anonymous></main></div><script src=https://cdn.jsdelivr.net/npm/node-vibrant@3.1.6/dist/vibrant.min.js integrity="sha256-awcR2jno4kI5X0zL8ex0vi2z+KMkF24hUW8WePSA9HM=" crossorigin=anonymous></script><script type=text/javascript src=/ts/main.c922af694cc257bf1ecc41c0dd7b0430f9114ec280ccf67cd2c6ad55f5316c4e.js defer></script><script>(function(){const e=document.createElement("link");e.href="https://fonts.googleapis.com/css2?family=Lato:wght@300;400;700&display=swap",e.type="text/css",e.rel="stylesheet",document.head.appendChild(e)})()</script></body></html>

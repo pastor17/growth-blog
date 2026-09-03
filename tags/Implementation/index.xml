@@ -1,24 +1,9 @@
-<?xml version="1.0" encoding="utf-8" standalone="yes"?>
-<rss version="2.0" xmlns:atom="http://www.w3.org/2005/Atom">
-    <channel>
-        <title>Implementation on SelfTechHub</title>
-        <link>https://blog.irudder.me/tags/Implementation.html</link>
-        <description>Recent content in Implementation on SelfTechHub</description>
-        <generator>Hugo -- gohugo.io</generator>
-        <language>zh-cn</language>
-        <lastBuildDate>Thu, 26 Feb 2026 00:00:00 +0000</lastBuildDate><atom:link href="https://blog.irudder.me/tags/Implementation/index.xml" rel="self" type="application/rss+xml" /><item>
-        <title>第9章 工作流自动化落地实战</title>
-        <link>https://blog.irudder.me/ai/ped/Chapter09-Workflow-Automation-Practical-Implementation.html</link>
-        <pubDate>Thu, 26 Feb 2026 00:00:00 +0000</pubDate>
-        
-        <guid>https://blog.irudder.me/ai/ped/Chapter09-Workflow-Automation-Practical-Implementation.html</guid>
-        <description>&lt;h1 id=&#34;第9章-工作流自动化落地实战&#34;&gt;第9章 工作流自动化落地实战
+<?xml version="1.0" encoding="utf-8" standalone="yes"?><rss version="2.0" xmlns:atom="http://www.w3.org/2005/Atom"><channel><title>Implementation on SelfTechHub</title><link>https://blog.irudder.me/tags/Implementation.html</link><description>Recent content in Implementation on SelfTechHub</description><generator>Hugo -- gohugo.io</generator><language>zh-cn</language><lastBuildDate>Thu, 26 Feb 2026 00:00:00 +0800</lastBuildDate><atom:link href="https://blog.irudder.me/tags/Implementation/index.xml" rel="self" type="application/rss+xml"/><item><title>第9章 工作流自动化落地实战</title><link>https://blog.irudder.me/ai/ped/Chapter09-Workflow-Automation-Practical-Implementation.html</link><pubDate>Thu, 26 Feb 2026 00:00:00 +0800</pubDate><guid>https://blog.irudder.me/ai/ped/Chapter09-Workflow-Automation-Practical-Implementation.html</guid><description>&lt;h1 id="第9章-工作流自动化落地实战"&gt;第9章 工作流自动化落地实战
 &lt;/h1&gt;&lt;blockquote&gt;
 &lt;p&gt;&lt;strong&gt;本章导读&lt;/strong&gt;&lt;/p&gt;
-&lt;p&gt;第8章搭了Skill，但Skill是孤立的AI能力。要产生业务价值，必须把Skill嵌入客户真实工作流，实现自动化。本章讲工作流梳理方法、自动化工具实战、三个典型场景（报表自动化、获客邮件自动化、客服工单分类自动化）的完整落地，以及效果验证的量化方法。读完本章，你应当能独立完成一个简单工作流自动化项目的落地与效果验证。&lt;/p&gt;
-&lt;/blockquote&gt;
+&lt;p&gt;第8章搭了Skill，但Skill是孤立的AI能力。要产生业务价值，必须把Skill嵌入客户真实工作流，实现自动化。本章讲工作流梳理方法、自动化工具实战、三个典型场景（报表自动化、获客邮件自动化、客服工单分类自动化）的完整落地，以及效果验证的量化方法。读完本章，你应当能独立完成一个简单工作流自动化项目的落地与效果验证。&lt;/p&gt;&lt;/blockquote&gt;
 &lt;hr&gt;
-&lt;h2 id=&#34;91-从skill到工作流&#34;&gt;§9.1 从Skill到工作流
+&lt;h2 id="91-从skill到工作流"&gt;§9.1 从Skill到工作流
 &lt;/h2&gt;&lt;p&gt;Skill解决&amp;quot;AI能不能做某件事&amp;quot;，工作流解决&amp;quot;AI怎么嵌入业务把整件事自动跑起来&amp;quot;。&lt;/p&gt;
 &lt;p&gt;举一个对比：&lt;/p&gt;
 &lt;ul&gt;
@@ -27,67 +12,67 @@
 &lt;/ul&gt;
 &lt;p&gt;工作流把孤立的Skill串成自动运转的流程，这才是客户愿意付费的&amp;quot;自动化&amp;quot;。FDE的核心价值之一，就是设计并落地这样的工作流。&lt;/p&gt;
 &lt;hr&gt;
-&lt;h2 id=&#34;92-工作流梳理方法&#34;&gt;§9.2 工作流梳理方法
+&lt;h2 id="92-工作流梳理方法"&gt;§9.2 工作流梳理方法
 &lt;/h2&gt;&lt;p&gt;搭工作流前，先梳理客户现有工作流。梳理不清，自动化就是空中楼阁。&lt;/p&gt;
-&lt;h3 id=&#34;921-现有流程拆解&#34;&gt;9.2.1 现有流程拆解
+&lt;h3 id="921-现有流程拆解"&gt;9.2.1 现有流程拆解
 &lt;/h3&gt;&lt;p&gt;把客户现有流程拆成&amp;quot;环节-动作-输入-输出-耗时&amp;quot;五列。&lt;/p&gt;
 &lt;p&gt;示例（手工生成日报）：&lt;/p&gt;
 &lt;table&gt;
-  &lt;thead&gt;
-      &lt;tr&gt;
-          &lt;th&gt;环节&lt;/th&gt;
-          &lt;th&gt;动作&lt;/th&gt;
-          &lt;th&gt;输入&lt;/th&gt;
-          &lt;th&gt;输出&lt;/th&gt;
-          &lt;th&gt;耗时&lt;/th&gt;
-      &lt;/tr&gt;
-  &lt;/thead&gt;
-  &lt;tbody&gt;
-      &lt;tr&gt;
-          &lt;td&gt;1&lt;/td&gt;
-          &lt;td&gt;登录各业务系统导数据&lt;/td&gt;
-          &lt;td&gt;系统账号&lt;/td&gt;
-          &lt;td&gt;原始数据表&lt;/td&gt;
-          &lt;td&gt;20分钟&lt;/td&gt;
-      &lt;/tr&gt;
-      &lt;tr&gt;
-          &lt;td&gt;2&lt;/td&gt;
-          &lt;td&gt;合并清洗数据&lt;/td&gt;
-          &lt;td&gt;原始数据&lt;/td&gt;
-          &lt;td&gt;清洗后数据&lt;/td&gt;
-          &lt;td&gt;30分钟&lt;/td&gt;
-      &lt;/tr&gt;
-      &lt;tr&gt;
-          &lt;td&gt;3&lt;/td&gt;
-          &lt;td&gt;制作图表&lt;/td&gt;
-          &lt;td&gt;清洗后数据&lt;/td&gt;
-          &lt;td&gt;图表&lt;/td&gt;
-          &lt;td&gt;25分钟&lt;/td&gt;
-      &lt;/tr&gt;
-      &lt;tr&gt;
-          &lt;td&gt;4&lt;/td&gt;
-          &lt;td&gt;撰写分析文字&lt;/td&gt;
-          &lt;td&gt;图表+经验&lt;/td&gt;
-          &lt;td&gt;分析文字&lt;/td&gt;
-          &lt;td&gt;20分钟&lt;/td&gt;
-      &lt;/tr&gt;
-      &lt;tr&gt;
-          &lt;td&gt;5&lt;/td&gt;
-          &lt;td&gt;拼装成日报发送&lt;/td&gt;
-          &lt;td&gt;图表+文字&lt;/td&gt;
-          &lt;td&gt;日报邮件&lt;/td&gt;
-          &lt;td&gt;15分钟&lt;/td&gt;
-      &lt;/tr&gt;
-      &lt;tr&gt;
-          &lt;td&gt;&lt;strong&gt;合计&lt;/strong&gt;&lt;/td&gt;
-          &lt;td&gt;&lt;/td&gt;
-          &lt;td&gt;&lt;/td&gt;
-          &lt;td&gt;&lt;/td&gt;
-          &lt;td&gt;&lt;strong&gt;110分钟&lt;/strong&gt;&lt;/td&gt;
-      &lt;/tr&gt;
-  &lt;/tbody&gt;
+&lt;thead&gt;
+&lt;tr&gt;
+&lt;th&gt;环节&lt;/th&gt;
+&lt;th&gt;动作&lt;/th&gt;
+&lt;th&gt;输入&lt;/th&gt;
+&lt;th&gt;输出&lt;/th&gt;
+&lt;th&gt;耗时&lt;/th&gt;
+&lt;/tr&gt;
+&lt;/thead&gt;
+&lt;tbody&gt;
+&lt;tr&gt;
+&lt;td&gt;1&lt;/td&gt;
+&lt;td&gt;登录各业务系统导数据&lt;/td&gt;
+&lt;td&gt;系统账号&lt;/td&gt;
+&lt;td&gt;原始数据表&lt;/td&gt;
+&lt;td&gt;20分钟&lt;/td&gt;
+&lt;/tr&gt;
+&lt;tr&gt;
+&lt;td&gt;2&lt;/td&gt;
+&lt;td&gt;合并清洗数据&lt;/td&gt;
+&lt;td&gt;原始数据&lt;/td&gt;
+&lt;td&gt;清洗后数据&lt;/td&gt;
+&lt;td&gt;30分钟&lt;/td&gt;
+&lt;/tr&gt;
+&lt;tr&gt;
+&lt;td&gt;3&lt;/td&gt;
+&lt;td&gt;制作图表&lt;/td&gt;
+&lt;td&gt;清洗后数据&lt;/td&gt;
+&lt;td&gt;图表&lt;/td&gt;
+&lt;td&gt;25分钟&lt;/td&gt;
+&lt;/tr&gt;
+&lt;tr&gt;
+&lt;td&gt;4&lt;/td&gt;
+&lt;td&gt;撰写分析文字&lt;/td&gt;
+&lt;td&gt;图表+经验&lt;/td&gt;
+&lt;td&gt;分析文字&lt;/td&gt;
+&lt;td&gt;20分钟&lt;/td&gt;
+&lt;/tr&gt;
+&lt;tr&gt;
+&lt;td&gt;5&lt;/td&gt;
+&lt;td&gt;拼装成日报发送&lt;/td&gt;
+&lt;td&gt;图表+文字&lt;/td&gt;
+&lt;td&gt;日报邮件&lt;/td&gt;
+&lt;td&gt;15分钟&lt;/td&gt;
+&lt;/tr&gt;
+&lt;tr&gt;
+&lt;td&gt;&lt;strong&gt;合计&lt;/strong&gt;&lt;/td&gt;
+&lt;td&gt;&lt;/td&gt;
+&lt;td&gt;&lt;/td&gt;
+&lt;td&gt;&lt;/td&gt;
+&lt;td&gt;&lt;strong&gt;110分钟&lt;/strong&gt;&lt;/td&gt;
+&lt;/tr&gt;
+&lt;/tbody&gt;
 &lt;/table&gt;
-&lt;h3 id=&#34;922-定位高价值节点&#34;&gt;9.2.2 定位高价值节点
+&lt;h3 id="922-定位高价值节点"&gt;9.2.2 定位高价值节点
 &lt;/h3&gt;&lt;p&gt;不是所有环节都值得自动化。高价值节点的判断标准：&lt;/p&gt;
 &lt;ul&gt;
 &lt;li&gt;&lt;strong&gt;重复性高&lt;/strong&gt;：每天/每周都做。&lt;/li&gt;
@@ -104,9 +89,8 @@
 &lt;li&gt;规则可提取吗？（AI能执行）&lt;/li&gt;
 &lt;li&gt;出错代价高吗？（错了影响大）
 四问全&amp;quot;是&amp;quot;或三&amp;quot;是&amp;quot;，优先自动化。&lt;/li&gt;
-&lt;/ol&gt;
-&lt;/blockquote&gt;
-&lt;h3 id=&#34;923-自动化边界划定&#34;&gt;9.2.3 自动化边界划定
+&lt;/ol&gt;&lt;/blockquote&gt;
+&lt;h3 id="923-自动化边界划定"&gt;9.2.3 自动化边界划定
 &lt;/h3&gt;&lt;p&gt;划定哪些环节自动化、哪些保留人工。原则：&lt;strong&gt;机器做重复与规则，人做判断与例外。&lt;/strong&gt;&lt;/p&gt;
 &lt;p&gt;上例可设计为：&lt;/p&gt;
 &lt;ul&gt;
@@ -116,30 +100,29 @@
 &lt;/ul&gt;
 &lt;p&gt;人工从110分钟降到约30分钟（审改环节4），效率提升显著。&lt;/p&gt;
 &lt;hr&gt;
-&lt;h2 id=&#34;93-自动化工具实战&#34;&gt;§9.3 自动化工具实战
-&lt;/h2&gt;&lt;h3 id=&#34;931-工具选择&#34;&gt;9.3.1 工具选择
+&lt;h2 id="93-自动化工具实战"&gt;§9.3 自动化工具实战
+&lt;/h2&gt;&lt;h3 id="931-工具选择"&gt;9.3.1 工具选择
 &lt;/h3&gt;&lt;p&gt;工作流自动化工具分两类：&lt;/p&gt;
 &lt;ul&gt;
 &lt;li&gt;&lt;strong&gt;AI原生工作流平台&lt;/strong&gt;：以大模型节点为核心，适合AI能力密集的流程。&lt;/li&gt;
 &lt;li&gt;&lt;strong&gt;传统自动化平台（RPA/iPaaS）&lt;/strong&gt;：以系统集成为核心，适合跨系统数据搬运。&lt;/li&gt;
 &lt;/ul&gt;
 &lt;p&gt;复杂项目常两者结合：用传统平台做系统集成，用AI平台做智能处理。&lt;/p&gt;
-&lt;h3 id=&#34;932-串联ai能力与业务系统&#34;&gt;9.3.2 串联AI能力与业务系统
+&lt;h3 id="932-串联ai能力与业务系统"&gt;9.3.2 串联AI能力与业务系统
 &lt;/h3&gt;&lt;p&gt;工作流的核心是&amp;quot;串联&amp;quot;。FDE要解决三类串联：&lt;/p&gt;
 &lt;p&gt;&lt;strong&gt;第一，AI与数据源的串联。&lt;/strong&gt; AI需要数据，要从业务系统拉数据喂给AI。常用方式：API调用、数据库查询、文件读取。&lt;/p&gt;
 &lt;p&gt;&lt;strong&gt;第二，AI与AI的串联。&lt;/strong&gt; 复杂流程需要多个Skill接力。上游输出作为下游输入，要设计数据格式转换。&lt;/p&gt;
 &lt;p&gt;&lt;strong&gt;第三，AI与执行系统的串联。&lt;/strong&gt; AI生成结果后，要写回业务系统或触发动作（发邮件、更新记录、派单）。&lt;/p&gt;
 &lt;blockquote&gt;
 &lt;p&gt;&lt;strong&gt;图9-1：工作流串联三类&lt;/strong&gt;
-（建议呈现：三段流程图。数据源→AI；AI→AI；AI→执行系统。）&lt;/p&gt;
-&lt;/blockquote&gt;
-&lt;h3 id=&#34;933-关键设计点&#34;&gt;9.3.3 关键设计点
+（建议呈现：三段流程图。数据源→AI；AI→AI；AI→执行系统。）&lt;/p&gt;&lt;/blockquote&gt;
+&lt;h3 id="933-关键设计点"&gt;9.3.3 关键设计点
 &lt;/h3&gt;&lt;p&gt;&lt;strong&gt;节点粒度&lt;/strong&gt;：每个节点做一件事。不要在一个节点塞&amp;quot;拉数据+清洗+分析+生成&amp;quot;，拆成4个节点，便于调试与复用。&lt;/p&gt;
 &lt;p&gt;&lt;strong&gt;错误处理&lt;/strong&gt;：每个节点都可能失败。要有重试、降级、告警机制。关键节点失败要通知人工介入。&lt;/p&gt;
 &lt;p&gt;&lt;strong&gt;数据流转&lt;/strong&gt;：上游输出如何给下游，要设计清楚。建议用结构化格式（JSON）在节点间传递。&lt;/p&gt;
 &lt;p&gt;&lt;strong&gt;触发机制&lt;/strong&gt;：定时触发、事件触发、手动触发，根据场景选择。日报用定时，工单分类用事件，临时任务用手动。&lt;/p&gt;
 &lt;hr&gt;
-&lt;h2 id=&#34;94-实战一报表自动化&#34;&gt;§9.4 实战一：报表自动化
+&lt;h2 id="94-实战一报表自动化"&gt;§9.4 实战一：报表自动化
 &lt;/h2&gt;&lt;p&gt;&lt;strong&gt;场景&lt;/strong&gt;：某公司每日手工生成销售日报，耗时110分钟，希望自动化。&lt;/p&gt;
 &lt;p&gt;&lt;strong&gt;调研发现&lt;/strong&gt;：&lt;/p&gt;
 &lt;ul&gt;
@@ -166,7 +149,7 @@
 &lt;li&gt;错误率：数据搬运错误从手工的约5%降到自动化的接近0。&lt;/li&gt;
 &lt;/ul&gt;
 &lt;hr&gt;
-&lt;h2 id=&#34;95-实战二获客邮件自动化&#34;&gt;§9.5 实战二：获客邮件自动化
+&lt;h2 id="95-实战二获客邮件自动化"&gt;§9.5 实战二：获客邮件自动化
 &lt;/h2&gt;&lt;p&gt;&lt;strong&gt;场景&lt;/strong&gt;：某B2B公司销售每日手工写跟进邮件，希望个性化自动化。&lt;/p&gt;
 &lt;p&gt;&lt;strong&gt;调研发现&lt;/strong&gt;：&lt;/p&gt;
 &lt;ul&gt;
@@ -197,7 +180,7 @@
 &lt;li&gt;销售每日可跟进客户数：从20个提升到60个。&lt;/li&gt;
 &lt;/ul&gt;
 &lt;hr&gt;
-&lt;h2 id=&#34;96-实战三客服工单分类自动化&#34;&gt;§9.6 实战三：客服工单分类自动化
+&lt;h2 id="96-实战三客服工单分类自动化"&gt;§9.6 实战三：客服工单分类自动化
 &lt;/h2&gt;&lt;p&gt;&lt;strong&gt;场景&lt;/strong&gt;：某公司客服工单手工分类派单，慢且不一致。&lt;/p&gt;
 &lt;p&gt;&lt;strong&gt;调研发现&lt;/strong&gt;：&lt;/p&gt;
 &lt;ul&gt;
@@ -227,7 +210,7 @@
 &lt;li&gt;派单错误率：从手工的约12%降到自动化的约5%（高置信度部分几乎无错）。&lt;/li&gt;
 &lt;/ul&gt;
 &lt;hr&gt;
-&lt;h2 id=&#34;97-效果验证的量化方法&#34;&gt;§9.7 效果验证的量化方法
+&lt;h2 id="97-效果验证的量化方法"&gt;§9.7 效果验证的量化方法
 &lt;/h2&gt;&lt;p&gt;工作流自动化必须量化验证，不能靠感觉。量化有四个维度。&lt;/p&gt;
 &lt;blockquote&gt;
 &lt;p&gt;&lt;strong&gt;方法论框9-2：效果验证四维度&lt;/strong&gt;&lt;/p&gt;
@@ -236,68 +219,67 @@
 &lt;li&gt;&lt;strong&gt;质量&lt;/strong&gt;：错误率对比，计算错误下降百分比。&lt;/li&gt;
 &lt;li&gt;&lt;strong&gt;规模&lt;/strong&gt;：处理量对比（如每日可处理客户数），计算产能提升。&lt;/li&gt;
 &lt;li&gt;&lt;strong&gt;成本&lt;/strong&gt;：人力成本节约 vs 自动化成本（工具费+Token费），计算净收益。&lt;/li&gt;
-&lt;/ol&gt;
-&lt;/blockquote&gt;
+&lt;/ol&gt;&lt;/blockquote&gt;
 &lt;p&gt;每个自动化项目，都要给出这四个维度的数字。客户付费的依据，就是这些数字。&lt;/p&gt;
-&lt;h3 id=&#34;量化测算模板&#34;&gt;量化测算模板
+&lt;h3 id="量化测算模板"&gt;量化测算模板
 &lt;/h3&gt;&lt;table&gt;
-  &lt;thead&gt;
-      &lt;tr&gt;
-          &lt;th&gt;维度&lt;/th&gt;
-          &lt;th&gt;自动化前&lt;/th&gt;
-          &lt;th&gt;自动化后&lt;/th&gt;
-          &lt;th&gt;变化&lt;/th&gt;
-      &lt;/tr&gt;
-  &lt;/thead&gt;
-  &lt;tbody&gt;
-      &lt;tr&gt;
-          &lt;td&gt;单次耗时&lt;/td&gt;
-          &lt;td&gt;&lt;/td&gt;
-          &lt;td&gt;&lt;/td&gt;
-          &lt;td&gt;&lt;/td&gt;
-      &lt;/tr&gt;
-      &lt;tr&gt;
-          &lt;td&gt;错误率&lt;/td&gt;
-          &lt;td&gt;&lt;/td&gt;
-          &lt;td&gt;&lt;/td&gt;
-          &lt;td&gt;&lt;/td&gt;
-      &lt;/tr&gt;
-      &lt;tr&gt;
-          &lt;td&gt;日处理量&lt;/td&gt;
-          &lt;td&gt;&lt;/td&gt;
-          &lt;td&gt;&lt;/td&gt;
-          &lt;td&gt;&lt;/td&gt;
-      &lt;/tr&gt;
-      &lt;tr&gt;
-          &lt;td&gt;月人力成本&lt;/td&gt;
-          &lt;td&gt;&lt;/td&gt;
-          &lt;td&gt;&lt;/td&gt;
-          &lt;td&gt;&lt;/td&gt;
-      &lt;/tr&gt;
-      &lt;tr&gt;
-          &lt;td&gt;月自动化成本&lt;/td&gt;
-          &lt;td&gt;—&lt;/td&gt;
-          &lt;td&gt;&lt;/td&gt;
-          &lt;td&gt;&lt;/td&gt;
-      &lt;/tr&gt;
-      &lt;tr&gt;
-          &lt;td&gt;月净收益&lt;/td&gt;
-          &lt;td&gt;—&lt;/td&gt;
-          &lt;td&gt;&lt;/td&gt;
-          &lt;td&gt;&lt;/td&gt;
-      &lt;/tr&gt;
-  &lt;/tbody&gt;
+&lt;thead&gt;
+&lt;tr&gt;
+&lt;th&gt;维度&lt;/th&gt;
+&lt;th&gt;自动化前&lt;/th&gt;
+&lt;th&gt;自动化后&lt;/th&gt;
+&lt;th&gt;变化&lt;/th&gt;
+&lt;/tr&gt;
+&lt;/thead&gt;
+&lt;tbody&gt;
+&lt;tr&gt;
+&lt;td&gt;单次耗时&lt;/td&gt;
+&lt;td&gt;&lt;/td&gt;
+&lt;td&gt;&lt;/td&gt;
+&lt;td&gt;&lt;/td&gt;
+&lt;/tr&gt;
+&lt;tr&gt;
+&lt;td&gt;错误率&lt;/td&gt;
+&lt;td&gt;&lt;/td&gt;
+&lt;td&gt;&lt;/td&gt;
+&lt;td&gt;&lt;/td&gt;
+&lt;/tr&gt;
+&lt;tr&gt;
+&lt;td&gt;日处理量&lt;/td&gt;
+&lt;td&gt;&lt;/td&gt;
+&lt;td&gt;&lt;/td&gt;
+&lt;td&gt;&lt;/td&gt;
+&lt;/tr&gt;
+&lt;tr&gt;
+&lt;td&gt;月人力成本&lt;/td&gt;
+&lt;td&gt;&lt;/td&gt;
+&lt;td&gt;&lt;/td&gt;
+&lt;td&gt;&lt;/td&gt;
+&lt;/tr&gt;
+&lt;tr&gt;
+&lt;td&gt;月自动化成本&lt;/td&gt;
+&lt;td&gt;—&lt;/td&gt;
+&lt;td&gt;&lt;/td&gt;
+&lt;td&gt;&lt;/td&gt;
+&lt;/tr&gt;
+&lt;tr&gt;
+&lt;td&gt;月净收益&lt;/td&gt;
+&lt;td&gt;—&lt;/td&gt;
+&lt;td&gt;&lt;/td&gt;
+&lt;td&gt;&lt;/td&gt;
+&lt;/tr&gt;
+&lt;/tbody&gt;
 &lt;/table&gt;
 &lt;p&gt;填完这张表，效果价值一目了然，也是给客户汇报的核心材料。&lt;/p&gt;
 &lt;hr&gt;
-&lt;h2 id=&#34;98-工作流落地的常见坑&#34;&gt;§9.8 工作流落地的常见坑
+&lt;h2 id="98-工作流落地的常见坑"&gt;§9.8 工作流落地的常见坑
 &lt;/h2&gt;&lt;p&gt;&lt;strong&gt;坑一：过度自动化。&lt;/strong&gt; 把不该自动化的也自动化了（如需要深度判断的环节），导致效果差且客户不信任。原则：先自动高价值节点，逐步扩展。&lt;/p&gt;
 &lt;p&gt;&lt;strong&gt;坑二：忽视异常处理。&lt;/strong&gt; 只设计正常路径，一遇异常全流程崩溃。每个节点都要有降级方案。&lt;/p&gt;
 &lt;p&gt;&lt;strong&gt;坑三：数据质量没把关。&lt;/strong&gt; 上游数据脏，下游AI输出就脏。要在流程入口加数据校验。&lt;/p&gt;
 &lt;p&gt;&lt;strong&gt;坑四：不灰度直接全量。&lt;/strong&gt; 自动化流程直接替换手工，出问题影响全业务。必须灰度（先10%流量，逐步放大）。&lt;/p&gt;
 &lt;p&gt;&lt;strong&gt;坑五：只看效率不看质量。&lt;/strong&gt; 效率提升了但质量降了，客户不认。效率与质量要同时验证。&lt;/p&gt;
 &lt;hr&gt;
-&lt;h2 id=&#34;本章小结&#34;&gt;本章小结
+&lt;h2 id="本章小结"&gt;本章小结
 &lt;/h2&gt;&lt;ol&gt;
 &lt;li&gt;&lt;strong&gt;从Skill到工作流&lt;/strong&gt;：Skill是孤立能力，工作流是自动运转的业务流程，后者才是客户付费的对象。&lt;/li&gt;
 &lt;li&gt;&lt;strong&gt;梳理方法&lt;/strong&gt;：拆解五列→定位高价值节点→划定自动化边界，机器做重复规则、人做判断例外。&lt;/li&gt;
@@ -307,7 +289,7 @@
 &lt;li&gt;&lt;strong&gt;常见坑&lt;/strong&gt;：过度自动化、忽视异常、数据脏、不灰度、只看效率。&lt;/li&gt;
 &lt;/ol&gt;
 &lt;hr&gt;
-&lt;h2 id=&#34;思考题&#34;&gt;思考题
+&lt;h2 id="思考题"&gt;思考题
 &lt;/h2&gt;&lt;ol&gt;
 &lt;li&gt;选一个你工作中的重复流程，用§9.2方法拆解，定位高价值自动化节点。&lt;/li&gt;
 &lt;li&gt;为这个流程设计工作流方案，画出节点流程图，标注人工介入点。&lt;/li&gt;
@@ -315,14 +297,9 @@
 &lt;li&gt;思考这个工作流可能踩§9.8的哪几个坑，各给一个预防措施。&lt;/li&gt;
 &lt;/ol&gt;
 &lt;hr&gt;
-&lt;h2 id=&#34;延伸阅读&#34;&gt;延伸阅读
+&lt;h2 id="延伸阅读"&gt;延伸阅读
 &lt;/h2&gt;&lt;ul&gt;
 &lt;li&gt;本书第11章将讲全流程项目交付SOP，工作流落地是其中的核心环节。&lt;/li&gt;
 &lt;li&gt;第16章有完整项目实战复盘，含工作流落地案例。&lt;/li&gt;
 &lt;li&gt;各工作流平台官方案例库（用于学习节点设计与模式）。&lt;/li&gt;
-&lt;/ul&gt;
-</description>
-        </item>
-        
-    </channel>
-</rss>
+&lt;/ul&gt;</description></item></channel></rss>

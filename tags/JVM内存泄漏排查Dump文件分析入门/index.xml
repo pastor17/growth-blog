@@ -1,41 +1,20 @@
-<?xml version="1.0" encoding="utf-8" standalone="yes"?>
-<rss version="2.0" xmlns:atom="http://www.w3.org/2005/Atom">
-    <channel>
-        <title>JVM内存泄漏排查：Dump文件分析入门 on SelfTechHub</title>
-        <link>https://blog.irudder.me/tags/JVM%E5%86%85%E5%AD%98%E6%B3%84%E6%BC%8F%E6%8E%92%E6%9F%A5Dump%E6%96%87%E4%BB%B6%E5%88%86%E6%9E%90%E5%85%A5%E9%97%A8.html</link>
-        <description>Recent content in JVM内存泄漏排查：Dump文件分析入门 on SelfTechHub</description>
-        <generator>Hugo -- gohugo.io</generator>
-        <language>zh-cn</language>
-        <lastBuildDate>Sat, 07 Jun 2025 00:00:00 +0000</lastBuildDate><atom:link href="https://blog.irudder.me/tags/JVM%E5%86%85%E5%AD%98%E6%B3%84%E6%BC%8F%E6%8E%92%E6%9F%A5Dump%E6%96%87%E4%BB%B6%E5%88%86%E6%9E%90%E5%85%A5%E9%97%A8/index.xml" rel="self" type="application/rss+xml" /><item>
-        <title>凌晨3点报警：一次16G堆内存泄漏的排查实录</title>
-        <link>https://blog.irudder.me/tech/jiagouyouhuashizhananlijiexi/jvmneicunxieloupaicha_dumpwenjianfenxirumen.html</link>
-        <pubDate>Sat, 07 Jun 2025 00:00:00 +0000</pubDate>
-        
-        <guid>https://blog.irudder.me/tech/jiagouyouhuashizhananlijiexi/jvmneicunxieloupaicha_dumpwenjianfenxirumen.html</guid>
-        <description>&lt;p&gt;我曾天真地以为，只要给JVM分配足够大的Heap（堆内存），就能掩盖代码里那些并不优雅的逻辑。直到那个周二凌晨3点，生产环境的报警电话像电钻一样钻进我的耳朵，打破了我的幻想。&lt;/p&gt;
+<?xml version="1.0" encoding="utf-8" standalone="yes"?><rss version="2.0" xmlns:atom="http://www.w3.org/2005/Atom"><channel><title>JVM内存泄漏排查：Dump文件分析入门 on SelfTechHub</title><link>https://blog.irudder.me/tags/JVM%E5%86%85%E5%AD%98%E6%B3%84%E6%BC%8F%E6%8E%92%E6%9F%A5Dump%E6%96%87%E4%BB%B6%E5%88%86%E6%9E%90%E5%85%A5%E9%97%A8.html</link><description>Recent content in JVM内存泄漏排查：Dump文件分析入门 on SelfTechHub</description><generator>Hugo -- gohugo.io</generator><language>zh-cn</language><lastBuildDate>Sat, 07 Jun 2025 00:00:00 +0800</lastBuildDate><atom:link href="https://blog.irudder.me/tags/JVM%E5%86%85%E5%AD%98%E6%B3%84%E6%BC%8F%E6%8E%92%E6%9F%A5Dump%E6%96%87%E4%BB%B6%E5%88%86%E6%9E%90%E5%85%A5%E9%97%A8/index.xml" rel="self" type="application/rss+xml"/><item><title>凌晨3点报警：一次16G堆内存泄漏的排查实录</title><link>https://blog.irudder.me/tech/jiagouyouhuashizhananlijiexi/jvmneicunxieloupaicha_dumpwenjianfenxirumen.html</link><pubDate>Sat, 07 Jun 2025 00:00:00 +0800</pubDate><guid>https://blog.irudder.me/tech/jiagouyouhuashizhananlijiexi/jvmneicunxieloupaicha_dumpwenjianfenxirumen.html</guid><description>&lt;p&gt;我曾天真地以为，只要给JVM分配足够大的Heap（堆内存），就能掩盖代码里那些并不优雅的逻辑。直到那个周二凌晨3点，生产环境的报警电话像电钻一样钻进我的耳朵，打破了我的幻想。&lt;/p&gt;
 &lt;p&gt;那是一次典型的“慢性死亡”：一个核心服务在运行了14天后，16GB的堆内存被吃得只剩几百兆，Full GC（全量垃圾回收）从每小时一次飙升到每分钟一次，CPU直接打满，整个系统陷入瘫痪。&lt;/p&gt;
 &lt;p&gt;重启服务当然能暂时止血，但如果你和我一样，经历过那种“不知道下一次炸雷是几小时后”的焦虑，你就会明白：&lt;strong&gt;掌握Dump文件分析，不是为了炫技，而是为了能睡个安稳觉。&lt;/strong&gt;&lt;/p&gt;
 &lt;p&gt;今天，我想复盘那次排查过程，聊聊如何从Dump文件中揪出那些藏在深处的内存“幽灵”。&lt;/p&gt;
-&lt;h2 id=&#34;警惕监控面板上的完美曲线&#34;&gt;警惕：监控面板上的“完美曲线”
+&lt;h2 id="警惕监控面板上的完美曲线"&gt;警惕：监控面板上的“完美曲线”
 &lt;/h2&gt;&lt;p&gt;很多开发同学在收到OOM（内存溢出）报警时的第一反应是：“不可能啊，我看监控，堆内存是缓慢增长的，没有什么突刺。”&lt;/p&gt;
 &lt;p&gt;我们当时遇到的正是这种情况。那个负责报表导出的服务，在上线初期，Old Gen（老年代）的使用率像一条平滑的斜线，每天增长约5%，非常规律。运维同事甚至开玩笑说：“这内存泄露得还挺有节奏感。”&lt;/p&gt;
 &lt;p&gt;&lt;strong&gt;观点：线性的内存增长往往比突发性暴涨更可怕，因为它意味着存在程序逻辑上的永久性泄漏。&lt;/strong&gt;&lt;/p&gt;
 &lt;p&gt;我们当时犯的一个错误是，过度依赖APM（应用性能监控）工具上的图表，而忽略了GC日志中的关键信息。直到我拉出GC日志，才发现虽然每次Full GC后内存会有所回落，但“回落的底线”在不断抬高。&lt;/p&gt;
 &lt;blockquote&gt;
-&lt;p&gt;“如果Full GC后的存活对象大小（Live Data Size）在不断增加，不要怀疑，这就是内存泄漏。”&lt;/p&gt;
-&lt;/blockquote&gt;
+&lt;p&gt;“如果Full GC后的存活对象大小（Live Data Size）在不断增加，不要怀疑，这就是内存泄漏。”&lt;/p&gt;&lt;/blockquote&gt;
 &lt;p&gt;这个判断标准，后来成为了我们团队设定报警阈值的铁律。&lt;/p&gt;
-&lt;p&gt;&lt;img src=&#34;https://picsum.photos/800/450?random=1768457353329&#34;
-	
-	
-	
-	loading=&#34;lazy&#34;
-	
-		alt=&#34;配图&#34;
-	
-	
+&lt;p&gt;&lt;img src="https://picsum.photos/800/450?random=1768457353329"
+loading="lazy"
+alt="配图"
 &gt;&lt;/p&gt;
-&lt;h2 id=&#34;实战dump文件不仅要拿还要拿得巧&#34;&gt;实战：Dump文件不仅要拿，还要拿得“巧”
+&lt;h2 id="实战dump文件不仅要拿还要拿得巧"&gt;实战：Dump文件不仅要拿，还要拿得“巧”
 &lt;/h2&gt;&lt;p&gt;确定了内存泄漏，下一步就是获取现场证据——Heap Dump文件。&lt;/p&gt;
 &lt;p&gt;这里有个大坑。当时一位年轻的运维为了保留完整现场，直接对那个已经摇摇欲坠的16G进程执行了标准的 &lt;code&gt;jmap -dump&lt;/code&gt; 命令。结果，整个JVM进程挂起（STW，Stop The World）了将近40秒，导致上游服务大量超时，引发了二次雪崩。&lt;/p&gt;
 &lt;p&gt;&lt;strong&gt;经验教训：在生产环境，尤其是高负载服务上，获取Dump文件必须小心翼翼。&lt;/strong&gt;&lt;/p&gt;
@@ -44,11 +23,20 @@
 &lt;li&gt;&lt;strong&gt;摘除流量&lt;/strong&gt;：先将该节点从负载均衡中下线；&lt;/li&gt;
 &lt;li&gt;&lt;strong&gt;只存活对象&lt;/strong&gt;：使用 &lt;code&gt;live&lt;/code&gt; 选项，只dump存活的对象，能显著减小文件体积。&lt;/li&gt;
 &lt;/ol&gt;
-&lt;div class=&#34;highlight&#34;&gt;&lt;pre tabindex=&#34;0&#34; style=&#34;color:#f8f8f2;background-color:#272822;-moz-tab-size:4;-o-tab-size:4;tab-size:4;&#34;&gt;&lt;code class=&#34;language-bash&#34; data-lang=&#34;bash&#34;&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;&lt;span style=&#34;color:#75715e&#34;&gt;# 生产环境推荐操作&lt;/span&gt;
-&lt;/span&gt;&lt;/span&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;&lt;span style=&#34;color:#75715e&#34;&gt;# format=b 表示二进制格式，file指定文件名&lt;/span&gt;
-&lt;/span&gt;&lt;/span&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;jmap -dump:live,format&lt;span style=&#34;color:#f92672&#34;&gt;=&lt;/span&gt;b,file&lt;span style=&#34;color:#f92672&#34;&gt;=&lt;/span&gt;heap_dump_20231024.hprof &amp;lt;pid&amp;gt;
-&lt;/span&gt;&lt;/span&gt;&lt;/code&gt;&lt;/pre&gt;&lt;/div&gt;&lt;p&gt;拿到这个5GB左右的Dump文件后（虽然堆是16G，但压缩和去除非存活对象后会小很多），真正的侦探工作才刚开始。顺便提一句，为了分析这种大文件，我特意申请了一台64G内存的独立工作站，因为在笔记本上跑MAT（Memory Analyzer Tool）简直是折磨。&lt;/p&gt;
-&lt;h2 id=&#34;真相mat分析核心顺藤摸瓜找真凶&#34;&gt;真相：MAT分析核心——顺藤摸瓜找“真凶”
+&lt;div class="highlight"&gt;&lt;div class="chroma"&gt;
+&lt;table class="lntable"&gt;&lt;tr&gt;&lt;td class="lntd"&gt;
+&lt;pre tabindex="0" class="chroma"&gt;&lt;code&gt;&lt;span class="lnt"&gt;1
+&lt;/span&gt;&lt;span class="lnt"&gt;2
+&lt;/span&gt;&lt;span class="lnt"&gt;3
+&lt;/span&gt;&lt;/code&gt;&lt;/pre&gt;&lt;/td&gt;
+&lt;td class="lntd"&gt;
+&lt;pre tabindex="0" class="chroma"&gt;&lt;code class="language-bash" data-lang="bash"&gt;&lt;span class="line"&gt;&lt;span class="cl"&gt;&lt;span class="c1"&gt;# 生产环境推荐操作&lt;/span&gt;
+&lt;/span&gt;&lt;/span&gt;&lt;span class="line"&gt;&lt;span class="cl"&gt;&lt;span class="c1"&gt;# format=b 表示二进制格式，file指定文件名&lt;/span&gt;
+&lt;/span&gt;&lt;/span&gt;&lt;span class="line"&gt;&lt;span class="cl"&gt;jmap -dump:live,format&lt;span class="o"&gt;=&lt;/span&gt;b,file&lt;span class="o"&gt;=&lt;/span&gt;heap_dump_20231024.hprof &amp;lt;pid&amp;gt;
+&lt;/span&gt;&lt;/span&gt;&lt;/code&gt;&lt;/pre&gt;&lt;/td&gt;&lt;/tr&gt;&lt;/table&gt;
+&lt;/div&gt;
+&lt;/div&gt;&lt;p&gt;拿到这个5GB左右的Dump文件后（虽然堆是16G，但压缩和去除非存活对象后会小很多），真正的侦探工作才刚开始。顺便提一句，为了分析这种大文件，我特意申请了一台64G内存的独立工作站，因为在笔记本上跑MAT（Memory Analyzer Tool）简直是折磨。&lt;/p&gt;
+&lt;h2 id="真相mat分析核心顺藤摸瓜找真凶"&gt;真相：MAT分析核心——顺藤摸瓜找“真凶”
 &lt;/h2&gt;&lt;p&gt;打开MAT，加载文件，很多人会被复杂的饼图和术语劝退。其实，你只需要关注两个核心概念：&lt;strong&gt;Shallow Heap（浅堆）&lt;/strong&gt; 和 &lt;strong&gt;Retained Heap（深堆）&lt;/strong&gt;。&lt;/p&gt;
 &lt;ul&gt;
 &lt;li&gt;&lt;strong&gt;Shallow Heap&lt;/strong&gt;：对象本身占用的内存（通常很小）。&lt;/li&gt;
@@ -60,39 +48,58 @@
 &lt;p&gt;&lt;strong&gt;案情还原：&lt;/strong&gt;
 一位离职的同事为了优化报表下载体验，写了一个“临时缓存”功能。当用户生成报表时，由于文件生成较慢，他将生成的二进制流（byte数组）暂时存入这个静态Map，等待用户下载。&lt;/p&gt;
 &lt;p&gt;然而，他只写了“存”，却忘了写“删”。&lt;/p&gt;
-&lt;div class=&#34;highlight&#34;&gt;&lt;pre tabindex=&#34;0&#34; style=&#34;color:#f8f8f2;background-color:#272822;-moz-tab-size:4;-o-tab-size:4;tab-size:4;&#34;&gt;&lt;code class=&#34;language-java&#34; data-lang=&#34;java&#34;&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;&lt;span style=&#34;color:#75715e&#34;&gt;// 伪代码还原案发现场&lt;/span&gt;
-&lt;/span&gt;&lt;/span&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;&lt;span style=&#34;color:#66d9ef&#34;&gt;public&lt;/span&gt; &lt;span style=&#34;color:#66d9ef&#34;&gt;class&lt;/span&gt; &lt;span style=&#34;color:#a6e22e&#34;&gt;ExportTaskCache&lt;/span&gt; {
-&lt;/span&gt;&lt;/span&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;    &lt;span style=&#34;color:#75715e&#34;&gt;// 静态Map，生命周期与JVM进程一致&lt;/span&gt;
-&lt;/span&gt;&lt;/span&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;    &lt;span style=&#34;color:#66d9ef&#34;&gt;private&lt;/span&gt; &lt;span style=&#34;color:#66d9ef&#34;&gt;static&lt;/span&gt; &lt;span style=&#34;color:#66d9ef&#34;&gt;final&lt;/span&gt; Map&lt;span style=&#34;color:#f92672&#34;&gt;&amp;lt;&lt;/span&gt;String, &lt;span style=&#34;color:#66d9ef&#34;&gt;byte&lt;/span&gt;&lt;span style=&#34;color:#f92672&#34;&gt;[]&amp;gt;&lt;/span&gt; fileCache &lt;span style=&#34;color:#f92672&#34;&gt;=&lt;/span&gt; &lt;span style=&#34;color:#66d9ef&#34;&gt;new&lt;/span&gt; ConcurrentHashMap&lt;span style=&#34;color:#f92672&#34;&gt;&amp;lt;&amp;gt;&lt;/span&gt;();
-&lt;/span&gt;&lt;/span&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;
-&lt;/span&gt;&lt;/span&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;    &lt;span style=&#34;color:#66d9ef&#34;&gt;public&lt;/span&gt; &lt;span style=&#34;color:#66d9ef&#34;&gt;static&lt;/span&gt; &lt;span style=&#34;color:#66d9ef&#34;&gt;void&lt;/span&gt; &lt;span style=&#34;color:#a6e22e&#34;&gt;cacheFile&lt;/span&gt;(String taskId, &lt;span style=&#34;color:#66d9ef&#34;&gt;byte&lt;/span&gt;&lt;span style=&#34;color:#f92672&#34;&gt;[]&lt;/span&gt; data) {
-&lt;/span&gt;&lt;/span&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;        fileCache.&lt;span style=&#34;color:#a6e22e&#34;&gt;put&lt;/span&gt;(taskId, data);
-&lt;/span&gt;&lt;/span&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;        &lt;span style=&#34;color:#75715e&#34;&gt;// 致命缺陷：缺少过期清理机制&lt;/span&gt;
-&lt;/span&gt;&lt;/span&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;        &lt;span style=&#34;color:#75715e&#34;&gt;// 哪怕用户下载完了，这个byte[]依然在内存里&lt;/span&gt;
-&lt;/span&gt;&lt;/span&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;    }
-&lt;/span&gt;&lt;/span&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;}
-&lt;/span&gt;&lt;/span&gt;&lt;/code&gt;&lt;/pre&gt;&lt;/div&gt;&lt;p&gt;随着用户不断生成报表，这个Map就像一个只进不出的貔貅，慢慢吞噬了所有的堆内存。虽然每个报表只有几MB，但在高并发加持下，两周时间足以填满16G。&lt;/p&gt;
+&lt;div class="highlight"&gt;&lt;div class="chroma"&gt;
+&lt;table class="lntable"&gt;&lt;tr&gt;&lt;td class="lntd"&gt;
+&lt;pre tabindex="0" class="chroma"&gt;&lt;code&gt;&lt;span class="lnt"&gt; 1
+&lt;/span&gt;&lt;span class="lnt"&gt; 2
+&lt;/span&gt;&lt;span class="lnt"&gt; 3
+&lt;/span&gt;&lt;span class="lnt"&gt; 4
+&lt;/span&gt;&lt;span class="lnt"&gt; 5
+&lt;/span&gt;&lt;span class="lnt"&gt; 6
+&lt;/span&gt;&lt;span class="lnt"&gt; 7
+&lt;/span&gt;&lt;span class="lnt"&gt; 8
+&lt;/span&gt;&lt;span class="lnt"&gt; 9
+&lt;/span&gt;&lt;span class="lnt"&gt;10
+&lt;/span&gt;&lt;span class="lnt"&gt;11
+&lt;/span&gt;&lt;/code&gt;&lt;/pre&gt;&lt;/td&gt;
+&lt;td class="lntd"&gt;
+&lt;pre tabindex="0" class="chroma"&gt;&lt;code class="language-java" data-lang="java"&gt;&lt;span class="line"&gt;&lt;span class="cl"&gt;&lt;span class="c1"&gt;// 伪代码还原案发现场&lt;/span&gt;&lt;span class="w"&gt;
+&lt;/span&gt;&lt;/span&gt;&lt;/span&gt;&lt;span class="line"&gt;&lt;span class="cl"&gt;&lt;span class="w"&gt;&lt;/span&gt;&lt;span class="kd"&gt;public&lt;/span&gt;&lt;span class="w"&gt; &lt;/span&gt;&lt;span class="kd"&gt;class&lt;/span&gt; &lt;span class="nc"&gt;ExportTaskCache&lt;/span&gt;&lt;span class="w"&gt; &lt;/span&gt;&lt;span class="p"&gt;{&lt;/span&gt;&lt;span class="w"&gt;
+&lt;/span&gt;&lt;/span&gt;&lt;/span&gt;&lt;span class="line"&gt;&lt;span class="cl"&gt;&lt;span class="w"&gt; &lt;/span&gt;&lt;span class="c1"&gt;// 静态Map，生命周期与JVM进程一致&lt;/span&gt;&lt;span class="w"&gt;
+&lt;/span&gt;&lt;/span&gt;&lt;/span&gt;&lt;span class="line"&gt;&lt;span class="cl"&gt;&lt;span class="w"&gt; &lt;/span&gt;&lt;span class="kd"&gt;private&lt;/span&gt;&lt;span class="w"&gt; &lt;/span&gt;&lt;span class="kd"&gt;static&lt;/span&gt;&lt;span class="w"&gt; &lt;/span&gt;&lt;span class="kd"&gt;final&lt;/span&gt;&lt;span class="w"&gt; &lt;/span&gt;&lt;span class="n"&gt;Map&lt;/span&gt;&lt;span class="o"&gt;&amp;lt;&lt;/span&gt;&lt;span class="n"&gt;String&lt;/span&gt;&lt;span class="p"&gt;,&lt;/span&gt;&lt;span class="w"&gt; &lt;/span&gt;&lt;span class="kt"&gt;byte&lt;/span&gt;&lt;span class="o"&gt;[]&amp;gt;&lt;/span&gt;&lt;span class="w"&gt; &lt;/span&gt;&lt;span class="n"&gt;fileCache&lt;/span&gt;&lt;span class="w"&gt; &lt;/span&gt;&lt;span class="o"&gt;=&lt;/span&gt;&lt;span class="w"&gt; &lt;/span&gt;&lt;span class="k"&gt;new&lt;/span&gt;&lt;span class="w"&gt; &lt;/span&gt;&lt;span class="n"&gt;ConcurrentHashMap&lt;/span&gt;&lt;span class="o"&gt;&amp;lt;&amp;gt;&lt;/span&gt;&lt;span class="p"&gt;();&lt;/span&gt;&lt;span class="w"&gt;
+&lt;/span&gt;&lt;/span&gt;&lt;/span&gt;&lt;span class="line"&gt;&lt;span class="cl"&gt;&lt;span class="w"&gt;
+&lt;/span&gt;&lt;/span&gt;&lt;/span&gt;&lt;span class="line"&gt;&lt;span class="cl"&gt;&lt;span class="w"&gt; &lt;/span&gt;&lt;span class="kd"&gt;public&lt;/span&gt;&lt;span class="w"&gt; &lt;/span&gt;&lt;span class="kd"&gt;static&lt;/span&gt;&lt;span class="w"&gt; &lt;/span&gt;&lt;span class="kt"&gt;void&lt;/span&gt;&lt;span class="w"&gt; &lt;/span&gt;&lt;span class="nf"&gt;cacheFile&lt;/span&gt;&lt;span class="p"&gt;(&lt;/span&gt;&lt;span class="n"&gt;String&lt;/span&gt;&lt;span class="w"&gt; &lt;/span&gt;&lt;span class="n"&gt;taskId&lt;/span&gt;&lt;span class="p"&gt;,&lt;/span&gt;&lt;span class="w"&gt; &lt;/span&gt;&lt;span class="kt"&gt;byte&lt;/span&gt;&lt;span class="o"&gt;[]&lt;/span&gt;&lt;span class="w"&gt; &lt;/span&gt;&lt;span class="n"&gt;data&lt;/span&gt;&lt;span class="p"&gt;)&lt;/span&gt;&lt;span class="w"&gt; &lt;/span&gt;&lt;span class="p"&gt;{&lt;/span&gt;&lt;span class="w"&gt;
+&lt;/span&gt;&lt;/span&gt;&lt;/span&gt;&lt;span class="line"&gt;&lt;span class="cl"&gt;&lt;span class="w"&gt; &lt;/span&gt;&lt;span class="n"&gt;fileCache&lt;/span&gt;&lt;span class="p"&gt;.&lt;/span&gt;&lt;span class="na"&gt;put&lt;/span&gt;&lt;span class="p"&gt;(&lt;/span&gt;&lt;span class="n"&gt;taskId&lt;/span&gt;&lt;span class="p"&gt;,&lt;/span&gt;&lt;span class="w"&gt; &lt;/span&gt;&lt;span class="n"&gt;data&lt;/span&gt;&lt;span class="p"&gt;);&lt;/span&gt;&lt;span class="w"&gt;
+&lt;/span&gt;&lt;/span&gt;&lt;/span&gt;&lt;span class="line"&gt;&lt;span class="cl"&gt;&lt;span class="w"&gt; &lt;/span&gt;&lt;span class="c1"&gt;// 致命缺陷：缺少过期清理机制&lt;/span&gt;&lt;span class="w"&gt;
+&lt;/span&gt;&lt;/span&gt;&lt;/span&gt;&lt;span class="line"&gt;&lt;span class="cl"&gt;&lt;span class="w"&gt; &lt;/span&gt;&lt;span class="c1"&gt;// 哪怕用户下载完了，这个byte[]依然在内存里&lt;/span&gt;&lt;span class="w"&gt;
+&lt;/span&gt;&lt;/span&gt;&lt;/span&gt;&lt;span class="line"&gt;&lt;span class="cl"&gt;&lt;span class="w"&gt; &lt;/span&gt;&lt;span class="p"&gt;}&lt;/span&gt;&lt;span class="w"&gt;
+&lt;/span&gt;&lt;/span&gt;&lt;/span&gt;&lt;span class="line"&gt;&lt;span class="cl"&gt;&lt;span class="w"&gt;&lt;/span&gt;&lt;span class="p"&gt;}&lt;/span&gt;&lt;span class="w"&gt;
+&lt;/span&gt;&lt;/span&gt;&lt;/span&gt;&lt;/code&gt;&lt;/pre&gt;&lt;/td&gt;&lt;/tr&gt;&lt;/table&gt;
+&lt;/div&gt;
+&lt;/div&gt;&lt;p&gt;随着用户不断生成报表，这个Map就像一个只进不出的貔貅，慢慢吞噬了所有的堆内存。虽然每个报表只有几MB，但在高并发加持下，两周时间足以填满16G。&lt;/p&gt;
 &lt;p&gt;找到原因后，修复方案就简单了：引入 Guava Cache 或 Caffeine，设置写入后10分钟自动过期驱逐。&lt;/p&gt;
 &lt;p&gt;&lt;strong&gt;结果：&lt;/strong&gt; 重新上线后，Old Gen 的使用率稳定在 30% 左右，那条可怕的斜线终于变平了。&lt;/p&gt;
-&lt;h2 id=&#34;总结与落地&#34;&gt;总结与落地
+&lt;h2 id="总结与落地"&gt;总结与落地
 &lt;/h2&gt;&lt;p&gt;内存泄漏排查看起来高深，其实本质就是：&lt;strong&gt;发现异常 -&amp;gt; 保留现场 -&amp;gt; 分析引用链 -&amp;gt; 定位代码&lt;/strong&gt;。&lt;/p&gt;
 &lt;p&gt;我不建议大家等到出了问题再去现学MAT的使用，这就像不建议在火灾现场学习如何使用灭火器一样。&lt;/p&gt;
-&lt;p&gt;&lt;img src=&#34;https://picsum.photos/800/450?random=1768457351666&#34;
-	
-	
-	
-	loading=&#34;lazy&#34;
-	
-		alt=&#34;配图&#34;
-	
-	
+&lt;p&gt;&lt;img src="https://picsum.photos/800/450?random=1768457351666"
+loading="lazy"
+alt="配图"
 &gt;&lt;/p&gt;
 &lt;p&gt;最后，如果你想避免半夜被报警电话叫醒，我强烈建议你立刻落地以下 3 个动作：&lt;/p&gt;
 &lt;ol&gt;
 &lt;li&gt;&lt;strong&gt;防御性配置&lt;/strong&gt;：在你的启动脚本中，务必加上这两个参数。这能保证在OOM发生的瞬间，JVM自动为你保留最后一张“遗照”，而不是留下一地鸡毛。
-&lt;div class=&#34;highlight&#34;&gt;&lt;pre tabindex=&#34;0&#34; style=&#34;color:#f8f8f2;background-color:#272822;-moz-tab-size:4;-o-tab-size:4;tab-size:4;&#34;&gt;&lt;code class=&#34;language-bash&#34; data-lang=&#34;bash&#34;&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;-XX:+HeapDumpOnOutOfMemoryError 
-&lt;/span&gt;&lt;/span&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;-XX:HeapDumpPath&lt;span style=&#34;color:#f92672&#34;&gt;=&lt;/span&gt;/data/logs/dump/
-&lt;/span&gt;&lt;/span&gt;&lt;/code&gt;&lt;/pre&gt;&lt;/div&gt;&lt;/li&gt;
+&lt;div class="highlight"&gt;&lt;div class="chroma"&gt;
+&lt;table class="lntable"&gt;&lt;tr&gt;&lt;td class="lntd"&gt;
+&lt;pre tabindex="0" class="chroma"&gt;&lt;code&gt;&lt;span class="lnt"&gt;1
+&lt;/span&gt;&lt;span class="lnt"&gt;2
+&lt;/span&gt;&lt;/code&gt;&lt;/pre&gt;&lt;/td&gt;
+&lt;td class="lntd"&gt;
+&lt;pre tabindex="0" class="chroma"&gt;&lt;code class="language-bash" data-lang="bash"&gt;&lt;span class="line"&gt;&lt;span class="cl"&gt;-XX:+HeapDumpOnOutOfMemoryError
+&lt;/span&gt;&lt;/span&gt;&lt;span class="line"&gt;&lt;span class="cl"&gt;-XX:HeapDumpPath&lt;span class="o"&gt;=&lt;/span&gt;/data/logs/dump/
+&lt;/span&gt;&lt;/span&gt;&lt;/code&gt;&lt;/pre&gt;&lt;/td&gt;&lt;/tr&gt;&lt;/table&gt;
+&lt;/div&gt;
+&lt;/div&gt;&lt;/li&gt;
 &lt;li&gt;&lt;strong&gt;定期巡检&lt;/strong&gt;：每周五下午（这是我的个人习惯），花15分钟扫一眼核心服务的Old Gen增长趋势。如果发现有服务重启后内存“回不去”了，建个Ticket排查一下。&lt;/li&gt;
 &lt;li&gt;&lt;strong&gt;代码审查&lt;/strong&gt;：看到 &lt;code&gt;static&lt;/code&gt; 关键字修饰的 &lt;code&gt;Map&lt;/code&gt;、&lt;code&gt;List&lt;/code&gt; 时，脑子里的警铃要响一声。问一句：这东西什么时候删？有没有上限？&lt;/li&gt;
 &lt;/ol&gt;
@@ -101,9 +108,4 @@
 A. VisualVM / JConsole（轻量级，实时看）
 B. Eclipse MAT（重武器，离线深度分析）
 C. Arthas（命令行神器，线上直接诊断）&lt;/p&gt;
-&lt;p&gt;欢迎在评论区告诉我你的选择和理由。如果你有被内存泄漏“坑”过的经历，也欢迎分享，让我们一起避坑。&lt;/p&gt;
-</description>
-        </item>
-        
-    </channel>
-</rss>
+&lt;p&gt;欢迎在评论区告诉我你的选择和理由。如果你有被内存泄漏“坑”过的经历，也欢迎分享，让我们一起避坑。&lt;/p&gt;</description></item></channel></rss>

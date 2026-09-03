@@ -1,88 +1,92 @@
-<?xml version="1.0" encoding="utf-8" standalone="yes"?>
-<rss version="2.0" xmlns:atom="http://www.w3.org/2005/Atom">
-    <channel>
-        <title>使用Terraform管理云资源（IaC） on SelfTechHub</title>
-        <link>https://blog.irudder.me/tags/%E4%BD%BF%E7%94%A8Terraform%E7%AE%A1%E7%90%86%E4%BA%91%E8%B5%84%E6%BA%90IaC.html</link>
-        <description>Recent content in 使用Terraform管理云资源（IaC） on SelfTechHub</description>
-        <generator>Hugo -- gohugo.io</generator>
-        <language>zh-cn</language>
-        <lastBuildDate>Thu, 06 Feb 2020 00:00:00 +0000</lastBuildDate><atom:link href="https://blog.irudder.me/tags/%E4%BD%BF%E7%94%A8Terraform%E7%AE%A1%E7%90%86%E4%BA%91%E8%B5%84%E6%BA%90IaC/index.xml" rel="self" type="application/rss+xml" /><item>
-        <title>手滑删库才后悔？Terraform重构基础设施的3个血泪教训</title>
-        <link>https://blog.irudder.me/tech/devopsjichugongjurumenyushicao/shiyongterraformguanliyunziyuaniac.html</link>
-        <pubDate>Thu, 06 Feb 2020 00:00:00 +0000</pubDate>
-        
-        <guid>https://blog.irudder.me/tech/devopsjichugongjurumenyushicao/shiyongterraformguanliyunziyuaniac.html</guid>
-        <description>&lt;p&gt;&lt;img src=&#34;https://picsum.photos/800/450?random=1768388010817&#34;
-	
-	
-	
-	loading=&#34;lazy&#34;
-	
-		alt=&#34;配图&#34;
-	
-	
+<?xml version="1.0" encoding="utf-8" standalone="yes"?><rss version="2.0" xmlns:atom="http://www.w3.org/2005/Atom"><channel><title>使用Terraform管理云资源（IaC） on SelfTechHub</title><link>https://blog.irudder.me/tags/%E4%BD%BF%E7%94%A8Terraform%E7%AE%A1%E7%90%86%E4%BA%91%E8%B5%84%E6%BA%90IaC.html</link><description>Recent content in 使用Terraform管理云资源（IaC） on SelfTechHub</description><generator>Hugo -- gohugo.io</generator><language>zh-cn</language><lastBuildDate>Thu, 06 Feb 2020 00:00:00 +0800</lastBuildDate><atom:link href="https://blog.irudder.me/tags/%E4%BD%BF%E7%94%A8Terraform%E7%AE%A1%E7%90%86%E4%BA%91%E8%B5%84%E6%BA%90IaC/index.xml" rel="self" type="application/rss+xml"/><item><title>手滑删库才后悔？Terraform重构基础设施的3个血泪教训</title><link>https://blog.irudder.me/tech/devopsjichugongjurumenyushicao/shiyongterraformguanliyunziyuaniac.html</link><pubDate>Thu, 06 Feb 2020 00:00:00 +0800</pubDate><guid>https://blog.irudder.me/tech/devopsjichugongjurumenyushicao/shiyongterraformguanliyunziyuaniac.html</guid><description>&lt;p&gt;&lt;img src="https://picsum.photos/800/450?random=1768388010817"
+loading="lazy"
+alt="配图"
 &gt;&lt;/p&gt;
 &lt;p&gt;不知你是否经历过这种名场面：为了快速修复一个线上Bug，直接登录云控制台手动改了安全组规则，想着“回头再补文档”。结果三个月后，系统扩容，新的实例自动应用了旧的配置，服务直接不可用，所有人都在排查代码，最后发现是基础设施配置漂移。&lt;/p&gt;
 &lt;p&gt;我曾经也是“控制台点点点（ClickOps）”的忠实拥趸，觉得写代码管理服务器太麻烦。直到三年前的一个周五下午，因为手动操作失误，我不小心把生产环境的RDS实例当成测试环境给重启了——那几分钟的报警声，我现在想起来还手心冒汗。&lt;/p&gt;
 &lt;p&gt;从那时候起，我开始死磕Terraform，强制自己和团队走IaC（基础设施即代码）路线。这几年踩坑无数，今天想复盘一下，从“能用”到“好用”，我们到底做对了哪些事。&lt;/p&gt;
-&lt;h2 id=&#34;拒绝巨石配置模块化才是解药&#34;&gt;拒绝“巨石”配置，模块化才是解药
+&lt;h2 id="拒绝巨石配置模块化才是解药"&gt;拒绝“巨石”配置，模块化才是解药
 &lt;/h2&gt;&lt;p&gt;刚开始接触Terraform时，为了图省事，我把所有的资源定义（VPC、EC2、RDS、S3）全塞进了一个 &lt;code&gt;main.tf&lt;/code&gt; 文件里。起初看着挺爽，一个文件掌控天下。&lt;/p&gt;
 &lt;p&gt;&lt;strong&gt;但随着业务扩张，问题来了：&lt;/strong&gt;
 我们的核心业务系统竟然有几千行代码堆在一个文件里。每次执行 &lt;code&gt;terraform plan&lt;/code&gt;，光是刷新状态就要等上5分钟。更可怕的是，有次新来的同事想改一下S3的权限，结果因为没看清上下文，手滑删掉了一段VPC的配置，差点造成整个网络层重建。&lt;/p&gt;
 &lt;p&gt;&lt;strong&gt;这次事故让我意识到：基础设施也需要“微服务化”。&lt;/strong&gt;&lt;/p&gt;
 &lt;p&gt;我们后来的做法是，严格遵循**模块化（Modules）**原则。不要重复造轮子，也不要搞大杂烩。我们将基础设施拆解为基础网络、应用服务、数据存储三个层级。&lt;/p&gt;
-&lt;div class=&#34;highlight&#34;&gt;&lt;pre tabindex=&#34;0&#34; style=&#34;color:#f8f8f2;background-color:#272822;-moz-tab-size:4;-o-tab-size:4;tab-size:4;&#34;&gt;&lt;code class=&#34;language-hcl&#34; data-lang=&#34;hcl&#34;&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;&lt;span style=&#34;color:#75715e&#34;&gt;# 现在的调用方式：清晰、解耦
-&lt;/span&gt;&lt;/span&gt;&lt;/span&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;&lt;span style=&#34;color:#75715e&#34;&gt;&lt;/span&gt;&lt;span style=&#34;color:#66d9ef&#34;&gt;module&lt;/span&gt; &lt;span style=&#34;color:#e6db74&#34;&gt;&amp;#34;vpc&amp;#34;&lt;/span&gt; {
-&lt;/span&gt;&lt;/span&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;  source &lt;span style=&#34;color:#f92672&#34;&gt;=&lt;/span&gt; &lt;span style=&#34;color:#e6db74&#34;&gt;&amp;#34;./modules/network&amp;#34;&lt;/span&gt;
-&lt;/span&gt;&lt;/span&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;  cidr   &lt;span style=&#34;color:#f92672&#34;&gt;=&lt;/span&gt; &lt;span style=&#34;color:#e6db74&#34;&gt;&amp;#34;10.0.0.0/16&amp;#34;&lt;/span&gt;
-&lt;/span&gt;&lt;/span&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;}
-&lt;/span&gt;&lt;/span&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;
-&lt;/span&gt;&lt;/span&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;&lt;span style=&#34;color:#66d9ef&#34;&gt;module&lt;/span&gt; &lt;span style=&#34;color:#e6db74&#34;&gt;&amp;#34;app_cluster&amp;#34;&lt;/span&gt; {
-&lt;/span&gt;&lt;/span&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;  source    &lt;span style=&#34;color:#f92672&#34;&gt;=&lt;/span&gt; &lt;span style=&#34;color:#e6db74&#34;&gt;&amp;#34;./modules/compute&amp;#34;&lt;/span&gt;
-&lt;/span&gt;&lt;/span&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;  vpc_id    &lt;span style=&#34;color:#f92672&#34;&gt;=&lt;/span&gt; &lt;span style=&#34;color:#66d9ef&#34;&gt;module&lt;/span&gt;.&lt;span style=&#34;color:#66d9ef&#34;&gt;vpc&lt;/span&gt;.&lt;span style=&#34;color:#66d9ef&#34;&gt;vpc_id&lt;/span&gt;
-&lt;/span&gt;&lt;/span&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;  instance_count &lt;span style=&#34;color:#f92672&#34;&gt;=&lt;/span&gt; &lt;span style=&#34;color:#ae81ff&#34;&gt;3&lt;/span&gt;
-&lt;/span&gt;&lt;/span&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;}
-&lt;/span&gt;&lt;/span&gt;&lt;/code&gt;&lt;/pre&gt;&lt;/div&gt;&lt;p&gt;&lt;strong&gt;落地建议：&lt;/strong&gt;
+&lt;div class="highlight"&gt;&lt;div class="chroma"&gt;
+&lt;table class="lntable"&gt;&lt;tr&gt;&lt;td class="lntd"&gt;
+&lt;pre tabindex="0" class="chroma"&gt;&lt;code&gt;&lt;span class="lnt"&gt; 1
+&lt;/span&gt;&lt;span class="lnt"&gt; 2
+&lt;/span&gt;&lt;span class="lnt"&gt; 3
+&lt;/span&gt;&lt;span class="lnt"&gt; 4
+&lt;/span&gt;&lt;span class="lnt"&gt; 5
+&lt;/span&gt;&lt;span class="lnt"&gt; 6
+&lt;/span&gt;&lt;span class="lnt"&gt; 7
+&lt;/span&gt;&lt;span class="lnt"&gt; 8
+&lt;/span&gt;&lt;span class="lnt"&gt; 9
+&lt;/span&gt;&lt;span class="lnt"&gt;10
+&lt;/span&gt;&lt;span class="lnt"&gt;11
+&lt;/span&gt;&lt;/code&gt;&lt;/pre&gt;&lt;/td&gt;
+&lt;td class="lntd"&gt;
+&lt;pre tabindex="0" class="chroma"&gt;&lt;code class="language-hcl" data-lang="hcl"&gt;&lt;span class="line"&gt;&lt;span class="cl"&gt;&lt;span class="c1"&gt;# 现在的调用方式：清晰、解耦
+&lt;/span&gt;&lt;/span&gt;&lt;/span&gt;&lt;span class="line"&gt;&lt;span class="cl"&gt;&lt;span class="c1"&gt;&lt;/span&gt;&lt;span class="k"&gt;module&lt;/span&gt; &lt;span class="s2"&gt;&amp;#34;vpc&amp;#34;&lt;/span&gt; {
+&lt;/span&gt;&lt;/span&gt;&lt;span class="line"&gt;&lt;span class="cl"&gt;&lt;span class="n"&gt; source&lt;/span&gt; &lt;span class="o"&gt;=&lt;/span&gt; &lt;span class="s2"&gt;&amp;#34;./modules/network&amp;#34;&lt;/span&gt;
+&lt;/span&gt;&lt;/span&gt;&lt;span class="line"&gt;&lt;span class="cl"&gt;&lt;span class="n"&gt; cidr&lt;/span&gt; &lt;span class="o"&gt;=&lt;/span&gt; &lt;span class="s2"&gt;&amp;#34;10.0.0.0/16&amp;#34;&lt;/span&gt;
+&lt;/span&gt;&lt;/span&gt;&lt;span class="line"&gt;&lt;span class="cl"&gt;}
+&lt;/span&gt;&lt;/span&gt;&lt;span class="line"&gt;&lt;span class="cl"&gt;
+&lt;/span&gt;&lt;/span&gt;&lt;span class="line"&gt;&lt;span class="cl"&gt;&lt;span class="k"&gt;module&lt;/span&gt; &lt;span class="s2"&gt;&amp;#34;app_cluster&amp;#34;&lt;/span&gt; {
+&lt;/span&gt;&lt;/span&gt;&lt;span class="line"&gt;&lt;span class="cl"&gt;&lt;span class="n"&gt; source&lt;/span&gt; &lt;span class="o"&gt;=&lt;/span&gt; &lt;span class="s2"&gt;&amp;#34;./modules/compute&amp;#34;&lt;/span&gt;
+&lt;/span&gt;&lt;/span&gt;&lt;span class="line"&gt;&lt;span class="cl"&gt;&lt;span class="n"&gt; vpc_id&lt;/span&gt; &lt;span class="o"&gt;=&lt;/span&gt; &lt;span class="k"&gt;module&lt;/span&gt;&lt;span class="p"&gt;.&lt;/span&gt;&lt;span class="k"&gt;vpc&lt;/span&gt;&lt;span class="p"&gt;.&lt;/span&gt;&lt;span class="k"&gt;vpc_id&lt;/span&gt;
+&lt;/span&gt;&lt;/span&gt;&lt;span class="line"&gt;&lt;span class="cl"&gt;&lt;span class="n"&gt; instance_count&lt;/span&gt; &lt;span class="o"&gt;=&lt;/span&gt; &lt;span class="m"&gt;3&lt;/span&gt;
+&lt;/span&gt;&lt;/span&gt;&lt;span class="line"&gt;&lt;span class="cl"&gt;}
+&lt;/span&gt;&lt;/span&gt;&lt;/code&gt;&lt;/pre&gt;&lt;/td&gt;&lt;/tr&gt;&lt;/table&gt;
+&lt;/div&gt;
+&lt;/div&gt;&lt;p&gt;&lt;strong&gt;落地建议：&lt;/strong&gt;
 建立一个标准的目录结构至关重要。我推荐使用 &lt;code&gt;modules/&lt;/code&gt; 存放通用模板（如创建一个标准的Web服务器），而在 &lt;code&gt;environments/&lt;/code&gt;（dev, stage, prod）中去调用这些模块。这样，你只需要测试一次模块代码，就能放心地在生产环境复用，彻底消灭“开发环境没问题，上线就崩”的玄学。&lt;/p&gt;
-&lt;h2 id=&#34;别把状态文件state留在本地&#34;&gt;别把状态文件（State）留在本地
+&lt;h2 id="别把状态文件state留在本地"&gt;别把状态文件（State）留在本地
 &lt;/h2&gt;&lt;p&gt;这大概是新手最容易踩的坑，没有之一。&lt;/p&gt;
 &lt;p&gt;Terraform的核心在于 &lt;code&gt;tfstate&lt;/code&gt; 文件，它记录了云上资源的实际状态。最开始，我们团队只有两个人，大家都在自己电脑上跑代码，&lt;code&gt;tfstate&lt;/code&gt; 文件就存在各自的本地硬盘里。&lt;/p&gt;
 &lt;p&gt;有一次，我休假去露营了，同事急需扩容服务器。但他电脑上的状态文件是旧的（因为我上次更新完没同步给他），他一执行 &lt;code&gt;terraform apply&lt;/code&gt;，Terraform以为现有的几台服务器是“多余的”或者“不存在的”，试图重建资源，直接导致了严重的资源冲突和状态锁死。&lt;/p&gt;
 &lt;p&gt;&lt;strong&gt;解决方法其实很简单，但必须强制执行：远端存储（Remote State）。&lt;/strong&gt;&lt;/p&gt;
 &lt;p&gt;我们将状态文件托管在AWS S3（配合DynamoDB做锁机制）或者阿里云OSS上。这样，无论谁在操作，Terraform读取的永远是唯一的、最新的“真理”。&lt;/p&gt;
 &lt;blockquote&gt;
-&lt;p&gt;“基础设施的状态，是团队的共同资产，绝不是某个工程师电脑里的私有文件。”&lt;/p&gt;
-&lt;/blockquote&gt;
+&lt;p&gt;“基础设施的状态，是团队的共同资产，绝不是某个工程师电脑里的私有文件。”&lt;/p&gt;&lt;/blockquote&gt;
 &lt;p&gt;&lt;strong&gt;具体操作：&lt;/strong&gt;
 配置 Backend 是项目初始化的第一步。&lt;/p&gt;
-&lt;div class=&#34;highlight&#34;&gt;&lt;pre tabindex=&#34;0&#34; style=&#34;color:#f8f8f2;background-color:#272822;-moz-tab-size:4;-o-tab-size:4;tab-size:4;&#34;&gt;&lt;code class=&#34;language-hcl&#34; data-lang=&#34;hcl&#34;&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;&lt;span style=&#34;color:#66d9ef&#34;&gt;terraform&lt;/span&gt; {
-&lt;/span&gt;&lt;/span&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;  &lt;span style=&#34;color:#66d9ef&#34;&gt;backend&lt;/span&gt; &lt;span style=&#34;color:#e6db74&#34;&gt;&amp;#34;s3&amp;#34;&lt;/span&gt; {
-&lt;/span&gt;&lt;/span&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;    bucket         &lt;span style=&#34;color:#f92672&#34;&gt;=&lt;/span&gt; &lt;span style=&#34;color:#e6db74&#34;&gt;&amp;#34;my-company-tfstate&amp;#34;&lt;/span&gt;
-&lt;/span&gt;&lt;/span&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;    key            &lt;span style=&#34;color:#f92672&#34;&gt;=&lt;/span&gt; &lt;span style=&#34;color:#e6db74&#34;&gt;&amp;#34;prod/app.tfstate&amp;#34;&lt;/span&gt;
-&lt;/span&gt;&lt;/span&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;    region         &lt;span style=&#34;color:#f92672&#34;&gt;=&lt;/span&gt; &lt;span style=&#34;color:#e6db74&#34;&gt;&amp;#34;ap-northeast-1&amp;#34;&lt;/span&gt;
-&lt;/span&gt;&lt;/span&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;    dynamodb_table &lt;span style=&#34;color:#f92672&#34;&gt;=&lt;/span&gt; &lt;span style=&#34;color:#e6db74&#34;&gt;&amp;#34;terraform-locks&amp;#34;&lt;/span&gt;&lt;span style=&#34;color:#75715e&#34;&gt; # 防止两个人同时操作
-&lt;/span&gt;&lt;/span&gt;&lt;/span&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;&lt;span style=&#34;color:#75715e&#34;&gt;&lt;/span&gt;  }
-&lt;/span&gt;&lt;/span&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;}
-&lt;/span&gt;&lt;/span&gt;&lt;/code&gt;&lt;/pre&gt;&lt;/div&gt;&lt;p&gt;这就好比代码必须进Git仓库一样，状态文件必须进云端存储。自从上了这个锁机制，我们再也没出现过多人协作导致配置被覆盖的乌龙。&lt;/p&gt;
-&lt;h2 id=&#34;告别裸奔把plan作为代码审查的一部分&#34;&gt;告别“裸奔”，把Plan作为代码审查的一部分
+&lt;div class="highlight"&gt;&lt;div class="chroma"&gt;
+&lt;table class="lntable"&gt;&lt;tr&gt;&lt;td class="lntd"&gt;
+&lt;pre tabindex="0" class="chroma"&gt;&lt;code&gt;&lt;span class="lnt"&gt;1
+&lt;/span&gt;&lt;span class="lnt"&gt;2
+&lt;/span&gt;&lt;span class="lnt"&gt;3
+&lt;/span&gt;&lt;span class="lnt"&gt;4
+&lt;/span&gt;&lt;span class="lnt"&gt;5
+&lt;/span&gt;&lt;span class="lnt"&gt;6
+&lt;/span&gt;&lt;span class="lnt"&gt;7
+&lt;/span&gt;&lt;span class="lnt"&gt;8
+&lt;/span&gt;&lt;/code&gt;&lt;/pre&gt;&lt;/td&gt;
+&lt;td class="lntd"&gt;
+&lt;pre tabindex="0" class="chroma"&gt;&lt;code class="language-hcl" data-lang="hcl"&gt;&lt;span class="line"&gt;&lt;span class="cl"&gt;&lt;span class="k"&gt;terraform&lt;/span&gt; {
+&lt;/span&gt;&lt;/span&gt;&lt;span class="line"&gt;&lt;span class="cl"&gt; &lt;span class="k"&gt;backend&lt;/span&gt; &lt;span class="s2"&gt;&amp;#34;s3&amp;#34;&lt;/span&gt; {
+&lt;/span&gt;&lt;/span&gt;&lt;span class="line"&gt;&lt;span class="cl"&gt;&lt;span class="n"&gt; bucket&lt;/span&gt; &lt;span class="o"&gt;=&lt;/span&gt; &lt;span class="s2"&gt;&amp;#34;my-company-tfstate&amp;#34;&lt;/span&gt;
+&lt;/span&gt;&lt;/span&gt;&lt;span class="line"&gt;&lt;span class="cl"&gt;&lt;span class="n"&gt; key&lt;/span&gt; &lt;span class="o"&gt;=&lt;/span&gt; &lt;span class="s2"&gt;&amp;#34;prod/app.tfstate&amp;#34;&lt;/span&gt;
+&lt;/span&gt;&lt;/span&gt;&lt;span class="line"&gt;&lt;span class="cl"&gt;&lt;span class="n"&gt; region&lt;/span&gt; &lt;span class="o"&gt;=&lt;/span&gt; &lt;span class="s2"&gt;&amp;#34;ap-northeast-1&amp;#34;&lt;/span&gt;
+&lt;/span&gt;&lt;/span&gt;&lt;span class="line"&gt;&lt;span class="cl"&gt;&lt;span class="n"&gt; dynamodb_table&lt;/span&gt; &lt;span class="o"&gt;=&lt;/span&gt; &lt;span class="s2"&gt;&amp;#34;terraform-locks&amp;#34;&lt;/span&gt;&lt;span class="c1"&gt; # 防止两个人同时操作
+&lt;/span&gt;&lt;/span&gt;&lt;/span&gt;&lt;span class="line"&gt;&lt;span class="cl"&gt;&lt;span class="c1"&gt;&lt;/span&gt; }
+&lt;/span&gt;&lt;/span&gt;&lt;span class="line"&gt;&lt;span class="cl"&gt;}
+&lt;/span&gt;&lt;/span&gt;&lt;/code&gt;&lt;/pre&gt;&lt;/td&gt;&lt;/tr&gt;&lt;/table&gt;
+&lt;/div&gt;
+&lt;/div&gt;&lt;p&gt;这就好比代码必须进Git仓库一样，状态文件必须进云端存储。自从上了这个锁机制，我们再也没出现过多人协作导致配置被覆盖的乌龙。&lt;/p&gt;
+&lt;h2 id="告别裸奔把plan作为代码审查的一部分"&gt;告别“裸奔”，把Plan作为代码审查的一部分
 &lt;/h2&gt;&lt;p&gt;以前我们的发布流程是这样的：开发写好 &lt;code&gt;.tf&lt;/code&gt; 文件 -&amp;gt; 本地跑 &lt;code&gt;terraform plan&lt;/code&gt; 看一眼（甚至不看） -&amp;gt; 直接 &lt;code&gt;terraform apply&lt;/code&gt; -&amp;gt; 祈祷不报错。&lt;/p&gt;
 &lt;p&gt;这种“裸奔”上线非常危险。因为人眼是会疲劳的，面对控制台输出的几百行绿字（新增）和红字（删除），你很难瞬间发现那个关键的数据库参数被修改了。&lt;/p&gt;
 &lt;p&gt;&lt;strong&gt;我们引入了 GitOps 的工作流。&lt;/strong&gt;&lt;/p&gt;
-&lt;p&gt;&lt;img src=&#34;https://picsum.photos/800/450?random=1768388010843&#34;
-	
-	
-	
-	loading=&#34;lazy&#34;
-	
-		alt=&#34;配图&#34;
-	
-	
+&lt;p&gt;&lt;img src="https://picsum.photos/800/450?random=1768388010843"
+loading="lazy"
+alt="配图"
 &gt;&lt;/p&gt;
 &lt;p&gt;现在，任何基础设施的变更，都必须提 Pull Request (PR)。我们配置了 CI 工具（如 GitHub Actions 或 GitLab CI），当 PR 提交时，机器人自动运行 &lt;code&gt;terraform plan&lt;/code&gt;，并将输出结果以评论的形式贴在 PR 里。&lt;/p&gt;
 &lt;p&gt;&lt;strong&gt;真实收益：&lt;/strong&gt;
 就在上个月，这个机制救了我们要命的一击。一个实习生在调整负载均衡配置时，误删了一个关键的 Listener 规则。如果不看 Plan，直接 Apply，线上流量瞬间就会中断。但在 PR 评论区，那个显眼的红色 &lt;strong&gt;&amp;quot;-&amp;quot;&lt;/strong&gt; 号（表示删除）被资深运维一眼揪了出来，直接驳回了合并请求。&lt;/p&gt;
 &lt;p&gt;这不仅仅是工具的升级，更是流程的规范。它强制我们在执行毁灭性打击之前，有一个冷静的“二次确认”窗口。&lt;/p&gt;
-&lt;h2 id=&#34;写在最后&#34;&gt;写在最后
+&lt;h2 id="写在最后"&gt;写在最后
 &lt;/h2&gt;&lt;p&gt;使用 Terraform 管理云资源，最大的门槛其实不是 HCL 语法，而是思维方式的转变——&lt;strong&gt;从“命令式”（告诉机器怎么做）转变为“声明式”（告诉机器我要什么）&lt;/strong&gt;。&lt;/p&gt;
 &lt;p&gt;虽然前期编写代码、梳理资源、导入现有架构会非常痛苦（我花了整整两个月才把遗留资产理顺），但当你在周五下午只需合并一行代码，就能优雅、安全地完成全套环境部署时，你会发现这一切都是值得的。&lt;/p&gt;
 &lt;p&gt;&lt;strong&gt;现在，我想把麦克风交给你：&lt;/strong&gt;
@@ -93,9 +97,4 @@
 &lt;li&gt;&lt;strong&gt;从非核心业务入手：&lt;/strong&gt; 别上来就重构生产数据库，先拿测试环境的一台跳板机或者日志服务器练手。&lt;/li&gt;
 &lt;li&gt;&lt;strong&gt;开启状态锁：&lt;/strong&gt; 哪怕团队只有你一个人，也请配置 Remote Backend 和 State Locking，这是职业素养。&lt;/li&gt;
 &lt;li&gt;&lt;strong&gt;善用 &lt;code&gt;terraform import&lt;/code&gt;：&lt;/strong&gt; 只有新资源才能用代码管理是误区，花点时间把旧资源 import 进来，哪怕只是为了看清楚现状。&lt;/li&gt;
-&lt;/ol&gt;
-</description>
-        </item>
-        
-    </channel>
-</rss>
+&lt;/ol&gt;</description></item></channel></rss>

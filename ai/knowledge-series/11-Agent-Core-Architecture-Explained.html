@@ -1,619 +1,143 @@
-<!DOCTYPE html>
-<html lang="zh-cn" dir="ltr">
-    <head><meta charset='utf-8'>
-<meta name='viewport' content='width=device-width, initial-scale=1'><meta name='description' content="第11章：Agent 核心架构拆解——四个缺一不可的组件\r系列导读：本章深入 Agent 的内部结构。如果你准备亲手实现一个 Agent，这就是你要看的「系统说明书&quot;。\n一、Agent架构全景：四个核心组件\r一个完整的 Agent 系统由以下四个核心组件构成，任何一个掉链子，系统都跑不好：\n┌─────────────────────────────────────┐\r│ 用户输入 │\r└─────────────┬───────────────────────┘\r↓\r┌─────────────────────────────────────┐\r│ 1. LLM 核心 ←所有决策的中枢 │\r│ ↓ │\r│ 2. 规划模块 ←把目标拆成步骤 │\r│ ↓ │\r│ 3. 工具系统 ←实际执行的能力 │\r│ ↓ │\r│ 4. 记忆系统 ←持续维护的状态 │\r└─────────────────────────────────────┘ 二、组件1：LLM 核心\rLLM 是整个 Agent 的「大脑」。\n所有输入（用户指令、工具返回结果、记忆内容）最终都经过 LLM 来理解和决策 LLM 负责判断：下一步该做什么？继续思考？调用工具？还是输出最终答案？ System Prompt 的关键作用\rSystem Prompt 就是给 Agent 的「岗位说明书」，定义了：\n你是一个专业的数据分析助手。\r你的任务是帮助用户分析数据并生成报告。\r你可以使用的工具：\r1. analyze_csv：读取 CSV 文件并做基础统计分析\r2. generate_chart：根据数据生成可视化图表\r3. web_search：搜索最新行业信息\r4. write_report：生成结构化报告\r你的工作流程：\r1. 先理解用户的数据分析目标\r2. 使用 analyze_csv 了解数据概况\r3. 根据数据特征选择分析方向\r4. 使用 generate_chart 生成必要的可视化\r5. 最后使用 write_report 生成完整报告 System Prompt 写得好不好，直接决定 Agent 的行为模式。它是工程质量最不可控的变量之一。\n">
-<title>第11章：Agent 核心架构拆解——四个缺一不可的组件</title>
-
-<link rel='canonical' href='https://blog.irudder.me/ai/knowledge-series/11-Agent-Core-Architecture-Explained.html'>
-
-<link rel="stylesheet" href="/scss/style.min.b9e9128fec450ebccecc4ec9900157f32b85d0609bcd5ee3293968bcaa1235f2.css"><meta property='og:title' content="第11章：Agent 核心架构拆解——四个缺一不可的组件">
-<meta property='og:description' content="第11章：Agent 核心架构拆解——四个缺一不可的组件\r系列导读：本章深入 Agent 的内部结构。如果你准备亲手实现一个 Agent，这就是你要看的「系统说明书&quot;。\n一、Agent架构全景：四个核心组件\r一个完整的 Agent 系统由以下四个核心组件构成，任何一个掉链子，系统都跑不好：\n┌─────────────────────────────────────┐\r│ 用户输入 │\r└─────────────┬───────────────────────┘\r↓\r┌─────────────────────────────────────┐\r│ 1. LLM 核心 ←所有决策的中枢 │\r│ ↓ │\r│ 2. 规划模块 ←把目标拆成步骤 │\r│ ↓ │\r│ 3. 工具系统 ←实际执行的能力 │\r│ ↓ │\r│ 4. 记忆系统 ←持续维护的状态 │\r└─────────────────────────────────────┘ 二、组件1：LLM 核心\rLLM 是整个 Agent 的「大脑」。\n所有输入（用户指令、工具返回结果、记忆内容）最终都经过 LLM 来理解和决策 LLM 负责判断：下一步该做什么？继续思考？调用工具？还是输出最终答案？ System Prompt 的关键作用\rSystem Prompt 就是给 Agent 的「岗位说明书」，定义了：\n你是一个专业的数据分析助手。\r你的任务是帮助用户分析数据并生成报告。\r你可以使用的工具：\r1. analyze_csv：读取 CSV 文件并做基础统计分析\r2. generate_chart：根据数据生成可视化图表\r3. web_search：搜索最新行业信息\r4. write_report：生成结构化报告\r你的工作流程：\r1. 先理解用户的数据分析目标\r2. 使用 analyze_csv 了解数据概况\r3. 根据数据特征选择分析方向\r4. 使用 generate_chart 生成必要的可视化\r5. 最后使用 write_report 生成完整报告 System Prompt 写得好不好，直接决定 Agent 的行为模式。它是工程质量最不可控的变量之一。\n">
-<meta property='og:url' content='https://blog.irudder.me/ai/knowledge-series/11-Agent-Core-Architecture-Explained.html'>
-<meta property='og:site_name' content='SelfTechHub'>
-<meta property='og:type' content='article'><meta property='article:section' content='Ai' /><meta property='article:tag' content='Agent' /><meta property='article:tag' content='Architecture' /><meta property='article:tag' content='LLM Agent' /><meta property='article:tag' content='System Design' /><meta property='article:published_time' content='2026-06-19T00:00:00&#43;00:00'/><meta property='article:modified_time' content='2026-06-19T00:00:00&#43;00:00'/>
-<meta name="twitter:title" content="第11章：Agent 核心架构拆解——四个缺一不可的组件">
-<meta name="twitter:description" content="第11章：Agent 核心架构拆解——四个缺一不可的组件\r系列导读：本章深入 Agent 的内部结构。如果你准备亲手实现一个 Agent，这就是你要看的「系统说明书&quot;。\n一、Agent架构全景：四个核心组件\r一个完整的 Agent 系统由以下四个核心组件构成，任何一个掉链子，系统都跑不好：\n┌─────────────────────────────────────┐\r│ 用户输入 │\r└─────────────┬───────────────────────┘\r↓\r┌─────────────────────────────────────┐\r│ 1. LLM 核心 ←所有决策的中枢 │\r│ ↓ │\r│ 2. 规划模块 ←把目标拆成步骤 │\r│ ↓ │\r│ 3. 工具系统 ←实际执行的能力 │\r│ ↓ │\r│ 4. 记忆系统 ←持续维护的状态 │\r└─────────────────────────────────────┘ 二、组件1：LLM 核心\rLLM 是整个 Agent 的「大脑」。\n所有输入（用户指令、工具返回结果、记忆内容）最终都经过 LLM 来理解和决策 LLM 负责判断：下一步该做什么？继续思考？调用工具？还是输出最终答案？ System Prompt 的关键作用\rSystem Prompt 就是给 Agent 的「岗位说明书」，定义了：\n你是一个专业的数据分析助手。\r你的任务是帮助用户分析数据并生成报告。\r你可以使用的工具：\r1. analyze_csv：读取 CSV 文件并做基础统计分析\r2. generate_chart：根据数据生成可视化图表\r3. web_search：搜索最新行业信息\r4. write_report：生成结构化报告\r你的工作流程：\r1. 先理解用户的数据分析目标\r2. 使用 analyze_csv 了解数据概况\r3. 根据数据特征选择分析方向\r4. 使用 generate_chart 生成必要的可视化\r5. 最后使用 write_report 生成完整报告 System Prompt 写得好不好，直接决定 Agent 的行为模式。它是工程质量最不可控的变量之一。\n">
-    </head>
-    <body class="
-    article-page
-    ">
-    <script>
-        (function() {
-            const colorSchemeKey = 'StackColorScheme';
-            if(!localStorage.getItem(colorSchemeKey)){
-                localStorage.setItem(colorSchemeKey, "auto");
-            }
-        })();
-    </script><script>
-    (function() {
-        const colorSchemeKey = 'StackColorScheme';
-        const colorSchemeItem = localStorage.getItem(colorSchemeKey);
-        const supportDarkMode = window.matchMedia('(prefers-color-scheme: dark)').matches === true;
-
-        if (colorSchemeItem == 'dark' || colorSchemeItem === 'auto' && supportDarkMode) {
-            
-
-            document.documentElement.dataset.scheme = 'dark';
-        } else {
-            document.documentElement.dataset.scheme = 'light';
-        }
-    })();
-</script>
-<div class="container main-container flex on-phone--column compact"><aside class="sidebar left-sidebar sticky ">
-    <button class="hamburger hamburger--spin" type="button" id="toggle-menu" aria-label="切换菜单">
-        <span class="hamburger-box">
-            <span class="hamburger-inner"></span>
-        </span>
-    </button>
-
-    <header>
-        
-            
-            <figure class="site-avatar">
-                <a href="/">
-                
-                    
-                    
-                    
-                        
-                        <img src="/img/avatar_hu_8588ce14af1147e2.png" width="300"
-                            height="286" class="site-logo" loading="lazy" alt="Avatar">
-                    
-                
-                </a>
-                
-            </figure>
-            
-        
-        
-        <div class="site-meta">
-            <h1 class="site-name"><a href="/">SelfTechHub</a></h1>
-            <h2 class="site-description"></h2>
-        </div>
-    </header><ol class="menu" id="main-menu">
-        
-        
-        <li class="menu-bottom-section">
-            <ol class="menu">
-
-                
-                    <li id="dark-mode-toggle">
-                        <svg xmlns="http://www.w3.org/2000/svg" class="icon icon-tabler icon-tabler-toggle-left" width="24" height="24" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor" fill="none" stroke-linecap="round" stroke-linejoin="round">
-  <path stroke="none" d="M0 0h24v24H0z"/>
-  <circle cx="8" cy="12" r="2" />
-  <rect x="2" y="6" width="20" height="12" rx="6" />
-</svg>
-
-
-
-                        <svg xmlns="http://www.w3.org/2000/svg" class="icon icon-tabler icon-tabler-toggle-right" width="24" height="24" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor" fill="none" stroke-linecap="round" stroke-linejoin="round">
-  <path stroke="none" d="M0 0h24v24H0z"/>
-  <circle cx="16" cy="12" r="2" />
-  <rect x="2" y="6" width="20" height="12" rx="6" />
-</svg>
-
-
-
-                        <span>暗色模式</span>
-                    </li>
-                
-            </ol>
-        </li>
-    </ol>
-</aside>
-
-    
-
-            <main class="main full-width">
-    <article class="main-article">
-    <header class="article-header">
-
-    <div class="article-details">
-    
-    <header class="article-category">
-        
-            <a href="/categories/ai.html" >
-                AI探索
-            </a>
-        
-    </header>
-    
-
-    <div class="article-title-wrapper">
-        <h2 class="article-title">
-            <a href="/ai/knowledge-series/11-Agent-Core-Architecture-Explained.html">第11章：Agent 核心架构拆解——四个缺一不可的组件</a>
-        </h2>
-    
-        
-    </div>
-
-    
-    
-    
-    
-    <footer class="article-time">
-        
-            <div>
-                <svg xmlns="http://www.w3.org/2000/svg" class="icon icon-tabler icon-tabler-calendar-time" width="56" height="56" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor" fill="none" stroke-linecap="round" stroke-linejoin="round">
-  <path stroke="none" d="M0 0h24v24H0z"/>
-  <path d="M11.795 21h-6.795a2 2 0 0 1 -2 -2v-12a2 2 0 0 1 2 -2h12a2 2 0 0 1 2 2v4" />
-  <circle cx="18" cy="18" r="4" />
-  <path d="M15 3v4" />
-  <path d="M7 3v4" />
-  <path d="M3 11h16" />
-  <path d="M18 16.496v1.504l1 1" />
-</svg>
-                <time class="article-time--published" datetime='2026-06-19T00:00:00Z'>Jun 19, 2026</time>
-            </div>
-        
-
-        
-            <div>
-                <svg xmlns="http://www.w3.org/2000/svg" class="icon icon-tabler icon-tabler-clock" width="24" height="24" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor" fill="none" stroke-linecap="round" stroke-linejoin="round">
-  <path stroke="none" d="M0 0h24v24H0z"/>
-  <circle cx="12" cy="12" r="9" />
-  <polyline points="12 7 12 12 15 15" />
-</svg>
-
-
-
-                <time class="article-time--reading">
-                    阅读时长: 2 分钟
-                </time>
-            </div>
-        
-    </footer>
-    
-
-    
-</div>
-
-</header>
-
-    <section class="article-content">
-    
-    
-    <h1 id="第11章agent-核心架构拆解四个缺一不可的组件">第11章：Agent 核心架构拆解——四个缺一不可的组件
-</h1><blockquote>
-<p>系列导读：本章深入 Agent 的内部结构。如果你准备亲手实现一个 Agent，这就是你要看的「系统说明书&quot;。</p>
-</blockquote>
-<hr>
-<h2 id="一agent架构全景四个核心组件">一、Agent架构全景：四个核心组件
-</h2><p>一个完整的 Agent 系统由以下四个核心组件构成，任何一个掉链子，系统都跑不好：</p>
-<pre tabindex="0"><code>┌─────────────────────────────────────┐
-│            用户输入                  │
-└─────────────┬───────────────────────┘
-              ↓
-┌─────────────────────────────────────┐
-│  1. LLM 核心   ←所有决策的中枢      │
-│     ↓                                │
-│  2. 规划模块   ←把目标拆成步骤      │
-│     ↓                                │
-│  3. 工具系统   ←实际执行的能力       │
-│     ↓                                │
-│  4. 记忆系统   ←持续维护的状态       │
-└─────────────────────────────────────┘
-</code></pre><h2 id="二组件1llm-核心">二、组件1：LLM 核心
-</h2><p>LLM 是整个 Agent 的「大脑」。</p>
-<ul>
-<li>所有输入（用户指令、工具返回结果、记忆内容）最终都经过 LLM 来理解和决策</li>
-<li>LLM 负责判断：<strong>下一步该做什么？继续思考？调用工具？还是输出最终答案？</strong></li>
-</ul>
-<h3 id="system-prompt-的关键作用">System Prompt 的关键作用
-</h3><p>System Prompt 就是给 Agent 的「岗位说明书」，定义了：</p>
-<pre tabindex="0"><code>你是一个专业的数据分析助手。
-你的任务是帮助用户分析数据并生成报告。
-
-你可以使用的工具：
-1. analyze_csv：读取 CSV 文件并做基础统计分析
-2. generate_chart：根据数据生成可视化图表
-3. web_search：搜索最新行业信息
-4. write_report：生成结构化报告
-
-你的工作流程：
-1. 先理解用户的数据分析目标
-2. 使用 analyze_csv 了解数据概况
-3. 根据数据特征选择分析方向
-4. 使用 generate_chart 生成必要的可视化
-5. 最后使用 write_report 生成完整报告
-</code></pre><p><strong>System Prompt 写得好不好，直接决定 Agent 的行为模式</strong>。它是工程质量最不可控的变量之一。</p>
-<h2 id="三组件2规划模块planning">三、组件2：规划模块（Planning）
-</h2><p>规划模块解决的是：<strong>怎么把一个大目标拆成可执行的步骤？</strong></p>
-<h3 id="为什么需要规划">为什么需要规划？
-</h3><p>想象你让 Agent 完成：&ldquo;帮我分析我们公司 Q2 的销售数据，找出增长最快的产品线，并给出下季度的推广建议。&rdquo;</p>
-<p>这个任务拆下去至少包含：</p>
-<ol>
-<li>加载并描述销售数据（analyze_csv）</li>
-<li>按产品线分组计算增长率</li>
-<li>找出增长最快的产品线</li>
-<li>搜索该产品的市场信息</li>
-<li>结合数据和市场信息生成建议</li>
-</ol>
-<p>没有规划模块，LLM 一次调用只能做一件事，可能会重复、遗漏或顺序错乱。</p>
-<h3 id="两种规划策略">两种规划策略
-</h3><div class="table-wrapper"><table>
-  <thead>
-      <tr>
-          <th>策略</th>
-          <th>实现方式</th>
-          <th>特点</th>
-      </tr>
-  </thead>
-  <tbody>
-      <tr>
-          <td><strong>静态规划</strong></td>
-          <td>预先定义步骤序列（工作流）</td>
-          <td>确定性高，灵活性差</td>
-      </tr>
-      <tr>
-          <td><strong>动态规划</strong></td>
-          <td>让 LLM 每一步自己决定方向和工具</td>
-          <td>灵活性强，可控性差</td>
-      </tr>
-      <tr>
-          <td><strong>混合规划</strong></td>
-          <td>大方向固定，具体操作让 LLM 决定</td>
-          <td>推荐方案</td>
-      </tr>
-  </tbody>
-</table></div>
-<pre tabindex="0"><code>动态规划示例（ReAct 模式）：
-步骤1：Thought &#34;我需要先了解数据概况&#34; → Action: analyze_csv
-步骤2：Thought &#34;数据里有哪些列？产品分类是什么？&#34; → 根据结果继续
-步骤3：Thought &#34;让我按产品线计算增长率&#34; → Action: analyze_csv + 参数
-</code></pre><h2 id="四组件3工具系统tool-system">四、组件3：工具系统（Tool System）
-</h2><p>工具系统是 Agent 与外部世界交互的「四肢」。</p>
-<p>工具不是越多越好。过多的工具会让 LLM 的选择困难增加（context 装不下、选错概率上升）。</p>
-<h3 id="工具定义的关键要素">工具定义的关键要素
-</h3><div class="highlight"><pre tabindex="0" style="color:#f8f8f2;background-color:#272822;-moz-tab-size:4;-o-tab-size:4;tab-size:4;"><code class="language-json" data-lang="json"><span style="display:flex;"><span>{
-</span></span><span style="display:flex;"><span>  <span style="color:#f92672">&#34;name&#34;</span>: <span style="color:#e6db74">&#34;web_search&#34;</span>,
-</span></span><span style="display:flex;"><span>  <span style="color:#f92672">&#34;description&#34;</span>: <span style="color:#e6db74">&#34;当需要获取某个领域的最新信息、验证某个事实、或者了解某个概念时使用。注意：不要用来查询本地数据库的内容&#34;</span>,
-</span></span><span style="display:flex;"><span>  <span style="color:#f92672">&#34;parameters&#34;</span>: {
-</span></span><span style="display:flex;"><span>    <span style="color:#f92672">&#34;query&#34;</span>: {
-</span></span><span style="display:flex;"><span>      <span style="color:#f92672">&#34;type&#34;</span>: <span style="color:#e6db74">&#34;string&#34;</span>,
-</span></span><span style="display:flex;"><span>      <span style="color:#f92672">&#34;description&#34;</span>: <span style="color:#e6db74">&#34;搜索关键词，建议3-5个关键词，不要太长&#34;</span>
-</span></span><span style="display:flex;"><span>    }
-</span></span><span style="display:flex;"><span>  }
-</span></span><span style="display:flex;"><span>}
-</span></span></code></pre></div><p><strong>description 是核心门槛</strong>——模型基于 description 决定用不用这个工具。写好 description 的技巧：</p>
-<ul>
-<li>明确什么场景用</li>
-<li>明确什么场景<strong>不用</strong></li>
-<li>给出使用示例</li>
-<li>说明参数要求</li>
-</ul>
-<h3 id="工具的返回值设计">工具的返回值设计
-</h3><p>工具返回的结果也需要精心格式化：</p>
-<pre tabindex="0"><code>工具调用的结果应该：
-1. 结构化（JSON 或 Markdown 表格）
-2. 包含执行状态（成功/失败）
-3. 失败时包含错误信息和可能的修正建议
-4. 避免过长的原始输出，必要时做摘要
-</code></pre><h2 id="五组件4记忆系统memory">五、组件4：记忆系统（Memory）
-</h2><p>记忆系统解决的是：<strong>Agent 怎么记得之前做过什么？</strong></p>
-<p>记忆分四个层次：</p>
-<div class="table-wrapper"><table>
-  <thead>
-      <tr>
-          <th>层次</th>
-          <th>内容</th>
-          <th>存储位置</th>
-          <th>生命周期</th>
-      </tr>
-  </thead>
-  <tbody>
-      <tr>
-          <td>感知记忆</td>
-          <td>当前输入的原始内容</td>
-          <td>内存</td>
-          <td>即时</td>
-      </tr>
-      <tr>
-          <td>短期记忆</td>
-          <td>当前对话/任务的历史</td>
-          <td>Context window</td>
-          <td>当前任务</td>
-      </tr>
-      <tr>
-          <td>长期记忆</td>
-          <td>跨会话的知识和经验</td>
-          <td>向量数据库/结构化存储</td>
-          <td>持续</td>
-      </tr>
-      <tr>
-          <td>实体记忆</td>
-          <td>提取的结构化事实</td>
-          <td>图数据库/KV 存储</td>
-          <td>持续</td>
-      </tr>
-  </tbody>
-</table></div>
-<h3 id="为什么记忆系统这么重要">为什么记忆系统这么重要？
-</h3><p>没有记忆的 Agent：</p>
-<ul>
-<li>你在上一步确认了技术方案，下一步它就不记得了</li>
-<li>它不知道你的偏好（代码风格、输出格式）</li>
-<li>它无法在多个任务之间保持连贯性</li>
-</ul>
-<p>有记忆的 Agent：</p>
-<ul>
-<li>记住你们的约定和达成的共识 → 持续协作质量提升</li>
-<li>记住任务的历史决策 → 避免重复讨论、减少沟通成本</li>
-<li>跨任务积累对你的了解 → 越来越懂你</li>
-</ul>
-<h2 id="六四个组件的协同">六、四个组件的协同
-</h2><pre tabindex="0"><code>用户：分析 sales.csv
-
-LLM（理解目标）→ 规划模块：
-  &#34;目标：分析销售数据 → 步骤：1.读数据 2.做统计 3.出报告&#34;
-
-LLM（步骤1）→ &#34;调 analyze_csv(sales.csv)&#34;
-  → 工具系统执行 → 返回数据描述
-
-LLM（步骤2）→ 看到数据是时间序列 → &#34;调 analyze_csv + 增长分析参数&#34;
-  → 工具系统执行 → 返回分析结果
-
-记忆系统：记录当前进度、中间结果、用户偏好
-
-LLM（步骤3）→ &#34;数据够用，生成报告&#34;
-  → 调 write_report → 输出最终答案给用户
-</code></pre><h2 id="七本章小结">七、本章小结
-</h2><ul>
-<li>Agent 四大组件：LLM（大脑）、规划（怎么拆任务）、工具（怎么做）、记忆（记得什么）</li>
-<li>LLM 的 System Prompt 定义了 Agent 的&quot;人格&quot;和&quot;行为边界&quot;</li>
-<li>规划模块是连接目标和执行的桥梁，静态保守、动态灵活</li>
-<li>工具系统的 description 质量直接决定调用准确率</li>
-<li>记忆系统让 Agent 有&quot;持续感&quot;，不是每次都从零开始</li>
-</ul>
-<h2 id="思考题">思考题
-</h2><ol>
-<li>如果你设计一个 Agent，工具数量限制在 5 个以内，你怎么选择？优先级怎么排？</li>
-<li>短期记忆（存在 context 里）会随着对话变长而被截断。长任务中如何设计记忆的&quot;生命值&quot;决策？</li>
-</ol>
-
-</section>
-
-
-    <footer class="article-footer">
-    
-    <section class="article-tags">
-        
-            <a href="/tags/Agent.html">Agent</a>
-        
-            <a href="/tags/Architecture.html">Architecture</a>
-        
-            <a href="/tags/LLM-Agent.html">LLM Agent</a>
-        
-            <a href="/tags/System-Design.html">System Design</a>
-        
-    </section>
-
-
-    </footer>
-
-
-    
-</article>
-
-    
-
-    
-
-<aside class="related-content--wrapper">
-    <h2 class="section-title">相关文章</h2>
-    <div class="related-content">
-        <div class="flex article-list--tile">
-            
-                
-<article class="">
-    <a href="/ai/knowledge-series/10-From-Prompt-to-Agent.html">
-        
-        
-
-        <div class="article-details">
-            <h2 class="article-title">第10章：从 Prompt 到 Agent——AI 能力跃迁的分水岭</h2>
-        </div>
-    </a>
-</article>
-
-            
-                
-<article class="">
-    <a href="/ai/ped/Chapter22-Industry-Trends-and-Long-term-Career-Planning.html">
-        
-        
-
-        <div class="article-details">
-            <h2 class="article-title">第22章 行业趋势与职业长期规划</h2>
-        </div>
-    </a>
-</article>
-
-            
-                
-<article class="">
-    <a href="/ai/ped/Chapter04-AI-Implementation-Basic-Terms.html">
-        
-        
-
-        <div class="article-details">
-            <h2 class="article-title">第4章 AI落地基础术语扫盲</h2>
-        </div>
-    </a>
-</article>
-
-            
-        </div>
-    </div>
-</aside>
-
-     
-    
-        
-    <script
-    src="https://giscus.app/client.js"
-    data-repo="pastor17/bloggiscus"
-    data-repo-id="R_kgDOQ6H9qQ"
-    data-category=""
-    data-category-id="DIC_kwDOQ6H9qc4C0-T8"
-    data-mapping="pathname"
-    data-strict="0"
-    data-reactions-enabled="1"
-    data-emit-metadata="0"
-    data-input-position="bottom"
-    data-theme="light"
-    data-lang="zh-CN"
-    data-loading="lazy"
-    crossorigin="anonymous"
-    async
-></script>
-<script>
-    function setGiscusTheme(theme) {
-        let giscus = document.querySelector("iframe.giscus-frame");
-        if (giscus) {
-            giscus.contentWindow.postMessage(
-                {
-                    giscus: {
-                        setConfig: {
-                            theme: theme,
-                        },
-                    },
-                },
-                "https://giscus.app"
-            );
-        }
-    }
-
-    (function () {
-        addEventListener("message", (e) => {
-            if (event.origin !== "https://giscus.app") return;
-            handler();
-        });
-        window.addEventListener("onColorSchemeChange", handler);
-
-        function handler() {
-            if (document.documentElement.dataset.scheme === "light") {
-                setGiscusTheme('light');
-            } else {
-                setGiscusTheme('dark_dimmed');
-            }
-        }
-    })();
-</script>
-
-    
-
-    <footer class="site-footer">
-    <section class="copyright">
-        &copy; 
-        
-        2026 SelfTechHub
-    </section>
-    
-    <section class="powerby">
-        
-
-    </section>
-</footer>
-
-
-    
-<div class="pswp" tabindex="-1" role="dialog" aria-hidden="true">
-
-    
-    <div class="pswp__bg"></div>
-
-    
-    <div class="pswp__scroll-wrap">
-
-        
-        <div class="pswp__container">
-            <div class="pswp__item"></div>
-            <div class="pswp__item"></div>
-            <div class="pswp__item"></div>
-        </div>
-
-        
-        <div class="pswp__ui pswp__ui--hidden">
-
-            <div class="pswp__top-bar">
-
-                
-
-                <div class="pswp__counter"></div>
-
-                <button class="pswp__button pswp__button--close" title="Close (Esc)"></button>
-
-                <button class="pswp__button pswp__button--share" title="Share"></button>
-
-                <button class="pswp__button pswp__button--fs" title="Toggle fullscreen"></button>
-
-                <button class="pswp__button pswp__button--zoom" title="Zoom in/out"></button>
-
-                
-                
-                <div class="pswp__preloader">
-                    <div class="pswp__preloader__icn">
-                        <div class="pswp__preloader__cut">
-                            <div class="pswp__preloader__donut"></div>
-                        </div>
-                    </div>
-                </div>
-            </div>
-
-            <div class="pswp__share-modal pswp__share-modal--hidden pswp__single-tap">
-                <div class="pswp__share-tooltip"></div>
-            </div>
-
-            <button class="pswp__button pswp__button--arrow--left" title="Previous (arrow left)">
-            </button>
-
-            <button class="pswp__button pswp__button--arrow--right" title="Next (arrow right)">
-            </button>
-
-            <div class="pswp__caption">
-                <div class="pswp__caption__center"></div>
-            </div>
-
-        </div>
-
-    </div>
-
-</div><script 
-                src="https://cdn.jsdelivr.net/npm/photoswipe@4.1.3/dist/photoswipe.min.js"integrity="sha256-ePwmChbbvXbsO02lbM3HoHbSHTHFAeChekF1xKJdleo="crossorigin="anonymous"
-                defer
-                >
-            </script><script 
-                src="https://cdn.jsdelivr.net/npm/photoswipe@4.1.3/dist/photoswipe-ui-default.min.js"integrity="sha256-UKkzOn/w1mBxRmLLGrSeyB4e1xbrp4xylgAWb3M42pU="crossorigin="anonymous"
-                defer
-                >
-            </script><link 
-                rel="stylesheet" 
-                href="https://cdn.jsdelivr.net/npm/photoswipe@4.1.3/dist/default-skin/default-skin.min.css"crossorigin="anonymous"
-            ><link 
-                rel="stylesheet" 
-                href="https://cdn.jsdelivr.net/npm/photoswipe@4.1.3/dist/photoswipe.min.css"crossorigin="anonymous"
-            >
-    
-
-            </main>
-        </div>
-        <script 
-                src="https://cdn.jsdelivr.net/npm/node-vibrant@3.1.6/dist/vibrant.min.js"integrity="sha256-awcR2jno4kI5X0zL8ex0vi2z&#43;KMkF24hUW8WePSA9HM="crossorigin="anonymous"
-                
-                >
-            </script><script type="text/javascript" src="/ts/main.c922af694cc257bf1ecc41c0dd7b0430f9114ec280ccf67cd2c6ad55f5316c4e.js" defer></script>
-<script>
-    (function () {
-        const customFont = document.createElement('link');
-        customFont.href = "https://fonts.googleapis.com/css2?family=Lato:wght@300;400;700&display=swap";
-
-        customFont.type = "text/css";
-        customFont.rel = "stylesheet";
-
-        document.head.appendChild(customFont);
-    }());
-</script>
-
-    </body>
-</html>
+<!doctype html><html lang=zh-cn dir=ltr><head><meta charset=utf-8><meta name=viewport content='width=device-width,initial-scale=1'><meta name=description content="系列导读：本章深入 Agent 的内部结构。如果你准备亲手实现一个 Agent，这就是你要看的「系统说明书\" 。一个完整的 agent 系统由以下四个核心组件构成，任何一个掉链子，系统都跑不好："><title>第11章：Agent 核心架构拆解——四个缺一不可的组件</title><link rel=canonical href=https://blog.irudder.me/ai/knowledge-series/11-Agent-Core-Architecture-Explained.html><link rel=stylesheet href=/scss/style.min.c77ce1b874b29b2ee9e54a89066c79ebf35cbe9cf399b31ab5d79167f9a965c9.css><meta property='og:title' content="第11章：Agent 核心架构拆解——四个缺一不可的组件"><meta property='og:description' content="系列导读：本章深入 Agent 的内部结构。如果你准备亲手实现一个 Agent，这就是你要看的「系统说明书\" 。一个完整的 agent 系统由以下四个核心组件构成，任何一个掉链子，系统都跑不好："><meta property='og:url' content='https://blog.irudder.me/ai/knowledge-series/11-Agent-Core-Architecture-Explained.html'><meta property='og:site_name' content='SelfTechHub'><meta property='og:type' content='article'><meta property='article:section' content='Ai'><meta property='article:tag' content='Agent'><meta property='article:tag' content='Architecture'><meta property='article:tag' content='LLM Agent'><meta property='article:tag' content='System Design'><meta property='article:published_time' content='2026-06-19T00:00:00+08:00'><meta property='article:modified_time' content='2026-06-19T00:00:00+08:00'><meta name=twitter:title content="第11章：Agent 核心架构拆解——四个缺一不可的组件"><meta name=twitter:description content="系列导读：本章深入 Agent 的内部结构。如果你准备亲手实现一个 Agent，这就是你要看的「系统说明书\" 。一个完整的 agent 系统由以下四个核心组件构成，任何一个掉链子，系统都跑不好："><link rel="shortcut icon" href=/images/logo.png></head><body class=article-page><script>(function(){const e="StackColorScheme";localStorage.getItem(e)||localStorage.setItem(e,"auto")})()</script><script>(function(){const t="StackColorScheme",e=localStorage.getItem(t),n=window.matchMedia("(prefers-color-scheme: dark)").matches===!0;e=="dark"||e==="auto"&&n?document.documentElement.dataset.scheme="dark":document.documentElement.dataset.scheme="light"})()</script><div class="container main-container flex on-phone--column extended"><aside class="sidebar left-sidebar sticky"><button class="hamburger hamburger--spin" type=button id=toggle-menu aria-label=切换菜单>
+<span class=hamburger-box><span class=hamburger-inner></span></span></button><header><figure class=site-avatar><a href=/><img src=/img/avatar_hu_8588ce14af1147e2.png width=300 height=286 class=site-logo loading=lazy alt=Avatar>
+</a><span class=emoji>🧠</span></figure><div class=site-meta><h1 class=site-name><a href=/>SelfTechHub</a></h1><h2 class=site-description>成长 · 技术 · 商业 · AI —— 把碎片知识沉淀为可复用的记忆体系</h2></div></header><ol class=menu-social><li><a href=https://github.com/pastor17 target=_blank title=GitHub rel=me><svg class="icon icon-tabler icon-tabler-brand-github" width="24" height="24" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor" fill="none" stroke-linecap="round" stroke-linejoin="round"><path stroke="none" d="M0 0h24v24H0z" fill="none"/><path d="M9 19c-4.3 1.4-4.3-2.5-6-3m12 5v-3.5c0-1 .1-1.4-.5-2 2.8-.3 5.5-1.4 5.5-6a4.6 4.6.0 00-1.3-3.2 4.2 4.2.0 00-.1-3.2s-1.1-.3-3.5 1.3a12.3 12.3.0 00-6.2.0C6.5 2.8 5.4 3.1 5.4 3.1a4.2 4.2.0 00-.1 3.2A4.6 4.6.0 004 9.5c0 4.6 2.7 5.7 5.5 6-.6.6-.6 1.2-.5 2V21"/></svg></a></li></ol><ol class=menu id=main-menu><li><a href=/><svg class="icon icon-tabler icon-tabler-home" width="24" height="24" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor" fill="none" stroke-linecap="round" stroke-linejoin="round"><path stroke="none" d="M0 0h24v24H0z"/><polyline points="5 12 3 12 12 3 21 12 19 12"/><path d="M5 12v7a2 2 0 002 2h10a2 2 0 002-2v-7"/><path d="M9 21v-6a2 2 0 012-2h2a2 2 0 012 2v6"/></svg>
+<span>首页</span></a></li><li><a href=/categories/%E6%88%90%E9%95%BF.html><span>成长认知</span></a></li><li><a href=/categories/%E6%8A%80%E6%9C%AF.html><span>技术精进</span></a></li><li><a href=/categories/%E5%95%86%E4%B8%9A.html><span>商业·财富</span></a></li><li><a href=/categories/ai.html><span>探索AI</span></a></li><li><a href=/about/><svg class="icon icon-tabler icon-tabler-user" width="24" height="24" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor" fill="none" stroke-linecap="round" stroke-linejoin="round"><path stroke="none" d="M0 0h24v24H0z"/><circle cx="12" cy="7" r="4"/><path d="M6 21v-2a4 4 0 014-4h4a4 4 0 014 4v2"/></svg>
+<span>关于</span></a></li><li class=menu-bottom-section><ol class=menu><li id=dark-mode-toggle><svg class="icon icon-tabler icon-tabler-toggle-left" width="24" height="24" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor" fill="none" stroke-linecap="round" stroke-linejoin="round"><path stroke="none" d="M0 0h24v24H0z"/><circle cx="8" cy="12" r="2"/><rect x="2" y="6" width="20" height="12" rx="6"/></svg>
+<svg class="icon icon-tabler icon-tabler-toggle-right" width="24" height="24" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor" fill="none" stroke-linecap="round" stroke-linejoin="round"><path stroke="none" d="M0 0h24v24H0z"/><circle cx="16" cy="12" r="2"/><rect x="2" y="6" width="20" height="12" rx="6"/></svg>
+<span>暗色模式</span></li></ol></li></ol></aside><aside class="sidebar right-sidebar sticky"><section class="widget archives"><div class=widget-icon><svg class="icon icon-tabler icon-tabler-hash" width="24" height="24" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor" fill="none" stroke-linecap="round" stroke-linejoin="round"><path stroke="none" d="M0 0h24v24H0z"/><line x1="5" y1="9" x2="19" y2="9"/><line x1="5" y1="15" x2="19" y2="15"/><line x1="11" y1="4" x2="7" y2="20"/><line x1="17" y1="4" x2="13" y2="20"/></svg></div><h2 class="widget-title section-title">目录</h2><div class=widget--toc><nav id=TableOfContents><ul><li><a href=#一agent架构全景四个核心组件>一、Agent架构全景：四个核心组件</a></li><li><a href=#二组件1llm-核心>二、组件1：LLM 核心</a><ul><li><a href=#system-prompt-的关键作用>System Prompt 的关键作用</a></li></ul></li><li><a href=#三组件2规划模块planning>三、组件2：规划模块（Planning）</a><ul><li><a href=#为什么需要规划>为什么需要规划？</a></li><li><a href=#两种规划策略>两种规划策略</a></li></ul></li><li><a href=#四组件3工具系统tool-system>四、组件3：工具系统（Tool System）</a><ul><li><a href=#工具定义的关键要素>工具定义的关键要素</a></li><li><a href=#工具的返回值设计>工具的返回值设计</a></li></ul></li><li><a href=#五组件4记忆系统memory>五、组件4：记忆系统（Memory）</a><ul><li><a href=#为什么记忆系统这么重要>为什么记忆系统这么重要？</a></li></ul></li><li><a href=#六四个组件的协同>六、四个组件的协同</a></li><li><a href=#七本章小结>七、本章小结</a></li><li><a href=#思考题>思考题</a></li></ul></nav></div></section></aside><main class="main full-width"><article class=main-article><header class=article-header><div class=article-details><header class=article-category><a href=/categories/ai.html>AI探索</a></header><div class=article-title-wrapper><h2 class=article-title><a href=/ai/knowledge-series/11-Agent-Core-Architecture-Explained.html>第11章：Agent 核心架构拆解——四个缺一不可的组件</a></h2><h3 class=article-subtitle>系列导读：本章深入 Agent 的内部结构。如果你准备亲手实现一个 Agent，这就是你要看的「系统说明书"。一个完整的 Agent 系统由以下四个核心组件构成，任何一个掉链子，系统都跑不好：</h3></div><footer class=article-time><div><svg class="icon icon-tabler icon-tabler-calendar-time" width="56" height="56" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor" fill="none" stroke-linecap="round" stroke-linejoin="round"><path stroke="none" d="M0 0h24v24H0z"/><path d="M11.795 21H5a2 2 0 01-2-2V7a2 2 0 012-2h12a2 2 0 012 2v4"/><circle cx="18" cy="18" r="4"/><path d="M15 3v4"/><path d="M7 3v4"/><path d="M3 11h16"/><path d="M18 16.496V18l1 1"/></svg>
+<time class=article-time--published datetime=2026-06-19T00:00:00+08:00>2026-06-19</time></div><div><svg class="icon icon-tabler icon-tabler-clock" width="24" height="24" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor" fill="none" stroke-linecap="round" stroke-linejoin="round"><path stroke="none" d="M0 0h24v24H0z"/><circle cx="12" cy="12" r="9"/><polyline points="12 7 12 12 15 15"/></svg>
+<time class=article-time--reading>阅读时长: 5 分钟</time></div></footer></div></header><section class=article-content><h1 id=第11章agent-核心架构拆解四个缺一不可的组件>第11章：Agent 核心架构拆解——四个缺一不可的组件</h1><blockquote><p>系列导读：本章深入 Agent 的内部结构。如果你准备亲手实现一个 Agent，这就是你要看的「系统说明书"。</p></blockquote><hr><h2 id=一agent架构全景四个核心组件>一、Agent架构全景：四个核心组件</h2><p>一个完整的 Agent 系统由以下四个核心组件构成，任何一个掉链子，系统都跑不好：</p><div class=highlight><div class=chroma><table class=lntable><tr><td class=lntd><pre tabindex=0 class=chroma><code><span class=lnt> 1
+</span><span class=lnt> 2
+</span><span class=lnt> 3
+</span><span class=lnt> 4
+</span><span class=lnt> 5
+</span><span class=lnt> 6
+</span><span class=lnt> 7
+</span><span class=lnt> 8
+</span><span class=lnt> 9
+</span><span class=lnt>10
+</span><span class=lnt>11
+</span><span class=lnt>12
+</span><span class=lnt>13
+</span></code></pre></td><td class=lntd><pre tabindex=0 class=chroma><code class=language-fallback data-lang=fallback><span class=line><span class=cl>┌─────────────────────────────────────┐
+</span></span><span class=line><span class=cl>│            用户输入                  │
+</span></span><span class=line><span class=cl>└─────────────┬───────────────────────┘
+</span></span><span class=line><span class=cl>              ↓
+</span></span><span class=line><span class=cl>┌─────────────────────────────────────┐
+</span></span><span class=line><span class=cl>│  1. LLM 核心   ←所有决策的中枢      │
+</span></span><span class=line><span class=cl>│     ↓                                │
+</span></span><span class=line><span class=cl>│  2. 规划模块   ←把目标拆成步骤      │
+</span></span><span class=line><span class=cl>│     ↓                                │
+</span></span><span class=line><span class=cl>│  3. 工具系统   ←实际执行的能力       │
+</span></span><span class=line><span class=cl>│     ↓                                │
+</span></span><span class=line><span class=cl>│  4. 记忆系统   ←持续维护的状态       │
+</span></span><span class=line><span class=cl>└─────────────────────────────────────┘
+</span></span></code></pre></td></tr></table></div></div><h2 id=二组件1llm-核心>二、组件1：LLM 核心</h2><p>LLM 是整个 Agent 的「大脑」。</p><ul><li>所有输入（用户指令、工具返回结果、记忆内容）最终都经过 LLM 来理解和决策</li><li>LLM 负责判断：<strong>下一步该做什么？继续思考？调用工具？还是输出最终答案？</strong></li></ul><h3 id=system-prompt-的关键作用>System Prompt 的关键作用</h3><p>System Prompt 就是给 Agent 的「岗位说明书」，定义了：</p><div class=highlight><div class=chroma><table class=lntable><tr><td class=lntd><pre tabindex=0 class=chroma><code><span class=lnt> 1
+</span><span class=lnt> 2
+</span><span class=lnt> 3
+</span><span class=lnt> 4
+</span><span class=lnt> 5
+</span><span class=lnt> 6
+</span><span class=lnt> 7
+</span><span class=lnt> 8
+</span><span class=lnt> 9
+</span><span class=lnt>10
+</span><span class=lnt>11
+</span><span class=lnt>12
+</span><span class=lnt>13
+</span><span class=lnt>14
+</span><span class=lnt>15
+</span></code></pre></td><td class=lntd><pre tabindex=0 class=chroma><code class=language-fallback data-lang=fallback><span class=line><span class=cl>你是一个专业的数据分析助手。
+</span></span><span class=line><span class=cl>你的任务是帮助用户分析数据并生成报告。
+</span></span><span class=line><span class=cl>
+</span></span><span class=line><span class=cl>你可以使用的工具：
+</span></span><span class=line><span class=cl>1. analyze_csv：读取 CSV 文件并做基础统计分析
+</span></span><span class=line><span class=cl>2. generate_chart：根据数据生成可视化图表
+</span></span><span class=line><span class=cl>3. web_search：搜索最新行业信息
+</span></span><span class=line><span class=cl>4. write_report：生成结构化报告
+</span></span><span class=line><span class=cl>
+</span></span><span class=line><span class=cl>你的工作流程：
+</span></span><span class=line><span class=cl>1. 先理解用户的数据分析目标
+</span></span><span class=line><span class=cl>2. 使用 analyze_csv 了解数据概况
+</span></span><span class=line><span class=cl>3. 根据数据特征选择分析方向
+</span></span><span class=line><span class=cl>4. 使用 generate_chart 生成必要的可视化
+</span></span><span class=line><span class=cl>5. 最后使用 write_report 生成完整报告
+</span></span></code></pre></td></tr></table></div></div><p><strong>System Prompt 写得好不好，直接决定 Agent 的行为模式</strong>。它是工程质量最不可控的变量之一。</p><h2 id=三组件2规划模块planning>三、组件2：规划模块（Planning）</h2><p>规划模块解决的是：<strong>怎么把一个大目标拆成可执行的步骤？</strong></p><h3 id=为什么需要规划>为什么需要规划？</h3><p>想象你让 Agent 完成：&ldquo;帮我分析我们公司 Q2 的销售数据，找出增长最快的产品线，并给出下季度的推广建议。&rdquo;</p><p>这个任务拆下去至少包含：</p><ol><li>加载并描述销售数据（analyze_csv）</li><li>按产品线分组计算增长率</li><li>找出增长最快的产品线</li><li>搜索该产品的市场信息</li><li>结合数据和市场信息生成建议</li></ol><p>没有规划模块，LLM 一次调用只能做一件事，可能会重复、遗漏或顺序错乱。</p><h3 id=两种规划策略>两种规划策略</h3><div class=table-wrapper><table><thead><tr><th>策略</th><th>实现方式</th><th>特点</th></tr></thead><tbody><tr><td><strong>静态规划</strong></td><td>预先定义步骤序列（工作流）</td><td>确定性高，灵活性差</td></tr><tr><td><strong>动态规划</strong></td><td>让 LLM 每一步自己决定方向和工具</td><td>灵活性强，可控性差</td></tr><tr><td><strong>混合规划</strong></td><td>大方向固定，具体操作让 LLM 决定</td><td>推荐方案</td></tr></tbody></table></div><div class=highlight><div class=chroma><table class=lntable><tr><td class=lntd><pre tabindex=0 class=chroma><code><span class=lnt>1
+</span><span class=lnt>2
+</span><span class=lnt>3
+</span><span class=lnt>4
+</span></code></pre></td><td class=lntd><pre tabindex=0 class=chroma><code class=language-fallback data-lang=fallback><span class=line><span class=cl>动态规划示例（ReAct 模式）：
+</span></span><span class=line><span class=cl>步骤1：Thought &#34;我需要先了解数据概况&#34; → Action: analyze_csv
+</span></span><span class=line><span class=cl>步骤2：Thought &#34;数据里有哪些列？产品分类是什么？&#34; → 根据结果继续
+</span></span><span class=line><span class=cl>步骤3：Thought &#34;让我按产品线计算增长率&#34; → Action: analyze_csv + 参数
+</span></span></code></pre></td></tr></table></div></div><h2 id=四组件3工具系统tool-system>四、组件3：工具系统（Tool System）</h2><p>工具系统是 Agent 与外部世界交互的「四肢」。</p><p>工具不是越多越好。过多的工具会让 LLM 的选择困难增加（context 装不下、选错概率上升）。</p><h3 id=工具定义的关键要素>工具定义的关键要素</h3><div class=highlight><div class=chroma><table class=lntable><tr><td class=lntd><pre tabindex=0 class=chroma><code><span class=lnt> 1
+</span><span class=lnt> 2
+</span><span class=lnt> 3
+</span><span class=lnt> 4
+</span><span class=lnt> 5
+</span><span class=lnt> 6
+</span><span class=lnt> 7
+</span><span class=lnt> 8
+</span><span class=lnt> 9
+</span><span class=lnt>10
+</span></code></pre></td><td class=lntd><pre tabindex=0 class=chroma><code class=language-json data-lang=json><span class=line><span class=cl><span class=p>{</span>
+</span></span><span class=line><span class=cl>  <span class=nt>&#34;name&#34;</span><span class=p>:</span> <span class=s2>&#34;web_search&#34;</span><span class=p>,</span>
+</span></span><span class=line><span class=cl>  <span class=nt>&#34;description&#34;</span><span class=p>:</span> <span class=s2>&#34;当需要获取某个领域的最新信息、验证某个事实、或者了解某个概念时使用。注意：不要用来查询本地数据库的内容&#34;</span><span class=p>,</span>
+</span></span><span class=line><span class=cl>  <span class=nt>&#34;parameters&#34;</span><span class=p>:</span> <span class=p>{</span>
+</span></span><span class=line><span class=cl>    <span class=nt>&#34;query&#34;</span><span class=p>:</span> <span class=p>{</span>
+</span></span><span class=line><span class=cl>      <span class=nt>&#34;type&#34;</span><span class=p>:</span> <span class=s2>&#34;string&#34;</span><span class=p>,</span>
+</span></span><span class=line><span class=cl>      <span class=nt>&#34;description&#34;</span><span class=p>:</span> <span class=s2>&#34;搜索关键词，建议3-5个关键词，不要太长&#34;</span>
+</span></span><span class=line><span class=cl>    <span class=p>}</span>
+</span></span><span class=line><span class=cl>  <span class=p>}</span>
+</span></span><span class=line><span class=cl><span class=p>}</span>
+</span></span></code></pre></td></tr></table></div></div><p><strong>description 是核心门槛</strong>——模型基于 description 决定用不用这个工具。写好 description 的技巧：</p><ul><li>明确什么场景用</li><li>明确什么场景<strong>不用</strong></li><li>给出使用示例</li><li>说明参数要求</li></ul><h3 id=工具的返回值设计>工具的返回值设计</h3><p>工具返回的结果也需要精心格式化：</p><div class=highlight><div class=chroma><table class=lntable><tr><td class=lntd><pre tabindex=0 class=chroma><code><span class=lnt>1
+</span><span class=lnt>2
+</span><span class=lnt>3
+</span><span class=lnt>4
+</span><span class=lnt>5
+</span></code></pre></td><td class=lntd><pre tabindex=0 class=chroma><code class=language-fallback data-lang=fallback><span class=line><span class=cl>工具调用的结果应该：
+</span></span><span class=line><span class=cl>1. 结构化（JSON 或 Markdown 表格）
+</span></span><span class=line><span class=cl>2. 包含执行状态（成功/失败）
+</span></span><span class=line><span class=cl>3. 失败时包含错误信息和可能的修正建议
+</span></span><span class=line><span class=cl>4. 避免过长的原始输出，必要时做摘要
+</span></span></code></pre></td></tr></table></div></div><h2 id=五组件4记忆系统memory>五、组件4：记忆系统（Memory）</h2><p>记忆系统解决的是：<strong>Agent 怎么记得之前做过什么？</strong></p><p>记忆分四个层次：</p><div class=table-wrapper><table><thead><tr><th>层次</th><th>内容</th><th>存储位置</th><th>生命周期</th></tr></thead><tbody><tr><td>感知记忆</td><td>当前输入的原始内容</td><td>内存</td><td>即时</td></tr><tr><td>短期记忆</td><td>当前对话/任务的历史</td><td>Context window</td><td>当前任务</td></tr><tr><td>长期记忆</td><td>跨会话的知识和经验</td><td>向量数据库/结构化存储</td><td>持续</td></tr><tr><td>实体记忆</td><td>提取的结构化事实</td><td>图数据库/KV 存储</td><td>持续</td></tr></tbody></table></div><h3 id=为什么记忆系统这么重要>为什么记忆系统这么重要？</h3><p>没有记忆的 Agent：</p><ul><li>你在上一步确认了技术方案，下一步它就不记得了</li><li>它不知道你的偏好（代码风格、输出格式）</li><li>它无法在多个任务之间保持连贯性</li></ul><p>有记忆的 Agent：</p><ul><li>记住你们的约定和达成的共识 → 持续协作质量提升</li><li>记住任务的历史决策 → 避免重复讨论、减少沟通成本</li><li>跨任务积累对你的了解 → 越来越懂你</li></ul><h2 id=六四个组件的协同>六、四个组件的协同</h2><div class=highlight><div class=chroma><table class=lntable><tr><td class=lntd><pre tabindex=0 class=chroma><code><span class=lnt> 1
+</span><span class=lnt> 2
+</span><span class=lnt> 3
+</span><span class=lnt> 4
+</span><span class=lnt> 5
+</span><span class=lnt> 6
+</span><span class=lnt> 7
+</span><span class=lnt> 8
+</span><span class=lnt> 9
+</span><span class=lnt>10
+</span><span class=lnt>11
+</span><span class=lnt>12
+</span><span class=lnt>13
+</span><span class=lnt>14
+</span><span class=lnt>15
+</span></code></pre></td><td class=lntd><pre tabindex=0 class=chroma><code class=language-fallback data-lang=fallback><span class=line><span class=cl>用户：分析 sales.csv
+</span></span><span class=line><span class=cl>
+</span></span><span class=line><span class=cl>LLM（理解目标）→ 规划模块：
+</span></span><span class=line><span class=cl>  &#34;目标：分析销售数据 → 步骤：1.读数据 2.做统计 3.出报告&#34;
+</span></span><span class=line><span class=cl>
+</span></span><span class=line><span class=cl>LLM（步骤1）→ &#34;调 analyze_csv(sales.csv)&#34;
+</span></span><span class=line><span class=cl>  → 工具系统执行 → 返回数据描述
+</span></span><span class=line><span class=cl>
+</span></span><span class=line><span class=cl>LLM（步骤2）→ 看到数据是时间序列 → &#34;调 analyze_csv + 增长分析参数&#34;
+</span></span><span class=line><span class=cl>  → 工具系统执行 → 返回分析结果
+</span></span><span class=line><span class=cl>
+</span></span><span class=line><span class=cl>记忆系统：记录当前进度、中间结果、用户偏好
+</span></span><span class=line><span class=cl>
+</span></span><span class=line><span class=cl>LLM（步骤3）→ &#34;数据够用，生成报告&#34;
+</span></span><span class=line><span class=cl>  → 调 write_report → 输出最终答案给用户
+</span></span></code></pre></td></tr></table></div></div><h2 id=七本章小结>七、本章小结</h2><ul><li>Agent 四大组件：LLM（大脑）、规划（怎么拆任务）、工具（怎么做）、记忆（记得什么）</li><li>LLM 的 System Prompt 定义了 Agent 的"人格"和"行为边界"</li><li>规划模块是连接目标和执行的桥梁，静态保守、动态灵活</li><li>工具系统的 description 质量直接决定调用准确率</li><li>记忆系统让 Agent 有"持续感"，不是每次都从零开始</li></ul><h2 id=思考题>思考题</h2><ol><li>如果你设计一个 Agent，工具数量限制在 5 个以内，你怎么选择？优先级怎么排？</li><li>短期记忆（存在 context 里）会随着对话变长而被截断。长任务中如何设计记忆的"生命值"决策？</li></ol></section><footer class=article-footer><section class=article-tags><a href=/tags/Agent.html>Agent</a>
+<a href=/tags/Architecture.html>Architecture</a>
+<a href=/tags/LLM-Agent.html>LLM Agent</a>
+<a href=/tags/System-Design.html>System Design</a></section></footer></article><aside class=related-content--wrapper><h2 class=section-title>相关文章</h2><div class=related-content><div class="flex article-list--tile"><article><a href=/ai/knowledge-series/10-From-Prompt-to-Agent.html><div class=article-details><h2 class=article-title>第10章：从 Prompt 到 Agent——AI 能力跃迁的分水岭</h2></div></a></article><article><a href=/ai/ped/Chapter22-Industry-Trends-and-Long-term-Career-Planning.html><div class=article-details><h2 class=article-title>第22章 行业趋势与职业长期规划</h2></div></a></article><article><a href=/ai/ped/Chapter04-AI-Implementation-Basic-Terms.html><div class=article-details><h2 class=article-title>第4章 AI落地基础术语扫盲</h2></div></a></article></div></div></aside><script src=https://giscus.app/client.js data-repo=pastor17/bloggiscus data-repo-id=R_kgDOQ6H9qQ data-category data-category-id=DIC_kwDOQ6H9qc4C0-T8 data-mapping=pathname data-strict=0 data-reactions-enabled=1 data-emit-metadata=0 data-input-position=bottom data-theme=light data-lang=zh-CN data-loading=lazy crossorigin=anonymous async></script><script>function setGiscusTheme(e){let t=document.querySelector("iframe.giscus-frame");t&&t.contentWindow.postMessage({giscus:{setConfig:{theme:e}}},"https://giscus.app")}(function(){addEventListener("message",t=>{if(event.origin!=="https://giscus.app")return;e()}),window.addEventListener("onColorSchemeChange",e);function e(){setGiscusTheme(document.documentElement.dataset.scheme==="light"?"light":"dark_dimmed")}})()</script><footer class=site-footer><section class=copyright>&copy;
+2021 -
+2026 SelfTechHub</section><section class=powerby>拒绝一次性认知，把碎片知识沉淀为可复用的记忆体系<br></section></footer><div class=pswp tabindex=-1 role=dialog aria-hidden=true><div class=pswp__bg></div><div class=pswp__scroll-wrap><div class=pswp__container><div class=pswp__item></div><div class=pswp__item></div><div class=pswp__item></div></div><div class="pswp__ui pswp__ui--hidden"><div class=pswp__top-bar><div class=pswp__counter></div><button class="pswp__button pswp__button--close" title="Close (Esc)"></button>
+<button class="pswp__button pswp__button--share" title=Share></button>
+<button class="pswp__button pswp__button--fs" title="Toggle fullscreen"></button>
+<button class="pswp__button pswp__button--zoom" title="Zoom in/out"></button><div class=pswp__preloader><div class=pswp__preloader__icn><div class=pswp__preloader__cut><div class=pswp__preloader__donut></div></div></div></div></div><div class="pswp__share-modal pswp__share-modal--hidden pswp__single-tap"><div class=pswp__share-tooltip></div></div><button class="pswp__button pswp__button--arrow--left" title="Previous (arrow left)">
+</button>
+<button class="pswp__button pswp__button--arrow--right" title="Next (arrow right)"></button><div class=pswp__caption><div class=pswp__caption__center></div></div></div></div></div><script src=https://cdn.jsdelivr.net/npm/photoswipe@4.1.3/dist/photoswipe.min.js integrity="sha256-ePwmChbbvXbsO02lbM3HoHbSHTHFAeChekF1xKJdleo=" crossorigin=anonymous defer></script><script src=https://cdn.jsdelivr.net/npm/photoswipe@4.1.3/dist/photoswipe-ui-default.min.js integrity="sha256-UKkzOn/w1mBxRmLLGrSeyB4e1xbrp4xylgAWb3M42pU=" crossorigin=anonymous defer></script><link rel=stylesheet href=https://cdn.jsdelivr.net/npm/photoswipe@4.1.3/dist/default-skin/default-skin.min.css crossorigin=anonymous><link rel=stylesheet href=https://cdn.jsdelivr.net/npm/photoswipe@4.1.3/dist/photoswipe.min.css crossorigin=anonymous></main></div><script src=https://cdn.jsdelivr.net/npm/node-vibrant@3.1.6/dist/vibrant.min.js integrity="sha256-awcR2jno4kI5X0zL8ex0vi2z+KMkF24hUW8WePSA9HM=" crossorigin=anonymous></script><script type=text/javascript src=/ts/main.c922af694cc257bf1ecc41c0dd7b0430f9114ec280ccf67cd2c6ad55f5316c4e.js defer></script><script>(function(){const e=document.createElement("link");e.href="https://fonts.googleapis.com/css2?family=Lato:wght@300;400;700&display=swap",e.type="text/css",e.rel="stylesheet",document.head.appendChild(e)})()</script></body></html>

@@ -1,523 +1,170 @@
-<!DOCTYPE html>
-<html lang="zh-cn" dir="ltr">
-    <head><meta charset='utf-8'>
-<meta name='viewport' content='width=device-width, initial-scale=1'><meta name='description' content="2019年，我负责一个电商SaaS项目的中台重构。当时团队也就是7、8个后端，大家都觉得&quot;微服务&quot;这词儿听着洋气，于是我们大刀阔斧地引入了Kong作为API网关。\n当时的想法很美好：我们要动态路由，我们要插件化，我们要像Netflix那样酷。\n结果呢？为了维护Kong的Postgres数据库，我们专门搭了一套高可用；为了写一个简单的自定义鉴权插件，我们逼着Java开发去学Lua脚本。最要命的是，每次Kong的版本升级，插件兼容性都能让我们通宵排查。\n我曾以为&quot;功能强大&quot;是选型的唯一标准，直到踩了这几个大坑才明白：对于中小团队，&ldquo;可控&quot;和&quot;简单&quot;才是架构的生命线。\n今天咱们不聊那些虚头巴脑的理论，就聊聊在缺乏专职运维的情况下，如何用最&quot;土&quot;但最稳的Nginx方案，解决90%的网关需求。\n一、 为什么我劝你先别碰Kong？\r很多架构师（包括当年的我）容易陷入**&ldquo;简历驱动开发&rdquo;**的误区。觉得上了Kong、APISIX这种云原生网关，架构就显得高级。\n但在真实的中小项目中，资源是极度紧缺的。\n真实案例： 去年我接手过一个烂摊子项目。前任架构师留下了一套基于Kong的网关。系统总共才20个API接口，日PV不到5万。但是，这套网关经常因为数据库连接池满报错（Kong重度依赖DB做配置存储）。\n团队里没人精通OpenResty，出了问题只能重启。最后我花了一个周末，把这套复杂的Kong集群，全部迁移回了2台Nginx服务器。\n结果是惊人的：\n运维成本直接归零（改配置文件谁都会）； 响应延迟降低了15ms（少了一层DB查询）； 服务器成本每月省了2000块。 选型建议： 如果你的团队满足以下任意两点，请坚决使用Nginx，不要碰Kong：\n后端开发人员少于10人； 没有专职的SRE或运维人员； API接口数量少于50个，且变动不频繁； 不需要动态（秒级）调整路由规则。 二、 拒绝&quot;面条式配置&rdquo;，Nginx也能很优雅\r很多人排斥Nginx，是因为觉得改nginx.conf很痛苦。几千行的配置文件，这就好比写代码把所有逻辑都塞进main函数里，当然痛苦。\n我用了3年的一个习惯是：像写代码一样管理Nginx配置。\n不要把所有东西都写在主文件里。通过合理的拆分，Nginx配置的可读性甚至比Kong的Dashboard还要直观。\n实操方法：\n我通常会在/etc/nginx/下建立这样的目录结构：\n/etc/nginx/ ├── nginx.conf # 主入口，只放通用配置 ├── conf.d/ │ ├── upstreams/ # 定义后端服务集群 │ │ ├── order_service.conf │ │ └── user_service.conf │ └── vhosts/ # 定义具体的域名转发规则 │ ├── api.example.com.conf │ └── admin.example.com.conf 代码示例：\n在nginx.conf的http块中，我只会写两行关键引用：\nhttp { # ... 其他通用配置 ... # 1. 先加载负载均衡池 include /etc/nginx/conf.d/upstreams/*.conf; # 2. 再加载具体的站点配置 include /etc/nginx/conf.d/vhosts/*.conf; } 这样做的好处是，每次由于业务变动（比如加了一台订单服务的机器），我只需要去upstreams目录下修改对应的一个小文件。\n">
-<title>小团队别乱上Kong！API网关避坑指南与Nginx实战</title>
-
-<link rel='canonical' href='https://blog.irudder.me/tech/zhongxiaoxingxiangmujiagoushejizhinan/apiwangguandexuanxingyupeizhikong_nginx.html'>
-
-<link rel="stylesheet" href="/scss/style.min.b9e9128fec450ebccecc4ec9900157f32b85d0609bcd5ee3293968bcaa1235f2.css"><meta property='og:title' content="小团队别乱上Kong！API网关避坑指南与Nginx实战">
-<meta property='og:description' content="2019年，我负责一个电商SaaS项目的中台重构。当时团队也就是7、8个后端，大家都觉得&quot;微服务&quot;这词儿听着洋气，于是我们大刀阔斧地引入了Kong作为API网关。\n当时的想法很美好：我们要动态路由，我们要插件化，我们要像Netflix那样酷。\n结果呢？为了维护Kong的Postgres数据库，我们专门搭了一套高可用；为了写一个简单的自定义鉴权插件，我们逼着Java开发去学Lua脚本。最要命的是，每次Kong的版本升级，插件兼容性都能让我们通宵排查。\n我曾以为&quot;功能强大&quot;是选型的唯一标准，直到踩了这几个大坑才明白：对于中小团队，&ldquo;可控&quot;和&quot;简单&quot;才是架构的生命线。\n今天咱们不聊那些虚头巴脑的理论，就聊聊在缺乏专职运维的情况下，如何用最&quot;土&quot;但最稳的Nginx方案，解决90%的网关需求。\n一、 为什么我劝你先别碰Kong？\r很多架构师（包括当年的我）容易陷入**&ldquo;简历驱动开发&rdquo;**的误区。觉得上了Kong、APISIX这种云原生网关，架构就显得高级。\n但在真实的中小项目中，资源是极度紧缺的。\n真实案例： 去年我接手过一个烂摊子项目。前任架构师留下了一套基于Kong的网关。系统总共才20个API接口，日PV不到5万。但是，这套网关经常因为数据库连接池满报错（Kong重度依赖DB做配置存储）。\n团队里没人精通OpenResty，出了问题只能重启。最后我花了一个周末，把这套复杂的Kong集群，全部迁移回了2台Nginx服务器。\n结果是惊人的：\n运维成本直接归零（改配置文件谁都会）； 响应延迟降低了15ms（少了一层DB查询）； 服务器成本每月省了2000块。 选型建议： 如果你的团队满足以下任意两点，请坚决使用Nginx，不要碰Kong：\n后端开发人员少于10人； 没有专职的SRE或运维人员； API接口数量少于50个，且变动不频繁； 不需要动态（秒级）调整路由规则。 二、 拒绝&quot;面条式配置&rdquo;，Nginx也能很优雅\r很多人排斥Nginx，是因为觉得改nginx.conf很痛苦。几千行的配置文件，这就好比写代码把所有逻辑都塞进main函数里，当然痛苦。\n我用了3年的一个习惯是：像写代码一样管理Nginx配置。\n不要把所有东西都写在主文件里。通过合理的拆分，Nginx配置的可读性甚至比Kong的Dashboard还要直观。\n实操方法：\n我通常会在/etc/nginx/下建立这样的目录结构：\n/etc/nginx/ ├── nginx.conf # 主入口，只放通用配置 ├── conf.d/ │ ├── upstreams/ # 定义后端服务集群 │ │ ├── order_service.conf │ │ └── user_service.conf │ └── vhosts/ # 定义具体的域名转发规则 │ ├── api.example.com.conf │ └── admin.example.com.conf 代码示例：\n在nginx.conf的http块中，我只会写两行关键引用：\nhttp { # ... 其他通用配置 ... # 1. 先加载负载均衡池 include /etc/nginx/conf.d/upstreams/*.conf; # 2. 再加载具体的站点配置 include /etc/nginx/conf.d/vhosts/*.conf; } 这样做的好处是，每次由于业务变动（比如加了一台订单服务的机器），我只需要去upstreams目录下修改对应的一个小文件。\n">
-<meta property='og:url' content='https://blog.irudder.me/tech/zhongxiaoxingxiangmujiagoushejizhinan/apiwangguandexuanxingyupeizhikong_nginx.html'>
-<meta property='og:site_name' content='SelfTechHub'>
-<meta property='og:type' content='article'><meta property='article:section' content='Tech' /><meta property='article:tag' content='API网关的选型与配置（Kong/Nginx）' /><meta property='article:published_time' content='2020-09-27T00:00:00&#43;00:00'/><meta property='article:modified_time' content='2020-09-27T00:00:00&#43;00:00'/>
-<meta name="twitter:title" content="小团队别乱上Kong！API网关避坑指南与Nginx实战">
-<meta name="twitter:description" content="2019年，我负责一个电商SaaS项目的中台重构。当时团队也就是7、8个后端，大家都觉得&quot;微服务&quot;这词儿听着洋气，于是我们大刀阔斧地引入了Kong作为API网关。\n当时的想法很美好：我们要动态路由，我们要插件化，我们要像Netflix那样酷。\n结果呢？为了维护Kong的Postgres数据库，我们专门搭了一套高可用；为了写一个简单的自定义鉴权插件，我们逼着Java开发去学Lua脚本。最要命的是，每次Kong的版本升级，插件兼容性都能让我们通宵排查。\n我曾以为&quot;功能强大&quot;是选型的唯一标准，直到踩了这几个大坑才明白：对于中小团队，&ldquo;可控&quot;和&quot;简单&quot;才是架构的生命线。\n今天咱们不聊那些虚头巴脑的理论，就聊聊在缺乏专职运维的情况下，如何用最&quot;土&quot;但最稳的Nginx方案，解决90%的网关需求。\n一、 为什么我劝你先别碰Kong？\r很多架构师（包括当年的我）容易陷入**&ldquo;简历驱动开发&rdquo;**的误区。觉得上了Kong、APISIX这种云原生网关，架构就显得高级。\n但在真实的中小项目中，资源是极度紧缺的。\n真实案例： 去年我接手过一个烂摊子项目。前任架构师留下了一套基于Kong的网关。系统总共才20个API接口，日PV不到5万。但是，这套网关经常因为数据库连接池满报错（Kong重度依赖DB做配置存储）。\n团队里没人精通OpenResty，出了问题只能重启。最后我花了一个周末，把这套复杂的Kong集群，全部迁移回了2台Nginx服务器。\n结果是惊人的：\n运维成本直接归零（改配置文件谁都会）； 响应延迟降低了15ms（少了一层DB查询）； 服务器成本每月省了2000块。 选型建议： 如果你的团队满足以下任意两点，请坚决使用Nginx，不要碰Kong：\n后端开发人员少于10人； 没有专职的SRE或运维人员； API接口数量少于50个，且变动不频繁； 不需要动态（秒级）调整路由规则。 二、 拒绝&quot;面条式配置&rdquo;，Nginx也能很优雅\r很多人排斥Nginx，是因为觉得改nginx.conf很痛苦。几千行的配置文件，这就好比写代码把所有逻辑都塞进main函数里，当然痛苦。\n我用了3年的一个习惯是：像写代码一样管理Nginx配置。\n不要把所有东西都写在主文件里。通过合理的拆分，Nginx配置的可读性甚至比Kong的Dashboard还要直观。\n实操方法：\n我通常会在/etc/nginx/下建立这样的目录结构：\n/etc/nginx/ ├── nginx.conf # 主入口，只放通用配置 ├── conf.d/ │ ├── upstreams/ # 定义后端服务集群 │ │ ├── order_service.conf │ │ └── user_service.conf │ └── vhosts/ # 定义具体的域名转发规则 │ ├── api.example.com.conf │ └── admin.example.com.conf 代码示例：\n在nginx.conf的http块中，我只会写两行关键引用：\nhttp { # ... 其他通用配置 ... # 1. 先加载负载均衡池 include /etc/nginx/conf.d/upstreams/*.conf; # 2. 再加载具体的站点配置 include /etc/nginx/conf.d/vhosts/*.conf; } 这样做的好处是，每次由于业务变动（比如加了一台订单服务的机器），我只需要去upstreams目录下修改对应的一个小文件。\n">
-    </head>
-    <body class="
-    article-page
-    ">
-    <script>
-        (function() {
-            const colorSchemeKey = 'StackColorScheme';
-            if(!localStorage.getItem(colorSchemeKey)){
-                localStorage.setItem(colorSchemeKey, "auto");
-            }
-        })();
-    </script><script>
-    (function() {
-        const colorSchemeKey = 'StackColorScheme';
-        const colorSchemeItem = localStorage.getItem(colorSchemeKey);
-        const supportDarkMode = window.matchMedia('(prefers-color-scheme: dark)').matches === true;
-
-        if (colorSchemeItem == 'dark' || colorSchemeItem === 'auto' && supportDarkMode) {
-            
-
-            document.documentElement.dataset.scheme = 'dark';
-        } else {
-            document.documentElement.dataset.scheme = 'light';
-        }
-    })();
-</script>
-<div class="container main-container flex on-phone--column compact"><aside class="sidebar left-sidebar sticky ">
-    <button class="hamburger hamburger--spin" type="button" id="toggle-menu" aria-label="切换菜单">
-        <span class="hamburger-box">
-            <span class="hamburger-inner"></span>
-        </span>
-    </button>
-
-    <header>
-        
-            
-            <figure class="site-avatar">
-                <a href="/">
-                
-                    
-                    
-                    
-                        
-                        <img src="/img/avatar_hu_8588ce14af1147e2.png" width="300"
-                            height="286" class="site-logo" loading="lazy" alt="Avatar">
-                    
-                
-                </a>
-                
-            </figure>
-            
-        
-        
-        <div class="site-meta">
-            <h1 class="site-name"><a href="/">SelfTechHub</a></h1>
-            <h2 class="site-description"></h2>
-        </div>
-    </header><ol class="menu" id="main-menu">
-        
-        
-        <li class="menu-bottom-section">
-            <ol class="menu">
-
-                
-                    <li id="dark-mode-toggle">
-                        <svg xmlns="http://www.w3.org/2000/svg" class="icon icon-tabler icon-tabler-toggle-left" width="24" height="24" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor" fill="none" stroke-linecap="round" stroke-linejoin="round">
-  <path stroke="none" d="M0 0h24v24H0z"/>
-  <circle cx="8" cy="12" r="2" />
-  <rect x="2" y="6" width="20" height="12" rx="6" />
-</svg>
-
-
-
-                        <svg xmlns="http://www.w3.org/2000/svg" class="icon icon-tabler icon-tabler-toggle-right" width="24" height="24" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor" fill="none" stroke-linecap="round" stroke-linejoin="round">
-  <path stroke="none" d="M0 0h24v24H0z"/>
-  <circle cx="16" cy="12" r="2" />
-  <rect x="2" y="6" width="20" height="12" rx="6" />
-</svg>
-
-
-
-                        <span>暗色模式</span>
-                    </li>
-                
-            </ol>
-        </li>
-    </ol>
-</aside>
-
-    
-
-            <main class="main full-width">
-    <article class="main-article">
-    <header class="article-header">
-
-    <div class="article-details">
-    
-    <header class="article-category">
-        
-            <a href="/categories/%E6%8A%80%E6%9C%AF.html" >
-                技术精进
-            </a>
-        
-    </header>
-    
-
-    <div class="article-title-wrapper">
-        <h2 class="article-title">
-            <a href="/tech/zhongxiaoxingxiangmujiagoushejizhinan/apiwangguandexuanxingyupeizhikong_nginx.html">小团队别乱上Kong！API网关避坑指南与Nginx实战</a>
-        </h2>
-    
-        
-    </div>
-
-    
-    
-    
-    
-    <footer class="article-time">
-        
-            <div>
-                <svg xmlns="http://www.w3.org/2000/svg" class="icon icon-tabler icon-tabler-calendar-time" width="56" height="56" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor" fill="none" stroke-linecap="round" stroke-linejoin="round">
-  <path stroke="none" d="M0 0h24v24H0z"/>
-  <path d="M11.795 21h-6.795a2 2 0 0 1 -2 -2v-12a2 2 0 0 1 2 -2h12a2 2 0 0 1 2 2v4" />
-  <circle cx="18" cy="18" r="4" />
-  <path d="M15 3v4" />
-  <path d="M7 3v4" />
-  <path d="M3 11h16" />
-  <path d="M18 16.496v1.504l1 1" />
-</svg>
-                <time class="article-time--published" datetime='2020-09-27T00:00:00Z'>Sep 27, 2020</time>
-            </div>
-        
-
-        
-            <div>
-                <svg xmlns="http://www.w3.org/2000/svg" class="icon icon-tabler icon-tabler-clock" width="24" height="24" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor" fill="none" stroke-linecap="round" stroke-linejoin="round">
-  <path stroke="none" d="M0 0h24v24H0z"/>
-  <circle cx="12" cy="12" r="9" />
-  <polyline points="12 7 12 12 15 15" />
-</svg>
-
-
-
-                <time class="article-time--reading">
-                    阅读时长: 1 分钟
-                </time>
-            </div>
-        
-    </footer>
-    
-
-    
-</div>
-
-</header>
-
-    <section class="article-content">
-    
-    
-    <p>2019年，我负责一个电商SaaS项目的中台重构。当时团队也就是7、8个后端，大家都觉得&quot;微服务&quot;这词儿听着洋气，于是我们大刀阔斧地引入了Kong作为API网关。</p>
-<p>当时的想法很美好：我们要动态路由，我们要插件化，我们要像Netflix那样酷。</p>
-<p>结果呢？为了维护Kong的Postgres数据库，我们专门搭了一套高可用；为了写一个简单的自定义鉴权插件，我们逼着Java开发去学Lua脚本。最要命的是，每次Kong的版本升级，插件兼容性都能让我们通宵排查。</p>
-<p><strong>我曾以为&quot;功能强大&quot;是选型的唯一标准，直到踩了这几个大坑才明白：对于中小团队，&ldquo;可控&quot;和&quot;简单&quot;才是架构的生命线。</strong></p>
-<p>今天咱们不聊那些虚头巴脑的理论，就聊聊在缺乏专职运维的情况下，如何用最&quot;土&quot;但最稳的Nginx方案，解决90%的网关需求。</p>
-<hr>
-<h2 id="一-为什么我劝你先别碰kong">一、 为什么我劝你先别碰Kong？
-</h2><p>很多架构师（包括当年的我）容易陷入**&ldquo;简历驱动开发&rdquo;**的误区。觉得上了Kong、APISIX这种云原生网关，架构就显得高级。</p>
-<p>但在真实的中小项目中，资源是极度紧缺的。</p>
-<p><strong>真实案例：</strong>
-去年我接手过一个烂摊子项目。前任架构师留下了一套基于Kong的网关。系统总共才20个API接口，日PV不到5万。但是，这套网关经常因为数据库连接池满报错（Kong重度依赖DB做配置存储）。</p>
-<p>团队里没人精通OpenResty，出了问题只能重启。最后我花了一个周末，把这套复杂的Kong集群，全部迁移回了2台Nginx服务器。</p>
-<p><strong>结果是惊人的：</strong></p>
-<ul>
-<li>运维成本直接归零（改配置文件谁都会）；</li>
-<li>响应延迟降低了15ms（少了一层DB查询）；</li>
-<li>服务器成本每月省了2000块。</li>
-</ul>
-<p><strong>选型建议：</strong>
-如果你的团队满足以下任意两点，请<strong>坚决</strong>使用Nginx，不要碰Kong：</p>
-<ol>
-<li>后端开发人员少于10人；</li>
-<li>没有专职的SRE或运维人员；</li>
-<li>API接口数量少于50个，且变动不频繁；</li>
-<li>不需要动态（秒级）调整路由规则。</li>
-</ol>
-<hr>
-<p><img src="https://picsum.photos/800/450?random=1768455950517"
-	
-	
-	
-	loading="lazy"
-	
-		alt="配图"
-	
-	
-></p>
-<h2 id="二-拒绝面条式配置nginx也能很优雅">二、 拒绝&quot;面条式配置&rdquo;，Nginx也能很优雅
-</h2><p>很多人排斥Nginx，是因为觉得改<code>nginx.conf</code>很痛苦。几千行的配置文件，这就好比写代码把所有逻辑都塞进<code>main</code>函数里，当然痛苦。</p>
-<p>我用了3年的一个习惯是：<strong>像写代码一样管理Nginx配置。</strong></p>
-<p>不要把所有东西都写在主文件里。通过合理的拆分，Nginx配置的可读性甚至比Kong的Dashboard还要直观。</p>
-<p><strong>实操方法：</strong></p>
-<p>我通常会在<code>/etc/nginx/</code>下建立这样的目录结构：</p>
-<div class="highlight"><pre tabindex="0" style="color:#f8f8f2;background-color:#272822;-moz-tab-size:4;-o-tab-size:4;tab-size:4;"><code class="language-text" data-lang="text"><span style="display:flex;"><span>/etc/nginx/
-</span></span><span style="display:flex;"><span>├── nginx.conf          # 主入口，只放通用配置
-</span></span><span style="display:flex;"><span>├── conf.d/
-</span></span><span style="display:flex;"><span>│   ├── upstreams/      # 定义后端服务集群
-</span></span><span style="display:flex;"><span>│   │   ├── order_service.conf
-</span></span><span style="display:flex;"><span>│   │   └── user_service.conf
-</span></span><span style="display:flex;"><span>│   └── vhosts/         # 定义具体的域名转发规则
-</span></span><span style="display:flex;"><span>│       ├── api.example.com.conf
-</span></span><span style="display:flex;"><span>│       └── admin.example.com.conf
-</span></span></code></pre></div><p><strong>代码示例：</strong></p>
-<p>在<code>nginx.conf</code>的<code>http</code>块中，我只会写两行关键引用：</p>
-<div class="highlight"><pre tabindex="0" style="color:#f8f8f2;background-color:#272822;-moz-tab-size:4;-o-tab-size:4;tab-size:4;"><code class="language-nginx" data-lang="nginx"><span style="display:flex;"><span><span style="color:#66d9ef">http</span> {
-</span></span><span style="display:flex;"><span>    <span style="color:#75715e"># ... 其他通用配置 ...
-</span></span></span><span style="display:flex;"><span><span style="color:#75715e"></span>    
-</span></span><span style="display:flex;"><span>    <span style="color:#75715e"># 1. 先加载负载均衡池
-</span></span></span><span style="display:flex;"><span><span style="color:#75715e"></span>    <span style="color:#f92672">include</span> <span style="color:#e6db74">/etc/nginx/conf.d/upstreams/*.conf</span>;
-</span></span><span style="display:flex;"><span>    
-</span></span><span style="display:flex;"><span>    <span style="color:#75715e"># 2. 再加载具体的站点配置
-</span></span></span><span style="display:flex;"><span><span style="color:#75715e"></span>    <span style="color:#f92672">include</span> <span style="color:#e6db74">/etc/nginx/conf.d/vhosts/*.conf</span>;
-</span></span><span style="display:flex;"><span>}
-</span></span></code></pre></div><p>这样做的好处是，每次由于业务变动（比如加了一台订单服务的机器），我只需要去<code>upstreams</code>目录下修改对应的一个小文件。</p>
-<p><strong>避坑提示：</strong>
-千万别手动去服务器上改文件！一定要用Git管理这些配置文件，配合CI/CD流水线，推送到服务器后自动reload。我见过太多次因为手抖少写一个分号，导致整个网关挂掉的&quot;周五惨案&quot;。</p>
-<hr>
-<h2 id="三-穷人的熔断与限流够用就好">三、 穷人的&quot;熔断&quot;与&quot;限流&quot;：够用就好
-</h2><p>中小团队最怕什么？被爬虫把接口刷爆，或者某个微服务挂了拖死整个系统。</p>
-<p>大家通常觉得需要引入Hystrix或者Sentinel这种重型框架。其实，Nginx自带的模块完全够用，而且性能损耗极低。</p>
-<p><strong>真实场景：</strong>
-2022年双11前夕，我们的一个营销接口被黑产盯上了，QPS瞬间飙升了10倍。当时后端服务还没来得及做限流，CPU直接被打满。</p>
-<p>紧急时刻，我们没有改一行Java代码，直接在Nginx层面加了三行配置，5分钟内解决了战斗。</p>
-<p><strong>硬核配置方案：</strong></p>
-<p>这里分享一个我压箱底的**&ldquo;防刷+熔断&rdquo;**组合配置。</p>
-<div class="highlight"><pre tabindex="0" style="color:#f8f8f2;background-color:#272822;-moz-tab-size:4;-o-tab-size:4;tab-size:4;"><code class="language-nginx" data-lang="nginx"><span style="display:flex;"><span><span style="color:#66d9ef">http</span> {
-</span></span><span style="display:flex;"><span>    <span style="color:#75715e"># 定义限流区域：以IP为key，每秒允许10个请求，甚至可以更严
-</span></span></span><span style="display:flex;"><span><span style="color:#75715e"></span>    <span style="color:#f92672">limit_req_zone</span> $binary_remote_addr <span style="color:#e6db74">zone=api_limit:10m</span> <span style="color:#e6db74">rate=10r/s</span>;
-</span></span><span style="display:flex;"><span>
-</span></span><span style="display:flex;"><span>    <span style="color:#f92672">server</span> {
-</span></span><span style="display:flex;"><span>        <span style="color:#f92672">location</span> <span style="color:#e6db74">/api/</span> {
-</span></span><span style="display:flex;"><span>            <span style="color:#75715e"># 1. 开启限流
-</span></span></span><span style="display:flex;"><span><span style="color:#75715e"></span>            <span style="color:#75715e"># burst=5 允许突发5个请求缓冲，nodelay表示不延迟处理，超过直接503
-</span></span></span><span style="display:flex;"><span><span style="color:#75715e"></span>            <span style="color:#f92672">limit_req</span> <span style="color:#e6db74">zone=api_limit</span> <span style="color:#e6db74">burst=5</span> <span style="color:#e6db74">nodelay</span>;
-</span></span><span style="display:flex;"><span>            
-</span></span><span style="display:flex;"><span>            <span style="color:#75715e"># 2. 简单的熔断机制
-</span></span></span><span style="display:flex;"><span><span style="color:#75715e"></span>            <span style="color:#75715e"># 如果后端5秒内失败了3次，Nginx会在接下来的30秒内不再转发给它
-</span></span></span><span style="display:flex;"><span><span style="color:#75715e"></span>            <span style="color:#f92672">proxy_next_upstream</span> <span style="color:#e6db74">error</span> <span style="color:#e6db74">timeout</span> <span style="color:#e6db74">invalid_header</span> <span style="color:#e6db74">http_500</span> <span style="color:#e6db74">http_502</span> <span style="color:#e6db74">http_503</span> <span style="color:#e6db74">http_504</span>;
-</span></span><span style="display:flex;"><span>            <span style="color:#f92672">max_fails=3</span> <span style="color:#e6db74">fail_timeout=30s</span>;
-</span></span><span style="display:flex;"><span>            
-</span></span><span style="display:flex;"><span>            <span style="color:#f92672">proxy_pass</span> <span style="color:#e6db74">http://backend_pool</span>;
-</span></span><span style="display:flex;"><span>        }
-</span></span><span style="display:flex;"><span>    }
-</span></span><span style="display:flex;"><span>}
-</span></span></code></pre></div><p>这套配置虽然没有Sentinel那么精细，但对于中小项目来说，它在<strong>网关层</strong>就拦截了恶意流量，保护了脆弱的后端数据库，绝对是性价比之王。</p>
-<hr>
-<h2 id="四-总结与落地工具">四、 总结与落地工具
-</h2><p>架构设计里有一句名言：&quot;<strong>没有最好的架构，只有最合适的架构。</strong>&quot;</p>
-<p><img src="https://picsum.photos/800/450?random=1768455954576"
-	
-	
-	
-	loading="lazy"
-	
-		alt="配图"
-	
-	
-></p>
-<p>对于日活百万以下、团队规模不大的项目，Nginx不是妥协，而是<strong>最优解</strong>。它稳定、高效、免费，且拥有全世界最庞大的社区支持。</p>
-<p>当你发现自己花费在维护网关上的时间，超过了开发业务逻辑的时间，那就说明你过度设计了。</p>
-<p>最后，分享一个我常用的<strong>Nginx反向代理标准模板</strong>，你可以直接复制到你的<code>vhosts</code>文件中，只需改改域名和端口就能用：</p>
-<div class="highlight"><pre tabindex="0" style="color:#f8f8f2;background-color:#272822;-moz-tab-size:4;-o-tab-size:4;tab-size:4;"><code class="language-nginx" data-lang="nginx"><span style="display:flex;"><span><span style="color:#75715e"># 这是一个可以直接复用的生产级模板
-</span></span></span><span style="display:flex;"><span><span style="color:#75715e"></span><span style="color:#66d9ef">server</span> {
-</span></span><span style="display:flex;"><span>    <span style="color:#f92672">listen</span> <span style="color:#ae81ff">80</span>;
-</span></span><span style="display:flex;"><span>    <span style="color:#f92672">server_name</span> <span style="color:#e6db74">api.your-company.com</span>;
-</span></span><span style="display:flex;"><span>
-</span></span><span style="display:flex;"><span>    <span style="color:#75715e"># 强制HTTPS重定向（安全第一）
-</span></span></span><span style="display:flex;"><span><span style="color:#75715e"></span>    <span style="color:#f92672">return</span> <span style="color:#ae81ff">301</span> <span style="color:#e6db74">https://</span>$server_name$request_uri;
-</span></span><span style="display:flex;"><span>}
-</span></span><span style="display:flex;"><span>
-</span></span><span style="display:flex;"><span><span style="color:#66d9ef">server</span> {
-</span></span><span style="display:flex;"><span>    <span style="color:#f92672">listen</span> <span style="color:#ae81ff">443</span> <span style="color:#e6db74">ssl</span> <span style="color:#e6db74">http2</span>;
-</span></span><span style="display:flex;"><span>    <span style="color:#f92672">server_name</span> <span style="color:#e6db74">api.your-company.com</span>;
-</span></span><span style="display:flex;"><span>
-</span></span><span style="display:flex;"><span><span style="color:#f92672">![配图](https://picsum.photos/800/450?random=1768455955907)</span>
-</span></span><span style="display:flex;"><span>
-</span></span><span style="display:flex;"><span>    <span style="color:#75715e"># SSL证书路径
-</span></span></span><span style="display:flex;"><span><span style="color:#75715e"></span>    <span style="color:#e6db74">ssl_certificate</span> <span style="color:#e6db74">/etc/nginx/ssl/live/api.your-company.com/fullchain.pem</span>;
-</span></span><span style="display:flex;"><span>    <span style="color:#f92672">ssl_certificate_key</span> <span style="color:#e6db74">/etc/nginx/ssl/live/api.your-company.com/privkey.pem</span>;
-</span></span><span style="display:flex;"><span>
-</span></span><span style="display:flex;"><span>    <span style="color:#75715e"># 核心代理配置
-</span></span></span><span style="display:flex;"><span><span style="color:#75715e"></span>    <span style="color:#f92672">location</span> <span style="color:#e6db74">/</span> {
-</span></span><span style="display:flex;"><span>        <span style="color:#f92672">proxy_pass</span> <span style="color:#e6db74">http://backend_upstream</span>;
-</span></span><span style="display:flex;"><span>        
-</span></span><span style="display:flex;"><span>        <span style="color:#75715e"># 传递真实IP，这对后端日志分析至关重要
-</span></span></span><span style="display:flex;"><span><span style="color:#75715e"></span>        <span style="color:#f92672">proxy_set_header</span> <span style="color:#e6db74">Host</span> $host;
-</span></span><span style="display:flex;"><span>        <span style="color:#f92672">proxy_set_header</span> <span style="color:#e6db74">X-Real-IP</span> $remote_addr;
-</span></span><span style="display:flex;"><span>        <span style="color:#f92672">proxy_set_header</span> <span style="color:#e6db74">X-Forwarded-For</span> $proxy_add_x_forwarded_for;
-</span></span><span style="display:flex;"><span>        <span style="color:#f92672">proxy_set_header</span> <span style="color:#e6db74">X-Forwarded-Proto</span> $scheme;
-</span></span><span style="display:flex;"><span>
-</span></span><span style="display:flex;"><span>        <span style="color:#75715e"># 长连接设置，提升10%-20%的性能
-</span></span></span><span style="display:flex;"><span><span style="color:#75715e"></span>        <span style="color:#f92672">proxy_http_version</span> <span style="color:#ae81ff">1</span><span style="color:#e6db74">.1</span>;
-</span></span><span style="display:flex;"><span>        <span style="color:#f92672">proxy_set_header</span> <span style="color:#e6db74">Connection</span> <span style="color:#e6db74">&#34;&#34;</span>;
-</span></span><span style="display:flex;"><span>        
-</span></span><span style="display:flex;"><span>        <span style="color:#75715e"># 超时设置，避免后端卡死拖垮网关
-</span></span></span><span style="display:flex;"><span><span style="color:#75715e"></span>        <span style="color:#f92672">proxy_connect_timeout</span> <span style="color:#e6db74">5s</span>;
-</span></span><span style="display:flex;"><span>        <span style="color:#f92672">proxy_read_timeout</span> <span style="color:#e6db74">60s</span>;
-</span></span><span style="display:flex;"><span>    }
-</span></span><span style="display:flex;"><span>}
-</span></span></code></pre></div><p><strong>接下来的行动步骤：</strong></p>
-<ol>
-<li><strong>本周五下午：</strong> 检查你的网关配置，是不是所有内容都塞在<code>nginx.conf</code>里？如果是，按照第二节的方法进行拆分。</li>
-<li><strong>下周一早会：</strong> 确认你们的API接口是否有基本的限流保护？如果没有，加上第三节的<code>limit_req</code>配置。</li>
-<li><strong>长期建议：</strong> 如果你的团队还在纠结要不要上Kong，先问自己一句：现在的Nginx真的撑不住了吗？如果答案是否定的，请把精力花在业务迭代上。</li>
-</ol>
-
-</section>
-
-
-    <footer class="article-footer">
-    
-    <section class="article-tags">
-        
-            <a href="/tags/API%E7%BD%91%E5%85%B3%E7%9A%84%E9%80%89%E5%9E%8B%E4%B8%8E%E9%85%8D%E7%BD%AEKong/Nginx.html">API网关的选型与配置（Kong/Nginx）</a>
-        
-    </section>
-
-
-    </footer>
-
-
-    
-</article>
-
-    
-
-    
-
-     
-    
-        
-    <script
-    src="https://giscus.app/client.js"
-    data-repo="pastor17/bloggiscus"
-    data-repo-id="R_kgDOQ6H9qQ"
-    data-category=""
-    data-category-id="DIC_kwDOQ6H9qc4C0-T8"
-    data-mapping="pathname"
-    data-strict="0"
-    data-reactions-enabled="1"
-    data-emit-metadata="0"
-    data-input-position="bottom"
-    data-theme="light"
-    data-lang="zh-CN"
-    data-loading="lazy"
-    crossorigin="anonymous"
-    async
-></script>
-<script>
-    function setGiscusTheme(theme) {
-        let giscus = document.querySelector("iframe.giscus-frame");
-        if (giscus) {
-            giscus.contentWindow.postMessage(
-                {
-                    giscus: {
-                        setConfig: {
-                            theme: theme,
-                        },
-                    },
-                },
-                "https://giscus.app"
-            );
-        }
-    }
-
-    (function () {
-        addEventListener("message", (e) => {
-            if (event.origin !== "https://giscus.app") return;
-            handler();
-        });
-        window.addEventListener("onColorSchemeChange", handler);
-
-        function handler() {
-            if (document.documentElement.dataset.scheme === "light") {
-                setGiscusTheme('light');
-            } else {
-                setGiscusTheme('dark_dimmed');
-            }
-        }
-    })();
-</script>
-
-    
-
-    <footer class="site-footer">
-    <section class="copyright">
-        &copy; 
-        
-        2026 SelfTechHub
-    </section>
-    
-    <section class="powerby">
-        
-
-    </section>
-</footer>
-
-
-    
-<div class="pswp" tabindex="-1" role="dialog" aria-hidden="true">
-
-    
-    <div class="pswp__bg"></div>
-
-    
-    <div class="pswp__scroll-wrap">
-
-        
-        <div class="pswp__container">
-            <div class="pswp__item"></div>
-            <div class="pswp__item"></div>
-            <div class="pswp__item"></div>
-        </div>
-
-        
-        <div class="pswp__ui pswp__ui--hidden">
-
-            <div class="pswp__top-bar">
-
-                
-
-                <div class="pswp__counter"></div>
-
-                <button class="pswp__button pswp__button--close" title="Close (Esc)"></button>
-
-                <button class="pswp__button pswp__button--share" title="Share"></button>
-
-                <button class="pswp__button pswp__button--fs" title="Toggle fullscreen"></button>
-
-                <button class="pswp__button pswp__button--zoom" title="Zoom in/out"></button>
-
-                
-                
-                <div class="pswp__preloader">
-                    <div class="pswp__preloader__icn">
-                        <div class="pswp__preloader__cut">
-                            <div class="pswp__preloader__donut"></div>
-                        </div>
-                    </div>
-                </div>
-            </div>
-
-            <div class="pswp__share-modal pswp__share-modal--hidden pswp__single-tap">
-                <div class="pswp__share-tooltip"></div>
-            </div>
-
-            <button class="pswp__button pswp__button--arrow--left" title="Previous (arrow left)">
-            </button>
-
-            <button class="pswp__button pswp__button--arrow--right" title="Next (arrow right)">
-            </button>
-
-            <div class="pswp__caption">
-                <div class="pswp__caption__center"></div>
-            </div>
-
-        </div>
-
-    </div>
-
-</div><script 
-                src="https://cdn.jsdelivr.net/npm/photoswipe@4.1.3/dist/photoswipe.min.js"integrity="sha256-ePwmChbbvXbsO02lbM3HoHbSHTHFAeChekF1xKJdleo="crossorigin="anonymous"
-                defer
-                >
-            </script><script 
-                src="https://cdn.jsdelivr.net/npm/photoswipe@4.1.3/dist/photoswipe-ui-default.min.js"integrity="sha256-UKkzOn/w1mBxRmLLGrSeyB4e1xbrp4xylgAWb3M42pU="crossorigin="anonymous"
-                defer
-                >
-            </script><link 
-                rel="stylesheet" 
-                href="https://cdn.jsdelivr.net/npm/photoswipe@4.1.3/dist/default-skin/default-skin.min.css"crossorigin="anonymous"
-            ><link 
-                rel="stylesheet" 
-                href="https://cdn.jsdelivr.net/npm/photoswipe@4.1.3/dist/photoswipe.min.css"crossorigin="anonymous"
-            >
-    
-
-            </main>
-        </div>
-        <script 
-                src="https://cdn.jsdelivr.net/npm/node-vibrant@3.1.6/dist/vibrant.min.js"integrity="sha256-awcR2jno4kI5X0zL8ex0vi2z&#43;KMkF24hUW8WePSA9HM="crossorigin="anonymous"
-                
-                >
-            </script><script type="text/javascript" src="/ts/main.c922af694cc257bf1ecc41c0dd7b0430f9114ec280ccf67cd2c6ad55f5316c4e.js" defer></script>
-<script>
-    (function () {
-        const customFont = document.createElement('link');
-        customFont.href = "https://fonts.googleapis.com/css2?family=Lato:wght@300;400;700&display=swap";
-
-        customFont.type = "text/css";
-        customFont.rel = "stylesheet";
-
-        document.head.appendChild(customFont);
-    }());
-</script>
-
-    </body>
-</html>
+<!doctype html><html lang=zh-cn dir=ltr><head><meta charset=utf-8><meta name=viewport content='width=device-width,initial-scale=1'><meta name=description content="年，我负责一个电商SaaS项目的中台重构。当时团队也就是7、8个后端，大家都觉得\" 微服务\"这词儿听着洋气，于是我们大刀阔斧地引入了kong作为api网关。"><title>小团队别乱上Kong！API网关避坑指南与Nginx实战</title><link rel=canonical href=https://blog.irudder.me/tech/zhongxiaoxingxiangmujiagoushejizhinan/apiwangguandexuanxingyupeizhikong_nginx.html><link rel=stylesheet href=/scss/style.min.c77ce1b874b29b2ee9e54a89066c79ebf35cbe9cf399b31ab5d79167f9a965c9.css><meta property='og:title' content="小团队别乱上Kong！API网关避坑指南与Nginx实战"><meta property='og:description' content="年，我负责一个电商SaaS项目的中台重构。当时团队也就是7、8个后端，大家都觉得\" 微服务\"这词儿听着洋气，于是我们大刀阔斧地引入了kong作为api网关。"><meta property='og:url' content='https://blog.irudder.me/tech/zhongxiaoxingxiangmujiagoushejizhinan/apiwangguandexuanxingyupeizhikong_nginx.html'><meta property='og:site_name' content='SelfTechHub'><meta property='og:type' content='article'><meta property='article:section' content='Tech'><meta property='article:tag' content='API网关的选型与配置（Kong/Nginx）'><meta property='article:published_time' content='2020-09-27T00:00:00+08:00'><meta property='article:modified_time' content='2020-09-27T00:00:00+08:00'><meta name=twitter:title content="小团队别乱上Kong！API网关避坑指南与Nginx实战"><meta name=twitter:description content="年，我负责一个电商SaaS项目的中台重构。当时团队也就是7、8个后端，大家都觉得\" 微服务\"这词儿听着洋气，于是我们大刀阔斧地引入了kong作为api网关。"><link rel="shortcut icon" href=/images/logo.png></head><body class=article-page><script>(function(){const e="StackColorScheme";localStorage.getItem(e)||localStorage.setItem(e,"auto")})()</script><script>(function(){const t="StackColorScheme",e=localStorage.getItem(t),n=window.matchMedia("(prefers-color-scheme: dark)").matches===!0;e=="dark"||e==="auto"&&n?document.documentElement.dataset.scheme="dark":document.documentElement.dataset.scheme="light"})()</script><div class="container main-container flex on-phone--column extended"><aside class="sidebar left-sidebar sticky"><button class="hamburger hamburger--spin" type=button id=toggle-menu aria-label=切换菜单>
+<span class=hamburger-box><span class=hamburger-inner></span></span></button><header><figure class=site-avatar><a href=/><img src=/img/avatar_hu_8588ce14af1147e2.png width=300 height=286 class=site-logo loading=lazy alt=Avatar>
+</a><span class=emoji>🧠</span></figure><div class=site-meta><h1 class=site-name><a href=/>SelfTechHub</a></h1><h2 class=site-description>成长 · 技术 · 商业 · AI —— 把碎片知识沉淀为可复用的记忆体系</h2></div></header><ol class=menu-social><li><a href=https://github.com/pastor17 target=_blank title=GitHub rel=me><svg class="icon icon-tabler icon-tabler-brand-github" width="24" height="24" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor" fill="none" stroke-linecap="round" stroke-linejoin="round"><path stroke="none" d="M0 0h24v24H0z" fill="none"/><path d="M9 19c-4.3 1.4-4.3-2.5-6-3m12 5v-3.5c0-1 .1-1.4-.5-2 2.8-.3 5.5-1.4 5.5-6a4.6 4.6.0 00-1.3-3.2 4.2 4.2.0 00-.1-3.2s-1.1-.3-3.5 1.3a12.3 12.3.0 00-6.2.0C6.5 2.8 5.4 3.1 5.4 3.1a4.2 4.2.0 00-.1 3.2A4.6 4.6.0 004 9.5c0 4.6 2.7 5.7 5.5 6-.6.6-.6 1.2-.5 2V21"/></svg></a></li></ol><ol class=menu id=main-menu><li><a href=/><svg class="icon icon-tabler icon-tabler-home" width="24" height="24" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor" fill="none" stroke-linecap="round" stroke-linejoin="round"><path stroke="none" d="M0 0h24v24H0z"/><polyline points="5 12 3 12 12 3 21 12 19 12"/><path d="M5 12v7a2 2 0 002 2h10a2 2 0 002-2v-7"/><path d="M9 21v-6a2 2 0 012-2h2a2 2 0 012 2v6"/></svg>
+<span>首页</span></a></li><li><a href=/categories/%E6%88%90%E9%95%BF.html><span>成长认知</span></a></li><li><a href=/categories/%E6%8A%80%E6%9C%AF.html><span>技术精进</span></a></li><li><a href=/categories/%E5%95%86%E4%B8%9A.html><span>商业·财富</span></a></li><li><a href=/categories/ai.html><span>探索AI</span></a></li><li><a href=/about/><svg class="icon icon-tabler icon-tabler-user" width="24" height="24" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor" fill="none" stroke-linecap="round" stroke-linejoin="round"><path stroke="none" d="M0 0h24v24H0z"/><circle cx="12" cy="7" r="4"/><path d="M6 21v-2a4 4 0 014-4h4a4 4 0 014 4v2"/></svg>
+<span>关于</span></a></li><li class=menu-bottom-section><ol class=menu><li id=dark-mode-toggle><svg class="icon icon-tabler icon-tabler-toggle-left" width="24" height="24" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor" fill="none" stroke-linecap="round" stroke-linejoin="round"><path stroke="none" d="M0 0h24v24H0z"/><circle cx="8" cy="12" r="2"/><rect x="2" y="6" width="20" height="12" rx="6"/></svg>
+<svg class="icon icon-tabler icon-tabler-toggle-right" width="24" height="24" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor" fill="none" stroke-linecap="round" stroke-linejoin="round"><path stroke="none" d="M0 0h24v24H0z"/><circle cx="16" cy="12" r="2"/><rect x="2" y="6" width="20" height="12" rx="6"/></svg>
+<span>暗色模式</span></li></ol></li></ol></aside><aside class="sidebar right-sidebar sticky"><section class="widget archives"><div class=widget-icon><svg class="icon icon-tabler icon-tabler-hash" width="24" height="24" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor" fill="none" stroke-linecap="round" stroke-linejoin="round"><path stroke="none" d="M0 0h24v24H0z"/><line x1="5" y1="9" x2="19" y2="9"/><line x1="5" y1="15" x2="19" y2="15"/><line x1="11" y1="4" x2="7" y2="20"/><line x1="17" y1="4" x2="13" y2="20"/></svg></div><h2 class="widget-title section-title">目录</h2><div class=widget--toc><nav id=TableOfContents><ul><li><a href=#一-为什么我劝你先别碰kong>一、 为什么我劝你先别碰Kong？</a></li><li><a href=#二-拒绝面条式配置nginx也能很优雅>二、 拒绝"面条式配置&rdquo;，Nginx也能很优雅</a></li><li><a href=#三-穷人的熔断与限流够用就好>三、 穷人的"熔断"与"限流"：够用就好</a></li><li><a href=#四-总结与落地工具>四、 总结与落地工具</a></li></ul></nav></div></section></aside><main class="main full-width"><article class=main-article><header class=article-header><div class=article-details><header class=article-category><a href=/categories/%E6%8A%80%E6%9C%AF.html>技术精进</a></header><div class=article-title-wrapper><h2 class=article-title><a href=/tech/zhongxiaoxingxiangmujiagoushejizhinan/apiwangguandexuanxingyupeizhikong_nginx.html>小团队别乱上Kong！API网关避坑指南与Nginx实战</a></h2><h3 class=article-subtitle>年，我负责一个电商SaaS项目的中台重构。当时团队也就是7、8个后端，大家都觉得"微服务"这词儿听着洋气，于是我们大刀阔斧地引入了Kong作为API网关。</h3></div><footer class=article-time><div><svg class="icon icon-tabler icon-tabler-calendar-time" width="56" height="56" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor" fill="none" stroke-linecap="round" stroke-linejoin="round"><path stroke="none" d="M0 0h24v24H0z"/><path d="M11.795 21H5a2 2 0 01-2-2V7a2 2 0 012-2h12a2 2 0 012 2v4"/><circle cx="18" cy="18" r="4"/><path d="M15 3v4"/><path d="M7 3v4"/><path d="M3 11h16"/><path d="M18 16.496V18l1 1"/></svg>
+<time class=article-time--published datetime=2020-09-27T00:00:00+08:00>2020-09-27</time></div><div><svg class="icon icon-tabler icon-tabler-clock" width="24" height="24" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor" fill="none" stroke-linecap="round" stroke-linejoin="round"><path stroke="none" d="M0 0h24v24H0z"/><circle cx="12" cy="12" r="9"/><polyline points="12 7 12 12 15 15"/></svg>
+<time class=article-time--reading>阅读时长: 6 分钟</time></div></footer></div></header><section class=article-content><p>2019年，我负责一个电商SaaS项目的中台重构。当时团队也就是7、8个后端，大家都觉得"微服务"这词儿听着洋气，于是我们大刀阔斧地引入了Kong作为API网关。</p><p>当时的想法很美好：我们要动态路由，我们要插件化，我们要像Netflix那样酷。</p><p>结果呢？为了维护Kong的Postgres数据库，我们专门搭了一套高可用；为了写一个简单的自定义鉴权插件，我们逼着Java开发去学Lua脚本。最要命的是，每次Kong的版本升级，插件兼容性都能让我们通宵排查。</p><p><strong>我曾以为"功能强大"是选型的唯一标准，直到踩了这几个大坑才明白：对于中小团队，&ldquo;可控"和"简单"才是架构的生命线。</strong></p><p>今天咱们不聊那些虚头巴脑的理论，就聊聊在缺乏专职运维的情况下，如何用最"土"但最稳的Nginx方案，解决90%的网关需求。</p><hr><h2 id=一-为什么我劝你先别碰kong>一、 为什么我劝你先别碰Kong？</h2><p>很多架构师（包括当年的我）容易陷入**&ldquo;简历驱动开发&rdquo;**的误区。觉得上了Kong、APISIX这种云原生网关，架构就显得高级。</p><p>但在真实的中小项目中，资源是极度紧缺的。</p><p><strong>真实案例：</strong>
+去年我接手过一个烂摊子项目。前任架构师留下了一套基于Kong的网关。系统总共才20个API接口，日PV不到5万。但是，这套网关经常因为数据库连接池满报错（Kong重度依赖DB做配置存储）。</p><p>团队里没人精通OpenResty，出了问题只能重启。最后我花了一个周末，把这套复杂的Kong集群，全部迁移回了2台Nginx服务器。</p><p><strong>结果是惊人的：</strong></p><ul><li>运维成本直接归零（改配置文件谁都会）；</li><li>响应延迟降低了15ms（少了一层DB查询）；</li><li>服务器成本每月省了2000块。</li></ul><p><strong>选型建议：</strong>
+如果你的团队满足以下任意两点，请<strong>坚决</strong>使用Nginx，不要碰Kong：</p><ol><li>后端开发人员少于10人；</li><li>没有专职的SRE或运维人员；</li><li>API接口数量少于50个，且变动不频繁；</li><li>不需要动态（秒级）调整路由规则。</li></ol><hr><p><img src="https://picsum.photos/800/450?random=1768455950517" loading=lazy alt=配图></p><h2 id=二-拒绝面条式配置nginx也能很优雅>二、 拒绝"面条式配置&rdquo;，Nginx也能很优雅</h2><p>很多人排斥Nginx，是因为觉得改<code>nginx.conf</code>很痛苦。几千行的配置文件，这就好比写代码把所有逻辑都塞进<code>main</code>函数里，当然痛苦。</p><p>我用了3年的一个习惯是：<strong>像写代码一样管理Nginx配置。</strong></p><p>不要把所有东西都写在主文件里。通过合理的拆分，Nginx配置的可读性甚至比Kong的Dashboard还要直观。</p><p><strong>实操方法：</strong></p><p>我通常会在<code>/etc/nginx/</code>下建立这样的目录结构：</p><div class=highlight><div class=chroma><table class=lntable><tr><td class=lntd><pre tabindex=0 class=chroma><code><span class=lnt>1
+</span><span class=lnt>2
+</span><span class=lnt>3
+</span><span class=lnt>4
+</span><span class=lnt>5
+</span><span class=lnt>6
+</span><span class=lnt>7
+</span><span class=lnt>8
+</span><span class=lnt>9
+</span></code></pre></td><td class=lntd><pre tabindex=0 class=chroma><code class=language-text data-lang=text><span class=line><span class=cl>/etc/nginx/
+</span></span><span class=line><span class=cl>├── nginx.conf          # 主入口，只放通用配置
+</span></span><span class=line><span class=cl>├── conf.d/
+</span></span><span class=line><span class=cl>│   ├── upstreams/      # 定义后端服务集群
+</span></span><span class=line><span class=cl>│   │   ├── order_service.conf
+</span></span><span class=line><span class=cl>│   │   └── user_service.conf
+</span></span><span class=line><span class=cl>│   └── vhosts/         # 定义具体的域名转发规则
+</span></span><span class=line><span class=cl>│       ├── api.example.com.conf
+</span></span><span class=line><span class=cl>│       └── admin.example.com.conf
+</span></span></code></pre></td></tr></table></div></div><p><strong>代码示例：</strong></p><p>在<code>nginx.conf</code>的<code>http</code>块中，我只会写两行关键引用：</p><div class=highlight><div class=chroma><table class=lntable><tr><td class=lntd><pre tabindex=0 class=chroma><code><span class=lnt>1
+</span><span class=lnt>2
+</span><span class=lnt>3
+</span><span class=lnt>4
+</span><span class=lnt>5
+</span><span class=lnt>6
+</span><span class=lnt>7
+</span><span class=lnt>8
+</span><span class=lnt>9
+</span></code></pre></td><td class=lntd><pre tabindex=0 class=chroma><code class=language-nginx data-lang=nginx><span class=line><span class=cl><span class=k>http</span> <span class=p>{</span>
+</span></span><span class=line><span class=cl>    <span class=c1># ... 其他通用配置 ...
+</span></span></span><span class=line><span class=cl><span class=c1></span>    
+</span></span><span class=line><span class=cl>    <span class=c1># 1. 先加载负载均衡池
+</span></span></span><span class=line><span class=cl><span class=c1></span>    <span class=kn>include</span> <span class=s>/etc/nginx/conf.d/upstreams/*.conf</span><span class=p>;</span>
+</span></span><span class=line><span class=cl>    
+</span></span><span class=line><span class=cl>    <span class=c1># 2. 再加载具体的站点配置
+</span></span></span><span class=line><span class=cl><span class=c1></span>    <span class=kn>include</span> <span class=s>/etc/nginx/conf.d/vhosts/*.conf</span><span class=p>;</span>
+</span></span><span class=line><span class=cl><span class=p>}</span>
+</span></span></code></pre></td></tr></table></div></div><p>这样做的好处是，每次由于业务变动（比如加了一台订单服务的机器），我只需要去<code>upstreams</code>目录下修改对应的一个小文件。</p><p><strong>避坑提示：</strong>
+千万别手动去服务器上改文件！一定要用Git管理这些配置文件，配合CI/CD流水线，推送到服务器后自动reload。我见过太多次因为手抖少写一个分号，导致整个网关挂掉的"周五惨案"。</p><hr><h2 id=三-穷人的熔断与限流够用就好>三、 穷人的"熔断"与"限流"：够用就好</h2><p>中小团队最怕什么？被爬虫把接口刷爆，或者某个微服务挂了拖死整个系统。</p><p>大家通常觉得需要引入Hystrix或者Sentinel这种重型框架。其实，Nginx自带的模块完全够用，而且性能损耗极低。</p><p><strong>真实场景：</strong>
+2022年双11前夕，我们的一个营销接口被黑产盯上了，QPS瞬间飙升了10倍。当时后端服务还没来得及做限流，CPU直接被打满。</p><p>紧急时刻，我们没有改一行Java代码，直接在Nginx层面加了三行配置，5分钟内解决了战斗。</p><p><strong>硬核配置方案：</strong></p><p>这里分享一个我压箱底的**&ldquo;防刷+熔断&rdquo;**组合配置。</p><div class=highlight><div class=chroma><table class=lntable><tr><td class=lntd><pre tabindex=0 class=chroma><code><span class=lnt> 1
+</span><span class=lnt> 2
+</span><span class=lnt> 3
+</span><span class=lnt> 4
+</span><span class=lnt> 5
+</span><span class=lnt> 6
+</span><span class=lnt> 7
+</span><span class=lnt> 8
+</span><span class=lnt> 9
+</span><span class=lnt>10
+</span><span class=lnt>11
+</span><span class=lnt>12
+</span><span class=lnt>13
+</span><span class=lnt>14
+</span><span class=lnt>15
+</span><span class=lnt>16
+</span><span class=lnt>17
+</span><span class=lnt>18
+</span><span class=lnt>19
+</span></code></pre></td><td class=lntd><pre tabindex=0 class=chroma><code class=language-nginx data-lang=nginx><span class=line><span class=cl><span class=k>http</span> <span class=p>{</span>
+</span></span><span class=line><span class=cl>    <span class=c1># 定义限流区域：以IP为key，每秒允许10个请求，甚至可以更严
+</span></span></span><span class=line><span class=cl><span class=c1></span>    <span class=kn>limit_req_zone</span> <span class=nv>$binary_remote_addr</span> <span class=s>zone=api_limit:10m</span> <span class=s>rate=10r/s</span><span class=p>;</span>
+</span></span><span class=line><span class=cl>
+</span></span><span class=line><span class=cl>    <span class=kn>server</span> <span class=p>{</span>
+</span></span><span class=line><span class=cl>        <span class=kn>location</span> <span class=s>/api/</span> <span class=p>{</span>
+</span></span><span class=line><span class=cl>            <span class=c1># 1. 开启限流
+</span></span></span><span class=line><span class=cl><span class=c1></span>            <span class=c1># burst=5 允许突发5个请求缓冲，nodelay表示不延迟处理，超过直接503
+</span></span></span><span class=line><span class=cl><span class=c1></span>            <span class=kn>limit_req</span> <span class=s>zone=api_limit</span> <span class=s>burst=5</span> <span class=s>nodelay</span><span class=p>;</span>
+</span></span><span class=line><span class=cl>            
+</span></span><span class=line><span class=cl>            <span class=c1># 2. 简单的熔断机制
+</span></span></span><span class=line><span class=cl><span class=c1></span>            <span class=c1># 如果后端5秒内失败了3次，Nginx会在接下来的30秒内不再转发给它
+</span></span></span><span class=line><span class=cl><span class=c1></span>            <span class=kn>proxy_next_upstream</span> <span class=s>error</span> <span class=s>timeout</span> <span class=s>invalid_header</span> <span class=s>http_500</span> <span class=s>http_502</span> <span class=s>http_503</span> <span class=s>http_504</span><span class=p>;</span>
+</span></span><span class=line><span class=cl>            <span class=kn>max_fails=3</span> <span class=s>fail_timeout=30s</span><span class=p>;</span>
+</span></span><span class=line><span class=cl>            
+</span></span><span class=line><span class=cl>            <span class=kn>proxy_pass</span> <span class=s>http://backend_pool</span><span class=p>;</span>
+</span></span><span class=line><span class=cl>        <span class=p>}</span>
+</span></span><span class=line><span class=cl>    <span class=p>}</span>
+</span></span><span class=line><span class=cl><span class=p>}</span>
+</span></span></code></pre></td></tr></table></div></div><p>这套配置虽然没有Sentinel那么精细，但对于中小项目来说，它在<strong>网关层</strong>就拦截了恶意流量，保护了脆弱的后端数据库，绝对是性价比之王。</p><hr><h2 id=四-总结与落地工具>四、 总结与落地工具</h2><p>架构设计里有一句名言："<strong>没有最好的架构，只有最合适的架构。</strong>"</p><p><img src="https://picsum.photos/800/450?random=1768455954576" loading=lazy alt=配图></p><p>对于日活百万以下、团队规模不大的项目，Nginx不是妥协，而是<strong>最优解</strong>。它稳定、高效、免费，且拥有全世界最庞大的社区支持。</p><p>当你发现自己花费在维护网关上的时间，超过了开发业务逻辑的时间，那就说明你过度设计了。</p><p>最后，分享一个我常用的<strong>Nginx反向代理标准模板</strong>，你可以直接复制到你的<code>vhosts</code>文件中，只需改改域名和端口就能用：</p><div class=highlight><div class=chroma><table class=lntable><tr><td class=lntd><pre tabindex=0 class=chroma><code><span class=lnt> 1
+</span><span class=lnt> 2
+</span><span class=lnt> 3
+</span><span class=lnt> 4
+</span><span class=lnt> 5
+</span><span class=lnt> 6
+</span><span class=lnt> 7
+</span><span class=lnt> 8
+</span><span class=lnt> 9
+</span><span class=lnt>10
+</span><span class=lnt>11
+</span><span class=lnt>12
+</span><span class=lnt>13
+</span><span class=lnt>14
+</span><span class=lnt>15
+</span><span class=lnt>16
+</span><span class=lnt>17
+</span><span class=lnt>18
+</span><span class=lnt>19
+</span><span class=lnt>20
+</span><span class=lnt>21
+</span><span class=lnt>22
+</span><span class=lnt>23
+</span><span class=lnt>24
+</span><span class=lnt>25
+</span><span class=lnt>26
+</span><span class=lnt>27
+</span><span class=lnt>28
+</span><span class=lnt>29
+</span><span class=lnt>30
+</span><span class=lnt>31
+</span><span class=lnt>32
+</span><span class=lnt>33
+</span><span class=lnt>34
+</span><span class=lnt>35
+</span><span class=lnt>36
+</span><span class=lnt>37
+</span><span class=lnt>38
+</span></code></pre></td><td class=lntd><pre tabindex=0 class=chroma><code class=language-nginx data-lang=nginx><span class=line><span class=cl><span class=c1># 这是一个可以直接复用的生产级模板
+</span></span></span><span class=line><span class=cl><span class=c1></span><span class=k>server</span> <span class=p>{</span>
+</span></span><span class=line><span class=cl>    <span class=kn>listen</span> <span class=mi>80</span><span class=p>;</span>
+</span></span><span class=line><span class=cl>    <span class=kn>server_name</span> <span class=s>api.your-company.com</span><span class=p>;</span>
+</span></span><span class=line><span class=cl>
+</span></span><span class=line><span class=cl>    <span class=c1># 强制HTTPS重定向（安全第一）
+</span></span></span><span class=line><span class=cl><span class=c1></span>    <span class=kn>return</span> <span class=mi>301</span> <span class=s>https://</span><span class=nv>$server_name$request_uri</span><span class=p>;</span>
+</span></span><span class=line><span class=cl><span class=p>}</span>
+</span></span><span class=line><span class=cl>
+</span></span><span class=line><span class=cl><span class=k>server</span> <span class=p>{</span>
+</span></span><span class=line><span class=cl>    <span class=kn>listen</span> <span class=mi>443</span> <span class=s>ssl</span> <span class=s>http2</span><span class=p>;</span>
+</span></span><span class=line><span class=cl>    <span class=kn>server_name</span> <span class=s>api.your-company.com</span><span class=p>;</span>
+</span></span><span class=line><span class=cl>
+</span></span><span class=line><span class=cl><span class=kn>![配图](https://picsum.photos/800/450?random=1768455955907)</span>
+</span></span><span class=line><span class=cl>
+</span></span><span class=line><span class=cl>    <span class=c1># SSL证书路径
+</span></span></span><span class=line><span class=cl><span class=c1></span>    <span class=s>ssl_certificate</span> <span class=s>/etc/nginx/ssl/live/api.your-company.com/fullchain.pem</span><span class=p>;</span>
+</span></span><span class=line><span class=cl>    <span class=kn>ssl_certificate_key</span> <span class=s>/etc/nginx/ssl/live/api.your-company.com/privkey.pem</span><span class=p>;</span>
+</span></span><span class=line><span class=cl>
+</span></span><span class=line><span class=cl>    <span class=c1># 核心代理配置
+</span></span></span><span class=line><span class=cl><span class=c1></span>    <span class=kn>location</span> <span class=s>/</span> <span class=p>{</span>
+</span></span><span class=line><span class=cl>        <span class=kn>proxy_pass</span> <span class=s>http://backend_upstream</span><span class=p>;</span>
+</span></span><span class=line><span class=cl>        
+</span></span><span class=line><span class=cl>        <span class=c1># 传递真实IP，这对后端日志分析至关重要
+</span></span></span><span class=line><span class=cl><span class=c1></span>        <span class=kn>proxy_set_header</span> <span class=s>Host</span> <span class=nv>$host</span><span class=p>;</span>
+</span></span><span class=line><span class=cl>        <span class=kn>proxy_set_header</span> <span class=s>X-Real-IP</span> <span class=nv>$remote_addr</span><span class=p>;</span>
+</span></span><span class=line><span class=cl>        <span class=kn>proxy_set_header</span> <span class=s>X-Forwarded-For</span> <span class=nv>$proxy_add_x_forwarded_for</span><span class=p>;</span>
+</span></span><span class=line><span class=cl>        <span class=kn>proxy_set_header</span> <span class=s>X-Forwarded-Proto</span> <span class=nv>$scheme</span><span class=p>;</span>
+</span></span><span class=line><span class=cl>
+</span></span><span class=line><span class=cl>        <span class=c1># 长连接设置，提升10%-20%的性能
+</span></span></span><span class=line><span class=cl><span class=c1></span>        <span class=kn>proxy_http_version</span> <span class=mi>1</span><span class=s>.1</span><span class=p>;</span>
+</span></span><span class=line><span class=cl>        <span class=kn>proxy_set_header</span> <span class=s>Connection</span> <span class=s>&#34;&#34;</span><span class=p>;</span>
+</span></span><span class=line><span class=cl>        
+</span></span><span class=line><span class=cl>        <span class=c1># 超时设置，避免后端卡死拖垮网关
+</span></span></span><span class=line><span class=cl><span class=c1></span>        <span class=kn>proxy_connect_timeout</span> <span class=s>5s</span><span class=p>;</span>
+</span></span><span class=line><span class=cl>        <span class=kn>proxy_read_timeout</span> <span class=s>60s</span><span class=p>;</span>
+</span></span><span class=line><span class=cl>    <span class=p>}</span>
+</span></span><span class=line><span class=cl><span class=p>}</span>
+</span></span></code></pre></td></tr></table></div></div><p><strong>接下来的行动步骤：</strong></p><ol><li><strong>本周五下午：</strong> 检查你的网关配置，是不是所有内容都塞在<code>nginx.conf</code>里？如果是，按照第二节的方法进行拆分。</li><li><strong>下周一早会：</strong> 确认你们的API接口是否有基本的限流保护？如果没有，加上第三节的<code>limit_req</code>配置。</li><li><strong>长期建议：</strong> 如果你的团队还在纠结要不要上Kong，先问自己一句：现在的Nginx真的撑不住了吗？如果答案是否定的，请把精力花在业务迭代上。</li></ol></section><footer class=article-footer><section class=article-tags><a href=/tags/API%E7%BD%91%E5%85%B3%E7%9A%84%E9%80%89%E5%9E%8B%E4%B8%8E%E9%85%8D%E7%BD%AEKong/Nginx.html>API网关的选型与配置（Kong/Nginx）</a></section></footer></article><script src=https://giscus.app/client.js data-repo=pastor17/bloggiscus data-repo-id=R_kgDOQ6H9qQ data-category data-category-id=DIC_kwDOQ6H9qc4C0-T8 data-mapping=pathname data-strict=0 data-reactions-enabled=1 data-emit-metadata=0 data-input-position=bottom data-theme=light data-lang=zh-CN data-loading=lazy crossorigin=anonymous async></script><script>function setGiscusTheme(e){let t=document.querySelector("iframe.giscus-frame");t&&t.contentWindow.postMessage({giscus:{setConfig:{theme:e}}},"https://giscus.app")}(function(){addEventListener("message",t=>{if(event.origin!=="https://giscus.app")return;e()}),window.addEventListener("onColorSchemeChange",e);function e(){setGiscusTheme(document.documentElement.dataset.scheme==="light"?"light":"dark_dimmed")}})()</script><footer class=site-footer><section class=copyright>&copy;
+2021 -
+2026 SelfTechHub</section><section class=powerby>拒绝一次性认知，把碎片知识沉淀为可复用的记忆体系<br></section></footer><div class=pswp tabindex=-1 role=dialog aria-hidden=true><div class=pswp__bg></div><div class=pswp__scroll-wrap><div class=pswp__container><div class=pswp__item></div><div class=pswp__item></div><div class=pswp__item></div></div><div class="pswp__ui pswp__ui--hidden"><div class=pswp__top-bar><div class=pswp__counter></div><button class="pswp__button pswp__button--close" title="Close (Esc)"></button>
+<button class="pswp__button pswp__button--share" title=Share></button>
+<button class="pswp__button pswp__button--fs" title="Toggle fullscreen"></button>
+<button class="pswp__button pswp__button--zoom" title="Zoom in/out"></button><div class=pswp__preloader><div class=pswp__preloader__icn><div class=pswp__preloader__cut><div class=pswp__preloader__donut></div></div></div></div></div><div class="pswp__share-modal pswp__share-modal--hidden pswp__single-tap"><div class=pswp__share-tooltip></div></div><button class="pswp__button pswp__button--arrow--left" title="Previous (arrow left)">
+</button>
+<button class="pswp__button pswp__button--arrow--right" title="Next (arrow right)"></button><div class=pswp__caption><div class=pswp__caption__center></div></div></div></div></div><script src=https://cdn.jsdelivr.net/npm/photoswipe@4.1.3/dist/photoswipe.min.js integrity="sha256-ePwmChbbvXbsO02lbM3HoHbSHTHFAeChekF1xKJdleo=" crossorigin=anonymous defer></script><script src=https://cdn.jsdelivr.net/npm/photoswipe@4.1.3/dist/photoswipe-ui-default.min.js integrity="sha256-UKkzOn/w1mBxRmLLGrSeyB4e1xbrp4xylgAWb3M42pU=" crossorigin=anonymous defer></script><link rel=stylesheet href=https://cdn.jsdelivr.net/npm/photoswipe@4.1.3/dist/default-skin/default-skin.min.css crossorigin=anonymous><link rel=stylesheet href=https://cdn.jsdelivr.net/npm/photoswipe@4.1.3/dist/photoswipe.min.css crossorigin=anonymous></main></div><script src=https://cdn.jsdelivr.net/npm/node-vibrant@3.1.6/dist/vibrant.min.js integrity="sha256-awcR2jno4kI5X0zL8ex0vi2z+KMkF24hUW8WePSA9HM=" crossorigin=anonymous></script><script type=text/javascript src=/ts/main.c922af694cc257bf1ecc41c0dd7b0430f9114ec280ccf67cd2c6ad55f5316c4e.js defer></script><script>(function(){const e=document.createElement("link");e.href="https://fonts.googleapis.com/css2?family=Lato:wght@300;400;700&display=swap",e.type="text/css",e.rel="stylesheet",document.head.appendChild(e)})()</script></body></html>

@@ -1,26 +1,11 @@
-<?xml version="1.0" encoding="utf-8" standalone="yes"?>
-<rss version="2.0" xmlns:atom="http://www.w3.org/2005/Atom">
-    <channel>
-        <title>配置管理：避免线上线下配置不一致 on SelfTechHub</title>
-        <link>https://blog.irudder.me/tags/%E9%85%8D%E7%BD%AE%E7%AE%A1%E7%90%86%E9%81%BF%E5%85%8D%E7%BA%BF%E4%B8%8A%E7%BA%BF%E4%B8%8B%E9%85%8D%E7%BD%AE%E4%B8%8D%E4%B8%80%E8%87%B4.html</link>
-        <description>Recent content in 配置管理：避免线上线下配置不一致 on SelfTechHub</description>
-        <generator>Hugo -- gohugo.io</generator>
-        <language>zh-cn</language>
-        <lastBuildDate>Fri, 24 Jan 2020 00:00:00 +0000</lastBuildDate><atom:link href="https://blog.irudder.me/tags/%E9%85%8D%E7%BD%AE%E7%AE%A1%E7%90%86%E9%81%BF%E5%85%8D%E7%BA%BF%E4%B8%8A%E7%BA%BF%E4%B8%8B%E9%85%8D%E7%BD%AE%E4%B8%8D%E4%B8%80%E8%87%B4/index.xml" rel="self" type="application/rss+xml" /><item>
-        <title>凌晨3点的故障：中小团队如何终结配置噩梦</title>
-        <link>https://blog.irudder.me/tech/zhongxiaoxingtuanduidevopsluodifangan/peizhiguanli_bimianxianshangxianxiapeizhibuyizhi.html</link>
-        <pubDate>Fri, 24 Jan 2020 00:00:00 +0000</pubDate>
-        
-        <guid>https://blog.irudder.me/tech/zhongxiaoxingtuanduidevopsluodifangan/peizhiguanli_bimianxianshangxianxiapeizhibuyizhi.html</guid>
-        <description>&lt;blockquote&gt;
-&lt;p&gt;&amp;ldquo;在我的电脑上明明是好的，怎么一上线就挂了？&amp;rdquo;&lt;/p&gt;
-&lt;/blockquote&gt;
+<?xml version="1.0" encoding="utf-8" standalone="yes"?><rss version="2.0" xmlns:atom="http://www.w3.org/2005/Atom"><channel><title>配置管理：避免线上线下配置不一致 on SelfTechHub</title><link>https://blog.irudder.me/tags/%E9%85%8D%E7%BD%AE%E7%AE%A1%E7%90%86%E9%81%BF%E5%85%8D%E7%BA%BF%E4%B8%8A%E7%BA%BF%E4%B8%8B%E9%85%8D%E7%BD%AE%E4%B8%8D%E4%B8%80%E8%87%B4.html</link><description>Recent content in 配置管理：避免线上线下配置不一致 on SelfTechHub</description><generator>Hugo -- gohugo.io</generator><language>zh-cn</language><lastBuildDate>Fri, 24 Jan 2020 00:00:00 +0800</lastBuildDate><atom:link href="https://blog.irudder.me/tags/%E9%85%8D%E7%BD%AE%E7%AE%A1%E7%90%86%E9%81%BF%E5%85%8D%E7%BA%BF%E4%B8%8A%E7%BA%BF%E4%B8%8B%E9%85%8D%E7%BD%AE%E4%B8%8D%E4%B8%80%E8%87%B4/index.xml" rel="self" type="application/rss+xml"/><item><title>凌晨3点的故障：中小团队如何终结配置噩梦</title><link>https://blog.irudder.me/tech/zhongxiaoxingtuanduidevopsluodifangan/peizhiguanli_bimianxianshangxianxiapeizhibuyizhi.html</link><pubDate>Fri, 24 Jan 2020 00:00:00 +0800</pubDate><guid>https://blog.irudder.me/tech/zhongxiaoxingtuanduidevopsluodifangan/peizhiguanli_bimianxianshangxianxiapeizhibuyizhi.html</guid><description>&lt;blockquote&gt;
+&lt;p&gt;&amp;ldquo;在我的电脑上明明是好的，怎么一上线就挂了？&amp;rdquo;&lt;/p&gt;&lt;/blockquote&gt;
 &lt;p&gt;这句话大概是所有技术负责人最不想听到，却又不得不面对的&amp;quot;鬼故事&amp;quot;。&lt;/p&gt;
 &lt;p&gt;我还记得三年前的一个周五傍晚，我们团队刚完成核心支付服务的迭代。测试环境一切顺利，QA 签字放行。然而，上线不到十分钟，客服群炸了——用户反馈支付一直转圈，最后报错。&lt;/p&gt;
 &lt;p&gt;排查过程花了整整两个小时，最后发现原因简直让人想砸键盘：&lt;strong&gt;线上环境的数据库连接池配置，被上一任运维手动改成了 &amp;ldquo;5&amp;rdquo;，而代码库里的配置文件写的是 &amp;ldquo;100&amp;rdquo;。&lt;/strong&gt; 新版本发布直接覆盖了线上的手动修改，导致高并发下连接池瞬间耗尽。&lt;/p&gt;
 &lt;p&gt;这不是代码逻辑的 Bug，这是典型的&lt;strong&gt;配置管理失控&lt;/strong&gt;。&lt;/p&gt;
 &lt;p&gt;很多中小团队在 DevOps 从 0 到 1 的过程中，往往只关注代码的自动化部署，却忽略了配置的生命周期管理。今天，我想站在行业观察者的角度，聊聊如何用低成本方案，彻底解决&amp;quot;线上线下配置不一致&amp;quot;这颗定时炸弹。&lt;/p&gt;
-&lt;h2 id=&#34;告别配置文件的硬编码依赖&#34;&gt;告别&amp;quot;配置文件&amp;quot;的硬编码依赖
+&lt;h2 id="告别配置文件的硬编码依赖"&gt;告别&amp;quot;配置文件&amp;quot;的硬编码依赖
 &lt;/h2&gt;&lt;p&gt;如果你现在的代码里还躺着 &lt;code&gt;config_prod.yaml&lt;/code&gt; 和 &lt;code&gt;config_dev.yaml&lt;/code&gt;，并且每次上线还需要开发人员手动去服务器上修改某个参数，那么你正在危险边缘试探。&lt;/p&gt;
 &lt;p&gt;&lt;strong&gt;真正的痛点在于：代码和配置的生命周期是不一样的。&lt;/strong&gt; 代码是静态的逻辑，而配置是动态的环境上下文。&lt;/p&gt;
 &lt;p&gt;我见过一个只有5人的初创团队，他们的做法非常&amp;quot;原始&amp;quot;：在 Git 仓库里存了一份包含所有环境密码的配置文件。某天，一位新来的实习生为了调试方便，把生产环境的 Redis 地址改成了本地 localhost，并顺手 push 到了主分支。CI 流水线自动构建发布，结果可想而知——线上服务试图连接 localhost 的 Redis，全线崩溃。&lt;/p&gt;
@@ -29,18 +14,30 @@
 &lt;p&gt;&lt;strong&gt;落地建议：&lt;/strong&gt;&lt;/p&gt;
 &lt;p&gt;对于中小团队，不需要立刻上 Nacos 或 Apollo 这样厚重的配置中心。利用 &lt;strong&gt;环境变量（Environment Variables）&lt;/strong&gt; 是最简单有效的方案。&lt;/p&gt;
 &lt;p&gt;例如，在你的 Node.js 或 Python 项目中，不要硬编码数据库地址：&lt;/p&gt;
-&lt;div class=&#34;highlight&#34;&gt;&lt;pre tabindex=&#34;0&#34; style=&#34;color:#f8f8f2;background-color:#272822;-moz-tab-size:4;-o-tab-size:4;tab-size:4;&#34;&gt;&lt;code class=&#34;language-javascript&#34; data-lang=&#34;javascript&#34;&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;&lt;span style=&#34;color:#75715e&#34;&gt;// ❌ 错误示范：依赖硬编码文件
-&lt;/span&gt;&lt;/span&gt;&lt;/span&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;&lt;span style=&#34;color:#75715e&#34;&gt;&lt;/span&gt;&lt;span style=&#34;color:#66d9ef&#34;&gt;const&lt;/span&gt; &lt;span style=&#34;color:#a6e22e&#34;&gt;dbConfig&lt;/span&gt; &lt;span style=&#34;color:#f92672&#34;&gt;=&lt;/span&gt; &lt;span style=&#34;color:#a6e22e&#34;&gt;require&lt;/span&gt;(&lt;span style=&#34;color:#e6db74&#34;&gt;&amp;#39;./config/prod.json&amp;#39;&lt;/span&gt;);
-&lt;/span&gt;&lt;/span&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;&lt;span style=&#34;color:#66d9ef&#34;&gt;const&lt;/span&gt; &lt;span style=&#34;color:#a6e22e&#34;&gt;connection&lt;/span&gt; &lt;span style=&#34;color:#f92672&#34;&gt;=&lt;/span&gt; &lt;span style=&#34;color:#a6e22e&#34;&gt;createConnection&lt;/span&gt;(&lt;span style=&#34;color:#a6e22e&#34;&gt;dbConfig&lt;/span&gt;.&lt;span style=&#34;color:#a6e22e&#34;&gt;url&lt;/span&gt;);
-&lt;/span&gt;&lt;/span&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;
-&lt;/span&gt;&lt;/span&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;&lt;span style=&#34;color:#75715e&#34;&gt;// ✅ 正确示范：从环境变量读取，提供默认值
-&lt;/span&gt;&lt;/span&gt;&lt;/span&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;&lt;span style=&#34;color:#75715e&#34;&gt;&lt;/span&gt;&lt;span style=&#34;color:#66d9ef&#34;&gt;const&lt;/span&gt; &lt;span style=&#34;color:#a6e22e&#34;&gt;dbUrl&lt;/span&gt; &lt;span style=&#34;color:#f92672&#34;&gt;=&lt;/span&gt; &lt;span style=&#34;color:#a6e22e&#34;&gt;process&lt;/span&gt;.&lt;span style=&#34;color:#a6e22e&#34;&gt;env&lt;/span&gt;.&lt;span style=&#34;color:#a6e22e&#34;&gt;DB_URL&lt;/span&gt; &lt;span style=&#34;color:#f92672&#34;&gt;||&lt;/span&gt; &lt;span style=&#34;color:#e6db74&#34;&gt;&amp;#39;jdbc:mysql://localhost:3306/dev_db&amp;#39;&lt;/span&gt;;
-&lt;/span&gt;&lt;/span&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;&lt;span style=&#34;color:#66d9ef&#34;&gt;const&lt;/span&gt; &lt;span style=&#34;color:#a6e22e&#34;&gt;connection&lt;/span&gt; &lt;span style=&#34;color:#f92672&#34;&gt;=&lt;/span&gt; &lt;span style=&#34;color:#a6e22e&#34;&gt;createConnection&lt;/span&gt;(&lt;span style=&#34;color:#a6e22e&#34;&gt;dbUrl&lt;/span&gt;);
-&lt;/span&gt;&lt;/span&gt;&lt;/code&gt;&lt;/pre&gt;&lt;/div&gt;&lt;p&gt;这样，你的 Docker 镜像只需构建一次。在 K8s 或 Docker Compose 启动时，通过注入不同的环境变量，就能让同一个镜像在不同环境表现出不同的行为。&lt;/p&gt;
+&lt;div class="highlight"&gt;&lt;div class="chroma"&gt;
+&lt;table class="lntable"&gt;&lt;tr&gt;&lt;td class="lntd"&gt;
+&lt;pre tabindex="0" class="chroma"&gt;&lt;code&gt;&lt;span class="lnt"&gt;1
+&lt;/span&gt;&lt;span class="lnt"&gt;2
+&lt;/span&gt;&lt;span class="lnt"&gt;3
+&lt;/span&gt;&lt;span class="lnt"&gt;4
+&lt;/span&gt;&lt;span class="lnt"&gt;5
+&lt;/span&gt;&lt;span class="lnt"&gt;6
+&lt;/span&gt;&lt;span class="lnt"&gt;7
+&lt;/span&gt;&lt;/code&gt;&lt;/pre&gt;&lt;/td&gt;
+&lt;td class="lntd"&gt;
+&lt;pre tabindex="0" class="chroma"&gt;&lt;code class="language-javascript" data-lang="javascript"&gt;&lt;span class="line"&gt;&lt;span class="cl"&gt;&lt;span class="c1"&gt;// ❌ 错误示范：依赖硬编码文件
+&lt;/span&gt;&lt;/span&gt;&lt;/span&gt;&lt;span class="line"&gt;&lt;span class="cl"&gt;&lt;span class="c1"&gt;&lt;/span&gt;&lt;span class="kr"&gt;const&lt;/span&gt; &lt;span class="nx"&gt;dbConfig&lt;/span&gt; &lt;span class="o"&gt;=&lt;/span&gt; &lt;span class="nx"&gt;require&lt;/span&gt;&lt;span class="p"&gt;(&lt;/span&gt;&lt;span class="s1"&gt;&amp;#39;./config/prod.json&amp;#39;&lt;/span&gt;&lt;span class="p"&gt;);&lt;/span&gt;
+&lt;/span&gt;&lt;/span&gt;&lt;span class="line"&gt;&lt;span class="cl"&gt;&lt;span class="kr"&gt;const&lt;/span&gt; &lt;span class="nx"&gt;connection&lt;/span&gt; &lt;span class="o"&gt;=&lt;/span&gt; &lt;span class="nx"&gt;createConnection&lt;/span&gt;&lt;span class="p"&gt;(&lt;/span&gt;&lt;span class="nx"&gt;dbConfig&lt;/span&gt;&lt;span class="p"&gt;.&lt;/span&gt;&lt;span class="nx"&gt;url&lt;/span&gt;&lt;span class="p"&gt;);&lt;/span&gt;
+&lt;/span&gt;&lt;/span&gt;&lt;span class="line"&gt;&lt;span class="cl"&gt;
+&lt;/span&gt;&lt;/span&gt;&lt;span class="line"&gt;&lt;span class="cl"&gt;&lt;span class="c1"&gt;// ✅ 正确示范：从环境变量读取，提供默认值
+&lt;/span&gt;&lt;/span&gt;&lt;/span&gt;&lt;span class="line"&gt;&lt;span class="cl"&gt;&lt;span class="c1"&gt;&lt;/span&gt;&lt;span class="kr"&gt;const&lt;/span&gt; &lt;span class="nx"&gt;dbUrl&lt;/span&gt; &lt;span class="o"&gt;=&lt;/span&gt; &lt;span class="nx"&gt;process&lt;/span&gt;&lt;span class="p"&gt;.&lt;/span&gt;&lt;span class="nx"&gt;env&lt;/span&gt;&lt;span class="p"&gt;.&lt;/span&gt;&lt;span class="nx"&gt;DB_URL&lt;/span&gt; &lt;span class="o"&gt;||&lt;/span&gt; &lt;span class="s1"&gt;&amp;#39;jdbc:mysql://localhost:3306/dev_db&amp;#39;&lt;/span&gt;&lt;span class="p"&gt;;&lt;/span&gt;
+&lt;/span&gt;&lt;/span&gt;&lt;span class="line"&gt;&lt;span class="cl"&gt;&lt;span class="kr"&gt;const&lt;/span&gt; &lt;span class="nx"&gt;connection&lt;/span&gt; &lt;span class="o"&gt;=&lt;/span&gt; &lt;span class="nx"&gt;createConnection&lt;/span&gt;&lt;span class="p"&gt;(&lt;/span&gt;&lt;span class="nx"&gt;dbUrl&lt;/span&gt;&lt;span class="p"&gt;);&lt;/span&gt;
+&lt;/span&gt;&lt;/span&gt;&lt;/code&gt;&lt;/pre&gt;&lt;/td&gt;&lt;/tr&gt;&lt;/table&gt;
+&lt;/div&gt;
+&lt;/div&gt;&lt;p&gt;这样，你的 Docker 镜像只需构建一次。在 K8s 或 Docker Compose 启动时，通过注入不同的环境变量，就能让同一个镜像在不同环境表现出不同的行为。&lt;/p&gt;
 &lt;blockquote&gt;
-&lt;p&gt;&lt;strong&gt;小思考：&lt;/strong&gt; 打开你们现在的项目仓库，搜一下有没有硬编码的 IP 地址或密码？如果有，这就是你本周需要消灭的技术债务。&lt;/p&gt;
-&lt;/blockquote&gt;
-&lt;h2 id=&#34;警惕手动变更带来的配置漂移&#34;&gt;警惕&amp;quot;手动变更&amp;quot;带来的配置漂移
+&lt;p&gt;&lt;strong&gt;小思考：&lt;/strong&gt; 打开你们现在的项目仓库，搜一下有没有硬编码的 IP 地址或密码？如果有，这就是你本周需要消灭的技术债务。&lt;/p&gt;&lt;/blockquote&gt;
+&lt;h2 id="警惕手动变更带来的配置漂移"&gt;警惕&amp;quot;手动变更&amp;quot;带来的配置漂移
 &lt;/h2&gt;&lt;p&gt;我曾遇到过一位非常有经验的运维老兵，他有一个习惯：遇到线上突发流量，喜欢直接 SSH 到服务器上，用 Vim 修改 Nginx 的 &lt;code&gt;worker_connections&lt;/code&gt; 或 Tomcat 的堆内存大小，然后热加载生效。&lt;/p&gt;
 &lt;p&gt;这种做法救火很快，但后患无穷。&lt;/p&gt;
 &lt;p&gt;一个月后，服务器因为硬件故障重启，或者因为自动扩容新起了节点。新的节点拉取的是镜像里的旧配置，或者是 Git 仓库里未更新的配置。于是，那个曾经被&amp;quot;老兵&amp;quot;手动调优过的参数瞬间失效，系统再次因为性能瓶颈雪崩。&lt;/p&gt;
@@ -53,40 +50,22 @@
 &lt;li&gt;&lt;strong&gt;Git 是唯一真理：&lt;/strong&gt; 所有的配置变更，必须先在 Git 仓库中修改（无论是 Docker-compose.yml 还是 K8s ConfigMap），提交 PR，经过代码审查（Code Review）后，由 CI/CD 流水线自动应用。&lt;/li&gt;
 &lt;li&gt;&lt;strong&gt;禁止手动修改：&lt;/strong&gt; 如果必须紧急修改参数，必须在事后 24 小时内补齐 Git 提交，否则视为重大事故。&lt;/li&gt;
 &lt;/ol&gt;
-&lt;p&gt;&lt;img src=&#34;https://picsum.photos/800/450?random=1768390434539&#34;
-	
-	
-	
-	loading=&#34;lazy&#34;
-	
-		alt=&#34;配图&#34;
-	
-	
+&lt;p&gt;&lt;img src="https://picsum.photos/800/450?random=1768390434539"
+loading="lazy"
+alt="配图"
 &gt;&lt;/p&gt;
 &lt;p&gt;这就好比记账，你兜里的钱（服务器上的配置）必须和账本（Git）对得上。如果兜里多了钱却没记账，这就是坏账的开始。&lt;/p&gt;
-&lt;h2 id=&#34;敏感信息的分离与注入&#34;&gt;敏感信息的分离与注入
+&lt;h2 id="敏感信息的分离与注入"&gt;敏感信息的分离与注入
 &lt;/h2&gt;&lt;p&gt;&amp;ldquo;把数据库密码提交到 Git 仓库&amp;rdquo;，这在行业内被称为&amp;quot;职业生涯结束操作&amp;rdquo;。&lt;/p&gt;
 &lt;p&gt;但在中小团队，为了方便协作，这种事屡禁不止。我有位做安全审计的朋友告诉我，他审计过的初创公司里，超过 60% 的项目能在 Git 历史记录里翻到 AWS 的 Access Key 或数据库明文密码。&lt;/p&gt;
-&lt;p&gt;&lt;img src=&#34;https://picsum.photos/800/450?random=1768390434341&#34;
-	
-	
-	
-	loading=&#34;lazy&#34;
-	
-		alt=&#34;配图&#34;
-	
-	
+&lt;p&gt;&lt;img src="https://picsum.photos/800/450?random=1768390434341"
+loading="lazy"
+alt="配图"
 &gt;&lt;/p&gt;
 &lt;p&gt;这不仅是安全问题，更是配置不一致的温床——因为开发不敢把生产密码写在代码里，往往会写个假的占位符，指望上线时有人记得去改。一旦那个人忘了，故障就来了。&lt;/p&gt;
-&lt;p&gt;&lt;img src=&#34;https://picsum.photos/800/450?random=1768390440949&#34;
-	
-	
-	
-	loading=&#34;lazy&#34;
-	
-		alt=&#34;配图&#34;
-	
-	
+&lt;p&gt;&lt;img src="https://picsum.photos/800/450?random=1768390440949"
+loading="lazy"
+alt="配图"
 &gt;&lt;/p&gt;
 &lt;p&gt;&lt;strong&gt;解决方案：利用 CI/CD 平台的 Secret 管理功能。&lt;/strong&gt;&lt;/p&gt;
 &lt;p&gt;现在的 GitLab CI、GitHub Actions 或 Jenkins，都有非常完善的 Secret（机密信息）管理模块。&lt;/p&gt;
@@ -96,16 +75,30 @@
 &lt;li&gt;添加变量，Key 为 &lt;code&gt;DB_PASSWORD&lt;/code&gt;，Value 填入真实的生产环境密码，并勾选 &amp;ldquo;Masked&amp;rdquo;（在日志中隐藏）。&lt;/li&gt;
 &lt;li&gt;在部署脚本中，将这个变量注入到容器中。&lt;/li&gt;
 &lt;/ol&gt;
-&lt;div class=&#34;highlight&#34;&gt;&lt;pre tabindex=&#34;0&#34; style=&#34;color:#f8f8f2;background-color:#272822;-moz-tab-size:4;-o-tab-size:4;tab-size:4;&#34;&gt;&lt;code class=&#34;language-yaml&#34; data-lang=&#34;yaml&#34;&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;&lt;span style=&#34;color:#75715e&#34;&gt;# docker-compose.yml 示例&lt;/span&gt;
-&lt;/span&gt;&lt;/span&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;&lt;span style=&#34;color:#f92672&#34;&gt;version&lt;/span&gt;: &lt;span style=&#34;color:#e6db74&#34;&gt;&amp;#39;3&amp;#39;&lt;/span&gt;
-&lt;/span&gt;&lt;/span&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;&lt;span style=&#34;color:#f92672&#34;&gt;services&lt;/span&gt;:
-&lt;/span&gt;&lt;/span&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;  &lt;span style=&#34;color:#f92672&#34;&gt;web&lt;/span&gt;:
-&lt;/span&gt;&lt;/span&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;    &lt;span style=&#34;color:#f92672&#34;&gt;image&lt;/span&gt;: &lt;span style=&#34;color:#ae81ff&#34;&gt;my-app:v1&lt;/span&gt;
-&lt;/span&gt;&lt;/span&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;    &lt;span style=&#34;color:#f92672&#34;&gt;environment&lt;/span&gt;:
-&lt;/span&gt;&lt;/span&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;      &lt;span style=&#34;color:#75715e&#34;&gt;# 这里的变量值由 CI 工具在部署时动态注入&lt;/span&gt;
-&lt;/span&gt;&lt;/span&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;      - &lt;span style=&#34;color:#ae81ff&#34;&gt;DB_PASSWORD=${DB_PASSWORD}&lt;/span&gt;
-&lt;/span&gt;&lt;/span&gt;&lt;/code&gt;&lt;/pre&gt;&lt;/div&gt;&lt;p&gt;通过这种方式，开发人员在本地开发时使用本地的 &lt;code&gt;.env&lt;/code&gt; 文件（不提交到 Git），而生产环境的密码由运维或负责人在 CI 平台配置。&lt;strong&gt;代码库里干干净净，只有变量名，没有变量值。&lt;/strong&gt;&lt;/p&gt;
-&lt;h2 id=&#34;总结与行动指南&#34;&gt;总结与行动指南
+&lt;div class="highlight"&gt;&lt;div class="chroma"&gt;
+&lt;table class="lntable"&gt;&lt;tr&gt;&lt;td class="lntd"&gt;
+&lt;pre tabindex="0" class="chroma"&gt;&lt;code&gt;&lt;span class="lnt"&gt;1
+&lt;/span&gt;&lt;span class="lnt"&gt;2
+&lt;/span&gt;&lt;span class="lnt"&gt;3
+&lt;/span&gt;&lt;span class="lnt"&gt;4
+&lt;/span&gt;&lt;span class="lnt"&gt;5
+&lt;/span&gt;&lt;span class="lnt"&gt;6
+&lt;/span&gt;&lt;span class="lnt"&gt;7
+&lt;/span&gt;&lt;span class="lnt"&gt;8
+&lt;/span&gt;&lt;/code&gt;&lt;/pre&gt;&lt;/td&gt;
+&lt;td class="lntd"&gt;
+&lt;pre tabindex="0" class="chroma"&gt;&lt;code class="language-yaml" data-lang="yaml"&gt;&lt;span class="line"&gt;&lt;span class="cl"&gt;&lt;span class="c"&gt;# docker-compose.yml 示例&lt;/span&gt;&lt;span class="w"&gt;
+&lt;/span&gt;&lt;/span&gt;&lt;/span&gt;&lt;span class="line"&gt;&lt;span class="cl"&gt;&lt;span class="w"&gt;&lt;/span&gt;&lt;span class="nt"&gt;version&lt;/span&gt;&lt;span class="p"&gt;:&lt;/span&gt;&lt;span class="w"&gt; &lt;/span&gt;&lt;span class="s1"&gt;&amp;#39;3&amp;#39;&lt;/span&gt;&lt;span class="w"&gt;
+&lt;/span&gt;&lt;/span&gt;&lt;/span&gt;&lt;span class="line"&gt;&lt;span class="cl"&gt;&lt;span class="w"&gt;&lt;/span&gt;&lt;span class="nt"&gt;services&lt;/span&gt;&lt;span class="p"&gt;:&lt;/span&gt;&lt;span class="w"&gt;
+&lt;/span&gt;&lt;/span&gt;&lt;/span&gt;&lt;span class="line"&gt;&lt;span class="cl"&gt;&lt;span class="w"&gt; &lt;/span&gt;&lt;span class="nt"&gt;web&lt;/span&gt;&lt;span class="p"&gt;:&lt;/span&gt;&lt;span class="w"&gt;
+&lt;/span&gt;&lt;/span&gt;&lt;/span&gt;&lt;span class="line"&gt;&lt;span class="cl"&gt;&lt;span class="w"&gt; &lt;/span&gt;&lt;span class="nt"&gt;image&lt;/span&gt;&lt;span class="p"&gt;:&lt;/span&gt;&lt;span class="w"&gt; &lt;/span&gt;&lt;span class="l"&gt;my-app:v1&lt;/span&gt;&lt;span class="w"&gt;
+&lt;/span&gt;&lt;/span&gt;&lt;/span&gt;&lt;span class="line"&gt;&lt;span class="cl"&gt;&lt;span class="w"&gt; &lt;/span&gt;&lt;span class="nt"&gt;environment&lt;/span&gt;&lt;span class="p"&gt;:&lt;/span&gt;&lt;span class="w"&gt;
+&lt;/span&gt;&lt;/span&gt;&lt;/span&gt;&lt;span class="line"&gt;&lt;span class="cl"&gt;&lt;span class="w"&gt; &lt;/span&gt;&lt;span class="c"&gt;# 这里的变量值由 CI 工具在部署时动态注入&lt;/span&gt;&lt;span class="w"&gt;
+&lt;/span&gt;&lt;/span&gt;&lt;/span&gt;&lt;span class="line"&gt;&lt;span class="cl"&gt;&lt;span class="w"&gt; &lt;/span&gt;- &lt;span class="l"&gt;DB_PASSWORD=${DB_PASSWORD}&lt;/span&gt;&lt;span class="w"&gt;
+&lt;/span&gt;&lt;/span&gt;&lt;/span&gt;&lt;/code&gt;&lt;/pre&gt;&lt;/td&gt;&lt;/tr&gt;&lt;/table&gt;
+&lt;/div&gt;
+&lt;/div&gt;&lt;p&gt;通过这种方式，开发人员在本地开发时使用本地的 &lt;code&gt;.env&lt;/code&gt; 文件（不提交到 Git），而生产环境的密码由运维或负责人在 CI 平台配置。&lt;strong&gt;代码库里干干净净，只有变量名，没有变量值。&lt;/strong&gt;&lt;/p&gt;
+&lt;h2 id="总结与行动指南"&gt;总结与行动指南
 &lt;/h2&gt;&lt;p&gt;配置管理听起来很枯燥，但它往往是决定系统稳定性的&amp;quot;最后一公里&amp;quot;。很多时候，我们不需要高大上的微服务治理平台，只需要把基础的规范做扎实。&lt;/p&gt;
 &lt;p&gt;回顾一下，避免配置不一致，其实就是要在团队内建立一种**&amp;ldquo;不可变基础设施&amp;rdquo;**的思维。&lt;/p&gt;
 &lt;p&gt;&lt;strong&gt;如果你想在下周一开始改进团队的配置管理，不妨试试这 3 个具体步骤：&lt;/strong&gt;&lt;/p&gt;
@@ -115,9 +108,4 @@
 &lt;li&gt;&lt;strong&gt;上工具：&lt;/strong&gt; 利用现有的 CI/CD 工具（GitLab CI/Jenkins），将生产环境的敏感配置移入 Secret 变量中，实现代码与配置的物理隔离。&lt;/li&gt;
 &lt;/ol&gt;
 &lt;p&gt;最后，留一个问题：&lt;strong&gt;在你们团队，如果有新人入职，他需要多久、问多少人，才能把本地开发环境的配置文件配对并跑起来？&lt;/strong&gt;&lt;/p&gt;
-&lt;p&gt;如果答案超过了 2 小时，那么配置管理优化，刻不容缓。&lt;/p&gt;
-</description>
-        </item>
-        
-    </channel>
-</rss>
+&lt;p&gt;如果答案超过了 2 小时，那么配置管理优化，刻不容缓。&lt;/p&gt;</description></item></channel></rss>

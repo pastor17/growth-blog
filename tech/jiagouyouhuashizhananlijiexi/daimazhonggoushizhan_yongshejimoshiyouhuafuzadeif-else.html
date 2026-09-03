@@ -1,547 +1,151 @@
-<!DOCTYPE html>
-<html lang="zh-cn" dir="ltr">
-    <head><meta charset='utf-8'>
-<meta name='viewport' content='width=device-width, initial-scale=1'><meta name='description' content="两年前的一个周五下午，我正准备进行代码Review，监控群突然炸了。核心交易系统的CPU水位飙升到90%，排查后发现，罪魁祸首竟是一段长达3000行的PaymentService类。\n那是典型的&quot;面条代码&quot;：为了支持不同渠道（支付宝、微信、银联）、不同商户类型、不同营销活动的组合，前人堆砌了数不清的if-else嵌套。一位新来的同事只是想加一个小众渠道的立减逻辑，结果因为没看清第18层嵌套的逻辑，导致全渠道金额计算错误。\n这不仅仅是代码丑陋的问题，这是架构的隐形债务。对于架构师和高级开发来说，复杂的if-else意味着高昂的认知成本、脆弱的扩展性和随时可能爆炸的线上雷。\n很多教程只讲设计模式的UML图，却不讲&quot;什么场景用什么&quot;。今天，我想结合这几年拆解10+线上架构优化的经验，聊聊如何用设计模式真正驯服这些复杂的判断逻辑。\n策略模式+Map：消灭&quot;并列式&quot;业务判断\r在电商、支付、物流等领域，我们最常见的就是&quot;根据类型A，执行逻辑B&quot;的代码。\n痛点场景： 2021年，我接手过一个营销发券系统。产品经理极富创意，每周都要搞新花样：满减券、折扣券、立减券、阶梯券&hellip;此时的代码大概长这样：\npublic void sendCoupon(User user, String type) { if (&#34;DISCOUNT&#34;.equals(type)) { // 50行折扣券逻辑 } else if (&#34;CASH_OFF&#34;.equals(type)) { // 80行立减券逻辑 } else if (&#34;LADDER&#34;.equals(type)) { // 100行阶梯券逻辑 } // ...还有十几个else } 每次上线新券种，都要修改主类，违反了开闭原则（OCP），且极易改坏旧逻辑。\n重构方案：策略模式 + Spring Map注入\n我们不需要手写工厂类，利用Spring的特性，可以将Bean Name作为Key，服务实例作为Value自动注入。\n定义接口：CouponStrategy，包含calculate()和send()方法。 具体实现：DiscountStrategy、CashOffStrategy分别实现接口，并标注@Component(&quot;DISCOUNT&quot;)。 Map路由： @Service public class CouponService { // Spring会自动将所有实现类注入到这个Map中 @Autowired private Map&lt;String, CouponStrategy&gt; strategyMap; public void sendCoupon(User user, String type) { CouponStrategy strategy = strategyMap.get(type); if (strategy == null) { throw new BusinessException(&#34;未知券类型&#34;); } strategy.send(user); } } 实战结果： 重构后，新增一种券类型只需新增一个类，主流程代码零修改。我们在双11大促期间，临时上线了3种新玩法，开发耗时从原来的2天缩短到4小时，且因为代码物理隔离，完全不担心影响核心链路。\n">
-<title>告别3000行if-else：核心链路重构的3个实战心法</title>
-
-<link rel='canonical' href='https://blog.irudder.me/tech/jiagouyouhuashizhananlijiexi/daimazhonggoushizhan_yongshejimoshiyouhuafuzadeif-else.html'>
-
-<link rel="stylesheet" href="/scss/style.min.b9e9128fec450ebccecc4ec9900157f32b85d0609bcd5ee3293968bcaa1235f2.css"><meta property='og:title' content="告别3000行if-else：核心链路重构的3个实战心法">
-<meta property='og:description' content="两年前的一个周五下午，我正准备进行代码Review，监控群突然炸了。核心交易系统的CPU水位飙升到90%，排查后发现，罪魁祸首竟是一段长达3000行的PaymentService类。\n那是典型的&quot;面条代码&quot;：为了支持不同渠道（支付宝、微信、银联）、不同商户类型、不同营销活动的组合，前人堆砌了数不清的if-else嵌套。一位新来的同事只是想加一个小众渠道的立减逻辑，结果因为没看清第18层嵌套的逻辑，导致全渠道金额计算错误。\n这不仅仅是代码丑陋的问题，这是架构的隐形债务。对于架构师和高级开发来说，复杂的if-else意味着高昂的认知成本、脆弱的扩展性和随时可能爆炸的线上雷。\n很多教程只讲设计模式的UML图，却不讲&quot;什么场景用什么&quot;。今天，我想结合这几年拆解10+线上架构优化的经验，聊聊如何用设计模式真正驯服这些复杂的判断逻辑。\n策略模式+Map：消灭&quot;并列式&quot;业务判断\r在电商、支付、物流等领域，我们最常见的就是&quot;根据类型A，执行逻辑B&quot;的代码。\n痛点场景： 2021年，我接手过一个营销发券系统。产品经理极富创意，每周都要搞新花样：满减券、折扣券、立减券、阶梯券&hellip;此时的代码大概长这样：\npublic void sendCoupon(User user, String type) { if (&#34;DISCOUNT&#34;.equals(type)) { // 50行折扣券逻辑 } else if (&#34;CASH_OFF&#34;.equals(type)) { // 80行立减券逻辑 } else if (&#34;LADDER&#34;.equals(type)) { // 100行阶梯券逻辑 } // ...还有十几个else } 每次上线新券种，都要修改主类，违反了开闭原则（OCP），且极易改坏旧逻辑。\n重构方案：策略模式 + Spring Map注入\n我们不需要手写工厂类，利用Spring的特性，可以将Bean Name作为Key，服务实例作为Value自动注入。\n定义接口：CouponStrategy，包含calculate()和send()方法。 具体实现：DiscountStrategy、CashOffStrategy分别实现接口，并标注@Component(&quot;DISCOUNT&quot;)。 Map路由： @Service public class CouponService { // Spring会自动将所有实现类注入到这个Map中 @Autowired private Map&lt;String, CouponStrategy&gt; strategyMap; public void sendCoupon(User user, String type) { CouponStrategy strategy = strategyMap.get(type); if (strategy == null) { throw new BusinessException(&#34;未知券类型&#34;); } strategy.send(user); } } 实战结果： 重构后，新增一种券类型只需新增一个类，主流程代码零修改。我们在双11大促期间，临时上线了3种新玩法，开发耗时从原来的2天缩短到4小时，且因为代码物理隔离，完全不担心影响核心链路。\n">
-<meta property='og:url' content='https://blog.irudder.me/tech/jiagouyouhuashizhananlijiexi/daimazhonggoushizhan_yongshejimoshiyouhuafuzadeif-else.html'>
-<meta property='og:site_name' content='SelfTechHub'>
-<meta property='og:type' content='article'><meta property='article:section' content='Tech' /><meta property='article:tag' content='代码重构实战：用设计模式优化复杂的if-else' /><meta property='article:published_time' content='2022-02-16T00:00:00&#43;00:00'/><meta property='article:modified_time' content='2022-02-16T00:00:00&#43;00:00'/>
-<meta name="twitter:title" content="告别3000行if-else：核心链路重构的3个实战心法">
-<meta name="twitter:description" content="两年前的一个周五下午，我正准备进行代码Review，监控群突然炸了。核心交易系统的CPU水位飙升到90%，排查后发现，罪魁祸首竟是一段长达3000行的PaymentService类。\n那是典型的&quot;面条代码&quot;：为了支持不同渠道（支付宝、微信、银联）、不同商户类型、不同营销活动的组合，前人堆砌了数不清的if-else嵌套。一位新来的同事只是想加一个小众渠道的立减逻辑，结果因为没看清第18层嵌套的逻辑，导致全渠道金额计算错误。\n这不仅仅是代码丑陋的问题，这是架构的隐形债务。对于架构师和高级开发来说，复杂的if-else意味着高昂的认知成本、脆弱的扩展性和随时可能爆炸的线上雷。\n很多教程只讲设计模式的UML图，却不讲&quot;什么场景用什么&quot;。今天，我想结合这几年拆解10+线上架构优化的经验，聊聊如何用设计模式真正驯服这些复杂的判断逻辑。\n策略模式+Map：消灭&quot;并列式&quot;业务判断\r在电商、支付、物流等领域，我们最常见的就是&quot;根据类型A，执行逻辑B&quot;的代码。\n痛点场景： 2021年，我接手过一个营销发券系统。产品经理极富创意，每周都要搞新花样：满减券、折扣券、立减券、阶梯券&hellip;此时的代码大概长这样：\npublic void sendCoupon(User user, String type) { if (&#34;DISCOUNT&#34;.equals(type)) { // 50行折扣券逻辑 } else if (&#34;CASH_OFF&#34;.equals(type)) { // 80行立减券逻辑 } else if (&#34;LADDER&#34;.equals(type)) { // 100行阶梯券逻辑 } // ...还有十几个else } 每次上线新券种，都要修改主类，违反了开闭原则（OCP），且极易改坏旧逻辑。\n重构方案：策略模式 + Spring Map注入\n我们不需要手写工厂类，利用Spring的特性，可以将Bean Name作为Key，服务实例作为Value自动注入。\n定义接口：CouponStrategy，包含calculate()和send()方法。 具体实现：DiscountStrategy、CashOffStrategy分别实现接口，并标注@Component(&quot;DISCOUNT&quot;)。 Map路由： @Service public class CouponService { // Spring会自动将所有实现类注入到这个Map中 @Autowired private Map&lt;String, CouponStrategy&gt; strategyMap; public void sendCoupon(User user, String type) { CouponStrategy strategy = strategyMap.get(type); if (strategy == null) { throw new BusinessException(&#34;未知券类型&#34;); } strategy.send(user); } } 实战结果： 重构后，新增一种券类型只需新增一个类，主流程代码零修改。我们在双11大促期间，临时上线了3种新玩法，开发耗时从原来的2天缩短到4小时，且因为代码物理隔离，完全不担心影响核心链路。\n">
-    </head>
-    <body class="
-    article-page
-    ">
-    <script>
-        (function() {
-            const colorSchemeKey = 'StackColorScheme';
-            if(!localStorage.getItem(colorSchemeKey)){
-                localStorage.setItem(colorSchemeKey, "auto");
-            }
-        })();
-    </script><script>
-    (function() {
-        const colorSchemeKey = 'StackColorScheme';
-        const colorSchemeItem = localStorage.getItem(colorSchemeKey);
-        const supportDarkMode = window.matchMedia('(prefers-color-scheme: dark)').matches === true;
-
-        if (colorSchemeItem == 'dark' || colorSchemeItem === 'auto' && supportDarkMode) {
-            
-
-            document.documentElement.dataset.scheme = 'dark';
-        } else {
-            document.documentElement.dataset.scheme = 'light';
-        }
-    })();
-</script>
-<div class="container main-container flex on-phone--column compact"><aside class="sidebar left-sidebar sticky ">
-    <button class="hamburger hamburger--spin" type="button" id="toggle-menu" aria-label="切换菜单">
-        <span class="hamburger-box">
-            <span class="hamburger-inner"></span>
-        </span>
-    </button>
-
-    <header>
-        
-            
-            <figure class="site-avatar">
-                <a href="/">
-                
-                    
-                    
-                    
-                        
-                        <img src="/img/avatar_hu_8588ce14af1147e2.png" width="300"
-                            height="286" class="site-logo" loading="lazy" alt="Avatar">
-                    
-                
-                </a>
-                
-            </figure>
-            
-        
-        
-        <div class="site-meta">
-            <h1 class="site-name"><a href="/">SelfTechHub</a></h1>
-            <h2 class="site-description"></h2>
-        </div>
-    </header><ol class="menu" id="main-menu">
-        
-        
-        <li class="menu-bottom-section">
-            <ol class="menu">
-
-                
-                    <li id="dark-mode-toggle">
-                        <svg xmlns="http://www.w3.org/2000/svg" class="icon icon-tabler icon-tabler-toggle-left" width="24" height="24" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor" fill="none" stroke-linecap="round" stroke-linejoin="round">
-  <path stroke="none" d="M0 0h24v24H0z"/>
-  <circle cx="8" cy="12" r="2" />
-  <rect x="2" y="6" width="20" height="12" rx="6" />
-</svg>
-
-
-
-                        <svg xmlns="http://www.w3.org/2000/svg" class="icon icon-tabler icon-tabler-toggle-right" width="24" height="24" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor" fill="none" stroke-linecap="round" stroke-linejoin="round">
-  <path stroke="none" d="M0 0h24v24H0z"/>
-  <circle cx="16" cy="12" r="2" />
-  <rect x="2" y="6" width="20" height="12" rx="6" />
-</svg>
-
-
-
-                        <span>暗色模式</span>
-                    </li>
-                
-            </ol>
-        </li>
-    </ol>
-</aside>
-
-    
-
-            <main class="main full-width">
-    <article class="main-article">
-    <header class="article-header">
-
-    <div class="article-details">
-    
-    <header class="article-category">
-        
-            <a href="/categories/%E6%8A%80%E6%9C%AF.html" >
-                技术精进
-            </a>
-        
-    </header>
-    
-
-    <div class="article-title-wrapper">
-        <h2 class="article-title">
-            <a href="/tech/jiagouyouhuashizhananlijiexi/daimazhonggoushizhan_yongshejimoshiyouhuafuzadeif-else.html">告别3000行if-else：核心链路重构的3个实战心法</a>
-        </h2>
-    
-        
-    </div>
-
-    
-    
-    
-    
-    <footer class="article-time">
-        
-            <div>
-                <svg xmlns="http://www.w3.org/2000/svg" class="icon icon-tabler icon-tabler-calendar-time" width="56" height="56" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor" fill="none" stroke-linecap="round" stroke-linejoin="round">
-  <path stroke="none" d="M0 0h24v24H0z"/>
-  <path d="M11.795 21h-6.795a2 2 0 0 1 -2 -2v-12a2 2 0 0 1 2 -2h12a2 2 0 0 1 2 2v4" />
-  <circle cx="18" cy="18" r="4" />
-  <path d="M15 3v4" />
-  <path d="M7 3v4" />
-  <path d="M3 11h16" />
-  <path d="M18 16.496v1.504l1 1" />
-</svg>
-                <time class="article-time--published" datetime='2022-02-16T00:00:00Z'>Feb 16, 2022</time>
-            </div>
-        
-
-        
-            <div>
-                <svg xmlns="http://www.w3.org/2000/svg" class="icon icon-tabler icon-tabler-clock" width="24" height="24" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor" fill="none" stroke-linecap="round" stroke-linejoin="round">
-  <path stroke="none" d="M0 0h24v24H0z"/>
-  <circle cx="12" cy="12" r="9" />
-  <polyline points="12 7 12 12 15 15" />
-</svg>
-
-
-
-                <time class="article-time--reading">
-                    阅读时长: 2 分钟
-                </time>
-            </div>
-        
-    </footer>
-    
-
-    
-</div>
-
-</header>
-
-    <section class="article-content">
-    
-    
-    <p>两年前的一个周五下午，我正准备进行代码Review，监控群突然炸了。核心交易系统的CPU水位飙升到90%，排查后发现，罪魁祸首竟是一段长达3000行的<code>PaymentService</code>类。</p>
-<p>那是典型的&quot;面条代码&quot;：为了支持不同渠道（支付宝、微信、银联）、不同商户类型、不同营销活动的组合，前人堆砌了数不清的<code>if-else</code>嵌套。一位新来的同事只是想加一个小众渠道的立减逻辑，结果因为没看清第18层嵌套的逻辑，导致全渠道金额计算错误。</p>
-<p>这不仅仅是代码丑陋的问题，<strong>这是架构的隐形债务</strong>。对于架构师和高级开发来说，复杂的<code>if-else</code>意味着高昂的认知成本、脆弱的扩展性和随时可能爆炸的线上雷。</p>
-<p>很多教程只讲设计模式的UML图，却不讲&quot;什么场景用什么&quot;。今天，我想结合这几年拆解10+线上架构优化的经验，聊聊如何用设计模式真正驯服这些复杂的判断逻辑。</p>
-<h3 id="策略模式map消灭并列式业务判断">策略模式+Map：消灭&quot;并列式&quot;业务判断
-</h3><p>在电商、支付、物流等领域，我们最常见的就是&quot;根据类型A，执行逻辑B&quot;的代码。</p>
-<p><strong>痛点场景：</strong>
-2021年，我接手过一个营销发券系统。产品经理极富创意，每周都要搞新花样：满减券、折扣券、立减券、阶梯券&hellip;此时的代码大概长这样：</p>
-<div class="highlight"><pre tabindex="0" style="color:#f8f8f2;background-color:#272822;-moz-tab-size:4;-o-tab-size:4;tab-size:4;"><code class="language-java" data-lang="java"><span style="display:flex;"><span><span style="color:#66d9ef">public</span> <span style="color:#66d9ef">void</span> <span style="color:#a6e22e">sendCoupon</span>(User user, String type) {
-</span></span><span style="display:flex;"><span>    <span style="color:#66d9ef">if</span> (<span style="color:#e6db74">&#34;DISCOUNT&#34;</span>.<span style="color:#a6e22e">equals</span>(type)) {
-</span></span><span style="display:flex;"><span>        <span style="color:#75715e">// 50行折扣券逻辑</span>
-</span></span><span style="display:flex;"><span>    } <span style="color:#66d9ef">else</span> <span style="color:#66d9ef">if</span> (<span style="color:#e6db74">&#34;CASH_OFF&#34;</span>.<span style="color:#a6e22e">equals</span>(type)) {
-</span></span><span style="display:flex;"><span>        <span style="color:#75715e">// 80行立减券逻辑</span>
-</span></span><span style="display:flex;"><span>    } <span style="color:#66d9ef">else</span> <span style="color:#66d9ef">if</span> (<span style="color:#e6db74">&#34;LADDER&#34;</span>.<span style="color:#a6e22e">equals</span>(type)) {
-</span></span><span style="display:flex;"><span>        <span style="color:#75715e">// 100行阶梯券逻辑</span>
-</span></span><span style="display:flex;"><span>    } 
-</span></span><span style="display:flex;"><span>    <span style="color:#75715e">// ...还有十几个else</span>
-</span></span><span style="display:flex;"><span>}
-</span></span></code></pre></div><p>每次上线新券种，都要修改主类，违反了<strong>开闭原则（OCP）</strong>，且极易改坏旧逻辑。</p>
-<p><strong>重构方案：策略模式 + Spring Map注入</strong></p>
-<p>我们不需要手写工厂类，利用Spring的特性，可以将Bean Name作为Key，服务实例作为Value自动注入。</p>
-<p><img src="https://picsum.photos/800/450?random=1768457548081"
-	
-	
-	
-	loading="lazy"
-	
-		alt="配图"
-	
-	
-></p>
-<ol>
-<li><strong>定义接口</strong>：<code>CouponStrategy</code>，包含<code>calculate()</code>和<code>send()</code>方法。</li>
-<li><strong>具体实现</strong>：<code>DiscountStrategy</code>、<code>CashOffStrategy</code>分别实现接口，并标注<code>@Component(&quot;DISCOUNT&quot;)</code>。</li>
-<li><strong>Map路由</strong>：</li>
-</ol>
-<div class="highlight"><pre tabindex="0" style="color:#f8f8f2;background-color:#272822;-moz-tab-size:4;-o-tab-size:4;tab-size:4;"><code class="language-java" data-lang="java"><span style="display:flex;"><span><span style="color:#a6e22e">@Service</span>
-</span></span><span style="display:flex;"><span><span style="color:#66d9ef">public</span> <span style="color:#66d9ef">class</span> <span style="color:#a6e22e">CouponService</span> {
-</span></span><span style="display:flex;"><span>    <span style="color:#75715e">// Spring会自动将所有实现类注入到这个Map中</span>
-</span></span><span style="display:flex;"><span>    <span style="color:#a6e22e">@Autowired</span>
-</span></span><span style="display:flex;"><span>    <span style="color:#66d9ef">private</span> Map<span style="color:#f92672">&lt;</span>String, CouponStrategy<span style="color:#f92672">&gt;</span> strategyMap;
-</span></span><span style="display:flex;"><span>
-</span></span><span style="display:flex;"><span>    <span style="color:#66d9ef">public</span> <span style="color:#66d9ef">void</span> <span style="color:#a6e22e">sendCoupon</span>(User user, String type) {
-</span></span><span style="display:flex;"><span>        CouponStrategy strategy <span style="color:#f92672">=</span> strategyMap.<span style="color:#a6e22e">get</span>(type);
-</span></span><span style="display:flex;"><span>        <span style="color:#66d9ef">if</span> (strategy <span style="color:#f92672">==</span> <span style="color:#66d9ef">null</span>) {
-</span></span><span style="display:flex;"><span>            <span style="color:#66d9ef">throw</span> <span style="color:#66d9ef">new</span> BusinessException(<span style="color:#e6db74">&#34;未知券类型&#34;</span>);
-</span></span><span style="display:flex;"><span>        }
-</span></span><span style="display:flex;"><span>        strategy.<span style="color:#a6e22e">send</span>(user);
-</span></span><span style="display:flex;"><span>    }
-</span></span><span style="display:flex;"><span>}
-</span></span></code></pre></div><p><strong>实战结果：</strong>
-重构后，新增一种券类型只需新增一个类，<strong>主流程代码零修改</strong>。我们在双11大促期间，临时上线了3种新玩法，开发耗时从原来的2天缩短到4小时，且因为代码物理隔离，完全不担心影响核心链路。</p>
-<h3 id="责任链模式驯服漏斗式多重校验">责任链模式：驯服&quot;漏斗式&quot;多重校验
-</h3><p>另一种让人头秃的场景是复杂的校验逻辑，像漏斗一样层层过滤。</p>
-<p><strong>痛点场景：</strong>
-在一个信贷审批系统中，用户发起借款前需要经过：黑名单校验、地域限制校验、额度校验、风控评分校验、产品状态校验&hellip;</p>
-<p>原来的代码是这样的：</p>
-<div class="highlight"><pre tabindex="0" style="color:#f8f8f2;background-color:#272822;-moz-tab-size:4;-o-tab-size:4;tab-size:4;"><code class="language-java" data-lang="java"><span style="display:flex;"><span><span style="color:#66d9ef">if</span> (checkBlacklist(user)) {
-</span></span><span style="display:flex;"><span>    <span style="color:#66d9ef">if</span> (checkLocation(user)) {
-</span></span><span style="display:flex;"><span>        <span style="color:#66d9ef">if</span> (checkQuota(user)) {
-</span></span><span style="display:flex;"><span>             <span style="color:#75715e">// 业务逻辑...</span>
-</span></span><span style="display:flex;"><span>        } <span style="color:#66d9ef">else</span> {
-</span></span><span style="display:flex;"><span>             <span style="color:#66d9ef">return</span> <span style="color:#e6db74">&#34;额度不足&#34;</span>;
-</span></span><span style="display:flex;"><span>        }
-</span></span><span style="display:flex;"><span>    } <span style="color:#66d9ef">else</span> {
-</span></span><span style="display:flex;"><span>        <span style="color:#66d9ef">return</span> <span style="color:#e6db74">&#34;地区不支持&#34;</span>;
-</span></span><span style="display:flex;"><span>    }
-</span></span><span style="display:flex;"><span>} <span style="color:#66d9ef">else</span> {
-</span></span><span style="display:flex;"><span>    <span style="color:#66d9ef">return</span> <span style="color:#e6db74">&#34;黑名单用户&#34;</span>;
-</span></span><span style="display:flex;"><span>}
-</span></span></code></pre></div><p>这种代码被称为&quot;箭头型代码&quot;，不仅难读，而且难以调整顺序。如果运营要求&quot;先把地区校验提到黑名单校验之前&quot;，开发人员可能要重构半天。</p>
-<p><strong>重构方案：责任链模式（Chain of Responsibility）</strong></p>
-<p>我们要把每一个校验逻辑封装成一个独立的&quot;处理器（Handler）&quot;，然后像搭积木一样把它们串起来。</p>
-<ol>
-<li><strong>抽象基类</strong>：定义<code>AbstractCheckHandler</code>，包含<code>nextHandler</code>引用和<code>check()</code>方法。</li>
-<li><strong>链式组装</strong>：可以通过数据库配置或Spring Order注解来定义链条的顺序。</li>
-</ol>
-<div class="highlight"><pre tabindex="0" style="color:#f8f8f2;background-color:#272822;-moz-tab-size:4;-o-tab-size:4;tab-size:4;"><code class="language-java" data-lang="java"><span style="display:flex;"><span><span style="color:#66d9ef">public</span> <span style="color:#66d9ef">abstract</span> <span style="color:#66d9ef">class</span> <span style="color:#a6e22e">AbstractCheckHandler</span> {
-</span></span><span style="display:flex;"><span>    <span style="color:#66d9ef">protected</span> AbstractCheckHandler next;
-</span></span><span style="display:flex;"><span>    
-</span></span><span style="display:flex;"><span>    <span style="color:#66d9ef">public</span> <span style="color:#66d9ef">void</span> <span style="color:#a6e22e">setNext</span>(AbstractCheckHandler next) { <span style="color:#66d9ef">this</span>.<span style="color:#a6e22e">next</span> <span style="color:#f92672">=</span> next; }
-</span></span><span style="display:flex;"><span>    
-</span></span><span style="display:flex;"><span>    <span style="color:#66d9ef">public</span> Result <span style="color:#a6e22e">filter</span>(User user) {
-</span></span><span style="display:flex;"><span>        <span style="color:#66d9ef">if</span> (<span style="color:#f92672">!</span>doCheck(user)) {
-</span></span><span style="display:flex;"><span>            <span style="color:#66d9ef">return</span> fail();
-</span></span><span style="display:flex;"><span>        }
-</span></span><span style="display:flex;"><span>        <span style="color:#66d9ef">if</span> (next <span style="color:#f92672">!=</span> <span style="color:#66d9ef">null</span>) {
-</span></span><span style="display:flex;"><span>            <span style="color:#66d9ef">return</span> next.<span style="color:#a6e22e">filter</span>(user);
-</span></span><span style="display:flex;"><span>        }
-</span></span><span style="display:flex;"><span>        <span style="color:#66d9ef">return</span> success();
-</span></span><span style="display:flex;"><span>    }
-</span></span><span style="display:flex;"><span>    
-</span></span><span style="display:flex;"><span>    <span style="color:#66d9ef">protected</span> <span style="color:#66d9ef">abstract</span> <span style="color:#66d9ef">boolean</span> <span style="color:#a6e22e">doCheck</span>(User user);
-</span></span><span style="display:flex;"><span>}
-</span></span></code></pre></div><p><strong>实战结果：</strong>
+<!doctype html><html lang=zh-cn dir=ltr><head><meta charset=utf-8><meta name=viewport content='width=device-width,initial-scale=1'><meta name=description content="两年前的一个周五下午，我正准备进行代码Review，监控群突然炸了。核心交易系统的CPU水位飙升到90%，排查后发现，罪魁祸首竟是一段长达3000行的PaymentService类。"><title>告别3000行if-else：核心链路重构的3个实战心法</title><link rel=canonical href=https://blog.irudder.me/tech/jiagouyouhuashizhananlijiexi/daimazhonggoushizhan_yongshejimoshiyouhuafuzadeif-else.html><link rel=stylesheet href=/scss/style.min.c77ce1b874b29b2ee9e54a89066c79ebf35cbe9cf399b31ab5d79167f9a965c9.css><meta property='og:title' content="告别3000行if-else：核心链路重构的3个实战心法"><meta property='og:description' content="两年前的一个周五下午，我正准备进行代码Review，监控群突然炸了。核心交易系统的CPU水位飙升到90%，排查后发现，罪魁祸首竟是一段长达3000行的PaymentService类。"><meta property='og:url' content='https://blog.irudder.me/tech/jiagouyouhuashizhananlijiexi/daimazhonggoushizhan_yongshejimoshiyouhuafuzadeif-else.html'><meta property='og:site_name' content='SelfTechHub'><meta property='og:type' content='article'><meta property='article:section' content='Tech'><meta property='article:tag' content='代码重构实战：用设计模式优化复杂的if-else'><meta property='article:published_time' content='2022-02-16T00:00:00+08:00'><meta property='article:modified_time' content='2022-02-16T00:00:00+08:00'><meta name=twitter:title content="告别3000行if-else：核心链路重构的3个实战心法"><meta name=twitter:description content="两年前的一个周五下午，我正准备进行代码Review，监控群突然炸了。核心交易系统的CPU水位飙升到90%，排查后发现，罪魁祸首竟是一段长达3000行的PaymentService类。"><link rel="shortcut icon" href=/images/logo.png></head><body class=article-page><script>(function(){const e="StackColorScheme";localStorage.getItem(e)||localStorage.setItem(e,"auto")})()</script><script>(function(){const t="StackColorScheme",e=localStorage.getItem(t),n=window.matchMedia("(prefers-color-scheme: dark)").matches===!0;e=="dark"||e==="auto"&&n?document.documentElement.dataset.scheme="dark":document.documentElement.dataset.scheme="light"})()</script><div class="container main-container flex on-phone--column extended"><aside class="sidebar left-sidebar sticky"><button class="hamburger hamburger--spin" type=button id=toggle-menu aria-label=切换菜单>
+<span class=hamburger-box><span class=hamburger-inner></span></span></button><header><figure class=site-avatar><a href=/><img src=/img/avatar_hu_8588ce14af1147e2.png width=300 height=286 class=site-logo loading=lazy alt=Avatar>
+</a><span class=emoji>🧠</span></figure><div class=site-meta><h1 class=site-name><a href=/>SelfTechHub</a></h1><h2 class=site-description>成长 · 技术 · 商业 · AI —— 把碎片知识沉淀为可复用的记忆体系</h2></div></header><ol class=menu-social><li><a href=https://github.com/pastor17 target=_blank title=GitHub rel=me><svg class="icon icon-tabler icon-tabler-brand-github" width="24" height="24" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor" fill="none" stroke-linecap="round" stroke-linejoin="round"><path stroke="none" d="M0 0h24v24H0z" fill="none"/><path d="M9 19c-4.3 1.4-4.3-2.5-6-3m12 5v-3.5c0-1 .1-1.4-.5-2 2.8-.3 5.5-1.4 5.5-6a4.6 4.6.0 00-1.3-3.2 4.2 4.2.0 00-.1-3.2s-1.1-.3-3.5 1.3a12.3 12.3.0 00-6.2.0C6.5 2.8 5.4 3.1 5.4 3.1a4.2 4.2.0 00-.1 3.2A4.6 4.6.0 004 9.5c0 4.6 2.7 5.7 5.5 6-.6.6-.6 1.2-.5 2V21"/></svg></a></li></ol><ol class=menu id=main-menu><li><a href=/><svg class="icon icon-tabler icon-tabler-home" width="24" height="24" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor" fill="none" stroke-linecap="round" stroke-linejoin="round"><path stroke="none" d="M0 0h24v24H0z"/><polyline points="5 12 3 12 12 3 21 12 19 12"/><path d="M5 12v7a2 2 0 002 2h10a2 2 0 002-2v-7"/><path d="M9 21v-6a2 2 0 012-2h2a2 2 0 012 2v6"/></svg>
+<span>首页</span></a></li><li><a href=/categories/%E6%88%90%E9%95%BF.html><span>成长认知</span></a></li><li><a href=/categories/%E6%8A%80%E6%9C%AF.html><span>技术精进</span></a></li><li><a href=/categories/%E5%95%86%E4%B8%9A.html><span>商业·财富</span></a></li><li><a href=/categories/ai.html><span>探索AI</span></a></li><li><a href=/about/><svg class="icon icon-tabler icon-tabler-user" width="24" height="24" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor" fill="none" stroke-linecap="round" stroke-linejoin="round"><path stroke="none" d="M0 0h24v24H0z"/><circle cx="12" cy="7" r="4"/><path d="M6 21v-2a4 4 0 014-4h4a4 4 0 014 4v2"/></svg>
+<span>关于</span></a></li><li class=menu-bottom-section><ol class=menu><li id=dark-mode-toggle><svg class="icon icon-tabler icon-tabler-toggle-left" width="24" height="24" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor" fill="none" stroke-linecap="round" stroke-linejoin="round"><path stroke="none" d="M0 0h24v24H0z"/><circle cx="8" cy="12" r="2"/><rect x="2" y="6" width="20" height="12" rx="6"/></svg>
+<svg class="icon icon-tabler icon-tabler-toggle-right" width="24" height="24" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor" fill="none" stroke-linecap="round" stroke-linejoin="round"><path stroke="none" d="M0 0h24v24H0z"/><circle cx="16" cy="12" r="2"/><rect x="2" y="6" width="20" height="12" rx="6"/></svg>
+<span>暗色模式</span></li></ol></li></ol></aside><aside class="sidebar right-sidebar sticky"><section class="widget archives"><div class=widget-icon><svg class="icon icon-tabler icon-tabler-hash" width="24" height="24" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor" fill="none" stroke-linecap="round" stroke-linejoin="round"><path stroke="none" d="M0 0h24v24H0z"/><line x1="5" y1="9" x2="19" y2="9"/><line x1="5" y1="15" x2="19" y2="15"/><line x1="11" y1="4" x2="7" y2="20"/><line x1="17" y1="4" x2="13" y2="20"/></svg></div><h2 class="widget-title section-title">目录</h2><div class=widget--toc><nav id=TableOfContents><ul><li><ul><li><a href=#策略模式map消灭并列式业务判断>策略模式+Map：消灭"并列式"业务判断</a></li><li><a href=#责任链模式驯服漏斗式多重校验>责任链模式：驯服"漏斗式"多重校验</a></li><li><a href=#状态模式治理流转式复杂状态>状态模式：治理"流转式"复杂状态</a></li><li><a href=#总结与落地工具>总结与落地工具</a></li></ul></li></ul></nav></div></section></aside><main class="main full-width"><article class=main-article><header class=article-header><div class=article-details><header class=article-category><a href=/categories/%E6%8A%80%E6%9C%AF.html>技术精进</a></header><div class=article-title-wrapper><h2 class=article-title><a href=/tech/jiagouyouhuashizhananlijiexi/daimazhonggoushizhan_yongshejimoshiyouhuafuzadeif-else.html>告别3000行if-else：核心链路重构的3个实战心法</a></h2><h3 class=article-subtitle>两年前的一个周五下午，我正准备进行代码Review，监控群突然炸了。核心交易系统的CPU水位飙升到90%，排查后发现，罪魁祸首竟是一段长达3000行的PaymentService类。</h3></div><footer class=article-time><div><svg class="icon icon-tabler icon-tabler-calendar-time" width="56" height="56" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor" fill="none" stroke-linecap="round" stroke-linejoin="round"><path stroke="none" d="M0 0h24v24H0z"/><path d="M11.795 21H5a2 2 0 01-2-2V7a2 2 0 012-2h12a2 2 0 012 2v4"/><circle cx="18" cy="18" r="4"/><path d="M15 3v4"/><path d="M7 3v4"/><path d="M3 11h16"/><path d="M18 16.496V18l1 1"/></svg>
+<time class=article-time--published datetime=2022-02-16T00:00:00+08:00>2022-02-16</time></div><div><svg class="icon icon-tabler icon-tabler-clock" width="24" height="24" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor" fill="none" stroke-linecap="round" stroke-linejoin="round"><path stroke="none" d="M0 0h24v24H0z"/><circle cx="12" cy="12" r="9"/><polyline points="12 7 12 12 15 15"/></svg>
+<time class=article-time--reading>阅读时长: 7 分钟</time></div></footer></div></header><section class=article-content><p>两年前的一个周五下午，我正准备进行代码Review，监控群突然炸了。核心交易系统的CPU水位飙升到90%，排查后发现，罪魁祸首竟是一段长达3000行的<code>PaymentService</code>类。</p><p>那是典型的"面条代码"：为了支持不同渠道（支付宝、微信、银联）、不同商户类型、不同营销活动的组合，前人堆砌了数不清的<code>if-else</code>嵌套。一位新来的同事只是想加一个小众渠道的立减逻辑，结果因为没看清第18层嵌套的逻辑，导致全渠道金额计算错误。</p><p>这不仅仅是代码丑陋的问题，<strong>这是架构的隐形债务</strong>。对于架构师和高级开发来说，复杂的<code>if-else</code>意味着高昂的认知成本、脆弱的扩展性和随时可能爆炸的线上雷。</p><p>很多教程只讲设计模式的UML图，却不讲"什么场景用什么"。今天，我想结合这几年拆解10+线上架构优化的经验，聊聊如何用设计模式真正驯服这些复杂的判断逻辑。</p><h3 id=策略模式map消灭并列式业务判断>策略模式+Map：消灭"并列式"业务判断</h3><p>在电商、支付、物流等领域，我们最常见的就是"根据类型A，执行逻辑B"的代码。</p><p><strong>痛点场景：</strong>
+2021年，我接手过一个营销发券系统。产品经理极富创意，每周都要搞新花样：满减券、折扣券、立减券、阶梯券&mldr;此时的代码大概长这样：</p><div class=highlight><div class=chroma><table class=lntable><tr><td class=lntd><pre tabindex=0 class=chroma><code><span class=lnt> 1
+</span><span class=lnt> 2
+</span><span class=lnt> 3
+</span><span class=lnt> 4
+</span><span class=lnt> 5
+</span><span class=lnt> 6
+</span><span class=lnt> 7
+</span><span class=lnt> 8
+</span><span class=lnt> 9
+</span><span class=lnt>10
+</span></code></pre></td><td class=lntd><pre tabindex=0 class=chroma><code class=language-java data-lang=java><span class=line><span class=cl><span class=kd>public</span><span class=w> </span><span class=kt>void</span><span class=w> </span><span class=nf>sendCoupon</span><span class=p>(</span><span class=n>User</span><span class=w> </span><span class=n>user</span><span class=p>,</span><span class=w> </span><span class=n>String</span><span class=w> </span><span class=n>type</span><span class=p>)</span><span class=w> </span><span class=p>{</span><span class=w>
+</span></span></span><span class=line><span class=cl><span class=w>    </span><span class=k>if</span><span class=w> </span><span class=p>(</span><span class=s>&#34;DISCOUNT&#34;</span><span class=p>.</span><span class=na>equals</span><span class=p>(</span><span class=n>type</span><span class=p>))</span><span class=w> </span><span class=p>{</span><span class=w>
+</span></span></span><span class=line><span class=cl><span class=w>        </span><span class=c1>// 50行折扣券逻辑</span><span class=w>
+</span></span></span><span class=line><span class=cl><span class=w>    </span><span class=p>}</span><span class=w> </span><span class=k>else</span><span class=w> </span><span class=k>if</span><span class=w> </span><span class=p>(</span><span class=s>&#34;CASH_OFF&#34;</span><span class=p>.</span><span class=na>equals</span><span class=p>(</span><span class=n>type</span><span class=p>))</span><span class=w> </span><span class=p>{</span><span class=w>
+</span></span></span><span class=line><span class=cl><span class=w>        </span><span class=c1>// 80行立减券逻辑</span><span class=w>
+</span></span></span><span class=line><span class=cl><span class=w>    </span><span class=p>}</span><span class=w> </span><span class=k>else</span><span class=w> </span><span class=k>if</span><span class=w> </span><span class=p>(</span><span class=s>&#34;LADDER&#34;</span><span class=p>.</span><span class=na>equals</span><span class=p>(</span><span class=n>type</span><span class=p>))</span><span class=w> </span><span class=p>{</span><span class=w>
+</span></span></span><span class=line><span class=cl><span class=w>        </span><span class=c1>// 100行阶梯券逻辑</span><span class=w>
+</span></span></span><span class=line><span class=cl><span class=w>    </span><span class=p>}</span><span class=w> 
+</span></span></span><span class=line><span class=cl><span class=w>    </span><span class=c1>// ...还有十几个else</span><span class=w>
+</span></span></span><span class=line><span class=cl><span class=w></span><span class=p>}</span><span class=w>
+</span></span></span></code></pre></td></tr></table></div></div><p>每次上线新券种，都要修改主类，违反了<strong>开闭原则（OCP）</strong>，且极易改坏旧逻辑。</p><p><strong>重构方案：策略模式 + Spring Map注入</strong></p><p>我们不需要手写工厂类，利用Spring的特性，可以将Bean Name作为Key，服务实例作为Value自动注入。</p><p><img src="https://picsum.photos/800/450?random=1768457548081" loading=lazy alt=配图></p><ol><li><strong>定义接口</strong>：<code>CouponStrategy</code>，包含<code>calculate()</code>和<code>send()</code>方法。</li><li><strong>具体实现</strong>：<code>DiscountStrategy</code>、<code>CashOffStrategy</code>分别实现接口，并标注<code>@Component("DISCOUNT")</code>。</li><li><strong>Map路由</strong>：</li></ol><div class=highlight><div class=chroma><table class=lntable><tr><td class=lntd><pre tabindex=0 class=chroma><code><span class=lnt> 1
+</span><span class=lnt> 2
+</span><span class=lnt> 3
+</span><span class=lnt> 4
+</span><span class=lnt> 5
+</span><span class=lnt> 6
+</span><span class=lnt> 7
+</span><span class=lnt> 8
+</span><span class=lnt> 9
+</span><span class=lnt>10
+</span><span class=lnt>11
+</span><span class=lnt>12
+</span><span class=lnt>13
+</span><span class=lnt>14
+</span></code></pre></td><td class=lntd><pre tabindex=0 class=chroma><code class=language-java data-lang=java><span class=line><span class=cl><span class=nd>@Service</span><span class=w>
+</span></span></span><span class=line><span class=cl><span class=w></span><span class=kd>public</span><span class=w> </span><span class=kd>class</span> <span class=nc>CouponService</span><span class=w> </span><span class=p>{</span><span class=w>
+</span></span></span><span class=line><span class=cl><span class=w>    </span><span class=c1>// Spring会自动将所有实现类注入到这个Map中</span><span class=w>
+</span></span></span><span class=line><span class=cl><span class=w>    </span><span class=nd>@Autowired</span><span class=w>
+</span></span></span><span class=line><span class=cl><span class=w>    </span><span class=kd>private</span><span class=w> </span><span class=n>Map</span><span class=o>&lt;</span><span class=n>String</span><span class=p>,</span><span class=w> </span><span class=n>CouponStrategy</span><span class=o>&gt;</span><span class=w> </span><span class=n>strategyMap</span><span class=p>;</span><span class=w>
+</span></span></span><span class=line><span class=cl><span class=w>
+</span></span></span><span class=line><span class=cl><span class=w>    </span><span class=kd>public</span><span class=w> </span><span class=kt>void</span><span class=w> </span><span class=nf>sendCoupon</span><span class=p>(</span><span class=n>User</span><span class=w> </span><span class=n>user</span><span class=p>,</span><span class=w> </span><span class=n>String</span><span class=w> </span><span class=n>type</span><span class=p>)</span><span class=w> </span><span class=p>{</span><span class=w>
+</span></span></span><span class=line><span class=cl><span class=w>        </span><span class=n>CouponStrategy</span><span class=w> </span><span class=n>strategy</span><span class=w> </span><span class=o>=</span><span class=w> </span><span class=n>strategyMap</span><span class=p>.</span><span class=na>get</span><span class=p>(</span><span class=n>type</span><span class=p>);</span><span class=w>
+</span></span></span><span class=line><span class=cl><span class=w>        </span><span class=k>if</span><span class=w> </span><span class=p>(</span><span class=n>strategy</span><span class=w> </span><span class=o>==</span><span class=w> </span><span class=kc>null</span><span class=p>)</span><span class=w> </span><span class=p>{</span><span class=w>
+</span></span></span><span class=line><span class=cl><span class=w>            </span><span class=k>throw</span><span class=w> </span><span class=k>new</span><span class=w> </span><span class=n>BusinessException</span><span class=p>(</span><span class=s>&#34;未知券类型&#34;</span><span class=p>);</span><span class=w>
+</span></span></span><span class=line><span class=cl><span class=w>        </span><span class=p>}</span><span class=w>
+</span></span></span><span class=line><span class=cl><span class=w>        </span><span class=n>strategy</span><span class=p>.</span><span class=na>send</span><span class=p>(</span><span class=n>user</span><span class=p>);</span><span class=w>
+</span></span></span><span class=line><span class=cl><span class=w>    </span><span class=p>}</span><span class=w>
+</span></span></span><span class=line><span class=cl><span class=w></span><span class=p>}</span><span class=w>
+</span></span></span></code></pre></td></tr></table></div></div><p><strong>实战结果：</strong>
+重构后，新增一种券类型只需新增一个类，<strong>主流程代码零修改</strong>。我们在双11大促期间，临时上线了3种新玩法，开发耗时从原来的2天缩短到4小时，且因为代码物理隔离，完全不担心影响核心链路。</p><h3 id=责任链模式驯服漏斗式多重校验>责任链模式：驯服"漏斗式"多重校验</h3><p>另一种让人头秃的场景是复杂的校验逻辑，像漏斗一样层层过滤。</p><p><strong>痛点场景：</strong>
+在一个信贷审批系统中，用户发起借款前需要经过：黑名单校验、地域限制校验、额度校验、风控评分校验、产品状态校验&mldr;</p><p>原来的代码是这样的：</p><div class=highlight><div class=chroma><table class=lntable><tr><td class=lntd><pre tabindex=0 class=chroma><code><span class=lnt> 1
+</span><span class=lnt> 2
+</span><span class=lnt> 3
+</span><span class=lnt> 4
+</span><span class=lnt> 5
+</span><span class=lnt> 6
+</span><span class=lnt> 7
+</span><span class=lnt> 8
+</span><span class=lnt> 9
+</span><span class=lnt>10
+</span><span class=lnt>11
+</span><span class=lnt>12
+</span><span class=lnt>13
+</span></code></pre></td><td class=lntd><pre tabindex=0 class=chroma><code class=language-java data-lang=java><span class=line><span class=cl><span class=k>if</span><span class=w> </span><span class=p>(</span><span class=n>checkBlacklist</span><span class=p>(</span><span class=n>user</span><span class=p>))</span><span class=w> </span><span class=p>{</span><span class=w>
+</span></span></span><span class=line><span class=cl><span class=w>    </span><span class=k>if</span><span class=w> </span><span class=p>(</span><span class=n>checkLocation</span><span class=p>(</span><span class=n>user</span><span class=p>))</span><span class=w> </span><span class=p>{</span><span class=w>
+</span></span></span><span class=line><span class=cl><span class=w>        </span><span class=k>if</span><span class=w> </span><span class=p>(</span><span class=n>checkQuota</span><span class=p>(</span><span class=n>user</span><span class=p>))</span><span class=w> </span><span class=p>{</span><span class=w>
+</span></span></span><span class=line><span class=cl><span class=w>             </span><span class=c1>// 业务逻辑...</span><span class=w>
+</span></span></span><span class=line><span class=cl><span class=w>        </span><span class=p>}</span><span class=w> </span><span class=k>else</span><span class=w> </span><span class=p>{</span><span class=w>
+</span></span></span><span class=line><span class=cl><span class=w>             </span><span class=k>return</span><span class=w> </span><span class=s>&#34;额度不足&#34;</span><span class=p>;</span><span class=w>
+</span></span></span><span class=line><span class=cl><span class=w>        </span><span class=p>}</span><span class=w>
+</span></span></span><span class=line><span class=cl><span class=w>    </span><span class=p>}</span><span class=w> </span><span class=k>else</span><span class=w> </span><span class=p>{</span><span class=w>
+</span></span></span><span class=line><span class=cl><span class=w>        </span><span class=k>return</span><span class=w> </span><span class=s>&#34;地区不支持&#34;</span><span class=p>;</span><span class=w>
+</span></span></span><span class=line><span class=cl><span class=w>    </span><span class=p>}</span><span class=w>
+</span></span></span><span class=line><span class=cl><span class=w></span><span class=p>}</span><span class=w> </span><span class=k>else</span><span class=w> </span><span class=p>{</span><span class=w>
+</span></span></span><span class=line><span class=cl><span class=w>    </span><span class=k>return</span><span class=w> </span><span class=s>&#34;黑名单用户&#34;</span><span class=p>;</span><span class=w>
+</span></span></span><span class=line><span class=cl><span class=w></span><span class=p>}</span><span class=w>
+</span></span></span></code></pre></td></tr></table></div></div><p>这种代码被称为"箭头型代码"，不仅难读，而且难以调整顺序。如果运营要求"先把地区校验提到黑名单校验之前"，开发人员可能要重构半天。</p><p><strong>重构方案：责任链模式（Chain of Responsibility）</strong></p><p>我们要把每一个校验逻辑封装成一个独立的"处理器（Handler）"，然后像搭积木一样把它们串起来。</p><ol><li><strong>抽象基类</strong>：定义<code>AbstractCheckHandler</code>，包含<code>nextHandler</code>引用和<code>check()</code>方法。</li><li><strong>链式组装</strong>：可以通过数据库配置或Spring Order注解来定义链条的顺序。</li></ol><div class=highlight><div class=chroma><table class=lntable><tr><td class=lntd><pre tabindex=0 class=chroma><code><span class=lnt> 1
+</span><span class=lnt> 2
+</span><span class=lnt> 3
+</span><span class=lnt> 4
+</span><span class=lnt> 5
+</span><span class=lnt> 6
+</span><span class=lnt> 7
+</span><span class=lnt> 8
+</span><span class=lnt> 9
+</span><span class=lnt>10
+</span><span class=lnt>11
+</span><span class=lnt>12
+</span><span class=lnt>13
+</span><span class=lnt>14
+</span><span class=lnt>15
+</span><span class=lnt>16
+</span><span class=lnt>17
+</span></code></pre></td><td class=lntd><pre tabindex=0 class=chroma><code class=language-java data-lang=java><span class=line><span class=cl><span class=kd>public</span><span class=w> </span><span class=kd>abstract</span><span class=w> </span><span class=kd>class</span> <span class=nc>AbstractCheckHandler</span><span class=w> </span><span class=p>{</span><span class=w>
+</span></span></span><span class=line><span class=cl><span class=w>    </span><span class=kd>protected</span><span class=w> </span><span class=n>AbstractCheckHandler</span><span class=w> </span><span class=n>next</span><span class=p>;</span><span class=w>
+</span></span></span><span class=line><span class=cl><span class=w>    
+</span></span></span><span class=line><span class=cl><span class=w>    </span><span class=kd>public</span><span class=w> </span><span class=kt>void</span><span class=w> </span><span class=nf>setNext</span><span class=p>(</span><span class=n>AbstractCheckHandler</span><span class=w> </span><span class=n>next</span><span class=p>)</span><span class=w> </span><span class=p>{</span><span class=w> </span><span class=k>this</span><span class=p>.</span><span class=na>next</span><span class=w> </span><span class=o>=</span><span class=w> </span><span class=n>next</span><span class=p>;</span><span class=w> </span><span class=p>}</span><span class=w>
+</span></span></span><span class=line><span class=cl><span class=w>    
+</span></span></span><span class=line><span class=cl><span class=w>    </span><span class=kd>public</span><span class=w> </span><span class=n>Result</span><span class=w> </span><span class=nf>filter</span><span class=p>(</span><span class=n>User</span><span class=w> </span><span class=n>user</span><span class=p>)</span><span class=w> </span><span class=p>{</span><span class=w>
+</span></span></span><span class=line><span class=cl><span class=w>        </span><span class=k>if</span><span class=w> </span><span class=p>(</span><span class=o>!</span><span class=n>doCheck</span><span class=p>(</span><span class=n>user</span><span class=p>))</span><span class=w> </span><span class=p>{</span><span class=w>
+</span></span></span><span class=line><span class=cl><span class=w>            </span><span class=k>return</span><span class=w> </span><span class=n>fail</span><span class=p>();</span><span class=w>
+</span></span></span><span class=line><span class=cl><span class=w>        </span><span class=p>}</span><span class=w>
+</span></span></span><span class=line><span class=cl><span class=w>        </span><span class=k>if</span><span class=w> </span><span class=p>(</span><span class=n>next</span><span class=w> </span><span class=o>!=</span><span class=w> </span><span class=kc>null</span><span class=p>)</span><span class=w> </span><span class=p>{</span><span class=w>
+</span></span></span><span class=line><span class=cl><span class=w>            </span><span class=k>return</span><span class=w> </span><span class=n>next</span><span class=p>.</span><span class=na>filter</span><span class=p>(</span><span class=n>user</span><span class=p>);</span><span class=w>
+</span></span></span><span class=line><span class=cl><span class=w>        </span><span class=p>}</span><span class=w>
+</span></span></span><span class=line><span class=cl><span class=w>        </span><span class=k>return</span><span class=w> </span><span class=n>success</span><span class=p>();</span><span class=w>
+</span></span></span><span class=line><span class=cl><span class=w>    </span><span class=p>}</span><span class=w>
+</span></span></span><span class=line><span class=cl><span class=w>    
+</span></span></span><span class=line><span class=cl><span class=w>    </span><span class=kd>protected</span><span class=w> </span><span class=kd>abstract</span><span class=w> </span><span class=kt>boolean</span><span class=w> </span><span class=nf>doCheck</span><span class=p>(</span><span class=n>User</span><span class=w> </span><span class=n>user</span><span class=p>);</span><span class=w>
+</span></span></span><span class=line><span class=cl><span class=w></span><span class=p>}</span><span class=w>
+</span></span></span></code></pre></td></tr></table></div></div><p><strong>实战结果：</strong>
 我们将7个硬编码的校验逻辑拆解为独立的Handler。最爽的是，我们将链条的组装逻辑放到了<strong>配置中心（Nacos）</strong>。
-有一次，风控系统升级，需要临时下线&quot;评分校验&quot;，运维人员直接在配置中心把该Handler的开关关掉，整个过程<strong>无需重新部署代码</strong>，真正实现了业务编排的灵活性。</p>
-<h3 id="状态模式治理流转式复杂状态">状态模式：治理&quot;流转式&quot;复杂状态
-</h3><p>在订单系统、工单系统或工作流引擎中，实体状态的流转控制往往是Bug的高发区。</p>
-<p><strong>痛点场景：</strong>
-一个电商订单，有新建、支付中、已支付、发货、完成、退款中等状态。每个状态下能做的操作不同，比如&quot;已发货&quot;状态不能直接&quot;取消&quot;，&ldquo;退款中&quot;不能&quot;确认收货&rdquo;。</p>
-<p>如果用<code>if-else</code>判断：</p>
-<div class="highlight"><pre tabindex="0" style="color:#f8f8f2;background-color:#272822;-moz-tab-size:4;-o-tab-size:4;tab-size:4;"><code class="language-java" data-lang="java"><span style="display:flex;"><span><span style="color:#66d9ef">public</span> <span style="color:#66d9ef">void</span> <span style="color:#a6e22e">cancelOrder</span>(Order order) {
-</span></span><span style="display:flex;"><span>    <span style="color:#66d9ef">if</span> (order.<span style="color:#a6e22e">getStatus</span>() <span style="color:#f92672">==</span> PAID) {
-</span></span><span style="display:flex;"><span>        <span style="color:#75715e">// 退款逻辑</span>
-</span></span><span style="display:flex;"><span>    } <span style="color:#66d9ef">else</span> <span style="color:#66d9ef">if</span> (order.<span style="color:#a6e22e">getStatus</span>() <span style="color:#f92672">==</span> SHIPPED) {
-</span></span><span style="display:flex;"><span>        <span style="color:#66d9ef">throw</span> <span style="color:#66d9ef">new</span> RuntimeException(<span style="color:#e6db74">&#34;已发货不能取消&#34;</span>);
-</span></span><span style="display:flex;"><span>    } <span style="color:#66d9ef">else</span> <span style="color:#66d9ef">if</span> (order.<span style="color:#a6e22e">getStatus</span>() <span style="color:#f92672">==</span> CREATED) {
-</span></span><span style="display:flex;"><span>        <span style="color:#75715e">// 直接关闭</span>
-</span></span><span style="display:flex;"><span>    }
-</span></span><span style="display:flex;"><span>    <span style="color:#75715e">// ...</span>
-</span></span><span style="display:flex;"><span>}
-</span></span></code></pre></div><p>当状态超过5个，操作超过10个，这个类就会膨胀成上帝类，任何一个状态流转的改动都需要小心翼翼地搜索所有<code>if</code>。</p>
-<p><strong>重构方案：状态模式（State Pattern）</strong></p>
-<p>将每个状态看作一个独立的类，把该状态下允许的行为封装进去。</p>
-<ol>
-<li><strong>状态接口</strong>：<code>OrderState</code>，定义<code>pay()</code>、<code>ship()</code>、<code>cancel()</code>等行为。</li>
-<li><strong>具体状态类</strong>：<code>PaidState</code>、<code>ShippedState</code>。在<code>ShippedState</code>类的<code>cancel()</code>方法中直接抛出异常，而在<code>PaidState</code>中则执行退款逻辑。</li>
-<li><strong>上下文切换</strong>：Context类负责持有当前状态，并委托操作。</li>
-</ol>
-<p><strong>实战结果：</strong>
-我们在重构物流中台的运单状态机时使用了此模式。当时业务方要求增加一个&quot;异常挂起&quot;状态，该状态下拦截所有操作。我们只新增了一个<code>SuspendedState</code>类，重写了所有方法返回&quot;禁止操作&quot;提示，就完成了需求，<strong>完全没有触碰核心调度逻辑</strong>，测试覆盖率达到了100%。</p>
-<h3 id="总结与落地工具">总结与落地工具
-</h3><p><img src="https://picsum.photos/800/450?random=1768457549485"
-	
-	
-	
-	loading="lazy"
-	
-		alt="配图"
-	
-	
-></p>
-<p>重构不是为了炫技，而是为了<strong>降低熵增</strong>。</p>
-<p>什么时候该重构？我大概总结了一个简单的判断标准：</p>
-<ul>
-<li><strong>重复度</strong>：当一段<code>if-else</code>逻辑在3个以上的地方重复出现；</li>
-<li><strong>复杂度</strong>：当嵌套层级超过3层；</li>
-<li><strong>易变度</strong>：当这段逻辑在过去一个月内被修改了2次以上。</li>
-</ul>
-<p>最后，分享一个我团队内部使用的**&ldquo;重构决策卡&rdquo;**，你可以复制保存，下次遇到长代码时对照使用：</p>
-<div class="table-wrapper"><table>
-  <thead>
-      <tr>
-          <th style="text-align: left">场景特征</th>
-          <th style="text-align: left">推荐模式</th>
-          <th style="text-align: left">核心收益</th>
-      </tr>
-  </thead>
-  <tbody>
-      <tr>
-          <td style="text-align: left"><strong>同级并列</strong>：不同类型执行不同逻辑（如支付渠道、优惠券）</td>
-          <td style="text-align: left"><strong>策略模式 + Map</strong></td>
-          <td style="text-align: left">这里的else变成了新的Class，符合OCP原则，易扩展</td>
-      </tr>
-      <tr>
-          <td style="text-align: left"><strong>顺序过滤</strong>：多重校验、黑白名单、规则引擎</td>
-          <td style="text-align: left"><strong>责任链模式</strong></td>
-          <td style="text-align: left">逻辑解耦，支持动态编排和热插拔</td>
-      </tr>
-      <tr>
-          <td style="text-align: left"><strong>状态流转</strong>：基于当前状态判断能否执行操作（如订单、审批）</td>
-          <td style="text-align: left"><strong>状态模式</strong></td>
-          <td style="text-align: left">消除非法的状态流转，将复杂逻辑分散到各个状态类中</td>
-      </tr>
-      <tr>
-          <td style="text-align: left"><strong>结构相同细节不同</strong>：主流程固定，子步骤有差异（如报表导出）</td>
-          <td style="text-align: left"><strong>模板方法模式</strong></td>
-          <td style="text-align: left">复用骨架代码，减少重复开发</td>
-      </tr>
-  </tbody>
-</table></div>
-<p><strong>落地行动指南：</strong></p>
-<ol>
-<li><strong>不要全盘重写</strong>：先挑一个痛点最明显的业务场景（比如改动最频繁的那个Service）。</li>
-<li><strong>先加测试</strong>：在动代码前，必须给现有的<code>if-else</code>逻辑加上单元测试，这是你的安全网。</li>
-<li><strong>小步快跑</strong>：抽离一个分支 -&gt; 验证 -&gt; 再抽离下一个。不要试图一次性上线完美的架构。</li>
-</ol>
-<p>代码整洁度，某种程度上代表了团队的尊严。希望下次你打开IDE时，面对的不再是令人绝望的<code>if-else</code>迷宫，而是清晰优雅的架构森林。</p>
-
-</section>
-
-
-    <footer class="article-footer">
-    
-    <section class="article-tags">
-        
-            <a href="/tags/%E4%BB%A3%E7%A0%81%E9%87%8D%E6%9E%84%E5%AE%9E%E6%88%98%E7%94%A8%E8%AE%BE%E8%AE%A1%E6%A8%A1%E5%BC%8F%E4%BC%98%E5%8C%96%E5%A4%8D%E6%9D%82%E7%9A%84if-else.html">代码重构实战：用设计模式优化复杂的if-Else</a>
-        
-    </section>
-
-
-    </footer>
-
-
-    
-</article>
-
-    
-
-    
-
-     
-    
-        
-    <script
-    src="https://giscus.app/client.js"
-    data-repo="pastor17/bloggiscus"
-    data-repo-id="R_kgDOQ6H9qQ"
-    data-category=""
-    data-category-id="DIC_kwDOQ6H9qc4C0-T8"
-    data-mapping="pathname"
-    data-strict="0"
-    data-reactions-enabled="1"
-    data-emit-metadata="0"
-    data-input-position="bottom"
-    data-theme="light"
-    data-lang="zh-CN"
-    data-loading="lazy"
-    crossorigin="anonymous"
-    async
-></script>
-<script>
-    function setGiscusTheme(theme) {
-        let giscus = document.querySelector("iframe.giscus-frame");
-        if (giscus) {
-            giscus.contentWindow.postMessage(
-                {
-                    giscus: {
-                        setConfig: {
-                            theme: theme,
-                        },
-                    },
-                },
-                "https://giscus.app"
-            );
-        }
-    }
-
-    (function () {
-        addEventListener("message", (e) => {
-            if (event.origin !== "https://giscus.app") return;
-            handler();
-        });
-        window.addEventListener("onColorSchemeChange", handler);
-
-        function handler() {
-            if (document.documentElement.dataset.scheme === "light") {
-                setGiscusTheme('light');
-            } else {
-                setGiscusTheme('dark_dimmed');
-            }
-        }
-    })();
-</script>
-
-    
-
-    <footer class="site-footer">
-    <section class="copyright">
-        &copy; 
-        
-        2026 SelfTechHub
-    </section>
-    
-    <section class="powerby">
-        
-
-    </section>
-</footer>
-
-
-    
-<div class="pswp" tabindex="-1" role="dialog" aria-hidden="true">
-
-    
-    <div class="pswp__bg"></div>
-
-    
-    <div class="pswp__scroll-wrap">
-
-        
-        <div class="pswp__container">
-            <div class="pswp__item"></div>
-            <div class="pswp__item"></div>
-            <div class="pswp__item"></div>
-        </div>
-
-        
-        <div class="pswp__ui pswp__ui--hidden">
-
-            <div class="pswp__top-bar">
-
-                
-
-                <div class="pswp__counter"></div>
-
-                <button class="pswp__button pswp__button--close" title="Close (Esc)"></button>
-
-                <button class="pswp__button pswp__button--share" title="Share"></button>
-
-                <button class="pswp__button pswp__button--fs" title="Toggle fullscreen"></button>
-
-                <button class="pswp__button pswp__button--zoom" title="Zoom in/out"></button>
-
-                
-                
-                <div class="pswp__preloader">
-                    <div class="pswp__preloader__icn">
-                        <div class="pswp__preloader__cut">
-                            <div class="pswp__preloader__donut"></div>
-                        </div>
-                    </div>
-                </div>
-            </div>
-
-            <div class="pswp__share-modal pswp__share-modal--hidden pswp__single-tap">
-                <div class="pswp__share-tooltip"></div>
-            </div>
-
-            <button class="pswp__button pswp__button--arrow--left" title="Previous (arrow left)">
-            </button>
-
-            <button class="pswp__button pswp__button--arrow--right" title="Next (arrow right)">
-            </button>
-
-            <div class="pswp__caption">
-                <div class="pswp__caption__center"></div>
-            </div>
-
-        </div>
-
-    </div>
-
-</div><script 
-                src="https://cdn.jsdelivr.net/npm/photoswipe@4.1.3/dist/photoswipe.min.js"integrity="sha256-ePwmChbbvXbsO02lbM3HoHbSHTHFAeChekF1xKJdleo="crossorigin="anonymous"
-                defer
-                >
-            </script><script 
-                src="https://cdn.jsdelivr.net/npm/photoswipe@4.1.3/dist/photoswipe-ui-default.min.js"integrity="sha256-UKkzOn/w1mBxRmLLGrSeyB4e1xbrp4xylgAWb3M42pU="crossorigin="anonymous"
-                defer
-                >
-            </script><link 
-                rel="stylesheet" 
-                href="https://cdn.jsdelivr.net/npm/photoswipe@4.1.3/dist/default-skin/default-skin.min.css"crossorigin="anonymous"
-            ><link 
-                rel="stylesheet" 
-                href="https://cdn.jsdelivr.net/npm/photoswipe@4.1.3/dist/photoswipe.min.css"crossorigin="anonymous"
-            >
-    
-
-            </main>
-        </div>
-        <script 
-                src="https://cdn.jsdelivr.net/npm/node-vibrant@3.1.6/dist/vibrant.min.js"integrity="sha256-awcR2jno4kI5X0zL8ex0vi2z&#43;KMkF24hUW8WePSA9HM="crossorigin="anonymous"
-                
-                >
-            </script><script type="text/javascript" src="/ts/main.c922af694cc257bf1ecc41c0dd7b0430f9114ec280ccf67cd2c6ad55f5316c4e.js" defer></script>
-<script>
-    (function () {
-        const customFont = document.createElement('link');
-        customFont.href = "https://fonts.googleapis.com/css2?family=Lato:wght@300;400;700&display=swap";
-
-        customFont.type = "text/css";
-        customFont.rel = "stylesheet";
-
-        document.head.appendChild(customFont);
-    }());
-</script>
-
-    </body>
-</html>
+有一次，风控系统升级，需要临时下线"评分校验"，运维人员直接在配置中心把该Handler的开关关掉，整个过程<strong>无需重新部署代码</strong>，真正实现了业务编排的灵活性。</p><h3 id=状态模式治理流转式复杂状态>状态模式：治理"流转式"复杂状态</h3><p>在订单系统、工单系统或工作流引擎中，实体状态的流转控制往往是Bug的高发区。</p><p><strong>痛点场景：</strong>
+一个电商订单，有新建、支付中、已支付、发货、完成、退款中等状态。每个状态下能做的操作不同，比如"已发货"状态不能直接"取消"，&ldquo;退款中"不能"确认收货&rdquo;。</p><p>如果用<code>if-else</code>判断：</p><div class=highlight><div class=chroma><table class=lntable><tr><td class=lntd><pre tabindex=0 class=chroma><code><span class=lnt> 1
+</span><span class=lnt> 2
+</span><span class=lnt> 3
+</span><span class=lnt> 4
+</span><span class=lnt> 5
+</span><span class=lnt> 6
+</span><span class=lnt> 7
+</span><span class=lnt> 8
+</span><span class=lnt> 9
+</span><span class=lnt>10
+</span></code></pre></td><td class=lntd><pre tabindex=0 class=chroma><code class=language-java data-lang=java><span class=line><span class=cl><span class=kd>public</span><span class=w> </span><span class=kt>void</span><span class=w> </span><span class=nf>cancelOrder</span><span class=p>(</span><span class=n>Order</span><span class=w> </span><span class=n>order</span><span class=p>)</span><span class=w> </span><span class=p>{</span><span class=w>
+</span></span></span><span class=line><span class=cl><span class=w>    </span><span class=k>if</span><span class=w> </span><span class=p>(</span><span class=n>order</span><span class=p>.</span><span class=na>getStatus</span><span class=p>()</span><span class=w> </span><span class=o>==</span><span class=w> </span><span class=n>PAID</span><span class=p>)</span><span class=w> </span><span class=p>{</span><span class=w>
+</span></span></span><span class=line><span class=cl><span class=w>        </span><span class=c1>// 退款逻辑</span><span class=w>
+</span></span></span><span class=line><span class=cl><span class=w>    </span><span class=p>}</span><span class=w> </span><span class=k>else</span><span class=w> </span><span class=k>if</span><span class=w> </span><span class=p>(</span><span class=n>order</span><span class=p>.</span><span class=na>getStatus</span><span class=p>()</span><span class=w> </span><span class=o>==</span><span class=w> </span><span class=n>SHIPPED</span><span class=p>)</span><span class=w> </span><span class=p>{</span><span class=w>
+</span></span></span><span class=line><span class=cl><span class=w>        </span><span class=k>throw</span><span class=w> </span><span class=k>new</span><span class=w> </span><span class=n>RuntimeException</span><span class=p>(</span><span class=s>&#34;已发货不能取消&#34;</span><span class=p>);</span><span class=w>
+</span></span></span><span class=line><span class=cl><span class=w>    </span><span class=p>}</span><span class=w> </span><span class=k>else</span><span class=w> </span><span class=k>if</span><span class=w> </span><span class=p>(</span><span class=n>order</span><span class=p>.</span><span class=na>getStatus</span><span class=p>()</span><span class=w> </span><span class=o>==</span><span class=w> </span><span class=n>CREATED</span><span class=p>)</span><span class=w> </span><span class=p>{</span><span class=w>
+</span></span></span><span class=line><span class=cl><span class=w>        </span><span class=c1>// 直接关闭</span><span class=w>
+</span></span></span><span class=line><span class=cl><span class=w>    </span><span class=p>}</span><span class=w>
+</span></span></span><span class=line><span class=cl><span class=w>    </span><span class=c1>// ...</span><span class=w>
+</span></span></span><span class=line><span class=cl><span class=w></span><span class=p>}</span><span class=w>
+</span></span></span></code></pre></td></tr></table></div></div><p>当状态超过5个，操作超过10个，这个类就会膨胀成上帝类，任何一个状态流转的改动都需要小心翼翼地搜索所有<code>if</code>。</p><p><strong>重构方案：状态模式（State Pattern）</strong></p><p>将每个状态看作一个独立的类，把该状态下允许的行为封装进去。</p><ol><li><strong>状态接口</strong>：<code>OrderState</code>，定义<code>pay()</code>、<code>ship()</code>、<code>cancel()</code>等行为。</li><li><strong>具体状态类</strong>：<code>PaidState</code>、<code>ShippedState</code>。在<code>ShippedState</code>类的<code>cancel()</code>方法中直接抛出异常，而在<code>PaidState</code>中则执行退款逻辑。</li><li><strong>上下文切换</strong>：Context类负责持有当前状态，并委托操作。</li></ol><p><strong>实战结果：</strong>
+我们在重构物流中台的运单状态机时使用了此模式。当时业务方要求增加一个"异常挂起"状态，该状态下拦截所有操作。我们只新增了一个<code>SuspendedState</code>类，重写了所有方法返回"禁止操作"提示，就完成了需求，<strong>完全没有触碰核心调度逻辑</strong>，测试覆盖率达到了100%。</p><h3 id=总结与落地工具>总结与落地工具</h3><p><img src="https://picsum.photos/800/450?random=1768457549485" loading=lazy alt=配图></p><p>重构不是为了炫技，而是为了<strong>降低熵增</strong>。</p><p>什么时候该重构？我大概总结了一个简单的判断标准：</p><ul><li><strong>重复度</strong>：当一段<code>if-else</code>逻辑在3个以上的地方重复出现；</li><li><strong>复杂度</strong>：当嵌套层级超过3层；</li><li><strong>易变度</strong>：当这段逻辑在过去一个月内被修改了2次以上。</li></ul><p>最后，分享一个我团队内部使用的**&ldquo;重构决策卡&rdquo;**，你可以复制保存，下次遇到长代码时对照使用：</p><div class=table-wrapper><table><thead><tr><th style=text-align:left>场景特征</th><th style=text-align:left>推荐模式</th><th style=text-align:left>核心收益</th></tr></thead><tbody><tr><td style=text-align:left><strong>同级并列</strong>：不同类型执行不同逻辑（如支付渠道、优惠券）</td><td style=text-align:left><strong>策略模式 + Map</strong></td><td style=text-align:left>这里的else变成了新的Class，符合OCP原则，易扩展</td></tr><tr><td style=text-align:left><strong>顺序过滤</strong>：多重校验、黑白名单、规则引擎</td><td style=text-align:left><strong>责任链模式</strong></td><td style=text-align:left>逻辑解耦，支持动态编排和热插拔</td></tr><tr><td style=text-align:left><strong>状态流转</strong>：基于当前状态判断能否执行操作（如订单、审批）</td><td style=text-align:left><strong>状态模式</strong></td><td style=text-align:left>消除非法的状态流转，将复杂逻辑分散到各个状态类中</td></tr><tr><td style=text-align:left><strong>结构相同细节不同</strong>：主流程固定，子步骤有差异（如报表导出）</td><td style=text-align:left><strong>模板方法模式</strong></td><td style=text-align:left>复用骨架代码，减少重复开发</td></tr></tbody></table></div><p><strong>落地行动指南：</strong></p><ol><li><strong>不要全盘重写</strong>：先挑一个痛点最明显的业务场景（比如改动最频繁的那个Service）。</li><li><strong>先加测试</strong>：在动代码前，必须给现有的<code>if-else</code>逻辑加上单元测试，这是你的安全网。</li><li><strong>小步快跑</strong>：抽离一个分支 -> 验证 -> 再抽离下一个。不要试图一次性上线完美的架构。</li></ol><p>代码整洁度，某种程度上代表了团队的尊严。希望下次你打开IDE时，面对的不再是令人绝望的<code>if-else</code>迷宫，而是清晰优雅的架构森林。</p></section><footer class=article-footer><section class=article-tags><a href=/tags/%E4%BB%A3%E7%A0%81%E9%87%8D%E6%9E%84%E5%AE%9E%E6%88%98%E7%94%A8%E8%AE%BE%E8%AE%A1%E6%A8%A1%E5%BC%8F%E4%BC%98%E5%8C%96%E5%A4%8D%E6%9D%82%E7%9A%84if-else.html>代码重构实战：用设计模式优化复杂的if-Else</a></section></footer></article><script src=https://giscus.app/client.js data-repo=pastor17/bloggiscus data-repo-id=R_kgDOQ6H9qQ data-category data-category-id=DIC_kwDOQ6H9qc4C0-T8 data-mapping=pathname data-strict=0 data-reactions-enabled=1 data-emit-metadata=0 data-input-position=bottom data-theme=light data-lang=zh-CN data-loading=lazy crossorigin=anonymous async></script><script>function setGiscusTheme(e){let t=document.querySelector("iframe.giscus-frame");t&&t.contentWindow.postMessage({giscus:{setConfig:{theme:e}}},"https://giscus.app")}(function(){addEventListener("message",t=>{if(event.origin!=="https://giscus.app")return;e()}),window.addEventListener("onColorSchemeChange",e);function e(){setGiscusTheme(document.documentElement.dataset.scheme==="light"?"light":"dark_dimmed")}})()</script><footer class=site-footer><section class=copyright>&copy;
+2021 -
+2026 SelfTechHub</section><section class=powerby>拒绝一次性认知，把碎片知识沉淀为可复用的记忆体系<br></section></footer><div class=pswp tabindex=-1 role=dialog aria-hidden=true><div class=pswp__bg></div><div class=pswp__scroll-wrap><div class=pswp__container><div class=pswp__item></div><div class=pswp__item></div><div class=pswp__item></div></div><div class="pswp__ui pswp__ui--hidden"><div class=pswp__top-bar><div class=pswp__counter></div><button class="pswp__button pswp__button--close" title="Close (Esc)"></button>
+<button class="pswp__button pswp__button--share" title=Share></button>
+<button class="pswp__button pswp__button--fs" title="Toggle fullscreen"></button>
+<button class="pswp__button pswp__button--zoom" title="Zoom in/out"></button><div class=pswp__preloader><div class=pswp__preloader__icn><div class=pswp__preloader__cut><div class=pswp__preloader__donut></div></div></div></div></div><div class="pswp__share-modal pswp__share-modal--hidden pswp__single-tap"><div class=pswp__share-tooltip></div></div><button class="pswp__button pswp__button--arrow--left" title="Previous (arrow left)">
+</button>
+<button class="pswp__button pswp__button--arrow--right" title="Next (arrow right)"></button><div class=pswp__caption><div class=pswp__caption__center></div></div></div></div></div><script src=https://cdn.jsdelivr.net/npm/photoswipe@4.1.3/dist/photoswipe.min.js integrity="sha256-ePwmChbbvXbsO02lbM3HoHbSHTHFAeChekF1xKJdleo=" crossorigin=anonymous defer></script><script src=https://cdn.jsdelivr.net/npm/photoswipe@4.1.3/dist/photoswipe-ui-default.min.js integrity="sha256-UKkzOn/w1mBxRmLLGrSeyB4e1xbrp4xylgAWb3M42pU=" crossorigin=anonymous defer></script><link rel=stylesheet href=https://cdn.jsdelivr.net/npm/photoswipe@4.1.3/dist/default-skin/default-skin.min.css crossorigin=anonymous><link rel=stylesheet href=https://cdn.jsdelivr.net/npm/photoswipe@4.1.3/dist/photoswipe.min.css crossorigin=anonymous></main></div><script src=https://cdn.jsdelivr.net/npm/node-vibrant@3.1.6/dist/vibrant.min.js integrity="sha256-awcR2jno4kI5X0zL8ex0vi2z+KMkF24hUW8WePSA9HM=" crossorigin=anonymous></script><script type=text/javascript src=/ts/main.c922af694cc257bf1ecc41c0dd7b0430f9114ec280ccf67cd2c6ad55f5316c4e.js defer></script><script>(function(){const e=document.createElement("link");e.href="https://fonts.googleapis.com/css2?family=Lato:wght@300;400;700&display=swap",e.type="text/css",e.rel="stylesheet",document.head.appendChild(e)})()</script></body></html>

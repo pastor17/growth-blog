@@ -1,22 +1,7 @@
-<?xml version="1.0" encoding="utf-8" standalone="yes"?>
-<rss version="2.0" xmlns:atom="http://www.w3.org/2005/Atom">
-    <channel>
-        <title>Model Context Protocol on SelfTechHub</title>
-        <link>https://blog.irudder.me/tags/Model-Context-Protocol.html</link>
-        <description>Recent content in Model Context Protocol on SelfTechHub</description>
-        <generator>Hugo -- gohugo.io</generator>
-        <language>zh-cn</language>
-        <lastBuildDate>Mon, 01 Jun 2026 00:00:00 +0000</lastBuildDate><atom:link href="https://blog.irudder.me/tags/Model-Context-Protocol/index.xml" rel="self" type="application/rss+xml" /><item>
-        <title>第5章：MCP——工具调用的标准化革命</title>
-        <link>https://blog.irudder.me/ai/knowledge-series/05-MCP-and-Protocolized-Tool-Ecosystem.html</link>
-        <pubDate>Mon, 01 Jun 2026 00:00:00 +0000</pubDate>
-        
-        <guid>https://blog.irudder.me/ai/knowledge-series/05-MCP-and-Protocolized-Tool-Ecosystem.html</guid>
-        <description>&lt;h1 id=&#34;第5章mcp工具调用的标准化革命&#34;&gt;第5章：MCP——工具调用的标准化革命
+<?xml version="1.0" encoding="utf-8" standalone="yes"?><rss version="2.0" xmlns:atom="http://www.w3.org/2005/Atom"><channel><title>Model Context Protocol on SelfTechHub</title><link>https://blog.irudder.me/tags/Model-Context-Protocol.html</link><description>Recent content in Model Context Protocol on SelfTechHub</description><generator>Hugo -- gohugo.io</generator><language>zh-cn</language><lastBuildDate>Mon, 01 Jun 2026 00:00:00 +0800</lastBuildDate><atom:link href="https://blog.irudder.me/tags/Model-Context-Protocol/index.xml" rel="self" type="application/rss+xml"/><item><title>第5章：MCP——工具调用的标准化革命</title><link>https://blog.irudder.me/ai/knowledge-series/05-MCP-and-Protocolized-Tool-Ecosystem.html</link><pubDate>Mon, 01 Jun 2026 00:00:00 +0800</pubDate><guid>https://blog.irudder.me/ai/knowledge-series/05-MCP-and-Protocolized-Tool-Ecosystem.html</guid><description>&lt;h1 id="第5章mcp工具调用的标准化革命"&gt;第5章：MCP——工具调用的标准化革命
 &lt;/h1&gt;&lt;blockquote&gt;
-&lt;p&gt;系列导读：本章是上章的延伸。如果你还在手写每个工具的集成代码，MCP 就是来救你的。它能让你接入一个工具的效率从「一天」降到「十分钟」。&lt;/p&gt;
-&lt;/blockquote&gt;
-&lt;h2 id=&#34;一没有-mcp-之前接工具有多麻烦&#34;&gt;一、没有 MCP 之前，接工具有多麻烦？
+&lt;p&gt;系列导读：本章是上章的延伸。如果你还在手写每个工具的集成代码，MCP 就是来救你的。它能让你接入一个工具的效率从「一天」降到「十分钟」。&lt;/p&gt;&lt;/blockquote&gt;
+&lt;h2 id="一没有-mcp-之前接工具有多麻烦"&gt;一、没有 MCP 之前，接工具有多麻烦？
 &lt;/h2&gt;&lt;p&gt;想象你要给 Claude Desktop 接入三个工具：GitHub（查仓库）、文件系统（读本地文件）、Slack（发通知）。&lt;/p&gt;
 &lt;p&gt;在没有 MCP 之前：&lt;/p&gt;
 &lt;ol&gt;
@@ -27,62 +12,74 @@
 &lt;p&gt;折腾了三周，终于接好了。三个月后 Claude 升级了，接口变了，你的代码又得重写。&lt;/p&gt;
 &lt;p&gt;最致命的问题：每个工具都要单独集成，而且强绑定到某个模型。你想换 Gemini 用这些工具？之前写的所有代码都要重写一遍嫁接逻辑。更别说换个多模态模型（比如能看图、能听语音的），工具 layer 可能完全不兼容。&lt;/p&gt;
 &lt;p&gt;这种碎片化的结果就是：目前市面上有成百上千个有用的工具 API，开发者和模型提供者之间形成了一个糟糕的分发瓶颈——每一家模型厂都要跟每一家工具厂谈合作、做适配。&lt;/p&gt;
-&lt;h2 id=&#34;二mcp-是什么&#34;&gt;二、MCP 是什么？
+&lt;h2 id="二mcp-是什么"&gt;二、MCP 是什么？
 &lt;/h2&gt;&lt;p&gt;MCP（Model Context Protocol，模型上下文协议）是 Anthropic 在 2024 年底推出的开放协议（不是框架，是协议）。&lt;/p&gt;
 &lt;p&gt;它的核心目标是：工具实现一次，到处复用；任何支持 MCP 的 AI 客户端，都能自动发现并接入。&lt;/p&gt;
 &lt;p&gt;你可以把它理解成 AI 时代的「USB-C 接口」——所有工具都按统一标准做接口，所有 AI 客户端都支持这个接口。工具提供者按协议标准写一个 Server，任何支持 MCP 的客户端都能直接拿来用，不需要再说服 OpenAI 或 Google 专门为你做对接。&lt;/p&gt;
-&lt;h2 id=&#34;三mcp-的架构client-server-模式&#34;&gt;三、MCP 的架构：Client-Server 模式
-&lt;/h2&gt;&lt;pre tabindex=&#34;0&#34;&gt;&lt;code&gt;    ┌──────────────┐                    ┌──────────────┐
-    │  AI Client   │ ←─── MCP 协议 ───→ │ MCP Server 1 │ (GitHub工具)
-    │ (Claude,     │    JSON-RPC 2.0     └──────────────┘
-    │  OpenAI SDK) │                          ┌──────────────┐
-    │              │ ←─── MCP 协议 ───→       │ MCP Server 2 │ (文件系统)
-    └──────────────┘    (stdio / SSE / HTTP) └──────────────┘
-&lt;/code&gt;&lt;/pre&gt;&lt;ul&gt;
+&lt;h2 id="三mcp-的架构client-server-模式"&gt;三、MCP 的架构：Client-Server 模式
+&lt;/h2&gt;&lt;div class="highlight"&gt;&lt;div class="chroma"&gt;
+&lt;table class="lntable"&gt;&lt;tr&gt;&lt;td class="lntd"&gt;
+&lt;pre tabindex="0" class="chroma"&gt;&lt;code&gt;&lt;span class="lnt"&gt;1
+&lt;/span&gt;&lt;span class="lnt"&gt;2
+&lt;/span&gt;&lt;span class="lnt"&gt;3
+&lt;/span&gt;&lt;span class="lnt"&gt;4
+&lt;/span&gt;&lt;span class="lnt"&gt;5
+&lt;/span&gt;&lt;span class="lnt"&gt;6
+&lt;/span&gt;&lt;/code&gt;&lt;/pre&gt;&lt;/td&gt;
+&lt;td class="lntd"&gt;
+&lt;pre tabindex="0" class="chroma"&gt;&lt;code class="language-fallback" data-lang="fallback"&gt;&lt;span class="line"&gt;&lt;span class="cl"&gt; ┌──────────────┐ ┌──────────────┐
+&lt;/span&gt;&lt;/span&gt;&lt;span class="line"&gt;&lt;span class="cl"&gt; │ AI Client │ ←─── MCP 协议 ───→ │ MCP Server 1 │ (GitHub工具)
+&lt;/span&gt;&lt;/span&gt;&lt;span class="line"&gt;&lt;span class="cl"&gt; │ (Claude, │ JSON-RPC 2.0 └──────────────┘
+&lt;/span&gt;&lt;/span&gt;&lt;span class="line"&gt;&lt;span class="cl"&gt; │ OpenAI SDK) │ ┌──────────────┐
+&lt;/span&gt;&lt;/span&gt;&lt;span class="line"&gt;&lt;span class="cl"&gt; │ │ ←─── MCP 协议 ───→ │ MCP Server 2 │ (文件系统)
+&lt;/span&gt;&lt;/span&gt;&lt;span class="line"&gt;&lt;span class="cl"&gt; └──────────────┘ (stdio / SSE / HTTP) └──────────────┘
+&lt;/span&gt;&lt;/span&gt;&lt;/code&gt;&lt;/pre&gt;&lt;/td&gt;&lt;/tr&gt;&lt;/table&gt;
+&lt;/div&gt;
+&lt;/div&gt;&lt;ul&gt;
 &lt;li&gt;MCP Server：每个工具按 MCP 协议实现一个服务进程，暴露能力&lt;/li&gt;
 &lt;li&gt;AI Client：在配置文件中声明 MCP Server 地址，自动发现可用的工具&lt;/li&gt;
 &lt;li&gt;通信方式：支持 stdio（本地进程）、SSE（HTTP流式）、HTTP（远程调用）&lt;/li&gt;
 &lt;/ul&gt;
 &lt;p&gt;这种设计的妙处在于：工具提供者只需要写一份标准化的 Server 实现，所有客户端（Claude、OpenAI SDK、Cursor IDE、Zed 编辑器等）都能自动发现并调用它的能力。工具生态的分发效率得到了本质提升。&lt;/p&gt;
-&lt;h2 id=&#34;四mcp-的三类核心能力&#34;&gt;四、MCP 的三类核心能力
-&lt;/h2&gt;&lt;h3 id=&#34;1-tools工具-执行有副作用的操作&#34;&gt;1. Tools（工具）—— 执行有副作用的操作
+&lt;h2 id="四mcp-的三类核心能力"&gt;四、MCP 的三类核心能力
+&lt;/h2&gt;&lt;h3 id="1-tools工具-执行有副作用的操作"&gt;1. Tools（工具）—— 执行有副作用的操作
 &lt;/h3&gt;&lt;p&gt;如发送邮件、创建文件、调用 API。每次调用都可能改变外部世界状态。工具调用后需要返回执行结果给模型，模型据此决定下一步。&lt;/p&gt;
-&lt;h3 id=&#34;2-resources资源-只读数据通道&#34;&gt;2. Resources（资源）—— 只读数据通道
+&lt;h3 id="2-resources资源-只读数据通道"&gt;2. Resources（资源）—— 只读数据通道
 &lt;/h3&gt;&lt;p&gt;如读取文件内容、访问数据库、查看日志。资源可以被&amp;quot;挂载&amp;quot;到客户端上下文，模型可以随时调用，不会产生副作用。&lt;/p&gt;
-&lt;h3 id=&#34;3-prompts提示词模板-结构化输入模板&#34;&gt;3. Prompts（提示词模板）—— 结构化输入模板
+&lt;h3 id="3-prompts提示词模板-结构化输入模板"&gt;3. Prompts（提示词模板）—— 结构化输入模板
 &lt;/h3&gt;&lt;p&gt;预定义一组任务模板，用户可以在使用前填充参数。比如 &amp;ldquo;生成代码审查提示词&amp;rdquo; → 填充 &amp;ldquo;文件路径&amp;rdquo; → 拿到完整 prompt。这类能力让 MCP Server 不仅是被动的工具提供者，也是主动的交互助手。&lt;/p&gt;
 &lt;p&gt;这三类能力覆盖了 AI 工具生态中的&amp;quot;执行&amp;quot;、&amp;ldquo;读取&amp;rdquo;、&amp;ldquo;交互模板&amp;quot;三个核心场景。&lt;/p&gt;
-&lt;h2 id=&#34;五mcp-vs-function-calling不是替代是互补&#34;&gt;五、MCP vs Function Calling：不是替代，是互补
+&lt;h2 id="五mcp-vs-function-calling不是替代是互补"&gt;五、MCP vs Function Calling：不是替代，是互补
 &lt;/h2&gt;&lt;table&gt;
-  &lt;thead&gt;
-      &lt;tr&gt;
-          &lt;th&gt;维度&lt;/th&gt;
-          &lt;th&gt;Function Calling&lt;/th&gt;
-          &lt;th&gt;MCP&lt;/th&gt;
-      &lt;/tr&gt;
-  &lt;/thead&gt;
-  &lt;tbody&gt;
-      &lt;tr&gt;
-          &lt;td&gt;层级&lt;/td&gt;
-          &lt;td&gt;API 调用格式（命令）&lt;/td&gt;
-          &lt;td&gt;工具生态协议 + 发现机制&lt;/td&gt;
-      &lt;/tr&gt;
-      &lt;tr&gt;
-          &lt;td&gt;解决的问题&lt;/td&gt;
-          &lt;td&gt;模型怎么说出「我要调什么」&lt;/td&gt;
-          &lt;td&gt;工具怎么被接入和管理&lt;/td&gt;
-      &lt;/tr&gt;
-      &lt;tr&gt;
-          &lt;td&gt;类比&lt;/td&gt;
-          &lt;td&gt;HTTP 请求格式&lt;/td&gt;
-          &lt;td&gt;REST API 规范 + 服务注册发现&lt;/td&gt;
-      &lt;/tr&gt;
-      &lt;tr&gt;
-          &lt;td&gt;关系&lt;/td&gt;
-          &lt;td&gt;依赖关系&lt;/td&gt;
-          &lt;td&gt;MCP 底层还是靠 Function Calling！&lt;/td&gt;
-      &lt;/tr&gt;
-  &lt;/tbody&gt;
+&lt;thead&gt;
+&lt;tr&gt;
+&lt;th&gt;维度&lt;/th&gt;
+&lt;th&gt;Function Calling&lt;/th&gt;
+&lt;th&gt;MCP&lt;/th&gt;
+&lt;/tr&gt;
+&lt;/thead&gt;
+&lt;tbody&gt;
+&lt;tr&gt;
+&lt;td&gt;层级&lt;/td&gt;
+&lt;td&gt;API 调用格式（命令）&lt;/td&gt;
+&lt;td&gt;工具生态协议 + 发现机制&lt;/td&gt;
+&lt;/tr&gt;
+&lt;tr&gt;
+&lt;td&gt;解决的问题&lt;/td&gt;
+&lt;td&gt;模型怎么说出「我要调什么」&lt;/td&gt;
+&lt;td&gt;工具怎么被接入和管理&lt;/td&gt;
+&lt;/tr&gt;
+&lt;tr&gt;
+&lt;td&gt;类比&lt;/td&gt;
+&lt;td&gt;HTTP 请求格式&lt;/td&gt;
+&lt;td&gt;REST API 规范 + 服务注册发现&lt;/td&gt;
+&lt;/tr&gt;
+&lt;tr&gt;
+&lt;td&gt;关系&lt;/td&gt;
+&lt;td&gt;依赖关系&lt;/td&gt;
+&lt;td&gt;MCP 底层还是靠 Function Calling！&lt;/td&gt;
+&lt;/tr&gt;
+&lt;/tbody&gt;
 &lt;/table&gt;
 &lt;p&gt;最关键的一句话：MCP 底层驱动的仍然是 Function Calling。MCP 不是「不用 Function Calling 了」，而是在 Function Calling 之上加了一层生态层。&lt;/p&gt;
 &lt;ul&gt;
@@ -90,36 +87,55 @@
 &lt;li&gt;MCP 说：工具怎么注册、怎么发现、怎么通信、怎么复用，都按统一标准来&lt;/li&gt;
 &lt;/ul&gt;
 &lt;p&gt;你可以只靠 Function Calling 写一辈子代码，但接入第10个工具时你就会想要 MCP。手动管理10个工具的 schema、认证、状态同步、错误重试，是在做重复的体力活。&lt;/p&gt;
-&lt;h2 id=&#34;六配置一个-mcp-server-有多简单&#34;&gt;六、配置一个 MCP Server 有多简单？
+&lt;h2 id="六配置一个-mcp-server-有多简单"&gt;六、配置一个 MCP Server 有多简单？
 &lt;/h2&gt;&lt;p&gt;以 Claude Desktop 为例，它的配置文件中加几行就行：&lt;/p&gt;
-&lt;div class=&#34;highlight&#34;&gt;&lt;pre tabindex=&#34;0&#34; style=&#34;color:#f8f8f2;background-color:#272822;-moz-tab-size:4;-o-tab-size:4;tab-size:4;&#34;&gt;&lt;code class=&#34;language-json&#34; data-lang=&#34;json&#34;&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;{
-&lt;/span&gt;&lt;/span&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;  &lt;span style=&#34;color:#f92672&#34;&gt;&amp;#34;mcpServers&amp;#34;&lt;/span&gt;: {
-&lt;/span&gt;&lt;/span&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;    &lt;span style=&#34;color:#f92672&#34;&gt;&amp;#34;filesystem&amp;#34;&lt;/span&gt;: {
-&lt;/span&gt;&lt;/span&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;      &lt;span style=&#34;color:#f92672&#34;&gt;&amp;#34;command&amp;#34;&lt;/span&gt;: &lt;span style=&#34;color:#e6db74&#34;&gt;&amp;#34;npx&amp;#34;&lt;/span&gt;,
-&lt;/span&gt;&lt;/span&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;      &lt;span style=&#34;color:#f92672&#34;&gt;&amp;#34;args&amp;#34;&lt;/span&gt;: [&lt;span style=&#34;color:#e6db74&#34;&gt;&amp;#34;-y&amp;#34;&lt;/span&gt;, &lt;span style=&#34;color:#e6db74&#34;&gt;&amp;#34;@modelcontextprotocol/server-filesystem&amp;#34;&lt;/span&gt;, &lt;span style=&#34;color:#e6db74&#34;&gt;&amp;#34;/Users/me/docs&amp;#34;&lt;/span&gt;]
-&lt;/span&gt;&lt;/span&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;    },
-&lt;/span&gt;&lt;/span&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;    &lt;span style=&#34;color:#f92672&#34;&gt;&amp;#34;github&amp;#34;&lt;/span&gt;: {
-&lt;/span&gt;&lt;/span&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;      &lt;span style=&#34;color:#f92672&#34;&gt;&amp;#34;command&amp;#34;&lt;/span&gt;: &lt;span style=&#34;color:#e6db74&#34;&gt;&amp;#34;npx&amp;#34;&lt;/span&gt;,
-&lt;/span&gt;&lt;/span&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;      &lt;span style=&#34;color:#f92672&#34;&gt;&amp;#34;args&amp;#34;&lt;/span&gt;: [&lt;span style=&#34;color:#e6db74&#34;&gt;&amp;#34;-y&amp;#34;&lt;/span&gt;, &lt;span style=&#34;color:#e6db74&#34;&gt;&amp;#34;@modelcontextprotocol/server-github&amp;#34;&lt;/span&gt;],
-&lt;/span&gt;&lt;/span&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;      &lt;span style=&#34;color:#f92672&#34;&gt;&amp;#34;env&amp;#34;&lt;/span&gt;: { &lt;span style=&#34;color:#f92672&#34;&gt;&amp;#34;GITHUB_PERSONAL_ACCESS_TOKEN&amp;#34;&lt;/span&gt;: &lt;span style=&#34;color:#e6db74&#34;&gt;&amp;#34;ghp_xxx&amp;#34;&lt;/span&gt; }
-&lt;/span&gt;&lt;/span&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;    }
-&lt;/span&gt;&lt;/span&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;  }
-&lt;/span&gt;&lt;/span&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;}
-&lt;/span&gt;&lt;/span&gt;&lt;/code&gt;&lt;/pre&gt;&lt;/div&gt;&lt;p&gt;启动 Claude Desktop 后：&lt;/p&gt;
+&lt;div class="highlight"&gt;&lt;div class="chroma"&gt;
+&lt;table class="lntable"&gt;&lt;tr&gt;&lt;td class="lntd"&gt;
+&lt;pre tabindex="0" class="chroma"&gt;&lt;code&gt;&lt;span class="lnt"&gt; 1
+&lt;/span&gt;&lt;span class="lnt"&gt; 2
+&lt;/span&gt;&lt;span class="lnt"&gt; 3
+&lt;/span&gt;&lt;span class="lnt"&gt; 4
+&lt;/span&gt;&lt;span class="lnt"&gt; 5
+&lt;/span&gt;&lt;span class="lnt"&gt; 6
+&lt;/span&gt;&lt;span class="lnt"&gt; 7
+&lt;/span&gt;&lt;span class="lnt"&gt; 8
+&lt;/span&gt;&lt;span class="lnt"&gt; 9
+&lt;/span&gt;&lt;span class="lnt"&gt;10
+&lt;/span&gt;&lt;span class="lnt"&gt;11
+&lt;/span&gt;&lt;span class="lnt"&gt;12
+&lt;/span&gt;&lt;span class="lnt"&gt;13
+&lt;/span&gt;&lt;/code&gt;&lt;/pre&gt;&lt;/td&gt;
+&lt;td class="lntd"&gt;
+&lt;pre tabindex="0" class="chroma"&gt;&lt;code class="language-json" data-lang="json"&gt;&lt;span class="line"&gt;&lt;span class="cl"&gt;&lt;span class="p"&gt;{&lt;/span&gt;
+&lt;/span&gt;&lt;/span&gt;&lt;span class="line"&gt;&lt;span class="cl"&gt; &lt;span class="nt"&gt;&amp;#34;mcpServers&amp;#34;&lt;/span&gt;&lt;span class="p"&gt;:&lt;/span&gt; &lt;span class="p"&gt;{&lt;/span&gt;
+&lt;/span&gt;&lt;/span&gt;&lt;span class="line"&gt;&lt;span class="cl"&gt; &lt;span class="nt"&gt;&amp;#34;filesystem&amp;#34;&lt;/span&gt;&lt;span class="p"&gt;:&lt;/span&gt; &lt;span class="p"&gt;{&lt;/span&gt;
+&lt;/span&gt;&lt;/span&gt;&lt;span class="line"&gt;&lt;span class="cl"&gt; &lt;span class="nt"&gt;&amp;#34;command&amp;#34;&lt;/span&gt;&lt;span class="p"&gt;:&lt;/span&gt; &lt;span class="s2"&gt;&amp;#34;npx&amp;#34;&lt;/span&gt;&lt;span class="p"&gt;,&lt;/span&gt;
+&lt;/span&gt;&lt;/span&gt;&lt;span class="line"&gt;&lt;span class="cl"&gt; &lt;span class="nt"&gt;&amp;#34;args&amp;#34;&lt;/span&gt;&lt;span class="p"&gt;:&lt;/span&gt; &lt;span class="p"&gt;[&lt;/span&gt;&lt;span class="s2"&gt;&amp;#34;-y&amp;#34;&lt;/span&gt;&lt;span class="p"&gt;,&lt;/span&gt; &lt;span class="s2"&gt;&amp;#34;@modelcontextprotocol/server-filesystem&amp;#34;&lt;/span&gt;&lt;span class="p"&gt;,&lt;/span&gt; &lt;span class="s2"&gt;&amp;#34;/Users/me/docs&amp;#34;&lt;/span&gt;&lt;span class="p"&gt;]&lt;/span&gt;
+&lt;/span&gt;&lt;/span&gt;&lt;span class="line"&gt;&lt;span class="cl"&gt; &lt;span class="p"&gt;},&lt;/span&gt;
+&lt;/span&gt;&lt;/span&gt;&lt;span class="line"&gt;&lt;span class="cl"&gt; &lt;span class="nt"&gt;&amp;#34;github&amp;#34;&lt;/span&gt;&lt;span class="p"&gt;:&lt;/span&gt; &lt;span class="p"&gt;{&lt;/span&gt;
+&lt;/span&gt;&lt;/span&gt;&lt;span class="line"&gt;&lt;span class="cl"&gt; &lt;span class="nt"&gt;&amp;#34;command&amp;#34;&lt;/span&gt;&lt;span class="p"&gt;:&lt;/span&gt; &lt;span class="s2"&gt;&amp;#34;npx&amp;#34;&lt;/span&gt;&lt;span class="p"&gt;,&lt;/span&gt;
+&lt;/span&gt;&lt;/span&gt;&lt;span class="line"&gt;&lt;span class="cl"&gt; &lt;span class="nt"&gt;&amp;#34;args&amp;#34;&lt;/span&gt;&lt;span class="p"&gt;:&lt;/span&gt; &lt;span class="p"&gt;[&lt;/span&gt;&lt;span class="s2"&gt;&amp;#34;-y&amp;#34;&lt;/span&gt;&lt;span class="p"&gt;,&lt;/span&gt; &lt;span class="s2"&gt;&amp;#34;@modelcontextprotocol/server-github&amp;#34;&lt;/span&gt;&lt;span class="p"&gt;],&lt;/span&gt;
+&lt;/span&gt;&lt;/span&gt;&lt;span class="line"&gt;&lt;span class="cl"&gt; &lt;span class="nt"&gt;&amp;#34;env&amp;#34;&lt;/span&gt;&lt;span class="p"&gt;:&lt;/span&gt; &lt;span class="p"&gt;{&lt;/span&gt; &lt;span class="nt"&gt;&amp;#34;GITHUB_PERSONAL_ACCESS_TOKEN&amp;#34;&lt;/span&gt;&lt;span class="p"&gt;:&lt;/span&gt; &lt;span class="s2"&gt;&amp;#34;ghp_xxx&amp;#34;&lt;/span&gt; &lt;span class="p"&gt;}&lt;/span&gt;
+&lt;/span&gt;&lt;/span&gt;&lt;span class="line"&gt;&lt;span class="cl"&gt; &lt;span class="p"&gt;}&lt;/span&gt;
+&lt;/span&gt;&lt;/span&gt;&lt;span class="line"&gt;&lt;span class="cl"&gt; &lt;span class="p"&gt;}&lt;/span&gt;
+&lt;/span&gt;&lt;/span&gt;&lt;span class="line"&gt;&lt;span class="cl"&gt;&lt;span class="p"&gt;}&lt;/span&gt;
+&lt;/span&gt;&lt;/span&gt;&lt;/code&gt;&lt;/pre&gt;&lt;/td&gt;&lt;/tr&gt;&lt;/table&gt;
+&lt;/div&gt;
+&lt;/div&gt;&lt;p&gt;启动 Claude Desktop 后：&lt;/p&gt;
 &lt;ol&gt;
 &lt;li&gt;自动启动各 MCP Server 进程&lt;/li&gt;
 &lt;li&gt;读取各 Server 暴露的 tools/resources/prompts 列表&lt;/li&gt;
 &lt;li&gt;Claude 自动发现这些工具并能随时调用&lt;/li&gt;
 &lt;/ol&gt;
 &lt;p&gt;零代码接入。&lt;/p&gt;
-&lt;h2 id=&#34;七mcp-对生态的影响&#34;&gt;七、MCP 对生态的影响
+&lt;h2 id="七mcp-对生态的影响"&gt;七、MCP 对生态的影响
 &lt;/h2&gt;&lt;ul&gt;
 &lt;li&gt;工具开发者：按 MCP 标准实现一次，OpenAI、Claude、Gemini 都能用。分发成本从 O(NxM) 降到 O(N+M)。&lt;/li&gt;
 &lt;li&gt;AI 客户端开发者：接入 MCP 协议就能自动获得成百上千的工具&lt;/li&gt;
 &lt;li&gt;终端用户：AI 能做的事情从「聊天+联网搜索」变成「调用整个数字世界&amp;rdquo;&lt;/li&gt;
 &lt;/ul&gt;
 &lt;p&gt;MCP 的意义跟当年 HTTP 协议标准化 web 服务是一样的底层逻辑。如果没有 HTTP，每个网站都得写自己的传输协议，浏览器永远做不到通用。MCP 的目标是让 AI 工具的接入也有同样的标准化基础。&lt;/p&gt;
-&lt;h2 id=&#34;八本章小结&#34;&gt;八、本章小结
+&lt;h2 id="八本章小结"&gt;八、本章小结
 &lt;/h2&gt;&lt;ul&gt;
 &lt;li&gt;MCP 是 AI 工具生态的&amp;quot;USB-C&amp;quot;标准化协议&lt;/li&gt;
 &lt;li&gt;三类能力：Tools（执行）、Resources（只读数据）、Prompts（模板）&lt;/li&gt;
@@ -127,13 +143,8 @@
 &lt;li&gt;配置 MCP Server 只需几行配置，零代码接入&lt;/li&gt;
 &lt;li&gt;MCP 代表了 AI 工具生态从碎片化走向标准化的关键转折点&lt;/li&gt;
 &lt;/ul&gt;
-&lt;h2 id=&#34;思考题&#34;&gt;思考题
+&lt;h2 id="思考题"&gt;思考题
 &lt;/h2&gt;&lt;ol&gt;
 &lt;li&gt;MCP 的「开放协议」定位意味着它的生命周期会长于任何单一公司的产品。如果这个协议成为事实标准，会对 AI 工具生态产生什么深远影响？&lt;/li&gt;
 &lt;li&gt;在 MCP 的三种能力（Tools/Resources/Prompts）中，你认为哪一类最有商业想象空间？为什么？&lt;/li&gt;
-&lt;/ol&gt;
-</description>
-        </item>
-        
-    </channel>
-</rss>
+&lt;/ol&gt;</description></item></channel></rss>

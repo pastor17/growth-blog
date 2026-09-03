@@ -1,32 +1,12 @@
-<?xml version="1.0" encoding="utf-8" standalone="yes"?>
-<rss version="2.0" xmlns:atom="http://www.w3.org/2005/Atom">
-    <channel>
-        <title>容器化迁移：传统应用上容器的步骤 on SelfTechHub</title>
-        <link>https://blog.irudder.me/tags/%E5%AE%B9%E5%99%A8%E5%8C%96%E8%BF%81%E7%A7%BB%E4%BC%A0%E7%BB%9F%E5%BA%94%E7%94%A8%E4%B8%8A%E5%AE%B9%E5%99%A8%E7%9A%84%E6%AD%A5%E9%AA%A4.html</link>
-        <description>Recent content in 容器化迁移：传统应用上容器的步骤 on SelfTechHub</description>
-        <generator>Hugo -- gohugo.io</generator>
-        <language>zh-cn</language>
-        <lastBuildDate>Thu, 24 Mar 2022 00:00:00 +0000</lastBuildDate><atom:link href="https://blog.irudder.me/tags/%E5%AE%B9%E5%99%A8%E5%8C%96%E8%BF%81%E7%A7%BB%E4%BC%A0%E7%BB%9F%E5%BA%94%E7%94%A8%E4%B8%8A%E5%AE%B9%E5%99%A8%E7%9A%84%E6%AD%A5%E9%AA%A4/index.xml" rel="self" type="application/rss+xml" /><item>
-        <title>别把容器当虚拟机用！传统应用迁移的3个“反直觉”避坑指南</title>
-        <link>https://blog.irudder.me/tech/devopsjichugongjurumenyushicao/rongqihuaqianyi_chuantongyingyongshangrongqidebuzhou.html</link>
-        <pubDate>Thu, 24 Mar 2022 00:00:00 +0000</pubDate>
-        
-        <guid>https://blog.irudder.me/tech/devopsjichugongjurumenyushicao/rongqihuaqianyi_chuantongyingyongshangrongqidebuzhou.html</guid>
-        <description>&lt;p&gt;&lt;img src=&#34;https://picsum.photos/800/450?random=1768389149023&#34;
-	
-	
-	
-	loading=&#34;lazy&#34;
-	
-		alt=&#34;配图&#34;
-	
-	
+<?xml version="1.0" encoding="utf-8" standalone="yes"?><rss version="2.0" xmlns:atom="http://www.w3.org/2005/Atom"><channel><title>容器化迁移：传统应用上容器的步骤 on SelfTechHub</title><link>https://blog.irudder.me/tags/%E5%AE%B9%E5%99%A8%E5%8C%96%E8%BF%81%E7%A7%BB%E4%BC%A0%E7%BB%9F%E5%BA%94%E7%94%A8%E4%B8%8A%E5%AE%B9%E5%99%A8%E7%9A%84%E6%AD%A5%E9%AA%A4.html</link><description>Recent content in 容器化迁移：传统应用上容器的步骤 on SelfTechHub</description><generator>Hugo -- gohugo.io</generator><language>zh-cn</language><lastBuildDate>Thu, 24 Mar 2022 00:00:00 +0800</lastBuildDate><atom:link href="https://blog.irudder.me/tags/%E5%AE%B9%E5%99%A8%E5%8C%96%E8%BF%81%E7%A7%BB%E4%BC%A0%E7%BB%9F%E5%BA%94%E7%94%A8%E4%B8%8A%E5%AE%B9%E5%99%A8%E7%9A%84%E6%AD%A5%E9%AA%A4/index.xml" rel="self" type="application/rss+xml"/><item><title>别把容器当虚拟机用！传统应用迁移的3个“反直觉”避坑指南</title><link>https://blog.irudder.me/tech/devopsjichugongjurumenyushicao/rongqihuaqianyi_chuantongyingyongshangrongqidebuzhou.html</link><pubDate>Thu, 24 Mar 2022 00:00:00 +0800</pubDate><guid>https://blog.irudder.me/tech/devopsjichugongjurumenyushicao/rongqihuaqianyi_chuantongyingyongshangrongqidebuzhou.html</guid><description>&lt;p&gt;&lt;img src="https://picsum.photos/800/450?random=1768389149023"
+loading="lazy"
+alt="配图"
 &gt;&lt;/p&gt;
 &lt;p&gt;我见过太多运维兄弟，在老板喊出“全面拥抱云原生”的口号后，连夜把跑了5年的老旧Java应用塞进Docker里。结果呢？&lt;/p&gt;
 &lt;p&gt;镜像大小3GB，启动耗时5分钟，每次发版都像在走钢丝。最惨的一次，因为容器重启后本地日志丢失，团队排查了整整两天Bug，最后发现是把容器当成了“瘦身版虚拟机”在用。&lt;/p&gt;
 &lt;p&gt;很多人以为容器化就是写个&lt;code&gt;Dockerfile&lt;/code&gt;，把代码打个包。&lt;strong&gt;大错特错。&lt;/strong&gt; 真正的容器化迁移，是一场对应用架构的“微创手术”。如果你还在用传统虚拟机的思维玩容器，那我劝你趁早停手。&lt;/p&gt;
 &lt;p&gt;今天不谈K8s的高深理论，只聊聊我在一线“填坑”两年总结出来的三个硬核步骤，专治各种水土不服。&lt;/p&gt;
-&lt;h2 id=&#34;一-瘦身手术别把整个操作系统都塞进去&#34;&gt;一、 瘦身手术：别把整个操作系统都塞进去
+&lt;h2 id="一-瘦身手术别把整个操作系统都塞进去"&gt;一、 瘦身手术：别把整个操作系统都塞进去
 &lt;/h2&gt;&lt;p&gt;很多新手（包括当年的我）写Dockerfile的第一反应是：找个CentOS基础镜像，yum install 一堆工具（vim, ssh, telnet, gcc），再把代码copy进去。心里还挺美：这下调试方便了。&lt;/p&gt;
 &lt;p&gt;&lt;strong&gt;这就是典型的“富容器”陷阱。&lt;/strong&gt;&lt;/p&gt;
 &lt;p&gt;&lt;strong&gt;真实案例：&lt;/strong&gt;
@@ -38,59 +18,93 @@
 &lt;li&gt;&lt;strong&gt;多阶段构建（Multi-stage Build）&lt;/strong&gt;：这是个神器。在一个Dockerfile里，先用一个包含完整编译工具链的镜像编译代码，然后只把编译好的二进制文件 copy 到一个极简的运行时镜像中。&lt;/li&gt;
 &lt;/ol&gt;
 &lt;p&gt;看看这个对比，效果立竿见影：&lt;/p&gt;
-&lt;div class=&#34;highlight&#34;&gt;&lt;pre tabindex=&#34;0&#34; style=&#34;color:#f8f8f2;background-color:#272822;-moz-tab-size:4;-o-tab-size:4;tab-size:4;&#34;&gt;&lt;code class=&#34;language-dockerfile&#34; data-lang=&#34;dockerfile&#34;&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;&lt;span style=&#34;color:#75715e&#34;&gt;# 错误示范：把构建工具和源码都打进最终镜像&lt;/span&gt;&lt;span style=&#34;color:#960050;background-color:#1e0010&#34;&gt;
-&lt;/span&gt;&lt;/span&gt;&lt;/span&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;&lt;span style=&#34;color:#960050;background-color:#1e0010&#34;&gt;&lt;/span&gt;&lt;span style=&#34;color:#66d9ef&#34;&gt;FROM&lt;/span&gt; &lt;span style=&#34;color:#e6db74&#34;&gt;maven:3.8-jdk-8&lt;/span&gt;&lt;span style=&#34;color:#960050;background-color:#1e0010&#34;&gt;
-&lt;/span&gt;&lt;/span&gt;&lt;/span&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;&lt;span style=&#34;color:#960050;background-color:#1e0010&#34;&gt;&lt;/span&gt;&lt;span style=&#34;color:#66d9ef&#34;&gt;COPY&lt;/span&gt; . /app&lt;span style=&#34;color:#960050;background-color:#1e0010&#34;&gt;
-&lt;/span&gt;&lt;/span&gt;&lt;/span&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;&lt;span style=&#34;color:#960050;background-color:#1e0010&#34;&gt;&lt;/span&gt;&lt;span style=&#34;color:#66d9ef&#34;&gt;RUN&lt;/span&gt; mvn package&lt;span style=&#34;color:#960050;background-color:#1e0010&#34;&gt;
-&lt;/span&gt;&lt;/span&gt;&lt;/span&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;&lt;span style=&#34;color:#960050;background-color:#1e0010&#34;&gt;&lt;/span&gt;&lt;span style=&#34;color:#66d9ef&#34;&gt;CMD&lt;/span&gt; [&lt;span style=&#34;color:#e6db74&#34;&gt;&amp;#34;java&amp;#34;&lt;/span&gt;, &lt;span style=&#34;color:#e6db74&#34;&gt;&amp;#34;-jar&amp;#34;&lt;/span&gt;, &lt;span style=&#34;color:#e6db74&#34;&gt;&amp;#34;/app/target/app.jar&amp;#34;&lt;/span&gt;]&lt;span style=&#34;color:#960050;background-color:#1e0010&#34;&gt;
-&lt;/span&gt;&lt;/span&gt;&lt;/span&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;&lt;span style=&#34;color:#960050;background-color:#1e0010&#34;&gt;&lt;/span&gt;&lt;span style=&#34;color:#75715e&#34;&gt;# 结果：镜像 &amp;gt; 600MB，包含源代码，不安全&lt;/span&gt;&lt;span style=&#34;color:#960050;background-color:#1e0010&#34;&gt;
-&lt;/span&gt;&lt;/span&gt;&lt;/span&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;&lt;span style=&#34;color:#960050;background-color:#1e0010&#34;&gt;
-&lt;/span&gt;&lt;/span&gt;&lt;/span&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;&lt;span style=&#34;color:#960050;background-color:#1e0010&#34;&gt;&lt;/span&gt;&lt;span style=&#34;color:#75715e&#34;&gt;# 正确示范：多阶段构建&lt;/span&gt;&lt;span style=&#34;color:#960050;background-color:#1e0010&#34;&gt;
-&lt;/span&gt;&lt;/span&gt;&lt;/span&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;&lt;span style=&#34;color:#960050;background-color:#1e0010&#34;&gt;&lt;/span&gt;&lt;span style=&#34;color:#75715e&#34;&gt;# 第一阶段：编译&lt;/span&gt;&lt;span style=&#34;color:#960050;background-color:#1e0010&#34;&gt;
-&lt;/span&gt;&lt;/span&gt;&lt;/span&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;&lt;span style=&#34;color:#960050;background-color:#1e0010&#34;&gt;&lt;/span&gt;&lt;span style=&#34;color:#66d9ef&#34;&gt;FROM&lt;/span&gt; &lt;span style=&#34;color:#e6db74&#34;&gt;maven:3.8-jdk-8&lt;/span&gt; &lt;span style=&#34;color:#66d9ef&#34;&gt;AS&lt;/span&gt; &lt;span style=&#34;color:#e6db74&#34;&gt;builder&lt;/span&gt;&lt;span style=&#34;color:#960050;background-color:#1e0010&#34;&gt;
-&lt;/span&gt;&lt;/span&gt;&lt;/span&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;&lt;span style=&#34;color:#960050;background-color:#1e0010&#34;&gt;&lt;/span&gt;&lt;span style=&#34;color:#66d9ef&#34;&gt;COPY&lt;/span&gt; . /app&lt;span style=&#34;color:#960050;background-color:#1e0010&#34;&gt;
-&lt;/span&gt;&lt;/span&gt;&lt;/span&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;&lt;span style=&#34;color:#960050;background-color:#1e0010&#34;&gt;&lt;/span&gt;&lt;span style=&#34;color:#66d9ef&#34;&gt;WORKDIR&lt;/span&gt; &lt;span style=&#34;color:#e6db74&#34;&gt;/app&lt;/span&gt;&lt;span style=&#34;color:#960050;background-color:#1e0010&#34;&gt;
-&lt;/span&gt;&lt;/span&gt;&lt;/span&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;&lt;span style=&#34;color:#960050;background-color:#1e0010&#34;&gt;&lt;/span&gt;&lt;span style=&#34;color:#66d9ef&#34;&gt;RUN&lt;/span&gt; mvn package -DskipTests&lt;span style=&#34;color:#960050;background-color:#1e0010&#34;&gt;
-&lt;/span&gt;&lt;/span&gt;&lt;/span&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;&lt;span style=&#34;color:#960050;background-color:#1e0010&#34;&gt;
-&lt;/span&gt;&lt;/span&gt;&lt;/span&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;&lt;span style=&#34;color:#960050;background-color:#1e0010&#34;&gt;&lt;/span&gt;&lt;span style=&#34;color:#75715e&#34;&gt;# 第二阶段：运行&lt;/span&gt;&lt;span style=&#34;color:#960050;background-color:#1e0010&#34;&gt;
-&lt;/span&gt;&lt;/span&gt;&lt;/span&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;&lt;span style=&#34;color:#960050;background-color:#1e0010&#34;&gt;&lt;/span&gt;&lt;span style=&#34;color:#66d9ef&#34;&gt;FROM&lt;/span&gt; &lt;span style=&#34;color:#e6db74&#34;&gt;openjdk:8-jre-alpine&lt;/span&gt;&lt;span style=&#34;color:#960050;background-color:#1e0010&#34;&gt;
-&lt;/span&gt;&lt;/span&gt;&lt;/span&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;&lt;span style=&#34;color:#960050;background-color:#1e0010&#34;&gt;&lt;/span&gt;&lt;span style=&#34;color:#75715e&#34;&gt;# 只拷贝jar包，不含源码和maven&lt;/span&gt;&lt;span style=&#34;color:#960050;background-color:#1e0010&#34;&gt;
-&lt;/span&gt;&lt;/span&gt;&lt;/span&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;&lt;span style=&#34;color:#960050;background-color:#1e0010&#34;&gt;&lt;/span&gt;&lt;span style=&#34;color:#66d9ef&#34;&gt;COPY&lt;/span&gt; --from&lt;span style=&#34;color:#f92672&#34;&gt;=&lt;/span&gt;builder /app/target/app.jar /app/app.jar&lt;span style=&#34;color:#960050;background-color:#1e0010&#34;&gt;
-&lt;/span&gt;&lt;/span&gt;&lt;/span&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;&lt;span style=&#34;color:#960050;background-color:#1e0010&#34;&gt;&lt;/span&gt;&lt;span style=&#34;color:#66d9ef&#34;&gt;CMD&lt;/span&gt; [&lt;span style=&#34;color:#e6db74&#34;&gt;&amp;#34;java&amp;#34;&lt;/span&gt;, &lt;span style=&#34;color:#e6db74&#34;&gt;&amp;#34;-jar&amp;#34;&lt;/span&gt;, &lt;span style=&#34;color:#e6db74&#34;&gt;&amp;#34;/app/app.jar&amp;#34;&lt;/span&gt;]&lt;span style=&#34;color:#960050;background-color:#1e0010&#34;&gt;
-&lt;/span&gt;&lt;/span&gt;&lt;/span&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;&lt;span style=&#34;color:#960050;background-color:#1e0010&#34;&gt;&lt;/span&gt;&lt;span style=&#34;color:#75715e&#34;&gt;# 结果：镜像 &amp;lt; 100MB，干净清爽&lt;/span&gt;&lt;span style=&#34;color:#960050;background-color:#1e0010&#34;&gt;
-&lt;/span&gt;&lt;/span&gt;&lt;/span&gt;&lt;/code&gt;&lt;/pre&gt;&lt;/div&gt;&lt;p&gt;我大概测算过，经过这波优化，那个物流系统的镜像从4.5GB缩减到了180MB，扩容速度从分钟级变成了秒级。&lt;/p&gt;
-&lt;h2 id=&#34;二-换脑手术配置必须外挂&#34;&gt;二、 换脑手术：配置必须“外挂”
+&lt;div class="highlight"&gt;&lt;div class="chroma"&gt;
+&lt;table class="lntable"&gt;&lt;tr&gt;&lt;td class="lntd"&gt;
+&lt;pre tabindex="0" class="chroma"&gt;&lt;code&gt;&lt;span class="lnt"&gt; 1
+&lt;/span&gt;&lt;span class="lnt"&gt; 2
+&lt;/span&gt;&lt;span class="lnt"&gt; 3
+&lt;/span&gt;&lt;span class="lnt"&gt; 4
+&lt;/span&gt;&lt;span class="lnt"&gt; 5
+&lt;/span&gt;&lt;span class="lnt"&gt; 6
+&lt;/span&gt;&lt;span class="lnt"&gt; 7
+&lt;/span&gt;&lt;span class="lnt"&gt; 8
+&lt;/span&gt;&lt;span class="lnt"&gt; 9
+&lt;/span&gt;&lt;span class="lnt"&gt;10
+&lt;/span&gt;&lt;span class="lnt"&gt;11
+&lt;/span&gt;&lt;span class="lnt"&gt;12
+&lt;/span&gt;&lt;span class="lnt"&gt;13
+&lt;/span&gt;&lt;span class="lnt"&gt;14
+&lt;/span&gt;&lt;span class="lnt"&gt;15
+&lt;/span&gt;&lt;span class="lnt"&gt;16
+&lt;/span&gt;&lt;span class="lnt"&gt;17
+&lt;/span&gt;&lt;span class="lnt"&gt;18
+&lt;/span&gt;&lt;span class="lnt"&gt;19
+&lt;/span&gt;&lt;span class="lnt"&gt;20
+&lt;/span&gt;&lt;/code&gt;&lt;/pre&gt;&lt;/td&gt;
+&lt;td class="lntd"&gt;
+&lt;pre tabindex="0" class="chroma"&gt;&lt;code class="language-dockerfile" data-lang="dockerfile"&gt;&lt;span class="line"&gt;&lt;span class="cl"&gt;&lt;span class="c"&gt;# 错误示范：把构建工具和源码都打进最终镜像&lt;/span&gt;&lt;span class="err"&gt;
+&lt;/span&gt;&lt;/span&gt;&lt;/span&gt;&lt;span class="line"&gt;&lt;span class="cl"&gt;&lt;span class="err"&gt;&lt;/span&gt;&lt;span class="k"&gt;FROM&lt;/span&gt;&lt;span class="w"&gt; &lt;/span&gt;&lt;span class="s"&gt;maven:3.8-jdk-8&lt;/span&gt;&lt;span class="err"&gt;
+&lt;/span&gt;&lt;/span&gt;&lt;/span&gt;&lt;span class="line"&gt;&lt;span class="cl"&gt;&lt;span class="err"&gt;&lt;/span&gt;&lt;span class="k"&gt;COPY&lt;/span&gt; . /app&lt;span class="err"&gt;
+&lt;/span&gt;&lt;/span&gt;&lt;/span&gt;&lt;span class="line"&gt;&lt;span class="cl"&gt;&lt;span class="err"&gt;&lt;/span&gt;&lt;span class="k"&gt;RUN&lt;/span&gt; mvn package&lt;span class="err"&gt;
+&lt;/span&gt;&lt;/span&gt;&lt;/span&gt;&lt;span class="line"&gt;&lt;span class="cl"&gt;&lt;span class="err"&gt;&lt;/span&gt;&lt;span class="k"&gt;CMD&lt;/span&gt; &lt;span class="p"&gt;[&lt;/span&gt;&lt;span class="s2"&gt;&amp;#34;java&amp;#34;&lt;/span&gt;&lt;span class="p"&gt;,&lt;/span&gt; &lt;span class="s2"&gt;&amp;#34;-jar&amp;#34;&lt;/span&gt;&lt;span class="p"&gt;,&lt;/span&gt; &lt;span class="s2"&gt;&amp;#34;/app/target/app.jar&amp;#34;&lt;/span&gt;&lt;span class="p"&gt;]&lt;/span&gt;&lt;span class="err"&gt;
+&lt;/span&gt;&lt;/span&gt;&lt;/span&gt;&lt;span class="line"&gt;&lt;span class="cl"&gt;&lt;span class="err"&gt;&lt;/span&gt;&lt;span class="c"&gt;# 结果：镜像 &amp;gt; 600MB，包含源代码，不安全&lt;/span&gt;&lt;span class="err"&gt;
+&lt;/span&gt;&lt;/span&gt;&lt;/span&gt;&lt;span class="line"&gt;&lt;span class="cl"&gt;&lt;span class="err"&gt;
+&lt;/span&gt;&lt;/span&gt;&lt;/span&gt;&lt;span class="line"&gt;&lt;span class="cl"&gt;&lt;span class="err"&gt;&lt;/span&gt;&lt;span class="c"&gt;# 正确示范：多阶段构建&lt;/span&gt;&lt;span class="err"&gt;
+&lt;/span&gt;&lt;/span&gt;&lt;/span&gt;&lt;span class="line"&gt;&lt;span class="cl"&gt;&lt;span class="err"&gt;&lt;/span&gt;&lt;span class="c"&gt;# 第一阶段：编译&lt;/span&gt;&lt;span class="err"&gt;
+&lt;/span&gt;&lt;/span&gt;&lt;/span&gt;&lt;span class="line"&gt;&lt;span class="cl"&gt;&lt;span class="err"&gt;&lt;/span&gt;&lt;span class="k"&gt;FROM&lt;/span&gt;&lt;span class="w"&gt; &lt;/span&gt;&lt;span class="s"&gt;maven:3.8-jdk-8&lt;/span&gt;&lt;span class="w"&gt; &lt;/span&gt;&lt;span class="k"&gt;AS&lt;/span&gt;&lt;span class="w"&gt; &lt;/span&gt;&lt;span class="s"&gt;builder&lt;/span&gt;&lt;span class="err"&gt;
+&lt;/span&gt;&lt;/span&gt;&lt;/span&gt;&lt;span class="line"&gt;&lt;span class="cl"&gt;&lt;span class="err"&gt;&lt;/span&gt;&lt;span class="k"&gt;COPY&lt;/span&gt; . /app&lt;span class="err"&gt;
+&lt;/span&gt;&lt;/span&gt;&lt;/span&gt;&lt;span class="line"&gt;&lt;span class="cl"&gt;&lt;span class="err"&gt;&lt;/span&gt;&lt;span class="k"&gt;WORKDIR&lt;/span&gt;&lt;span class="w"&gt; &lt;/span&gt;&lt;span class="s"&gt;/app&lt;/span&gt;&lt;span class="err"&gt;
+&lt;/span&gt;&lt;/span&gt;&lt;/span&gt;&lt;span class="line"&gt;&lt;span class="cl"&gt;&lt;span class="err"&gt;&lt;/span&gt;&lt;span class="k"&gt;RUN&lt;/span&gt; mvn package -DskipTests&lt;span class="err"&gt;
+&lt;/span&gt;&lt;/span&gt;&lt;/span&gt;&lt;span class="line"&gt;&lt;span class="cl"&gt;&lt;span class="err"&gt;
+&lt;/span&gt;&lt;/span&gt;&lt;/span&gt;&lt;span class="line"&gt;&lt;span class="cl"&gt;&lt;span class="err"&gt;&lt;/span&gt;&lt;span class="c"&gt;# 第二阶段：运行&lt;/span&gt;&lt;span class="err"&gt;
+&lt;/span&gt;&lt;/span&gt;&lt;/span&gt;&lt;span class="line"&gt;&lt;span class="cl"&gt;&lt;span class="err"&gt;&lt;/span&gt;&lt;span class="k"&gt;FROM&lt;/span&gt;&lt;span class="w"&gt; &lt;/span&gt;&lt;span class="s"&gt;openjdk:8-jre-alpine&lt;/span&gt;&lt;span class="err"&gt;
+&lt;/span&gt;&lt;/span&gt;&lt;/span&gt;&lt;span class="line"&gt;&lt;span class="cl"&gt;&lt;span class="err"&gt;&lt;/span&gt;&lt;span class="c"&gt;# 只拷贝jar包，不含源码和maven&lt;/span&gt;&lt;span class="err"&gt;
+&lt;/span&gt;&lt;/span&gt;&lt;/span&gt;&lt;span class="line"&gt;&lt;span class="cl"&gt;&lt;span class="err"&gt;&lt;/span&gt;&lt;span class="k"&gt;COPY&lt;/span&gt; --from&lt;span class="o"&gt;=&lt;/span&gt;builder /app/target/app.jar /app/app.jar&lt;span class="err"&gt;
+&lt;/span&gt;&lt;/span&gt;&lt;/span&gt;&lt;span class="line"&gt;&lt;span class="cl"&gt;&lt;span class="err"&gt;&lt;/span&gt;&lt;span class="k"&gt;CMD&lt;/span&gt; &lt;span class="p"&gt;[&lt;/span&gt;&lt;span class="s2"&gt;&amp;#34;java&amp;#34;&lt;/span&gt;&lt;span class="p"&gt;,&lt;/span&gt; &lt;span class="s2"&gt;&amp;#34;-jar&amp;#34;&lt;/span&gt;&lt;span class="p"&gt;,&lt;/span&gt; &lt;span class="s2"&gt;&amp;#34;/app/app.jar&amp;#34;&lt;/span&gt;&lt;span class="p"&gt;]&lt;/span&gt;&lt;span class="err"&gt;
+&lt;/span&gt;&lt;/span&gt;&lt;/span&gt;&lt;span class="line"&gt;&lt;span class="cl"&gt;&lt;span class="err"&gt;&lt;/span&gt;&lt;span class="c"&gt;# 结果：镜像 &amp;lt; 100MB，干净清爽&lt;/span&gt;&lt;span class="err"&gt;
+&lt;/span&gt;&lt;/span&gt;&lt;/span&gt;&lt;/code&gt;&lt;/pre&gt;&lt;/td&gt;&lt;/tr&gt;&lt;/table&gt;
+&lt;/div&gt;
+&lt;/div&gt;&lt;p&gt;我大概测算过，经过这波优化，那个物流系统的镜像从4.5GB缩减到了180MB，扩容速度从分钟级变成了秒级。&lt;/p&gt;
+&lt;h2 id="二-换脑手术配置必须外挂"&gt;二、 换脑手术：配置必须“外挂”
 &lt;/h2&gt;&lt;p&gt;在传统部署中，我们习惯修改&lt;code&gt;/etc/hosts&lt;/code&gt;或者直接去改&lt;code&gt;application.properties&lt;/code&gt;文件里的数据库IP。但在容器世界里，&lt;strong&gt;镜像一旦构建完成，就是不可变的（Immutable）。&lt;/strong&gt;&lt;/p&gt;
 &lt;p&gt;如果你需要根据开发、测试、生产环境修改配置文件，千万别打三个不同的镜像。&lt;/p&gt;
 &lt;p&gt;&lt;strong&gt;真实案例：&lt;/strong&gt;
 有个初创团队的朋友找我求救，说生产环境连错数据库了。查下来发现，是因为运维在周五下午发版时，手动修改了容器里的配置文件，结果容器因为内存溢出重启，配置自动还原成了镜像里的“测试库地址”。导致生产数据写入了测试库，那是真正的“事故现场”。&lt;/p&gt;
 &lt;p&gt;&lt;strong&gt;核心逻辑：配置与代码分离。&lt;/strong&gt;&lt;/p&gt;
 &lt;p&gt;应用必须支持从**环境变量（Environment Variables）**读取配置。这是十二要素应用（The Twelve-Factor App）的核心原则之一。&lt;/p&gt;
-&lt;p&gt;&lt;img src=&#34;https://picsum.photos/800/450?random=1768389153357&#34;
-	
-	
-	
-	loading=&#34;lazy&#34;
-	
-		alt=&#34;配图&#34;
-	
-	
+&lt;p&gt;&lt;img src="https://picsum.photos/800/450?random=1768389153357"
+loading="lazy"
+alt="配图"
 &gt;&lt;/p&gt;
 &lt;p&gt;&lt;strong&gt;落地方法：&lt;/strong&gt;&lt;/p&gt;
 &lt;ol&gt;
 &lt;li&gt;&lt;strong&gt;改造代码&lt;/strong&gt;：让应用优先读取环境变量，读不到再用默认值。&lt;/li&gt;
 &lt;li&gt;&lt;strong&gt;启动脚本&lt;/strong&gt;：如果老应用改代码太难，可以写个&lt;code&gt;entrypoint.sh&lt;/code&gt;脚本，在容器启动时，用环境变量去替换配置文件里的占位符。&lt;/li&gt;
 &lt;/ol&gt;
-&lt;div class=&#34;highlight&#34;&gt;&lt;pre tabindex=&#34;0&#34; style=&#34;color:#f8f8f2;background-color:#272822;-moz-tab-size:4;-o-tab-size:4;tab-size:4;&#34;&gt;&lt;code class=&#34;language-bash&#34; data-lang=&#34;bash&#34;&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;&lt;span style=&#34;color:#75715e&#34;&gt;#!/bin/sh
-&lt;/span&gt;&lt;/span&gt;&lt;/span&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;&lt;span style=&#34;color:#75715e&#34;&gt;&lt;/span&gt;&lt;span style=&#34;color:#75715e&#34;&gt;# entrypoint.sh 示例&lt;/span&gt;
-&lt;/span&gt;&lt;/span&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;&lt;span style=&#34;color:#75715e&#34;&gt;# 容器启动时，用环境变量 DB_HOST 替换配置文件中的 &lt;/span&gt;
-&lt;/span&gt;&lt;/span&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;
-&lt;/span&gt;&lt;/span&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;sed -i &lt;span style=&#34;color:#e6db74&#34;&gt;&amp;#34;s//&lt;/span&gt;&lt;span style=&#34;color:#e6db74&#34;&gt;${&lt;/span&gt;DB_HOST&lt;span style=&#34;color:#e6db74&#34;&gt;}&lt;/span&gt;&lt;span style=&#34;color:#e6db74&#34;&gt;/g&amp;#34;&lt;/span&gt; /app/config/db.properties
-&lt;/span&gt;&lt;/span&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;
-&lt;/span&gt;&lt;/span&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;&lt;span style=&#34;color:#75715e&#34;&gt;# 启动应用&lt;/span&gt;
-&lt;/span&gt;&lt;/span&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;exec &lt;span style=&#34;color:#e6db74&#34;&gt;&amp;#34;&lt;/span&gt;$@&lt;span style=&#34;color:#e6db74&#34;&gt;&amp;#34;&lt;/span&gt;
-&lt;/span&gt;&lt;/span&gt;&lt;/code&gt;&lt;/pre&gt;&lt;/div&gt;&lt;p&gt;现在我每次做架构评审，都会盯着看一点：**有没有任何硬编码的IP或密码？**如果有，全部打回重做。这不仅是为了部署方便，更是为了不在GitHub上裸奔。&lt;/p&gt;
-&lt;h2 id=&#34;三-视力矫正日志别留本地&#34;&gt;三、 视力矫正：日志别留本地
+&lt;div class="highlight"&gt;&lt;div class="chroma"&gt;
+&lt;table class="lntable"&gt;&lt;tr&gt;&lt;td class="lntd"&gt;
+&lt;pre tabindex="0" class="chroma"&gt;&lt;code&gt;&lt;span class="lnt"&gt;1
+&lt;/span&gt;&lt;span class="lnt"&gt;2
+&lt;/span&gt;&lt;span class="lnt"&gt;3
+&lt;/span&gt;&lt;span class="lnt"&gt;4
+&lt;/span&gt;&lt;span class="lnt"&gt;5
+&lt;/span&gt;&lt;span class="lnt"&gt;6
+&lt;/span&gt;&lt;span class="lnt"&gt;7
+&lt;/span&gt;&lt;span class="lnt"&gt;8
+&lt;/span&gt;&lt;/code&gt;&lt;/pre&gt;&lt;/td&gt;
+&lt;td class="lntd"&gt;
+&lt;pre tabindex="0" class="chroma"&gt;&lt;code class="language-bash" data-lang="bash"&gt;&lt;span class="line"&gt;&lt;span class="cl"&gt;&lt;span class="cp"&gt;#!/bin/sh
+&lt;/span&gt;&lt;/span&gt;&lt;/span&gt;&lt;span class="line"&gt;&lt;span class="cl"&gt;&lt;span class="cp"&gt;&lt;/span&gt;&lt;span class="c1"&gt;# entrypoint.sh 示例&lt;/span&gt;
+&lt;/span&gt;&lt;/span&gt;&lt;span class="line"&gt;&lt;span class="cl"&gt;&lt;span class="c1"&gt;# 容器启动时，用环境变量 DB_HOST 替换配置文件中的 &lt;/span&gt;
+&lt;/span&gt;&lt;/span&gt;&lt;span class="line"&gt;&lt;span class="cl"&gt;
+&lt;/span&gt;&lt;/span&gt;&lt;span class="line"&gt;&lt;span class="cl"&gt;sed -i &lt;span class="s2"&gt;&amp;#34;s//&lt;/span&gt;&lt;span class="si"&gt;${&lt;/span&gt;&lt;span class="nv"&gt;DB_HOST&lt;/span&gt;&lt;span class="si"&gt;}&lt;/span&gt;&lt;span class="s2"&gt;/g&amp;#34;&lt;/span&gt; /app/config/db.properties
+&lt;/span&gt;&lt;/span&gt;&lt;span class="line"&gt;&lt;span class="cl"&gt;
+&lt;/span&gt;&lt;/span&gt;&lt;span class="line"&gt;&lt;span class="cl"&gt;&lt;span class="c1"&gt;# 启动应用&lt;/span&gt;
+&lt;/span&gt;&lt;/span&gt;&lt;span class="line"&gt;&lt;span class="cl"&gt;&lt;span class="nb"&gt;exec&lt;/span&gt; &lt;span class="s2"&gt;&amp;#34;&lt;/span&gt;&lt;span class="nv"&gt;$@&lt;/span&gt;&lt;span class="s2"&gt;&amp;#34;&lt;/span&gt;
+&lt;/span&gt;&lt;/span&gt;&lt;/code&gt;&lt;/pre&gt;&lt;/td&gt;&lt;/tr&gt;&lt;/table&gt;
+&lt;/div&gt;
+&lt;/div&gt;&lt;p&gt;现在我每次做架构评审，都会盯着看一点：**有没有任何硬编码的IP或密码？**如果有，全部打回重做。这不仅是为了部署方便，更是为了不在GitHub上裸奔。&lt;/p&gt;
+&lt;h2 id="三-视力矫正日志别留本地"&gt;三、 视力矫正：日志别留本地
 &lt;/h2&gt;&lt;p&gt;在虚拟机上，我们习惯&lt;code&gt;tail -f /var/log/app.log&lt;/code&gt;。但在容器里，这种做法是自杀行为。&lt;/p&gt;
 &lt;p&gt;容器是“用完即扔”的。Pod（容器组）随时可能被调度到另一台机器上，或者因为健康检查失败被重启。一旦容器死掉，它里面的文件系统（OverlayFS）通常也就随风而去了。&lt;/p&gt;
 &lt;p&gt;&lt;strong&gt;真实案例：&lt;/strong&gt;
@@ -103,20 +117,13 @@
 &lt;/ul&gt;
 &lt;p&gt;这样，无论你后面接的是ELK（Elasticsearch, Logstash, Kibana）还是云厂商的日志服务（SLS/CLS），采集器只需要去读Docker的日志流即可，完全解耦。&lt;/p&gt;
 &lt;blockquote&gt;
-&lt;p&gt;行业里有个不成文的规矩：如果你需要SSH进容器去排查问题，说明你的日志收集和监控做得还不够好。&lt;/p&gt;
-&lt;/blockquote&gt;
+&lt;p&gt;行业里有个不成文的规矩：如果你需要SSH进容器去排查问题，说明你的日志收集和监控做得还不够好。&lt;/p&gt;&lt;/blockquote&gt;
 &lt;p&gt;自从强制推行“日志标准化”后，我再也不用半夜爬起来帮开发找日志文件了。所有的报错都在Kibana大盘上清清楚楚。&lt;/p&gt;
-&lt;p&gt;&lt;img src=&#34;https://picsum.photos/800/450?random=1768389151886&#34;
-	
-	
-	
-	loading=&#34;lazy&#34;
-	
-		alt=&#34;配图&#34;
-	
-	
+&lt;p&gt;&lt;img src="https://picsum.photos/800/450?random=1768389151886"
+loading="lazy"
+alt="配图"
 &gt;&lt;/p&gt;
-&lt;h2 id=&#34;结尾与行动&#34;&gt;结尾与行动
+&lt;h2 id="结尾与行动"&gt;结尾与行动
 &lt;/h2&gt;&lt;p&gt;容器化迁移，不仅仅是换个部署工具，更是一次技术债务的清算。&lt;/p&gt;
 &lt;p&gt;它强迫你去面对那些硬编码的配置、臃肿的依赖和随意的日志管理。过程可能会有点痛，但一旦跨过去，你会发现：&lt;strong&gt;原来运维可以不用背锅，开发可以不再扯皮。&lt;/strong&gt;&lt;/p&gt;
 &lt;p&gt;如果你正准备开始迁移，不妨从这3个小动作开始：&lt;/p&gt;
@@ -126,9 +133,4 @@
 &lt;li&gt;&lt;strong&gt;Redirect（重定向）&lt;/strong&gt;：把日志配置改为输出到控制台，停止向本地写文件。&lt;/li&gt;
 &lt;/ol&gt;
 &lt;p&gt;&lt;strong&gt;最后留个问题：&lt;/strong&gt;
-在你接触过的容器化项目中，遇到过最离谱的“坑”是什么？是时区不一致导致的数据错乱，还是JVM参数未适配导致的内存溢出？欢迎在评论区聊聊，让我们一起避坑。&lt;/p&gt;
-</description>
-        </item>
-        
-    </channel>
-</rss>
+在你接触过的容器化项目中，遇到过最离谱的“坑”是什么？是时区不一致导致的数据错乱，还是JVM参数未适配导致的内存溢出？欢迎在评论区聊聊，让我们一起避坑。&lt;/p&gt;</description></item></channel></rss>

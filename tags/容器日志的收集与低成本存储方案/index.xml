@@ -1,33 +1,13 @@
-<?xml version="1.0" encoding="utf-8" standalone="yes"?>
-<rss version="2.0" xmlns:atom="http://www.w3.org/2005/Atom">
-    <channel>
-        <title>容器日志的收集与低成本存储方案 on SelfTechHub</title>
-        <link>https://blog.irudder.me/tags/%E5%AE%B9%E5%99%A8%E6%97%A5%E5%BF%97%E7%9A%84%E6%94%B6%E9%9B%86%E4%B8%8E%E4%BD%8E%E6%88%90%E6%9C%AC%E5%AD%98%E5%82%A8%E6%96%B9%E6%A1%88.html</link>
-        <description>Recent content in 容器日志的收集与低成本存储方案 on SelfTechHub</description>
-        <generator>Hugo -- gohugo.io</generator>
-        <language>zh-cn</language>
-        <lastBuildDate>Tue, 24 Nov 2020 00:00:00 +0000</lastBuildDate><atom:link href="https://blog.irudder.me/tags/%E5%AE%B9%E5%99%A8%E6%97%A5%E5%BF%97%E7%9A%84%E6%94%B6%E9%9B%86%E4%B8%8E%E4%BD%8E%E6%88%90%E6%9C%AC%E5%AD%98%E5%82%A8%E6%96%B9%E6%A1%88/index.xml" rel="self" type="application/rss+xml" /><item>
-        <title>别再盲目上ELK！中小团队容器日志降本90%实战指南</title>
-        <link>https://blog.irudder.me/tech/zhongxiaoxingtuanduidevopsluodifangan/rongqirizhideshoujiyudichengbencunchufangan.html</link>
-        <pubDate>Tue, 24 Nov 2020 00:00:00 +0000</pubDate>
-        
-        <guid>https://blog.irudder.me/tech/zhongxiaoxingtuanduidevopsluodifangan/rongqirizhideshoujiyudichengbencunchufangan.html</guid>
-        <description>&lt;p&gt;记得上个月那个周五的下午，我正准备合上电脑享受周末，钉钉突然弹出了告警：生产环境磁盘占用率98%。&lt;/p&gt;
+<?xml version="1.0" encoding="utf-8" standalone="yes"?><rss version="2.0" xmlns:atom="http://www.w3.org/2005/Atom"><channel><title>容器日志的收集与低成本存储方案 on SelfTechHub</title><link>https://blog.irudder.me/tags/%E5%AE%B9%E5%99%A8%E6%97%A5%E5%BF%97%E7%9A%84%E6%94%B6%E9%9B%86%E4%B8%8E%E4%BD%8E%E6%88%90%E6%9C%AC%E5%AD%98%E5%82%A8%E6%96%B9%E6%A1%88.html</link><description>Recent content in 容器日志的收集与低成本存储方案 on SelfTechHub</description><generator>Hugo -- gohugo.io</generator><language>zh-cn</language><lastBuildDate>Tue, 24 Nov 2020 00:00:00 +0800</lastBuildDate><atom:link href="https://blog.irudder.me/tags/%E5%AE%B9%E5%99%A8%E6%97%A5%E5%BF%97%E7%9A%84%E6%94%B6%E9%9B%86%E4%B8%8E%E4%BD%8E%E6%88%90%E6%9C%AC%E5%AD%98%E5%82%A8%E6%96%B9%E6%A1%88/index.xml" rel="self" type="application/rss+xml"/><item><title>别再盲目上ELK！中小团队容器日志降本90%实战指南</title><link>https://blog.irudder.me/tech/zhongxiaoxingtuanduidevopsluodifangan/rongqirizhideshoujiyudichengbencunchufangan.html</link><pubDate>Tue, 24 Nov 2020 00:00:00 +0800</pubDate><guid>https://blog.irudder.me/tech/zhongxiaoxingtuanduidevopsluodifangan/rongqirizhideshoujiyudichengbencunchufangan.html</guid><description>&lt;p&gt;记得上个月那个周五的下午，我正准备合上电脑享受周末，钉钉突然弹出了告警：生产环境磁盘占用率98%。&lt;/p&gt;
 &lt;p&gt;排查了一圈，罪魁祸首竟然是日志服务器。这已经不是第一次了。更有意思的是，当我查看当月的云账单时，发现用来存储和分析日志的ES（Elasticsearch）集群费用，竟然快赶上业务服务器的开销了。&lt;/p&gt;
 &lt;p&gt;&lt;strong&gt;这就好比买了个保险箱存钱，结果保险箱的租金比里面存的钱还贵。&lt;/strong&gt;&lt;/p&gt;
 &lt;p&gt;很多中小团队的技术负责人都有个执念：日志系统=ELK（Elasticsearch, Logstash, Kibana）。这在十年前是标杆，但在云原生和降本增效成为主旋律的今天，对于没有专职运维、资源有限的中小团队来说，ELK往往太重、太贵、太难维护。&lt;/p&gt;
 &lt;p&gt;今天，我想聊聊怎么用更轻量级的方案，把这笔冤枉钱省下来。&lt;/p&gt;
-&lt;p&gt;&lt;img src=&#34;https://picsum.photos/800/450?random=1768389560193&#34;
-	
-	
-	
-	loading=&#34;lazy&#34;
-	
-		alt=&#34;配图&#34;
-	
-	
+&lt;p&gt;&lt;img src="https://picsum.photos/800/450?random=1768389560193"
+loading="lazy"
+alt="配图"
 &gt;&lt;/p&gt;
-&lt;h2 id=&#34;01-为什么说elk可能是中小团队的毒药&#34;&gt;01 为什么说ELK可能是中小团队的“毒药”？
+&lt;h2 id="01-为什么说elk可能是中小团队的毒药"&gt;01 为什么说ELK可能是中小团队的“毒药”？
 &lt;/h2&gt;&lt;p&gt;我不否认ELK的强大，但在资源有限的场景下，它的“强大”反而成了负担。&lt;/p&gt;
 &lt;p&gt;&lt;strong&gt;观点：全文索引是资源黑洞。&lt;/strong&gt;
 ES的核心机制是倒排索引（Full-text Indexing）。为了让你能毫秒级搜到任何一个关键词，它会把日志内容打散建立庞大的索引。这导致写入性能消耗极高，且索引文件本身就极其占用磁盘空间。&lt;/p&gt;
@@ -41,18 +21,12 @@ ES的核心机制是倒排索引（Full-text Indexing）。为了让你能毫秒
 &lt;/ol&gt;
 &lt;p&gt;&lt;strong&gt;反思：&lt;/strong&gt;
 对于中小团队，我们真的需要对所有日志全文索引吗？其实，我们大多数时候查日志的姿势是：&lt;strong&gt;根据时间范围 + 应用名称 + 关键报错信息（如&amp;quot;Exception&amp;quot;）去过滤。&lt;/strong&gt;&lt;/p&gt;
-&lt;p&gt;&lt;img src=&#34;https://picsum.photos/800/450?random=1768389556235&#34;
-	
-	
-	
-	loading=&#34;lazy&#34;
-	
-		alt=&#34;配图&#34;
-	
-	
+&lt;p&gt;&lt;img src="https://picsum.photos/800/450?random=1768389556235"
+loading="lazy"
+alt="配图"
 &gt;&lt;/p&gt;
 &lt;p&gt;这就好比你去图书馆找书，ELK是把每本书里的每一句话都抄下来做索引；而我们其实只需要知道书名和章节目录就够了。&lt;/p&gt;
-&lt;h2 id=&#34;02-loki像grep一样查询像prometheus一样轻量&#34;&gt;02 Loki：像Grep一样查询，像Prometheus一样轻量
+&lt;h2 id="02-loki像grep一样查询像prometheus一样轻量"&gt;02 Loki：像Grep一样查询，像Prometheus一样轻量
 &lt;/h2&gt;&lt;p&gt;既然ES太重，那谁来接盘？Grafana Labs开源的 &lt;strong&gt;Loki&lt;/strong&gt; 是我近两年强烈推荐的替代品。&lt;/p&gt;
 &lt;p&gt;&lt;strong&gt;观点：只索引元数据，内容压缩存储。&lt;/strong&gt;
 Loki 的设计逻辑非常反常识——它&lt;strong&gt;不对&lt;/strong&gt;日志内容做全文索引，只对日志的标签（Label，如 &lt;code&gt;app=order-service&lt;/code&gt;, &lt;code&gt;env=prod&lt;/code&gt;）做索引。日志内容本身被压缩后直接扔进对象存储。&lt;/p&gt;
@@ -65,25 +39,43 @@ Loki 的设计逻辑非常反常识——它&lt;strong&gt;不对&lt;/strong&gt;�
 &lt;li&gt;&lt;strong&gt;Grafana：&lt;/strong&gt; 可视化界面，也就是我们查日志的地方。&lt;/li&gt;
 &lt;/ul&gt;
 &lt;p&gt;这也是我目前在负责的项目中使用的架构。&lt;/p&gt;
-&lt;div class=&#34;highlight&#34;&gt;&lt;pre tabindex=&#34;0&#34; style=&#34;color:#f8f8f2;background-color:#272822;-moz-tab-size:4;-o-tab-size:4;tab-size:4;&#34;&gt;&lt;code class=&#34;language-yaml&#34; data-lang=&#34;yaml&#34;&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;&lt;span style=&#34;color:#75715e&#34;&gt;# Promtail 抓取配置示例 (轻量且无侵入)&lt;/span&gt;
-&lt;/span&gt;&lt;/span&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;&lt;span style=&#34;color:#f92672&#34;&gt;scrape_configs&lt;/span&gt;:
-&lt;/span&gt;&lt;/span&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;- &lt;span style=&#34;color:#f92672&#34;&gt;job_name&lt;/span&gt;: &lt;span style=&#34;color:#ae81ff&#34;&gt;kubernetes-pods&lt;/span&gt;
-&lt;/span&gt;&lt;/span&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;  &lt;span style=&#34;color:#f92672&#34;&gt;kubernetes_sd_configs&lt;/span&gt;:
-&lt;/span&gt;&lt;/span&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;  - &lt;span style=&#34;color:#f92672&#34;&gt;role&lt;/span&gt;: &lt;span style=&#34;color:#ae81ff&#34;&gt;pod&lt;/span&gt;
-&lt;/span&gt;&lt;/span&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;  &lt;span style=&#34;color:#f92672&#34;&gt;relabel_configs&lt;/span&gt;:
-&lt;/span&gt;&lt;/span&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;  - &lt;span style=&#34;color:#f92672&#34;&gt;source_labels&lt;/span&gt;: [&lt;span style=&#34;color:#ae81ff&#34;&gt;__meta_kubernetes_pod_label_app]&lt;/span&gt;
-&lt;/span&gt;&lt;/span&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;    &lt;span style=&#34;color:#f92672&#34;&gt;target_label&lt;/span&gt;: &lt;span style=&#34;color:#ae81ff&#34;&gt;app&lt;/span&gt;
-&lt;/span&gt;&lt;/span&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;  &lt;span style=&#34;color:#75715e&#34;&gt;# 只抓取业务日志，排除掉没有打标的无关容器&lt;/span&gt;
-&lt;/span&gt;&lt;/span&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;  - &lt;span style=&#34;color:#f92672&#34;&gt;action&lt;/span&gt;: &lt;span style=&#34;color:#ae81ff&#34;&gt;keep&lt;/span&gt;
-&lt;/span&gt;&lt;/span&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;    &lt;span style=&#34;color:#f92672&#34;&gt;source_labels&lt;/span&gt;: [&lt;span style=&#34;color:#ae81ff&#34;&gt;__meta_kubernetes_pod_label_app]&lt;/span&gt;
-&lt;/span&gt;&lt;/span&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;    &lt;span style=&#34;color:#f92672&#34;&gt;regex&lt;/span&gt;: &lt;span style=&#34;color:#ae81ff&#34;&gt;.+&lt;/span&gt;
-&lt;/span&gt;&lt;/span&gt;&lt;/code&gt;&lt;/pre&gt;&lt;/div&gt;&lt;p&gt;这个方案落地后，之前老李那个团队的日志架构发生了剧变：&lt;/p&gt;
+&lt;div class="highlight"&gt;&lt;div class="chroma"&gt;
+&lt;table class="lntable"&gt;&lt;tr&gt;&lt;td class="lntd"&gt;
+&lt;pre tabindex="0" class="chroma"&gt;&lt;code&gt;&lt;span class="lnt"&gt; 1
+&lt;/span&gt;&lt;span class="lnt"&gt; 2
+&lt;/span&gt;&lt;span class="lnt"&gt; 3
+&lt;/span&gt;&lt;span class="lnt"&gt; 4
+&lt;/span&gt;&lt;span class="lnt"&gt; 5
+&lt;/span&gt;&lt;span class="lnt"&gt; 6
+&lt;/span&gt;&lt;span class="lnt"&gt; 7
+&lt;/span&gt;&lt;span class="lnt"&gt; 8
+&lt;/span&gt;&lt;span class="lnt"&gt; 9
+&lt;/span&gt;&lt;span class="lnt"&gt;10
+&lt;/span&gt;&lt;span class="lnt"&gt;11
+&lt;/span&gt;&lt;span class="lnt"&gt;12
+&lt;/span&gt;&lt;/code&gt;&lt;/pre&gt;&lt;/td&gt;
+&lt;td class="lntd"&gt;
+&lt;pre tabindex="0" class="chroma"&gt;&lt;code class="language-yaml" data-lang="yaml"&gt;&lt;span class="line"&gt;&lt;span class="cl"&gt;&lt;span class="c"&gt;# Promtail 抓取配置示例 (轻量且无侵入)&lt;/span&gt;&lt;span class="w"&gt;
+&lt;/span&gt;&lt;/span&gt;&lt;/span&gt;&lt;span class="line"&gt;&lt;span class="cl"&gt;&lt;span class="w"&gt;&lt;/span&gt;&lt;span class="nt"&gt;scrape_configs&lt;/span&gt;&lt;span class="p"&gt;:&lt;/span&gt;&lt;span class="w"&gt;
+&lt;/span&gt;&lt;/span&gt;&lt;/span&gt;&lt;span class="line"&gt;&lt;span class="cl"&gt;&lt;span class="w"&gt;&lt;/span&gt;- &lt;span class="nt"&gt;job_name&lt;/span&gt;&lt;span class="p"&gt;:&lt;/span&gt;&lt;span class="w"&gt; &lt;/span&gt;&lt;span class="l"&gt;kubernetes-pods&lt;/span&gt;&lt;span class="w"&gt;
+&lt;/span&gt;&lt;/span&gt;&lt;/span&gt;&lt;span class="line"&gt;&lt;span class="cl"&gt;&lt;span class="w"&gt; &lt;/span&gt;&lt;span class="nt"&gt;kubernetes_sd_configs&lt;/span&gt;&lt;span class="p"&gt;:&lt;/span&gt;&lt;span class="w"&gt;
+&lt;/span&gt;&lt;/span&gt;&lt;/span&gt;&lt;span class="line"&gt;&lt;span class="cl"&gt;&lt;span class="w"&gt; &lt;/span&gt;- &lt;span class="nt"&gt;role&lt;/span&gt;&lt;span class="p"&gt;:&lt;/span&gt;&lt;span class="w"&gt; &lt;/span&gt;&lt;span class="l"&gt;pod&lt;/span&gt;&lt;span class="w"&gt;
+&lt;/span&gt;&lt;/span&gt;&lt;/span&gt;&lt;span class="line"&gt;&lt;span class="cl"&gt;&lt;span class="w"&gt; &lt;/span&gt;&lt;span class="nt"&gt;relabel_configs&lt;/span&gt;&lt;span class="p"&gt;:&lt;/span&gt;&lt;span class="w"&gt;
+&lt;/span&gt;&lt;/span&gt;&lt;/span&gt;&lt;span class="line"&gt;&lt;span class="cl"&gt;&lt;span class="w"&gt; &lt;/span&gt;- &lt;span class="nt"&gt;source_labels&lt;/span&gt;&lt;span class="p"&gt;:&lt;/span&gt;&lt;span class="w"&gt; &lt;/span&gt;&lt;span class="p"&gt;[&lt;/span&gt;&lt;span class="l"&gt;__meta_kubernetes_pod_label_app]&lt;/span&gt;&lt;span class="w"&gt;
+&lt;/span&gt;&lt;/span&gt;&lt;/span&gt;&lt;span class="line"&gt;&lt;span class="cl"&gt;&lt;span class="w"&gt; &lt;/span&gt;&lt;span class="nt"&gt;target_label&lt;/span&gt;&lt;span class="p"&gt;:&lt;/span&gt;&lt;span class="w"&gt; &lt;/span&gt;&lt;span class="l"&gt;app&lt;/span&gt;&lt;span class="w"&gt;
+&lt;/span&gt;&lt;/span&gt;&lt;/span&gt;&lt;span class="line"&gt;&lt;span class="cl"&gt;&lt;span class="w"&gt; &lt;/span&gt;&lt;span class="c"&gt;# 只抓取业务日志，排除掉没有打标的无关容器&lt;/span&gt;&lt;span class="w"&gt;
+&lt;/span&gt;&lt;/span&gt;&lt;/span&gt;&lt;span class="line"&gt;&lt;span class="cl"&gt;&lt;span class="w"&gt; &lt;/span&gt;- &lt;span class="nt"&gt;action&lt;/span&gt;&lt;span class="p"&gt;:&lt;/span&gt;&lt;span class="w"&gt; &lt;/span&gt;&lt;span class="l"&gt;keep&lt;/span&gt;&lt;span class="w"&gt;
+&lt;/span&gt;&lt;/span&gt;&lt;/span&gt;&lt;span class="line"&gt;&lt;span class="cl"&gt;&lt;span class="w"&gt; &lt;/span&gt;&lt;span class="nt"&gt;source_labels&lt;/span&gt;&lt;span class="p"&gt;:&lt;/span&gt;&lt;span class="w"&gt; &lt;/span&gt;&lt;span class="p"&gt;[&lt;/span&gt;&lt;span class="l"&gt;__meta_kubernetes_pod_label_app]&lt;/span&gt;&lt;span class="w"&gt;
+&lt;/span&gt;&lt;/span&gt;&lt;/span&gt;&lt;span class="line"&gt;&lt;span class="cl"&gt;&lt;span class="w"&gt; &lt;/span&gt;&lt;span class="nt"&gt;regex&lt;/span&gt;&lt;span class="p"&gt;:&lt;/span&gt;&lt;span class="w"&gt; &lt;/span&gt;&lt;span class="l"&gt;.+&lt;/span&gt;&lt;span class="w"&gt;
+&lt;/span&gt;&lt;/span&gt;&lt;/span&gt;&lt;/code&gt;&lt;/pre&gt;&lt;/td&gt;&lt;/tr&gt;&lt;/table&gt;
+&lt;/div&gt;
+&lt;/div&gt;&lt;p&gt;这个方案落地后，之前老李那个团队的日志架构发生了剧变：&lt;/p&gt;
 &lt;ul&gt;
 &lt;li&gt;&lt;strong&gt;资源释放：&lt;/strong&gt; 从3台32G机器缩减为1台8G机器（甚至可以用2核4G抗住）。&lt;/li&gt;
 &lt;li&gt;&lt;strong&gt;查询体验：&lt;/strong&gt; 虽然没有ES那种亚秒级的全文检索，但通过标签过滤后，查日志的速度完全在可接受范围内（通常1-3秒）。&lt;/li&gt;
 &lt;li&gt;&lt;strong&gt;运维解放：&lt;/strong&gt; 几乎不需要维护索引分片、Mapping结构这些让人头大的东西。&lt;/li&gt;
 &lt;/ul&gt;
-&lt;h2 id=&#34;03-杀手锏对象存储冷热分离把存储成本打到地板&#34;&gt;03 杀手锏：对象存储+冷热分离，把存储成本打到地板
+&lt;h2 id="03-杀手锏对象存储冷热分离把存储成本打到地板"&gt;03 杀手锏：对象存储+冷热分离，把存储成本打到地板
 &lt;/h2&gt;&lt;p&gt;解决了计算资源（CPU/内存）的问题，接下来是存储资源。这才是真正的“省钱黑科技”。&lt;/p&gt;
 &lt;p&gt;&lt;strong&gt;观点：不要把日志存在块存储（EBS/云盘）上，那是土豪的行为。&lt;/strong&gt;&lt;/p&gt;
 &lt;p&gt;云厂商的云盘价格通常是对象存储（如AWS S3、阿里云OSS）的5-10倍。而且云盘扩容麻烦，满了就得买更大的。&lt;/p&gt;
@@ -97,25 +89,44 @@ Loki 天生支持将日志块（Chunks）直接写到对象存储中。&lt;/p&gt
 &lt;/ol&gt;
 &lt;p&gt;这就形成了一个近乎无限容量、成本极低的存储池。&lt;/p&gt;
 &lt;blockquote&gt;
-&lt;p&gt;&amp;ldquo;自从切换到 S3 存储日志，我们把日志保留时间从 7 天延长到了 180 天，以此满足合规要求，但存储账单反而下降了 80%。&amp;rdquo; —— 某金融科技初创公司 CTO&lt;/p&gt;
-&lt;/blockquote&gt;
+&lt;p&gt;&amp;ldquo;自从切换到 S3 存储日志，我们把日志保留时间从 7 天延长到了 180 天，以此满足合规要求，但存储账单反而下降了 80%。&amp;rdquo; —— 某金融科技初创公司 CTO&lt;/p&gt;&lt;/blockquote&gt;
 &lt;p&gt;配置其实非常简单，只需在 Loki 的 &lt;code&gt;schema_config&lt;/code&gt; 和 &lt;code&gt;storage_config&lt;/code&gt; 中指定对象存储桶即可：&lt;/p&gt;
-&lt;div class=&#34;highlight&#34;&gt;&lt;pre tabindex=&#34;0&#34; style=&#34;color:#f8f8f2;background-color:#272822;-moz-tab-size:4;-o-tab-size:4;tab-size:4;&#34;&gt;&lt;code class=&#34;language-yaml&#34; data-lang=&#34;yaml&#34;&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;&lt;span style=&#34;color:#f92672&#34;&gt;schema_config&lt;/span&gt;:
-&lt;/span&gt;&lt;/span&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;  &lt;span style=&#34;color:#f92672&#34;&gt;configs&lt;/span&gt;:
-&lt;/span&gt;&lt;/span&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;  - &lt;span style=&#34;color:#f92672&#34;&gt;from&lt;/span&gt;: &lt;span style=&#34;color:#e6db74&#34;&gt;2024-01-01&lt;/span&gt;
-&lt;/span&gt;&lt;/span&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;    &lt;span style=&#34;color:#f92672&#34;&gt;store&lt;/span&gt;: &lt;span style=&#34;color:#ae81ff&#34;&gt;boltdb-shipper&lt;/span&gt;
-&lt;/span&gt;&lt;/span&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;    &lt;span style=&#34;color:#f92672&#34;&gt;object_store&lt;/span&gt;: &lt;span style=&#34;color:#ae81ff&#34;&gt;s3&lt;/span&gt;
-&lt;/span&gt;&lt;/span&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;    &lt;span style=&#34;color:#f92672&#34;&gt;schema&lt;/span&gt;: &lt;span style=&#34;color:#ae81ff&#34;&gt;v11&lt;/span&gt;
-&lt;/span&gt;&lt;/span&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;    &lt;span style=&#34;color:#f92672&#34;&gt;index&lt;/span&gt;:
-&lt;/span&gt;&lt;/span&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;      &lt;span style=&#34;color:#f92672&#34;&gt;prefix&lt;/span&gt;: &lt;span style=&#34;color:#ae81ff&#34;&gt;index_&lt;/span&gt;
-&lt;/span&gt;&lt;/span&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;      &lt;span style=&#34;color:#f92672&#34;&gt;period&lt;/span&gt;: &lt;span style=&#34;color:#ae81ff&#34;&gt;24h&lt;/span&gt;
-&lt;/span&gt;&lt;/span&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;
-&lt;/span&gt;&lt;/span&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;&lt;span style=&#34;color:#f92672&#34;&gt;storage_config&lt;/span&gt;:
-&lt;/span&gt;&lt;/span&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;  &lt;span style=&#34;color:#f92672&#34;&gt;aws&lt;/span&gt;:
-&lt;/span&gt;&lt;/span&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;    &lt;span style=&#34;color:#f92672&#34;&gt;s3&lt;/span&gt;: &lt;span style=&#34;color:#ae81ff&#34;&gt;s3://&amp;lt;region&amp;gt;/&amp;lt;bucket_name&amp;gt;&lt;/span&gt;
-&lt;/span&gt;&lt;/span&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;    &lt;span style=&#34;color:#75715e&#34;&gt;# 甚至可以使用MinIO自建对象存储&lt;/span&gt;
-&lt;/span&gt;&lt;/span&gt;&lt;/code&gt;&lt;/pre&gt;&lt;/div&gt;&lt;p&gt;我有一个习惯，每周一早上都会扫一眼Grafana的资源大盘。在使用这个方案后，看到存储用量的曲线虽然在涨，但对应的金额几乎是平的，那种掌控感是非常棒的。&lt;/p&gt;
-&lt;h2 id=&#34;总结与行动指南&#34;&gt;总结与行动指南
+&lt;div class="highlight"&gt;&lt;div class="chroma"&gt;
+&lt;table class="lntable"&gt;&lt;tr&gt;&lt;td class="lntd"&gt;
+&lt;pre tabindex="0" class="chroma"&gt;&lt;code&gt;&lt;span class="lnt"&gt; 1
+&lt;/span&gt;&lt;span class="lnt"&gt; 2
+&lt;/span&gt;&lt;span class="lnt"&gt; 3
+&lt;/span&gt;&lt;span class="lnt"&gt; 4
+&lt;/span&gt;&lt;span class="lnt"&gt; 5
+&lt;/span&gt;&lt;span class="lnt"&gt; 6
+&lt;/span&gt;&lt;span class="lnt"&gt; 7
+&lt;/span&gt;&lt;span class="lnt"&gt; 8
+&lt;/span&gt;&lt;span class="lnt"&gt; 9
+&lt;/span&gt;&lt;span class="lnt"&gt;10
+&lt;/span&gt;&lt;span class="lnt"&gt;11
+&lt;/span&gt;&lt;span class="lnt"&gt;12
+&lt;/span&gt;&lt;span class="lnt"&gt;13
+&lt;/span&gt;&lt;span class="lnt"&gt;14
+&lt;/span&gt;&lt;/code&gt;&lt;/pre&gt;&lt;/td&gt;
+&lt;td class="lntd"&gt;
+&lt;pre tabindex="0" class="chroma"&gt;&lt;code class="language-yaml" data-lang="yaml"&gt;&lt;span class="line"&gt;&lt;span class="cl"&gt;&lt;span class="nt"&gt;schema_config&lt;/span&gt;&lt;span class="p"&gt;:&lt;/span&gt;&lt;span class="w"&gt;
+&lt;/span&gt;&lt;/span&gt;&lt;/span&gt;&lt;span class="line"&gt;&lt;span class="cl"&gt;&lt;span class="w"&gt; &lt;/span&gt;&lt;span class="nt"&gt;configs&lt;/span&gt;&lt;span class="p"&gt;:&lt;/span&gt;&lt;span class="w"&gt;
+&lt;/span&gt;&lt;/span&gt;&lt;/span&gt;&lt;span class="line"&gt;&lt;span class="cl"&gt;&lt;span class="w"&gt; &lt;/span&gt;- &lt;span class="nt"&gt;from&lt;/span&gt;&lt;span class="p"&gt;:&lt;/span&gt;&lt;span class="w"&gt; &lt;/span&gt;&lt;span class="ld"&gt;2024-01-01&lt;/span&gt;&lt;span class="w"&gt;
+&lt;/span&gt;&lt;/span&gt;&lt;/span&gt;&lt;span class="line"&gt;&lt;span class="cl"&gt;&lt;span class="w"&gt; &lt;/span&gt;&lt;span class="nt"&gt;store&lt;/span&gt;&lt;span class="p"&gt;:&lt;/span&gt;&lt;span class="w"&gt; &lt;/span&gt;&lt;span class="l"&gt;boltdb-shipper&lt;/span&gt;&lt;span class="w"&gt;
+&lt;/span&gt;&lt;/span&gt;&lt;/span&gt;&lt;span class="line"&gt;&lt;span class="cl"&gt;&lt;span class="w"&gt; &lt;/span&gt;&lt;span class="nt"&gt;object_store&lt;/span&gt;&lt;span class="p"&gt;:&lt;/span&gt;&lt;span class="w"&gt; &lt;/span&gt;&lt;span class="l"&gt;s3&lt;/span&gt;&lt;span class="w"&gt;
+&lt;/span&gt;&lt;/span&gt;&lt;/span&gt;&lt;span class="line"&gt;&lt;span class="cl"&gt;&lt;span class="w"&gt; &lt;/span&gt;&lt;span class="nt"&gt;schema&lt;/span&gt;&lt;span class="p"&gt;:&lt;/span&gt;&lt;span class="w"&gt; &lt;/span&gt;&lt;span class="l"&gt;v11&lt;/span&gt;&lt;span class="w"&gt;
+&lt;/span&gt;&lt;/span&gt;&lt;/span&gt;&lt;span class="line"&gt;&lt;span class="cl"&gt;&lt;span class="w"&gt; &lt;/span&gt;&lt;span class="nt"&gt;index&lt;/span&gt;&lt;span class="p"&gt;:&lt;/span&gt;&lt;span class="w"&gt;
+&lt;/span&gt;&lt;/span&gt;&lt;/span&gt;&lt;span class="line"&gt;&lt;span class="cl"&gt;&lt;span class="w"&gt; &lt;/span&gt;&lt;span class="nt"&gt;prefix&lt;/span&gt;&lt;span class="p"&gt;:&lt;/span&gt;&lt;span class="w"&gt; &lt;/span&gt;&lt;span class="l"&gt;index_&lt;/span&gt;&lt;span class="w"&gt;
+&lt;/span&gt;&lt;/span&gt;&lt;/span&gt;&lt;span class="line"&gt;&lt;span class="cl"&gt;&lt;span class="w"&gt; &lt;/span&gt;&lt;span class="nt"&gt;period&lt;/span&gt;&lt;span class="p"&gt;:&lt;/span&gt;&lt;span class="w"&gt; &lt;/span&gt;&lt;span class="l"&gt;24h&lt;/span&gt;&lt;span class="w"&gt;
+&lt;/span&gt;&lt;/span&gt;&lt;/span&gt;&lt;span class="line"&gt;&lt;span class="cl"&gt;&lt;span class="w"&gt;
+&lt;/span&gt;&lt;/span&gt;&lt;/span&gt;&lt;span class="line"&gt;&lt;span class="cl"&gt;&lt;span class="w"&gt;&lt;/span&gt;&lt;span class="nt"&gt;storage_config&lt;/span&gt;&lt;span class="p"&gt;:&lt;/span&gt;&lt;span class="w"&gt;
+&lt;/span&gt;&lt;/span&gt;&lt;/span&gt;&lt;span class="line"&gt;&lt;span class="cl"&gt;&lt;span class="w"&gt; &lt;/span&gt;&lt;span class="nt"&gt;aws&lt;/span&gt;&lt;span class="p"&gt;:&lt;/span&gt;&lt;span class="w"&gt;
+&lt;/span&gt;&lt;/span&gt;&lt;/span&gt;&lt;span class="line"&gt;&lt;span class="cl"&gt;&lt;span class="w"&gt; &lt;/span&gt;&lt;span class="nt"&gt;s3&lt;/span&gt;&lt;span class="p"&gt;:&lt;/span&gt;&lt;span class="w"&gt; &lt;/span&gt;&lt;span class="l"&gt;s3://&amp;lt;region&amp;gt;/&amp;lt;bucket_name&amp;gt;&lt;/span&gt;&lt;span class="w"&gt;
+&lt;/span&gt;&lt;/span&gt;&lt;/span&gt;&lt;span class="line"&gt;&lt;span class="cl"&gt;&lt;span class="w"&gt; &lt;/span&gt;&lt;span class="c"&gt;# 甚至可以使用MinIO自建对象存储&lt;/span&gt;&lt;span class="w"&gt;
+&lt;/span&gt;&lt;/span&gt;&lt;/span&gt;&lt;/code&gt;&lt;/pre&gt;&lt;/td&gt;&lt;/tr&gt;&lt;/table&gt;
+&lt;/div&gt;
+&lt;/div&gt;&lt;p&gt;我有一个习惯，每周一早上都会扫一眼Grafana的资源大盘。在使用这个方案后，看到存储用量的曲线虽然在涨，但对应的金额几乎是平的，那种掌控感是非常棒的。&lt;/p&gt;
+&lt;h2 id="总结与行动指南"&gt;总结与行动指南
 &lt;/h2&gt;&lt;p&gt;在这个降本增效的寒冬，中小团队不需要追求大厂的“高大上”架构，&lt;strong&gt;合适且便宜&lt;/strong&gt;才是硬道理。&lt;/p&gt;
 &lt;p&gt;如果你的团队日日志量在 500GB 以下，且没有复杂的日志聚合统计需求（比如非要用日志算GMV），那么：
 &lt;strong&gt;放弃 ELK，拥抱 PLG（Promtail + Loki + Grafana） + 对象存储。&lt;/strong&gt;&lt;/p&gt;
@@ -129,9 +140,4 @@ B. 成本足够低，查询慢个两三秒能接受（选Loki）
 &lt;li&gt;&lt;strong&gt;查账单：&lt;/strong&gt; 现在就去你的云控制台，看一眼Elasticsearch或者云盘的费用，算出每GB日志的存储成本。&lt;/li&gt;
 &lt;li&gt;&lt;strong&gt;小范围试点：&lt;/strong&gt; 哪怕不动生产环境，先在测试环境部署一套 Loki + Promtail（Helm 安装只需10分钟），体验一下 &lt;code&gt;LogQL&lt;/code&gt; 的查询手感。&lt;/li&gt;
 &lt;li&gt;&lt;strong&gt;调整保留策略：&lt;/strong&gt; 无论用什么方案，检查你的日志保留时长。对于开发环境，3天足矣；对于非核心业务，7天足矣。不要为垃圾数据付费。&lt;/li&gt;
-&lt;/ol&gt;
-</description>
-        </item>
-        
-    </channel>
-</rss>
+&lt;/ol&gt;</description></item></channel></rss>

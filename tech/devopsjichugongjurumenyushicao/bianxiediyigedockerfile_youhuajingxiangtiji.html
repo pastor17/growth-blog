@@ -1,478 +1,78 @@
-<!DOCTYPE html>
-<html lang="zh-cn" dir="ltr">
-    <head><meta charset='utf-8'>
-<meta name='viewport' content='width=device-width, initial-scale=1'><meta name='description' content="大概在三年前的一个周五下午，我正准备结束一周的工作，监控群里突然弹出了磁盘告警。排查后发现，CI/CD 流水线所在的构建服务器磁盘爆满，而罪魁祸首竟然是一个刚刚构建的 Node.js 前端应用镜像——体积高达 1.2GB。\n当时我就在想：一个只是用来托管静态文件的 Nginx 容器，凭什么比我电脑上的操作系统安装包还大？\n这并不是个例。在很多中小团队中，大家往往把 Dockerfile 当作 Shell 脚本来写，认为只要 docker run 能跑起来就算成功。但实际上，镜像体积不仅关乎存储成本，更直接影响分发速度、启动时间以及生产环境的安全性。\n今天，我想结合那次具体的优化经历，复盘一下如何通过三个核心策略，将一个臃肿的“巨无霸”镜像优化到 80MB，并总结出一套可复用的 Dockerfile 编写心法。\n一、 警惕“层”的陷阱：少即是多\r刚开始接触 Docker 时，我们很容易陷入一种线性思维：把安装软件的步骤一行行写下来。\n当时我的同事小张写的 Dockerfile 大概长这样：\n# 错误示范 FROM ubuntu:20.04 RUN apt-get update RUN apt-get install -y nodejs RUN apt-get install -y npm RUN npm install -g yarn COPY . /app RUN rm -rf /var/lib/apt/lists/* 这看起来逻辑很通顺，但在 Docker 的世界里，这是大忌。\n因为 Docker 的每一条指令（特别是 RUN、COPY、ADD）都会构建一个新的镜像层（Layer）。 这种分层机制类似于洋葱，你在上一层创建了文件，在下一层执行删除，实际上文件并没有从磁盘物理消失，只是被“标记”为不可见。\n在这个案例中，apt-get update 下载的缓存文件在第一层被写入，虽然最后一行执行了 rm，但那是在新的层里操作的。结果就是：缓存文件依然占据着镜像体积。\n优化策略：链式指令与清理合并\n">
-<title>从1.2GB到80MB：我重写Dockerfile的“瘦身”实录</title>
-
-<link rel='canonical' href='https://blog.irudder.me/tech/devopsjichugongjurumenyushicao/bianxiediyigedockerfile_youhuajingxiangtiji.html'>
-
-<link rel="stylesheet" href="/scss/style.min.b9e9128fec450ebccecc4ec9900157f32b85d0609bcd5ee3293968bcaa1235f2.css"><meta property='og:title' content="从1.2GB到80MB：我重写Dockerfile的“瘦身”实录">
-<meta property='og:description' content="大概在三年前的一个周五下午，我正准备结束一周的工作，监控群里突然弹出了磁盘告警。排查后发现，CI/CD 流水线所在的构建服务器磁盘爆满，而罪魁祸首竟然是一个刚刚构建的 Node.js 前端应用镜像——体积高达 1.2GB。\n当时我就在想：一个只是用来托管静态文件的 Nginx 容器，凭什么比我电脑上的操作系统安装包还大？\n这并不是个例。在很多中小团队中，大家往往把 Dockerfile 当作 Shell 脚本来写，认为只要 docker run 能跑起来就算成功。但实际上，镜像体积不仅关乎存储成本，更直接影响分发速度、启动时间以及生产环境的安全性。\n今天，我想结合那次具体的优化经历，复盘一下如何通过三个核心策略，将一个臃肿的“巨无霸”镜像优化到 80MB，并总结出一套可复用的 Dockerfile 编写心法。\n一、 警惕“层”的陷阱：少即是多\r刚开始接触 Docker 时，我们很容易陷入一种线性思维：把安装软件的步骤一行行写下来。\n当时我的同事小张写的 Dockerfile 大概长这样：\n# 错误示范 FROM ubuntu:20.04 RUN apt-get update RUN apt-get install -y nodejs RUN apt-get install -y npm RUN npm install -g yarn COPY . /app RUN rm -rf /var/lib/apt/lists/* 这看起来逻辑很通顺，但在 Docker 的世界里，这是大忌。\n因为 Docker 的每一条指令（特别是 RUN、COPY、ADD）都会构建一个新的镜像层（Layer）。 这种分层机制类似于洋葱，你在上一层创建了文件，在下一层执行删除，实际上文件并没有从磁盘物理消失，只是被“标记”为不可见。\n在这个案例中，apt-get update 下载的缓存文件在第一层被写入，虽然最后一行执行了 rm，但那是在新的层里操作的。结果就是：缓存文件依然占据着镜像体积。\n优化策略：链式指令与清理合并\n">
-<meta property='og:url' content='https://blog.irudder.me/tech/devopsjichugongjurumenyushicao/bianxiediyigedockerfile_youhuajingxiangtiji.html'>
-<meta property='og:site_name' content='SelfTechHub'>
-<meta property='og:type' content='article'><meta property='article:section' content='Tech' /><meta property='article:tag' content='编写第一个Dockerfile：优化镜像体积' /><meta property='article:published_time' content='2024-12-13T00:00:00&#43;00:00'/><meta property='article:modified_time' content='2024-12-13T00:00:00&#43;00:00'/>
-<meta name="twitter:title" content="从1.2GB到80MB：我重写Dockerfile的“瘦身”实录">
-<meta name="twitter:description" content="大概在三年前的一个周五下午，我正准备结束一周的工作，监控群里突然弹出了磁盘告警。排查后发现，CI/CD 流水线所在的构建服务器磁盘爆满，而罪魁祸首竟然是一个刚刚构建的 Node.js 前端应用镜像——体积高达 1.2GB。\n当时我就在想：一个只是用来托管静态文件的 Nginx 容器，凭什么比我电脑上的操作系统安装包还大？\n这并不是个例。在很多中小团队中，大家往往把 Dockerfile 当作 Shell 脚本来写，认为只要 docker run 能跑起来就算成功。但实际上，镜像体积不仅关乎存储成本，更直接影响分发速度、启动时间以及生产环境的安全性。\n今天，我想结合那次具体的优化经历，复盘一下如何通过三个核心策略，将一个臃肿的“巨无霸”镜像优化到 80MB，并总结出一套可复用的 Dockerfile 编写心法。\n一、 警惕“层”的陷阱：少即是多\r刚开始接触 Docker 时，我们很容易陷入一种线性思维：把安装软件的步骤一行行写下来。\n当时我的同事小张写的 Dockerfile 大概长这样：\n# 错误示范 FROM ubuntu:20.04 RUN apt-get update RUN apt-get install -y nodejs RUN apt-get install -y npm RUN npm install -g yarn COPY . /app RUN rm -rf /var/lib/apt/lists/* 这看起来逻辑很通顺，但在 Docker 的世界里，这是大忌。\n因为 Docker 的每一条指令（特别是 RUN、COPY、ADD）都会构建一个新的镜像层（Layer）。 这种分层机制类似于洋葱，你在上一层创建了文件，在下一层执行删除，实际上文件并没有从磁盘物理消失，只是被“标记”为不可见。\n在这个案例中，apt-get update 下载的缓存文件在第一层被写入，虽然最后一行执行了 rm，但那是在新的层里操作的。结果就是：缓存文件依然占据着镜像体积。\n优化策略：链式指令与清理合并\n">
-    </head>
-    <body class="
-    article-page
-    ">
-    <script>
-        (function() {
-            const colorSchemeKey = 'StackColorScheme';
-            if(!localStorage.getItem(colorSchemeKey)){
-                localStorage.setItem(colorSchemeKey, "auto");
-            }
-        })();
-    </script><script>
-    (function() {
-        const colorSchemeKey = 'StackColorScheme';
-        const colorSchemeItem = localStorage.getItem(colorSchemeKey);
-        const supportDarkMode = window.matchMedia('(prefers-color-scheme: dark)').matches === true;
-
-        if (colorSchemeItem == 'dark' || colorSchemeItem === 'auto' && supportDarkMode) {
-            
-
-            document.documentElement.dataset.scheme = 'dark';
-        } else {
-            document.documentElement.dataset.scheme = 'light';
-        }
-    })();
-</script>
-<div class="container main-container flex on-phone--column compact"><aside class="sidebar left-sidebar sticky ">
-    <button class="hamburger hamburger--spin" type="button" id="toggle-menu" aria-label="切换菜单">
-        <span class="hamburger-box">
-            <span class="hamburger-inner"></span>
-        </span>
-    </button>
-
-    <header>
-        
-            
-            <figure class="site-avatar">
-                <a href="/">
-                
-                    
-                    
-                    
-                        
-                        <img src="/img/avatar_hu_8588ce14af1147e2.png" width="300"
-                            height="286" class="site-logo" loading="lazy" alt="Avatar">
-                    
-                
-                </a>
-                
-            </figure>
-            
-        
-        
-        <div class="site-meta">
-            <h1 class="site-name"><a href="/">SelfTechHub</a></h1>
-            <h2 class="site-description"></h2>
-        </div>
-    </header><ol class="menu" id="main-menu">
-        
-        
-        <li class="menu-bottom-section">
-            <ol class="menu">
-
-                
-                    <li id="dark-mode-toggle">
-                        <svg xmlns="http://www.w3.org/2000/svg" class="icon icon-tabler icon-tabler-toggle-left" width="24" height="24" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor" fill="none" stroke-linecap="round" stroke-linejoin="round">
-  <path stroke="none" d="M0 0h24v24H0z"/>
-  <circle cx="8" cy="12" r="2" />
-  <rect x="2" y="6" width="20" height="12" rx="6" />
-</svg>
-
-
-
-                        <svg xmlns="http://www.w3.org/2000/svg" class="icon icon-tabler icon-tabler-toggle-right" width="24" height="24" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor" fill="none" stroke-linecap="round" stroke-linejoin="round">
-  <path stroke="none" d="M0 0h24v24H0z"/>
-  <circle cx="16" cy="12" r="2" />
-  <rect x="2" y="6" width="20" height="12" rx="6" />
-</svg>
-
-
-
-                        <span>暗色模式</span>
-                    </li>
-                
-            </ol>
-        </li>
-    </ol>
-</aside>
-
-    
-
-            <main class="main full-width">
-    <article class="main-article">
-    <header class="article-header">
-
-    <div class="article-details">
-    
-    <header class="article-category">
-        
-            <a href="/categories/%E6%8A%80%E6%9C%AF.html" >
-                技术精进
-            </a>
-        
-    </header>
-    
-
-    <div class="article-title-wrapper">
-        <h2 class="article-title">
-            <a href="/tech/devopsjichugongjurumenyushicao/bianxiediyigedockerfile_youhuajingxiangtiji.html">从1.2GB到80MB：我重写Dockerfile的“瘦身”实录</a>
-        </h2>
-    
-        
-    </div>
-
-    
-    
-    
-    
-    <footer class="article-time">
-        
-            <div>
-                <svg xmlns="http://www.w3.org/2000/svg" class="icon icon-tabler icon-tabler-calendar-time" width="56" height="56" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor" fill="none" stroke-linecap="round" stroke-linejoin="round">
-  <path stroke="none" d="M0 0h24v24H0z"/>
-  <path d="M11.795 21h-6.795a2 2 0 0 1 -2 -2v-12a2 2 0 0 1 2 -2h12a2 2 0 0 1 2 2v4" />
-  <circle cx="18" cy="18" r="4" />
-  <path d="M15 3v4" />
-  <path d="M7 3v4" />
-  <path d="M3 11h16" />
-  <path d="M18 16.496v1.504l1 1" />
-</svg>
-                <time class="article-time--published" datetime='2024-12-13T00:00:00Z'>Dec 13, 2024</time>
-            </div>
-        
-
-        
-            <div>
-                <svg xmlns="http://www.w3.org/2000/svg" class="icon icon-tabler icon-tabler-clock" width="24" height="24" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor" fill="none" stroke-linecap="round" stroke-linejoin="round">
-  <path stroke="none" d="M0 0h24v24H0z"/>
-  <circle cx="12" cy="12" r="9" />
-  <polyline points="12 7 12 12 15 15" />
-</svg>
-
-
-
-                <time class="article-time--reading">
-                    阅读时长: 2 分钟
-                </time>
-            </div>
-        
-    </footer>
-    
-
-    
-</div>
-
-</header>
-
-    <section class="article-content">
-    
-    
-    <p>大概在三年前的一个周五下午，我正准备结束一周的工作，监控群里突然弹出了磁盘告警。排查后发现，CI/CD 流水线所在的构建服务器磁盘爆满，而罪魁祸首竟然是一个刚刚构建的 Node.js 前端应用镜像——体积高达 1.2GB。</p>
-<p>当时我就在想：<strong>一个只是用来托管静态文件的 Nginx 容器，凭什么比我电脑上的操作系统安装包还大？</strong></p>
-<p>这并不是个例。在很多中小团队中，大家往往把 Dockerfile 当作 Shell 脚本来写，认为只要 <code>docker run</code> 能跑起来就算成功。但实际上，镜像体积不仅关乎存储成本，更直接影响<strong>分发速度、启动时间以及生产环境的安全性</strong>。</p>
-<p><img src="https://picsum.photos/800/450?random=1768387582351"
-	
-	
-	
-	loading="lazy"
-	
-		alt="配图"
-	
-	
-></p>
-<p>今天，我想结合那次具体的优化经历，复盘一下如何通过三个核心策略，将一个臃肿的“巨无霸”镜像优化到 80MB，并总结出一套可复用的 Dockerfile 编写心法。</p>
-<hr>
-<h2 id="一-警惕层的陷阱少即是多">一、 警惕“层”的陷阱：少即是多
-</h2><p>刚开始接触 Docker 时，我们很容易陷入一种线性思维：把安装软件的步骤一行行写下来。</p>
-<p>当时我的同事小张写的 Dockerfile 大概长这样：</p>
-<div class="highlight"><pre tabindex="0" style="color:#f8f8f2;background-color:#272822;-moz-tab-size:4;-o-tab-size:4;tab-size:4;"><code class="language-dockerfile" data-lang="dockerfile"><span style="display:flex;"><span><span style="color:#75715e"># 错误示范</span><span style="color:#960050;background-color:#1e0010">
-</span></span></span><span style="display:flex;"><span><span style="color:#960050;background-color:#1e0010"></span><span style="color:#66d9ef">FROM</span> <span style="color:#e6db74">ubuntu:20.04</span><span style="color:#960050;background-color:#1e0010">
-</span></span></span><span style="display:flex;"><span><span style="color:#960050;background-color:#1e0010"></span><span style="color:#66d9ef">RUN</span> apt-get update<span style="color:#960050;background-color:#1e0010">
-</span></span></span><span style="display:flex;"><span><span style="color:#960050;background-color:#1e0010"></span><span style="color:#66d9ef">RUN</span> apt-get install -y nodejs<span style="color:#960050;background-color:#1e0010">
-</span></span></span><span style="display:flex;"><span><span style="color:#960050;background-color:#1e0010"></span><span style="color:#66d9ef">RUN</span> apt-get install -y npm<span style="color:#960050;background-color:#1e0010">
-</span></span></span><span style="display:flex;"><span><span style="color:#960050;background-color:#1e0010"></span><span style="color:#66d9ef">RUN</span> npm install -g yarn<span style="color:#960050;background-color:#1e0010">
-</span></span></span><span style="display:flex;"><span><span style="color:#960050;background-color:#1e0010"></span><span style="color:#66d9ef">COPY</span> . /app<span style="color:#960050;background-color:#1e0010">
-</span></span></span><span style="display:flex;"><span><span style="color:#960050;background-color:#1e0010"></span><span style="color:#66d9ef">RUN</span> rm -rf /var/lib/apt/lists/*<span style="color:#960050;background-color:#1e0010">
-</span></span></span></code></pre></div><p>这看起来逻辑很通顺，但在 Docker 的世界里，这是大忌。</p>
-<p><strong>因为 Docker 的每一条指令（特别是 <code>RUN</code>、<code>COPY</code>、<code>ADD</code>）都会构建一个新的镜像层（Layer）。</strong> 这种分层机制类似于洋葱，你在上一层创建了文件，在下一层执行删除，实际上文件并没有从磁盘物理消失，只是被“标记”为不可见。</p>
-<p>在这个案例中，<code>apt-get update</code> 下载的缓存文件在第一层被写入，虽然最后一行执行了 <code>rm</code>，但那是在新的层里操作的。结果就是：缓存文件依然占据着镜像体积。</p>
-<p><strong>优化策略：链式指令与清理合并</strong></p>
-<p>我当时做的第一件事，就是把这些相关的操作合并成一条指令，并在同一层内完成“下载-安装-清理”的闭环。</p>
-<div class="highlight"><pre tabindex="0" style="color:#f8f8f2;background-color:#272822;-moz-tab-size:4;-o-tab-size:4;tab-size:4;"><code class="language-dockerfile" data-lang="dockerfile"><span style="display:flex;"><span><span style="color:#75715e"># 优化后</span><span style="color:#960050;background-color:#1e0010">
-</span></span></span><span style="display:flex;"><span><span style="color:#960050;background-color:#1e0010"></span><span style="color:#66d9ef">FROM</span> <span style="color:#e6db74">ubuntu:20.04</span><span style="color:#960050;background-color:#1e0010">
-</span></span></span><span style="display:flex;"><span><span style="color:#960050;background-color:#1e0010"></span><span style="color:#66d9ef">RUN</span> apt-get update <span style="color:#f92672">&amp;&amp;</span> <span style="color:#ae81ff">\
-</span></span></span><span style="display:flex;"><span><span style="color:#ae81ff"></span>    apt-get install -y nodejs npm <span style="color:#f92672">&amp;&amp;</span> <span style="color:#ae81ff">\
-</span></span></span><span style="display:flex;"><span><span style="color:#ae81ff"></span>    npm install -g yarn <span style="color:#f92672">&amp;&amp;</span> <span style="color:#ae81ff">\
-</span></span></span><span style="display:flex;"><span><span style="color:#ae81ff"></span>    rm -rf /var/lib/apt/lists/*<span style="color:#960050;background-color:#1e0010">
-</span></span></span></code></pre></div><blockquote>
-<p><strong>思考一下：</strong> 你的 Dockerfile 里是否有连续的 RUN 指令？哪怕只是简单的合并，通常也能减少 10%-30% 的体积。</p>
-</blockquote>
-<p>通过这一步简单的合并，我把那个镜像减少了近 200MB。但对于 1.2GB 的总大小来说，这还只是热身。</p>
-<hr>
-<h2 id="二-只要结果不要过程多阶段构建的魔法">二、 只要结果，不要过程：多阶段构建的魔法
-</h2><p>分析那个 1.2GB 的镜像层级时，我发现了真正的庞然大物：<code>node_modules</code> 和各类编译工具（gcc, make, python等）。</p>
-<p>这是一个典型的开发误区：<strong>把“构建环境”带入了“生产环境”。</strong></p>
-<p>应用运行时只需要编译后的静态文件（HTML/CSS/JS）和 Nginx 服务器，根本不需要 Node.js 环境，更不需要那几百兆的源码依赖。然而，为了执行 <code>npm run build</code>，我们被迫安装了这一整套工具链。</p>
-<p><img src="https://picsum.photos/800/450?random=1768387578488"
-	
-	
-	
-	loading="lazy"
-	
-		alt="配图"
-	
-	
-></p>
-<p>在 Docker 17.05 之前，我们需要维护两个 Dockerfile（一个用于构建，一个用于运行），非常麻烦。但现在，我们可以使用<strong>多阶段构建（Multi-stage Builds）</strong>。</p>
-<p><strong>优化策略：掐头去尾，只留精华</strong></p>
-<p>我将 Dockerfile 重构为两个阶段：</p>
-<ol>
-<li><strong>构建阶段</strong>：基于 Node 镜像，安装依赖，编译代码。</li>
-<li><strong>运行阶段</strong>：基于纯净的 Nginx 镜像，只从上一阶段拷贝编译好的 <code>/dist</code> 目录。</li>
-</ol>
-<div class="highlight"><pre tabindex="0" style="color:#f8f8f2;background-color:#272822;-moz-tab-size:4;-o-tab-size:4;tab-size:4;"><code class="language-dockerfile" data-lang="dockerfile"><span style="display:flex;"><span><span style="color:#75715e"># 第一阶段：构建 (起个别名 builder)</span><span style="color:#960050;background-color:#1e0010">
-</span></span></span><span style="display:flex;"><span><span style="color:#960050;background-color:#1e0010"></span><span style="color:#66d9ef">FROM</span> <span style="color:#e6db74">node:16</span> <span style="color:#66d9ef">AS</span> <span style="color:#e6db74">builder</span><span style="color:#960050;background-color:#1e0010">
-</span></span></span><span style="display:flex;"><span><span style="color:#960050;background-color:#1e0010"></span><span style="color:#66d9ef">WORKDIR</span> <span style="color:#e6db74">/app</span><span style="color:#960050;background-color:#1e0010">
-</span></span></span><span style="display:flex;"><span><span style="color:#960050;background-color:#1e0010"></span><span style="color:#66d9ef">COPY</span> package*.json ./<span style="color:#960050;background-color:#1e0010">
-</span></span></span><span style="display:flex;"><span><span style="color:#960050;background-color:#1e0010"></span><span style="color:#66d9ef">RUN</span> npm install<span style="color:#960050;background-color:#1e0010">
-</span></span></span><span style="display:flex;"><span><span style="color:#960050;background-color:#1e0010"></span><span style="color:#66d9ef">COPY</span> . .<span style="color:#960050;background-color:#1e0010">
-</span></span></span><span style="display:flex;"><span><span style="color:#960050;background-color:#1e0010"></span><span style="color:#66d9ef">RUN</span> npm run build<span style="color:#960050;background-color:#1e0010">
-</span></span></span><span style="display:flex;"><span><span style="color:#960050;background-color:#1e0010">
-</span></span></span><span style="display:flex;"><span><span style="color:#960050;background-color:#1e0010"></span><span style="color:#75715e"># 第二阶段：运行</span><span style="color:#960050;background-color:#1e0010">
-</span></span></span><span style="display:flex;"><span><span style="color:#960050;background-color:#1e0010"></span><span style="color:#66d9ef">FROM</span> <span style="color:#e6db74">nginx:alpine</span><span style="color:#960050;background-color:#1e0010">
-</span></span></span><span style="display:flex;"><span><span style="color:#960050;background-color:#1e0010"></span><span style="color:#75715e"># 关键：只拷贝构建产物，抛弃源代码和 node_modules</span><span style="color:#960050;background-color:#1e0010">
-</span></span></span><span style="display:flex;"><span><span style="color:#960050;background-color:#1e0010"></span><span style="color:#66d9ef">COPY</span> --from<span style="color:#f92672">=</span>builder /app/dist /usr/share/nginx/html<span style="color:#960050;background-color:#1e0010">
-</span></span></span><span style="display:flex;"><span><span style="color:#960050;background-color:#1e0010"></span><span style="color:#66d9ef">EXPOSE</span> <span style="color:#e6db74">80</span><span style="color:#960050;background-color:#1e0010">
-</span></span></span><span style="display:flex;"><span><span style="color:#960050;background-color:#1e0010"></span><span style="color:#66d9ef">CMD</span> [<span style="color:#e6db74">&#34;nginx&#34;</span>, <span style="color:#e6db74">&#34;-g&#34;</span>, <span style="color:#e6db74">&#34;daemon off;&#34;</span>]<span style="color:#960050;background-color:#1e0010">
-</span></span></span></code></pre></div><p>这一招效果立竿见影。原本包含 Node 环境、源码、依赖包的 1.2GB 镜像，瞬间变成了只包含 Nginx 和静态文件的 80MB 镜像。</p>
-<p><strong>这次优化带来的连锁反应是惊人的：</strong> 部署时间从 5 分钟缩短到了 30 秒，因为网络传输的数据量减少了 90% 以上。</p>
-<hr>
-<h2 id="三-选对基座alpine-还是-distroless">三、 选对基座：Alpine 还是 Distroless？
-</h2><p>做完多阶段构建后，我已经很有成就感了。但我习惯再多问自己一句：<strong>还能再小一点吗？</strong></p>
-<p>我们之前的运行阶段使用的是 <code>nginx:latest</code>，它默认基于 Debian 系统。这意味着我的镜像里包含了一整套 Debian 的基础工具（bash, ls, grep 等）。</p>
-<p>但在这个场景下，我真的需要这些工具吗？应用只是一个 Web Server 及其配置文件。</p>
-<p><strong>优化策略：使用精简版基础镜像</strong></p>
-<p>业界目前主要有两个精简流派：</p>
-<ol>
-<li><strong>Alpine Linux</strong>：体积极小（约 5MB），基于 musl libc。</li>
-<li><strong>Distroless</strong>：Google 推出的镜像，甚至连 Shell 都没有，只包含应用运行的最小依赖。</li>
-</ol>
-<p>考虑到后期排查问题可能还需要进入容器看一眼，我选择了兼容性较好的 <code>nginx:alpine</code>。</p>
-<div class="highlight"><pre tabindex="0" style="color:#f8f8f2;background-color:#272822;-moz-tab-size:4;-o-tab-size:4;tab-size:4;"><code class="language-dockerfile" data-lang="dockerfile"><span style="display:flex;"><span><span style="color:#75715e"># 这是一个巨大的差异</span><span style="color:#960050;background-color:#1e0010">
-</span></span></span><span style="display:flex;"><span><span style="color:#960050;background-color:#1e0010"></span><span style="color:#75715e"># FROM ubuntu:20.04  -&gt; 基础镜像约 70MB</span><span style="color:#960050;background-color:#1e0010">
-</span></span></span><span style="display:flex;"><span><span style="color:#960050;background-color:#1e0010"></span><span style="color:#75715e"># FROM alpine:3.14   -&gt; 基础镜像约 5MB</span><span style="color:#960050;background-color:#1e0010">
-</span></span></span></code></pre></div><p>不过这里要提一个我踩过的坑。有一次我们在 Python 项目中盲目切换到 Alpine，结果因为 <code>glibc</code> 和 <code>musl</code> 的兼容性问题，导致很多 C 语言编写的依赖库（如 numpy）无法运行，编译时间反而激增。</p>
-<blockquote>
-<p><strong>避坑指南：</strong> 对于 Node.js、Go、Rust 这类静态编译或自带运行时的语言，Alpine 是绝佳选择；但对于 Python、Java 等强依赖系统动态库的语言，使用 <code>slim</code> 版本（如 <code>python:3.9-slim</code>）通常是兼容性和体积的最佳平衡点。</p>
-</blockquote>
-<hr>
-<h2 id="结尾不仅仅是省空间">结尾：不仅仅是省空间
-</h2><p>经过这三板斧的优化（合并指令、多阶段构建、精简基座），那个 1.2GB 的怪兽镜像最终稳定在了 20MB 左右（Nginx 基础 + 代码）。</p>
-<p>回过头来看，<strong>优化 Dockerfile 的本质，其实是工程思维的体现。</strong> 我们在追求“能跑就行”的同时，是否忽略了资源效率和安全性？（注：越小的镜像，攻击面越小，包含的 CVE 漏洞通常也越少）。</p>
-<p>你现在的项目中，是否也有那种几百兆甚至上 G 的“黑盒”镜像？</p>
-<p><strong>给你的 3 个落地行动建议：</strong></p>
-<ol>
-<li><strong>立刻检查：</strong> 使用命令 <code>docker history &lt;你的镜像ID&gt;</code>，查看是哪一层占用了最大空间。</li>
-<li><strong>上手工具：</strong> 尝试使用 <code>docker-slim</code> 或者 VS Code 的 Docker 插件，它们能自动给出优化建议。</li>
-<li><strong>配置忽略：</strong> 检查你的项目根目录有没有 <code>.dockerignore</code> 文件。如果没有，请立刻创建一个，并把 <code>.git</code>、<code>node_modules</code>、<code>tmp</code> 等无关文件加进去，这往往是新手最容易忽略的“体积杀手”。</li>
-</ol>
-<p>好的 Dockerfile 应该像一段优秀的代码：简洁、清晰、没有一句废话。希望这篇实录能帮你迈出优化的第一步。</p>
-
-</section>
-
-
-    <footer class="article-footer">
-    
-    <section class="article-tags">
-        
-            <a href="/tags/%E7%BC%96%E5%86%99%E7%AC%AC%E4%B8%80%E4%B8%AADockerfile%E4%BC%98%E5%8C%96%E9%95%9C%E5%83%8F%E4%BD%93%E7%A7%AF.html">编写第一个Dockerfile：优化镜像体积</a>
-        
-    </section>
-
-
-    </footer>
-
-
-    
-</article>
-
-    
-
-    
-
-     
-    
-        
-    <script
-    src="https://giscus.app/client.js"
-    data-repo="pastor17/bloggiscus"
-    data-repo-id="R_kgDOQ6H9qQ"
-    data-category=""
-    data-category-id="DIC_kwDOQ6H9qc4C0-T8"
-    data-mapping="pathname"
-    data-strict="0"
-    data-reactions-enabled="1"
-    data-emit-metadata="0"
-    data-input-position="bottom"
-    data-theme="light"
-    data-lang="zh-CN"
-    data-loading="lazy"
-    crossorigin="anonymous"
-    async
-></script>
-<script>
-    function setGiscusTheme(theme) {
-        let giscus = document.querySelector("iframe.giscus-frame");
-        if (giscus) {
-            giscus.contentWindow.postMessage(
-                {
-                    giscus: {
-                        setConfig: {
-                            theme: theme,
-                        },
-                    },
-                },
-                "https://giscus.app"
-            );
-        }
-    }
-
-    (function () {
-        addEventListener("message", (e) => {
-            if (event.origin !== "https://giscus.app") return;
-            handler();
-        });
-        window.addEventListener("onColorSchemeChange", handler);
-
-        function handler() {
-            if (document.documentElement.dataset.scheme === "light") {
-                setGiscusTheme('light');
-            } else {
-                setGiscusTheme('dark_dimmed');
-            }
-        }
-    })();
-</script>
-
-    
-
-    <footer class="site-footer">
-    <section class="copyright">
-        &copy; 
-        
-        2026 SelfTechHub
-    </section>
-    
-    <section class="powerby">
-        
-
-    </section>
-</footer>
-
-
-    
-<div class="pswp" tabindex="-1" role="dialog" aria-hidden="true">
-
-    
-    <div class="pswp__bg"></div>
-
-    
-    <div class="pswp__scroll-wrap">
-
-        
-        <div class="pswp__container">
-            <div class="pswp__item"></div>
-            <div class="pswp__item"></div>
-            <div class="pswp__item"></div>
-        </div>
-
-        
-        <div class="pswp__ui pswp__ui--hidden">
-
-            <div class="pswp__top-bar">
-
-                
-
-                <div class="pswp__counter"></div>
-
-                <button class="pswp__button pswp__button--close" title="Close (Esc)"></button>
-
-                <button class="pswp__button pswp__button--share" title="Share"></button>
-
-                <button class="pswp__button pswp__button--fs" title="Toggle fullscreen"></button>
-
-                <button class="pswp__button pswp__button--zoom" title="Zoom in/out"></button>
-
-                
-                
-                <div class="pswp__preloader">
-                    <div class="pswp__preloader__icn">
-                        <div class="pswp__preloader__cut">
-                            <div class="pswp__preloader__donut"></div>
-                        </div>
-                    </div>
-                </div>
-            </div>
-
-            <div class="pswp__share-modal pswp__share-modal--hidden pswp__single-tap">
-                <div class="pswp__share-tooltip"></div>
-            </div>
-
-            <button class="pswp__button pswp__button--arrow--left" title="Previous (arrow left)">
-            </button>
-
-            <button class="pswp__button pswp__button--arrow--right" title="Next (arrow right)">
-            </button>
-
-            <div class="pswp__caption">
-                <div class="pswp__caption__center"></div>
-            </div>
-
-        </div>
-
-    </div>
-
-</div><script 
-                src="https://cdn.jsdelivr.net/npm/photoswipe@4.1.3/dist/photoswipe.min.js"integrity="sha256-ePwmChbbvXbsO02lbM3HoHbSHTHFAeChekF1xKJdleo="crossorigin="anonymous"
-                defer
-                >
-            </script><script 
-                src="https://cdn.jsdelivr.net/npm/photoswipe@4.1.3/dist/photoswipe-ui-default.min.js"integrity="sha256-UKkzOn/w1mBxRmLLGrSeyB4e1xbrp4xylgAWb3M42pU="crossorigin="anonymous"
-                defer
-                >
-            </script><link 
-                rel="stylesheet" 
-                href="https://cdn.jsdelivr.net/npm/photoswipe@4.1.3/dist/default-skin/default-skin.min.css"crossorigin="anonymous"
-            ><link 
-                rel="stylesheet" 
-                href="https://cdn.jsdelivr.net/npm/photoswipe@4.1.3/dist/photoswipe.min.css"crossorigin="anonymous"
-            >
-    
-
-            </main>
-        </div>
-        <script 
-                src="https://cdn.jsdelivr.net/npm/node-vibrant@3.1.6/dist/vibrant.min.js"integrity="sha256-awcR2jno4kI5X0zL8ex0vi2z&#43;KMkF24hUW8WePSA9HM="crossorigin="anonymous"
-                
-                >
-            </script><script type="text/javascript" src="/ts/main.c922af694cc257bf1ecc41c0dd7b0430f9114ec280ccf67cd2c6ad55f5316c4e.js" defer></script>
-<script>
-    (function () {
-        const customFont = document.createElement('link');
-        customFont.href = "https://fonts.googleapis.com/css2?family=Lato:wght@300;400;700&display=swap";
-
-        customFont.type = "text/css";
-        customFont.rel = "stylesheet";
-
-        document.head.appendChild(customFont);
-    }());
-</script>
-
-    </body>
-</html>
+<!doctype html><html lang=zh-cn dir=ltr><head><meta charset=utf-8><meta name=viewport content='width=device-width,initial-scale=1'><meta name=description content="大概在三年前的一个周五下午，我正准备结束一周的工作，监控群里突然弹出了磁盘告警。排查后发现，CI/CD 流水线所在的构建服务器磁盘爆满，而罪魁祸首竟然是一个刚刚构建的 Node."><title>从1.2GB到80MB：我重写Dockerfile的“瘦身”实录</title><link rel=canonical href=https://blog.irudder.me/tech/devopsjichugongjurumenyushicao/bianxiediyigedockerfile_youhuajingxiangtiji.html><link rel=stylesheet href=/scss/style.min.c77ce1b874b29b2ee9e54a89066c79ebf35cbe9cf399b31ab5d79167f9a965c9.css><meta property='og:title' content="从1.2GB到80MB：我重写Dockerfile的“瘦身”实录"><meta property='og:description' content="大概在三年前的一个周五下午，我正准备结束一周的工作，监控群里突然弹出了磁盘告警。排查后发现，CI/CD 流水线所在的构建服务器磁盘爆满，而罪魁祸首竟然是一个刚刚构建的 Node."><meta property='og:url' content='https://blog.irudder.me/tech/devopsjichugongjurumenyushicao/bianxiediyigedockerfile_youhuajingxiangtiji.html'><meta property='og:site_name' content='SelfTechHub'><meta property='og:type' content='article'><meta property='article:section' content='Tech'><meta property='article:tag' content='编写第一个Dockerfile：优化镜像体积'><meta property='article:published_time' content='2024-12-13T00:00:00+08:00'><meta property='article:modified_time' content='2024-12-13T00:00:00+08:00'><meta name=twitter:title content="从1.2GB到80MB：我重写Dockerfile的“瘦身”实录"><meta name=twitter:description content="大概在三年前的一个周五下午，我正准备结束一周的工作，监控群里突然弹出了磁盘告警。排查后发现，CI/CD 流水线所在的构建服务器磁盘爆满，而罪魁祸首竟然是一个刚刚构建的 Node."><link rel="shortcut icon" href=/images/logo.png></head><body class=article-page><script>(function(){const e="StackColorScheme";localStorage.getItem(e)||localStorage.setItem(e,"auto")})()</script><script>(function(){const t="StackColorScheme",e=localStorage.getItem(t),n=window.matchMedia("(prefers-color-scheme: dark)").matches===!0;e=="dark"||e==="auto"&&n?document.documentElement.dataset.scheme="dark":document.documentElement.dataset.scheme="light"})()</script><div class="container main-container flex on-phone--column extended"><aside class="sidebar left-sidebar sticky"><button class="hamburger hamburger--spin" type=button id=toggle-menu aria-label=切换菜单>
+<span class=hamburger-box><span class=hamburger-inner></span></span></button><header><figure class=site-avatar><a href=/><img src=/img/avatar_hu_8588ce14af1147e2.png width=300 height=286 class=site-logo loading=lazy alt=Avatar>
+</a><span class=emoji>🧠</span></figure><div class=site-meta><h1 class=site-name><a href=/>SelfTechHub</a></h1><h2 class=site-description>成长 · 技术 · 商业 · AI —— 把碎片知识沉淀为可复用的记忆体系</h2></div></header><ol class=menu-social><li><a href=https://github.com/pastor17 target=_blank title=GitHub rel=me><svg class="icon icon-tabler icon-tabler-brand-github" width="24" height="24" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor" fill="none" stroke-linecap="round" stroke-linejoin="round"><path stroke="none" d="M0 0h24v24H0z" fill="none"/><path d="M9 19c-4.3 1.4-4.3-2.5-6-3m12 5v-3.5c0-1 .1-1.4-.5-2 2.8-.3 5.5-1.4 5.5-6a4.6 4.6.0 00-1.3-3.2 4.2 4.2.0 00-.1-3.2s-1.1-.3-3.5 1.3a12.3 12.3.0 00-6.2.0C6.5 2.8 5.4 3.1 5.4 3.1a4.2 4.2.0 00-.1 3.2A4.6 4.6.0 004 9.5c0 4.6 2.7 5.7 5.5 6-.6.6-.6 1.2-.5 2V21"/></svg></a></li></ol><ol class=menu id=main-menu><li><a href=/><svg class="icon icon-tabler icon-tabler-home" width="24" height="24" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor" fill="none" stroke-linecap="round" stroke-linejoin="round"><path stroke="none" d="M0 0h24v24H0z"/><polyline points="5 12 3 12 12 3 21 12 19 12"/><path d="M5 12v7a2 2 0 002 2h10a2 2 0 002-2v-7"/><path d="M9 21v-6a2 2 0 012-2h2a2 2 0 012 2v6"/></svg>
+<span>首页</span></a></li><li><a href=/categories/%E6%88%90%E9%95%BF.html><span>成长认知</span></a></li><li><a href=/categories/%E6%8A%80%E6%9C%AF.html><span>技术精进</span></a></li><li><a href=/categories/%E5%95%86%E4%B8%9A.html><span>商业·财富</span></a></li><li><a href=/categories/ai.html><span>探索AI</span></a></li><li><a href=/about/><svg class="icon icon-tabler icon-tabler-user" width="24" height="24" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor" fill="none" stroke-linecap="round" stroke-linejoin="round"><path stroke="none" d="M0 0h24v24H0z"/><circle cx="12" cy="7" r="4"/><path d="M6 21v-2a4 4 0 014-4h4a4 4 0 014 4v2"/></svg>
+<span>关于</span></a></li><li class=menu-bottom-section><ol class=menu><li id=dark-mode-toggle><svg class="icon icon-tabler icon-tabler-toggle-left" width="24" height="24" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor" fill="none" stroke-linecap="round" stroke-linejoin="round"><path stroke="none" d="M0 0h24v24H0z"/><circle cx="8" cy="12" r="2"/><rect x="2" y="6" width="20" height="12" rx="6"/></svg>
+<svg class="icon icon-tabler icon-tabler-toggle-right" width="24" height="24" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor" fill="none" stroke-linecap="round" stroke-linejoin="round"><path stroke="none" d="M0 0h24v24H0z"/><circle cx="16" cy="12" r="2"/><rect x="2" y="6" width="20" height="12" rx="6"/></svg>
+<span>暗色模式</span></li></ol></li></ol></aside><aside class="sidebar right-sidebar sticky"><section class="widget archives"><div class=widget-icon><svg class="icon icon-tabler icon-tabler-hash" width="24" height="24" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor" fill="none" stroke-linecap="round" stroke-linejoin="round"><path stroke="none" d="M0 0h24v24H0z"/><line x1="5" y1="9" x2="19" y2="9"/><line x1="5" y1="15" x2="19" y2="15"/><line x1="11" y1="4" x2="7" y2="20"/><line x1="17" y1="4" x2="13" y2="20"/></svg></div><h2 class="widget-title section-title">目录</h2><div class=widget--toc><nav id=TableOfContents><ul><li><a href=#一-警惕层的陷阱少即是多>一、 警惕“层”的陷阱：少即是多</a></li><li><a href=#二-只要结果不要过程多阶段构建的魔法>二、 只要结果，不要过程：多阶段构建的魔法</a></li><li><a href=#三-选对基座alpine-还是-distroless>三、 选对基座：Alpine 还是 Distroless？</a></li><li><a href=#结尾不仅仅是省空间>结尾：不仅仅是省空间</a></li></ul></nav></div></section></aside><main class="main full-width"><article class=main-article><header class=article-header><div class=article-details><header class=article-category><a href=/categories/%E6%8A%80%E6%9C%AF.html>技术精进</a></header><div class=article-title-wrapper><h2 class=article-title><a href=/tech/devopsjichugongjurumenyushicao/bianxiediyigedockerfile_youhuajingxiangtiji.html>从1.2GB到80MB：我重写Dockerfile的“瘦身”实录</a></h2><h3 class=article-subtitle>大概在三年前的一个周五下午，我正准备结束一周的工作，监控群里突然弹出了磁盘告警。排查后发现，CI/CD 流水线所在的构建服务器磁盘爆满，而罪魁祸首竟然是一个刚刚构建的 Node.</h3></div><footer class=article-time><div><svg class="icon icon-tabler icon-tabler-calendar-time" width="56" height="56" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor" fill="none" stroke-linecap="round" stroke-linejoin="round"><path stroke="none" d="M0 0h24v24H0z"/><path d="M11.795 21H5a2 2 0 01-2-2V7a2 2 0 012-2h12a2 2 0 012 2v4"/><circle cx="18" cy="18" r="4"/><path d="M15 3v4"/><path d="M7 3v4"/><path d="M3 11h16"/><path d="M18 16.496V18l1 1"/></svg>
+<time class=article-time--published datetime=2024-12-13T00:00:00+08:00>2024-12-13</time></div><div><svg class="icon icon-tabler icon-tabler-clock" width="24" height="24" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor" fill="none" stroke-linecap="round" stroke-linejoin="round"><path stroke="none" d="M0 0h24v24H0z"/><circle cx="12" cy="12" r="9"/><polyline points="12 7 12 12 15 15"/></svg>
+<time class=article-time--reading>阅读时长: 5 分钟</time></div></footer></div></header><section class=article-content><p>大概在三年前的一个周五下午，我正准备结束一周的工作，监控群里突然弹出了磁盘告警。排查后发现，CI/CD 流水线所在的构建服务器磁盘爆满，而罪魁祸首竟然是一个刚刚构建的 Node.js 前端应用镜像——体积高达 1.2GB。</p><p>当时我就在想：<strong>一个只是用来托管静态文件的 Nginx 容器，凭什么比我电脑上的操作系统安装包还大？</strong></p><p>这并不是个例。在很多中小团队中，大家往往把 Dockerfile 当作 Shell 脚本来写，认为只要 <code>docker run</code> 能跑起来就算成功。但实际上，镜像体积不仅关乎存储成本，更直接影响<strong>分发速度、启动时间以及生产环境的安全性</strong>。</p><p><img src="https://picsum.photos/800/450?random=1768387582351" loading=lazy alt=配图></p><p>今天，我想结合那次具体的优化经历，复盘一下如何通过三个核心策略，将一个臃肿的“巨无霸”镜像优化到 80MB，并总结出一套可复用的 Dockerfile 编写心法。</p><hr><h2 id=一-警惕层的陷阱少即是多>一、 警惕“层”的陷阱：少即是多</h2><p>刚开始接触 Docker 时，我们很容易陷入一种线性思维：把安装软件的步骤一行行写下来。</p><p>当时我的同事小张写的 Dockerfile 大概长这样：</p><div class=highlight><div class=chroma><table class=lntable><tr><td class=lntd><pre tabindex=0 class=chroma><code><span class=lnt>1
+</span><span class=lnt>2
+</span><span class=lnt>3
+</span><span class=lnt>4
+</span><span class=lnt>5
+</span><span class=lnt>6
+</span><span class=lnt>7
+</span><span class=lnt>8
+</span></code></pre></td><td class=lntd><pre tabindex=0 class=chroma><code class=language-dockerfile data-lang=dockerfile><span class=line><span class=cl><span class=c># 错误示范</span><span class=err>
+</span></span></span><span class=line><span class=cl><span class=err></span><span class=k>FROM</span><span class=w> </span><span class=s>ubuntu:20.04</span><span class=err>
+</span></span></span><span class=line><span class=cl><span class=err></span><span class=k>RUN</span> apt-get update<span class=err>
+</span></span></span><span class=line><span class=cl><span class=err></span><span class=k>RUN</span> apt-get install -y nodejs<span class=err>
+</span></span></span><span class=line><span class=cl><span class=err></span><span class=k>RUN</span> apt-get install -y npm<span class=err>
+</span></span></span><span class=line><span class=cl><span class=err></span><span class=k>RUN</span> npm install -g yarn<span class=err>
+</span></span></span><span class=line><span class=cl><span class=err></span><span class=k>COPY</span> . /app<span class=err>
+</span></span></span><span class=line><span class=cl><span class=err></span><span class=k>RUN</span> rm -rf /var/lib/apt/lists/*<span class=err>
+</span></span></span></code></pre></td></tr></table></div></div><p>这看起来逻辑很通顺，但在 Docker 的世界里，这是大忌。</p><p><strong>因为 Docker 的每一条指令（特别是 <code>RUN</code>、<code>COPY</code>、<code>ADD</code>）都会构建一个新的镜像层（Layer）。</strong> 这种分层机制类似于洋葱，你在上一层创建了文件，在下一层执行删除，实际上文件并没有从磁盘物理消失，只是被“标记”为不可见。</p><p>在这个案例中，<code>apt-get update</code> 下载的缓存文件在第一层被写入，虽然最后一行执行了 <code>rm</code>，但那是在新的层里操作的。结果就是：缓存文件依然占据着镜像体积。</p><p><strong>优化策略：链式指令与清理合并</strong></p><p>我当时做的第一件事，就是把这些相关的操作合并成一条指令，并在同一层内完成“下载-安装-清理”的闭环。</p><div class=highlight><div class=chroma><table class=lntable><tr><td class=lntd><pre tabindex=0 class=chroma><code><span class=lnt>1
+</span><span class=lnt>2
+</span><span class=lnt>3
+</span><span class=lnt>4
+</span><span class=lnt>5
+</span><span class=lnt>6
+</span></code></pre></td><td class=lntd><pre tabindex=0 class=chroma><code class=language-dockerfile data-lang=dockerfile><span class=line><span class=cl><span class=c># 优化后</span><span class=err>
+</span></span></span><span class=line><span class=cl><span class=err></span><span class=k>FROM</span><span class=w> </span><span class=s>ubuntu:20.04</span><span class=err>
+</span></span></span><span class=line><span class=cl><span class=err></span><span class=k>RUN</span> apt-get update <span class=o>&amp;&amp;</span> <span class=se>\
+</span></span></span><span class=line><span class=cl><span class=se></span>    apt-get install -y nodejs npm <span class=o>&amp;&amp;</span> <span class=se>\
+</span></span></span><span class=line><span class=cl><span class=se></span>    npm install -g yarn <span class=o>&amp;&amp;</span> <span class=se>\
+</span></span></span><span class=line><span class=cl><span class=se></span>    rm -rf /var/lib/apt/lists/*<span class=err>
+</span></span></span></code></pre></td></tr></table></div></div><blockquote><p><strong>思考一下：</strong> 你的 Dockerfile 里是否有连续的 RUN 指令？哪怕只是简单的合并，通常也能减少 10%-30% 的体积。</p></blockquote><p>通过这一步简单的合并，我把那个镜像减少了近 200MB。但对于 1.2GB 的总大小来说，这还只是热身。</p><hr><h2 id=二-只要结果不要过程多阶段构建的魔法>二、 只要结果，不要过程：多阶段构建的魔法</h2><p>分析那个 1.2GB 的镜像层级时，我发现了真正的庞然大物：<code>node_modules</code> 和各类编译工具（gcc, make, python等）。</p><p>这是一个典型的开发误区：<strong>把“构建环境”带入了“生产环境”。</strong></p><p>应用运行时只需要编译后的静态文件（HTML/CSS/JS）和 Nginx 服务器，根本不需要 Node.js 环境，更不需要那几百兆的源码依赖。然而，为了执行 <code>npm run build</code>，我们被迫安装了这一整套工具链。</p><p><img src="https://picsum.photos/800/450?random=1768387578488" loading=lazy alt=配图></p><p>在 Docker 17.05 之前，我们需要维护两个 Dockerfile（一个用于构建，一个用于运行），非常麻烦。但现在，我们可以使用<strong>多阶段构建（Multi-stage Builds）</strong>。</p><p><strong>优化策略：掐头去尾，只留精华</strong></p><p>我将 Dockerfile 重构为两个阶段：</p><ol><li><strong>构建阶段</strong>：基于 Node 镜像，安装依赖，编译代码。</li><li><strong>运行阶段</strong>：基于纯净的 Nginx 镜像，只从上一阶段拷贝编译好的 <code>/dist</code> 目录。</li></ol><div class=highlight><div class=chroma><table class=lntable><tr><td class=lntd><pre tabindex=0 class=chroma><code><span class=lnt> 1
+</span><span class=lnt> 2
+</span><span class=lnt> 3
+</span><span class=lnt> 4
+</span><span class=lnt> 5
+</span><span class=lnt> 6
+</span><span class=lnt> 7
+</span><span class=lnt> 8
+</span><span class=lnt> 9
+</span><span class=lnt>10
+</span><span class=lnt>11
+</span><span class=lnt>12
+</span><span class=lnt>13
+</span><span class=lnt>14
+</span></code></pre></td><td class=lntd><pre tabindex=0 class=chroma><code class=language-dockerfile data-lang=dockerfile><span class=line><span class=cl><span class=c># 第一阶段：构建 (起个别名 builder)</span><span class=err>
+</span></span></span><span class=line><span class=cl><span class=err></span><span class=k>FROM</span><span class=w> </span><span class=s>node:16</span><span class=w> </span><span class=k>AS</span><span class=w> </span><span class=s>builder</span><span class=err>
+</span></span></span><span class=line><span class=cl><span class=err></span><span class=k>WORKDIR</span><span class=w> </span><span class=s>/app</span><span class=err>
+</span></span></span><span class=line><span class=cl><span class=err></span><span class=k>COPY</span> package*.json ./<span class=err>
+</span></span></span><span class=line><span class=cl><span class=err></span><span class=k>RUN</span> npm install<span class=err>
+</span></span></span><span class=line><span class=cl><span class=err></span><span class=k>COPY</span> . .<span class=err>
+</span></span></span><span class=line><span class=cl><span class=err></span><span class=k>RUN</span> npm run build<span class=err>
+</span></span></span><span class=line><span class=cl><span class=err>
+</span></span></span><span class=line><span class=cl><span class=err></span><span class=c># 第二阶段：运行</span><span class=err>
+</span></span></span><span class=line><span class=cl><span class=err></span><span class=k>FROM</span><span class=w> </span><span class=s>nginx:alpine</span><span class=err>
+</span></span></span><span class=line><span class=cl><span class=err></span><span class=c># 关键：只拷贝构建产物，抛弃源代码和 node_modules</span><span class=err>
+</span></span></span><span class=line><span class=cl><span class=err></span><span class=k>COPY</span> --from<span class=o>=</span>builder /app/dist /usr/share/nginx/html<span class=err>
+</span></span></span><span class=line><span class=cl><span class=err></span><span class=k>EXPOSE</span><span class=w> </span><span class=s>80</span><span class=err>
+</span></span></span><span class=line><span class=cl><span class=err></span><span class=k>CMD</span> <span class=p>[</span><span class=s2>&#34;nginx&#34;</span><span class=p>,</span> <span class=s2>&#34;-g&#34;</span><span class=p>,</span> <span class=s2>&#34;daemon off;&#34;</span><span class=p>]</span><span class=err>
+</span></span></span></code></pre></td></tr></table></div></div><p>这一招效果立竿见影。原本包含 Node 环境、源码、依赖包的 1.2GB 镜像，瞬间变成了只包含 Nginx 和静态文件的 80MB 镜像。</p><p><strong>这次优化带来的连锁反应是惊人的：</strong> 部署时间从 5 分钟缩短到了 30 秒，因为网络传输的数据量减少了 90% 以上。</p><hr><h2 id=三-选对基座alpine-还是-distroless>三、 选对基座：Alpine 还是 Distroless？</h2><p>做完多阶段构建后，我已经很有成就感了。但我习惯再多问自己一句：<strong>还能再小一点吗？</strong></p><p>我们之前的运行阶段使用的是 <code>nginx:latest</code>，它默认基于 Debian 系统。这意味着我的镜像里包含了一整套 Debian 的基础工具（bash, ls, grep 等）。</p><p>但在这个场景下，我真的需要这些工具吗？应用只是一个 Web Server 及其配置文件。</p><p><strong>优化策略：使用精简版基础镜像</strong></p><p>业界目前主要有两个精简流派：</p><ol><li><strong>Alpine Linux</strong>：体积极小（约 5MB），基于 musl libc。</li><li><strong>Distroless</strong>：Google 推出的镜像，甚至连 Shell 都没有，只包含应用运行的最小依赖。</li></ol><p>考虑到后期排查问题可能还需要进入容器看一眼，我选择了兼容性较好的 <code>nginx:alpine</code>。</p><div class=highlight><div class=chroma><table class=lntable><tr><td class=lntd><pre tabindex=0 class=chroma><code><span class=lnt>1
+</span><span class=lnt>2
+</span><span class=lnt>3
+</span></code></pre></td><td class=lntd><pre tabindex=0 class=chroma><code class=language-dockerfile data-lang=dockerfile><span class=line><span class=cl><span class=c># 这是一个巨大的差异</span><span class=err>
+</span></span></span><span class=line><span class=cl><span class=err></span><span class=c># FROM ubuntu:20.04  -&gt; 基础镜像约 70MB</span><span class=err>
+</span></span></span><span class=line><span class=cl><span class=err></span><span class=c># FROM alpine:3.14   -&gt; 基础镜像约 5MB</span><span class=err>
+</span></span></span></code></pre></td></tr></table></div></div><p>不过这里要提一个我踩过的坑。有一次我们在 Python 项目中盲目切换到 Alpine，结果因为 <code>glibc</code> 和 <code>musl</code> 的兼容性问题，导致很多 C 语言编写的依赖库（如 numpy）无法运行，编译时间反而激增。</p><blockquote><p><strong>避坑指南：</strong> 对于 Node.js、Go、Rust 这类静态编译或自带运行时的语言，Alpine 是绝佳选择；但对于 Python、Java 等强依赖系统动态库的语言，使用 <code>slim</code> 版本（如 <code>python:3.9-slim</code>）通常是兼容性和体积的最佳平衡点。</p></blockquote><hr><h2 id=结尾不仅仅是省空间>结尾：不仅仅是省空间</h2><p>经过这三板斧的优化（合并指令、多阶段构建、精简基座），那个 1.2GB 的怪兽镜像最终稳定在了 20MB 左右（Nginx 基础 + 代码）。</p><p>回过头来看，<strong>优化 Dockerfile 的本质，其实是工程思维的体现。</strong> 我们在追求“能跑就行”的同时，是否忽略了资源效率和安全性？（注：越小的镜像，攻击面越小，包含的 CVE 漏洞通常也越少）。</p><p>你现在的项目中，是否也有那种几百兆甚至上 G 的“黑盒”镜像？</p><p><strong>给你的 3 个落地行动建议：</strong></p><ol><li><strong>立刻检查：</strong> 使用命令 <code>docker history &lt;你的镜像ID></code>，查看是哪一层占用了最大空间。</li><li><strong>上手工具：</strong> 尝试使用 <code>docker-slim</code> 或者 VS Code 的 Docker 插件，它们能自动给出优化建议。</li><li><strong>配置忽略：</strong> 检查你的项目根目录有没有 <code>.dockerignore</code> 文件。如果没有，请立刻创建一个，并把 <code>.git</code>、<code>node_modules</code>、<code>tmp</code> 等无关文件加进去，这往往是新手最容易忽略的“体积杀手”。</li></ol><p>好的 Dockerfile 应该像一段优秀的代码：简洁、清晰、没有一句废话。希望这篇实录能帮你迈出优化的第一步。</p></section><footer class=article-footer><section class=article-tags><a href=/tags/%E7%BC%96%E5%86%99%E7%AC%AC%E4%B8%80%E4%B8%AADockerfile%E4%BC%98%E5%8C%96%E9%95%9C%E5%83%8F%E4%BD%93%E7%A7%AF.html>编写第一个Dockerfile：优化镜像体积</a></section></footer></article><script src=https://giscus.app/client.js data-repo=pastor17/bloggiscus data-repo-id=R_kgDOQ6H9qQ data-category data-category-id=DIC_kwDOQ6H9qc4C0-T8 data-mapping=pathname data-strict=0 data-reactions-enabled=1 data-emit-metadata=0 data-input-position=bottom data-theme=light data-lang=zh-CN data-loading=lazy crossorigin=anonymous async></script><script>function setGiscusTheme(e){let t=document.querySelector("iframe.giscus-frame");t&&t.contentWindow.postMessage({giscus:{setConfig:{theme:e}}},"https://giscus.app")}(function(){addEventListener("message",t=>{if(event.origin!=="https://giscus.app")return;e()}),window.addEventListener("onColorSchemeChange",e);function e(){setGiscusTheme(document.documentElement.dataset.scheme==="light"?"light":"dark_dimmed")}})()</script><footer class=site-footer><section class=copyright>&copy;
+2021 -
+2026 SelfTechHub</section><section class=powerby>拒绝一次性认知，把碎片知识沉淀为可复用的记忆体系<br></section></footer><div class=pswp tabindex=-1 role=dialog aria-hidden=true><div class=pswp__bg></div><div class=pswp__scroll-wrap><div class=pswp__container><div class=pswp__item></div><div class=pswp__item></div><div class=pswp__item></div></div><div class="pswp__ui pswp__ui--hidden"><div class=pswp__top-bar><div class=pswp__counter></div><button class="pswp__button pswp__button--close" title="Close (Esc)"></button>
+<button class="pswp__button pswp__button--share" title=Share></button>
+<button class="pswp__button pswp__button--fs" title="Toggle fullscreen"></button>
+<button class="pswp__button pswp__button--zoom" title="Zoom in/out"></button><div class=pswp__preloader><div class=pswp__preloader__icn><div class=pswp__preloader__cut><div class=pswp__preloader__donut></div></div></div></div></div><div class="pswp__share-modal pswp__share-modal--hidden pswp__single-tap"><div class=pswp__share-tooltip></div></div><button class="pswp__button pswp__button--arrow--left" title="Previous (arrow left)">
+</button>
+<button class="pswp__button pswp__button--arrow--right" title="Next (arrow right)"></button><div class=pswp__caption><div class=pswp__caption__center></div></div></div></div></div><script src=https://cdn.jsdelivr.net/npm/photoswipe@4.1.3/dist/photoswipe.min.js integrity="sha256-ePwmChbbvXbsO02lbM3HoHbSHTHFAeChekF1xKJdleo=" crossorigin=anonymous defer></script><script src=https://cdn.jsdelivr.net/npm/photoswipe@4.1.3/dist/photoswipe-ui-default.min.js integrity="sha256-UKkzOn/w1mBxRmLLGrSeyB4e1xbrp4xylgAWb3M42pU=" crossorigin=anonymous defer></script><link rel=stylesheet href=https://cdn.jsdelivr.net/npm/photoswipe@4.1.3/dist/default-skin/default-skin.min.css crossorigin=anonymous><link rel=stylesheet href=https://cdn.jsdelivr.net/npm/photoswipe@4.1.3/dist/photoswipe.min.css crossorigin=anonymous></main></div><script src=https://cdn.jsdelivr.net/npm/node-vibrant@3.1.6/dist/vibrant.min.js integrity="sha256-awcR2jno4kI5X0zL8ex0vi2z+KMkF24hUW8WePSA9HM=" crossorigin=anonymous></script><script type=text/javascript src=/ts/main.c922af694cc257bf1ecc41c0dd7b0430f9114ec280ccf67cd2c6ad55f5316c4e.js defer></script><script>(function(){const e=document.createElement("link");e.href="https://fonts.googleapis.com/css2?family=Lato:wght@300;400;700&display=swap",e.type="text/css",e.rel="stylesheet",document.head.appendChild(e)})()</script></body></html>

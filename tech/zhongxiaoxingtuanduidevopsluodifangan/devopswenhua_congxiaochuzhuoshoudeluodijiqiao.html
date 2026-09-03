@@ -1,485 +1,93 @@
-<!DOCTYPE html>
-<html lang="zh-cn" dir="ltr">
-    <head><meta charset='utf-8'>
-<meta name='viewport' content='width=device-width, initial-scale=1'><meta name='description' content="记得三年前我刚接手现在的团队时，情况那是相当&quot;刺激&quot;。\n那时候我们团队不到10个人，没有专职运维。每次发版简直就是一场豪赌：我得亲自登录服务器，手动停止服务，备份jar包（还得记得加上时间戳，虽然经常忘），然后SCP上传新包，再重启。\n最惨的一次，因为我在本地编译时少打了一个Profile参数，导致生产环境连上了测试库。虽然发现得早，但那个周五晚上，我和两个核心开发吓出了一身冷汗，在那儿人肉回滚数据搞到凌晨两点。\n那时候我就在想：我们这种&quot;草台班子&quot;，是不是就不配谈DevOps？\n后来我发现，我们都被大厂那些高大上的PPT给忽悠了。对于中小团队，DevOps绝对不是搞一套复杂的Kubernetes集群，也不是买昂贵的商业平台。\n这几年摸爬滚打下来，我总结出了一套&quot;穷人版&quot;DevOps落地法。不讲大道理，只聊怎么让我们即使没有运维，也能到点下班。\n01 别整&quot;大平台&quot;，先给你的脚本&quot;穿层衣&quot;\r很多兄弟一上来就想搭建Jenkins或者GitLab CI的一整套流水线，结果配环境就花了一周，最后发现团队成员根本不愿意用，觉得太繁琐。\n其实，DevOps的第一步，是把&quot;靠人脑记&quot;的操作变成&quot;靠代码跑&quot;。\n真实案例： 我们团队有个后端小张，技术挺好，但就是马虎。有次更新前端静态资源，他把dist目录传错了路径，导致官网样式全乱了。虽然只需一条mv命令就能修复，但当时客户群里已经炸锅了。\n我的落地路子： 我没急着上CI系统，而是花半天写了个Makefile。\n不要小看这个古老的工具。我在项目根目录下放了个文件，里面只写了三行逻辑：打包、压缩、通过SSH传到指定目录。\n以后大家上线，只需要在群里喊一声，然后敲一个命令： make deploy-prod\n这就够了。真的，初期这就够了。\n踩坑经验： 千万别让开发人员直接SSH连服务器操作。只要人能接触到生产环境的Shell，误操作就是时间问题。用脚本把命令封装起来，就是给服务器穿了一层防弹衣。\n02 &ldquo;全链路监控&quot;太贵？搞定Trace ID就赢了一半\r以前系统出问题，最头大的就是&quot;甩锅&rdquo;。 前端说接口报错，后端说日志没异常，最后发现是网关层拦截了。排查一个问题，要在Nginx日志、应用日志、数据库慢查询之间来回切窗口，眼睛都花了。\n真实案例： 有次用户反馈下单失败，但我们查了半天后端日志全是&quot;Success&quot;。后来才发现是中间件超时。因为没有统一的标记，我们根本不知道用户的那次请求对应哪条日志，只能靠&quot;猜时间点&quot;来对齐，效率极低。\n我的落地路子： 引入Trace ID（链路追踪ID）。\n别被这个词吓到了，不需要上SkyWalking或Zipkin这种重型武器。我只做了一件事：\n在Nginx层生成一个随机UUID，放到Header里。 后端代码加个拦截器，读到这个ID就塞进ThreadLocal（或者MDC）。 修改Logback配置，每行日志都自动带上这个ID。 现在只要客服把报错截图（上面有我们将ID透传回前端的编码）发给我，我由grep一下这个ID，这请求经过了哪些服务、在哪一步报错、参数是什么，一清二楚。\n效果对比： 以前排查一个跨服务Bug平均需要30分钟，现在通常只要3分钟。\n03 把报警群变成&quot;聊天室&quot;，而不是&quot;垃圾场&quot;\r很多团队都有报警群，但大部分都变成了&quot;静音群&quot;。为什么？因为无效信息太多了。CPU稍微抖一下就报警，磁盘占用60%也报警，一天响几百次，真的&quot;狼来了&quot;也没人看。\n真实案例： 刚开始我们也接了报警机器人。结果有一天晚上，数据库主从同步延迟了，报警群响了一晚上。大家以为又是常规的CPU波动，谁都没看。结果第二天发现数据不一致，处理起来那个酸爽……\n我的落地路子： 我定了个死规矩：报警必须可执行（Actionable）。\n我把所有&quot;单纯告知&quot;类的报警全部关掉，只保留需要&quot;马上有人去处理&quot;的报警。 比如：CPU高不要紧，但&quot;CPU持续5分钟100%且响应时间超过1秒&quot;才报警。\n此外，我还做了一个小改动：**ChatOps（聊天即运维）**的雏形。 我们将GitLab的Webhook接到了飞书/钉钉群。但不是发一堆看不懂的代码提交记录，而是经过过滤的：\n谁（Who） 发布了什么版本（Which Version） 到了什么环境（Where） 成功了没（Result） 现在，每当群里弹出&quot;构建成功&quot;的绿色卡片，测试同学就知道可以介入了；如果是红色的&quot;构建失败&quot;，开发同学自己就会默默去修，根本不用我催。\n抄作业时间：给中小团队的落地工具包\r说了这么多，如果你想明天就开始改变，这里有一份我目前在用的极简部署脚本模板，你可以直接复制改改就能用。\n这不是什么高深的CICD配置，就是一个让你可以安心喝咖啡的Shell脚本逻辑：\n#!/bin/bash # 这是一个极其简单的部署脚本示例 # 核心逻辑：备份 -&gt; 构建 -&gt; 传输 -&gt; 重启 -&gt; 检查 APP_NAME=&#34;my-awesome-app&#34; REMOTE_HOST=&#34;192.168.1.100&#34; REMOTE_DIR=&#34;/opt/apps/${APP_NAME}&#34; DATE=$(date +%Y%m%d-%H%M%S) echo &#34;&gt;&gt;&gt; 1. 开始构建...&#34; # 这里替换成你的构建命令，比如 npm run build 或 mvn clean package ./build_script.sh if [ $? -ne 0 ]; then echo &#34;!!! 构建失败，终止发布！&#34; exit 1 fi echo &#34;&gt;&gt;&gt; 2. 备份远程应用...&#34; ssh user@${REMOTE_HOST} &#34;cp ${REMOTE_DIR}/app.jar ${REMOTE_DIR}/backup/app.jar.${DATE}&#34; echo &#34;&gt;&gt;&gt; 3. 上传新版本...&#34; scp target/app.jar user@${REMOTE_HOST}:${REMOTE_DIR}/app.jar.new echo &#34;&gt;&gt;&gt; 4. 替换并重启...&#34; # 使用原子操作替换文件，防止文件传输一半被读取 ssh user@${REMOTE_HOST} &#34;mv ${REMOTE_DIR}/app.jar.new ${REMOTE_DIR}/app.jar &amp;&amp; systemctl restart ${APP_NAME}&#34; echo &#34;&gt;&gt;&gt; 5. 简单的健康检查...&#34; # 等待几秒后检查端口是否存活 sleep 10 ssh user@${REMOTE_HOST} &#34;curl -s localhost:8080/health || echo &#39;WARNING: 服务未启动!&#39;&#34; echo &#34;✅ 发布完成！&#34; 给你的3个行动建议：\r本周内：挑一个你们团队最重复、最容易出错的手工操作（比如打包、比如同步配置），写一个脚本把它固化下来。 下个迭代：尝试在日志中引入Trace ID，哪怕只是在入口处生成并打印出来，对日后的排查帮助都是巨大的。 心态调整：别想着一步到位。DevOps是一种文化，不是一个工具。如果你能让团队成员在犯错时不再害怕被责骂，而是想着&quot;怎么改流程避免下次再犯&quot;，你的DevOps就已经成功了一半。 我也还在路上，咱们一起加油。\n">
-<title>没专职运维？我们靠这3招把发布时间缩短了80%</title>
-
-<link rel='canonical' href='https://blog.irudder.me/tech/zhongxiaoxingtuanduidevopsluodifangan/devopswenhua_congxiaochuzhuoshoudeluodijiqiao.html'>
-
-<link rel="stylesheet" href="/scss/style.min.b9e9128fec450ebccecc4ec9900157f32b85d0609bcd5ee3293968bcaa1235f2.css"><meta property='og:title' content="没专职运维？我们靠这3招把发布时间缩短了80%">
-<meta property='og:description' content="记得三年前我刚接手现在的团队时，情况那是相当&quot;刺激&quot;。\n那时候我们团队不到10个人，没有专职运维。每次发版简直就是一场豪赌：我得亲自登录服务器，手动停止服务，备份jar包（还得记得加上时间戳，虽然经常忘），然后SCP上传新包，再重启。\n最惨的一次，因为我在本地编译时少打了一个Profile参数，导致生产环境连上了测试库。虽然发现得早，但那个周五晚上，我和两个核心开发吓出了一身冷汗，在那儿人肉回滚数据搞到凌晨两点。\n那时候我就在想：我们这种&quot;草台班子&quot;，是不是就不配谈DevOps？\n后来我发现，我们都被大厂那些高大上的PPT给忽悠了。对于中小团队，DevOps绝对不是搞一套复杂的Kubernetes集群，也不是买昂贵的商业平台。\n这几年摸爬滚打下来，我总结出了一套&quot;穷人版&quot;DevOps落地法。不讲大道理，只聊怎么让我们即使没有运维，也能到点下班。\n01 别整&quot;大平台&quot;，先给你的脚本&quot;穿层衣&quot;\r很多兄弟一上来就想搭建Jenkins或者GitLab CI的一整套流水线，结果配环境就花了一周，最后发现团队成员根本不愿意用，觉得太繁琐。\n其实，DevOps的第一步，是把&quot;靠人脑记&quot;的操作变成&quot;靠代码跑&quot;。\n真实案例： 我们团队有个后端小张，技术挺好，但就是马虎。有次更新前端静态资源，他把dist目录传错了路径，导致官网样式全乱了。虽然只需一条mv命令就能修复，但当时客户群里已经炸锅了。\n我的落地路子： 我没急着上CI系统，而是花半天写了个Makefile。\n不要小看这个古老的工具。我在项目根目录下放了个文件，里面只写了三行逻辑：打包、压缩、通过SSH传到指定目录。\n以后大家上线，只需要在群里喊一声，然后敲一个命令： make deploy-prod\n这就够了。真的，初期这就够了。\n踩坑经验： 千万别让开发人员直接SSH连服务器操作。只要人能接触到生产环境的Shell，误操作就是时间问题。用脚本把命令封装起来，就是给服务器穿了一层防弹衣。\n02 &ldquo;全链路监控&quot;太贵？搞定Trace ID就赢了一半\r以前系统出问题，最头大的就是&quot;甩锅&rdquo;。 前端说接口报错，后端说日志没异常，最后发现是网关层拦截了。排查一个问题，要在Nginx日志、应用日志、数据库慢查询之间来回切窗口，眼睛都花了。\n真实案例： 有次用户反馈下单失败，但我们查了半天后端日志全是&quot;Success&quot;。后来才发现是中间件超时。因为没有统一的标记，我们根本不知道用户的那次请求对应哪条日志，只能靠&quot;猜时间点&quot;来对齐，效率极低。\n我的落地路子： 引入Trace ID（链路追踪ID）。\n别被这个词吓到了，不需要上SkyWalking或Zipkin这种重型武器。我只做了一件事：\n在Nginx层生成一个随机UUID，放到Header里。 后端代码加个拦截器，读到这个ID就塞进ThreadLocal（或者MDC）。 修改Logback配置，每行日志都自动带上这个ID。 现在只要客服把报错截图（上面有我们将ID透传回前端的编码）发给我，我由grep一下这个ID，这请求经过了哪些服务、在哪一步报错、参数是什么，一清二楚。\n效果对比： 以前排查一个跨服务Bug平均需要30分钟，现在通常只要3分钟。\n03 把报警群变成&quot;聊天室&quot;，而不是&quot;垃圾场&quot;\r很多团队都有报警群，但大部分都变成了&quot;静音群&quot;。为什么？因为无效信息太多了。CPU稍微抖一下就报警，磁盘占用60%也报警，一天响几百次，真的&quot;狼来了&quot;也没人看。\n真实案例： 刚开始我们也接了报警机器人。结果有一天晚上，数据库主从同步延迟了，报警群响了一晚上。大家以为又是常规的CPU波动，谁都没看。结果第二天发现数据不一致，处理起来那个酸爽……\n我的落地路子： 我定了个死规矩：报警必须可执行（Actionable）。\n我把所有&quot;单纯告知&quot;类的报警全部关掉，只保留需要&quot;马上有人去处理&quot;的报警。 比如：CPU高不要紧，但&quot;CPU持续5分钟100%且响应时间超过1秒&quot;才报警。\n此外，我还做了一个小改动：**ChatOps（聊天即运维）**的雏形。 我们将GitLab的Webhook接到了飞书/钉钉群。但不是发一堆看不懂的代码提交记录，而是经过过滤的：\n谁（Who） 发布了什么版本（Which Version） 到了什么环境（Where） 成功了没（Result） 现在，每当群里弹出&quot;构建成功&quot;的绿色卡片，测试同学就知道可以介入了；如果是红色的&quot;构建失败&quot;，开发同学自己就会默默去修，根本不用我催。\n抄作业时间：给中小团队的落地工具包\r说了这么多，如果你想明天就开始改变，这里有一份我目前在用的极简部署脚本模板，你可以直接复制改改就能用。\n这不是什么高深的CICD配置，就是一个让你可以安心喝咖啡的Shell脚本逻辑：\n#!/bin/bash # 这是一个极其简单的部署脚本示例 # 核心逻辑：备份 -&gt; 构建 -&gt; 传输 -&gt; 重启 -&gt; 检查 APP_NAME=&#34;my-awesome-app&#34; REMOTE_HOST=&#34;192.168.1.100&#34; REMOTE_DIR=&#34;/opt/apps/${APP_NAME}&#34; DATE=$(date +%Y%m%d-%H%M%S) echo &#34;&gt;&gt;&gt; 1. 开始构建...&#34; # 这里替换成你的构建命令，比如 npm run build 或 mvn clean package ./build_script.sh if [ $? -ne 0 ]; then echo &#34;!!! 构建失败，终止发布！&#34; exit 1 fi echo &#34;&gt;&gt;&gt; 2. 备份远程应用...&#34; ssh user@${REMOTE_HOST} &#34;cp ${REMOTE_DIR}/app.jar ${REMOTE_DIR}/backup/app.jar.${DATE}&#34; echo &#34;&gt;&gt;&gt; 3. 上传新版本...&#34; scp target/app.jar user@${REMOTE_HOST}:${REMOTE_DIR}/app.jar.new echo &#34;&gt;&gt;&gt; 4. 替换并重启...&#34; # 使用原子操作替换文件，防止文件传输一半被读取 ssh user@${REMOTE_HOST} &#34;mv ${REMOTE_DIR}/app.jar.new ${REMOTE_DIR}/app.jar &amp;&amp; systemctl restart ${APP_NAME}&#34; echo &#34;&gt;&gt;&gt; 5. 简单的健康检查...&#34; # 等待几秒后检查端口是否存活 sleep 10 ssh user@${REMOTE_HOST} &#34;curl -s localhost:8080/health || echo &#39;WARNING: 服务未启动!&#39;&#34; echo &#34;✅ 发布完成！&#34; 给你的3个行动建议：\r本周内：挑一个你们团队最重复、最容易出错的手工操作（比如打包、比如同步配置），写一个脚本把它固化下来。 下个迭代：尝试在日志中引入Trace ID，哪怕只是在入口处生成并打印出来，对日后的排查帮助都是巨大的。 心态调整：别想着一步到位。DevOps是一种文化，不是一个工具。如果你能让团队成员在犯错时不再害怕被责骂，而是想着&quot;怎么改流程避免下次再犯&quot;，你的DevOps就已经成功了一半。 我也还在路上，咱们一起加油。\n">
-<meta property='og:url' content='https://blog.irudder.me/tech/zhongxiaoxingtuanduidevopsluodifangan/devopswenhua_congxiaochuzhuoshoudeluodijiqiao.html'>
-<meta property='og:site_name' content='SelfTechHub'>
-<meta property='og:type' content='article'><meta property='article:section' content='Tech' /><meta property='article:tag' content='DevOps文化：从小处着手的落地技巧' /><meta property='article:published_time' content='2023-01-17T00:00:00&#43;00:00'/><meta property='article:modified_time' content='2023-01-17T00:00:00&#43;00:00'/>
-<meta name="twitter:title" content="没专职运维？我们靠这3招把发布时间缩短了80%">
-<meta name="twitter:description" content="记得三年前我刚接手现在的团队时，情况那是相当&quot;刺激&quot;。\n那时候我们团队不到10个人，没有专职运维。每次发版简直就是一场豪赌：我得亲自登录服务器，手动停止服务，备份jar包（还得记得加上时间戳，虽然经常忘），然后SCP上传新包，再重启。\n最惨的一次，因为我在本地编译时少打了一个Profile参数，导致生产环境连上了测试库。虽然发现得早，但那个周五晚上，我和两个核心开发吓出了一身冷汗，在那儿人肉回滚数据搞到凌晨两点。\n那时候我就在想：我们这种&quot;草台班子&quot;，是不是就不配谈DevOps？\n后来我发现，我们都被大厂那些高大上的PPT给忽悠了。对于中小团队，DevOps绝对不是搞一套复杂的Kubernetes集群，也不是买昂贵的商业平台。\n这几年摸爬滚打下来，我总结出了一套&quot;穷人版&quot;DevOps落地法。不讲大道理，只聊怎么让我们即使没有运维，也能到点下班。\n01 别整&quot;大平台&quot;，先给你的脚本&quot;穿层衣&quot;\r很多兄弟一上来就想搭建Jenkins或者GitLab CI的一整套流水线，结果配环境就花了一周，最后发现团队成员根本不愿意用，觉得太繁琐。\n其实，DevOps的第一步，是把&quot;靠人脑记&quot;的操作变成&quot;靠代码跑&quot;。\n真实案例： 我们团队有个后端小张，技术挺好，但就是马虎。有次更新前端静态资源，他把dist目录传错了路径，导致官网样式全乱了。虽然只需一条mv命令就能修复，但当时客户群里已经炸锅了。\n我的落地路子： 我没急着上CI系统，而是花半天写了个Makefile。\n不要小看这个古老的工具。我在项目根目录下放了个文件，里面只写了三行逻辑：打包、压缩、通过SSH传到指定目录。\n以后大家上线，只需要在群里喊一声，然后敲一个命令： make deploy-prod\n这就够了。真的，初期这就够了。\n踩坑经验： 千万别让开发人员直接SSH连服务器操作。只要人能接触到生产环境的Shell，误操作就是时间问题。用脚本把命令封装起来，就是给服务器穿了一层防弹衣。\n02 &ldquo;全链路监控&quot;太贵？搞定Trace ID就赢了一半\r以前系统出问题，最头大的就是&quot;甩锅&rdquo;。 前端说接口报错，后端说日志没异常，最后发现是网关层拦截了。排查一个问题，要在Nginx日志、应用日志、数据库慢查询之间来回切窗口，眼睛都花了。\n真实案例： 有次用户反馈下单失败，但我们查了半天后端日志全是&quot;Success&quot;。后来才发现是中间件超时。因为没有统一的标记，我们根本不知道用户的那次请求对应哪条日志，只能靠&quot;猜时间点&quot;来对齐，效率极低。\n我的落地路子： 引入Trace ID（链路追踪ID）。\n别被这个词吓到了，不需要上SkyWalking或Zipkin这种重型武器。我只做了一件事：\n在Nginx层生成一个随机UUID，放到Header里。 后端代码加个拦截器，读到这个ID就塞进ThreadLocal（或者MDC）。 修改Logback配置，每行日志都自动带上这个ID。 现在只要客服把报错截图（上面有我们将ID透传回前端的编码）发给我，我由grep一下这个ID，这请求经过了哪些服务、在哪一步报错、参数是什么，一清二楚。\n效果对比： 以前排查一个跨服务Bug平均需要30分钟，现在通常只要3分钟。\n03 把报警群变成&quot;聊天室&quot;，而不是&quot;垃圾场&quot;\r很多团队都有报警群，但大部分都变成了&quot;静音群&quot;。为什么？因为无效信息太多了。CPU稍微抖一下就报警，磁盘占用60%也报警，一天响几百次，真的&quot;狼来了&quot;也没人看。\n真实案例： 刚开始我们也接了报警机器人。结果有一天晚上，数据库主从同步延迟了，报警群响了一晚上。大家以为又是常规的CPU波动，谁都没看。结果第二天发现数据不一致，处理起来那个酸爽……\n我的落地路子： 我定了个死规矩：报警必须可执行（Actionable）。\n我把所有&quot;单纯告知&quot;类的报警全部关掉，只保留需要&quot;马上有人去处理&quot;的报警。 比如：CPU高不要紧，但&quot;CPU持续5分钟100%且响应时间超过1秒&quot;才报警。\n此外，我还做了一个小改动：**ChatOps（聊天即运维）**的雏形。 我们将GitLab的Webhook接到了飞书/钉钉群。但不是发一堆看不懂的代码提交记录，而是经过过滤的：\n谁（Who） 发布了什么版本（Which Version） 到了什么环境（Where） 成功了没（Result） 现在，每当群里弹出&quot;构建成功&quot;的绿色卡片，测试同学就知道可以介入了；如果是红色的&quot;构建失败&quot;，开发同学自己就会默默去修，根本不用我催。\n抄作业时间：给中小团队的落地工具包\r说了这么多，如果你想明天就开始改变，这里有一份我目前在用的极简部署脚本模板，你可以直接复制改改就能用。\n这不是什么高深的CICD配置，就是一个让你可以安心喝咖啡的Shell脚本逻辑：\n#!/bin/bash # 这是一个极其简单的部署脚本示例 # 核心逻辑：备份 -&gt; 构建 -&gt; 传输 -&gt; 重启 -&gt; 检查 APP_NAME=&#34;my-awesome-app&#34; REMOTE_HOST=&#34;192.168.1.100&#34; REMOTE_DIR=&#34;/opt/apps/${APP_NAME}&#34; DATE=$(date +%Y%m%d-%H%M%S) echo &#34;&gt;&gt;&gt; 1. 开始构建...&#34; # 这里替换成你的构建命令，比如 npm run build 或 mvn clean package ./build_script.sh if [ $? -ne 0 ]; then echo &#34;!!! 构建失败，终止发布！&#34; exit 1 fi echo &#34;&gt;&gt;&gt; 2. 备份远程应用...&#34; ssh user@${REMOTE_HOST} &#34;cp ${REMOTE_DIR}/app.jar ${REMOTE_DIR}/backup/app.jar.${DATE}&#34; echo &#34;&gt;&gt;&gt; 3. 上传新版本...&#34; scp target/app.jar user@${REMOTE_HOST}:${REMOTE_DIR}/app.jar.new echo &#34;&gt;&gt;&gt; 4. 替换并重启...&#34; # 使用原子操作替换文件，防止文件传输一半被读取 ssh user@${REMOTE_HOST} &#34;mv ${REMOTE_DIR}/app.jar.new ${REMOTE_DIR}/app.jar &amp;&amp; systemctl restart ${APP_NAME}&#34; echo &#34;&gt;&gt;&gt; 5. 简单的健康检查...&#34; # 等待几秒后检查端口是否存活 sleep 10 ssh user@${REMOTE_HOST} &#34;curl -s localhost:8080/health || echo &#39;WARNING: 服务未启动!&#39;&#34; echo &#34;✅ 发布完成！&#34; 给你的3个行动建议：\r本周内：挑一个你们团队最重复、最容易出错的手工操作（比如打包、比如同步配置），写一个脚本把它固化下来。 下个迭代：尝试在日志中引入Trace ID，哪怕只是在入口处生成并打印出来，对日后的排查帮助都是巨大的。 心态调整：别想着一步到位。DevOps是一种文化，不是一个工具。如果你能让团队成员在犯错时不再害怕被责骂，而是想着&quot;怎么改流程避免下次再犯&quot;，你的DevOps就已经成功了一半。 我也还在路上，咱们一起加油。\n">
-    </head>
-    <body class="
-    article-page
-    ">
-    <script>
-        (function() {
-            const colorSchemeKey = 'StackColorScheme';
-            if(!localStorage.getItem(colorSchemeKey)){
-                localStorage.setItem(colorSchemeKey, "auto");
-            }
-        })();
-    </script><script>
-    (function() {
-        const colorSchemeKey = 'StackColorScheme';
-        const colorSchemeItem = localStorage.getItem(colorSchemeKey);
-        const supportDarkMode = window.matchMedia('(prefers-color-scheme: dark)').matches === true;
-
-        if (colorSchemeItem == 'dark' || colorSchemeItem === 'auto' && supportDarkMode) {
-            
-
-            document.documentElement.dataset.scheme = 'dark';
-        } else {
-            document.documentElement.dataset.scheme = 'light';
-        }
-    })();
-</script>
-<div class="container main-container flex on-phone--column compact"><aside class="sidebar left-sidebar sticky ">
-    <button class="hamburger hamburger--spin" type="button" id="toggle-menu" aria-label="切换菜单">
-        <span class="hamburger-box">
-            <span class="hamburger-inner"></span>
-        </span>
-    </button>
-
-    <header>
-        
-            
-            <figure class="site-avatar">
-                <a href="/">
-                
-                    
-                    
-                    
-                        
-                        <img src="/img/avatar_hu_8588ce14af1147e2.png" width="300"
-                            height="286" class="site-logo" loading="lazy" alt="Avatar">
-                    
-                
-                </a>
-                
-            </figure>
-            
-        
-        
-        <div class="site-meta">
-            <h1 class="site-name"><a href="/">SelfTechHub</a></h1>
-            <h2 class="site-description"></h2>
-        </div>
-    </header><ol class="menu" id="main-menu">
-        
-        
-        <li class="menu-bottom-section">
-            <ol class="menu">
-
-                
-                    <li id="dark-mode-toggle">
-                        <svg xmlns="http://www.w3.org/2000/svg" class="icon icon-tabler icon-tabler-toggle-left" width="24" height="24" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor" fill="none" stroke-linecap="round" stroke-linejoin="round">
-  <path stroke="none" d="M0 0h24v24H0z"/>
-  <circle cx="8" cy="12" r="2" />
-  <rect x="2" y="6" width="20" height="12" rx="6" />
-</svg>
-
-
-
-                        <svg xmlns="http://www.w3.org/2000/svg" class="icon icon-tabler icon-tabler-toggle-right" width="24" height="24" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor" fill="none" stroke-linecap="round" stroke-linejoin="round">
-  <path stroke="none" d="M0 0h24v24H0z"/>
-  <circle cx="16" cy="12" r="2" />
-  <rect x="2" y="6" width="20" height="12" rx="6" />
-</svg>
-
-
-
-                        <span>暗色模式</span>
-                    </li>
-                
-            </ol>
-        </li>
-    </ol>
-</aside>
-
-    
-
-            <main class="main full-width">
-    <article class="main-article">
-    <header class="article-header">
-
-    <div class="article-details">
-    
-    <header class="article-category">
-        
-            <a href="/categories/%E6%8A%80%E6%9C%AF.html" >
-                技术精进
-            </a>
-        
-    </header>
-    
-
-    <div class="article-title-wrapper">
-        <h2 class="article-title">
-            <a href="/tech/zhongxiaoxingtuanduidevopsluodifangan/devopswenhua_congxiaochuzhuoshoudeluodijiqiao.html">没专职运维？我们靠这3招把发布时间缩短了80%</a>
-        </h2>
-    
-        
-    </div>
-
-    
-    
-    
-    
-    <footer class="article-time">
-        
-            <div>
-                <svg xmlns="http://www.w3.org/2000/svg" class="icon icon-tabler icon-tabler-calendar-time" width="56" height="56" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor" fill="none" stroke-linecap="round" stroke-linejoin="round">
-  <path stroke="none" d="M0 0h24v24H0z"/>
-  <path d="M11.795 21h-6.795a2 2 0 0 1 -2 -2v-12a2 2 0 0 1 2 -2h12a2 2 0 0 1 2 2v4" />
-  <circle cx="18" cy="18" r="4" />
-  <path d="M15 3v4" />
-  <path d="M7 3v4" />
-  <path d="M3 11h16" />
-  <path d="M18 16.496v1.504l1 1" />
-</svg>
-                <time class="article-time--published" datetime='2023-01-17T00:00:00Z'>Jan 17, 2023</time>
-            </div>
-        
-
-        
-            <div>
-                <svg xmlns="http://www.w3.org/2000/svg" class="icon icon-tabler icon-tabler-clock" width="24" height="24" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor" fill="none" stroke-linecap="round" stroke-linejoin="round">
-  <path stroke="none" d="M0 0h24v24H0z"/>
-  <circle cx="12" cy="12" r="9" />
-  <polyline points="12 7 12 12 15 15" />
-</svg>
-
-
-
-                <time class="article-time--reading">
-                    阅读时长: 1 分钟
-                </time>
-            </div>
-        
-    </footer>
-    
-
-    
-</div>
-
-</header>
-
-    <section class="article-content">
-    
-    
-    <p>记得三年前我刚接手现在的团队时，情况那是相当&quot;刺激&quot;。</p>
-<p>那时候我们团队不到10个人，没有专职运维。每次发版简直就是一场豪赌：我得亲自登录服务器，手动停止服务，备份jar包（还得记得加上时间戳，虽然经常忘），然后SCP上传新包，再重启。</p>
-<p>最惨的一次，因为我在本地编译时少打了一个Profile参数，导致生产环境连上了测试库。虽然发现得早，但那个周五晚上，我和两个核心开发吓出了一身冷汗，在那儿人肉回滚数据搞到凌晨两点。</p>
-<p>那时候我就在想：<strong>我们这种&quot;草台班子&quot;，是不是就不配谈DevOps？</strong></p>
-<p>后来我发现，我们都被大厂那些高大上的PPT给忽悠了。对于中小团队，DevOps绝对不是搞一套复杂的Kubernetes集群，也不是买昂贵的商业平台。</p>
-<p>这几年摸爬滚打下来，我总结出了一套&quot;穷人版&quot;DevOps落地法。不讲大道理，只聊怎么让我们即使没有运维，也能到点下班。</p>
-<h2 id="01-别整大平台先给你的脚本穿层衣">01 别整&quot;大平台&quot;，先给你的脚本&quot;穿层衣&quot;
-</h2><p><img src="https://picsum.photos/800/450?random=1768442430341"
-	
-	
-	
-	loading="lazy"
-	
-		alt="配图"
-	
-	
-></p>
-<p>很多兄弟一上来就想搭建Jenkins或者GitLab CI的一整套流水线，结果配环境就花了一周，最后发现团队成员根本不愿意用，觉得太繁琐。</p>
-<p>其实，DevOps的第一步，是<strong>把&quot;靠人脑记&quot;的操作变成&quot;靠代码跑&quot;</strong>。</p>
-<p><strong>真实案例：</strong>
-我们团队有个后端小张，技术挺好，但就是马虎。有次更新前端静态资源，他把<code>dist</code>目录传错了路径，导致官网样式全乱了。虽然只需一条<code>mv</code>命令就能修复，但当时客户群里已经炸锅了。</p>
-<p><strong>我的落地路子：</strong>
-我没急着上CI系统，而是花半天写了个<code>Makefile</code>。</p>
-<p>不要小看这个古老的工具。我在项目根目录下放了个文件，里面只写了三行逻辑：打包、压缩、通过SSH传到指定目录。</p>
-<p>以后大家上线，只需要在群里喊一声，然后敲一个命令：
-<code>make deploy-prod</code></p>
-<p>这就够了。真的，初期这就够了。</p>
-<blockquote>
-<p><strong>踩坑经验：</strong> 千万别让开发人员直接SSH连服务器操作。只要人能接触到生产环境的Shell，误操作就是时间问题。用脚本把命令封装起来，就是给服务器穿了一层防弹衣。</p>
-</blockquote>
-<h2 id="02-全链路监控太贵搞定trace-id就赢了一半">02 &ldquo;全链路监控&quot;太贵？搞定Trace ID就赢了一半
-</h2><p>以前系统出问题，最头大的就是&quot;甩锅&rdquo;。
-前端说接口报错，后端说日志没异常，最后发现是网关层拦截了。排查一个问题，要在Nginx日志、应用日志、数据库慢查询之间来回切窗口，眼睛都花了。</p>
-<p><strong>真实案例：</strong>
-有次用户反馈下单失败，但我们查了半天后端日志全是&quot;Success&quot;。后来才发现是中间件超时。因为没有统一的标记，我们根本不知道用户的那次请求对应哪条日志，只能靠&quot;猜时间点&quot;来对齐，效率极低。</p>
-<p><strong>我的落地路子：</strong>
-引入<strong>Trace ID（链路追踪ID）</strong>。</p>
-<p>别被这个词吓到了，不需要上SkyWalking或Zipkin这种重型武器。我只做了一件事：</p>
-<ol>
-<li>在Nginx层生成一个随机UUID，放到Header里。</li>
-<li>后端代码加个拦截器，读到这个ID就塞进ThreadLocal（或者MDC）。</li>
-<li>修改Logback配置，每行日志都自动带上这个ID。</li>
-</ol>
-<p>现在只要客服把报错截图（上面有我们将ID透传回前端的编码）发给我，我由<code>grep</code>一下这个ID，这请求经过了哪些服务、在哪一步报错、参数是什么，一清二楚。</p>
-<p><strong>效果对比：</strong>
-以前排查一个跨服务Bug平均需要30分钟，现在通常只要3分钟。</p>
-<h2 id="03-把报警群变成聊天室而不是垃圾场">03 把报警群变成&quot;聊天室&quot;，而不是&quot;垃圾场&quot;
-</h2><p>很多团队都有报警群，但大部分都变成了&quot;静音群&quot;。为什么？因为无效信息太多了。CPU稍微抖一下就报警，磁盘占用60%也报警，一天响几百次，真的&quot;狼来了&quot;也没人看。</p>
-<p><img src="https://picsum.photos/800/450?random=1768442435992"
-	
-	
-	
-	loading="lazy"
-	
-		alt="配图"
-	
-	
-></p>
-<p><strong>真实案例：</strong>
-刚开始我们也接了报警机器人。结果有一天晚上，数据库主从同步延迟了，报警群响了一晚上。大家以为又是常规的CPU波动，谁都没看。结果第二天发现数据不一致，处理起来那个酸爽……</p>
-<p><strong>我的落地路子：</strong>
-我定了个死规矩：<strong>报警必须可执行（Actionable）。</strong></p>
-<p>我把所有&quot;单纯告知&quot;类的报警全部关掉，只保留需要&quot;马上有人去处理&quot;的报警。
-比如：CPU高不要紧，但&quot;CPU持续5分钟100%且响应时间超过1秒&quot;才报警。</p>
-<p>此外，我还做了一个小改动：**ChatOps（聊天即运维）**的雏形。
-我们将GitLab的Webhook接到了飞书/钉钉群。但不是发一堆看不懂的代码提交记录，而是经过过滤的：</p>
-<ul>
-<li><strong>谁</strong>（Who）</li>
-<li><strong>发布了什么版本</strong>（Which Version）</li>
-<li><strong>到了什么环境</strong>（Where）</li>
-<li><strong>成功了没</strong>（Result）</li>
-</ul>
-<p>现在，每当群里弹出&quot;构建成功&quot;的绿色卡片，测试同学就知道可以介入了；如果是红色的&quot;构建失败&quot;，开发同学自己就会默默去修，根本不用我催。</p>
-<hr>
-<h2 id="抄作业时间给中小团队的落地工具包">抄作业时间：给中小团队的落地工具包
-</h2><p>说了这么多，如果你想明天就开始改变，这里有一份我目前在用的<strong>极简部署脚本模板</strong>，你可以直接复制改改就能用。</p>
-<p>这不是什么高深的CICD配置，就是一个让你可以安心喝咖啡的Shell脚本逻辑：</p>
-<div class="highlight"><pre tabindex="0" style="color:#f8f8f2;background-color:#272822;-moz-tab-size:4;-o-tab-size:4;tab-size:4;"><code class="language-bash" data-lang="bash"><span style="display:flex;"><span><span style="color:#75715e">#!/bin/bash
-</span></span></span><span style="display:flex;"><span><span style="color:#75715e"></span><span style="color:#75715e"># 这是一个极其简单的部署脚本示例</span>
-</span></span><span style="display:flex;"><span><span style="color:#75715e"># 核心逻辑：备份 -&gt; 构建 -&gt; 传输 -&gt; 重启 -&gt; 检查</span>
-</span></span><span style="display:flex;"><span>
-</span></span><span style="display:flex;"><span>APP_NAME<span style="color:#f92672">=</span><span style="color:#e6db74">&#34;my-awesome-app&#34;</span>
-</span></span><span style="display:flex;"><span>REMOTE_HOST<span style="color:#f92672">=</span><span style="color:#e6db74">&#34;192.168.1.100&#34;</span>
-</span></span><span style="display:flex;"><span>REMOTE_DIR<span style="color:#f92672">=</span><span style="color:#e6db74">&#34;/opt/apps/</span><span style="color:#e6db74">${</span>APP_NAME<span style="color:#e6db74">}</span><span style="color:#e6db74">&#34;</span>
-</span></span><span style="display:flex;"><span>DATE<span style="color:#f92672">=</span><span style="color:#66d9ef">$(</span>date +%Y%m%d-%H%M%S<span style="color:#66d9ef">)</span>
-</span></span><span style="display:flex;"><span>
-</span></span><span style="display:flex;"><span>echo <span style="color:#e6db74">&#34;&gt;&gt;&gt; 1. 开始构建...&#34;</span>
-</span></span><span style="display:flex;"><span><span style="color:#75715e"># 这里替换成你的构建命令，比如 npm run build 或 mvn clean package</span>
-</span></span><span style="display:flex;"><span>./build_script.sh 
-</span></span><span style="display:flex;"><span><span style="color:#66d9ef">if</span> <span style="color:#f92672">[</span> $? -ne <span style="color:#ae81ff">0</span> <span style="color:#f92672">]</span>; <span style="color:#66d9ef">then</span>
-</span></span><span style="display:flex;"><span>    echo <span style="color:#e6db74">&#34;!!! 构建失败，终止发布！&#34;</span>
-</span></span><span style="display:flex;"><span>    exit <span style="color:#ae81ff">1</span>
-</span></span><span style="display:flex;"><span><span style="color:#66d9ef">fi</span>
-</span></span><span style="display:flex;"><span>
-</span></span><span style="display:flex;"><span>echo <span style="color:#e6db74">&#34;&gt;&gt;&gt; 2. 备份远程应用...&#34;</span>
-</span></span><span style="display:flex;"><span>ssh user@<span style="color:#e6db74">${</span>REMOTE_HOST<span style="color:#e6db74">}</span> <span style="color:#e6db74">&#34;cp </span><span style="color:#e6db74">${</span>REMOTE_DIR<span style="color:#e6db74">}</span><span style="color:#e6db74">/app.jar </span><span style="color:#e6db74">${</span>REMOTE_DIR<span style="color:#e6db74">}</span><span style="color:#e6db74">/backup/app.jar.</span><span style="color:#e6db74">${</span>DATE<span style="color:#e6db74">}</span><span style="color:#e6db74">&#34;</span>
-</span></span><span style="display:flex;"><span>
-</span></span><span style="display:flex;"><span>echo <span style="color:#e6db74">&#34;&gt;&gt;&gt; 3. 上传新版本...&#34;</span>
-</span></span><span style="display:flex;"><span>scp target/app.jar user@<span style="color:#e6db74">${</span>REMOTE_HOST<span style="color:#e6db74">}</span>:<span style="color:#e6db74">${</span>REMOTE_DIR<span style="color:#e6db74">}</span>/app.jar.new
-</span></span><span style="display:flex;"><span>
-</span></span><span style="display:flex;"><span>echo <span style="color:#e6db74">&#34;&gt;&gt;&gt; 4. 替换并重启...&#34;</span>
-</span></span><span style="display:flex;"><span><span style="color:#75715e"># 使用原子操作替换文件，防止文件传输一半被读取</span>
-</span></span><span style="display:flex;"><span>ssh user@<span style="color:#e6db74">${</span>REMOTE_HOST<span style="color:#e6db74">}</span> <span style="color:#e6db74">&#34;mv </span><span style="color:#e6db74">${</span>REMOTE_DIR<span style="color:#e6db74">}</span><span style="color:#e6db74">/app.jar.new </span><span style="color:#e6db74">${</span>REMOTE_DIR<span style="color:#e6db74">}</span><span style="color:#e6db74">/app.jar &amp;&amp; systemctl restart </span><span style="color:#e6db74">${</span>APP_NAME<span style="color:#e6db74">}</span><span style="color:#e6db74">&#34;</span>
-</span></span><span style="display:flex;"><span>
-</span></span><span style="display:flex;"><span>echo <span style="color:#e6db74">&#34;&gt;&gt;&gt; 5. 简单的健康检查...&#34;</span>
-</span></span><span style="display:flex;"><span><span style="color:#75715e"># 等待几秒后检查端口是否存活</span>
-</span></span><span style="display:flex;"><span>sleep <span style="color:#ae81ff">10</span>
-</span></span><span style="display:flex;"><span>ssh user@<span style="color:#e6db74">${</span>REMOTE_HOST<span style="color:#e6db74">}</span> <span style="color:#e6db74">&#34;curl -s localhost:8080/health || echo &#39;WARNING: 服务未启动!&#39;&#34;</span>
-</span></span><span style="display:flex;"><span>
-</span></span><span style="display:flex;"><span>echo <span style="color:#e6db74">&#34;✅ 发布完成！&#34;</span>
-</span></span></code></pre></div><h3 id="给你的3个行动建议">给你的3个行动建议：
-</h3><ol>
-<li><strong>本周内</strong>：挑一个你们团队最重复、最容易出错的手工操作（比如打包、比如同步配置），写一个脚本把它固化下来。</li>
-<li><strong>下个迭代</strong>：尝试在日志中引入Trace ID，哪怕只是在入口处生成并打印出来，对日后的排查帮助都是巨大的。</li>
-<li><strong>心态调整</strong>：别想着一步到位。DevOps是一种文化，不是一个工具。<strong>如果你能让团队成员在犯错时不再害怕被责骂，而是想着&quot;怎么改流程避免下次再犯&quot;，你的DevOps就已经成功了一半。</strong></li>
-</ol>
-<p>我也还在路上，咱们一起加油。</p>
-
-</section>
-
-
-    <footer class="article-footer">
-    
-    <section class="article-tags">
-        
-            <a href="/tags/DevOps%E6%96%87%E5%8C%96%E4%BB%8E%E5%B0%8F%E5%A4%84%E7%9D%80%E6%89%8B%E7%9A%84%E8%90%BD%E5%9C%B0%E6%8A%80%E5%B7%A7.html">DevOps文化：从小处着手的落地技巧</a>
-        
-    </section>
-
-
-    </footer>
-
-
-    
-</article>
-
-    
-
-    
-
-     
-    
-        
-    <script
-    src="https://giscus.app/client.js"
-    data-repo="pastor17/bloggiscus"
-    data-repo-id="R_kgDOQ6H9qQ"
-    data-category=""
-    data-category-id="DIC_kwDOQ6H9qc4C0-T8"
-    data-mapping="pathname"
-    data-strict="0"
-    data-reactions-enabled="1"
-    data-emit-metadata="0"
-    data-input-position="bottom"
-    data-theme="light"
-    data-lang="zh-CN"
-    data-loading="lazy"
-    crossorigin="anonymous"
-    async
-></script>
-<script>
-    function setGiscusTheme(theme) {
-        let giscus = document.querySelector("iframe.giscus-frame");
-        if (giscus) {
-            giscus.contentWindow.postMessage(
-                {
-                    giscus: {
-                        setConfig: {
-                            theme: theme,
-                        },
-                    },
-                },
-                "https://giscus.app"
-            );
-        }
-    }
-
-    (function () {
-        addEventListener("message", (e) => {
-            if (event.origin !== "https://giscus.app") return;
-            handler();
-        });
-        window.addEventListener("onColorSchemeChange", handler);
-
-        function handler() {
-            if (document.documentElement.dataset.scheme === "light") {
-                setGiscusTheme('light');
-            } else {
-                setGiscusTheme('dark_dimmed');
-            }
-        }
-    })();
-</script>
-
-    
-
-    <footer class="site-footer">
-    <section class="copyright">
-        &copy; 
-        
-        2026 SelfTechHub
-    </section>
-    
-    <section class="powerby">
-        
-
-    </section>
-</footer>
-
-
-    
-<div class="pswp" tabindex="-1" role="dialog" aria-hidden="true">
-
-    
-    <div class="pswp__bg"></div>
-
-    
-    <div class="pswp__scroll-wrap">
-
-        
-        <div class="pswp__container">
-            <div class="pswp__item"></div>
-            <div class="pswp__item"></div>
-            <div class="pswp__item"></div>
-        </div>
-
-        
-        <div class="pswp__ui pswp__ui--hidden">
-
-            <div class="pswp__top-bar">
-
-                
-
-                <div class="pswp__counter"></div>
-
-                <button class="pswp__button pswp__button--close" title="Close (Esc)"></button>
-
-                <button class="pswp__button pswp__button--share" title="Share"></button>
-
-                <button class="pswp__button pswp__button--fs" title="Toggle fullscreen"></button>
-
-                <button class="pswp__button pswp__button--zoom" title="Zoom in/out"></button>
-
-                
-                
-                <div class="pswp__preloader">
-                    <div class="pswp__preloader__icn">
-                        <div class="pswp__preloader__cut">
-                            <div class="pswp__preloader__donut"></div>
-                        </div>
-                    </div>
-                </div>
-            </div>
-
-            <div class="pswp__share-modal pswp__share-modal--hidden pswp__single-tap">
-                <div class="pswp__share-tooltip"></div>
-            </div>
-
-            <button class="pswp__button pswp__button--arrow--left" title="Previous (arrow left)">
-            </button>
-
-            <button class="pswp__button pswp__button--arrow--right" title="Next (arrow right)">
-            </button>
-
-            <div class="pswp__caption">
-                <div class="pswp__caption__center"></div>
-            </div>
-
-        </div>
-
-    </div>
-
-</div><script 
-                src="https://cdn.jsdelivr.net/npm/photoswipe@4.1.3/dist/photoswipe.min.js"integrity="sha256-ePwmChbbvXbsO02lbM3HoHbSHTHFAeChekF1xKJdleo="crossorigin="anonymous"
-                defer
-                >
-            </script><script 
-                src="https://cdn.jsdelivr.net/npm/photoswipe@4.1.3/dist/photoswipe-ui-default.min.js"integrity="sha256-UKkzOn/w1mBxRmLLGrSeyB4e1xbrp4xylgAWb3M42pU="crossorigin="anonymous"
-                defer
-                >
-            </script><link 
-                rel="stylesheet" 
-                href="https://cdn.jsdelivr.net/npm/photoswipe@4.1.3/dist/default-skin/default-skin.min.css"crossorigin="anonymous"
-            ><link 
-                rel="stylesheet" 
-                href="https://cdn.jsdelivr.net/npm/photoswipe@4.1.3/dist/photoswipe.min.css"crossorigin="anonymous"
-            >
-    
-
-            </main>
-        </div>
-        <script 
-                src="https://cdn.jsdelivr.net/npm/node-vibrant@3.1.6/dist/vibrant.min.js"integrity="sha256-awcR2jno4kI5X0zL8ex0vi2z&#43;KMkF24hUW8WePSA9HM="crossorigin="anonymous"
-                
-                >
-            </script><script type="text/javascript" src="/ts/main.c922af694cc257bf1ecc41c0dd7b0430f9114ec280ccf67cd2c6ad55f5316c4e.js" defer></script>
-<script>
-    (function () {
-        const customFont = document.createElement('link');
-        customFont.href = "https://fonts.googleapis.com/css2?family=Lato:wght@300;400;700&display=swap";
-
-        customFont.type = "text/css";
-        customFont.rel = "stylesheet";
-
-        document.head.appendChild(customFont);
-    }());
-</script>
-
-    </body>
-</html>
+<!doctype html><html lang=zh-cn dir=ltr><head><meta charset=utf-8><meta name=viewport content='width=device-width,initial-scale=1'><meta name=description content="记得三年前我刚接手现在的团队时，情况那是相当\" 刺激\"。那时候我们团队不到10个人，没有专职运维。"><title>没专职运维？我们靠这3招把发布时间缩短了80%</title><link rel=canonical href=https://blog.irudder.me/tech/zhongxiaoxingtuanduidevopsluodifangan/devopswenhua_congxiaochuzhuoshoudeluodijiqiao.html><link rel=stylesheet href=/scss/style.min.c77ce1b874b29b2ee9e54a89066c79ebf35cbe9cf399b31ab5d79167f9a965c9.css><meta property='og:title' content="没专职运维？我们靠这3招把发布时间缩短了80%"><meta property='og:description' content="记得三年前我刚接手现在的团队时，情况那是相当\" 刺激\"。那时候我们团队不到10个人，没有专职运维。"><meta property='og:url' content='https://blog.irudder.me/tech/zhongxiaoxingtuanduidevopsluodifangan/devopswenhua_congxiaochuzhuoshoudeluodijiqiao.html'><meta property='og:site_name' content='SelfTechHub'><meta property='og:type' content='article'><meta property='article:section' content='Tech'><meta property='article:tag' content='DevOps文化：从小处着手的落地技巧'><meta property='article:published_time' content='2023-01-17T00:00:00+08:00'><meta property='article:modified_time' content='2023-01-17T00:00:00+08:00'><meta name=twitter:title content="没专职运维？我们靠这3招把发布时间缩短了80%"><meta name=twitter:description content="记得三年前我刚接手现在的团队时，情况那是相当\" 刺激\"。那时候我们团队不到10个人，没有专职运维。"><link rel="shortcut icon" href=/images/logo.png></head><body class=article-page><script>(function(){const e="StackColorScheme";localStorage.getItem(e)||localStorage.setItem(e,"auto")})()</script><script>(function(){const t="StackColorScheme",e=localStorage.getItem(t),n=window.matchMedia("(prefers-color-scheme: dark)").matches===!0;e=="dark"||e==="auto"&&n?document.documentElement.dataset.scheme="dark":document.documentElement.dataset.scheme="light"})()</script><div class="container main-container flex on-phone--column extended"><aside class="sidebar left-sidebar sticky"><button class="hamburger hamburger--spin" type=button id=toggle-menu aria-label=切换菜单>
+<span class=hamburger-box><span class=hamburger-inner></span></span></button><header><figure class=site-avatar><a href=/><img src=/img/avatar_hu_8588ce14af1147e2.png width=300 height=286 class=site-logo loading=lazy alt=Avatar>
+</a><span class=emoji>🧠</span></figure><div class=site-meta><h1 class=site-name><a href=/>SelfTechHub</a></h1><h2 class=site-description>成长 · 技术 · 商业 · AI —— 把碎片知识沉淀为可复用的记忆体系</h2></div></header><ol class=menu-social><li><a href=https://github.com/pastor17 target=_blank title=GitHub rel=me><svg class="icon icon-tabler icon-tabler-brand-github" width="24" height="24" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor" fill="none" stroke-linecap="round" stroke-linejoin="round"><path stroke="none" d="M0 0h24v24H0z" fill="none"/><path d="M9 19c-4.3 1.4-4.3-2.5-6-3m12 5v-3.5c0-1 .1-1.4-.5-2 2.8-.3 5.5-1.4 5.5-6a4.6 4.6.0 00-1.3-3.2 4.2 4.2.0 00-.1-3.2s-1.1-.3-3.5 1.3a12.3 12.3.0 00-6.2.0C6.5 2.8 5.4 3.1 5.4 3.1a4.2 4.2.0 00-.1 3.2A4.6 4.6.0 004 9.5c0 4.6 2.7 5.7 5.5 6-.6.6-.6 1.2-.5 2V21"/></svg></a></li></ol><ol class=menu id=main-menu><li><a href=/><svg class="icon icon-tabler icon-tabler-home" width="24" height="24" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor" fill="none" stroke-linecap="round" stroke-linejoin="round"><path stroke="none" d="M0 0h24v24H0z"/><polyline points="5 12 3 12 12 3 21 12 19 12"/><path d="M5 12v7a2 2 0 002 2h10a2 2 0 002-2v-7"/><path d="M9 21v-6a2 2 0 012-2h2a2 2 0 012 2v6"/></svg>
+<span>首页</span></a></li><li><a href=/categories/%E6%88%90%E9%95%BF.html><span>成长认知</span></a></li><li><a href=/categories/%E6%8A%80%E6%9C%AF.html><span>技术精进</span></a></li><li><a href=/categories/%E5%95%86%E4%B8%9A.html><span>商业·财富</span></a></li><li><a href=/categories/ai.html><span>探索AI</span></a></li><li><a href=/about/><svg class="icon icon-tabler icon-tabler-user" width="24" height="24" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor" fill="none" stroke-linecap="round" stroke-linejoin="round"><path stroke="none" d="M0 0h24v24H0z"/><circle cx="12" cy="7" r="4"/><path d="M6 21v-2a4 4 0 014-4h4a4 4 0 014 4v2"/></svg>
+<span>关于</span></a></li><li class=menu-bottom-section><ol class=menu><li id=dark-mode-toggle><svg class="icon icon-tabler icon-tabler-toggle-left" width="24" height="24" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor" fill="none" stroke-linecap="round" stroke-linejoin="round"><path stroke="none" d="M0 0h24v24H0z"/><circle cx="8" cy="12" r="2"/><rect x="2" y="6" width="20" height="12" rx="6"/></svg>
+<svg class="icon icon-tabler icon-tabler-toggle-right" width="24" height="24" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor" fill="none" stroke-linecap="round" stroke-linejoin="round"><path stroke="none" d="M0 0h24v24H0z"/><circle cx="16" cy="12" r="2"/><rect x="2" y="6" width="20" height="12" rx="6"/></svg>
+<span>暗色模式</span></li></ol></li></ol></aside><aside class="sidebar right-sidebar sticky"><section class="widget archives"><div class=widget-icon><svg class="icon icon-tabler icon-tabler-hash" width="24" height="24" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor" fill="none" stroke-linecap="round" stroke-linejoin="round"><path stroke="none" d="M0 0h24v24H0z"/><line x1="5" y1="9" x2="19" y2="9"/><line x1="5" y1="15" x2="19" y2="15"/><line x1="11" y1="4" x2="7" y2="20"/><line x1="17" y1="4" x2="13" y2="20"/></svg></div><h2 class="widget-title section-title">目录</h2><div class=widget--toc><nav id=TableOfContents><ul><li><a href=#01-别整大平台先给你的脚本穿层衣>01 别整"大平台"，先给你的脚本"穿层衣"</a></li><li><a href=#02-全链路监控太贵搞定trace-id就赢了一半>02 &ldquo;全链路监控"太贵？搞定Trace ID就赢了一半</a></li><li><a href=#03-把报警群变成聊天室而不是垃圾场>03 把报警群变成"聊天室"，而不是"垃圾场"</a></li><li><a href=#抄作业时间给中小团队的落地工具包>抄作业时间：给中小团队的落地工具包</a><ul><li><a href=#给你的3个行动建议>给你的3个行动建议：</a></li></ul></li></ul></nav></div></section></aside><main class="main full-width"><article class=main-article><header class=article-header><div class=article-details><header class=article-category><a href=/categories/%E6%8A%80%E6%9C%AF.html>技术精进</a></header><div class=article-title-wrapper><h2 class=article-title><a href=/tech/zhongxiaoxingtuanduidevopsluodifangan/devopswenhua_congxiaochuzhuoshoudeluodijiqiao.html>没专职运维？我们靠这3招把发布时间缩短了80%</a></h2><h3 class=article-subtitle>记得三年前我刚接手现在的团队时，情况那是相当"刺激"。那时候我们团队不到10个人，没有专职运维。</h3></div><footer class=article-time><div><svg class="icon icon-tabler icon-tabler-calendar-time" width="56" height="56" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor" fill="none" stroke-linecap="round" stroke-linejoin="round"><path stroke="none" d="M0 0h24v24H0z"/><path d="M11.795 21H5a2 2 0 01-2-2V7a2 2 0 012-2h12a2 2 0 012 2v4"/><circle cx="18" cy="18" r="4"/><path d="M15 3v4"/><path d="M7 3v4"/><path d="M3 11h16"/><path d="M18 16.496V18l1 1"/></svg>
+<time class=article-time--published datetime=2023-01-17T00:00:00+08:00>2023-01-17</time></div><div><svg class="icon icon-tabler icon-tabler-clock" width="24" height="24" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor" fill="none" stroke-linecap="round" stroke-linejoin="round"><path stroke="none" d="M0 0h24v24H0z"/><circle cx="12" cy="12" r="9"/><polyline points="12 7 12 12 15 15"/></svg>
+<time class=article-time--reading>阅读时长: 6 分钟</time></div></footer></div></header><section class=article-content><p>记得三年前我刚接手现在的团队时，情况那是相当"刺激"。</p><p>那时候我们团队不到10个人，没有专职运维。每次发版简直就是一场豪赌：我得亲自登录服务器，手动停止服务，备份jar包（还得记得加上时间戳，虽然经常忘），然后SCP上传新包，再重启。</p><p>最惨的一次，因为我在本地编译时少打了一个Profile参数，导致生产环境连上了测试库。虽然发现得早，但那个周五晚上，我和两个核心开发吓出了一身冷汗，在那儿人肉回滚数据搞到凌晨两点。</p><p>那时候我就在想：<strong>我们这种"草台班子"，是不是就不配谈DevOps？</strong></p><p>后来我发现，我们都被大厂那些高大上的PPT给忽悠了。对于中小团队，DevOps绝对不是搞一套复杂的Kubernetes集群，也不是买昂贵的商业平台。</p><p>这几年摸爬滚打下来，我总结出了一套"穷人版"DevOps落地法。不讲大道理，只聊怎么让我们即使没有运维，也能到点下班。</p><h2 id=01-别整大平台先给你的脚本穿层衣>01 别整"大平台"，先给你的脚本"穿层衣"</h2><p><img src="https://picsum.photos/800/450?random=1768442430341" loading=lazy alt=配图></p><p>很多兄弟一上来就想搭建Jenkins或者GitLab CI的一整套流水线，结果配环境就花了一周，最后发现团队成员根本不愿意用，觉得太繁琐。</p><p>其实，DevOps的第一步，是<strong>把"靠人脑记"的操作变成"靠代码跑"</strong>。</p><p><strong>真实案例：</strong>
+我们团队有个后端小张，技术挺好，但就是马虎。有次更新前端静态资源，他把<code>dist</code>目录传错了路径，导致官网样式全乱了。虽然只需一条<code>mv</code>命令就能修复，但当时客户群里已经炸锅了。</p><p><strong>我的落地路子：</strong>
+我没急着上CI系统，而是花半天写了个<code>Makefile</code>。</p><p>不要小看这个古老的工具。我在项目根目录下放了个文件，里面只写了三行逻辑：打包、压缩、通过SSH传到指定目录。</p><p>以后大家上线，只需要在群里喊一声，然后敲一个命令：
+<code>make deploy-prod</code></p><p>这就够了。真的，初期这就够了。</p><blockquote><p><strong>踩坑经验：</strong> 千万别让开发人员直接SSH连服务器操作。只要人能接触到生产环境的Shell，误操作就是时间问题。用脚本把命令封装起来，就是给服务器穿了一层防弹衣。</p></blockquote><h2 id=02-全链路监控太贵搞定trace-id就赢了一半>02 &ldquo;全链路监控"太贵？搞定Trace ID就赢了一半</h2><p>以前系统出问题，最头大的就是"甩锅&rdquo;。
+前端说接口报错，后端说日志没异常，最后发现是网关层拦截了。排查一个问题，要在Nginx日志、应用日志、数据库慢查询之间来回切窗口，眼睛都花了。</p><p><strong>真实案例：</strong>
+有次用户反馈下单失败，但我们查了半天后端日志全是"Success"。后来才发现是中间件超时。因为没有统一的标记，我们根本不知道用户的那次请求对应哪条日志，只能靠"猜时间点"来对齐，效率极低。</p><p><strong>我的落地路子：</strong>
+引入<strong>Trace ID（链路追踪ID）</strong>。</p><p>别被这个词吓到了，不需要上SkyWalking或Zipkin这种重型武器。我只做了一件事：</p><ol><li>在Nginx层生成一个随机UUID，放到Header里。</li><li>后端代码加个拦截器，读到这个ID就塞进ThreadLocal（或者MDC）。</li><li>修改Logback配置，每行日志都自动带上这个ID。</li></ol><p>现在只要客服把报错截图（上面有我们将ID透传回前端的编码）发给我，我由<code>grep</code>一下这个ID，这请求经过了哪些服务、在哪一步报错、参数是什么，一清二楚。</p><p><strong>效果对比：</strong>
+以前排查一个跨服务Bug平均需要30分钟，现在通常只要3分钟。</p><h2 id=03-把报警群变成聊天室而不是垃圾场>03 把报警群变成"聊天室"，而不是"垃圾场"</h2><p>很多团队都有报警群，但大部分都变成了"静音群"。为什么？因为无效信息太多了。CPU稍微抖一下就报警，磁盘占用60%也报警，一天响几百次，真的"狼来了"也没人看。</p><p><img src="https://picsum.photos/800/450?random=1768442435992" loading=lazy alt=配图></p><p><strong>真实案例：</strong>
+刚开始我们也接了报警机器人。结果有一天晚上，数据库主从同步延迟了，报警群响了一晚上。大家以为又是常规的CPU波动，谁都没看。结果第二天发现数据不一致，处理起来那个酸爽……</p><p><strong>我的落地路子：</strong>
+我定了个死规矩：<strong>报警必须可执行（Actionable）。</strong></p><p>我把所有"单纯告知"类的报警全部关掉，只保留需要"马上有人去处理"的报警。
+比如：CPU高不要紧，但"CPU持续5分钟100%且响应时间超过1秒"才报警。</p><p>此外，我还做了一个小改动：**ChatOps（聊天即运维）**的雏形。
+我们将GitLab的Webhook接到了飞书/钉钉群。但不是发一堆看不懂的代码提交记录，而是经过过滤的：</p><ul><li><strong>谁</strong>（Who）</li><li><strong>发布了什么版本</strong>（Which Version）</li><li><strong>到了什么环境</strong>（Where）</li><li><strong>成功了没</strong>（Result）</li></ul><p>现在，每当群里弹出"构建成功"的绿色卡片，测试同学就知道可以介入了；如果是红色的"构建失败"，开发同学自己就会默默去修，根本不用我催。</p><hr><h2 id=抄作业时间给中小团队的落地工具包>抄作业时间：给中小团队的落地工具包</h2><p>说了这么多，如果你想明天就开始改变，这里有一份我目前在用的<strong>极简部署脚本模板</strong>，你可以直接复制改改就能用。</p><p>这不是什么高深的CICD配置，就是一个让你可以安心喝咖啡的Shell脚本逻辑：</p><div class=highlight><div class=chroma><table class=lntable><tr><td class=lntd><pre tabindex=0 class=chroma><code><span class=lnt> 1
+</span><span class=lnt> 2
+</span><span class=lnt> 3
+</span><span class=lnt> 4
+</span><span class=lnt> 5
+</span><span class=lnt> 6
+</span><span class=lnt> 7
+</span><span class=lnt> 8
+</span><span class=lnt> 9
+</span><span class=lnt>10
+</span><span class=lnt>11
+</span><span class=lnt>12
+</span><span class=lnt>13
+</span><span class=lnt>14
+</span><span class=lnt>15
+</span><span class=lnt>16
+</span><span class=lnt>17
+</span><span class=lnt>18
+</span><span class=lnt>19
+</span><span class=lnt>20
+</span><span class=lnt>21
+</span><span class=lnt>22
+</span><span class=lnt>23
+</span><span class=lnt>24
+</span><span class=lnt>25
+</span><span class=lnt>26
+</span><span class=lnt>27
+</span><span class=lnt>28
+</span><span class=lnt>29
+</span><span class=lnt>30
+</span><span class=lnt>31
+</span><span class=lnt>32
+</span><span class=lnt>33
+</span></code></pre></td><td class=lntd><pre tabindex=0 class=chroma><code class=language-bash data-lang=bash><span class=line><span class=cl><span class=cp>#!/bin/bash
+</span></span></span><span class=line><span class=cl><span class=cp></span><span class=c1># 这是一个极其简单的部署脚本示例</span>
+</span></span><span class=line><span class=cl><span class=c1># 核心逻辑：备份 -&gt; 构建 -&gt; 传输 -&gt; 重启 -&gt; 检查</span>
+</span></span><span class=line><span class=cl>
+</span></span><span class=line><span class=cl><span class=nv>APP_NAME</span><span class=o>=</span><span class=s2>&#34;my-awesome-app&#34;</span>
+</span></span><span class=line><span class=cl><span class=nv>REMOTE_HOST</span><span class=o>=</span><span class=s2>&#34;192.168.1.100&#34;</span>
+</span></span><span class=line><span class=cl><span class=nv>REMOTE_DIR</span><span class=o>=</span><span class=s2>&#34;/opt/apps/</span><span class=si>${</span><span class=nv>APP_NAME</span><span class=si>}</span><span class=s2>&#34;</span>
+</span></span><span class=line><span class=cl><span class=nv>DATE</span><span class=o>=</span><span class=k>$(</span>date +%Y%m%d-%H%M%S<span class=k>)</span>
+</span></span><span class=line><span class=cl>
+</span></span><span class=line><span class=cl><span class=nb>echo</span> <span class=s2>&#34;&gt;&gt;&gt; 1. 开始构建...&#34;</span>
+</span></span><span class=line><span class=cl><span class=c1># 这里替换成你的构建命令，比如 npm run build 或 mvn clean package</span>
+</span></span><span class=line><span class=cl>./build_script.sh 
+</span></span><span class=line><span class=cl><span class=k>if</span> <span class=o>[</span> <span class=nv>$?</span> -ne <span class=m>0</span> <span class=o>]</span><span class=p>;</span> <span class=k>then</span>
+</span></span><span class=line><span class=cl>    <span class=nb>echo</span> <span class=s2>&#34;!!! 构建失败，终止发布！&#34;</span>
+</span></span><span class=line><span class=cl>    <span class=nb>exit</span> <span class=m>1</span>
+</span></span><span class=line><span class=cl><span class=k>fi</span>
+</span></span><span class=line><span class=cl>
+</span></span><span class=line><span class=cl><span class=nb>echo</span> <span class=s2>&#34;&gt;&gt;&gt; 2. 备份远程应用...&#34;</span>
+</span></span><span class=line><span class=cl>ssh user@<span class=si>${</span><span class=nv>REMOTE_HOST</span><span class=si>}</span> <span class=s2>&#34;cp </span><span class=si>${</span><span class=nv>REMOTE_DIR</span><span class=si>}</span><span class=s2>/app.jar </span><span class=si>${</span><span class=nv>REMOTE_DIR</span><span class=si>}</span><span class=s2>/backup/app.jar.</span><span class=si>${</span><span class=nv>DATE</span><span class=si>}</span><span class=s2>&#34;</span>
+</span></span><span class=line><span class=cl>
+</span></span><span class=line><span class=cl><span class=nb>echo</span> <span class=s2>&#34;&gt;&gt;&gt; 3. 上传新版本...&#34;</span>
+</span></span><span class=line><span class=cl>scp target/app.jar user@<span class=si>${</span><span class=nv>REMOTE_HOST</span><span class=si>}</span>:<span class=si>${</span><span class=nv>REMOTE_DIR</span><span class=si>}</span>/app.jar.new
+</span></span><span class=line><span class=cl>
+</span></span><span class=line><span class=cl><span class=nb>echo</span> <span class=s2>&#34;&gt;&gt;&gt; 4. 替换并重启...&#34;</span>
+</span></span><span class=line><span class=cl><span class=c1># 使用原子操作替换文件，防止文件传输一半被读取</span>
+</span></span><span class=line><span class=cl>ssh user@<span class=si>${</span><span class=nv>REMOTE_HOST</span><span class=si>}</span> <span class=s2>&#34;mv </span><span class=si>${</span><span class=nv>REMOTE_DIR</span><span class=si>}</span><span class=s2>/app.jar.new </span><span class=si>${</span><span class=nv>REMOTE_DIR</span><span class=si>}</span><span class=s2>/app.jar &amp;&amp; systemctl restart </span><span class=si>${</span><span class=nv>APP_NAME</span><span class=si>}</span><span class=s2>&#34;</span>
+</span></span><span class=line><span class=cl>
+</span></span><span class=line><span class=cl><span class=nb>echo</span> <span class=s2>&#34;&gt;&gt;&gt; 5. 简单的健康检查...&#34;</span>
+</span></span><span class=line><span class=cl><span class=c1># 等待几秒后检查端口是否存活</span>
+</span></span><span class=line><span class=cl>sleep <span class=m>10</span>
+</span></span><span class=line><span class=cl>ssh user@<span class=si>${</span><span class=nv>REMOTE_HOST</span><span class=si>}</span> <span class=s2>&#34;curl -s localhost:8080/health || echo &#39;WARNING: 服务未启动!&#39;&#34;</span>
+</span></span><span class=line><span class=cl>
+</span></span><span class=line><span class=cl><span class=nb>echo</span> <span class=s2>&#34;✅ 发布完成！&#34;</span>
+</span></span></code></pre></td></tr></table></div></div><h3 id=给你的3个行动建议>给你的3个行动建议：</h3><ol><li><strong>本周内</strong>：挑一个你们团队最重复、最容易出错的手工操作（比如打包、比如同步配置），写一个脚本把它固化下来。</li><li><strong>下个迭代</strong>：尝试在日志中引入Trace ID，哪怕只是在入口处生成并打印出来，对日后的排查帮助都是巨大的。</li><li><strong>心态调整</strong>：别想着一步到位。DevOps是一种文化，不是一个工具。<strong>如果你能让团队成员在犯错时不再害怕被责骂，而是想着"怎么改流程避免下次再犯"，你的DevOps就已经成功了一半。</strong></li></ol><p>我也还在路上，咱们一起加油。</p></section><footer class=article-footer><section class=article-tags><a href=/tags/DevOps%E6%96%87%E5%8C%96%E4%BB%8E%E5%B0%8F%E5%A4%84%E7%9D%80%E6%89%8B%E7%9A%84%E8%90%BD%E5%9C%B0%E6%8A%80%E5%B7%A7.html>DevOps文化：从小处着手的落地技巧</a></section></footer></article><script src=https://giscus.app/client.js data-repo=pastor17/bloggiscus data-repo-id=R_kgDOQ6H9qQ data-category data-category-id=DIC_kwDOQ6H9qc4C0-T8 data-mapping=pathname data-strict=0 data-reactions-enabled=1 data-emit-metadata=0 data-input-position=bottom data-theme=light data-lang=zh-CN data-loading=lazy crossorigin=anonymous async></script><script>function setGiscusTheme(e){let t=document.querySelector("iframe.giscus-frame");t&&t.contentWindow.postMessage({giscus:{setConfig:{theme:e}}},"https://giscus.app")}(function(){addEventListener("message",t=>{if(event.origin!=="https://giscus.app")return;e()}),window.addEventListener("onColorSchemeChange",e);function e(){setGiscusTheme(document.documentElement.dataset.scheme==="light"?"light":"dark_dimmed")}})()</script><footer class=site-footer><section class=copyright>&copy;
+2021 -
+2026 SelfTechHub</section><section class=powerby>拒绝一次性认知，把碎片知识沉淀为可复用的记忆体系<br></section></footer><div class=pswp tabindex=-1 role=dialog aria-hidden=true><div class=pswp__bg></div><div class=pswp__scroll-wrap><div class=pswp__container><div class=pswp__item></div><div class=pswp__item></div><div class=pswp__item></div></div><div class="pswp__ui pswp__ui--hidden"><div class=pswp__top-bar><div class=pswp__counter></div><button class="pswp__button pswp__button--close" title="Close (Esc)"></button>
+<button class="pswp__button pswp__button--share" title=Share></button>
+<button class="pswp__button pswp__button--fs" title="Toggle fullscreen"></button>
+<button class="pswp__button pswp__button--zoom" title="Zoom in/out"></button><div class=pswp__preloader><div class=pswp__preloader__icn><div class=pswp__preloader__cut><div class=pswp__preloader__donut></div></div></div></div></div><div class="pswp__share-modal pswp__share-modal--hidden pswp__single-tap"><div class=pswp__share-tooltip></div></div><button class="pswp__button pswp__button--arrow--left" title="Previous (arrow left)">
+</button>
+<button class="pswp__button pswp__button--arrow--right" title="Next (arrow right)"></button><div class=pswp__caption><div class=pswp__caption__center></div></div></div></div></div><script src=https://cdn.jsdelivr.net/npm/photoswipe@4.1.3/dist/photoswipe.min.js integrity="sha256-ePwmChbbvXbsO02lbM3HoHbSHTHFAeChekF1xKJdleo=" crossorigin=anonymous defer></script><script src=https://cdn.jsdelivr.net/npm/photoswipe@4.1.3/dist/photoswipe-ui-default.min.js integrity="sha256-UKkzOn/w1mBxRmLLGrSeyB4e1xbrp4xylgAWb3M42pU=" crossorigin=anonymous defer></script><link rel=stylesheet href=https://cdn.jsdelivr.net/npm/photoswipe@4.1.3/dist/default-skin/default-skin.min.css crossorigin=anonymous><link rel=stylesheet href=https://cdn.jsdelivr.net/npm/photoswipe@4.1.3/dist/photoswipe.min.css crossorigin=anonymous></main></div><script src=https://cdn.jsdelivr.net/npm/node-vibrant@3.1.6/dist/vibrant.min.js integrity="sha256-awcR2jno4kI5X0zL8ex0vi2z+KMkF24hUW8WePSA9HM=" crossorigin=anonymous></script><script type=text/javascript src=/ts/main.c922af694cc257bf1ecc41c0dd7b0430f9114ec280ccf67cd2c6ad55f5316c4e.js defer></script><script>(function(){const e=document.createElement("link");e.href="https://fonts.googleapis.com/css2?family=Lato:wght@300;400;700&display=swap",e.type="text/css",e.rel="stylesheet",document.head.appendChild(e)})()</script></body></html>

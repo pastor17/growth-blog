@@ -1,74 +1,57 @@
-<?xml version="1.0" encoding="utf-8" standalone="yes"?>
-<rss version="2.0" xmlns:atom="http://www.w3.org/2005/Atom">
-    <channel>
-        <title>高并发场景下的缓存策略（Redis）设计 on SelfTechHub</title>
-        <link>https://blog.irudder.me/tags/%E9%AB%98%E5%B9%B6%E5%8F%91%E5%9C%BA%E6%99%AF%E4%B8%8B%E7%9A%84%E7%BC%93%E5%AD%98%E7%AD%96%E7%95%A5Redis%E8%AE%BE%E8%AE%A1.html</link>
-        <description>Recent content in 高并发场景下的缓存策略（Redis）设计 on SelfTechHub</description>
-        <generator>Hugo -- gohugo.io</generator>
-        <language>zh-cn</language>
-        <lastBuildDate>Mon, 01 Jan 2024 00:00:00 +0000</lastBuildDate><atom:link href="https://blog.irudder.me/tags/%E9%AB%98%E5%B9%B6%E5%8F%91%E5%9C%BA%E6%99%AF%E4%B8%8B%E7%9A%84%E7%BC%93%E5%AD%98%E7%AD%96%E7%95%A5Redis%E8%AE%BE%E8%AE%A1/index.xml" rel="self" type="application/rss+xml" /><item>
-        <title>QPS翻倍后Redis崩了？这3个缓存策略救了我一命</title>
-        <link>https://blog.irudder.me/tech/zhongxiaoxingxiangmujiagoushejizhinan/gaobingfachangjingxiadehuancuncelveredissheji.html</link>
-        <pubDate>Mon, 01 Jan 2024 00:00:00 +0000</pubDate>
-        
-        <guid>https://blog.irudder.me/tech/zhongxiaoxingxiangmujiagoushejizhinan/gaobingfachangjingxiadehuancuncelveredissheji.html</guid>
-        <description>&lt;p&gt;早些年做架构的时候，我曾天真地以为，只要给数据库加上一层 Redis，再给每个 Key 设个随机过期时间，就能搞定 90% 的高并发问题。&lt;/p&gt;
+<?xml version="1.0" encoding="utf-8" standalone="yes"?><rss version="2.0" xmlns:atom="http://www.w3.org/2005/Atom"><channel><title>高并发场景下的缓存策略（Redis）设计 on SelfTechHub</title><link>https://blog.irudder.me/tags/%E9%AB%98%E5%B9%B6%E5%8F%91%E5%9C%BA%E6%99%AF%E4%B8%8B%E7%9A%84%E7%BC%93%E5%AD%98%E7%AD%96%E7%95%A5Redis%E8%AE%BE%E8%AE%A1.html</link><description>Recent content in 高并发场景下的缓存策略（Redis）设计 on SelfTechHub</description><generator>Hugo -- gohugo.io</generator><language>zh-cn</language><lastBuildDate>Mon, 01 Jan 2024 00:00:00 +0800</lastBuildDate><atom:link href="https://blog.irudder.me/tags/%E9%AB%98%E5%B9%B6%E5%8F%91%E5%9C%BA%E6%99%AF%E4%B8%8B%E7%9A%84%E7%BC%93%E5%AD%98%E7%AD%96%E7%95%A5Redis%E8%AE%BE%E8%AE%A1/index.xml" rel="self" type="application/rss+xml"/><item><title>QPS翻倍后Redis崩了？这3个缓存策略救了我一命</title><link>https://blog.irudder.me/tech/zhongxiaoxingxiangmujiagoushejizhinan/gaobingfachangjingxiadehuancuncelveredissheji.html</link><pubDate>Mon, 01 Jan 2024 00:00:00 +0800</pubDate><guid>https://blog.irudder.me/tech/zhongxiaoxingxiangmujiagoushejizhinan/gaobingfachangjingxiadehuancuncelveredissheji.html</guid><description>&lt;p&gt;早些年做架构的时候，我曾天真地以为，只要给数据库加上一层 Redis，再给每个 Key 设个随机过期时间，就能搞定 90% 的高并发问题。&lt;/p&gt;
 &lt;p&gt;直到两年前的一次双十一大促预演，现实狠狠给了我一巴掌。&lt;/p&gt;
 &lt;p&gt;那天下午2点，流量只是比平时翻了一倍，我们的数据库 CPU 却突然飙到了 100%，报警群里的消息像机关枪一样响个不停。排查下来发现，不是 Redis 挂了，而是&lt;strong&gt;缓存策略太粗糙&lt;/strong&gt;——几个热点 Key 同时过期，加上一个看似不起眼的 Big Key，直接击穿了数据库，顺带把带宽打满了。&lt;/p&gt;
 &lt;p&gt;这次“踩坑”让我深刻意识到：&lt;strong&gt;在中小团队资源有限的情况下，盲目堆机器没用，精细化的缓存策略才是保命符。&lt;/strong&gt;&lt;/p&gt;
 &lt;p&gt;今天想和大家复盘一下，我在那次事故后总结的一套适合中小项目的 Redis 避坑指南，不讲虚的理论，只聊怎么落地。&lt;/p&gt;
-&lt;h3 id=&#34;-策略一热点-key-别用强一致试试逻辑过期&#34;&gt;## 策略一：热点 Key 别用强一致，试试“逻辑过期”
+&lt;h3 id="-策略一热点-key-别用强一致试试逻辑过期"&gt;## 策略一：热点 Key 别用强一致，试试“逻辑过期”
 &lt;/h3&gt;&lt;p&gt;很多兄弟在处理热点数据（比如首页 Banner、爆款商品详情）时，最怕的就是&lt;strong&gt;缓存击穿&lt;/strong&gt;。&lt;/p&gt;
-&lt;p&gt;&lt;img src=&#34;https://picsum.photos/800/450?random=1768451744631&#34;
-	
-	
-	
-	loading=&#34;lazy&#34;
-	
-		alt=&#34;配图&#34;
-	
-	
+&lt;p&gt;&lt;img src="https://picsum.photos/800/450?random=1768451744631"
+loading="lazy"
+alt="配图"
 &gt;&lt;/p&gt;
 &lt;p&gt;经典的教科书方案是“加互斥锁（Mutex Lock）”：当缓存失效时，只允许一个线程去查库重建缓存，其他线程等待。&lt;/p&gt;
 &lt;p&gt;说实话，这在理论上很完美，但在我们那次事故中，因为代码里的锁粒度没控制好，加上数据库响应慢，导致大量线程阻塞在应用层，Tomcat 线程池瞬间被打满，整个服务直接假死。&lt;/p&gt;
 &lt;p&gt;&lt;strong&gt;后来我改用了“逻辑过期”方案，效果出奇的好。&lt;/strong&gt;&lt;/p&gt;
 &lt;p&gt;简单说，就是&lt;strong&gt;物理上不给 Key 设置过期时间（也就是永不过期）&lt;/strong&gt;，而是把过期时间戳写在 Value 的内容里。&lt;/p&gt;
-&lt;div class=&#34;highlight&#34;&gt;&lt;pre tabindex=&#34;0&#34; style=&#34;color:#f8f8f2;background-color:#272822;-moz-tab-size:4;-o-tab-size:4;tab-size:4;&#34;&gt;&lt;code class=&#34;language-json&#34; data-lang=&#34;json&#34;&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;{
-&lt;/span&gt;&lt;/span&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;  &lt;span style=&#34;color:#f92672&#34;&gt;&amp;#34;data&amp;#34;&lt;/span&gt;: { &lt;span style=&#34;color:#f92672&#34;&gt;&amp;#34;title&amp;#34;&lt;/span&gt;: &lt;span style=&#34;color:#e6db74&#34;&gt;&amp;#34;iPhone 15&amp;#34;&lt;/span&gt;, &lt;span style=&#34;color:#f92672&#34;&gt;&amp;#34;price&amp;#34;&lt;/span&gt;: &lt;span style=&#34;color:#ae81ff&#34;&gt;5999&lt;/span&gt; },
-&lt;/span&gt;&lt;/span&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;  &lt;span style=&#34;color:#f92672&#34;&gt;&amp;#34;expire_at&amp;#34;&lt;/span&gt;: &lt;span style=&#34;color:#ae81ff&#34;&gt;1715682000000&lt;/span&gt;  &lt;span style=&#34;color:#75715e&#34;&gt;// 逻辑过期时间
-&lt;/span&gt;&lt;/span&gt;&lt;/span&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;&lt;span style=&#34;color:#75715e&#34;&gt;&lt;/span&gt;}
-&lt;/span&gt;&lt;/span&gt;&lt;/code&gt;&lt;/pre&gt;&lt;/div&gt;&lt;p&gt;&lt;strong&gt;落地逻辑是这样的：&lt;/strong&gt;&lt;/p&gt;
+&lt;div class="highlight"&gt;&lt;div class="chroma"&gt;
+&lt;table class="lntable"&gt;&lt;tr&gt;&lt;td class="lntd"&gt;
+&lt;pre tabindex="0" class="chroma"&gt;&lt;code&gt;&lt;span class="lnt"&gt;1
+&lt;/span&gt;&lt;span class="lnt"&gt;2
+&lt;/span&gt;&lt;span class="lnt"&gt;3
+&lt;/span&gt;&lt;span class="lnt"&gt;4
+&lt;/span&gt;&lt;/code&gt;&lt;/pre&gt;&lt;/td&gt;
+&lt;td class="lntd"&gt;
+&lt;pre tabindex="0" class="chroma"&gt;&lt;code class="language-json" data-lang="json"&gt;&lt;span class="line"&gt;&lt;span class="cl"&gt;&lt;span class="p"&gt;{&lt;/span&gt;
+&lt;/span&gt;&lt;/span&gt;&lt;span class="line"&gt;&lt;span class="cl"&gt; &lt;span class="nt"&gt;&amp;#34;data&amp;#34;&lt;/span&gt;&lt;span class="p"&gt;:&lt;/span&gt; &lt;span class="p"&gt;{&lt;/span&gt; &lt;span class="nt"&gt;&amp;#34;title&amp;#34;&lt;/span&gt;&lt;span class="p"&gt;:&lt;/span&gt; &lt;span class="s2"&gt;&amp;#34;iPhone 15&amp;#34;&lt;/span&gt;&lt;span class="p"&gt;,&lt;/span&gt; &lt;span class="nt"&gt;&amp;#34;price&amp;#34;&lt;/span&gt;&lt;span class="p"&gt;:&lt;/span&gt; &lt;span class="mi"&gt;5999&lt;/span&gt; &lt;span class="p"&gt;},&lt;/span&gt;
+&lt;/span&gt;&lt;/span&gt;&lt;span class="line"&gt;&lt;span class="cl"&gt; &lt;span class="nt"&gt;&amp;#34;expire_at&amp;#34;&lt;/span&gt;&lt;span class="p"&gt;:&lt;/span&gt; &lt;span class="mi"&gt;1715682000000&lt;/span&gt; &lt;span class="c1"&gt;// 逻辑过期时间
+&lt;/span&gt;&lt;/span&gt;&lt;/span&gt;&lt;span class="line"&gt;&lt;span class="cl"&gt;&lt;span class="c1"&gt;&lt;/span&gt;&lt;span class="p"&gt;}&lt;/span&gt;
+&lt;/span&gt;&lt;/span&gt;&lt;/code&gt;&lt;/pre&gt;&lt;/td&gt;&lt;/tr&gt;&lt;/table&gt;
+&lt;/div&gt;
+&lt;/div&gt;&lt;p&gt;&lt;strong&gt;落地逻辑是这样的：&lt;/strong&gt;&lt;/p&gt;
 &lt;ol&gt;
 &lt;li&gt;应用拿到数据，先判断 &lt;code&gt;expire_at&lt;/code&gt; 是否过期。&lt;/li&gt;
 &lt;li&gt;如果没过期，直接返回数据。&lt;/li&gt;
 &lt;li&gt;如果已过期，&lt;strong&gt;先返回旧数据&lt;/strong&gt;给用户（这一步是关键，用户对几秒的数据延迟通常不敏感），同时异步启动一个线程去数据库查新数据，更新缓存。&lt;/li&gt;
 &lt;/ol&gt;
 &lt;p&gt;这个方案最大的好处是&lt;strong&gt;服务永远可用&lt;/strong&gt;，不用担心大量线程阻塞。哪怕数据库挂了，用户至少还能看到旧数据，而不是 404 或转圈圈。对于追求高可用的中小团队来说，这比追求绝对强一致性划算得多。&lt;/p&gt;
-&lt;h3 id=&#34;-策略二消灭-big-key比扩容更重要&#34;&gt;## 策略二：消灭 Big Key，比扩容更重要
+&lt;h3 id="-策略二消灭-big-key比扩容更重要"&gt;## 策略二：消灭 Big Key，比扩容更重要
 &lt;/h3&gt;&lt;p&gt;那次事故中，另一个罪魁祸首是一个“用户详情”的 Key。&lt;/p&gt;
 &lt;p&gt;开发这个功能的兄弟为了图省事，把用户的基本信息、最近 10 条订单、最近 50 条浏览记录全塞进了一个 Key 里。平时测试数据少没感觉，大促时某些活跃用户的 Value 居然膨胀到了 500KB。&lt;/p&gt;
 &lt;p&gt;你可以算一笔账：如果有 1000 个并发请求同时读取这个 Key，光网卡带宽就占了 500MB/s（4Gbps）。我们当时的云服务器网卡直接瓶颈，导致 Redis 响应变慢，拖垮了整个链路。&lt;/p&gt;
 &lt;p&gt;&lt;strong&gt;我现在的复盘经验是：&lt;/strong&gt;&lt;/p&gt;
 &lt;blockquote&gt;
-&lt;p&gt;也就是我常挂在嘴边的“极简原则”——Redis 是缓存，不是数据库，别什么垃圾都往里塞。&lt;/p&gt;
-&lt;/blockquote&gt;
+&lt;p&gt;也就是我常挂在嘴边的“极简原则”——Redis 是缓存，不是数据库，别什么垃圾都往里塞。&lt;/p&gt;&lt;/blockquote&gt;
 &lt;p&gt;针对 Big Key，我有两个非常硬性的落地手段：&lt;/p&gt;
 &lt;ol&gt;
 &lt;li&gt;&lt;strong&gt;拆分（Split）：&lt;/strong&gt; 把那个巨大的“用户详情”拆成 &lt;code&gt;user:basic:101&lt;/code&gt;（基础信息）、&lt;code&gt;user:orders:101&lt;/code&gt;（订单列表）。前端页面需要哪里取哪里，别搞“全家桶”。&lt;/li&gt;
 &lt;li&gt;&lt;strong&gt;压缩与裁剪：&lt;/strong&gt; 对于不得不存的长文本，必须用 Snappy 或 Gzip 压缩；对于列表，设置严格的长度限制（比如只存最近 10 条），超出的部分去查库。&lt;/li&gt;
 &lt;/ol&gt;
 &lt;p&gt;我现在每周五下午做 Code Review 时，都会专门让团队扫一遍 Redis 里的 Key 大小，&lt;strong&gt;超过 10KB 的必须说明理由&lt;/strong&gt;，这已经成了我们的铁律。&lt;/p&gt;
-&lt;h3 id=&#34;-策略三缓存一致性放弃既要又要&#34;&gt;## 策略三：缓存一致性，放弃“既要又要”
+&lt;h3 id="-策略三缓存一致性放弃既要又要"&gt;## 策略三：缓存一致性，放弃“既要又要”
 &lt;/h3&gt;&lt;p&gt;“先更新数据库，还是先删除缓存？”这个问题，在面试里能聊半小时，但在实战中，中小团队最容易被绕晕。&lt;/p&gt;
-&lt;p&gt;&lt;img src=&#34;https://picsum.photos/800/450?random=1768451745669&#34;
-	
-	
-	
-	loading=&#34;lazy&#34;
-	
-		alt=&#34;配图&#34;
-	
-	
+&lt;p&gt;&lt;img src="https://picsum.photos/800/450?random=1768451745669"
+loading="lazy"
+alt="配图"
 &gt;&lt;/p&gt;
 &lt;p&gt;我们也尝试过复杂的“延迟双删”策略，甚至想引入 Canal 监听 Binlog 来异步更新缓存。结果呢？架构变得极其复杂，Canal 偶尔挂一次，排查问题能要了半条命。&lt;/p&gt;
 &lt;p&gt;对于大多数并发量在万级（QPS &amp;lt; 10k）的业务，我强烈建议采用 &lt;strong&gt;Cache Aside Pattern（旁路缓存模式）的改良版&lt;/strong&gt;，别搞太复杂。&lt;/p&gt;
@@ -80,7 +63,7 @@
 &lt;/ol&gt;
 &lt;p&gt;为什么这么做？因为“删除缓存”的操作是幂等的，比“更新缓存”出错概率低。而加上 TTL，是为了保证&lt;strong&gt;最终一致性&lt;/strong&gt;——哪怕因为网络抖动导致删除缓存失败了，5 分钟后缓存自动过期，数据也就修正过来了。&lt;/p&gt;
 &lt;p&gt;对于中小团队，&lt;strong&gt;“短 TTL + 失败重试”&lt;/strong&gt; 的性价比，远远高于引入一套庞大的消息队列或中间件来保证强一致性。业务能接受 5 分钟的不一致，你就没必要为了那 0.01% 的完美去增加 50% 的架构复杂度。&lt;/p&gt;
-&lt;h3 id=&#34;-总结与行动&#34;&gt;## 总结与行动
+&lt;h3 id="-总结与行动"&gt;## 总结与行动
 &lt;/h3&gt;&lt;p&gt;做架构设计，最忌讳的就是手里拿着锤子，看什么都是钉子。Redis 确实快，但它不是无限容量、无限带宽的神器。&lt;/p&gt;
 &lt;p&gt;如果在高并发场景下，你只能做三件事来提升 Redis 的稳定性，我建议是：&lt;/p&gt;
 &lt;ol&gt;
@@ -90,22 +73,11 @@
 &lt;/ol&gt;
 &lt;p&gt;&lt;strong&gt;最后，做个小调查：&lt;/strong&gt;&lt;/p&gt;
 &lt;p&gt;在处理热点数据缓存失效时，&lt;strong&gt;你更倾向于用“互斥锁”来保证数据准确，还是用“逻辑过期”来保证服务可用？&lt;/strong&gt; A 还是 B？&lt;/p&gt;
-&lt;p&gt;&lt;img src=&#34;https://picsum.photos/800/450?random=1768451744977&#34;
-	
-	
-	
-	loading=&#34;lazy&#34;
-	
-		alt=&#34;配图&#34;
-	
-	
+&lt;p&gt;&lt;img src="https://picsum.photos/800/450?random=1768451744977"
+loading="lazy"
+alt="配图"
 &gt;&lt;/p&gt;
 &lt;p&gt;欢迎在评论区告诉我你的选择和踩坑经历。&lt;/p&gt;
 &lt;hr&gt;
 &lt;p&gt;&lt;strong&gt;本周行动建议：&lt;/strong&gt;
-如果你现在的项目里也有“一坨”大的 JSON 存在 Redis 里，明天上班第一件事，把它拆了。相信我，你的网卡会感谢你的。&lt;/p&gt;
-</description>
-        </item>
-        
-    </channel>
-</rss>
+如果你现在的项目里也有“一坨”大的 JSON 存在 Redis 里，明天上班第一件事，把它拆了。相信我，你的网卡会感谢你的。&lt;/p&gt;</description></item></channel></rss>

@@ -1,23 +1,9 @@
-<?xml version="1.0" encoding="utf-8" standalone="yes"?>
-<rss version="2.0" xmlns:atom="http://www.w3.org/2005/Atom">
-    <channel>
-        <title>Docker Compose：多容器应用编排 on SelfTechHub</title>
-        <link>https://blog.irudder.me/tags/Docker-Compose%E5%A4%9A%E5%AE%B9%E5%99%A8%E5%BA%94%E7%94%A8%E7%BC%96%E6%8E%92.html</link>
-        <description>Recent content in Docker Compose：多容器应用编排 on SelfTechHub</description>
-        <generator>Hugo -- gohugo.io</generator>
-        <language>zh-cn</language>
-        <lastBuildDate>Fri, 03 Sep 2021 00:00:00 +0000</lastBuildDate><atom:link href="https://blog.irudder.me/tags/Docker-Compose%E5%A4%9A%E5%AE%B9%E5%99%A8%E5%BA%94%E7%94%A8%E7%BC%96%E6%8E%92/index.xml" rel="self" type="application/rss+xml" /><item>
-        <title>手写启动脚本的痛：Docker Compose 3年实战复盘</title>
-        <link>https://blog.irudder.me/tech/devopsjichugongjurumenyushicao/docker-compose_duorongqiyingyongbianpai.html</link>
-        <pubDate>Fri, 03 Sep 2021 00:00:00 +0000</pubDate>
-        
-        <guid>https://blog.irudder.me/tech/devopsjichugongjurumenyushicao/docker-compose_duorongqiyingyongbianpai.html</guid>
-        <description>&lt;p&gt;还记得刚入行那会儿，每次接手新项目，最让我头疼的不是代码逻辑，而是那个写得乱七八糟的 &lt;code&gt;README.md&lt;/code&gt;。&lt;/p&gt;
+<?xml version="1.0" encoding="utf-8" standalone="yes"?><rss version="2.0" xmlns:atom="http://www.w3.org/2005/Atom"><channel><title>Docker Compose：多容器应用编排 on SelfTechHub</title><link>https://blog.irudder.me/tags/Docker-Compose%E5%A4%9A%E5%AE%B9%E5%99%A8%E5%BA%94%E7%94%A8%E7%BC%96%E6%8E%92.html</link><description>Recent content in Docker Compose：多容器应用编排 on SelfTechHub</description><generator>Hugo -- gohugo.io</generator><language>zh-cn</language><lastBuildDate>Fri, 03 Sep 2021 00:00:00 +0800</lastBuildDate><atom:link href="https://blog.irudder.me/tags/Docker-Compose%E5%A4%9A%E5%AE%B9%E5%99%A8%E5%BA%94%E7%94%A8%E7%BC%96%E6%8E%92/index.xml" rel="self" type="application/rss+xml"/><item><title>手写启动脚本的痛：Docker Compose 3年实战复盘</title><link>https://blog.irudder.me/tech/devopsjichugongjurumenyushicao/docker-compose_duorongqiyingyongbianpai.html</link><pubDate>Fri, 03 Sep 2021 00:00:00 +0800</pubDate><guid>https://blog.irudder.me/tech/devopsjichugongjurumenyushicao/docker-compose_duorongqiyingyongbianpai.html</guid><description>&lt;p&gt;还记得刚入行那会儿，每次接手新项目，最让我头疼的不是代码逻辑，而是那个写得乱七八糟的 &lt;code&gt;README.md&lt;/code&gt;。&lt;/p&gt;
 &lt;p&gt;“先装个 MySQL 5.7（不能是 8.0 哦），再起个 Redis，然后由左向右分别打开三个终端窗口，依次运行这几行命令……”&lt;/p&gt;
 &lt;p&gt;我曾经天真地以为，只要我把这些步骤写成一个 &lt;code&gt;start.sh&lt;/code&gt; 脚本，就能一劳永逸。直到三年前在一个中型电商项目的重构中，我踩了一个巨大的坑：因为团队里有人的 Python 版本不一致，我的“完美脚本”在他电脑上直接报错，最后还得手把手去调环境。&lt;/p&gt;
 &lt;p&gt;那天我就在想：&lt;strong&gt;要是能像点菜一样，一张单子列清楚，厨房照着做，做完直接端上来，该多好？&lt;/strong&gt;&lt;/p&gt;
 &lt;p&gt;这就是我后来死磕 Docker Compose 的起点。今天想站在“过来人”的角度，和大家复盘一下我是怎么用它把团队的开发效率拉回正轨的。&lt;/p&gt;
-&lt;h2 id=&#34;一-别再用-shell-脚本假装编排了&#34;&gt;一、 别再用 Shell 脚本“假装”编排了
+&lt;h2 id="一-别再用-shell-脚本假装编排了"&gt;一、 别再用 Shell 脚本“假装”编排了
 &lt;/h2&gt;&lt;p&gt;很多中小团队（包括当年的我们）都有个误区：觉得 Docker Compose 是用来部署生产环境集群的，本地开发用 Shell 脚本或者直接敲命令就够了。&lt;/p&gt;
 &lt;p&gt;&lt;strong&gt;大错特错。&lt;/strong&gt;&lt;/p&gt;
 &lt;p&gt;那时候我们维护着一个包含 Web 端、API 服务和数据库的系统。每次启动，我要先确认数据库活了没有，再启动 API，最后起前端。为了解决“依赖顺序”问题，我在脚本里简单粗暴地加了 &lt;code&gt;sleep 10&lt;/code&gt;。&lt;/p&gt;
@@ -25,29 +11,57 @@
 &lt;p&gt;后来引入 Docker Compose，最大的改变不是技术上的，而是&lt;strong&gt;思维模式从“命令式”变成了“声明式”&lt;/strong&gt;。&lt;/p&gt;
 &lt;p&gt;看看这个对比，你就懂我的意思了：&lt;/p&gt;
 &lt;p&gt;&lt;strong&gt;以前的笨办法：&lt;/strong&gt;&lt;/p&gt;
-&lt;div class=&#34;highlight&#34;&gt;&lt;pre tabindex=&#34;0&#34; style=&#34;color:#f8f8f2;background-color:#272822;-moz-tab-size:4;-o-tab-size:4;tab-size:4;&#34;&gt;&lt;code class=&#34;language-bash&#34; data-lang=&#34;bash&#34;&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;&lt;span style=&#34;color:#75715e&#34;&gt;# 这种脚本我看一眼就头大&lt;/span&gt;
-&lt;/span&gt;&lt;/span&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;docker run -d --name db postgres:13
-&lt;/span&gt;&lt;/span&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;sleep &lt;span style=&#34;color:#ae81ff&#34;&gt;5&lt;/span&gt; &lt;span style=&#34;color:#75715e&#34;&gt;# 听天由命的等待&lt;/span&gt;
-&lt;/span&gt;&lt;/span&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;docker run -d -p 8080:8080 --link db:db my-backend
-&lt;/span&gt;&lt;/span&gt;&lt;/code&gt;&lt;/pre&gt;&lt;/div&gt;&lt;p&gt;&lt;strong&gt;Docker Compose 的优雅（docker-compose.yml）：&lt;/strong&gt;&lt;/p&gt;
-&lt;div class=&#34;highlight&#34;&gt;&lt;pre tabindex=&#34;0&#34; style=&#34;color:#f8f8f2;background-color:#272822;-moz-tab-size:4;-o-tab-size:4;tab-size:4;&#34;&gt;&lt;code class=&#34;language-yaml&#34; data-lang=&#34;yaml&#34;&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;&lt;span style=&#34;color:#f92672&#34;&gt;version&lt;/span&gt;: &lt;span style=&#34;color:#e6db74&#34;&gt;&amp;#39;3.8&amp;#39;&lt;/span&gt;
-&lt;/span&gt;&lt;/span&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;&lt;span style=&#34;color:#f92672&#34;&gt;services&lt;/span&gt;:
-&lt;/span&gt;&lt;/span&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;  &lt;span style=&#34;color:#f92672&#34;&gt;db&lt;/span&gt;:
-&lt;/span&gt;&lt;/span&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;    &lt;span style=&#34;color:#f92672&#34;&gt;image&lt;/span&gt;: &lt;span style=&#34;color:#ae81ff&#34;&gt;postgres:13&lt;/span&gt;
-&lt;/span&gt;&lt;/span&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;    &lt;span style=&#34;color:#f92672&#34;&gt;environment&lt;/span&gt;:
-&lt;/span&gt;&lt;/span&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;      &lt;span style=&#34;color:#f92672&#34;&gt;POSTGRES_PASSWORD&lt;/span&gt;: &lt;span style=&#34;color:#ae81ff&#34;&gt;secret&lt;/span&gt;
-&lt;/span&gt;&lt;/span&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;    
-&lt;/span&gt;&lt;/span&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;  &lt;span style=&#34;color:#f92672&#34;&gt;backend&lt;/span&gt;:
-&lt;/span&gt;&lt;/span&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;    &lt;span style=&#34;color:#f92672&#34;&gt;build&lt;/span&gt;: &lt;span style=&#34;color:#ae81ff&#34;&gt;./backend&lt;/span&gt;
-&lt;/span&gt;&lt;/span&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;    &lt;span style=&#34;color:#f92672&#34;&gt;ports&lt;/span&gt;:
-&lt;/span&gt;&lt;/span&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;      - &lt;span style=&#34;color:#e6db74&#34;&gt;&amp;#34;8080:8080&amp;#34;&lt;/span&gt;
-&lt;/span&gt;&lt;/span&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;    &lt;span style=&#34;color:#f92672&#34;&gt;depends_on&lt;/span&gt;: &lt;span style=&#34;color:#75715e&#34;&gt;# 重点在这：显式声明依赖&lt;/span&gt;
-&lt;/span&gt;&lt;/span&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;      - &lt;span style=&#34;color:#ae81ff&#34;&gt;db &lt;/span&gt;
-&lt;/span&gt;&lt;/span&gt;&lt;/code&gt;&lt;/pre&gt;&lt;/div&gt;&lt;p&gt;自从用了 &lt;code&gt;depends_on&lt;/code&gt;，我再也不用在那儿猜数据库到底起没起来。更重要的是，这份 YAML 文件成了项目文档的一部分。新来的实习生，只要装好 Docker，一句 &lt;code&gt;docker compose up&lt;/code&gt;，三分钟内就能在本地把整个复杂的微服务跑起来。&lt;/p&gt;
+&lt;div class="highlight"&gt;&lt;div class="chroma"&gt;
+&lt;table class="lntable"&gt;&lt;tr&gt;&lt;td class="lntd"&gt;
+&lt;pre tabindex="0" class="chroma"&gt;&lt;code&gt;&lt;span class="lnt"&gt;1
+&lt;/span&gt;&lt;span class="lnt"&gt;2
+&lt;/span&gt;&lt;span class="lnt"&gt;3
+&lt;/span&gt;&lt;span class="lnt"&gt;4
+&lt;/span&gt;&lt;/code&gt;&lt;/pre&gt;&lt;/td&gt;
+&lt;td class="lntd"&gt;
+&lt;pre tabindex="0" class="chroma"&gt;&lt;code class="language-bash" data-lang="bash"&gt;&lt;span class="line"&gt;&lt;span class="cl"&gt;&lt;span class="c1"&gt;# 这种脚本我看一眼就头大&lt;/span&gt;
+&lt;/span&gt;&lt;/span&gt;&lt;span class="line"&gt;&lt;span class="cl"&gt;docker run -d --name db postgres:13
+&lt;/span&gt;&lt;/span&gt;&lt;span class="line"&gt;&lt;span class="cl"&gt;sleep &lt;span class="m"&gt;5&lt;/span&gt; &lt;span class="c1"&gt;# 听天由命的等待&lt;/span&gt;
+&lt;/span&gt;&lt;/span&gt;&lt;span class="line"&gt;&lt;span class="cl"&gt;docker run -d -p 8080:8080 --link db:db my-backend
+&lt;/span&gt;&lt;/span&gt;&lt;/code&gt;&lt;/pre&gt;&lt;/td&gt;&lt;/tr&gt;&lt;/table&gt;
+&lt;/div&gt;
+&lt;/div&gt;&lt;p&gt;&lt;strong&gt;Docker Compose 的优雅（docker-compose.yml）：&lt;/strong&gt;&lt;/p&gt;
+&lt;div class="highlight"&gt;&lt;div class="chroma"&gt;
+&lt;table class="lntable"&gt;&lt;tr&gt;&lt;td class="lntd"&gt;
+&lt;pre tabindex="0" class="chroma"&gt;&lt;code&gt;&lt;span class="lnt"&gt; 1
+&lt;/span&gt;&lt;span class="lnt"&gt; 2
+&lt;/span&gt;&lt;span class="lnt"&gt; 3
+&lt;/span&gt;&lt;span class="lnt"&gt; 4
+&lt;/span&gt;&lt;span class="lnt"&gt; 5
+&lt;/span&gt;&lt;span class="lnt"&gt; 6
+&lt;/span&gt;&lt;span class="lnt"&gt; 7
+&lt;/span&gt;&lt;span class="lnt"&gt; 8
+&lt;/span&gt;&lt;span class="lnt"&gt; 9
+&lt;/span&gt;&lt;span class="lnt"&gt;10
+&lt;/span&gt;&lt;span class="lnt"&gt;11
+&lt;/span&gt;&lt;span class="lnt"&gt;12
+&lt;/span&gt;&lt;span class="lnt"&gt;13
+&lt;/span&gt;&lt;/code&gt;&lt;/pre&gt;&lt;/td&gt;
+&lt;td class="lntd"&gt;
+&lt;pre tabindex="0" class="chroma"&gt;&lt;code class="language-yaml" data-lang="yaml"&gt;&lt;span class="line"&gt;&lt;span class="cl"&gt;&lt;span class="nt"&gt;version&lt;/span&gt;&lt;span class="p"&gt;:&lt;/span&gt;&lt;span class="w"&gt; &lt;/span&gt;&lt;span class="s1"&gt;&amp;#39;3.8&amp;#39;&lt;/span&gt;&lt;span class="w"&gt;
+&lt;/span&gt;&lt;/span&gt;&lt;/span&gt;&lt;span class="line"&gt;&lt;span class="cl"&gt;&lt;span class="w"&gt;&lt;/span&gt;&lt;span class="nt"&gt;services&lt;/span&gt;&lt;span class="p"&gt;:&lt;/span&gt;&lt;span class="w"&gt;
+&lt;/span&gt;&lt;/span&gt;&lt;/span&gt;&lt;span class="line"&gt;&lt;span class="cl"&gt;&lt;span class="w"&gt; &lt;/span&gt;&lt;span class="nt"&gt;db&lt;/span&gt;&lt;span class="p"&gt;:&lt;/span&gt;&lt;span class="w"&gt;
+&lt;/span&gt;&lt;/span&gt;&lt;/span&gt;&lt;span class="line"&gt;&lt;span class="cl"&gt;&lt;span class="w"&gt; &lt;/span&gt;&lt;span class="nt"&gt;image&lt;/span&gt;&lt;span class="p"&gt;:&lt;/span&gt;&lt;span class="w"&gt; &lt;/span&gt;&lt;span class="l"&gt;postgres:13&lt;/span&gt;&lt;span class="w"&gt;
+&lt;/span&gt;&lt;/span&gt;&lt;/span&gt;&lt;span class="line"&gt;&lt;span class="cl"&gt;&lt;span class="w"&gt; &lt;/span&gt;&lt;span class="nt"&gt;environment&lt;/span&gt;&lt;span class="p"&gt;:&lt;/span&gt;&lt;span class="w"&gt;
+&lt;/span&gt;&lt;/span&gt;&lt;/span&gt;&lt;span class="line"&gt;&lt;span class="cl"&gt;&lt;span class="w"&gt; &lt;/span&gt;&lt;span class="nt"&gt;POSTGRES_PASSWORD&lt;/span&gt;&lt;span class="p"&gt;:&lt;/span&gt;&lt;span class="w"&gt; &lt;/span&gt;&lt;span class="l"&gt;secret&lt;/span&gt;&lt;span class="w"&gt;
+&lt;/span&gt;&lt;/span&gt;&lt;/span&gt;&lt;span class="line"&gt;&lt;span class="cl"&gt;&lt;span class="w"&gt;
+&lt;/span&gt;&lt;/span&gt;&lt;/span&gt;&lt;span class="line"&gt;&lt;span class="cl"&gt;&lt;span class="w"&gt; &lt;/span&gt;&lt;span class="nt"&gt;backend&lt;/span&gt;&lt;span class="p"&gt;:&lt;/span&gt;&lt;span class="w"&gt;
+&lt;/span&gt;&lt;/span&gt;&lt;/span&gt;&lt;span class="line"&gt;&lt;span class="cl"&gt;&lt;span class="w"&gt; &lt;/span&gt;&lt;span class="nt"&gt;build&lt;/span&gt;&lt;span class="p"&gt;:&lt;/span&gt;&lt;span class="w"&gt; &lt;/span&gt;&lt;span class="l"&gt;./backend&lt;/span&gt;&lt;span class="w"&gt;
+&lt;/span&gt;&lt;/span&gt;&lt;/span&gt;&lt;span class="line"&gt;&lt;span class="cl"&gt;&lt;span class="w"&gt; &lt;/span&gt;&lt;span class="nt"&gt;ports&lt;/span&gt;&lt;span class="p"&gt;:&lt;/span&gt;&lt;span class="w"&gt;
+&lt;/span&gt;&lt;/span&gt;&lt;/span&gt;&lt;span class="line"&gt;&lt;span class="cl"&gt;&lt;span class="w"&gt; &lt;/span&gt;- &lt;span class="s2"&gt;&amp;#34;8080:8080&amp;#34;&lt;/span&gt;&lt;span class="w"&gt;
+&lt;/span&gt;&lt;/span&gt;&lt;/span&gt;&lt;span class="line"&gt;&lt;span class="cl"&gt;&lt;span class="w"&gt; &lt;/span&gt;&lt;span class="nt"&gt;depends_on&lt;/span&gt;&lt;span class="p"&gt;:&lt;/span&gt;&lt;span class="w"&gt; &lt;/span&gt;&lt;span class="c"&gt;# 重点在这：显式声明依赖&lt;/span&gt;&lt;span class="w"&gt;
+&lt;/span&gt;&lt;/span&gt;&lt;/span&gt;&lt;span class="line"&gt;&lt;span class="cl"&gt;&lt;span class="w"&gt; &lt;/span&gt;- &lt;span class="l"&gt;db &lt;/span&gt;&lt;span class="w"&gt;
+&lt;/span&gt;&lt;/span&gt;&lt;/span&gt;&lt;/code&gt;&lt;/pre&gt;&lt;/td&gt;&lt;/tr&gt;&lt;/table&gt;
+&lt;/div&gt;
+&lt;/div&gt;&lt;p&gt;自从用了 &lt;code&gt;depends_on&lt;/code&gt;，我再也不用在那儿猜数据库到底起没起来。更重要的是，这份 YAML 文件成了项目文档的一部分。新来的实习生，只要装好 Docker，一句 &lt;code&gt;docker compose up&lt;/code&gt;，三分钟内就能在本地把整个复杂的微服务跑起来。&lt;/p&gt;
 &lt;blockquote&gt;
-&lt;p&gt;团队里的后端老哥曾跟我吐槽：“以前配环境要一天，现在只要去楼下买杯咖啡的时间。”&lt;/p&gt;
-&lt;/blockquote&gt;
-&lt;h2 id=&#34;二-那些年我们写死的-localhost&#34;&gt;二、 那些年我们写死的 &lt;code&gt;localhost&lt;/code&gt;
+&lt;p&gt;团队里的后端老哥曾跟我吐槽：“以前配环境要一天，现在只要去楼下买杯咖啡的时间。”&lt;/p&gt;&lt;/blockquote&gt;
+&lt;h2 id="二-那些年我们写死的-localhost"&gt;二、 那些年我们写死的 &lt;code&gt;localhost&lt;/code&gt;
 &lt;/h2&gt;&lt;p&gt;刚开始用容器的时候，我踩过最痛的一个坑就是&lt;strong&gt;网络通讯&lt;/strong&gt;。&lt;/p&gt;
 &lt;p&gt;当时为了省事，我在代码配置文件里直接把数据库地址写成了 &lt;code&gt;localhost&lt;/code&gt; 或者 &lt;code&gt;127.0.0.1&lt;/code&gt;。在非容器环境这没问题，但一旦把服务放进容器里，&lt;code&gt;localhost&lt;/code&gt; 指的是容器自己，而不是你的电脑，也不是隔壁的数据库容器。&lt;/p&gt;
 &lt;p&gt;为了解决这个问题，我甚至干过把宿主机 IP 硬编码进配置文件的蠢事。结果换个 Wi-Fi，IP 变了，服务全挂。&lt;/p&gt;
@@ -56,25 +70,33 @@
 &lt;p&gt;&lt;strong&gt;实战场景：&lt;/strong&gt;
 假设你的后端服务是用 Node.js 写的，需要连接 Redis。&lt;/p&gt;
 &lt;p&gt;不要在代码里写 IP，直接用服务名：&lt;/p&gt;
-&lt;div class=&#34;highlight&#34;&gt;&lt;pre tabindex=&#34;0&#34; style=&#34;color:#f8f8f2;background-color:#272822;-moz-tab-size:4;-o-tab-size:4;tab-size:4;&#34;&gt;&lt;code class=&#34;language-yaml&#34; data-lang=&#34;yaml&#34;&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;&lt;span style=&#34;color:#f92672&#34;&gt;services&lt;/span&gt;:
-&lt;/span&gt;&lt;/span&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;  &lt;span style=&#34;color:#f92672&#34;&gt;my-redis&lt;/span&gt;:  &lt;span style=&#34;color:#75715e&#34;&gt;# 这个服务名就是域名&lt;/span&gt;
-&lt;/span&gt;&lt;/span&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;    &lt;span style=&#34;color:#f92672&#34;&gt;image&lt;/span&gt;: &lt;span style=&#34;color:#ae81ff&#34;&gt;redis:alpine&lt;/span&gt;
-&lt;/span&gt;&lt;/span&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;
-&lt;/span&gt;&lt;/span&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;  &lt;span style=&#34;color:#f92672&#34;&gt;app&lt;/span&gt;:
-&lt;/span&gt;&lt;/span&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;    &lt;span style=&#34;color:#f92672&#34;&gt;build&lt;/span&gt;: &lt;span style=&#34;color:#ae81ff&#34;&gt;.&lt;/span&gt;
-&lt;/span&gt;&lt;/span&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;    &lt;span style=&#34;color:#f92672&#34;&gt;environment&lt;/span&gt;:
-&lt;/span&gt;&lt;/span&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;      - &lt;span style=&#34;color:#ae81ff&#34;&gt;REDIS_HOST=my-redis&lt;/span&gt; &lt;span style=&#34;color:#75715e&#34;&gt;# 直接填服务名&lt;/span&gt;
-&lt;/span&gt;&lt;/span&gt;&lt;/code&gt;&lt;/pre&gt;&lt;/div&gt;&lt;p&gt;我当时为了验证这个，特意进到 &lt;code&gt;app&lt;/code&gt; 容器里 ping 了一下 &lt;code&gt;my-redis&lt;/code&gt;，看到通了的那一刻，我把项目里所有杂乱的 IP 配置全删了。这不仅解决了连接问题，还让你的架构图极其清晰——看 YAML 文件就知道谁连谁。&lt;/p&gt;
-&lt;h2 id=&#34;三-环境一致性消灭在我这能跑&#34;&gt;三、 环境一致性：消灭“在我这能跑”
-&lt;/h2&gt;&lt;p&gt;&lt;img src=&#34;https://picsum.photos/800/450?random=1768388169553&#34;
-	
-	
-	
-	loading=&#34;lazy&#34;
-	
-		alt=&#34;配图&#34;
-	
-	
+&lt;div class="highlight"&gt;&lt;div class="chroma"&gt;
+&lt;table class="lntable"&gt;&lt;tr&gt;&lt;td class="lntd"&gt;
+&lt;pre tabindex="0" class="chroma"&gt;&lt;code&gt;&lt;span class="lnt"&gt;1
+&lt;/span&gt;&lt;span class="lnt"&gt;2
+&lt;/span&gt;&lt;span class="lnt"&gt;3
+&lt;/span&gt;&lt;span class="lnt"&gt;4
+&lt;/span&gt;&lt;span class="lnt"&gt;5
+&lt;/span&gt;&lt;span class="lnt"&gt;6
+&lt;/span&gt;&lt;span class="lnt"&gt;7
+&lt;/span&gt;&lt;span class="lnt"&gt;8
+&lt;/span&gt;&lt;/code&gt;&lt;/pre&gt;&lt;/td&gt;
+&lt;td class="lntd"&gt;
+&lt;pre tabindex="0" class="chroma"&gt;&lt;code class="language-yaml" data-lang="yaml"&gt;&lt;span class="line"&gt;&lt;span class="cl"&gt;&lt;span class="nt"&gt;services&lt;/span&gt;&lt;span class="p"&gt;:&lt;/span&gt;&lt;span class="w"&gt;
+&lt;/span&gt;&lt;/span&gt;&lt;/span&gt;&lt;span class="line"&gt;&lt;span class="cl"&gt;&lt;span class="w"&gt; &lt;/span&gt;&lt;span class="nt"&gt;my-redis&lt;/span&gt;&lt;span class="p"&gt;:&lt;/span&gt;&lt;span class="w"&gt; &lt;/span&gt;&lt;span class="c"&gt;# 这个服务名就是域名&lt;/span&gt;&lt;span class="w"&gt;
+&lt;/span&gt;&lt;/span&gt;&lt;/span&gt;&lt;span class="line"&gt;&lt;span class="cl"&gt;&lt;span class="w"&gt; &lt;/span&gt;&lt;span class="nt"&gt;image&lt;/span&gt;&lt;span class="p"&gt;:&lt;/span&gt;&lt;span class="w"&gt; &lt;/span&gt;&lt;span class="l"&gt;redis:alpine&lt;/span&gt;&lt;span class="w"&gt;
+&lt;/span&gt;&lt;/span&gt;&lt;/span&gt;&lt;span class="line"&gt;&lt;span class="cl"&gt;&lt;span class="w"&gt;
+&lt;/span&gt;&lt;/span&gt;&lt;/span&gt;&lt;span class="line"&gt;&lt;span class="cl"&gt;&lt;span class="w"&gt; &lt;/span&gt;&lt;span class="nt"&gt;app&lt;/span&gt;&lt;span class="p"&gt;:&lt;/span&gt;&lt;span class="w"&gt;
+&lt;/span&gt;&lt;/span&gt;&lt;/span&gt;&lt;span class="line"&gt;&lt;span class="cl"&gt;&lt;span class="w"&gt; &lt;/span&gt;&lt;span class="nt"&gt;build&lt;/span&gt;&lt;span class="p"&gt;:&lt;/span&gt;&lt;span class="w"&gt; &lt;/span&gt;&lt;span class="l"&gt;.&lt;/span&gt;&lt;span class="w"&gt;
+&lt;/span&gt;&lt;/span&gt;&lt;/span&gt;&lt;span class="line"&gt;&lt;span class="cl"&gt;&lt;span class="w"&gt; &lt;/span&gt;&lt;span class="nt"&gt;environment&lt;/span&gt;&lt;span class="p"&gt;:&lt;/span&gt;&lt;span class="w"&gt;
+&lt;/span&gt;&lt;/span&gt;&lt;/span&gt;&lt;span class="line"&gt;&lt;span class="cl"&gt;&lt;span class="w"&gt; &lt;/span&gt;- &lt;span class="l"&gt;REDIS_HOST=my-redis&lt;/span&gt;&lt;span class="w"&gt; &lt;/span&gt;&lt;span class="c"&gt;# 直接填服务名&lt;/span&gt;&lt;span class="w"&gt;
+&lt;/span&gt;&lt;/span&gt;&lt;/span&gt;&lt;/code&gt;&lt;/pre&gt;&lt;/td&gt;&lt;/tr&gt;&lt;/table&gt;
+&lt;/div&gt;
+&lt;/div&gt;&lt;p&gt;我当时为了验证这个，特意进到 &lt;code&gt;app&lt;/code&gt; 容器里 ping 了一下 &lt;code&gt;my-redis&lt;/code&gt;，看到通了的那一刻，我把项目里所有杂乱的 IP 配置全删了。这不仅解决了连接问题，还让你的架构图极其清晰——看 YAML 文件就知道谁连谁。&lt;/p&gt;
+&lt;h2 id="三-环境一致性消灭在我这能跑"&gt;三、 环境一致性：消灭“在我这能跑”
+&lt;/h2&gt;&lt;p&gt;&lt;img src="https://picsum.photos/800/450?random=1768388169553"
+loading="lazy"
+alt="配图"
 &gt;&lt;/p&gt;
 &lt;p&gt;做运维或者 Dev 的朋友，最怕听到开发人员说：“奇怪，在我本地是好的呀，怎么上线就崩了？”&lt;/p&gt;
 &lt;p&gt;这通常是环境变量背的锅。&lt;/p&gt;
@@ -87,28 +109,43 @@
 &lt;li&gt;&lt;code&gt;.gitignore&lt;/code&gt; 必须忽略 &lt;code&gt;.env&lt;/code&gt;（防止把私钥传到 Git 上）。&lt;/li&gt;
 &lt;li&gt;&lt;code&gt;docker-compose.yml&lt;/code&gt; 里引用这些变量。&lt;/li&gt;
 &lt;/ol&gt;
-&lt;div class=&#34;highlight&#34;&gt;&lt;pre tabindex=&#34;0&#34; style=&#34;color:#f8f8f2;background-color:#272822;-moz-tab-size:4;-o-tab-size:4;tab-size:4;&#34;&gt;&lt;code class=&#34;language-yaml&#34; data-lang=&#34;yaml&#34;&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;&lt;span style=&#34;color:#75715e&#34;&gt;# docker-compose.yml&lt;/span&gt;
-&lt;/span&gt;&lt;/span&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;&lt;span style=&#34;color:#f92672&#34;&gt;services&lt;/span&gt;:
-&lt;/span&gt;&lt;/span&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;  &lt;span style=&#34;color:#f92672&#34;&gt;web&lt;/span&gt;:
-&lt;/span&gt;&lt;/span&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;    &lt;span style=&#34;color:#f92672&#34;&gt;image&lt;/span&gt;: &lt;span style=&#34;color:#ae81ff&#34;&gt;my-app:${TAG_VERSION}&lt;/span&gt; &lt;span style=&#34;color:#75715e&#34;&gt;# 版本号动态控制&lt;/span&gt;
-&lt;/span&gt;&lt;/span&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;    &lt;span style=&#34;color:#f92672&#34;&gt;ports&lt;/span&gt;:
-&lt;/span&gt;&lt;/span&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;      - &lt;span style=&#34;color:#e6db74&#34;&gt;&amp;#34;${HOST_PORT}:80&amp;#34;&lt;/span&gt;
-&lt;/span&gt;&lt;/span&gt;&lt;/code&gt;&lt;/pre&gt;&lt;/div&gt;&lt;p&gt;&lt;img src=&#34;https://picsum.photos/800/450?random=1768388167309&#34;
-	
-	
-	
-	loading=&#34;lazy&#34;
-	
-		alt=&#34;配图&#34;
-	
-	
+&lt;div class="highlight"&gt;&lt;div class="chroma"&gt;
+&lt;table class="lntable"&gt;&lt;tr&gt;&lt;td class="lntd"&gt;
+&lt;pre tabindex="0" class="chroma"&gt;&lt;code&gt;&lt;span class="lnt"&gt;1
+&lt;/span&gt;&lt;span class="lnt"&gt;2
+&lt;/span&gt;&lt;span class="lnt"&gt;3
+&lt;/span&gt;&lt;span class="lnt"&gt;4
+&lt;/span&gt;&lt;span class="lnt"&gt;5
+&lt;/span&gt;&lt;span class="lnt"&gt;6
+&lt;/span&gt;&lt;/code&gt;&lt;/pre&gt;&lt;/td&gt;
+&lt;td class="lntd"&gt;
+&lt;pre tabindex="0" class="chroma"&gt;&lt;code class="language-yaml" data-lang="yaml"&gt;&lt;span class="line"&gt;&lt;span class="cl"&gt;&lt;span class="c"&gt;# docker-compose.yml&lt;/span&gt;&lt;span class="w"&gt;
+&lt;/span&gt;&lt;/span&gt;&lt;/span&gt;&lt;span class="line"&gt;&lt;span class="cl"&gt;&lt;span class="w"&gt;&lt;/span&gt;&lt;span class="nt"&gt;services&lt;/span&gt;&lt;span class="p"&gt;:&lt;/span&gt;&lt;span class="w"&gt;
+&lt;/span&gt;&lt;/span&gt;&lt;/span&gt;&lt;span class="line"&gt;&lt;span class="cl"&gt;&lt;span class="w"&gt; &lt;/span&gt;&lt;span class="nt"&gt;web&lt;/span&gt;&lt;span class="p"&gt;:&lt;/span&gt;&lt;span class="w"&gt;
+&lt;/span&gt;&lt;/span&gt;&lt;/span&gt;&lt;span class="line"&gt;&lt;span class="cl"&gt;&lt;span class="w"&gt; &lt;/span&gt;&lt;span class="nt"&gt;image&lt;/span&gt;&lt;span class="p"&gt;:&lt;/span&gt;&lt;span class="w"&gt; &lt;/span&gt;&lt;span class="l"&gt;my-app:${TAG_VERSION}&lt;/span&gt;&lt;span class="w"&gt; &lt;/span&gt;&lt;span class="c"&gt;# 版本号动态控制&lt;/span&gt;&lt;span class="w"&gt;
+&lt;/span&gt;&lt;/span&gt;&lt;/span&gt;&lt;span class="line"&gt;&lt;span class="cl"&gt;&lt;span class="w"&gt; &lt;/span&gt;&lt;span class="nt"&gt;ports&lt;/span&gt;&lt;span class="p"&gt;:&lt;/span&gt;&lt;span class="w"&gt;
+&lt;/span&gt;&lt;/span&gt;&lt;/span&gt;&lt;span class="line"&gt;&lt;span class="cl"&gt;&lt;span class="w"&gt; &lt;/span&gt;- &lt;span class="s2"&gt;&amp;#34;${HOST_PORT}:80&amp;#34;&lt;/span&gt;&lt;span class="w"&gt;
+&lt;/span&gt;&lt;/span&gt;&lt;/span&gt;&lt;/code&gt;&lt;/pre&gt;&lt;/td&gt;&lt;/tr&gt;&lt;/table&gt;
+&lt;/div&gt;
+&lt;/div&gt;&lt;p&gt;&lt;img src="https://picsum.photos/800/450?random=1768388167309"
+loading="lazy"
+alt="配图"
 &gt;&lt;/p&gt;
-&lt;div class=&#34;highlight&#34;&gt;&lt;pre tabindex=&#34;0&#34; style=&#34;color:#f8f8f2;background-color:#272822;-moz-tab-size:4;-o-tab-size:4;tab-size:4;&#34;&gt;&lt;code class=&#34;language-bash&#34; data-lang=&#34;bash&#34;&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;&lt;span style=&#34;color:#75715e&#34;&gt;# .env 文件&lt;/span&gt;
-&lt;/span&gt;&lt;/span&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;TAG_VERSION&lt;span style=&#34;color:#f92672&#34;&gt;=&lt;/span&gt;v1.2.0
-&lt;/span&gt;&lt;/span&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;HOST_PORT&lt;span style=&#34;color:#f92672&#34;&gt;=&lt;/span&gt;&lt;span style=&#34;color:#ae81ff&#34;&gt;8080&lt;/span&gt;
-&lt;/span&gt;&lt;/span&gt;&lt;/code&gt;&lt;/pre&gt;&lt;/div&gt;&lt;p&gt;这样一来，开发环境、测试环境、生产环境使用同一套 &lt;code&gt;docker-compose.yml&lt;/code&gt;，只需要切换不同的 &lt;code&gt;.env&lt;/code&gt; 文件。&lt;/p&gt;
+&lt;div class="highlight"&gt;&lt;div class="chroma"&gt;
+&lt;table class="lntable"&gt;&lt;tr&gt;&lt;td class="lntd"&gt;
+&lt;pre tabindex="0" class="chroma"&gt;&lt;code&gt;&lt;span class="lnt"&gt;1
+&lt;/span&gt;&lt;span class="lnt"&gt;2
+&lt;/span&gt;&lt;span class="lnt"&gt;3
+&lt;/span&gt;&lt;/code&gt;&lt;/pre&gt;&lt;/td&gt;
+&lt;td class="lntd"&gt;
+&lt;pre tabindex="0" class="chroma"&gt;&lt;code class="language-bash" data-lang="bash"&gt;&lt;span class="line"&gt;&lt;span class="cl"&gt;&lt;span class="c1"&gt;# .env 文件&lt;/span&gt;
+&lt;/span&gt;&lt;/span&gt;&lt;span class="line"&gt;&lt;span class="cl"&gt;&lt;span class="nv"&gt;TAG_VERSION&lt;/span&gt;&lt;span class="o"&gt;=&lt;/span&gt;v1.2.0
+&lt;/span&gt;&lt;/span&gt;&lt;span class="line"&gt;&lt;span class="cl"&gt;&lt;span class="nv"&gt;HOST_PORT&lt;/span&gt;&lt;span class="o"&gt;=&lt;/span&gt;&lt;span class="m"&gt;8080&lt;/span&gt;
+&lt;/span&gt;&lt;/span&gt;&lt;/code&gt;&lt;/pre&gt;&lt;/td&gt;&lt;/tr&gt;&lt;/table&gt;
+&lt;/div&gt;
+&lt;/div&gt;&lt;p&gt;这样一来，开发环境、测试环境、生产环境使用同一套 &lt;code&gt;docker-compose.yml&lt;/code&gt;，只需要切换不同的 &lt;code&gt;.env&lt;/code&gt; 文件。&lt;/p&gt;
 &lt;p&gt;我现在有个习惯，&lt;strong&gt;每接手一个新项目，先看有没有 &lt;code&gt;.env.example&lt;/code&gt; 和 &lt;code&gt;docker-compose.yml&lt;/code&gt;&lt;/strong&gt;。如果有，说明这个团队的技术规范做得不错；如果没有，我大概率要做好踩坑的心理准备了。&lt;/p&gt;
-&lt;h2 id=&#34;既然聊到这总结一下&#34;&gt;既然聊到这，总结一下
+&lt;h2 id="既然聊到这总结一下"&gt;既然聊到这，总结一下
 &lt;/h2&gt;&lt;p&gt;Docker Compose 不是万能的，它不适合管理成百上千个跨服务器的微服务（那是 K8s 的地盘），但对于&lt;strong&gt;单机编排、本地开发环境搭建、中小规模的私有化部署&lt;/strong&gt;，它是目前性价比最高的选择。&lt;/p&gt;
 &lt;p&gt;它把原本分散在文档、脑子、和各种脚本里的知识，固化成了一份可执行的代码。&lt;/p&gt;
 &lt;p&gt;如果你想从今天开始改变，建议尝试这 3 个小步骤：&lt;/p&gt;
@@ -119,9 +156,4 @@
 &lt;/ol&gt;
 &lt;p&gt;当你第一次看着终端里整齐划一的 &lt;code&gt;Started&lt;/code&gt; 提示，相信我，你会爱上这种掌控感的。&lt;/p&gt;
 &lt;p&gt;&lt;strong&gt;最后留个话题：&lt;/strong&gt;
-你们团队现在的本地开发环境是怎么搭建的？还在用文档+手动挡，还是已经上了容器化？欢迎在评论区聊聊那些年踩过的环境坑。&lt;/p&gt;
-</description>
-        </item>
-        
-    </channel>
-</rss>
+你们团队现在的本地开发环境是怎么搭建的？还在用文档+手动挡，还是已经上了容器化？欢迎在评论区聊聊那些年踩过的环境坑。&lt;/p&gt;</description></item></channel></rss>

@@ -1,45 +1,19 @@
-<?xml version="1.0" encoding="utf-8" standalone="yes"?>
-<rss version="2.0" xmlns:atom="http://www.w3.org/2005/Atom">
-    <channel>
-        <title>低成本高可用：单机到集群的过渡 on SelfTechHub</title>
-        <link>https://blog.irudder.me/tags/%E4%BD%8E%E6%88%90%E6%9C%AC%E9%AB%98%E5%8F%AF%E7%94%A8%E5%8D%95%E6%9C%BA%E5%88%B0%E9%9B%86%E7%BE%A4%E7%9A%84%E8%BF%87%E6%B8%A1.html</link>
-        <description>Recent content in 低成本高可用：单机到集群的过渡 on SelfTechHub</description>
-        <generator>Hugo -- gohugo.io</generator>
-        <language>zh-cn</language>
-        <lastBuildDate>Sun, 19 Sep 2021 00:00:00 +0000</lastBuildDate><atom:link href="https://blog.irudder.me/tags/%E4%BD%8E%E6%88%90%E6%9C%AC%E9%AB%98%E5%8F%AF%E7%94%A8%E5%8D%95%E6%9C%BA%E5%88%B0%E9%9B%86%E7%BE%A4%E7%9A%84%E8%BF%87%E6%B8%A1/index.xml" rel="self" type="application/rss+xml" /><item>
-        <title>穷鬼架构师自白：单机转集群，别被K8s拖死</title>
-        <link>https://blog.irudder.me/tech/zhongxiaoxingxiangmujiagoushejizhinan/dichengbengaokeyong_danjidaojiqundeguodu.html</link>
-        <pubDate>Sun, 19 Sep 2021 00:00:00 +0000</pubDate>
-        
-        <guid>https://blog.irudder.me/tech/zhongxiaoxingxiangmujiagoushejizhinan/dichengbengaokeyong_danjidaojiqundeguodu.html</guid>
-        <description>&lt;p&gt;我曾以为架构师的价值在于由于使用了多么牛逼的CNCF全家桶，直到2018年那个黑色的周五。&lt;/p&gt;
+<?xml version="1.0" encoding="utf-8" standalone="yes"?><rss version="2.0" xmlns:atom="http://www.w3.org/2005/Atom"><channel><title>低成本高可用：单机到集群的过渡 on SelfTechHub</title><link>https://blog.irudder.me/tags/%E4%BD%8E%E6%88%90%E6%9C%AC%E9%AB%98%E5%8F%AF%E7%94%A8%E5%8D%95%E6%9C%BA%E5%88%B0%E9%9B%86%E7%BE%A4%E7%9A%84%E8%BF%87%E6%B8%A1.html</link><description>Recent content in 低成本高可用：单机到集群的过渡 on SelfTechHub</description><generator>Hugo -- gohugo.io</generator><language>zh-cn</language><lastBuildDate>Sun, 19 Sep 2021 00:00:00 +0800</lastBuildDate><atom:link href="https://blog.irudder.me/tags/%E4%BD%8E%E6%88%90%E6%9C%AC%E9%AB%98%E5%8F%AF%E7%94%A8%E5%8D%95%E6%9C%BA%E5%88%B0%E9%9B%86%E7%BE%A4%E7%9A%84%E8%BF%87%E6%B8%A1/index.xml" rel="self" type="application/rss+xml"/><item><title>穷鬼架构师自白：单机转集群，别被K8s拖死</title><link>https://blog.irudder.me/tech/zhongxiaoxingxiangmujiagoushejizhinan/dichengbengaokeyong_danjidaojiqundeguodu.html</link><pubDate>Sun, 19 Sep 2021 00:00:00 +0800</pubDate><guid>https://blog.irudder.me/tech/zhongxiaoxingxiangmujiagoushejizhinan/dichengbengaokeyong_danjidaojiqundeguodu.html</guid><description>&lt;p&gt;我曾以为架构师的价值在于由于使用了多么牛逼的CNCF全家桶，直到2018年那个黑色的周五。&lt;/p&gt;
 &lt;p&gt;那时我负责一个日活刚过万的电商SaaS，为了追求所谓的&amp;quot;大厂标准&amp;quot;，我强行上了一套自建Kubernetes集群。结果在一次大促前夕，Etcd节点因为磁盘IO抖动导致集群脑裂，整个系统瘫痪了4个小时。老板站在我身后，看着满屏红色的Pod重启日志，只问了一句：&amp;ldquo;我们真的需要这么复杂的东西吗？&amp;rdquo;&lt;/p&gt;
 &lt;p&gt;那次事故后，我甚至形成了PTSD：每到周五下午，我都会下意识地去检查监控面板，生怕那个昂贵的&amp;quot;高大上&amp;quot;架构再次崩塌。&lt;/p&gt;
 &lt;p&gt;痛定思痛，我开始给架构做减法。对于99%的中小团队来说，&lt;strong&gt;&amp;ldquo;高可用&amp;quot;不等于&amp;quot;微服务+K8s&amp;rdquo;，而是&amp;quot;低成本+消除单点+快速恢复&amp;quot;。&lt;/strong&gt;&lt;/p&gt;
 &lt;p&gt;如果你正处于单机扛不住、集群玩不转的尴尬阶段，下面这三个&amp;quot;穷鬼&amp;quot;过渡方案，或许能救你一命。&lt;/p&gt;
-&lt;h2 id=&#34;接入层别迷信硬负载keepalivednginx才是平民神器&#34;&gt;接入层：别迷信硬负载，Keepalived+Nginx才是平民神器
+&lt;h2 id="接入层别迷信硬负载keepalivednginx才是平民神器"&gt;接入层：别迷信硬负载，Keepalived+Nginx才是平民神器
 &lt;/h2&gt;&lt;p&gt;很多兄弟从单机扩展到双机时，第一反应是去买云厂商的SLB（负载均衡）。SLB确实好用，但如果你是私有化部署，或者预算极其有限（比如每年IT预算卡得死死的），硬件F5买不起，云SLB又是一笔持续的月租费。&lt;/p&gt;
 &lt;p&gt;&lt;strong&gt;其实，两台2核4G的虚拟机，就能搞定千万级流量的入口高可用。&lt;/strong&gt;&lt;/p&gt;
-&lt;p&gt;&lt;img src=&#34;https://picsum.photos/800/450?random=1768456228959&#34;
-	
-	
-	
-	loading=&#34;lazy&#34;
-	
-		alt=&#34;配图&#34;
-	
-	
+&lt;p&gt;&lt;img src="https://picsum.photos/800/450?random=1768456228959"
+loading="lazy"
+alt="配图"
 &gt;&lt;/p&gt;
 &lt;p&gt;2020年，我接手一个制造业的MES系统改造。现场只有两台破旧的物理服务器，却要求&amp;quot;只要电不断，服务就不能断&amp;quot;。&lt;/p&gt;
-&lt;p&gt;&lt;img src=&#34;https://picsum.photos/800/450?random=1768456234374&#34;
-	
-	
-	
-	loading=&#34;lazy&#34;
-	
-		alt=&#34;配图&#34;
-	
-	
+&lt;p&gt;&lt;img src="https://picsum.photos/800/450?random=1768456234374"
+loading="lazy"
+alt="配图"
 &gt;&lt;/p&gt;
 &lt;p&gt;我们没用任何收费组件，直接采用了 &lt;strong&gt;VIP（虚拟IP）漂移方案&lt;/strong&gt;。&lt;/p&gt;
 &lt;p&gt;&lt;strong&gt;操作逻辑很简单：&lt;/strong&gt;&lt;/p&gt;
@@ -50,33 +24,62 @@
 &lt;li&gt;一旦主节点Nginx进程挂了，Keepalived在3秒内感知，立马把VIP&amp;quot;抢&amp;quot;到备节点（Backup）上。&lt;/li&gt;
 &lt;/ol&gt;
 &lt;p&gt;&lt;strong&gt;真实代码片段（keepalived.conf）：&lt;/strong&gt;&lt;/p&gt;
-&lt;div class=&#34;highlight&#34;&gt;&lt;pre tabindex=&#34;0&#34; style=&#34;color:#f8f8f2;background-color:#272822;-moz-tab-size:4;-o-tab-size:4;tab-size:4;&#34;&gt;&lt;code class=&#34;language-bash&#34; data-lang=&#34;bash&#34;&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;vrrp_script chk_nginx &lt;span style=&#34;color:#f92672&#34;&gt;{&lt;/span&gt;
-&lt;/span&gt;&lt;/span&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;    script &lt;span style=&#34;color:#e6db74&#34;&gt;&amp;#34;/etc/keepalived/check_nginx.sh&amp;#34;&lt;/span&gt; &lt;span style=&#34;color:#75715e&#34;&gt;# 检测Nginx存活的脚本&lt;/span&gt;
-&lt;/span&gt;&lt;/span&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;    interval &lt;span style=&#34;color:#ae81ff&#34;&gt;2&lt;/span&gt;
-&lt;/span&gt;&lt;/span&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;    weight -20
-&lt;/span&gt;&lt;/span&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;&lt;span style=&#34;color:#f92672&#34;&gt;}&lt;/span&gt;
-&lt;/span&gt;&lt;/span&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;
-&lt;/span&gt;&lt;/span&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;vrrp_instance VI_1 &lt;span style=&#34;color:#f92672&#34;&gt;{&lt;/span&gt;
-&lt;/span&gt;&lt;/span&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;    state MASTER
-&lt;/span&gt;&lt;/span&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;    interface eth0
-&lt;/span&gt;&lt;/span&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;    virtual_router_id &lt;span style=&#34;color:#ae81ff&#34;&gt;51&lt;/span&gt;
-&lt;/span&gt;&lt;/span&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;    priority &lt;span style=&#34;color:#ae81ff&#34;&gt;100&lt;/span&gt;
-&lt;/span&gt;&lt;/span&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;    advert_int &lt;span style=&#34;color:#ae81ff&#34;&gt;1&lt;/span&gt;
-&lt;/span&gt;&lt;/span&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;    authentication &lt;span style=&#34;color:#f92672&#34;&gt;{&lt;/span&gt;
-&lt;/span&gt;&lt;/span&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;        auth_type PASS
-&lt;/span&gt;&lt;/span&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;        auth_pass &lt;span style=&#34;color:#ae81ff&#34;&gt;1111&lt;/span&gt;
-&lt;/span&gt;&lt;/span&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;    &lt;span style=&#34;color:#f92672&#34;&gt;}&lt;/span&gt;
-&lt;/span&gt;&lt;/span&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;    virtual_ipaddress &lt;span style=&#34;color:#f92672&#34;&gt;{&lt;/span&gt;
-&lt;/span&gt;&lt;/span&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;        192.168.1.100 &lt;span style=&#34;color:#75715e&#34;&gt;# 对外暴露的VIP&lt;/span&gt;
-&lt;/span&gt;&lt;/span&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;    &lt;span style=&#34;color:#f92672&#34;&gt;}&lt;/span&gt;
-&lt;/span&gt;&lt;/span&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;    track_script &lt;span style=&#34;color:#f92672&#34;&gt;{&lt;/span&gt;
-&lt;/span&gt;&lt;/span&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;        chk_nginx
-&lt;/span&gt;&lt;/span&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;    &lt;span style=&#34;color:#f92672&#34;&gt;}&lt;/span&gt;
-&lt;/span&gt;&lt;/span&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;&lt;span style=&#34;color:#f92672&#34;&gt;}&lt;/span&gt;
-&lt;/span&gt;&lt;/span&gt;&lt;/code&gt;&lt;/pre&gt;&lt;/div&gt;&lt;p&gt;&lt;strong&gt;结果复盘：&lt;/strong&gt;
+&lt;div class="highlight"&gt;&lt;div class="chroma"&gt;
+&lt;table class="lntable"&gt;&lt;tr&gt;&lt;td class="lntd"&gt;
+&lt;pre tabindex="0" class="chroma"&gt;&lt;code&gt;&lt;span class="lnt"&gt; 1
+&lt;/span&gt;&lt;span class="lnt"&gt; 2
+&lt;/span&gt;&lt;span class="lnt"&gt; 3
+&lt;/span&gt;&lt;span class="lnt"&gt; 4
+&lt;/span&gt;&lt;span class="lnt"&gt; 5
+&lt;/span&gt;&lt;span class="lnt"&gt; 6
+&lt;/span&gt;&lt;span class="lnt"&gt; 7
+&lt;/span&gt;&lt;span class="lnt"&gt; 8
+&lt;/span&gt;&lt;span class="lnt"&gt; 9
+&lt;/span&gt;&lt;span class="lnt"&gt;10
+&lt;/span&gt;&lt;span class="lnt"&gt;11
+&lt;/span&gt;&lt;span class="lnt"&gt;12
+&lt;/span&gt;&lt;span class="lnt"&gt;13
+&lt;/span&gt;&lt;span class="lnt"&gt;14
+&lt;/span&gt;&lt;span class="lnt"&gt;15
+&lt;/span&gt;&lt;span class="lnt"&gt;16
+&lt;/span&gt;&lt;span class="lnt"&gt;17
+&lt;/span&gt;&lt;span class="lnt"&gt;18
+&lt;/span&gt;&lt;span class="lnt"&gt;19
+&lt;/span&gt;&lt;span class="lnt"&gt;20
+&lt;/span&gt;&lt;span class="lnt"&gt;21
+&lt;/span&gt;&lt;span class="lnt"&gt;22
+&lt;/span&gt;&lt;span class="lnt"&gt;23
+&lt;/span&gt;&lt;/code&gt;&lt;/pre&gt;&lt;/td&gt;
+&lt;td class="lntd"&gt;
+&lt;pre tabindex="0" class="chroma"&gt;&lt;code class="language-bash" data-lang="bash"&gt;&lt;span class="line"&gt;&lt;span class="cl"&gt;vrrp_script chk_nginx &lt;span class="o"&gt;{&lt;/span&gt;
+&lt;/span&gt;&lt;/span&gt;&lt;span class="line"&gt;&lt;span class="cl"&gt; script &lt;span class="s2"&gt;&amp;#34;/etc/keepalived/check_nginx.sh&amp;#34;&lt;/span&gt; &lt;span class="c1"&gt;# 检测Nginx存活的脚本&lt;/span&gt;
+&lt;/span&gt;&lt;/span&gt;&lt;span class="line"&gt;&lt;span class="cl"&gt; interval &lt;span class="m"&gt;2&lt;/span&gt;
+&lt;/span&gt;&lt;/span&gt;&lt;span class="line"&gt;&lt;span class="cl"&gt; weight -20
+&lt;/span&gt;&lt;/span&gt;&lt;span class="line"&gt;&lt;span class="cl"&gt;&lt;span class="o"&gt;}&lt;/span&gt;
+&lt;/span&gt;&lt;/span&gt;&lt;span class="line"&gt;&lt;span class="cl"&gt;
+&lt;/span&gt;&lt;/span&gt;&lt;span class="line"&gt;&lt;span class="cl"&gt;vrrp_instance VI_1 &lt;span class="o"&gt;{&lt;/span&gt;
+&lt;/span&gt;&lt;/span&gt;&lt;span class="line"&gt;&lt;span class="cl"&gt; state MASTER
+&lt;/span&gt;&lt;/span&gt;&lt;span class="line"&gt;&lt;span class="cl"&gt; interface eth0
+&lt;/span&gt;&lt;/span&gt;&lt;span class="line"&gt;&lt;span class="cl"&gt; virtual_router_id &lt;span class="m"&gt;51&lt;/span&gt;
+&lt;/span&gt;&lt;/span&gt;&lt;span class="line"&gt;&lt;span class="cl"&gt; priority &lt;span class="m"&gt;100&lt;/span&gt;
+&lt;/span&gt;&lt;/span&gt;&lt;span class="line"&gt;&lt;span class="cl"&gt; advert_int &lt;span class="m"&gt;1&lt;/span&gt;
+&lt;/span&gt;&lt;/span&gt;&lt;span class="line"&gt;&lt;span class="cl"&gt; authentication &lt;span class="o"&gt;{&lt;/span&gt;
+&lt;/span&gt;&lt;/span&gt;&lt;span class="line"&gt;&lt;span class="cl"&gt; auth_type PASS
+&lt;/span&gt;&lt;/span&gt;&lt;span class="line"&gt;&lt;span class="cl"&gt; auth_pass &lt;span class="m"&gt;1111&lt;/span&gt;
+&lt;/span&gt;&lt;/span&gt;&lt;span class="line"&gt;&lt;span class="cl"&gt; &lt;span class="o"&gt;}&lt;/span&gt;
+&lt;/span&gt;&lt;/span&gt;&lt;span class="line"&gt;&lt;span class="cl"&gt; virtual_ipaddress &lt;span class="o"&gt;{&lt;/span&gt;
+&lt;/span&gt;&lt;/span&gt;&lt;span class="line"&gt;&lt;span class="cl"&gt; 192.168.1.100 &lt;span class="c1"&gt;# 对外暴露的VIP&lt;/span&gt;
+&lt;/span&gt;&lt;/span&gt;&lt;span class="line"&gt;&lt;span class="cl"&gt; &lt;span class="o"&gt;}&lt;/span&gt;
+&lt;/span&gt;&lt;/span&gt;&lt;span class="line"&gt;&lt;span class="cl"&gt; track_script &lt;span class="o"&gt;{&lt;/span&gt;
+&lt;/span&gt;&lt;/span&gt;&lt;span class="line"&gt;&lt;span class="cl"&gt; chk_nginx
+&lt;/span&gt;&lt;/span&gt;&lt;span class="line"&gt;&lt;span class="cl"&gt; &lt;span class="o"&gt;}&lt;/span&gt;
+&lt;/span&gt;&lt;/span&gt;&lt;span class="line"&gt;&lt;span class="cl"&gt;&lt;span class="o"&gt;}&lt;/span&gt;
+&lt;/span&gt;&lt;/span&gt;&lt;/code&gt;&lt;/pre&gt;&lt;/td&gt;&lt;/tr&gt;&lt;/table&gt;
+&lt;/div&gt;
+&lt;/div&gt;&lt;p&gt;&lt;strong&gt;结果复盘：&lt;/strong&gt;
 上线三年，主服务器电源坏过一次，网卡松过一次。系统自动切换，工厂流水线甚至没感觉到卡顿。
 &lt;strong&gt;核心教训：&lt;/strong&gt; 在流量没撑爆网卡前，不要引入复杂的四层/七层负载均衡设备，&lt;strong&gt;简单的VIP漂移是最极致的低成本高可用。&lt;/strong&gt;&lt;/p&gt;
-&lt;h2 id=&#34;应用层文件存储的幽灵404别急着上ceph&#34;&gt;应用层：文件存储的&amp;quot;幽灵404&amp;quot;，别急着上Ceph
+&lt;h2 id="应用层文件存储的幽灵404别急着上ceph"&gt;应用层：文件存储的&amp;quot;幽灵404&amp;quot;，别急着上Ceph
 &lt;/h2&gt;&lt;p&gt;单机转集群，最大的坑往往不在代码，而在&lt;strong&gt;状态（State）&lt;/strong&gt;。&lt;/p&gt;
 &lt;p&gt;最典型的场景：用户A在服务器1上传了头像，下次请求被分发到了服务器2，结果图片裂了（404）。新手通常会想：&amp;ldquo;我要搞个Ceph分布式存储！&amp;rdquo;&lt;/p&gt;
 &lt;p&gt;&lt;strong&gt;千万别！&lt;/strong&gt;&lt;/p&gt;
@@ -104,7 +107,7 @@
 &lt;li&gt;&lt;strong&gt;收益&lt;/strong&gt;：数据自带冗余，任意坏一块盘数据不丢，且不用维护复杂的分布式文件系统元数据。&lt;/li&gt;
 &lt;/ul&gt;
 &lt;p&gt;&lt;strong&gt;避坑指南：&lt;/strong&gt; 除非你的数据量达到PB级，否则不要碰Hadoop/HDFS或Ceph。MinIO或者直接买云厂商的OSS（如果有外网），是性价比最高的选择。&lt;/p&gt;
-&lt;h2 id=&#34;数据层数据库的高可用半同步是底线&#34;&gt;数据层：数据库的高可用，&amp;ldquo;半同步&amp;quot;是底线
+&lt;h2 id="数据层数据库的高可用半同步是底线"&gt;数据层：数据库的高可用，&amp;ldquo;半同步&amp;quot;是底线
 &lt;/h2&gt;&lt;p&gt;应用挂了可以重启，数据库挂了（或者数据丢了），你就得跑路了。&lt;/p&gt;
 &lt;p&gt;很多资深开发在做架构设计时，喜欢搞&amp;quot;双主（Master-Master）&amp;ldquo;架构，觉得这样写谁都行。
 &lt;strong&gt;这绝对是中小团队最大的谎言。&lt;/strong&gt; 如果没有强大的冲突解决机制，双主复制导致的数据不一致（Duplicate Key Error）会让你在半夜哭出声。&lt;/p&gt;
@@ -115,8 +118,7 @@
 我们为一家物流公司做核心业务系统。为了省钱，没买云RDS高可用版（太贵）。
 我们配置了MySQL 5.7的半同步复制：&lt;/p&gt;
 &lt;blockquote&gt;
-&lt;p&gt;事务提交时，主库必须收到至少一个从库的&amp;quot;ACK&amp;quot;确认，才算成功。&lt;/p&gt;
-&lt;/blockquote&gt;
+&lt;p&gt;事务提交时，主库必须收到至少一个从库的&amp;quot;ACK&amp;quot;确认，才算成功。&lt;/p&gt;&lt;/blockquote&gt;
 &lt;p&gt;这确实会损失一点点写性能（大约10%-20%），但换来了**RPO=0（数据零丢失）**的安全感。&lt;/p&gt;
 &lt;p&gt;配合 orchestrator 或者简单的 MHA 工具，我们可以做到：&lt;/p&gt;
 &lt;ol&gt;
@@ -128,7 +130,7 @@
 &lt;p&gt;&lt;strong&gt;硬核建议：&lt;/strong&gt;
 如果你连配置MHA都觉得费劲，我有一个更&amp;quot;土&amp;quot;但有效的建议：&lt;strong&gt;写一个自动备份脚本，每小时做一次binlog备份推送到异地。&lt;/strong&gt; 高可用是这一秒的事，但数据备份是保命的事。在资源极其匮乏时，优先保数据，而不是保服务时长。&lt;/p&gt;
 &lt;hr&gt;
-&lt;h2 id=&#34;结尾架构是长出来的不是画出来的&#34;&gt;结尾：架构是长出来的，不是画出来的
+&lt;h2 id="结尾架构是长出来的不是画出来的"&gt;结尾：架构是长出来的，不是画出来的
 &lt;/h2&gt;&lt;p&gt;回顾这几年的架构演进，我发现一个规律：&lt;strong&gt;好的架构都是被业务倒逼出来的，而不是架构师在白板上画出来的。&lt;/strong&gt;&lt;/p&gt;
 &lt;p&gt;当你从单机走向集群时，不要一上来就追求Google级别的基础设施。&lt;/p&gt;
 &lt;ol&gt;
@@ -149,9 +151,4 @@ C. 现有代码改造成本太高&lt;/p&gt;
 &lt;li&gt;&lt;strong&gt;大扫除&lt;/strong&gt;：梳理现有的单机系统，找出所有的本地状态（Session、本地文件、本地缓存）。&lt;/li&gt;
 &lt;li&gt;&lt;strong&gt;实弹演习&lt;/strong&gt;：找个夜深人静的时候，拔掉备用数据库的网线，看你的主从同步报错是否及时触发报警。&lt;/li&gt;
 &lt;li&gt;&lt;strong&gt;极简容灾&lt;/strong&gt;：给你的Nginx配置一个特定的Error Page，当后端全挂时，至少给用户展示一个友好的&amp;quot;系统维护中&amp;quot;页面，而不是冷冰冰的502。&lt;/li&gt;
-&lt;/ol&gt;
-</description>
-        </item>
-        
-    </channel>
-</rss>
+&lt;/ol&gt;</description></item></channel></rss>

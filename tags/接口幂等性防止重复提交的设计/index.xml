@@ -1,23 +1,9 @@
-<?xml version="1.0" encoding="utf-8" standalone="yes"?>
-<rss version="2.0" xmlns:atom="http://www.w3.org/2005/Atom">
-    <channel>
-        <title>接口幂等性：防止重复提交的设计 on SelfTechHub</title>
-        <link>https://blog.irudder.me/tags/%E6%8E%A5%E5%8F%A3%E5%B9%82%E7%AD%89%E6%80%A7%E9%98%B2%E6%AD%A2%E9%87%8D%E5%A4%8D%E6%8F%90%E4%BA%A4%E7%9A%84%E8%AE%BE%E8%AE%A1.html</link>
-        <description>Recent content in 接口幂等性：防止重复提交的设计 on SelfTechHub</description>
-        <generator>Hugo -- gohugo.io</generator>
-        <language>zh-cn</language>
-        <lastBuildDate>Wed, 17 Dec 2025 00:00:00 +0000</lastBuildDate><atom:link href="https://blog.irudder.me/tags/%E6%8E%A5%E5%8F%A3%E5%B9%82%E7%AD%89%E6%80%A7%E9%98%B2%E6%AD%A2%E9%87%8D%E5%A4%8D%E6%8F%90%E4%BA%A4%E7%9A%84%E8%AE%BE%E8%AE%A1/index.xml" rel="self" type="application/rss+xml" /><item>
-        <title>用户手抖点两下，公司损失一万八：中小团队的幂等性实战</title>
-        <link>https://blog.irudder.me/tech/zhongxiaoxingxiangmujiagoushejizhinan/jiekoumidengxing_fangzhichongfutijiaodesheji.html</link>
-        <pubDate>Wed, 17 Dec 2025 00:00:00 +0000</pubDate>
-        
-        <guid>https://blog.irudder.me/tech/zhongxiaoxingxiangmujiagoushejizhinan/jiekoumidengxing_fangzhichongfutijiaodesheji.html</guid>
-        <description>&lt;p&gt;记得是三年前的一个周五晚上，那时候我刚加入一家电商创业团队做架构重构。晚上10点，客服群突然炸了：“用户说充值了一笔钱，但是余额里多了两倍的数额！”&lt;/p&gt;
+<?xml version="1.0" encoding="utf-8" standalone="yes"?><rss version="2.0" xmlns:atom="http://www.w3.org/2005/Atom"><channel><title>接口幂等性：防止重复提交的设计 on SelfTechHub</title><link>https://blog.irudder.me/tags/%E6%8E%A5%E5%8F%A3%E5%B9%82%E7%AD%89%E6%80%A7%E9%98%B2%E6%AD%A2%E9%87%8D%E5%A4%8D%E6%8F%90%E4%BA%A4%E7%9A%84%E8%AE%BE%E8%AE%A1.html</link><description>Recent content in 接口幂等性：防止重复提交的设计 on SelfTechHub</description><generator>Hugo -- gohugo.io</generator><language>zh-cn</language><lastBuildDate>Wed, 17 Dec 2025 00:00:00 +0800</lastBuildDate><atom:link href="https://blog.irudder.me/tags/%E6%8E%A5%E5%8F%A3%E5%B9%82%E7%AD%89%E6%80%A7%E9%98%B2%E6%AD%A2%E9%87%8D%E5%A4%8D%E6%8F%90%E4%BA%A4%E7%9A%84%E8%AE%BE%E8%AE%A1/index.xml" rel="self" type="application/rss+xml"/><item><title>用户手抖点两下，公司损失一万八：中小团队的幂等性实战</title><link>https://blog.irudder.me/tech/zhongxiaoxingxiangmujiagoushejizhinan/jiekoumidengxing_fangzhichongfutijiaodesheji.html</link><pubDate>Wed, 17 Dec 2025 00:00:00 +0800</pubDate><guid>https://blog.irudder.me/tech/zhongxiaoxingxiangmujiagoushejizhinan/jiekoumidengxing_fangzhichongfutijiaodesheji.html</guid><description>&lt;p&gt;记得是三年前的一个周五晚上，那时候我刚加入一家电商创业团队做架构重构。晚上10点，客服群突然炸了：“用户说充值了一笔钱，但是余额里多了两倍的数额！”&lt;/p&gt;
 &lt;p&gt;排查下来，原因简单得让人想哭：用户在弱网环境下点击“确认支付”，前端Loading转圈没反应，用户心急多点了几下。请求因为网络抖动几乎同时到达后端，不仅扣款流水记了两笔，用户余额也加了两次。&lt;/p&gt;
 &lt;p&gt;那天晚上我们紧急回滚数据、安抚用户，折腾到凌晨三点。&lt;/p&gt;
 &lt;p&gt;很多资深开发在面试时能把“幂等性”背得滚瓜烂熟，但真到了中小项目的实战中，往往因为赶进度、觉得“概率小”或者过度依赖前端限制，而埋下巨大的隐患。&lt;/p&gt;
 &lt;p&gt;对于我们这种资源有限、没有庞大风控系统的中小团队来说，如何用最低的成本构建一套防重复提交的防线？结合我这几年的踩坑经验，聊聊三个最实用的设计策略。&lt;/p&gt;
-&lt;h2 id=&#34;策略一数据库唯一索引--最后的兜底防线&#34;&gt;策略一：数据库唯一索引 —— 最后的兜底防线
+&lt;h2 id="策略一数据库唯一索引--最后的兜底防线"&gt;策略一：数据库唯一索引 —— 最后的兜底防线
 &lt;/h2&gt;&lt;p&gt;这是最粗暴但也最有效的方法，特别适合**新增类（Insert）**的操作。&lt;/p&gt;
 &lt;p&gt;刚接手那个出事故的项目时，我发现很多核心表居然没有唯一约束，完全依赖代码逻辑去查重。代码逻辑是脆弱的，特别是在并发场景下，“先查后写”的各种检查就是个摆设。&lt;/p&gt;
 &lt;p&gt;&lt;strong&gt;真实案例：&lt;/strong&gt;
@@ -25,25 +11,26 @@
 &lt;p&gt;&lt;strong&gt;解决方案：&lt;/strong&gt;
 我们立刻调整了数据库Schema，利用数据库的强一致性机制。&lt;/p&gt;
 &lt;p&gt;建立联合唯一索引（Unique Index）。比如在优惠券领取记录表中，将 &lt;code&gt;user_id&lt;/code&gt; 和 &lt;code&gt;coupon_id&lt;/code&gt; 设为联合唯一索引。&lt;/p&gt;
-&lt;div class=&#34;highlight&#34;&gt;&lt;pre tabindex=&#34;0&#34; style=&#34;color:#f8f8f2;background-color:#272822;-moz-tab-size:4;-o-tab-size:4;tab-size:4;&#34;&gt;&lt;code class=&#34;language-sql&#34; data-lang=&#34;sql&#34;&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;&lt;span style=&#34;color:#66d9ef&#34;&gt;ALTER&lt;/span&gt; &lt;span style=&#34;color:#66d9ef&#34;&gt;TABLE&lt;/span&gt; user_coupon
-&lt;/span&gt;&lt;/span&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;&lt;span style=&#34;color:#66d9ef&#34;&gt;ADD&lt;/span&gt; &lt;span style=&#34;color:#66d9ef&#34;&gt;CONSTRAINT&lt;/span&gt; uk_user_coupon &lt;span style=&#34;color:#66d9ef&#34;&gt;UNIQUE&lt;/span&gt; (user_id, coupon_id);
-&lt;/span&gt;&lt;/span&gt;&lt;/code&gt;&lt;/pre&gt;&lt;/div&gt;&lt;p&gt;&lt;img src=&#34;https://picsum.photos/800/450?random=1768456517977&#34;
-	
-	
-	
-	loading=&#34;lazy&#34;
-	
-		alt=&#34;配图&#34;
-	
-	
+&lt;div class="highlight"&gt;&lt;div class="chroma"&gt;
+&lt;table class="lntable"&gt;&lt;tr&gt;&lt;td class="lntd"&gt;
+&lt;pre tabindex="0" class="chroma"&gt;&lt;code&gt;&lt;span class="lnt"&gt;1
+&lt;/span&gt;&lt;span class="lnt"&gt;2
+&lt;/span&gt;&lt;/code&gt;&lt;/pre&gt;&lt;/td&gt;
+&lt;td class="lntd"&gt;
+&lt;pre tabindex="0" class="chroma"&gt;&lt;code class="language-sql" data-lang="sql"&gt;&lt;span class="line"&gt;&lt;span class="cl"&gt;&lt;span class="k"&gt;ALTER&lt;/span&gt;&lt;span class="w"&gt; &lt;/span&gt;&lt;span class="k"&gt;TABLE&lt;/span&gt;&lt;span class="w"&gt; &lt;/span&gt;&lt;span class="n"&gt;user_coupon&lt;/span&gt;&lt;span class="w"&gt;
+&lt;/span&gt;&lt;/span&gt;&lt;/span&gt;&lt;span class="line"&gt;&lt;span class="cl"&gt;&lt;span class="w"&gt;&lt;/span&gt;&lt;span class="k"&gt;ADD&lt;/span&gt;&lt;span class="w"&gt; &lt;/span&gt;&lt;span class="k"&gt;CONSTRAINT&lt;/span&gt;&lt;span class="w"&gt; &lt;/span&gt;&lt;span class="n"&gt;uk_user_coupon&lt;/span&gt;&lt;span class="w"&gt; &lt;/span&gt;&lt;span class="k"&gt;UNIQUE&lt;/span&gt;&lt;span class="w"&gt; &lt;/span&gt;&lt;span class="p"&gt;(&lt;/span&gt;&lt;span class="n"&gt;user_id&lt;/span&gt;&lt;span class="p"&gt;,&lt;/span&gt;&lt;span class="w"&gt; &lt;/span&gt;&lt;span class="n"&gt;coupon_id&lt;/span&gt;&lt;span class="p"&gt;);&lt;/span&gt;&lt;span class="w"&gt;
+&lt;/span&gt;&lt;/span&gt;&lt;/span&gt;&lt;/code&gt;&lt;/pre&gt;&lt;/td&gt;&lt;/tr&gt;&lt;/table&gt;
+&lt;/div&gt;
+&lt;/div&gt;&lt;p&gt;&lt;img src="https://picsum.photos/800/450?random=1768456517977"
+loading="lazy"
+alt="配图"
 &gt;&lt;/p&gt;
 &lt;p&gt;&lt;strong&gt;落地效果：&lt;/strong&gt;
 当重复请求打进来时，第一个请求成功插入，后续请求会直接报 &lt;code&gt;DuplicateKeyException&lt;/code&gt;。我们在Service层捕获这个异常，直接返回“领取成功”或者“您已领取”给前端。&lt;/p&gt;
 &lt;blockquote&gt;
 &lt;p&gt;&lt;strong&gt;踩坑提醒：&lt;/strong&gt;
-很多同学觉得报异常不好看。其实对于幂等性设计，&lt;strong&gt;吞掉报错并返回成功结果&lt;/strong&gt;是常见做法。因为对用户来说，他的意图是“拥有这张券”，既然数据库里已经有了，告诉他“成功”在业务语义上是完全正确的。&lt;/p&gt;
-&lt;/blockquote&gt;
-&lt;h2 id=&#34;策略二redis-token机制--拦截90的手抖&#34;&gt;策略二：Redis Token机制 —— 拦截90%的“手抖”
+很多同学觉得报异常不好看。其实对于幂等性设计，&lt;strong&gt;吞掉报错并返回成功结果&lt;/strong&gt;是常见做法。因为对用户来说，他的意图是“拥有这张券”，既然数据库里已经有了，告诉他“成功”在业务语义上是完全正确的。&lt;/p&gt;&lt;/blockquote&gt;
+&lt;h2 id="策略二redis-token机制--拦截90的手抖"&gt;策略二：Redis Token机制 —— 拦截90%的“手抖”
 &lt;/h2&gt;&lt;p&gt;数据库约束虽然稳，但它是基于磁盘IO的，如果前端因为Bug搞了个死循环请求，数据库很容易被打挂。所以，我们需要在请求到达数据库之前，在内存层挡一道。&lt;/p&gt;
 &lt;p&gt;这也就是经典的“一锁二判三更新”中的“锁”。&lt;/p&gt;
 &lt;p&gt;&lt;strong&gt;真实场景：&lt;/strong&gt;
@@ -55,61 +42,95 @@
 &lt;li&gt;&lt;strong&gt;生成Key：&lt;/strong&gt; 将 &lt;code&gt;用户ID + 接口名 + 关键参数（MD5）&lt;/code&gt; 拼接成一个字符串。&lt;/li&gt;
 &lt;li&gt;&lt;strong&gt;原子操作：&lt;/strong&gt; 使用Redis的 &lt;code&gt;setNx&lt;/code&gt; (Set if Not eXists)。&lt;/li&gt;
 &lt;/ol&gt;
-&lt;div class=&#34;highlight&#34;&gt;&lt;pre tabindex=&#34;0&#34; style=&#34;color:#f8f8f2;background-color:#272822;-moz-tab-size:4;-o-tab-size:4;tab-size:4;&#34;&gt;&lt;code class=&#34;language-java&#34; data-lang=&#34;java&#34;&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;&lt;span style=&#34;color:#75715e&#34;&gt;// 伪代码示例：使用Redis实现分布式锁&lt;/span&gt;
-&lt;/span&gt;&lt;/span&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;String lockKey &lt;span style=&#34;color:#f92672&#34;&gt;=&lt;/span&gt; &lt;span style=&#34;color:#e6db74&#34;&gt;&amp;#34;lock:upload:&amp;#34;&lt;/span&gt; &lt;span style=&#34;color:#f92672&#34;&gt;+&lt;/span&gt; userId &lt;span style=&#34;color:#f92672&#34;&gt;+&lt;/span&gt; &lt;span style=&#34;color:#e6db74&#34;&gt;&amp;#34;:&amp;#34;&lt;/span&gt; &lt;span style=&#34;color:#f92672&#34;&gt;+&lt;/span&gt; fileMd5;
-&lt;/span&gt;&lt;/span&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;&lt;span style=&#34;color:#75715e&#34;&gt;// 设置30秒过期，防止死锁&lt;/span&gt;
-&lt;/span&gt;&lt;/span&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;&lt;span style=&#34;color:#66d9ef&#34;&gt;boolean&lt;/span&gt; isLocked &lt;span style=&#34;color:#f92672&#34;&gt;=&lt;/span&gt; redisTemplate.&lt;span style=&#34;color:#a6e22e&#34;&gt;opsForValue&lt;/span&gt;().&lt;span style=&#34;color:#a6e22e&#34;&gt;setIfAbsent&lt;/span&gt;(lockKey, &lt;span style=&#34;color:#e6db74&#34;&gt;&amp;#34;1&amp;#34;&lt;/span&gt;, 30, TimeUnit.&lt;span style=&#34;color:#a6e22e&#34;&gt;SECONDS&lt;/span&gt;);
-&lt;/span&gt;&lt;/span&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;
-&lt;/span&gt;&lt;/span&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;&lt;span style=&#34;color:#66d9ef&#34;&gt;if&lt;/span&gt; (&lt;span style=&#34;color:#f92672&#34;&gt;!&lt;/span&gt;isLocked) {
-&lt;/span&gt;&lt;/span&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;    &lt;span style=&#34;color:#66d9ef&#34;&gt;throw&lt;/span&gt; &lt;span style=&#34;color:#66d9ef&#34;&gt;new&lt;/span&gt; BusinessException(&lt;span style=&#34;color:#e6db74&#34;&gt;&amp;#34;系统正在处理中，请勿重复操作&amp;#34;&lt;/span&gt;);
-&lt;/span&gt;&lt;/span&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;}
-&lt;/span&gt;&lt;/span&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;
-&lt;/span&gt;&lt;/span&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;&lt;span style=&#34;color:#66d9ef&#34;&gt;try&lt;/span&gt; {
-&lt;/span&gt;&lt;/span&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;    &lt;span style=&#34;color:#75715e&#34;&gt;// 执行耗时业务逻辑&lt;/span&gt;
-&lt;/span&gt;&lt;/span&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;    processExcelFile(file);
-&lt;/span&gt;&lt;/span&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;} &lt;span style=&#34;color:#66d9ef&#34;&gt;finally&lt;/span&gt; {
-&lt;/span&gt;&lt;/span&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;    &lt;span style=&#34;color:#75715e&#34;&gt;// 任务完成后释放锁&lt;/span&gt;
-&lt;/span&gt;&lt;/span&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;    &lt;span style=&#34;color:#75715e&#34;&gt;// 注意：这里是否释放锁取决于业务。如果是防刷，可以不释放，等它自动过期&lt;/span&gt;
-&lt;/span&gt;&lt;/span&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;    redisTemplate.&lt;span style=&#34;color:#a6e22e&#34;&gt;delete&lt;/span&gt;(lockKey);
-&lt;/span&gt;&lt;/span&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;}
-&lt;/span&gt;&lt;/span&gt;&lt;/code&gt;&lt;/pre&gt;&lt;/div&gt;&lt;p&gt;&lt;strong&gt;落地细节：&lt;/strong&gt;
+&lt;div class="highlight"&gt;&lt;div class="chroma"&gt;
+&lt;table class="lntable"&gt;&lt;tr&gt;&lt;td class="lntd"&gt;
+&lt;pre tabindex="0" class="chroma"&gt;&lt;code&gt;&lt;span class="lnt"&gt; 1
+&lt;/span&gt;&lt;span class="lnt"&gt; 2
+&lt;/span&gt;&lt;span class="lnt"&gt; 3
+&lt;/span&gt;&lt;span class="lnt"&gt; 4
+&lt;/span&gt;&lt;span class="lnt"&gt; 5
+&lt;/span&gt;&lt;span class="lnt"&gt; 6
+&lt;/span&gt;&lt;span class="lnt"&gt; 7
+&lt;/span&gt;&lt;span class="lnt"&gt; 8
+&lt;/span&gt;&lt;span class="lnt"&gt; 9
+&lt;/span&gt;&lt;span class="lnt"&gt;10
+&lt;/span&gt;&lt;span class="lnt"&gt;11
+&lt;/span&gt;&lt;span class="lnt"&gt;12
+&lt;/span&gt;&lt;span class="lnt"&gt;13
+&lt;/span&gt;&lt;span class="lnt"&gt;14
+&lt;/span&gt;&lt;span class="lnt"&gt;15
+&lt;/span&gt;&lt;span class="lnt"&gt;16
+&lt;/span&gt;&lt;span class="lnt"&gt;17
+&lt;/span&gt;&lt;/code&gt;&lt;/pre&gt;&lt;/td&gt;
+&lt;td class="lntd"&gt;
+&lt;pre tabindex="0" class="chroma"&gt;&lt;code class="language-java" data-lang="java"&gt;&lt;span class="line"&gt;&lt;span class="cl"&gt;&lt;span class="c1"&gt;// 伪代码示例：使用Redis实现分布式锁&lt;/span&gt;&lt;span class="w"&gt;
+&lt;/span&gt;&lt;/span&gt;&lt;/span&gt;&lt;span class="line"&gt;&lt;span class="cl"&gt;&lt;span class="w"&gt;&lt;/span&gt;&lt;span class="n"&gt;String&lt;/span&gt;&lt;span class="w"&gt; &lt;/span&gt;&lt;span class="n"&gt;lockKey&lt;/span&gt;&lt;span class="w"&gt; &lt;/span&gt;&lt;span class="o"&gt;=&lt;/span&gt;&lt;span class="w"&gt; &lt;/span&gt;&lt;span class="s"&gt;&amp;#34;lock:upload:&amp;#34;&lt;/span&gt;&lt;span class="w"&gt; &lt;/span&gt;&lt;span class="o"&gt;+&lt;/span&gt;&lt;span class="w"&gt; &lt;/span&gt;&lt;span class="n"&gt;userId&lt;/span&gt;&lt;span class="w"&gt; &lt;/span&gt;&lt;span class="o"&gt;+&lt;/span&gt;&lt;span class="w"&gt; &lt;/span&gt;&lt;span class="s"&gt;&amp;#34;:&amp;#34;&lt;/span&gt;&lt;span class="w"&gt; &lt;/span&gt;&lt;span class="o"&gt;+&lt;/span&gt;&lt;span class="w"&gt; &lt;/span&gt;&lt;span class="n"&gt;fileMd5&lt;/span&gt;&lt;span class="p"&gt;;&lt;/span&gt;&lt;span class="w"&gt;
+&lt;/span&gt;&lt;/span&gt;&lt;/span&gt;&lt;span class="line"&gt;&lt;span class="cl"&gt;&lt;span class="w"&gt;&lt;/span&gt;&lt;span class="c1"&gt;// 设置30秒过期，防止死锁&lt;/span&gt;&lt;span class="w"&gt;
+&lt;/span&gt;&lt;/span&gt;&lt;/span&gt;&lt;span class="line"&gt;&lt;span class="cl"&gt;&lt;span class="w"&gt;&lt;/span&gt;&lt;span class="kt"&gt;boolean&lt;/span&gt;&lt;span class="w"&gt; &lt;/span&gt;&lt;span class="n"&gt;isLocked&lt;/span&gt;&lt;span class="w"&gt; &lt;/span&gt;&lt;span class="o"&gt;=&lt;/span&gt;&lt;span class="w"&gt; &lt;/span&gt;&lt;span class="n"&gt;redisTemplate&lt;/span&gt;&lt;span class="p"&gt;.&lt;/span&gt;&lt;span class="na"&gt;opsForValue&lt;/span&gt;&lt;span class="p"&gt;().&lt;/span&gt;&lt;span class="na"&gt;setIfAbsent&lt;/span&gt;&lt;span class="p"&gt;(&lt;/span&gt;&lt;span class="n"&gt;lockKey&lt;/span&gt;&lt;span class="p"&gt;,&lt;/span&gt;&lt;span class="w"&gt; &lt;/span&gt;&lt;span class="s"&gt;&amp;#34;1&amp;#34;&lt;/span&gt;&lt;span class="p"&gt;,&lt;/span&gt;&lt;span class="w"&gt; &lt;/span&gt;&lt;span class="n"&gt;30&lt;/span&gt;&lt;span class="p"&gt;,&lt;/span&gt;&lt;span class="w"&gt; &lt;/span&gt;&lt;span class="n"&gt;TimeUnit&lt;/span&gt;&lt;span class="p"&gt;.&lt;/span&gt;&lt;span class="na"&gt;SECONDS&lt;/span&gt;&lt;span class="p"&gt;);&lt;/span&gt;&lt;span class="w"&gt;
+&lt;/span&gt;&lt;/span&gt;&lt;/span&gt;&lt;span class="line"&gt;&lt;span class="cl"&gt;&lt;span class="w"&gt;
+&lt;/span&gt;&lt;/span&gt;&lt;/span&gt;&lt;span class="line"&gt;&lt;span class="cl"&gt;&lt;span class="w"&gt;&lt;/span&gt;&lt;span class="k"&gt;if&lt;/span&gt;&lt;span class="w"&gt; &lt;/span&gt;&lt;span class="p"&gt;(&lt;/span&gt;&lt;span class="o"&gt;!&lt;/span&gt;&lt;span class="n"&gt;isLocked&lt;/span&gt;&lt;span class="p"&gt;)&lt;/span&gt;&lt;span class="w"&gt; &lt;/span&gt;&lt;span class="p"&gt;{&lt;/span&gt;&lt;span class="w"&gt;
+&lt;/span&gt;&lt;/span&gt;&lt;/span&gt;&lt;span class="line"&gt;&lt;span class="cl"&gt;&lt;span class="w"&gt; &lt;/span&gt;&lt;span class="k"&gt;throw&lt;/span&gt;&lt;span class="w"&gt; &lt;/span&gt;&lt;span class="k"&gt;new&lt;/span&gt;&lt;span class="w"&gt; &lt;/span&gt;&lt;span class="n"&gt;BusinessException&lt;/span&gt;&lt;span class="p"&gt;(&lt;/span&gt;&lt;span class="s"&gt;&amp;#34;系统正在处理中，请勿重复操作&amp;#34;&lt;/span&gt;&lt;span class="p"&gt;);&lt;/span&gt;&lt;span class="w"&gt;
+&lt;/span&gt;&lt;/span&gt;&lt;/span&gt;&lt;span class="line"&gt;&lt;span class="cl"&gt;&lt;span class="w"&gt;&lt;/span&gt;&lt;span class="p"&gt;}&lt;/span&gt;&lt;span class="w"&gt;
+&lt;/span&gt;&lt;/span&gt;&lt;/span&gt;&lt;span class="line"&gt;&lt;span class="cl"&gt;&lt;span class="w"&gt;
+&lt;/span&gt;&lt;/span&gt;&lt;/span&gt;&lt;span class="line"&gt;&lt;span class="cl"&gt;&lt;span class="w"&gt;&lt;/span&gt;&lt;span class="k"&gt;try&lt;/span&gt;&lt;span class="w"&gt; &lt;/span&gt;&lt;span class="p"&gt;{&lt;/span&gt;&lt;span class="w"&gt;
+&lt;/span&gt;&lt;/span&gt;&lt;/span&gt;&lt;span class="line"&gt;&lt;span class="cl"&gt;&lt;span class="w"&gt; &lt;/span&gt;&lt;span class="c1"&gt;// 执行耗时业务逻辑&lt;/span&gt;&lt;span class="w"&gt;
+&lt;/span&gt;&lt;/span&gt;&lt;/span&gt;&lt;span class="line"&gt;&lt;span class="cl"&gt;&lt;span class="w"&gt; &lt;/span&gt;&lt;span class="n"&gt;processExcelFile&lt;/span&gt;&lt;span class="p"&gt;(&lt;/span&gt;&lt;span class="n"&gt;file&lt;/span&gt;&lt;span class="p"&gt;);&lt;/span&gt;&lt;span class="w"&gt;
+&lt;/span&gt;&lt;/span&gt;&lt;/span&gt;&lt;span class="line"&gt;&lt;span class="cl"&gt;&lt;span class="w"&gt;&lt;/span&gt;&lt;span class="p"&gt;}&lt;/span&gt;&lt;span class="w"&gt; &lt;/span&gt;&lt;span class="k"&gt;finally&lt;/span&gt;&lt;span class="w"&gt; &lt;/span&gt;&lt;span class="p"&gt;{&lt;/span&gt;&lt;span class="w"&gt;
+&lt;/span&gt;&lt;/span&gt;&lt;/span&gt;&lt;span class="line"&gt;&lt;span class="cl"&gt;&lt;span class="w"&gt; &lt;/span&gt;&lt;span class="c1"&gt;// 任务完成后释放锁&lt;/span&gt;&lt;span class="w"&gt;
+&lt;/span&gt;&lt;/span&gt;&lt;/span&gt;&lt;span class="line"&gt;&lt;span class="cl"&gt;&lt;span class="w"&gt; &lt;/span&gt;&lt;span class="c1"&gt;// 注意：这里是否释放锁取决于业务。如果是防刷，可以不释放，等它自动过期&lt;/span&gt;&lt;span class="w"&gt;
+&lt;/span&gt;&lt;/span&gt;&lt;/span&gt;&lt;span class="line"&gt;&lt;span class="cl"&gt;&lt;span class="w"&gt; &lt;/span&gt;&lt;span class="n"&gt;redisTemplate&lt;/span&gt;&lt;span class="p"&gt;.&lt;/span&gt;&lt;span class="na"&gt;delete&lt;/span&gt;&lt;span class="p"&gt;(&lt;/span&gt;&lt;span class="n"&gt;lockKey&lt;/span&gt;&lt;span class="p"&gt;);&lt;/span&gt;&lt;span class="w"&gt;
+&lt;/span&gt;&lt;/span&gt;&lt;/span&gt;&lt;span class="line"&gt;&lt;span class="cl"&gt;&lt;span class="w"&gt;&lt;/span&gt;&lt;span class="p"&gt;}&lt;/span&gt;&lt;span class="w"&gt;
+&lt;/span&gt;&lt;/span&gt;&lt;/span&gt;&lt;/code&gt;&lt;/pre&gt;&lt;/td&gt;&lt;/tr&gt;&lt;/table&gt;
+&lt;/div&gt;
+&lt;/div&gt;&lt;p&gt;&lt;strong&gt;落地细节：&lt;/strong&gt;
 这个方法我用了两年多，非常稳定。重点在于&lt;strong&gt;Key的过期时间设计&lt;/strong&gt;。&lt;/p&gt;
 &lt;ul&gt;
 &lt;li&gt;如果是&lt;strong&gt;防手抖&lt;/strong&gt;（如支付）：过期时间设置短一点（如5秒），业务执行完必须释放锁。&lt;/li&gt;
 &lt;li&gt;如果是&lt;strong&gt;防刷单&lt;/strong&gt;：过期时间设置长一点（如1分钟），业务执行完&lt;strong&gt;不&lt;/strong&gt;释放锁，强行让用户冷静一下。&lt;/li&gt;
 &lt;/ul&gt;
-&lt;h2 id=&#34;策略三状态机幂等--业务逻辑的免疫系统&#34;&gt;策略三：状态机幂等 —— 业务逻辑的“免疫系统”
+&lt;h2 id="策略三状态机幂等--业务逻辑的免疫系统"&gt;策略三：状态机幂等 —— 业务逻辑的“免疫系统”
 &lt;/h2&gt;&lt;p&gt;前两种是技术手段，而状态机是业务层面的终极保障，特别是针对**更新类（Update）**操作。&lt;/p&gt;
 &lt;p&gt;&lt;strong&gt;真实案例：&lt;/strong&gt;
 在订单系统中，订单状态流转是：&lt;code&gt;待支付 -&amp;gt; 已支付 -&amp;gt; 待发货&lt;/code&gt;。
 曾出现过一个诡异Bug：支付回调接口被第三方支付公司重复调用了（这是常态，人家要确保你收到了）。第一次调用将订单改为“已支付”，并触发了发货逻辑；第二次调用又触发了一次发货逻辑。结果仓库发了两份货。&lt;/p&gt;
-&lt;p&gt;&lt;img src=&#34;https://picsum.photos/800/450?random=1768456518076&#34;
-	
-	
-	
-	loading=&#34;lazy&#34;
-	
-		alt=&#34;配图&#34;
-	
-	
+&lt;p&gt;&lt;img src="https://picsum.photos/800/450?random=1768456518076"
+loading="lazy"
+alt="配图"
 &gt;&lt;/p&gt;
 &lt;p&gt;&lt;strong&gt;解决方案：&lt;/strong&gt;
 利用SQL的行级锁和状态条件更新，实现天然幂等。&lt;/p&gt;
 &lt;p&gt;不要写这样的代码：&lt;/p&gt;
-&lt;div class=&#34;highlight&#34;&gt;&lt;pre tabindex=&#34;0&#34; style=&#34;color:#f8f8f2;background-color:#272822;-moz-tab-size:4;-o-tab-size:4;tab-size:4;&#34;&gt;&lt;code class=&#34;language-sql&#34; data-lang=&#34;sql&#34;&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;&lt;span style=&#34;color:#75715e&#34;&gt;-- 危险代码
-&lt;/span&gt;&lt;/span&gt;&lt;/span&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;&lt;span style=&#34;color:#75715e&#34;&gt;&lt;/span&gt;&lt;span style=&#34;color:#66d9ef&#34;&gt;UPDATE&lt;/span&gt; &lt;span style=&#34;color:#66d9ef&#34;&gt;order&lt;/span&gt; &lt;span style=&#34;color:#66d9ef&#34;&gt;SET&lt;/span&gt; status &lt;span style=&#34;color:#f92672&#34;&gt;=&lt;/span&gt; &lt;span style=&#34;color:#e6db74&#34;&gt;&amp;#39;PAID&amp;#39;&lt;/span&gt; &lt;span style=&#34;color:#66d9ef&#34;&gt;WHERE&lt;/span&gt; order_id &lt;span style=&#34;color:#f92672&#34;&gt;=&lt;/span&gt; &lt;span style=&#34;color:#ae81ff&#34;&gt;123&lt;/span&gt;;
-&lt;/span&gt;&lt;/span&gt;&lt;/code&gt;&lt;/pre&gt;&lt;/div&gt;&lt;p&gt;要写这样的代码：&lt;/p&gt;
-&lt;div class=&#34;highlight&#34;&gt;&lt;pre tabindex=&#34;0&#34; style=&#34;color:#f8f8f2;background-color:#272822;-moz-tab-size:4;-o-tab-size:4;tab-size:4;&#34;&gt;&lt;code class=&#34;language-sql&#34; data-lang=&#34;sql&#34;&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;&lt;span style=&#34;color:#75715e&#34;&gt;-- 幂等代码
-&lt;/span&gt;&lt;/span&gt;&lt;/span&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;&lt;span style=&#34;color:#75715e&#34;&gt;&lt;/span&gt;&lt;span style=&#34;color:#66d9ef&#34;&gt;UPDATE&lt;/span&gt; &lt;span style=&#34;color:#66d9ef&#34;&gt;order&lt;/span&gt; &lt;span style=&#34;color:#66d9ef&#34;&gt;SET&lt;/span&gt; status &lt;span style=&#34;color:#f92672&#34;&gt;=&lt;/span&gt; &lt;span style=&#34;color:#e6db74&#34;&gt;&amp;#39;PAID&amp;#39;&lt;/span&gt; 
-&lt;/span&gt;&lt;/span&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;&lt;span style=&#34;color:#66d9ef&#34;&gt;WHERE&lt;/span&gt; order_id &lt;span style=&#34;color:#f92672&#34;&gt;=&lt;/span&gt; &lt;span style=&#34;color:#ae81ff&#34;&gt;123&lt;/span&gt; &lt;span style=&#34;color:#66d9ef&#34;&gt;AND&lt;/span&gt; status &lt;span style=&#34;color:#f92672&#34;&gt;=&lt;/span&gt; &lt;span style=&#34;color:#e6db74&#34;&gt;&amp;#39;PENDING&amp;#39;&lt;/span&gt;; &lt;span style=&#34;color:#75715e&#34;&gt;-- 核心在这里
-&lt;/span&gt;&lt;/span&gt;&lt;/span&gt;&lt;/code&gt;&lt;/pre&gt;&lt;/div&gt;&lt;p&gt;&lt;strong&gt;落地效果：&lt;/strong&gt;
+&lt;div class="highlight"&gt;&lt;div class="chroma"&gt;
+&lt;table class="lntable"&gt;&lt;tr&gt;&lt;td class="lntd"&gt;
+&lt;pre tabindex="0" class="chroma"&gt;&lt;code&gt;&lt;span class="lnt"&gt;1
+&lt;/span&gt;&lt;span class="lnt"&gt;2
+&lt;/span&gt;&lt;/code&gt;&lt;/pre&gt;&lt;/td&gt;
+&lt;td class="lntd"&gt;
+&lt;pre tabindex="0" class="chroma"&gt;&lt;code class="language-sql" data-lang="sql"&gt;&lt;span class="line"&gt;&lt;span class="cl"&gt;&lt;span class="c1"&gt;-- 危险代码
+&lt;/span&gt;&lt;/span&gt;&lt;/span&gt;&lt;span class="line"&gt;&lt;span class="cl"&gt;&lt;span class="c1"&gt;&lt;/span&gt;&lt;span class="k"&gt;UPDATE&lt;/span&gt;&lt;span class="w"&gt; &lt;/span&gt;&lt;span class="k"&gt;order&lt;/span&gt;&lt;span class="w"&gt; &lt;/span&gt;&lt;span class="k"&gt;SET&lt;/span&gt;&lt;span class="w"&gt; &lt;/span&gt;&lt;span class="n"&gt;status&lt;/span&gt;&lt;span class="w"&gt; &lt;/span&gt;&lt;span class="o"&gt;=&lt;/span&gt;&lt;span class="w"&gt; &lt;/span&gt;&lt;span class="s1"&gt;&amp;#39;PAID&amp;#39;&lt;/span&gt;&lt;span class="w"&gt; &lt;/span&gt;&lt;span class="k"&gt;WHERE&lt;/span&gt;&lt;span class="w"&gt; &lt;/span&gt;&lt;span class="n"&gt;order_id&lt;/span&gt;&lt;span class="w"&gt; &lt;/span&gt;&lt;span class="o"&gt;=&lt;/span&gt;&lt;span class="w"&gt; &lt;/span&gt;&lt;span class="mi"&gt;123&lt;/span&gt;&lt;span class="p"&gt;;&lt;/span&gt;&lt;span class="w"&gt;
+&lt;/span&gt;&lt;/span&gt;&lt;/span&gt;&lt;/code&gt;&lt;/pre&gt;&lt;/td&gt;&lt;/tr&gt;&lt;/table&gt;
+&lt;/div&gt;
+&lt;/div&gt;&lt;p&gt;要写这样的代码：&lt;/p&gt;
+&lt;div class="highlight"&gt;&lt;div class="chroma"&gt;
+&lt;table class="lntable"&gt;&lt;tr&gt;&lt;td class="lntd"&gt;
+&lt;pre tabindex="0" class="chroma"&gt;&lt;code&gt;&lt;span class="lnt"&gt;1
+&lt;/span&gt;&lt;span class="lnt"&gt;2
+&lt;/span&gt;&lt;span class="lnt"&gt;3
+&lt;/span&gt;&lt;/code&gt;&lt;/pre&gt;&lt;/td&gt;
+&lt;td class="lntd"&gt;
+&lt;pre tabindex="0" class="chroma"&gt;&lt;code class="language-sql" data-lang="sql"&gt;&lt;span class="line"&gt;&lt;span class="cl"&gt;&lt;span class="c1"&gt;-- 幂等代码
+&lt;/span&gt;&lt;/span&gt;&lt;/span&gt;&lt;span class="line"&gt;&lt;span class="cl"&gt;&lt;span class="c1"&gt;&lt;/span&gt;&lt;span class="k"&gt;UPDATE&lt;/span&gt;&lt;span class="w"&gt; &lt;/span&gt;&lt;span class="k"&gt;order&lt;/span&gt;&lt;span class="w"&gt; &lt;/span&gt;&lt;span class="k"&gt;SET&lt;/span&gt;&lt;span class="w"&gt; &lt;/span&gt;&lt;span class="n"&gt;status&lt;/span&gt;&lt;span class="w"&gt; &lt;/span&gt;&lt;span class="o"&gt;=&lt;/span&gt;&lt;span class="w"&gt; &lt;/span&gt;&lt;span class="s1"&gt;&amp;#39;PAID&amp;#39;&lt;/span&gt;&lt;span class="w"&gt;
+&lt;/span&gt;&lt;/span&gt;&lt;/span&gt;&lt;span class="line"&gt;&lt;span class="cl"&gt;&lt;span class="w"&gt;&lt;/span&gt;&lt;span class="k"&gt;WHERE&lt;/span&gt;&lt;span class="w"&gt; &lt;/span&gt;&lt;span class="n"&gt;order_id&lt;/span&gt;&lt;span class="w"&gt; &lt;/span&gt;&lt;span class="o"&gt;=&lt;/span&gt;&lt;span class="w"&gt; &lt;/span&gt;&lt;span class="mi"&gt;123&lt;/span&gt;&lt;span class="w"&gt; &lt;/span&gt;&lt;span class="k"&gt;AND&lt;/span&gt;&lt;span class="w"&gt; &lt;/span&gt;&lt;span class="n"&gt;status&lt;/span&gt;&lt;span class="w"&gt; &lt;/span&gt;&lt;span class="o"&gt;=&lt;/span&gt;&lt;span class="w"&gt; &lt;/span&gt;&lt;span class="s1"&gt;&amp;#39;PENDING&amp;#39;&lt;/span&gt;&lt;span class="p"&gt;;&lt;/span&gt;&lt;span class="w"&gt; &lt;/span&gt;&lt;span class="c1"&gt;-- 核心在这里
+&lt;/span&gt;&lt;/span&gt;&lt;/span&gt;&lt;/code&gt;&lt;/pre&gt;&lt;/td&gt;&lt;/tr&gt;&lt;/table&gt;
+&lt;/div&gt;
+&lt;/div&gt;&lt;p&gt;&lt;strong&gt;落地效果：&lt;/strong&gt;
 通过 &lt;code&gt;affected_rows&lt;/code&gt;（受影响行数）来判断。&lt;/p&gt;
 &lt;ul&gt;
 &lt;li&gt;如果是1：说明更新成功，执行后续发货逻辑。&lt;/li&gt;
 &lt;li&gt;如果是0：说明订单已经不是 &lt;code&gt;PENDING&lt;/code&gt; 状态（可能是已经支付了），直接返回“处理成功”给回调方，停止后续所有业务逻辑。&lt;/li&gt;
 &lt;/ul&gt;
 &lt;p&gt;这种方式利用了数据库的当前读（Current Read）特性，即使是高并发场景，数据库也会帮我们将请求排队，保证只有一个请求能修改状态成功。&lt;/p&gt;
-&lt;h2 id=&#34;思考与行动&#34;&gt;思考与行动
+&lt;h2 id="思考与行动"&gt;思考与行动
 &lt;/h2&gt;&lt;p&gt;写到这里，我想问大家一个问题：&lt;strong&gt;你现在的项目中，有哪些涉及资金或核心资源变动的接口，完全依赖前端按钮置灰来防止重复提交？&lt;/strong&gt;&lt;/p&gt;
 &lt;p&gt;如果答案是肯定的，这大概率是一个待引爆的地雷。&lt;/p&gt;
 &lt;p&gt;幂等性设计不是要为了炫技去引入分布式事务框架（如Seata对于小团队太重了），而是用最简单的手段解决80%的问题。&lt;/p&gt;
@@ -119,9 +140,4 @@
 &lt;li&gt;&lt;strong&gt;封装通用注解：&lt;/strong&gt; 写一个 &lt;code&gt;@Idempotent&lt;/code&gt; 注解，结合Redis，切面处理重复请求。让开发同学只需要加一个注解就能防手抖，降低推广难度。&lt;/li&gt;
 &lt;li&gt;&lt;strong&gt;统一响应规范：&lt;/strong&gt; 与前端约定好，当触发幂等拦截时，是报错提示“请勿重复提交”，还是静默返回“操作成功”。对于用户体验来说，查询类的幂等通常静默处理，修改类的建议给与适当提示。&lt;/li&gt;
 &lt;/ol&gt;
-&lt;p&gt;架构设计的本质不是追求完美，而是管理风险。希望这些实战经验能帮你守住系统的“防洪堤”。&lt;/p&gt;
-</description>
-        </item>
-        
-    </channel>
-</rss>
+&lt;p&gt;架构设计的本质不是追求完美，而是管理风险。希望这些实战经验能帮你守住系统的“防洪堤”。&lt;/p&gt;</description></item></channel></rss>

@@ -1,516 +1,57 @@
-<!DOCTYPE html>
-<html lang="zh-cn" dir="ltr">
-    <head><meta charset='utf-8'>
-<meta name='viewport' content='width=device-width, initial-scale=1'><meta name='description' content="第17章：推理优化——KV Cache、量化与高效生成\r系列导读：本章是 LLM 工程的核心技术之一。如果你要自建 LLM 服务或做推理调优，KV Cache 是必须理解的第一块基础。\n一、LLM 推理有多贵？\rGPT-4 处理一个 4000 token 的文档 + 生成 500 token 的答案，单次调用的推理成本是多少？\nPrompt token：每 token 都有成本 生成的每个 token：都要做一次完整的模型前向传播 长上下文：注意力计算是 O(n²)，token 越多越慢 高频服务的推理成本会是最大的运营开销。优化不是锦上添花，是生死线。\n二、KV Cache：为什么解码慢？\rTransformer 在生成时有一个核心特性：自回归生成——每次只能生成一个 token。\n假设你在生成第 K 个 token，模型需要：\n把所有之前的 token 重新过一遍（包括你刚生成的第 K-1 个） 计算所有 token 的 Key 和 Value 向量 用这些 KV 做注意力，生成第 K 个 token 重复计算极大浪费。前面的 token 的 Key 和 Value 计算结果，在第 100 步和第 101 步怎么可能变？\n">
-<title>第17章：推理优化——KV Cache、量化与高效生成</title>
-
-<link rel='canonical' href='https://blog.irudder.me/ai/knowledge-series/17-Inference-Optimization-and-KV-Cache.html'>
-
-<link rel="stylesheet" href="/scss/style.min.b9e9128fec450ebccecc4ec9900157f32b85d0609bcd5ee3293968bcaa1235f2.css"><meta property='og:title' content="第17章：推理优化——KV Cache、量化与高效生成">
-<meta property='og:description' content="第17章：推理优化——KV Cache、量化与高效生成\r系列导读：本章是 LLM 工程的核心技术之一。如果你要自建 LLM 服务或做推理调优，KV Cache 是必须理解的第一块基础。\n一、LLM 推理有多贵？\rGPT-4 处理一个 4000 token 的文档 + 生成 500 token 的答案，单次调用的推理成本是多少？\nPrompt token：每 token 都有成本 生成的每个 token：都要做一次完整的模型前向传播 长上下文：注意力计算是 O(n²)，token 越多越慢 高频服务的推理成本会是最大的运营开销。优化不是锦上添花，是生死线。\n二、KV Cache：为什么解码慢？\rTransformer 在生成时有一个核心特性：自回归生成——每次只能生成一个 token。\n假设你在生成第 K 个 token，模型需要：\n把所有之前的 token 重新过一遍（包括你刚生成的第 K-1 个） 计算所有 token 的 Key 和 Value 向量 用这些 KV 做注意力，生成第 K 个 token 重复计算极大浪费。前面的 token 的 Key 和 Value 计算结果，在第 100 步和第 101 步怎么可能变？\n">
-<meta property='og:url' content='https://blog.irudder.me/ai/knowledge-series/17-Inference-Optimization-and-KV-Cache.html'>
-<meta property='og:site_name' content='SelfTechHub'>
-<meta property='og:type' content='article'><meta property='article:section' content='Ai' /><meta property='article:tag' content='Inference Optimization' /><meta property='article:tag' content='KV Cache' /><meta property='article:tag' content='Quantization' /><meta property='article:tag' content='LLM Performance' /><meta property='article:published_time' content='2026-07-17T00:00:00&#43;00:00'/><meta property='article:modified_time' content='2026-07-17T00:00:00&#43;00:00'/>
-<meta name="twitter:title" content="第17章：推理优化——KV Cache、量化与高效生成">
-<meta name="twitter:description" content="第17章：推理优化——KV Cache、量化与高效生成\r系列导读：本章是 LLM 工程的核心技术之一。如果你要自建 LLM 服务或做推理调优，KV Cache 是必须理解的第一块基础。\n一、LLM 推理有多贵？\rGPT-4 处理一个 4000 token 的文档 + 生成 500 token 的答案，单次调用的推理成本是多少？\nPrompt token：每 token 都有成本 生成的每个 token：都要做一次完整的模型前向传播 长上下文：注意力计算是 O(n²)，token 越多越慢 高频服务的推理成本会是最大的运营开销。优化不是锦上添花，是生死线。\n二、KV Cache：为什么解码慢？\rTransformer 在生成时有一个核心特性：自回归生成——每次只能生成一个 token。\n假设你在生成第 K 个 token，模型需要：\n把所有之前的 token 重新过一遍（包括你刚生成的第 K-1 个） 计算所有 token 的 Key 和 Value 向量 用这些 KV 做注意力，生成第 K 个 token 重复计算极大浪费。前面的 token 的 Key 和 Value 计算结果，在第 100 步和第 101 步怎么可能变？\n">
-    </head>
-    <body class="
-    article-page
-    ">
-    <script>
-        (function() {
-            const colorSchemeKey = 'StackColorScheme';
-            if(!localStorage.getItem(colorSchemeKey)){
-                localStorage.setItem(colorSchemeKey, "auto");
-            }
-        })();
-    </script><script>
-    (function() {
-        const colorSchemeKey = 'StackColorScheme';
-        const colorSchemeItem = localStorage.getItem(colorSchemeKey);
-        const supportDarkMode = window.matchMedia('(prefers-color-scheme: dark)').matches === true;
-
-        if (colorSchemeItem == 'dark' || colorSchemeItem === 'auto' && supportDarkMode) {
-            
-
-            document.documentElement.dataset.scheme = 'dark';
-        } else {
-            document.documentElement.dataset.scheme = 'light';
-        }
-    })();
-</script>
-<div class="container main-container flex on-phone--column compact"><aside class="sidebar left-sidebar sticky ">
-    <button class="hamburger hamburger--spin" type="button" id="toggle-menu" aria-label="切换菜单">
-        <span class="hamburger-box">
-            <span class="hamburger-inner"></span>
-        </span>
-    </button>
-
-    <header>
-        
-            
-            <figure class="site-avatar">
-                <a href="/">
-                
-                    
-                    
-                    
-                        
-                        <img src="/img/avatar_hu_8588ce14af1147e2.png" width="300"
-                            height="286" class="site-logo" loading="lazy" alt="Avatar">
-                    
-                
-                </a>
-                
-            </figure>
-            
-        
-        
-        <div class="site-meta">
-            <h1 class="site-name"><a href="/">SelfTechHub</a></h1>
-            <h2 class="site-description"></h2>
-        </div>
-    </header><ol class="menu" id="main-menu">
-        
-        
-        <li class="menu-bottom-section">
-            <ol class="menu">
-
-                
-                    <li id="dark-mode-toggle">
-                        <svg xmlns="http://www.w3.org/2000/svg" class="icon icon-tabler icon-tabler-toggle-left" width="24" height="24" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor" fill="none" stroke-linecap="round" stroke-linejoin="round">
-  <path stroke="none" d="M0 0h24v24H0z"/>
-  <circle cx="8" cy="12" r="2" />
-  <rect x="2" y="6" width="20" height="12" rx="6" />
-</svg>
-
-
-
-                        <svg xmlns="http://www.w3.org/2000/svg" class="icon icon-tabler icon-tabler-toggle-right" width="24" height="24" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor" fill="none" stroke-linecap="round" stroke-linejoin="round">
-  <path stroke="none" d="M0 0h24v24H0z"/>
-  <circle cx="16" cy="12" r="2" />
-  <rect x="2" y="6" width="20" height="12" rx="6" />
-</svg>
-
-
-
-                        <span>暗色模式</span>
-                    </li>
-                
-            </ol>
-        </li>
-    </ol>
-</aside>
-
-    
-
-            <main class="main full-width">
-    <article class="main-article">
-    <header class="article-header">
-
-    <div class="article-details">
-    
-    <header class="article-category">
-        
-            <a href="/categories/ai.html" >
-                AI探索
-            </a>
-        
-    </header>
-    
-
-    <div class="article-title-wrapper">
-        <h2 class="article-title">
-            <a href="/ai/knowledge-series/17-Inference-Optimization-and-KV-Cache.html">第17章：推理优化——KV Cache、量化与高效生成</a>
-        </h2>
-    
-        
-    </div>
-
-    
-    
-    
-    
-    <footer class="article-time">
-        
-            <div>
-                <svg xmlns="http://www.w3.org/2000/svg" class="icon icon-tabler icon-tabler-calendar-time" width="56" height="56" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor" fill="none" stroke-linecap="round" stroke-linejoin="round">
-  <path stroke="none" d="M0 0h24v24H0z"/>
-  <path d="M11.795 21h-6.795a2 2 0 0 1 -2 -2v-12a2 2 0 0 1 2 -2h12a2 2 0 0 1 2 2v4" />
-  <circle cx="18" cy="18" r="4" />
-  <path d="M15 3v4" />
-  <path d="M7 3v4" />
-  <path d="M3 11h16" />
-  <path d="M18 16.496v1.504l1 1" />
-</svg>
-                <time class="article-time--published" datetime='2026-07-17T00:00:00Z'>Jul 17, 2026</time>
-            </div>
-        
-
-        
-            <div>
-                <svg xmlns="http://www.w3.org/2000/svg" class="icon icon-tabler icon-tabler-clock" width="24" height="24" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor" fill="none" stroke-linecap="round" stroke-linejoin="round">
-  <path stroke="none" d="M0 0h24v24H0z"/>
-  <circle cx="12" cy="12" r="9" />
-  <polyline points="12 7 12 12 15 15" />
-</svg>
-
-
-
-                <time class="article-time--reading">
-                    阅读时长: 2 分钟
-                </time>
-            </div>
-        
-    </footer>
-    
-
-    
-</div>
-
-</header>
-
-    <section class="article-content">
-    
-    
-    <h1 id="第17章推理优化kv-cache量化与高效生成">第17章：推理优化——KV Cache、量化与高效生成
-</h1><blockquote>
-<p>系列导读：本章是 LLM 工程的核心技术之一。如果你要自建 LLM 服务或做推理调优，KV Cache 是必须理解的第一块基础。</p>
-</blockquote>
-<hr>
-<h2 id="一llm-推理有多贵">一、LLM 推理有多贵？
-</h2><p>GPT-4 处理一个 4000 token 的文档 + 生成 500 token 的答案，单次调用的推理成本是多少？</p>
-<ul>
-<li><strong>Prompt token</strong>：每 token 都有成本</li>
-<li><strong>生成的每个 token</strong>：都要做一次完整的模型前向传播</li>
-<li><strong>长上下文</strong>：注意力计算是 O(n²)，token 越多越慢</li>
-</ul>
-<p>高频服务的推理成本会是最大的运营开销。优化不是锦上添花，是生死线。</p>
-<h2 id="二kv-cache为什么解码慢">二、KV Cache：为什么解码慢？
-</h2><p>Transformer 在生成时有一个核心特性：<strong>自回归生成</strong>——每次只能生成一个 token。</p>
-<p>假设你在生成第 K 个 token，模型需要：</p>
-<ol>
-<li>把所有之前的 token 重新过一遍（包括你刚生成的第 K-1 个）</li>
-<li>计算所有 token 的 Key 和 Value 向量</li>
-<li>用这些 KV 做注意力，生成第 K 个 token</li>
-</ol>
-<p><strong>重复计算极大浪费</strong>。前面的 token 的 Key 和 Value 计算结果，在第 100 步和第 101 步怎么可能变？</p>
-<h3 id="kv-cache-的核心思想">KV Cache 的核心思想
-</h3><p><strong>缓存历史 token 的 Key 和 Value 向量，每步只计算新 token 的 KV。</strong></p>
-<div class="highlight"><pre tabindex="0" style="color:#f8f8f2;background-color:#272822;-moz-tab-size:4;-o-tab-size:4;tab-size:4;"><code class="language-python" data-lang="python"><span style="display:flex;"><span><span style="color:#75715e"># 没有 KV Cache（每次全量计算）</span>
-</span></span><span style="display:flex;"><span><span style="color:#66d9ef">for</span> i <span style="color:#f92672">in</span> range(max_new_tokens):
-</span></span><span style="display:flex;"><span>    output <span style="color:#f92672">=</span> model(full_input <span style="color:#f92672">+</span> generated_tokens)  <span style="color:#75715e"># O(n²) 的注意力</span>
-</span></span><span style="display:flex;"><span>    next_token <span style="color:#f92672">=</span> sample(output)
-</span></span><span style="display:flex;"><span>    generated_tokens<span style="color:#f92672">.</span>append(next_token)
-</span></span><span style="display:flex;"><span>
-</span></span><span style="display:flex;"><span><span style="color:#75715e"># 有 KV Cache（只计算新内容）</span>
-</span></span><span style="display:flex;"><span><span style="color:#66d9ef">for</span> i <span style="color:#f92672">in</span> range(max_new_tokens):
-</span></span><span style="display:flex;"><span>    <span style="color:#75715e"># 只输入最新一个 token，KV Cache 提供历史注意力</span>
-</span></span><span style="display:flex;"><span>    output <span style="color:#f92672">=</span> model(next_token, past_key_values<span style="color:#f92672">=</span>kv_cache)
-</span></span><span style="display:flex;"><span>    kv_cache<span style="color:#f92672">.</span>update(output<span style="color:#f92672">.</span>kv)  <span style="color:#75715e"># 新 token 的 KV 加入缓存</span>
-</span></span><span style="display:flex;"><span>    next_token <span style="color:#f92672">=</span> sample(output)
-</span></span></code></pre></div><h3 id="效果">效果
-</h3><ul>
-<li>时间复杂度：从 O(n²) → O(n)（每个新 token 的计算量几乎恒定）</li>
-<li>速度提升：长上下文时提升数倍</li>
-<li>内存消耗：需要额外存储所有历史 KV（通常几百 MB 到几 GB）</li>
-</ul>
-<h3 id="kv-cache-的容量压力">KV Cache 的容量压力
-</h3><p>KV Cache 的大小 = 层数 × 注意力头数 × 序列长度 × 每头维度 × 2 (K+V) × 每个值精度</p>
-<p>以 LLaMA-2-70B 为例：</p>
-<ul>
-<li>80 层 × 8 KV 头 × 序列长度 4096 × 128 维度 × 2 × 2 bytes (FP16)</li>
-<li>≈ <strong>160 GB 内存</strong> 才能存放一个 batch_size=1 的 KV Cache</li>
-</ul>
-<p>这就是为什么 <strong>长上下文 + 大 batch_size</strong> 的 LLM 推理内存需求极高。</p>
-<h2 id="三量化推理quantization">三、量化推理（Quantization）
-</h2><p>模型推理时的参数量极大（GPT-3 175B → ~350GB FP16），加载到 GPU 需要巨量显存。</p>
-<p>量化：把模型权重从高精度（FP16/32）压缩到低精度（INT8/INT4），降低内存占用和计算带宽需求。</p>
-<div class="table-wrapper"><table>
-  <thead>
-      <tr>
-          <th>精度</th>
-          <th>每参数占存</th>
-          <th>效果影响</th>
-          <th>适用</th>
-      </tr>
-  </thead>
-  <tbody>
-      <tr>
-          <td>FP32</td>
-          <td>4 bytes</td>
-          <td>基准</td>
-          <td>训练</td>
-      </tr>
-      <tr>
-          <td>FP16/BF16</td>
-          <td>2 bytes</td>
-          <td>几乎无损</td>
-          <td>推理</td>
-      </tr>
-      <tr>
-          <td>INT8</td>
-          <td>1 byte</td>
-          <td>轻微损失</td>
-          <td>推理</td>
-      </tr>
-      <tr>
-          <td>INT4</td>
-          <td>0.5 bytes</td>
-          <td>可观测损失</td>
-          <td>边缘/消费级</td>
-      </tr>
-      <tr>
-          <td>GPTQ/AWQ</td>
-          <td>INT4 级</td>
-          <td>优化后接近 INT8</td>
-          <td>本地推理</td>
-      </tr>
-  </tbody>
-</table></div>
-<h3 id="gptq--awq--gguf">GPTQ / AWQ / GGUF
-</h3><p>这些是在 INT4 量级上做的高级量化技术，核心改进是：</p>
-<ul>
-<li><strong>GPTQ</strong>：基于二阶 Hessian 信息做分组量化，误差更小</li>
-<li><strong>AWQ</strong>：观察到&quot;权重中 1% 离群值对效果影响极大&quot;，对离群值保持高精度</li>
-<li><strong>GGUF</strong>：llama.cpp 的格式，CPU 推理友好，消费级 GPU 也能跑大模型</li>
-</ul>
-<h2 id="四pagedattention-与-vllm">四、PagedAttention 与 vLLM
-</h2><p>除了 KV Cache 和量化，还有一个革命性的推理优化：<strong>PagedAttention</strong>。</p>
-<h3 id="问题kv-cache-的内存碎片">问题：KV Cache 的内存碎片
-</h3><p>系统同时服务多个请求，每个请求的序列长度不同。显存分配像内存分配一样，会产生碎片。</p>
-<p>传统做法：每个请求预分配最大可能的 KV Cache 空间 → 大量内存浪费。</p>
-<h3 id="pagedattention-的思路">PagedAttention 的思路
-</h3><p>借鉴操作系统虚拟内存的<strong>分页机制</strong>：</p>
-<ul>
-<li>把 KV Cache 切成固定大小的 &ldquo;block&rdquo;（比如 16 token 一组 KV）</li>
-<li>按需要的块动态分配和回收</li>
-<li>用 block table 做虚拟到物理的映射</li>
-</ul>
-<p><strong>效果</strong>：</p>
-<ul>
-<li>内存碎片化几乎消除</li>
-<li>batch size 可以提升数倍</li>
-<li>吞吐量提升 3-5 倍（论文数据）</li>
-</ul>
-<p><strong>vLLM</strong>：基于 PagedAttention 的高性能推理引擎，是自建 LLM 服务的首选开源框架。</p>
-<h2 id="五推理优化的决策树">五、推理优化的决策树
-</h2><pre tabindex="0"><code>你要优化推理？先看你的瓶颈：
-
-内存不够？ → 量化（FP16→INT8或INT4）
-速度不够？ → KV Cache + PagedAttention (vLLM)
-并发不够？ → 批处理优化（continuous batching）
-长上下文慢？ → KV Cache + 稀疏注意力 / 滑动窗口注意力
-网络延迟？ → 流式输出（SSE）+ 输出压缩
-</code></pre><h2 id="六本章小结">六、本章小结
-</h2><ul>
-<li>KV Cache 是 LLM 推理加速的第一性原理：避免重复计算历史 token</li>
-<li>KV Cache 的内存消耗极大，是大 batch / 长上下文推理的主要瓶颈</li>
-<li>量化（FP16/INT8/INT4）是压缩模型体积的最有效手段</li>
-<li>PagedAttention 用分页管理 KV Cache，消除碎片、提升吞吐量</li>
-<li>vLLM 结合了 KV Cache + PagedAttention + 高效调度，是当前主流的高性能推理方案</li>
-</ul>
-<h2 id="思考题">思考题
-</h2><ol>
-<li>KV Cache 的内存占用和 batch_size 成正比。如果要在单卡 24GB 显存上实现比较大的并发，你会从哪些角度做取舍设计？</li>
-<li>量化到 INT4 后精度损失最大的是哪些类型的权重？为什么 Transformer 的注意力层权重比较敏感？</li>
-</ol>
-
-</section>
-
-
-    <footer class="article-footer">
-    
-    <section class="article-tags">
-        
-            <a href="/tags/Inference-Optimization.html">Inference Optimization</a>
-        
-            <a href="/tags/KV-Cache.html">KV Cache</a>
-        
-            <a href="/tags/Quantization.html">Quantization</a>
-        
-            <a href="/tags/LLM-Performance.html">LLM Performance</a>
-        
-    </section>
-
-
-    </footer>
-
-
-    
-</article>
-
-    
-
-    
-
-     
-    
-        
-    <script
-    src="https://giscus.app/client.js"
-    data-repo="pastor17/bloggiscus"
-    data-repo-id="R_kgDOQ6H9qQ"
-    data-category=""
-    data-category-id="DIC_kwDOQ6H9qc4C0-T8"
-    data-mapping="pathname"
-    data-strict="0"
-    data-reactions-enabled="1"
-    data-emit-metadata="0"
-    data-input-position="bottom"
-    data-theme="light"
-    data-lang="zh-CN"
-    data-loading="lazy"
-    crossorigin="anonymous"
-    async
-></script>
-<script>
-    function setGiscusTheme(theme) {
-        let giscus = document.querySelector("iframe.giscus-frame");
-        if (giscus) {
-            giscus.contentWindow.postMessage(
-                {
-                    giscus: {
-                        setConfig: {
-                            theme: theme,
-                        },
-                    },
-                },
-                "https://giscus.app"
-            );
-        }
-    }
-
-    (function () {
-        addEventListener("message", (e) => {
-            if (event.origin !== "https://giscus.app") return;
-            handler();
-        });
-        window.addEventListener("onColorSchemeChange", handler);
-
-        function handler() {
-            if (document.documentElement.dataset.scheme === "light") {
-                setGiscusTheme('light');
-            } else {
-                setGiscusTheme('dark_dimmed');
-            }
-        }
-    })();
-</script>
-
-    
-
-    <footer class="site-footer">
-    <section class="copyright">
-        &copy; 
-        
-        2026 SelfTechHub
-    </section>
-    
-    <section class="powerby">
-        
-
-    </section>
-</footer>
-
-
-    
-<div class="pswp" tabindex="-1" role="dialog" aria-hidden="true">
-
-    
-    <div class="pswp__bg"></div>
-
-    
-    <div class="pswp__scroll-wrap">
-
-        
-        <div class="pswp__container">
-            <div class="pswp__item"></div>
-            <div class="pswp__item"></div>
-            <div class="pswp__item"></div>
-        </div>
-
-        
-        <div class="pswp__ui pswp__ui--hidden">
-
-            <div class="pswp__top-bar">
-
-                
-
-                <div class="pswp__counter"></div>
-
-                <button class="pswp__button pswp__button--close" title="Close (Esc)"></button>
-
-                <button class="pswp__button pswp__button--share" title="Share"></button>
-
-                <button class="pswp__button pswp__button--fs" title="Toggle fullscreen"></button>
-
-                <button class="pswp__button pswp__button--zoom" title="Zoom in/out"></button>
-
-                
-                
-                <div class="pswp__preloader">
-                    <div class="pswp__preloader__icn">
-                        <div class="pswp__preloader__cut">
-                            <div class="pswp__preloader__donut"></div>
-                        </div>
-                    </div>
-                </div>
-            </div>
-
-            <div class="pswp__share-modal pswp__share-modal--hidden pswp__single-tap">
-                <div class="pswp__share-tooltip"></div>
-            </div>
-
-            <button class="pswp__button pswp__button--arrow--left" title="Previous (arrow left)">
-            </button>
-
-            <button class="pswp__button pswp__button--arrow--right" title="Next (arrow right)">
-            </button>
-
-            <div class="pswp__caption">
-                <div class="pswp__caption__center"></div>
-            </div>
-
-        </div>
-
-    </div>
-
-</div><script 
-                src="https://cdn.jsdelivr.net/npm/photoswipe@4.1.3/dist/photoswipe.min.js"integrity="sha256-ePwmChbbvXbsO02lbM3HoHbSHTHFAeChekF1xKJdleo="crossorigin="anonymous"
-                defer
-                >
-            </script><script 
-                src="https://cdn.jsdelivr.net/npm/photoswipe@4.1.3/dist/photoswipe-ui-default.min.js"integrity="sha256-UKkzOn/w1mBxRmLLGrSeyB4e1xbrp4xylgAWb3M42pU="crossorigin="anonymous"
-                defer
-                >
-            </script><link 
-                rel="stylesheet" 
-                href="https://cdn.jsdelivr.net/npm/photoswipe@4.1.3/dist/default-skin/default-skin.min.css"crossorigin="anonymous"
-            ><link 
-                rel="stylesheet" 
-                href="https://cdn.jsdelivr.net/npm/photoswipe@4.1.3/dist/photoswipe.min.css"crossorigin="anonymous"
-            >
-    
-
-            </main>
-        </div>
-        <script 
-                src="https://cdn.jsdelivr.net/npm/node-vibrant@3.1.6/dist/vibrant.min.js"integrity="sha256-awcR2jno4kI5X0zL8ex0vi2z&#43;KMkF24hUW8WePSA9HM="crossorigin="anonymous"
-                
-                >
-            </script><script type="text/javascript" src="/ts/main.c922af694cc257bf1ecc41c0dd7b0430f9114ec280ccf67cd2c6ad55f5316c4e.js" defer></script>
-<script>
-    (function () {
-        const customFont = document.createElement('link');
-        customFont.href = "https://fonts.googleapis.com/css2?family=Lato:wght@300;400;700&display=swap";
-
-        customFont.type = "text/css";
-        customFont.rel = "stylesheet";
-
-        document.head.appendChild(customFont);
-    }());
-</script>
-
-    </body>
-</html>
+<!doctype html><html lang=zh-cn dir=ltr><head><meta charset=utf-8><meta name=viewport content='width=device-width,initial-scale=1'><meta name=description content="系列导读：本章是 LLM 工程的核心技术之一。如果你要自建 LLM 服务或做推理调优，KV Cache 是必须理解的第一块基础。"><title>第17章：推理优化——KV Cache、量化与高效生成</title><link rel=canonical href=https://blog.irudder.me/ai/knowledge-series/17-Inference-Optimization-and-KV-Cache.html><link rel=stylesheet href=/scss/style.min.c77ce1b874b29b2ee9e54a89066c79ebf35cbe9cf399b31ab5d79167f9a965c9.css><meta property='og:title' content="第17章：推理优化——KV Cache、量化与高效生成"><meta property='og:description' content="系列导读：本章是 LLM 工程的核心技术之一。如果你要自建 LLM 服务或做推理调优，KV Cache 是必须理解的第一块基础。"><meta property='og:url' content='https://blog.irudder.me/ai/knowledge-series/17-Inference-Optimization-and-KV-Cache.html'><meta property='og:site_name' content='SelfTechHub'><meta property='og:type' content='article'><meta property='article:section' content='Ai'><meta property='article:tag' content='Inference Optimization'><meta property='article:tag' content='KV Cache'><meta property='article:tag' content='Quantization'><meta property='article:tag' content='LLM Performance'><meta property='article:published_time' content='2026-07-17T00:00:00+08:00'><meta property='article:modified_time' content='2026-07-17T00:00:00+08:00'><meta name=twitter:title content="第17章：推理优化——KV Cache、量化与高效生成"><meta name=twitter:description content="系列导读：本章是 LLM 工程的核心技术之一。如果你要自建 LLM 服务或做推理调优，KV Cache 是必须理解的第一块基础。"><link rel="shortcut icon" href=/images/logo.png></head><body class=article-page><script>(function(){const e="StackColorScheme";localStorage.getItem(e)||localStorage.setItem(e,"auto")})()</script><script>(function(){const t="StackColorScheme",e=localStorage.getItem(t),n=window.matchMedia("(prefers-color-scheme: dark)").matches===!0;e=="dark"||e==="auto"&&n?document.documentElement.dataset.scheme="dark":document.documentElement.dataset.scheme="light"})()</script><div class="container main-container flex on-phone--column extended"><aside class="sidebar left-sidebar sticky"><button class="hamburger hamburger--spin" type=button id=toggle-menu aria-label=切换菜单>
+<span class=hamburger-box><span class=hamburger-inner></span></span></button><header><figure class=site-avatar><a href=/><img src=/img/avatar_hu_8588ce14af1147e2.png width=300 height=286 class=site-logo loading=lazy alt=Avatar>
+</a><span class=emoji>🧠</span></figure><div class=site-meta><h1 class=site-name><a href=/>SelfTechHub</a></h1><h2 class=site-description>成长 · 技术 · 商业 · AI —— 把碎片知识沉淀为可复用的记忆体系</h2></div></header><ol class=menu-social><li><a href=https://github.com/pastor17 target=_blank title=GitHub rel=me><svg class="icon icon-tabler icon-tabler-brand-github" width="24" height="24" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor" fill="none" stroke-linecap="round" stroke-linejoin="round"><path stroke="none" d="M0 0h24v24H0z" fill="none"/><path d="M9 19c-4.3 1.4-4.3-2.5-6-3m12 5v-3.5c0-1 .1-1.4-.5-2 2.8-.3 5.5-1.4 5.5-6a4.6 4.6.0 00-1.3-3.2 4.2 4.2.0 00-.1-3.2s-1.1-.3-3.5 1.3a12.3 12.3.0 00-6.2.0C6.5 2.8 5.4 3.1 5.4 3.1a4.2 4.2.0 00-.1 3.2A4.6 4.6.0 004 9.5c0 4.6 2.7 5.7 5.5 6-.6.6-.6 1.2-.5 2V21"/></svg></a></li></ol><ol class=menu id=main-menu><li><a href=/><svg class="icon icon-tabler icon-tabler-home" width="24" height="24" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor" fill="none" stroke-linecap="round" stroke-linejoin="round"><path stroke="none" d="M0 0h24v24H0z"/><polyline points="5 12 3 12 12 3 21 12 19 12"/><path d="M5 12v7a2 2 0 002 2h10a2 2 0 002-2v-7"/><path d="M9 21v-6a2 2 0 012-2h2a2 2 0 012 2v6"/></svg>
+<span>首页</span></a></li><li><a href=/categories/%E6%88%90%E9%95%BF.html><span>成长认知</span></a></li><li><a href=/categories/%E6%8A%80%E6%9C%AF.html><span>技术精进</span></a></li><li><a href=/categories/%E5%95%86%E4%B8%9A.html><span>商业·财富</span></a></li><li><a href=/categories/ai.html><span>探索AI</span></a></li><li><a href=/about/><svg class="icon icon-tabler icon-tabler-user" width="24" height="24" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor" fill="none" stroke-linecap="round" stroke-linejoin="round"><path stroke="none" d="M0 0h24v24H0z"/><circle cx="12" cy="7" r="4"/><path d="M6 21v-2a4 4 0 014-4h4a4 4 0 014 4v2"/></svg>
+<span>关于</span></a></li><li class=menu-bottom-section><ol class=menu><li id=dark-mode-toggle><svg class="icon icon-tabler icon-tabler-toggle-left" width="24" height="24" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor" fill="none" stroke-linecap="round" stroke-linejoin="round"><path stroke="none" d="M0 0h24v24H0z"/><circle cx="8" cy="12" r="2"/><rect x="2" y="6" width="20" height="12" rx="6"/></svg>
+<svg class="icon icon-tabler icon-tabler-toggle-right" width="24" height="24" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor" fill="none" stroke-linecap="round" stroke-linejoin="round"><path stroke="none" d="M0 0h24v24H0z"/><circle cx="16" cy="12" r="2"/><rect x="2" y="6" width="20" height="12" rx="6"/></svg>
+<span>暗色模式</span></li></ol></li></ol></aside><aside class="sidebar right-sidebar sticky"><section class="widget archives"><div class=widget-icon><svg class="icon icon-tabler icon-tabler-hash" width="24" height="24" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor" fill="none" stroke-linecap="round" stroke-linejoin="round"><path stroke="none" d="M0 0h24v24H0z"/><line x1="5" y1="9" x2="19" y2="9"/><line x1="5" y1="15" x2="19" y2="15"/><line x1="11" y1="4" x2="7" y2="20"/><line x1="17" y1="4" x2="13" y2="20"/></svg></div><h2 class="widget-title section-title">目录</h2><div class=widget--toc><nav id=TableOfContents><ul><li><a href=#一llm-推理有多贵>一、LLM 推理有多贵？</a></li><li><a href=#二kv-cache为什么解码慢>二、KV Cache：为什么解码慢？</a><ul><li><a href=#kv-cache-的核心思想>KV Cache 的核心思想</a></li><li><a href=#效果>效果</a></li><li><a href=#kv-cache-的容量压力>KV Cache 的容量压力</a></li></ul></li><li><a href=#三量化推理quantization>三、量化推理（Quantization）</a><ul><li><a href=#gptq--awq--gguf>GPTQ / AWQ / GGUF</a></li></ul></li><li><a href=#四pagedattention-与-vllm>四、PagedAttention 与 vLLM</a><ul><li><a href=#问题kv-cache-的内存碎片>问题：KV Cache 的内存碎片</a></li><li><a href=#pagedattention-的思路>PagedAttention 的思路</a></li></ul></li><li><a href=#五推理优化的决策树>五、推理优化的决策树</a></li><li><a href=#六本章小结>六、本章小结</a></li><li><a href=#思考题>思考题</a></li></ul></nav></div></section></aside><main class="main full-width"><article class=main-article><header class=article-header><div class=article-details><header class=article-category><a href=/categories/ai.html>AI探索</a></header><div class=article-title-wrapper><h2 class=article-title><a href=/ai/knowledge-series/17-Inference-Optimization-and-KV-Cache.html>第17章：推理优化——KV Cache、量化与高效生成</a></h2><h3 class=article-subtitle>系列导读：本章是 LLM 工程的核心技术之一。如果你要自建 LLM 服务或做推理调优，KV Cache 是必须理解的第一块基础。</h3></div><footer class=article-time><div><svg class="icon icon-tabler icon-tabler-calendar-time" width="56" height="56" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor" fill="none" stroke-linecap="round" stroke-linejoin="round"><path stroke="none" d="M0 0h24v24H0z"/><path d="M11.795 21H5a2 2 0 01-2-2V7a2 2 0 012-2h12a2 2 0 012 2v4"/><circle cx="18" cy="18" r="4"/><path d="M15 3v4"/><path d="M7 3v4"/><path d="M3 11h16"/><path d="M18 16.496V18l1 1"/></svg>
+<time class=article-time--published datetime=2026-07-17T00:00:00+08:00>2026-07-17</time></div><div><svg class="icon icon-tabler icon-tabler-clock" width="24" height="24" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor" fill="none" stroke-linecap="round" stroke-linejoin="round"><path stroke="none" d="M0 0h24v24H0z"/><circle cx="12" cy="12" r="9"/><polyline points="12 7 12 12 15 15"/></svg>
+<time class=article-time--reading>阅读时长: 4 分钟</time></div></footer></div></header><section class=article-content><h1 id=第17章推理优化kv-cache量化与高效生成>第17章：推理优化——KV Cache、量化与高效生成</h1><blockquote><p>系列导读：本章是 LLM 工程的核心技术之一。如果你要自建 LLM 服务或做推理调优，KV Cache 是必须理解的第一块基础。</p></blockquote><hr><h2 id=一llm-推理有多贵>一、LLM 推理有多贵？</h2><p>GPT-4 处理一个 4000 token 的文档 + 生成 500 token 的答案，单次调用的推理成本是多少？</p><ul><li><strong>Prompt token</strong>：每 token 都有成本</li><li><strong>生成的每个 token</strong>：都要做一次完整的模型前向传播</li><li><strong>长上下文</strong>：注意力计算是 O(n²)，token 越多越慢</li></ul><p>高频服务的推理成本会是最大的运营开销。优化不是锦上添花，是生死线。</p><h2 id=二kv-cache为什么解码慢>二、KV Cache：为什么解码慢？</h2><p>Transformer 在生成时有一个核心特性：<strong>自回归生成</strong>——每次只能生成一个 token。</p><p>假设你在生成第 K 个 token，模型需要：</p><ol><li>把所有之前的 token 重新过一遍（包括你刚生成的第 K-1 个）</li><li>计算所有 token 的 Key 和 Value 向量</li><li>用这些 KV 做注意力，生成第 K 个 token</li></ol><p><strong>重复计算极大浪费</strong>。前面的 token 的 Key 和 Value 计算结果，在第 100 步和第 101 步怎么可能变？</p><h3 id=kv-cache-的核心思想>KV Cache 的核心思想</h3><p><strong>缓存历史 token 的 Key 和 Value 向量，每步只计算新 token 的 KV。</strong></p><div class=highlight><div class=chroma><table class=lntable><tr><td class=lntd><pre tabindex=0 class=chroma><code><span class=lnt> 1
+</span><span class=lnt> 2
+</span><span class=lnt> 3
+</span><span class=lnt> 4
+</span><span class=lnt> 5
+</span><span class=lnt> 6
+</span><span class=lnt> 7
+</span><span class=lnt> 8
+</span><span class=lnt> 9
+</span><span class=lnt>10
+</span><span class=lnt>11
+</span><span class=lnt>12
+</span></code></pre></td><td class=lntd><pre tabindex=0 class=chroma><code class=language-python data-lang=python><span class=line><span class=cl><span class=c1># 没有 KV Cache（每次全量计算）</span>
+</span></span><span class=line><span class=cl><span class=k>for</span> <span class=n>i</span> <span class=ow>in</span> <span class=nb>range</span><span class=p>(</span><span class=n>max_new_tokens</span><span class=p>):</span>
+</span></span><span class=line><span class=cl>    <span class=n>output</span> <span class=o>=</span> <span class=n>model</span><span class=p>(</span><span class=n>full_input</span> <span class=o>+</span> <span class=n>generated_tokens</span><span class=p>)</span>  <span class=c1># O(n²) 的注意力</span>
+</span></span><span class=line><span class=cl>    <span class=n>next_token</span> <span class=o>=</span> <span class=n>sample</span><span class=p>(</span><span class=n>output</span><span class=p>)</span>
+</span></span><span class=line><span class=cl>    <span class=n>generated_tokens</span><span class=o>.</span><span class=n>append</span><span class=p>(</span><span class=n>next_token</span><span class=p>)</span>
+</span></span><span class=line><span class=cl>
+</span></span><span class=line><span class=cl><span class=c1># 有 KV Cache（只计算新内容）</span>
+</span></span><span class=line><span class=cl><span class=k>for</span> <span class=n>i</span> <span class=ow>in</span> <span class=nb>range</span><span class=p>(</span><span class=n>max_new_tokens</span><span class=p>):</span>
+</span></span><span class=line><span class=cl>    <span class=c1># 只输入最新一个 token，KV Cache 提供历史注意力</span>
+</span></span><span class=line><span class=cl>    <span class=n>output</span> <span class=o>=</span> <span class=n>model</span><span class=p>(</span><span class=n>next_token</span><span class=p>,</span> <span class=n>past_key_values</span><span class=o>=</span><span class=n>kv_cache</span><span class=p>)</span>
+</span></span><span class=line><span class=cl>    <span class=n>kv_cache</span><span class=o>.</span><span class=n>update</span><span class=p>(</span><span class=n>output</span><span class=o>.</span><span class=n>kv</span><span class=p>)</span>  <span class=c1># 新 token 的 KV 加入缓存</span>
+</span></span><span class=line><span class=cl>    <span class=n>next_token</span> <span class=o>=</span> <span class=n>sample</span><span class=p>(</span><span class=n>output</span><span class=p>)</span>
+</span></span></code></pre></td></tr></table></div></div><h3 id=效果>效果</h3><ul><li>时间复杂度：从 O(n²) → O(n)（每个新 token 的计算量几乎恒定）</li><li>速度提升：长上下文时提升数倍</li><li>内存消耗：需要额外存储所有历史 KV（通常几百 MB 到几 GB）</li></ul><h3 id=kv-cache-的容量压力>KV Cache 的容量压力</h3><p>KV Cache 的大小 = 层数 × 注意力头数 × 序列长度 × 每头维度 × 2 (K+V) × 每个值精度</p><p>以 LLaMA-2-70B 为例：</p><ul><li>80 层 × 8 KV 头 × 序列长度 4096 × 128 维度 × 2 × 2 bytes (FP16)</li><li>≈ <strong>160 GB 内存</strong> 才能存放一个 batch_size=1 的 KV Cache</li></ul><p>这就是为什么 <strong>长上下文 + 大 batch_size</strong> 的 LLM 推理内存需求极高。</p><h2 id=三量化推理quantization>三、量化推理（Quantization）</h2><p>模型推理时的参数量极大（GPT-3 175B → ~350GB FP16），加载到 GPU 需要巨量显存。</p><p>量化：把模型权重从高精度（FP16/32）压缩到低精度（INT8/INT4），降低内存占用和计算带宽需求。</p><div class=table-wrapper><table><thead><tr><th>精度</th><th>每参数占存</th><th>效果影响</th><th>适用</th></tr></thead><tbody><tr><td>FP32</td><td>4 bytes</td><td>基准</td><td>训练</td></tr><tr><td>FP16/BF16</td><td>2 bytes</td><td>几乎无损</td><td>推理</td></tr><tr><td>INT8</td><td>1 byte</td><td>轻微损失</td><td>推理</td></tr><tr><td>INT4</td><td>0.5 bytes</td><td>可观测损失</td><td>边缘/消费级</td></tr><tr><td>GPTQ/AWQ</td><td>INT4 级</td><td>优化后接近 INT8</td><td>本地推理</td></tr></tbody></table></div><h3 id=gptq--awq--gguf>GPTQ / AWQ / GGUF</h3><p>这些是在 INT4 量级上做的高级量化技术，核心改进是：</p><ul><li><strong>GPTQ</strong>：基于二阶 Hessian 信息做分组量化，误差更小</li><li><strong>AWQ</strong>：观察到"权重中 1% 离群值对效果影响极大"，对离群值保持高精度</li><li><strong>GGUF</strong>：llama.cpp 的格式，CPU 推理友好，消费级 GPU 也能跑大模型</li></ul><h2 id=四pagedattention-与-vllm>四、PagedAttention 与 vLLM</h2><p>除了 KV Cache 和量化，还有一个革命性的推理优化：<strong>PagedAttention</strong>。</p><h3 id=问题kv-cache-的内存碎片>问题：KV Cache 的内存碎片</h3><p>系统同时服务多个请求，每个请求的序列长度不同。显存分配像内存分配一样，会产生碎片。</p><p>传统做法：每个请求预分配最大可能的 KV Cache 空间 → 大量内存浪费。</p><h3 id=pagedattention-的思路>PagedAttention 的思路</h3><p>借鉴操作系统虚拟内存的<strong>分页机制</strong>：</p><ul><li>把 KV Cache 切成固定大小的 &ldquo;block&rdquo;（比如 16 token 一组 KV）</li><li>按需要的块动态分配和回收</li><li>用 block table 做虚拟到物理的映射</li></ul><p><strong>效果</strong>：</p><ul><li>内存碎片化几乎消除</li><li>batch size 可以提升数倍</li><li>吞吐量提升 3-5 倍（论文数据）</li></ul><p><strong>vLLM</strong>：基于 PagedAttention 的高性能推理引擎，是自建 LLM 服务的首选开源框架。</p><h2 id=五推理优化的决策树>五、推理优化的决策树</h2><div class=highlight><div class=chroma><table class=lntable><tr><td class=lntd><pre tabindex=0 class=chroma><code><span class=lnt>1
+</span><span class=lnt>2
+</span><span class=lnt>3
+</span><span class=lnt>4
+</span><span class=lnt>5
+</span><span class=lnt>6
+</span><span class=lnt>7
+</span></code></pre></td><td class=lntd><pre tabindex=0 class=chroma><code class=language-fallback data-lang=fallback><span class=line><span class=cl>你要优化推理？先看你的瓶颈：
+</span></span><span class=line><span class=cl>
+</span></span><span class=line><span class=cl>内存不够？ → 量化（FP16→INT8或INT4）
+</span></span><span class=line><span class=cl>速度不够？ → KV Cache + PagedAttention (vLLM)
+</span></span><span class=line><span class=cl>并发不够？ → 批处理优化（continuous batching）
+</span></span><span class=line><span class=cl>长上下文慢？ → KV Cache + 稀疏注意力 / 滑动窗口注意力
+</span></span><span class=line><span class=cl>网络延迟？ → 流式输出（SSE）+ 输出压缩
+</span></span></code></pre></td></tr></table></div></div><h2 id=六本章小结>六、本章小结</h2><ul><li>KV Cache 是 LLM 推理加速的第一性原理：避免重复计算历史 token</li><li>KV Cache 的内存消耗极大，是大 batch / 长上下文推理的主要瓶颈</li><li>量化（FP16/INT8/INT4）是压缩模型体积的最有效手段</li><li>PagedAttention 用分页管理 KV Cache，消除碎片、提升吞吐量</li><li>vLLM 结合了 KV Cache + PagedAttention + 高效调度，是当前主流的高性能推理方案</li></ul><h2 id=思考题>思考题</h2><ol><li>KV Cache 的内存占用和 batch_size 成正比。如果要在单卡 24GB 显存上实现比较大的并发，你会从哪些角度做取舍设计？</li><li>量化到 INT4 后精度损失最大的是哪些类型的权重？为什么 Transformer 的注意力层权重比较敏感？</li></ol></section><footer class=article-footer><section class=article-tags><a href=/tags/Inference-Optimization.html>Inference Optimization</a>
+<a href=/tags/KV-Cache.html>KV Cache</a>
+<a href=/tags/Quantization.html>Quantization</a>
+<a href=/tags/LLM-Performance.html>LLM Performance</a></section></footer></article><script src=https://giscus.app/client.js data-repo=pastor17/bloggiscus data-repo-id=R_kgDOQ6H9qQ data-category data-category-id=DIC_kwDOQ6H9qc4C0-T8 data-mapping=pathname data-strict=0 data-reactions-enabled=1 data-emit-metadata=0 data-input-position=bottom data-theme=light data-lang=zh-CN data-loading=lazy crossorigin=anonymous async></script><script>function setGiscusTheme(e){let t=document.querySelector("iframe.giscus-frame");t&&t.contentWindow.postMessage({giscus:{setConfig:{theme:e}}},"https://giscus.app")}(function(){addEventListener("message",t=>{if(event.origin!=="https://giscus.app")return;e()}),window.addEventListener("onColorSchemeChange",e);function e(){setGiscusTheme(document.documentElement.dataset.scheme==="light"?"light":"dark_dimmed")}})()</script><footer class=site-footer><section class=copyright>&copy;
+2021 -
+2026 SelfTechHub</section><section class=powerby>拒绝一次性认知，把碎片知识沉淀为可复用的记忆体系<br></section></footer><div class=pswp tabindex=-1 role=dialog aria-hidden=true><div class=pswp__bg></div><div class=pswp__scroll-wrap><div class=pswp__container><div class=pswp__item></div><div class=pswp__item></div><div class=pswp__item></div></div><div class="pswp__ui pswp__ui--hidden"><div class=pswp__top-bar><div class=pswp__counter></div><button class="pswp__button pswp__button--close" title="Close (Esc)"></button>
+<button class="pswp__button pswp__button--share" title=Share></button>
+<button class="pswp__button pswp__button--fs" title="Toggle fullscreen"></button>
+<button class="pswp__button pswp__button--zoom" title="Zoom in/out"></button><div class=pswp__preloader><div class=pswp__preloader__icn><div class=pswp__preloader__cut><div class=pswp__preloader__donut></div></div></div></div></div><div class="pswp__share-modal pswp__share-modal--hidden pswp__single-tap"><div class=pswp__share-tooltip></div></div><button class="pswp__button pswp__button--arrow--left" title="Previous (arrow left)">
+</button>
+<button class="pswp__button pswp__button--arrow--right" title="Next (arrow right)"></button><div class=pswp__caption><div class=pswp__caption__center></div></div></div></div></div><script src=https://cdn.jsdelivr.net/npm/photoswipe@4.1.3/dist/photoswipe.min.js integrity="sha256-ePwmChbbvXbsO02lbM3HoHbSHTHFAeChekF1xKJdleo=" crossorigin=anonymous defer></script><script src=https://cdn.jsdelivr.net/npm/photoswipe@4.1.3/dist/photoswipe-ui-default.min.js integrity="sha256-UKkzOn/w1mBxRmLLGrSeyB4e1xbrp4xylgAWb3M42pU=" crossorigin=anonymous defer></script><link rel=stylesheet href=https://cdn.jsdelivr.net/npm/photoswipe@4.1.3/dist/default-skin/default-skin.min.css crossorigin=anonymous><link rel=stylesheet href=https://cdn.jsdelivr.net/npm/photoswipe@4.1.3/dist/photoswipe.min.css crossorigin=anonymous></main></div><script src=https://cdn.jsdelivr.net/npm/node-vibrant@3.1.6/dist/vibrant.min.js integrity="sha256-awcR2jno4kI5X0zL8ex0vi2z+KMkF24hUW8WePSA9HM=" crossorigin=anonymous></script><script type=text/javascript src=/ts/main.c922af694cc257bf1ecc41c0dd7b0430f9114ec280ccf67cd2c6ad55f5316c4e.js defer></script><script>(function(){const e=document.createElement("link");e.href="https://fonts.googleapis.com/css2?family=Lato:wght@300;400;700&display=swap",e.type="text/css",e.rel="stylesheet",document.head.appendChild(e)})()</script></body></html>

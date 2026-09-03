@@ -1,22 +1,8 @@
-<?xml version="1.0" encoding="utf-8" standalone="yes"?>
-<rss version="2.0" xmlns:atom="http://www.w3.org/2005/Atom">
-    <channel>
-        <title>JVM调优：针对业务场景的参数调整 on SelfTechHub</title>
-        <link>https://blog.irudder.me/tags/JVM%E8%B0%83%E4%BC%98%E9%92%88%E5%AF%B9%E4%B8%9A%E5%8A%A1%E5%9C%BA%E6%99%AF%E7%9A%84%E5%8F%82%E6%95%B0%E8%B0%83%E6%95%B4.html</link>
-        <description>Recent content in JVM调优：针对业务场景的参数调整 on SelfTechHub</description>
-        <generator>Hugo -- gohugo.io</generator>
-        <language>zh-cn</language>
-        <lastBuildDate>Thu, 08 Oct 2020 00:00:00 +0000</lastBuildDate><atom:link href="https://blog.irudder.me/tags/JVM%E8%B0%83%E4%BC%98%E9%92%88%E5%AF%B9%E4%B8%9A%E5%8A%A1%E5%9C%BA%E6%99%AF%E7%9A%84%E5%8F%82%E6%95%B0%E8%B0%83%E6%95%B4/index.xml" rel="self" type="application/rss+xml" /><item>
-        <title>频繁Full GC致死？3个真实案例教你JVM“保命”调优</title>
-        <link>https://blog.irudder.me/tech/jiagouyouhuashizhananlijiexi/jvmdiaoyou_zhenduiyewuchangjingdecanshutiaozheng.html</link>
-        <pubDate>Thu, 08 Oct 2020 00:00:00 +0000</pubDate>
-        
-        <guid>https://blog.irudder.me/tech/jiagouyouhuashizhananlijiexi/jvmdiaoyou_zhenduiyewuchangjingdecanshutiaozheng.html</guid>
-        <description>&lt;p&gt;“给这台机器加到16G内存，应该就不卡了。”&lt;/p&gt;
+<?xml version="1.0" encoding="utf-8" standalone="yes"?><rss version="2.0" xmlns:atom="http://www.w3.org/2005/Atom"><channel><title>JVM调优：针对业务场景的参数调整 on SelfTechHub</title><link>https://blog.irudder.me/tags/JVM%E8%B0%83%E4%BC%98%E9%92%88%E5%AF%B9%E4%B8%9A%E5%8A%A1%E5%9C%BA%E6%99%AF%E7%9A%84%E5%8F%82%E6%95%B0%E8%B0%83%E6%95%B4.html</link><description>Recent content in JVM调优：针对业务场景的参数调整 on SelfTechHub</description><generator>Hugo -- gohugo.io</generator><language>zh-cn</language><lastBuildDate>Thu, 08 Oct 2020 00:00:00 +0800</lastBuildDate><atom:link href="https://blog.irudder.me/tags/JVM%E8%B0%83%E4%BC%98%E9%92%88%E5%AF%B9%E4%B8%9A%E5%8A%A1%E5%9C%BA%E6%99%AF%E7%9A%84%E5%8F%82%E6%95%B0%E8%B0%83%E6%95%B4/index.xml" rel="self" type="application/rss+xml"/><item><title>频繁Full GC致死？3个真实案例教你JVM“保命”调优</title><link>https://blog.irudder.me/tech/jiagouyouhuashizhananlijiexi/jvmdiaoyou_zhenduiyewuchangjingdecanshutiaozheng.html</link><pubDate>Thu, 08 Oct 2020 00:00:00 +0800</pubDate><guid>https://blog.irudder.me/tech/jiagouyouhuashizhananlijiexi/jvmdiaoyou_zhenduiyewuchangjingdecanshutiaozheng.html</guid><description>&lt;p&gt;“给这台机器加到16G内存，应该就不卡了。”&lt;/p&gt;
 &lt;p&gt;这句话我大概听过不下五十次。曾经我也天真地以为，只要堆内存（Heap）给得足够大，Garbage Collection (GC) 就能离我远去。直到2021年的一次大促压测，我亲手把一个核心服务的Heap从4G扩到32G，结果应用不仅没变快，反而出现了长达5秒的“假死”——请求全部超时，监控曲线心电图直接拉成一条直线。&lt;/p&gt;
 &lt;p&gt;那时候我才明白：&lt;strong&gt;JVM调优从来不是“大碗宽面”管饱，而是一场在吞吐量与延迟之间走钢丝的艺术。&lt;/strong&gt;&lt;/p&gt;
 &lt;p&gt;很多兄弟在面对线上OOM（内存溢出）或者CPU飙高时，第一反应是重启，第二反应是加配置。但这通常只能延缓死亡，无法根治顽疾。今天不聊那些晦涩的内存模型理论，我想结合这几年在一线“填坑”的经历，分享3个典型的业务场景调优案例。&lt;/p&gt;
-&lt;h2 id=&#34;一-大对象的偷渡导出服务为何总崩&#34;&gt;一、 “大对象”的偷渡：导出服务为何总崩？
+&lt;h2 id="一-大对象的偷渡导出服务为何总崩"&gt;一、 “大对象”的偷渡：导出服务为何总崩？
 &lt;/h2&gt;&lt;p&gt;这是我接手过的一个后台管理系统，平时稳得一批，但每到月底财务做报表时，服务就必挂。&lt;/p&gt;
 &lt;p&gt;运维老张排查发现，每次挂掉前，Old Gen（老年代）的占用率都会瞬间飙升到99%，引发频繁Full GC，最后直接OOM。奇怪的是，平时Old Gen几乎没波动。&lt;/p&gt;
 &lt;p&gt;&lt;strong&gt;案发细节：&lt;/strong&gt;
@@ -28,42 +14,33 @@
 &lt;p&gt;&lt;strong&gt;硬核解法：&lt;/strong&gt;
 除了优化代码（改为流式查询、分批写入Excel）这种“治本”的方法外，JVM层面必须做防御性调整。&lt;/p&gt;
 &lt;p&gt;我们调大了TLAB（线程本地分配缓冲区），但这还不够。对于这种不可避免的大对象业务，G1收集器比CMS更智能。&lt;/p&gt;
-&lt;p&gt;&lt;img src=&#34;https://picsum.photos/800/450?random=1768458407218&#34;
-	
-	
-	
-	loading=&#34;lazy&#34;
-	
-		alt=&#34;配图&#34;
-	
-	
+&lt;p&gt;&lt;img src="https://picsum.photos/800/450?random=1768458407218"
+loading="lazy"
+alt="配图"
 &gt;&lt;/p&gt;
 &lt;p&gt;我将垃圾收集器切换为G1，并调整了Region大小：&lt;/p&gt;
-&lt;div class=&#34;highlight&#34;&gt;&lt;pre tabindex=&#34;0&#34; style=&#34;color:#f8f8f2;background-color:#272822;-moz-tab-size:4;-o-tab-size:4;tab-size:4;&#34;&gt;&lt;code class=&#34;language-bash&#34; data-lang=&#34;bash&#34;&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;&lt;span style=&#34;color:#75715e&#34;&gt;# 切换为G1，指定Region大小为8MB（默认可能是1MB或2MB，视堆大小而定）&lt;/span&gt;
-&lt;/span&gt;&lt;/span&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;-XX:+UseG1GC 
-&lt;/span&gt;&lt;/span&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;-XX:G1HeapRegionSize&lt;span style=&#34;color:#f92672&#34;&gt;=&lt;/span&gt;8m
-&lt;/span&gt;&lt;/span&gt;&lt;/code&gt;&lt;/pre&gt;&lt;/div&gt;&lt;p&gt;&lt;strong&gt;结果：&lt;/strong&gt;
+&lt;div class="highlight"&gt;&lt;div class="chroma"&gt;
+&lt;table class="lntable"&gt;&lt;tr&gt;&lt;td class="lntd"&gt;
+&lt;pre tabindex="0" class="chroma"&gt;&lt;code&gt;&lt;span class="lnt"&gt;1
+&lt;/span&gt;&lt;span class="lnt"&gt;2
+&lt;/span&gt;&lt;span class="lnt"&gt;3
+&lt;/span&gt;&lt;/code&gt;&lt;/pre&gt;&lt;/td&gt;
+&lt;td class="lntd"&gt;
+&lt;pre tabindex="0" class="chroma"&gt;&lt;code class="language-bash" data-lang="bash"&gt;&lt;span class="line"&gt;&lt;span class="cl"&gt;&lt;span class="c1"&gt;# 切换为G1，指定Region大小为8MB（默认可能是1MB或2MB，视堆大小而定）&lt;/span&gt;
+&lt;/span&gt;&lt;/span&gt;&lt;span class="line"&gt;&lt;span class="cl"&gt;-XX:+UseG1GC
+&lt;/span&gt;&lt;/span&gt;&lt;span class="line"&gt;&lt;span class="cl"&gt;-XX:G1HeapRegionSize&lt;span class="o"&gt;=&lt;/span&gt;8m
+&lt;/span&gt;&lt;/span&gt;&lt;/code&gt;&lt;/pre&gt;&lt;/td&gt;&lt;/tr&gt;&lt;/table&gt;
+&lt;/div&gt;
+&lt;/div&gt;&lt;p&gt;&lt;strong&gt;结果：&lt;/strong&gt;
 G1将堆切分为多个Region，大对象虽然还要占连续的Region（Humongous Region），但G1会在Young GC阶段顺手处理掉这部分对象，而不需要等到Full GC。月底的报表导出再也没崩过，Old Gen曲线平滑如水。&lt;/p&gt;
-&lt;p&gt;&lt;img src=&#34;https://picsum.photos/800/450?random=1768458405615&#34;
-	
-	
-	
-	loading=&#34;lazy&#34;
-	
-		alt=&#34;配图&#34;
-	
-	
+&lt;p&gt;&lt;img src="https://picsum.photos/800/450?random=1768458405615"
+loading="lazy"
+alt="配图"
 &gt;&lt;/p&gt;
-&lt;h2 id=&#34;二-吞吐量的骗局高并发下的卡顿之谜&#34;&gt;二、 吞吐量的骗局：高并发下的“卡顿”之谜
-&lt;/h2&gt;&lt;p&gt;&lt;img src=&#34;https://picsum.photos/800/450?random=1768458404128&#34;
-	
-	
-	
-	loading=&#34;lazy&#34;
-	
-		alt=&#34;配图&#34;
-	
-	
+&lt;h2 id="二-吞吐量的骗局高并发下的卡顿之谜"&gt;二、 吞吐量的骗局：高并发下的“卡顿”之谜
+&lt;/h2&gt;&lt;p&gt;&lt;img src="https://picsum.photos/800/450?random=1768458404128"
+loading="lazy"
+alt="配图"
 &gt;&lt;/p&gt;
 &lt;p&gt;2022年，我在负责一个高并发的C端营销服务。QPS（每秒查询率）大概在1.5万左右。&lt;/p&gt;
 &lt;p&gt;起初为了追求高吞吐量，我们给ParNew + CMS组合配置了较大的新生代（Young Gen），比例大概是 1:1（NewRatio=1）。逻辑是：大部分请求都是短命的，让它们在新生代自生自灭，别去烦老年代。&lt;/p&gt;
@@ -74,16 +51,28 @@ G1将堆切分为多个Region，大对象虽然还要占连续的Region（Humong
 内存不是越大越好，新生代也不是越大越好。&lt;strong&gt;业务场景决定策略：你是要“一次拉一大车但停很久”，还是要“小步快跑不停顿”？&lt;/strong&gt; 对于高并发低延迟的API服务，后者才是王道。&lt;/p&gt;
 &lt;p&gt;&lt;strong&gt;落地调整：&lt;/strong&gt;
 我做了一个反直觉的操作：&lt;strong&gt;缩小新生代，限制最大停顿时间。&lt;/strong&gt;&lt;/p&gt;
-&lt;div class=&#34;highlight&#34;&gt;&lt;pre tabindex=&#34;0&#34; style=&#34;color:#f8f8f2;background-color:#272822;-moz-tab-size:4;-o-tab-size:4;tab-size:4;&#34;&gt;&lt;code class=&#34;language-bash&#34; data-lang=&#34;bash&#34;&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;&lt;span style=&#34;color:#75715e&#34;&gt;# 启用G1（G1是延迟敏感型业务的首选）&lt;/span&gt;
-&lt;/span&gt;&lt;/span&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;-XX:+UseG1GC 
-&lt;/span&gt;&lt;/span&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;&lt;span style=&#34;color:#75715e&#34;&gt;# 设定目标停顿时间为50ms（JVM会尽力保证，但不绝对）&lt;/span&gt;
-&lt;/span&gt;&lt;/span&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;-XX:MaxGCPauseMillis&lt;span style=&#34;color:#f92672&#34;&gt;=&lt;/span&gt;&lt;span style=&#34;color:#ae81ff&#34;&gt;50&lt;/span&gt;
-&lt;/span&gt;&lt;/span&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;&lt;span style=&#34;color:#75715e&#34;&gt;# 甚至可以主动限制最大堆内存，避免GC扫描区域过大&lt;/span&gt;
-&lt;/span&gt;&lt;/span&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;-Xmx6g -Xms6g
-&lt;/span&gt;&lt;/span&gt;&lt;/code&gt;&lt;/pre&gt;&lt;/div&gt;&lt;p&gt;不要迷信默认配置，G1的 &lt;code&gt;MaxGCPauseMillis&lt;/code&gt; 是个神参。&lt;/p&gt;
+&lt;div class="highlight"&gt;&lt;div class="chroma"&gt;
+&lt;table class="lntable"&gt;&lt;tr&gt;&lt;td class="lntd"&gt;
+&lt;pre tabindex="0" class="chroma"&gt;&lt;code&gt;&lt;span class="lnt"&gt;1
+&lt;/span&gt;&lt;span class="lnt"&gt;2
+&lt;/span&gt;&lt;span class="lnt"&gt;3
+&lt;/span&gt;&lt;span class="lnt"&gt;4
+&lt;/span&gt;&lt;span class="lnt"&gt;5
+&lt;/span&gt;&lt;span class="lnt"&gt;6
+&lt;/span&gt;&lt;/code&gt;&lt;/pre&gt;&lt;/td&gt;
+&lt;td class="lntd"&gt;
+&lt;pre tabindex="0" class="chroma"&gt;&lt;code class="language-bash" data-lang="bash"&gt;&lt;span class="line"&gt;&lt;span class="cl"&gt;&lt;span class="c1"&gt;# 启用G1（G1是延迟敏感型业务的首选）&lt;/span&gt;
+&lt;/span&gt;&lt;/span&gt;&lt;span class="line"&gt;&lt;span class="cl"&gt;-XX:+UseG1GC
+&lt;/span&gt;&lt;/span&gt;&lt;span class="line"&gt;&lt;span class="cl"&gt;&lt;span class="c1"&gt;# 设定目标停顿时间为50ms（JVM会尽力保证，但不绝对）&lt;/span&gt;
+&lt;/span&gt;&lt;/span&gt;&lt;span class="line"&gt;&lt;span class="cl"&gt;-XX:MaxGCPauseMillis&lt;span class="o"&gt;=&lt;/span&gt;&lt;span class="m"&gt;50&lt;/span&gt;
+&lt;/span&gt;&lt;/span&gt;&lt;span class="line"&gt;&lt;span class="cl"&gt;&lt;span class="c1"&gt;# 甚至可以主动限制最大堆内存，避免GC扫描区域过大&lt;/span&gt;
+&lt;/span&gt;&lt;/span&gt;&lt;span class="line"&gt;&lt;span class="cl"&gt;-Xmx6g -Xms6g
+&lt;/span&gt;&lt;/span&gt;&lt;/code&gt;&lt;/pre&gt;&lt;/td&gt;&lt;/tr&gt;&lt;/table&gt;
+&lt;/div&gt;
+&lt;/div&gt;&lt;p&gt;不要迷信默认配置，G1的 &lt;code&gt;MaxGCPauseMillis&lt;/code&gt; 是个神参。&lt;/p&gt;
 &lt;p&gt;&lt;strong&gt;结果：&lt;/strong&gt;
 调整后，虽然GC频率从每10秒一次变成了每3秒一次，但每次暂停时间控制在20-40ms之间。TP99稳稳落在150ms以内，用户端的体感流畅度提升了不止一个档次。&lt;/p&gt;
-&lt;h2 id=&#34;三-容器环境的隐雷k8s里的oom-killer&#34;&gt;三、 容器环境的隐雷：K8s里的OOM Killer
+&lt;h2 id="三-容器环境的隐雷k8s里的oom-killer"&gt;三、 容器环境的隐雷：K8s里的OOM Killer
 &lt;/h2&gt;&lt;p&gt;随着公司全面拥抱云原生，我们将服务迁移到了K8s容器中。&lt;/p&gt;
 &lt;p&gt;有个小微服务，Pod配置限制是 &lt;code&gt;Limit: 4G&lt;/code&gt;。JVM启动参数我们很保守地写了 &lt;code&gt;-Xmx3g&lt;/code&gt;，预留1G给堆外内存（Metaspace、线程栈等）。&lt;/p&gt;
 &lt;p&gt;&lt;strong&gt;诡异现象：&lt;/strong&gt;
@@ -100,38 +89,63 @@ G1将堆切分为多个Region，大对象虽然还要占连续的Region（Humong
 &lt;p&gt;我们只给操作系统预留了1G，对于一个使用了Netty且类加载较多的服务，根本不够吃。一旦JVM总内存超过Pod的Limit限制，Docker所在的宿主机就会无情杀掉进程。&lt;/p&gt;
 &lt;p&gt;&lt;strong&gt;避坑指南：&lt;/strong&gt;
 在容器环境中，强烈建议放弃硬编码 &lt;code&gt;-Xmx&lt;/code&gt;，改用百分比配置。&lt;/p&gt;
-&lt;div class=&#34;highlight&#34;&gt;&lt;pre tabindex=&#34;0&#34; style=&#34;color:#f8f8f2;background-color:#272822;-moz-tab-size:4;-o-tab-size:4;tab-size:4;&#34;&gt;&lt;code class=&#34;language-bash&#34; data-lang=&#34;bash&#34;&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;&lt;span style=&#34;color:#75715e&#34;&gt;# 开启容器感知支持（JDK8u191+ 默认开启，但显式写上更保险）&lt;/span&gt;
-&lt;/span&gt;&lt;/span&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;-XX:+UseContainerSupport 
-&lt;/span&gt;&lt;/span&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;&lt;span style=&#34;color:#75715e&#34;&gt;# 将最大堆内存限制为容器Limit的70%-75%&lt;/span&gt;
-&lt;/span&gt;&lt;/span&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;-XX:MaxRAMPercentage&lt;span style=&#34;color:#f92672&#34;&gt;=&lt;/span&gt;75.0 
-&lt;/span&gt;&lt;/span&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;&lt;span style=&#34;color:#75715e&#34;&gt;# 初始堆内存也设为75%，避免动态扩容带来的性能抖动&lt;/span&gt;
-&lt;/span&gt;&lt;/span&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;-XX:InitialRAMPercentage&lt;span style=&#34;color:#f92672&#34;&gt;=&lt;/span&gt;75.0
-&lt;/span&gt;&lt;/span&gt;&lt;/code&gt;&lt;/pre&gt;&lt;/div&gt;&lt;p&gt;&lt;strong&gt;结果：&lt;/strong&gt;
+&lt;div class="highlight"&gt;&lt;div class="chroma"&gt;
+&lt;table class="lntable"&gt;&lt;tr&gt;&lt;td class="lntd"&gt;
+&lt;pre tabindex="0" class="chroma"&gt;&lt;code&gt;&lt;span class="lnt"&gt;1
+&lt;/span&gt;&lt;span class="lnt"&gt;2
+&lt;/span&gt;&lt;span class="lnt"&gt;3
+&lt;/span&gt;&lt;span class="lnt"&gt;4
+&lt;/span&gt;&lt;span class="lnt"&gt;5
+&lt;/span&gt;&lt;span class="lnt"&gt;6
+&lt;/span&gt;&lt;/code&gt;&lt;/pre&gt;&lt;/td&gt;
+&lt;td class="lntd"&gt;
+&lt;pre tabindex="0" class="chroma"&gt;&lt;code class="language-bash" data-lang="bash"&gt;&lt;span class="line"&gt;&lt;span class="cl"&gt;&lt;span class="c1"&gt;# 开启容器感知支持（JDK8u191+ 默认开启，但显式写上更保险）&lt;/span&gt;
+&lt;/span&gt;&lt;/span&gt;&lt;span class="line"&gt;&lt;span class="cl"&gt;-XX:+UseContainerSupport
+&lt;/span&gt;&lt;/span&gt;&lt;span class="line"&gt;&lt;span class="cl"&gt;&lt;span class="c1"&gt;# 将最大堆内存限制为容器Limit的70%-75%&lt;/span&gt;
+&lt;/span&gt;&lt;/span&gt;&lt;span class="line"&gt;&lt;span class="cl"&gt;-XX:MaxRAMPercentage&lt;span class="o"&gt;=&lt;/span&gt;75.0
+&lt;/span&gt;&lt;/span&gt;&lt;span class="line"&gt;&lt;span class="cl"&gt;&lt;span class="c1"&gt;# 初始堆内存也设为75%，避免动态扩容带来的性能抖动&lt;/span&gt;
+&lt;/span&gt;&lt;/span&gt;&lt;span class="line"&gt;&lt;span class="cl"&gt;-XX:InitialRAMPercentage&lt;span class="o"&gt;=&lt;/span&gt;75.0
+&lt;/span&gt;&lt;/span&gt;&lt;/code&gt;&lt;/pre&gt;&lt;/td&gt;&lt;/tr&gt;&lt;/table&gt;
+&lt;/div&gt;
+&lt;/div&gt;&lt;p&gt;&lt;strong&gt;结果：&lt;/strong&gt;
 改为百分比配置后，无论Pod如何扩缩容（2G、4G、8G），JVM都能自动适配出合理的堆大小，留足25%给堆外内存，从此彻底告别物理机OOM Killer。&lt;/p&gt;
-&lt;h2 id=&#34;总结与落地&#34;&gt;总结与落地
+&lt;h2 id="总结与落地"&gt;总结与落地
 &lt;/h2&gt;&lt;p&gt;JVM调优没有银弹，但有套路。所有的参数调整都应该建立在&lt;strong&gt;GC日志分析&lt;/strong&gt;和&lt;strong&gt;业务场景理解&lt;/strong&gt;之上。&lt;/p&gt;
 &lt;p&gt;为了方便大家复用，我整理了一套我个人常用的、适配大多数**Web服务（JDK 8/11 + G1）**的启动参数模板。你可以把它贴到你的启动脚本里，作为基准进行微调：&lt;/p&gt;
-&lt;div class=&#34;highlight&#34;&gt;&lt;pre tabindex=&#34;0&#34; style=&#34;color:#f8f8f2;background-color:#272822;-moz-tab-size:4;-o-tab-size:4;tab-size:4;&#34;&gt;&lt;code class=&#34;language-bash&#34; data-lang=&#34;bash&#34;&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;java -server &lt;span style=&#34;color:#ae81ff&#34;&gt;\
-&lt;/span&gt;&lt;/span&gt;&lt;/span&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;&lt;span style=&#34;color:#ae81ff&#34;&gt;&lt;/span&gt;  -Xms4g -Xmx4g &lt;span style=&#34;color:#ae81ff&#34;&gt;\ &lt;/span&gt; &lt;span style=&#34;color:#75715e&#34;&gt;# 建议设为物理内存的60%-70%，且Xms=Xmx&lt;/span&gt;
-&lt;/span&gt;&lt;/span&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;  -XX:+UseG1GC &lt;span style=&#34;color:#ae81ff&#34;&gt;\
-&lt;/span&gt;&lt;/span&gt;&lt;/span&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;&lt;span style=&#34;color:#ae81ff&#34;&gt;&lt;/span&gt;  -XX:MaxGCPauseMillis&lt;span style=&#34;color:#f92672&#34;&gt;=&lt;/span&gt;&lt;span style=&#34;color:#ae81ff&#34;&gt;100&lt;/span&gt; &lt;span style=&#34;color:#ae81ff&#34;&gt;\ &lt;/span&gt;&lt;span style=&#34;color:#75715e&#34;&gt;# 这是一个平衡点，可根据SLA调整&lt;/span&gt;
-&lt;/span&gt;&lt;/span&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;  -XX:MetaspaceSize&lt;span style=&#34;color:#f92672&#34;&gt;=&lt;/span&gt;256m &lt;span style=&#34;color:#ae81ff&#34;&gt;\
-&lt;/span&gt;&lt;/span&gt;&lt;/span&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;&lt;span style=&#34;color:#ae81ff&#34;&gt;&lt;/span&gt;  -XX:MaxMetaspaceSize&lt;span style=&#34;color:#f92672&#34;&gt;=&lt;/span&gt;256m &lt;span style=&#34;color:#ae81ff&#34;&gt;\ &lt;/span&gt;&lt;span style=&#34;color:#75715e&#34;&gt;# 锁死元空间，防止泄露&lt;/span&gt;
-&lt;/span&gt;&lt;/span&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;  -XX:+DisableExplicitGC &lt;span style=&#34;color:#ae81ff&#34;&gt;\ &lt;/span&gt;&lt;span style=&#34;color:#75715e&#34;&gt;# 禁止代码里手贱写的System.gc()&lt;/span&gt;
-&lt;/span&gt;&lt;/span&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;  -XX:+HeapDumpOnOutOfMemoryError &lt;span style=&#34;color:#ae81ff&#34;&gt;\ &lt;/span&gt;&lt;span style=&#34;color:#75715e&#34;&gt;# OOM时保留现场&lt;/span&gt;
-&lt;/span&gt;&lt;/span&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;  -XX:HeapDumpPath&lt;span style=&#34;color:#f92672&#34;&gt;=&lt;/span&gt;/data/logs/dump.hprof &lt;span style=&#34;color:#ae81ff&#34;&gt;\
-&lt;/span&gt;&lt;/span&gt;&lt;/span&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;&lt;span style=&#34;color:#ae81ff&#34;&gt;&lt;/span&gt;  -XX:+PrintGCDetails -XX:+PrintGCDateStamps &lt;span style=&#34;color:#ae81ff&#34;&gt;\ &lt;/span&gt;&lt;span style=&#34;color:#75715e&#34;&gt;# 必须留日志！&lt;/span&gt;
-&lt;/span&gt;&lt;/span&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;  -Xloggc:/data/logs/gc.log &lt;span style=&#34;color:#ae81ff&#34;&gt;\
-&lt;/span&gt;&lt;/span&gt;&lt;/span&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;&lt;span style=&#34;color:#ae81ff&#34;&gt;&lt;/span&gt;  -jar your-app.jar
-&lt;/span&gt;&lt;/span&gt;&lt;/code&gt;&lt;/pre&gt;&lt;/div&gt;&lt;p&gt;最后，给想动手的兄弟们3个具体的行动建议：&lt;/p&gt;
+&lt;div class="highlight"&gt;&lt;div class="chroma"&gt;
+&lt;table class="lntable"&gt;&lt;tr&gt;&lt;td class="lntd"&gt;
+&lt;pre tabindex="0" class="chroma"&gt;&lt;code&gt;&lt;span class="lnt"&gt; 1
+&lt;/span&gt;&lt;span class="lnt"&gt; 2
+&lt;/span&gt;&lt;span class="lnt"&gt; 3
+&lt;/span&gt;&lt;span class="lnt"&gt; 4
+&lt;/span&gt;&lt;span class="lnt"&gt; 5
+&lt;/span&gt;&lt;span class="lnt"&gt; 6
+&lt;/span&gt;&lt;span class="lnt"&gt; 7
+&lt;/span&gt;&lt;span class="lnt"&gt; 8
+&lt;/span&gt;&lt;span class="lnt"&gt; 9
+&lt;/span&gt;&lt;span class="lnt"&gt;10
+&lt;/span&gt;&lt;span class="lnt"&gt;11
+&lt;/span&gt;&lt;span class="lnt"&gt;12
+&lt;/span&gt;&lt;/code&gt;&lt;/pre&gt;&lt;/td&gt;
+&lt;td class="lntd"&gt;
+&lt;pre tabindex="0" class="chroma"&gt;&lt;code class="language-bash" data-lang="bash"&gt;&lt;span class="line"&gt;&lt;span class="cl"&gt;java -server &lt;span class="se"&gt;\
+&lt;/span&gt;&lt;/span&gt;&lt;/span&gt;&lt;span class="line"&gt;&lt;span class="cl"&gt;&lt;span class="se"&gt;&lt;/span&gt; -Xms4g -Xmx4g &lt;span class="se"&gt;\ &lt;/span&gt; &lt;span class="c1"&gt;# 建议设为物理内存的60%-70%，且Xms=Xmx&lt;/span&gt;
+&lt;/span&gt;&lt;/span&gt;&lt;span class="line"&gt;&lt;span class="cl"&gt; -XX:+UseG1GC &lt;span class="se"&gt;\
+&lt;/span&gt;&lt;/span&gt;&lt;/span&gt;&lt;span class="line"&gt;&lt;span class="cl"&gt;&lt;span class="se"&gt;&lt;/span&gt; -XX:MaxGCPauseMillis&lt;span class="o"&gt;=&lt;/span&gt;&lt;span class="m"&gt;100&lt;/span&gt; &lt;span class="se"&gt;\ &lt;/span&gt;&lt;span class="c1"&gt;# 这是一个平衡点，可根据SLA调整&lt;/span&gt;
+&lt;/span&gt;&lt;/span&gt;&lt;span class="line"&gt;&lt;span class="cl"&gt; -XX:MetaspaceSize&lt;span class="o"&gt;=&lt;/span&gt;256m &lt;span class="se"&gt;\
+&lt;/span&gt;&lt;/span&gt;&lt;/span&gt;&lt;span class="line"&gt;&lt;span class="cl"&gt;&lt;span class="se"&gt;&lt;/span&gt; -XX:MaxMetaspaceSize&lt;span class="o"&gt;=&lt;/span&gt;256m &lt;span class="se"&gt;\ &lt;/span&gt;&lt;span class="c1"&gt;# 锁死元空间，防止泄露&lt;/span&gt;
+&lt;/span&gt;&lt;/span&gt;&lt;span class="line"&gt;&lt;span class="cl"&gt; -XX:+DisableExplicitGC &lt;span class="se"&gt;\ &lt;/span&gt;&lt;span class="c1"&gt;# 禁止代码里手贱写的System.gc()&lt;/span&gt;
+&lt;/span&gt;&lt;/span&gt;&lt;span class="line"&gt;&lt;span class="cl"&gt; -XX:+HeapDumpOnOutOfMemoryError &lt;span class="se"&gt;\ &lt;/span&gt;&lt;span class="c1"&gt;# OOM时保留现场&lt;/span&gt;
+&lt;/span&gt;&lt;/span&gt;&lt;span class="line"&gt;&lt;span class="cl"&gt; -XX:HeapDumpPath&lt;span class="o"&gt;=&lt;/span&gt;/data/logs/dump.hprof &lt;span class="se"&gt;\
+&lt;/span&gt;&lt;/span&gt;&lt;/span&gt;&lt;span class="line"&gt;&lt;span class="cl"&gt;&lt;span class="se"&gt;&lt;/span&gt; -XX:+PrintGCDetails -XX:+PrintGCDateStamps &lt;span class="se"&gt;\ &lt;/span&gt;&lt;span class="c1"&gt;# 必须留日志！&lt;/span&gt;
+&lt;/span&gt;&lt;/span&gt;&lt;span class="line"&gt;&lt;span class="cl"&gt; -Xloggc:/data/logs/gc.log &lt;span class="se"&gt;\
+&lt;/span&gt;&lt;/span&gt;&lt;/span&gt;&lt;span class="line"&gt;&lt;span class="cl"&gt;&lt;span class="se"&gt;&lt;/span&gt; -jar your-app.jar
+&lt;/span&gt;&lt;/span&gt;&lt;/code&gt;&lt;/pre&gt;&lt;/td&gt;&lt;/tr&gt;&lt;/table&gt;
+&lt;/div&gt;
+&lt;/div&gt;&lt;p&gt;最后，给想动手的兄弟们3个具体的行动建议：&lt;/p&gt;
 &lt;ol&gt;
 &lt;li&gt;&lt;strong&gt;先看病，再开药&lt;/strong&gt;：别上来就改参数。先用 &lt;code&gt;VisualVM&lt;/code&gt; 或者 &lt;code&gt;GCEasy.io&lt;/code&gt; 分析现有的GC日志，看看到底是Young GC太频，还是Full GC太久。&lt;/li&gt;
 &lt;li&gt;&lt;strong&gt;压测环境大胆试&lt;/strong&gt;：生产环境不敢动的参数，在压测环境（Staging）模拟流量去试。我习惯在周五下午做这事，验证完心里有底。&lt;/li&gt;
 &lt;li&gt;&lt;strong&gt;加上监控告警&lt;/strong&gt;：Prometheus + Grafana 是标配，必须监控 &lt;code&gt;jvm_gc_pause_seconds_max&lt;/code&gt; 和 &lt;code&gt;jvm_memory_used_bytes&lt;/code&gt;。没有监控的调优就是瞎蒙。&lt;/li&gt;
 &lt;/ol&gt;
-&lt;p&gt;调优的终极目标，不是让GC消失，而是让它变得“由于太快，而让你感觉不到它的存在”。&lt;/p&gt;
-</description>
-        </item>
-        
-    </channel>
-</rss>
+&lt;p&gt;调优的终极目标，不是让GC消失，而是让它变得“由于太快，而让你感觉不到它的存在”。&lt;/p&gt;</description></item></channel></rss>

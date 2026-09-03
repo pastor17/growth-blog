@@ -1,64 +1,89 @@
-<?xml version="1.0" encoding="utf-8" standalone="yes"?>
-<rss version="2.0" xmlns:atom="http://www.w3.org/2005/Atom">
-    <channel>
-        <title>System Design on SelfTechHub</title>
-        <link>https://blog.irudder.me/tags/System-Design.html</link>
-        <description>Recent content in System Design on SelfTechHub</description>
-        <generator>Hugo -- gohugo.io</generator>
-        <language>zh-cn</language>
-        <lastBuildDate>Fri, 19 Jun 2026 00:00:00 +0000</lastBuildDate><atom:link href="https://blog.irudder.me/tags/System-Design/index.xml" rel="self" type="application/rss+xml" /><item>
-        <title>第11章：Agent 核心架构拆解——四个缺一不可的组件</title>
-        <link>https://blog.irudder.me/ai/knowledge-series/11-Agent-Core-Architecture-Explained.html</link>
-        <pubDate>Fri, 19 Jun 2026 00:00:00 +0000</pubDate>
-        
-        <guid>https://blog.irudder.me/ai/knowledge-series/11-Agent-Core-Architecture-Explained.html</guid>
-        <description>&lt;h1 id=&#34;第11章agent-核心架构拆解四个缺一不可的组件&#34;&gt;第11章：Agent 核心架构拆解——四个缺一不可的组件
+<?xml version="1.0" encoding="utf-8" standalone="yes"?><rss version="2.0" xmlns:atom="http://www.w3.org/2005/Atom"><channel><title>System Design on SelfTechHub</title><link>https://blog.irudder.me/tags/System-Design.html</link><description>Recent content in System Design on SelfTechHub</description><generator>Hugo -- gohugo.io</generator><language>zh-cn</language><lastBuildDate>Fri, 19 Jun 2026 00:00:00 +0800</lastBuildDate><atom:link href="https://blog.irudder.me/tags/System-Design/index.xml" rel="self" type="application/rss+xml"/><item><title>第11章：Agent 核心架构拆解——四个缺一不可的组件</title><link>https://blog.irudder.me/ai/knowledge-series/11-Agent-Core-Architecture-Explained.html</link><pubDate>Fri, 19 Jun 2026 00:00:00 +0800</pubDate><guid>https://blog.irudder.me/ai/knowledge-series/11-Agent-Core-Architecture-Explained.html</guid><description>&lt;h1 id="第11章agent-核心架构拆解四个缺一不可的组件"&gt;第11章：Agent 核心架构拆解——四个缺一不可的组件
 &lt;/h1&gt;&lt;blockquote&gt;
-&lt;p&gt;系列导读：本章深入 Agent 的内部结构。如果你准备亲手实现一个 Agent，这就是你要看的「系统说明书&amp;quot;。&lt;/p&gt;
-&lt;/blockquote&gt;
+&lt;p&gt;系列导读：本章深入 Agent 的内部结构。如果你准备亲手实现一个 Agent，这就是你要看的「系统说明书&amp;quot;。&lt;/p&gt;&lt;/blockquote&gt;
 &lt;hr&gt;
-&lt;h2 id=&#34;一agent架构全景四个核心组件&#34;&gt;一、Agent架构全景：四个核心组件
+&lt;h2 id="一agent架构全景四个核心组件"&gt;一、Agent架构全景：四个核心组件
 &lt;/h2&gt;&lt;p&gt;一个完整的 Agent 系统由以下四个核心组件构成，任何一个掉链子，系统都跑不好：&lt;/p&gt;
-&lt;pre tabindex=&#34;0&#34;&gt;&lt;code&gt;┌─────────────────────────────────────┐
-│            用户输入                  │
-└─────────────┬───────────────────────┘
-              ↓
-┌─────────────────────────────────────┐
-│  1. LLM 核心   ←所有决策的中枢      │
-│     ↓                                │
-│  2. 规划模块   ←把目标拆成步骤      │
-│     ↓                                │
-│  3. 工具系统   ←实际执行的能力       │
-│     ↓                                │
-│  4. 记忆系统   ←持续维护的状态       │
-└─────────────────────────────────────┘
-&lt;/code&gt;&lt;/pre&gt;&lt;h2 id=&#34;二组件1llm-核心&#34;&gt;二、组件1：LLM 核心
+&lt;div class="highlight"&gt;&lt;div class="chroma"&gt;
+&lt;table class="lntable"&gt;&lt;tr&gt;&lt;td class="lntd"&gt;
+&lt;pre tabindex="0" class="chroma"&gt;&lt;code&gt;&lt;span class="lnt"&gt; 1
+&lt;/span&gt;&lt;span class="lnt"&gt; 2
+&lt;/span&gt;&lt;span class="lnt"&gt; 3
+&lt;/span&gt;&lt;span class="lnt"&gt; 4
+&lt;/span&gt;&lt;span class="lnt"&gt; 5
+&lt;/span&gt;&lt;span class="lnt"&gt; 6
+&lt;/span&gt;&lt;span class="lnt"&gt; 7
+&lt;/span&gt;&lt;span class="lnt"&gt; 8
+&lt;/span&gt;&lt;span class="lnt"&gt; 9
+&lt;/span&gt;&lt;span class="lnt"&gt;10
+&lt;/span&gt;&lt;span class="lnt"&gt;11
+&lt;/span&gt;&lt;span class="lnt"&gt;12
+&lt;/span&gt;&lt;span class="lnt"&gt;13
+&lt;/span&gt;&lt;/code&gt;&lt;/pre&gt;&lt;/td&gt;
+&lt;td class="lntd"&gt;
+&lt;pre tabindex="0" class="chroma"&gt;&lt;code class="language-fallback" data-lang="fallback"&gt;&lt;span class="line"&gt;&lt;span class="cl"&gt;┌─────────────────────────────────────┐
+&lt;/span&gt;&lt;/span&gt;&lt;span class="line"&gt;&lt;span class="cl"&gt;│ 用户输入 │
+&lt;/span&gt;&lt;/span&gt;&lt;span class="line"&gt;&lt;span class="cl"&gt;└─────────────┬───────────────────────┘
+&lt;/span&gt;&lt;/span&gt;&lt;span class="line"&gt;&lt;span class="cl"&gt; ↓
+&lt;/span&gt;&lt;/span&gt;&lt;span class="line"&gt;&lt;span class="cl"&gt;┌─────────────────────────────────────┐
+&lt;/span&gt;&lt;/span&gt;&lt;span class="line"&gt;&lt;span class="cl"&gt;│ 1. LLM 核心 ←所有决策的中枢 │
+&lt;/span&gt;&lt;/span&gt;&lt;span class="line"&gt;&lt;span class="cl"&gt;│ ↓ │
+&lt;/span&gt;&lt;/span&gt;&lt;span class="line"&gt;&lt;span class="cl"&gt;│ 2. 规划模块 ←把目标拆成步骤 │
+&lt;/span&gt;&lt;/span&gt;&lt;span class="line"&gt;&lt;span class="cl"&gt;│ ↓ │
+&lt;/span&gt;&lt;/span&gt;&lt;span class="line"&gt;&lt;span class="cl"&gt;│ 3. 工具系统 ←实际执行的能力 │
+&lt;/span&gt;&lt;/span&gt;&lt;span class="line"&gt;&lt;span class="cl"&gt;│ ↓ │
+&lt;/span&gt;&lt;/span&gt;&lt;span class="line"&gt;&lt;span class="cl"&gt;│ 4. 记忆系统 ←持续维护的状态 │
+&lt;/span&gt;&lt;/span&gt;&lt;span class="line"&gt;&lt;span class="cl"&gt;└─────────────────────────────────────┘
+&lt;/span&gt;&lt;/span&gt;&lt;/code&gt;&lt;/pre&gt;&lt;/td&gt;&lt;/tr&gt;&lt;/table&gt;
+&lt;/div&gt;
+&lt;/div&gt;&lt;h2 id="二组件1llm-核心"&gt;二、组件1：LLM 核心
 &lt;/h2&gt;&lt;p&gt;LLM 是整个 Agent 的「大脑」。&lt;/p&gt;
 &lt;ul&gt;
 &lt;li&gt;所有输入（用户指令、工具返回结果、记忆内容）最终都经过 LLM 来理解和决策&lt;/li&gt;
 &lt;li&gt;LLM 负责判断：&lt;strong&gt;下一步该做什么？继续思考？调用工具？还是输出最终答案？&lt;/strong&gt;&lt;/li&gt;
 &lt;/ul&gt;
-&lt;h3 id=&#34;system-prompt-的关键作用&#34;&gt;System Prompt 的关键作用
+&lt;h3 id="system-prompt-的关键作用"&gt;System Prompt 的关键作用
 &lt;/h3&gt;&lt;p&gt;System Prompt 就是给 Agent 的「岗位说明书」，定义了：&lt;/p&gt;
-&lt;pre tabindex=&#34;0&#34;&gt;&lt;code&gt;你是一个专业的数据分析助手。
-你的任务是帮助用户分析数据并生成报告。
-
-你可以使用的工具：
-1. analyze_csv：读取 CSV 文件并做基础统计分析
-2. generate_chart：根据数据生成可视化图表
-3. web_search：搜索最新行业信息
-4. write_report：生成结构化报告
-
-你的工作流程：
-1. 先理解用户的数据分析目标
-2. 使用 analyze_csv 了解数据概况
-3. 根据数据特征选择分析方向
-4. 使用 generate_chart 生成必要的可视化
-5. 最后使用 write_report 生成完整报告
-&lt;/code&gt;&lt;/pre&gt;&lt;p&gt;&lt;strong&gt;System Prompt 写得好不好，直接决定 Agent 的行为模式&lt;/strong&gt;。它是工程质量最不可控的变量之一。&lt;/p&gt;
-&lt;h2 id=&#34;三组件2规划模块planning&#34;&gt;三、组件2：规划模块（Planning）
+&lt;div class="highlight"&gt;&lt;div class="chroma"&gt;
+&lt;table class="lntable"&gt;&lt;tr&gt;&lt;td class="lntd"&gt;
+&lt;pre tabindex="0" class="chroma"&gt;&lt;code&gt;&lt;span class="lnt"&gt; 1
+&lt;/span&gt;&lt;span class="lnt"&gt; 2
+&lt;/span&gt;&lt;span class="lnt"&gt; 3
+&lt;/span&gt;&lt;span class="lnt"&gt; 4
+&lt;/span&gt;&lt;span class="lnt"&gt; 5
+&lt;/span&gt;&lt;span class="lnt"&gt; 6
+&lt;/span&gt;&lt;span class="lnt"&gt; 7
+&lt;/span&gt;&lt;span class="lnt"&gt; 8
+&lt;/span&gt;&lt;span class="lnt"&gt; 9
+&lt;/span&gt;&lt;span class="lnt"&gt;10
+&lt;/span&gt;&lt;span class="lnt"&gt;11
+&lt;/span&gt;&lt;span class="lnt"&gt;12
+&lt;/span&gt;&lt;span class="lnt"&gt;13
+&lt;/span&gt;&lt;span class="lnt"&gt;14
+&lt;/span&gt;&lt;span class="lnt"&gt;15
+&lt;/span&gt;&lt;/code&gt;&lt;/pre&gt;&lt;/td&gt;
+&lt;td class="lntd"&gt;
+&lt;pre tabindex="0" class="chroma"&gt;&lt;code class="language-fallback" data-lang="fallback"&gt;&lt;span class="line"&gt;&lt;span class="cl"&gt;你是一个专业的数据分析助手。
+&lt;/span&gt;&lt;/span&gt;&lt;span class="line"&gt;&lt;span class="cl"&gt;你的任务是帮助用户分析数据并生成报告。
+&lt;/span&gt;&lt;/span&gt;&lt;span class="line"&gt;&lt;span class="cl"&gt;
+&lt;/span&gt;&lt;/span&gt;&lt;span class="line"&gt;&lt;span class="cl"&gt;你可以使用的工具：
+&lt;/span&gt;&lt;/span&gt;&lt;span class="line"&gt;&lt;span class="cl"&gt;1. analyze_csv：读取 CSV 文件并做基础统计分析
+&lt;/span&gt;&lt;/span&gt;&lt;span class="line"&gt;&lt;span class="cl"&gt;2. generate_chart：根据数据生成可视化图表
+&lt;/span&gt;&lt;/span&gt;&lt;span class="line"&gt;&lt;span class="cl"&gt;3. web_search：搜索最新行业信息
+&lt;/span&gt;&lt;/span&gt;&lt;span class="line"&gt;&lt;span class="cl"&gt;4. write_report：生成结构化报告
+&lt;/span&gt;&lt;/span&gt;&lt;span class="line"&gt;&lt;span class="cl"&gt;
+&lt;/span&gt;&lt;/span&gt;&lt;span class="line"&gt;&lt;span class="cl"&gt;你的工作流程：
+&lt;/span&gt;&lt;/span&gt;&lt;span class="line"&gt;&lt;span class="cl"&gt;1. 先理解用户的数据分析目标
+&lt;/span&gt;&lt;/span&gt;&lt;span class="line"&gt;&lt;span class="cl"&gt;2. 使用 analyze_csv 了解数据概况
+&lt;/span&gt;&lt;/span&gt;&lt;span class="line"&gt;&lt;span class="cl"&gt;3. 根据数据特征选择分析方向
+&lt;/span&gt;&lt;/span&gt;&lt;span class="line"&gt;&lt;span class="cl"&gt;4. 使用 generate_chart 生成必要的可视化
+&lt;/span&gt;&lt;/span&gt;&lt;span class="line"&gt;&lt;span class="cl"&gt;5. 最后使用 write_report 生成完整报告
+&lt;/span&gt;&lt;/span&gt;&lt;/code&gt;&lt;/pre&gt;&lt;/td&gt;&lt;/tr&gt;&lt;/table&gt;
+&lt;/div&gt;
+&lt;/div&gt;&lt;p&gt;&lt;strong&gt;System Prompt 写得好不好，直接决定 Agent 的行为模式&lt;/strong&gt;。它是工程质量最不可控的变量之一。&lt;/p&gt;
+&lt;h2 id="三组件2规划模块planning"&gt;三、组件2：规划模块（Planning）
 &lt;/h2&gt;&lt;p&gt;规划模块解决的是：&lt;strong&gt;怎么把一个大目标拆成可执行的步骤？&lt;/strong&gt;&lt;/p&gt;
-&lt;h3 id=&#34;为什么需要规划&#34;&gt;为什么需要规划？
+&lt;h3 id="为什么需要规划"&gt;为什么需要规划？
 &lt;/h3&gt;&lt;p&gt;想象你让 Agent 完成：&amp;ldquo;帮我分析我们公司 Q2 的销售数据，找出增长最快的产品线，并给出下季度的推广建议。&amp;rdquo;&lt;/p&gt;
 &lt;p&gt;这个任务拆下去至少包含：&lt;/p&gt;
 &lt;ol&gt;
@@ -69,105 +94,142 @@
 &lt;li&gt;结合数据和市场信息生成建议&lt;/li&gt;
 &lt;/ol&gt;
 &lt;p&gt;没有规划模块，LLM 一次调用只能做一件事，可能会重复、遗漏或顺序错乱。&lt;/p&gt;
-&lt;h3 id=&#34;两种规划策略&#34;&gt;两种规划策略
+&lt;h3 id="两种规划策略"&gt;两种规划策略
 &lt;/h3&gt;&lt;table&gt;
-  &lt;thead&gt;
-      &lt;tr&gt;
-          &lt;th&gt;策略&lt;/th&gt;
-          &lt;th&gt;实现方式&lt;/th&gt;
-          &lt;th&gt;特点&lt;/th&gt;
-      &lt;/tr&gt;
-  &lt;/thead&gt;
-  &lt;tbody&gt;
-      &lt;tr&gt;
-          &lt;td&gt;&lt;strong&gt;静态规划&lt;/strong&gt;&lt;/td&gt;
-          &lt;td&gt;预先定义步骤序列（工作流）&lt;/td&gt;
-          &lt;td&gt;确定性高，灵活性差&lt;/td&gt;
-      &lt;/tr&gt;
-      &lt;tr&gt;
-          &lt;td&gt;&lt;strong&gt;动态规划&lt;/strong&gt;&lt;/td&gt;
-          &lt;td&gt;让 LLM 每一步自己决定方向和工具&lt;/td&gt;
-          &lt;td&gt;灵活性强，可控性差&lt;/td&gt;
-      &lt;/tr&gt;
-      &lt;tr&gt;
-          &lt;td&gt;&lt;strong&gt;混合规划&lt;/strong&gt;&lt;/td&gt;
-          &lt;td&gt;大方向固定，具体操作让 LLM 决定&lt;/td&gt;
-          &lt;td&gt;推荐方案&lt;/td&gt;
-      &lt;/tr&gt;
-  &lt;/tbody&gt;
+&lt;thead&gt;
+&lt;tr&gt;
+&lt;th&gt;策略&lt;/th&gt;
+&lt;th&gt;实现方式&lt;/th&gt;
+&lt;th&gt;特点&lt;/th&gt;
+&lt;/tr&gt;
+&lt;/thead&gt;
+&lt;tbody&gt;
+&lt;tr&gt;
+&lt;td&gt;&lt;strong&gt;静态规划&lt;/strong&gt;&lt;/td&gt;
+&lt;td&gt;预先定义步骤序列（工作流）&lt;/td&gt;
+&lt;td&gt;确定性高，灵活性差&lt;/td&gt;
+&lt;/tr&gt;
+&lt;tr&gt;
+&lt;td&gt;&lt;strong&gt;动态规划&lt;/strong&gt;&lt;/td&gt;
+&lt;td&gt;让 LLM 每一步自己决定方向和工具&lt;/td&gt;
+&lt;td&gt;灵活性强，可控性差&lt;/td&gt;
+&lt;/tr&gt;
+&lt;tr&gt;
+&lt;td&gt;&lt;strong&gt;混合规划&lt;/strong&gt;&lt;/td&gt;
+&lt;td&gt;大方向固定，具体操作让 LLM 决定&lt;/td&gt;
+&lt;td&gt;推荐方案&lt;/td&gt;
+&lt;/tr&gt;
+&lt;/tbody&gt;
 &lt;/table&gt;
-&lt;pre tabindex=&#34;0&#34;&gt;&lt;code&gt;动态规划示例（ReAct 模式）：
-步骤1：Thought &amp;#34;我需要先了解数据概况&amp;#34; → Action: analyze_csv
-步骤2：Thought &amp;#34;数据里有哪些列？产品分类是什么？&amp;#34; → 根据结果继续
-步骤3：Thought &amp;#34;让我按产品线计算增长率&amp;#34; → Action: analyze_csv + 参数
-&lt;/code&gt;&lt;/pre&gt;&lt;h2 id=&#34;四组件3工具系统tool-system&#34;&gt;四、组件3：工具系统（Tool System）
+&lt;div class="highlight"&gt;&lt;div class="chroma"&gt;
+&lt;table class="lntable"&gt;&lt;tr&gt;&lt;td class="lntd"&gt;
+&lt;pre tabindex="0" class="chroma"&gt;&lt;code&gt;&lt;span class="lnt"&gt;1
+&lt;/span&gt;&lt;span class="lnt"&gt;2
+&lt;/span&gt;&lt;span class="lnt"&gt;3
+&lt;/span&gt;&lt;span class="lnt"&gt;4
+&lt;/span&gt;&lt;/code&gt;&lt;/pre&gt;&lt;/td&gt;
+&lt;td class="lntd"&gt;
+&lt;pre tabindex="0" class="chroma"&gt;&lt;code class="language-fallback" data-lang="fallback"&gt;&lt;span class="line"&gt;&lt;span class="cl"&gt;动态规划示例（ReAct 模式）：
+&lt;/span&gt;&lt;/span&gt;&lt;span class="line"&gt;&lt;span class="cl"&gt;步骤1：Thought &amp;#34;我需要先了解数据概况&amp;#34; → Action: analyze_csv
+&lt;/span&gt;&lt;/span&gt;&lt;span class="line"&gt;&lt;span class="cl"&gt;步骤2：Thought &amp;#34;数据里有哪些列？产品分类是什么？&amp;#34; → 根据结果继续
+&lt;/span&gt;&lt;/span&gt;&lt;span class="line"&gt;&lt;span class="cl"&gt;步骤3：Thought &amp;#34;让我按产品线计算增长率&amp;#34; → Action: analyze_csv + 参数
+&lt;/span&gt;&lt;/span&gt;&lt;/code&gt;&lt;/pre&gt;&lt;/td&gt;&lt;/tr&gt;&lt;/table&gt;
+&lt;/div&gt;
+&lt;/div&gt;&lt;h2 id="四组件3工具系统tool-system"&gt;四、组件3：工具系统（Tool System）
 &lt;/h2&gt;&lt;p&gt;工具系统是 Agent 与外部世界交互的「四肢」。&lt;/p&gt;
 &lt;p&gt;工具不是越多越好。过多的工具会让 LLM 的选择困难增加（context 装不下、选错概率上升）。&lt;/p&gt;
-&lt;h3 id=&#34;工具定义的关键要素&#34;&gt;工具定义的关键要素
-&lt;/h3&gt;&lt;div class=&#34;highlight&#34;&gt;&lt;pre tabindex=&#34;0&#34; style=&#34;color:#f8f8f2;background-color:#272822;-moz-tab-size:4;-o-tab-size:4;tab-size:4;&#34;&gt;&lt;code class=&#34;language-json&#34; data-lang=&#34;json&#34;&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;{
-&lt;/span&gt;&lt;/span&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;  &lt;span style=&#34;color:#f92672&#34;&gt;&amp;#34;name&amp;#34;&lt;/span&gt;: &lt;span style=&#34;color:#e6db74&#34;&gt;&amp;#34;web_search&amp;#34;&lt;/span&gt;,
-&lt;/span&gt;&lt;/span&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;  &lt;span style=&#34;color:#f92672&#34;&gt;&amp;#34;description&amp;#34;&lt;/span&gt;: &lt;span style=&#34;color:#e6db74&#34;&gt;&amp;#34;当需要获取某个领域的最新信息、验证某个事实、或者了解某个概念时使用。注意：不要用来查询本地数据库的内容&amp;#34;&lt;/span&gt;,
-&lt;/span&gt;&lt;/span&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;  &lt;span style=&#34;color:#f92672&#34;&gt;&amp;#34;parameters&amp;#34;&lt;/span&gt;: {
-&lt;/span&gt;&lt;/span&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;    &lt;span style=&#34;color:#f92672&#34;&gt;&amp;#34;query&amp;#34;&lt;/span&gt;: {
-&lt;/span&gt;&lt;/span&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;      &lt;span style=&#34;color:#f92672&#34;&gt;&amp;#34;type&amp;#34;&lt;/span&gt;: &lt;span style=&#34;color:#e6db74&#34;&gt;&amp;#34;string&amp;#34;&lt;/span&gt;,
-&lt;/span&gt;&lt;/span&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;      &lt;span style=&#34;color:#f92672&#34;&gt;&amp;#34;description&amp;#34;&lt;/span&gt;: &lt;span style=&#34;color:#e6db74&#34;&gt;&amp;#34;搜索关键词，建议3-5个关键词，不要太长&amp;#34;&lt;/span&gt;
-&lt;/span&gt;&lt;/span&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;    }
-&lt;/span&gt;&lt;/span&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;  }
-&lt;/span&gt;&lt;/span&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;}
-&lt;/span&gt;&lt;/span&gt;&lt;/code&gt;&lt;/pre&gt;&lt;/div&gt;&lt;p&gt;&lt;strong&gt;description 是核心门槛&lt;/strong&gt;——模型基于 description 决定用不用这个工具。写好 description 的技巧：&lt;/p&gt;
+&lt;h3 id="工具定义的关键要素"&gt;工具定义的关键要素
+&lt;/h3&gt;&lt;div class="highlight"&gt;&lt;div class="chroma"&gt;
+&lt;table class="lntable"&gt;&lt;tr&gt;&lt;td class="lntd"&gt;
+&lt;pre tabindex="0" class="chroma"&gt;&lt;code&gt;&lt;span class="lnt"&gt; 1
+&lt;/span&gt;&lt;span class="lnt"&gt; 2
+&lt;/span&gt;&lt;span class="lnt"&gt; 3
+&lt;/span&gt;&lt;span class="lnt"&gt; 4
+&lt;/span&gt;&lt;span class="lnt"&gt; 5
+&lt;/span&gt;&lt;span class="lnt"&gt; 6
+&lt;/span&gt;&lt;span class="lnt"&gt; 7
+&lt;/span&gt;&lt;span class="lnt"&gt; 8
+&lt;/span&gt;&lt;span class="lnt"&gt; 9
+&lt;/span&gt;&lt;span class="lnt"&gt;10
+&lt;/span&gt;&lt;/code&gt;&lt;/pre&gt;&lt;/td&gt;
+&lt;td class="lntd"&gt;
+&lt;pre tabindex="0" class="chroma"&gt;&lt;code class="language-json" data-lang="json"&gt;&lt;span class="line"&gt;&lt;span class="cl"&gt;&lt;span class="p"&gt;{&lt;/span&gt;
+&lt;/span&gt;&lt;/span&gt;&lt;span class="line"&gt;&lt;span class="cl"&gt; &lt;span class="nt"&gt;&amp;#34;name&amp;#34;&lt;/span&gt;&lt;span class="p"&gt;:&lt;/span&gt; &lt;span class="s2"&gt;&amp;#34;web_search&amp;#34;&lt;/span&gt;&lt;span class="p"&gt;,&lt;/span&gt;
+&lt;/span&gt;&lt;/span&gt;&lt;span class="line"&gt;&lt;span class="cl"&gt; &lt;span class="nt"&gt;&amp;#34;description&amp;#34;&lt;/span&gt;&lt;span class="p"&gt;:&lt;/span&gt; &lt;span class="s2"&gt;&amp;#34;当需要获取某个领域的最新信息、验证某个事实、或者了解某个概念时使用。注意：不要用来查询本地数据库的内容&amp;#34;&lt;/span&gt;&lt;span class="p"&gt;,&lt;/span&gt;
+&lt;/span&gt;&lt;/span&gt;&lt;span class="line"&gt;&lt;span class="cl"&gt; &lt;span class="nt"&gt;&amp;#34;parameters&amp;#34;&lt;/span&gt;&lt;span class="p"&gt;:&lt;/span&gt; &lt;span class="p"&gt;{&lt;/span&gt;
+&lt;/span&gt;&lt;/span&gt;&lt;span class="line"&gt;&lt;span class="cl"&gt; &lt;span class="nt"&gt;&amp;#34;query&amp;#34;&lt;/span&gt;&lt;span class="p"&gt;:&lt;/span&gt; &lt;span class="p"&gt;{&lt;/span&gt;
+&lt;/span&gt;&lt;/span&gt;&lt;span class="line"&gt;&lt;span class="cl"&gt; &lt;span class="nt"&gt;&amp;#34;type&amp;#34;&lt;/span&gt;&lt;span class="p"&gt;:&lt;/span&gt; &lt;span class="s2"&gt;&amp;#34;string&amp;#34;&lt;/span&gt;&lt;span class="p"&gt;,&lt;/span&gt;
+&lt;/span&gt;&lt;/span&gt;&lt;span class="line"&gt;&lt;span class="cl"&gt; &lt;span class="nt"&gt;&amp;#34;description&amp;#34;&lt;/span&gt;&lt;span class="p"&gt;:&lt;/span&gt; &lt;span class="s2"&gt;&amp;#34;搜索关键词，建议3-5个关键词，不要太长&amp;#34;&lt;/span&gt;
+&lt;/span&gt;&lt;/span&gt;&lt;span class="line"&gt;&lt;span class="cl"&gt; &lt;span class="p"&gt;}&lt;/span&gt;
+&lt;/span&gt;&lt;/span&gt;&lt;span class="line"&gt;&lt;span class="cl"&gt; &lt;span class="p"&gt;}&lt;/span&gt;
+&lt;/span&gt;&lt;/span&gt;&lt;span class="line"&gt;&lt;span class="cl"&gt;&lt;span class="p"&gt;}&lt;/span&gt;
+&lt;/span&gt;&lt;/span&gt;&lt;/code&gt;&lt;/pre&gt;&lt;/td&gt;&lt;/tr&gt;&lt;/table&gt;
+&lt;/div&gt;
+&lt;/div&gt;&lt;p&gt;&lt;strong&gt;description 是核心门槛&lt;/strong&gt;——模型基于 description 决定用不用这个工具。写好 description 的技巧：&lt;/p&gt;
 &lt;ul&gt;
 &lt;li&gt;明确什么场景用&lt;/li&gt;
 &lt;li&gt;明确什么场景&lt;strong&gt;不用&lt;/strong&gt;&lt;/li&gt;
 &lt;li&gt;给出使用示例&lt;/li&gt;
 &lt;li&gt;说明参数要求&lt;/li&gt;
 &lt;/ul&gt;
-&lt;h3 id=&#34;工具的返回值设计&#34;&gt;工具的返回值设计
+&lt;h3 id="工具的返回值设计"&gt;工具的返回值设计
 &lt;/h3&gt;&lt;p&gt;工具返回的结果也需要精心格式化：&lt;/p&gt;
-&lt;pre tabindex=&#34;0&#34;&gt;&lt;code&gt;工具调用的结果应该：
-1. 结构化（JSON 或 Markdown 表格）
-2. 包含执行状态（成功/失败）
-3. 失败时包含错误信息和可能的修正建议
-4. 避免过长的原始输出，必要时做摘要
-&lt;/code&gt;&lt;/pre&gt;&lt;h2 id=&#34;五组件4记忆系统memory&#34;&gt;五、组件4：记忆系统（Memory）
+&lt;div class="highlight"&gt;&lt;div class="chroma"&gt;
+&lt;table class="lntable"&gt;&lt;tr&gt;&lt;td class="lntd"&gt;
+&lt;pre tabindex="0" class="chroma"&gt;&lt;code&gt;&lt;span class="lnt"&gt;1
+&lt;/span&gt;&lt;span class="lnt"&gt;2
+&lt;/span&gt;&lt;span class="lnt"&gt;3
+&lt;/span&gt;&lt;span class="lnt"&gt;4
+&lt;/span&gt;&lt;span class="lnt"&gt;5
+&lt;/span&gt;&lt;/code&gt;&lt;/pre&gt;&lt;/td&gt;
+&lt;td class="lntd"&gt;
+&lt;pre tabindex="0" class="chroma"&gt;&lt;code class="language-fallback" data-lang="fallback"&gt;&lt;span class="line"&gt;&lt;span class="cl"&gt;工具调用的结果应该：
+&lt;/span&gt;&lt;/span&gt;&lt;span class="line"&gt;&lt;span class="cl"&gt;1. 结构化（JSON 或 Markdown 表格）
+&lt;/span&gt;&lt;/span&gt;&lt;span class="line"&gt;&lt;span class="cl"&gt;2. 包含执行状态（成功/失败）
+&lt;/span&gt;&lt;/span&gt;&lt;span class="line"&gt;&lt;span class="cl"&gt;3. 失败时包含错误信息和可能的修正建议
+&lt;/span&gt;&lt;/span&gt;&lt;span class="line"&gt;&lt;span class="cl"&gt;4. 避免过长的原始输出，必要时做摘要
+&lt;/span&gt;&lt;/span&gt;&lt;/code&gt;&lt;/pre&gt;&lt;/td&gt;&lt;/tr&gt;&lt;/table&gt;
+&lt;/div&gt;
+&lt;/div&gt;&lt;h2 id="五组件4记忆系统memory"&gt;五、组件4：记忆系统（Memory）
 &lt;/h2&gt;&lt;p&gt;记忆系统解决的是：&lt;strong&gt;Agent 怎么记得之前做过什么？&lt;/strong&gt;&lt;/p&gt;
 &lt;p&gt;记忆分四个层次：&lt;/p&gt;
 &lt;table&gt;
-  &lt;thead&gt;
-      &lt;tr&gt;
-          &lt;th&gt;层次&lt;/th&gt;
-          &lt;th&gt;内容&lt;/th&gt;
-          &lt;th&gt;存储位置&lt;/th&gt;
-          &lt;th&gt;生命周期&lt;/th&gt;
-      &lt;/tr&gt;
-  &lt;/thead&gt;
-  &lt;tbody&gt;
-      &lt;tr&gt;
-          &lt;td&gt;感知记忆&lt;/td&gt;
-          &lt;td&gt;当前输入的原始内容&lt;/td&gt;
-          &lt;td&gt;内存&lt;/td&gt;
-          &lt;td&gt;即时&lt;/td&gt;
-      &lt;/tr&gt;
-      &lt;tr&gt;
-          &lt;td&gt;短期记忆&lt;/td&gt;
-          &lt;td&gt;当前对话/任务的历史&lt;/td&gt;
-          &lt;td&gt;Context window&lt;/td&gt;
-          &lt;td&gt;当前任务&lt;/td&gt;
-      &lt;/tr&gt;
-      &lt;tr&gt;
-          &lt;td&gt;长期记忆&lt;/td&gt;
-          &lt;td&gt;跨会话的知识和经验&lt;/td&gt;
-          &lt;td&gt;向量数据库/结构化存储&lt;/td&gt;
-          &lt;td&gt;持续&lt;/td&gt;
-      &lt;/tr&gt;
-      &lt;tr&gt;
-          &lt;td&gt;实体记忆&lt;/td&gt;
-          &lt;td&gt;提取的结构化事实&lt;/td&gt;
-          &lt;td&gt;图数据库/KV 存储&lt;/td&gt;
-          &lt;td&gt;持续&lt;/td&gt;
-      &lt;/tr&gt;
-  &lt;/tbody&gt;
+&lt;thead&gt;
+&lt;tr&gt;
+&lt;th&gt;层次&lt;/th&gt;
+&lt;th&gt;内容&lt;/th&gt;
+&lt;th&gt;存储位置&lt;/th&gt;
+&lt;th&gt;生命周期&lt;/th&gt;
+&lt;/tr&gt;
+&lt;/thead&gt;
+&lt;tbody&gt;
+&lt;tr&gt;
+&lt;td&gt;感知记忆&lt;/td&gt;
+&lt;td&gt;当前输入的原始内容&lt;/td&gt;
+&lt;td&gt;内存&lt;/td&gt;
+&lt;td&gt;即时&lt;/td&gt;
+&lt;/tr&gt;
+&lt;tr&gt;
+&lt;td&gt;短期记忆&lt;/td&gt;
+&lt;td&gt;当前对话/任务的历史&lt;/td&gt;
+&lt;td&gt;Context window&lt;/td&gt;
+&lt;td&gt;当前任务&lt;/td&gt;
+&lt;/tr&gt;
+&lt;tr&gt;
+&lt;td&gt;长期记忆&lt;/td&gt;
+&lt;td&gt;跨会话的知识和经验&lt;/td&gt;
+&lt;td&gt;向量数据库/结构化存储&lt;/td&gt;
+&lt;td&gt;持续&lt;/td&gt;
+&lt;/tr&gt;
+&lt;tr&gt;
+&lt;td&gt;实体记忆&lt;/td&gt;
+&lt;td&gt;提取的结构化事实&lt;/td&gt;
+&lt;td&gt;图数据库/KV 存储&lt;/td&gt;
+&lt;td&gt;持续&lt;/td&gt;
+&lt;/tr&gt;
+&lt;/tbody&gt;
 &lt;/table&gt;
-&lt;h3 id=&#34;为什么记忆系统这么重要&#34;&gt;为什么记忆系统这么重要？
+&lt;h3 id="为什么记忆系统这么重要"&gt;为什么记忆系统这么重要？
 &lt;/h3&gt;&lt;p&gt;没有记忆的 Agent：&lt;/p&gt;
 &lt;ul&gt;
 &lt;li&gt;你在上一步确认了技术方案，下一步它就不记得了&lt;/li&gt;
@@ -180,23 +242,44 @@
 &lt;li&gt;记住任务的历史决策 → 避免重复讨论、减少沟通成本&lt;/li&gt;
 &lt;li&gt;跨任务积累对你的了解 → 越来越懂你&lt;/li&gt;
 &lt;/ul&gt;
-&lt;h2 id=&#34;六四个组件的协同&#34;&gt;六、四个组件的协同
-&lt;/h2&gt;&lt;pre tabindex=&#34;0&#34;&gt;&lt;code&gt;用户：分析 sales.csv
-
-LLM（理解目标）→ 规划模块：
-  &amp;#34;目标：分析销售数据 → 步骤：1.读数据 2.做统计 3.出报告&amp;#34;
-
-LLM（步骤1）→ &amp;#34;调 analyze_csv(sales.csv)&amp;#34;
-  → 工具系统执行 → 返回数据描述
-
-LLM（步骤2）→ 看到数据是时间序列 → &amp;#34;调 analyze_csv + 增长分析参数&amp;#34;
-  → 工具系统执行 → 返回分析结果
-
-记忆系统：记录当前进度、中间结果、用户偏好
-
-LLM（步骤3）→ &amp;#34;数据够用，生成报告&amp;#34;
-  → 调 write_report → 输出最终答案给用户
-&lt;/code&gt;&lt;/pre&gt;&lt;h2 id=&#34;七本章小结&#34;&gt;七、本章小结
+&lt;h2 id="六四个组件的协同"&gt;六、四个组件的协同
+&lt;/h2&gt;&lt;div class="highlight"&gt;&lt;div class="chroma"&gt;
+&lt;table class="lntable"&gt;&lt;tr&gt;&lt;td class="lntd"&gt;
+&lt;pre tabindex="0" class="chroma"&gt;&lt;code&gt;&lt;span class="lnt"&gt; 1
+&lt;/span&gt;&lt;span class="lnt"&gt; 2
+&lt;/span&gt;&lt;span class="lnt"&gt; 3
+&lt;/span&gt;&lt;span class="lnt"&gt; 4
+&lt;/span&gt;&lt;span class="lnt"&gt; 5
+&lt;/span&gt;&lt;span class="lnt"&gt; 6
+&lt;/span&gt;&lt;span class="lnt"&gt; 7
+&lt;/span&gt;&lt;span class="lnt"&gt; 8
+&lt;/span&gt;&lt;span class="lnt"&gt; 9
+&lt;/span&gt;&lt;span class="lnt"&gt;10
+&lt;/span&gt;&lt;span class="lnt"&gt;11
+&lt;/span&gt;&lt;span class="lnt"&gt;12
+&lt;/span&gt;&lt;span class="lnt"&gt;13
+&lt;/span&gt;&lt;span class="lnt"&gt;14
+&lt;/span&gt;&lt;span class="lnt"&gt;15
+&lt;/span&gt;&lt;/code&gt;&lt;/pre&gt;&lt;/td&gt;
+&lt;td class="lntd"&gt;
+&lt;pre tabindex="0" class="chroma"&gt;&lt;code class="language-fallback" data-lang="fallback"&gt;&lt;span class="line"&gt;&lt;span class="cl"&gt;用户：分析 sales.csv
+&lt;/span&gt;&lt;/span&gt;&lt;span class="line"&gt;&lt;span class="cl"&gt;
+&lt;/span&gt;&lt;/span&gt;&lt;span class="line"&gt;&lt;span class="cl"&gt;LLM（理解目标）→ 规划模块：
+&lt;/span&gt;&lt;/span&gt;&lt;span class="line"&gt;&lt;span class="cl"&gt; &amp;#34;目标：分析销售数据 → 步骤：1.读数据 2.做统计 3.出报告&amp;#34;
+&lt;/span&gt;&lt;/span&gt;&lt;span class="line"&gt;&lt;span class="cl"&gt;
+&lt;/span&gt;&lt;/span&gt;&lt;span class="line"&gt;&lt;span class="cl"&gt;LLM（步骤1）→ &amp;#34;调 analyze_csv(sales.csv)&amp;#34;
+&lt;/span&gt;&lt;/span&gt;&lt;span class="line"&gt;&lt;span class="cl"&gt; → 工具系统执行 → 返回数据描述
+&lt;/span&gt;&lt;/span&gt;&lt;span class="line"&gt;&lt;span class="cl"&gt;
+&lt;/span&gt;&lt;/span&gt;&lt;span class="line"&gt;&lt;span class="cl"&gt;LLM（步骤2）→ 看到数据是时间序列 → &amp;#34;调 analyze_csv + 增长分析参数&amp;#34;
+&lt;/span&gt;&lt;/span&gt;&lt;span class="line"&gt;&lt;span class="cl"&gt; → 工具系统执行 → 返回分析结果
+&lt;/span&gt;&lt;/span&gt;&lt;span class="line"&gt;&lt;span class="cl"&gt;
+&lt;/span&gt;&lt;/span&gt;&lt;span class="line"&gt;&lt;span class="cl"&gt;记忆系统：记录当前进度、中间结果、用户偏好
+&lt;/span&gt;&lt;/span&gt;&lt;span class="line"&gt;&lt;span class="cl"&gt;
+&lt;/span&gt;&lt;/span&gt;&lt;span class="line"&gt;&lt;span class="cl"&gt;LLM（步骤3）→ &amp;#34;数据够用，生成报告&amp;#34;
+&lt;/span&gt;&lt;/span&gt;&lt;span class="line"&gt;&lt;span class="cl"&gt; → 调 write_report → 输出最终答案给用户
+&lt;/span&gt;&lt;/span&gt;&lt;/code&gt;&lt;/pre&gt;&lt;/td&gt;&lt;/tr&gt;&lt;/table&gt;
+&lt;/div&gt;
+&lt;/div&gt;&lt;h2 id="七本章小结"&gt;七、本章小结
 &lt;/h2&gt;&lt;ul&gt;
 &lt;li&gt;Agent 四大组件：LLM（大脑）、规划（怎么拆任务）、工具（怎么做）、记忆（记得什么）&lt;/li&gt;
 &lt;li&gt;LLM 的 System Prompt 定义了 Agent 的&amp;quot;人格&amp;quot;和&amp;quot;行为边界&amp;quot;&lt;/li&gt;
@@ -204,13 +287,8 @@ LLM（步骤3）→ &amp;#34;数据够用，生成报告&amp;#34;
 &lt;li&gt;工具系统的 description 质量直接决定调用准确率&lt;/li&gt;
 &lt;li&gt;记忆系统让 Agent 有&amp;quot;持续感&amp;quot;，不是每次都从零开始&lt;/li&gt;
 &lt;/ul&gt;
-&lt;h2 id=&#34;思考题&#34;&gt;思考题
+&lt;h2 id="思考题"&gt;思考题
 &lt;/h2&gt;&lt;ol&gt;
 &lt;li&gt;如果你设计一个 Agent，工具数量限制在 5 个以内，你怎么选择？优先级怎么排？&lt;/li&gt;
 &lt;li&gt;短期记忆（存在 context 里）会随着对话变长而被截断。长任务中如何设计记忆的&amp;quot;生命值&amp;quot;决策？&lt;/li&gt;
-&lt;/ol&gt;
-</description>
-        </item>
-        
-    </channel>
-</rss>
+&lt;/ol&gt;</description></item></channel></rss>

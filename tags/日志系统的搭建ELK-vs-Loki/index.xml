@@ -1,33 +1,13 @@
-<?xml version="1.0" encoding="utf-8" standalone="yes"?>
-<rss version="2.0" xmlns:atom="http://www.w3.org/2005/Atom">
-    <channel>
-        <title>日志系统的搭建：ELK vs Loki on SelfTechHub</title>
-        <link>https://blog.irudder.me/tags/%E6%97%A5%E5%BF%97%E7%B3%BB%E7%BB%9F%E7%9A%84%E6%90%AD%E5%BB%BAELK-vs-Loki.html</link>
-        <description>Recent content in 日志系统的搭建：ELK vs Loki on SelfTechHub</description>
-        <generator>Hugo -- gohugo.io</generator>
-        <language>zh-cn</language>
-        <lastBuildDate>Fri, 17 Jan 2020 00:00:00 +0000</lastBuildDate><atom:link href="https://blog.irudder.me/tags/%E6%97%A5%E5%BF%97%E7%B3%BB%E7%BB%9F%E7%9A%84%E6%90%AD%E5%BB%BAELK-vs-Loki/index.xml" rel="self" type="application/rss+xml" /><item>
-        <title>别被ELK掏空：中小团队日志系统的降本自救指南</title>
-        <link>https://blog.irudder.me/tech/zhongxiaoxingxiangmujiagoushejizhinan/rizhixitongdedajian_elk-vs-loki.html</link>
-        <pubDate>Fri, 17 Jan 2020 00:00:00 +0000</pubDate>
-        
-        <guid>https://blog.irudder.me/tech/zhongxiaoxingxiangmujiagoushejizhinan/rizhixitongdedajian_elk-vs-loki.html</guid>
-        <description>&lt;p&gt;我曾经深信不疑：没有ELK（Elasticsearch, Logstash, Kibana）的日志系统是不完整的。&lt;/p&gt;
+<?xml version="1.0" encoding="utf-8" standalone="yes"?><rss version="2.0" xmlns:atom="http://www.w3.org/2005/Atom"><channel><title>日志系统的搭建：ELK vs Loki on SelfTechHub</title><link>https://blog.irudder.me/tags/%E6%97%A5%E5%BF%97%E7%B3%BB%E7%BB%9F%E7%9A%84%E6%90%AD%E5%BB%BAELK-vs-Loki.html</link><description>Recent content in 日志系统的搭建：ELK vs Loki on SelfTechHub</description><generator>Hugo -- gohugo.io</generator><language>zh-cn</language><lastBuildDate>Fri, 17 Jan 2020 00:00:00 +0800</lastBuildDate><atom:link href="https://blog.irudder.me/tags/%E6%97%A5%E5%BF%97%E7%B3%BB%E7%BB%9F%E7%9A%84%E6%90%AD%E5%BB%BAELK-vs-Loki/index.xml" rel="self" type="application/rss+xml"/><item><title>别被ELK掏空：中小团队日志系统的降本自救指南</title><link>https://blog.irudder.me/tech/zhongxiaoxingxiangmujiagoushejizhinan/rizhixitongdedajian_elk-vs-loki.html</link><pubDate>Fri, 17 Jan 2020 00:00:00 +0800</pubDate><guid>https://blog.irudder.me/tech/zhongxiaoxingxiangmujiagoushejizhinan/rizhixitongdedajian_elk-vs-loki.html</guid><description>&lt;p&gt;我曾经深信不疑：没有ELK（Elasticsearch, Logstash, Kibana）的日志系统是不完整的。&lt;/p&gt;
 &lt;p&gt;直到两年前的一个深夜，我盯着AWS的账单和频繁报警的JVM内存溢出提示，陷入了沉思。那时我们团队只有不到20人，维护着一个日活几万的小型电商SaaS。为了追求所谓的“业界标准”，我们硬是上了一套标准的ELK集群。结果是，Elasticsearch像一只吞金兽，吃光了我们的服务器内存，也耗尽了运维小哥的耐心。&lt;/p&gt;
 &lt;p&gt;如果你的团队也在为昂贵的日志存储成本发愁，或者因为复杂的ES维护而焦虑，请停下来喝口水。这篇文章不是要否定ELK的强大，而是想陪你聊聊：&lt;strong&gt;在资源有限的中小团队，我们真的需要那么“重”的架构吗？&lt;/strong&gt;&lt;/p&gt;
 &lt;p&gt;或许，Loki（PLG栈）才是那个能让你睡个好觉的解药。&lt;/p&gt;
 &lt;hr&gt;
-&lt;p&gt;&lt;img src=&#34;https://picsum.photos/800/450?random=1768455996779&#34;
-	
-	
-	
-	loading=&#34;lazy&#34;
-	
-		alt=&#34;配图&#34;
-	
-	
+&lt;p&gt;&lt;img src="https://picsum.photos/800/450?random=1768455996779"
+loading="lazy"
+alt="配图"
 &gt;&lt;/p&gt;
-&lt;h2 id=&#34;盲目追求大厂标配是架构师最容易踩的坑&#34;&gt;盲目追求“大厂标配”，是架构师最容易踩的坑
+&lt;h2 id="盲目追求大厂标配是架构师最容易踩的坑"&gt;盲目追求“大厂标配”，是架构师最容易踩的坑
 &lt;/h2&gt;&lt;p&gt;很多技术负责人在搭建初期，总抱着“为了未来扩容方便”的念头，一步到位上了ELK。这听起来很有远见，但在实际落地中，这往往是一场灾难。&lt;/p&gt;
 &lt;p&gt;&lt;strong&gt;真实案例：被索引拖垮的“完美架构”&lt;/strong&gt;&lt;/p&gt;
 &lt;p&gt;2021年，我接手过一个物流初创项目。前任架构师留下了一套3节点的ES集群，每个节点32G内存。&lt;/p&gt;
@@ -41,7 +21,7 @@
 &lt;p&gt;&lt;strong&gt;我的建议：&lt;/strong&gt;
 如果你的日日志量在500GB以下，且没有复杂的商业分析需求（如BI报表），请果断放弃全量索引。&lt;/p&gt;
 &lt;hr&gt;
-&lt;h2 id=&#34;拥抱loki像使用grep一样查询日志&#34;&gt;拥抱Loki：像使用grep一样查询日志
+&lt;h2 id="拥抱loki像使用grep一样查询日志"&gt;拥抱Loki：像使用grep一样查询日志
 &lt;/h2&gt;&lt;p&gt;Loki的设计哲学非常治愈：&lt;strong&gt;它不索引日志的内容，只索引日志的元数据（标签）。&lt;/strong&gt; 这就像你去图书馆找书，ELK是把每一页的内容都记在脑子里，而Loki只记住了书架号和书名。&lt;/p&gt;
 &lt;p&gt;&lt;strong&gt;真实案例：从每月3000元到300元的降本之路&lt;/strong&gt;&lt;/p&gt;
 &lt;p&gt;在决定由于成本问题迁移架构后，我们将上述物流项目的日志系统切换到了Loki + Promtail + Grafana。&lt;/p&gt;
@@ -56,71 +36,85 @@
 &lt;/li&gt;
 &lt;li&gt;&lt;strong&gt;细节：&lt;/strong&gt; 以前开发查日志要学Kibana专门的语法（KQL），现在直接在Grafana里用类似grep的语法，比如 &lt;code&gt;{app=&amp;quot;order-service&amp;quot;} |= &amp;quot;error&amp;quot;&lt;/code&gt;，上手门槛几乎为零。&lt;/li&gt;
 &lt;/ul&gt;
-&lt;p&gt;&lt;img src=&#34;https://picsum.photos/800/450?random=1768455996583&#34;
-	
-	
-	
-	loading=&#34;lazy&#34;
-	
-		alt=&#34;配图&#34;
-	
-	
+&lt;p&gt;&lt;img src="https://picsum.photos/800/450?random=1768455996583"
+loading="lazy"
+alt="配图"
 &gt;&lt;/p&gt;
 &lt;p&gt;&lt;strong&gt;方法论：&lt;/strong&gt;
 Loki的核心在于&lt;strong&gt;Label（标签）设计&lt;/strong&gt;。千万不要把高基数的数据（如用户ID、IP地址）放进标签里，标签只放&lt;strong&gt;服务名、环境、节点&lt;/strong&gt;这种枚举值有限的数据。&lt;/p&gt;
 &lt;blockquote&gt;
-&lt;p&gt;&lt;strong&gt;行业观察：&lt;/strong&gt; Grafana Labs近年来的崛起，正是击中了开发者“厌倦了复杂运维”的痛点。Loki的流行，代表了可观测性领域从“大而全”向“轻量化、组合式”的回归。&lt;/p&gt;
-&lt;/blockquote&gt;
+&lt;p&gt;&lt;strong&gt;行业观察：&lt;/strong&gt; Grafana Labs近年来的崛起，正是击中了开发者“厌倦了复杂运维”的痛点。Loki的流行，代表了可观测性领域从“大而全”向“轻量化、组合式”的回归。&lt;/p&gt;&lt;/blockquote&gt;
 &lt;hr&gt;
-&lt;h2 id=&#34;技术之外给团队减负给焦虑松绑&#34;&gt;技术之外：给团队减负，给焦虑松绑
+&lt;h2 id="技术之外给团队减负给焦虑松绑"&gt;技术之外：给团队减负，给焦虑松绑
 &lt;/h2&gt;&lt;p&gt;架构不仅仅是代码的堆砌，更是对团队精力的管理。选择Loki vs ELK，本质上是在回答：&lt;strong&gt;我们将把宝贵的精力花在哪里？&lt;/strong&gt;&lt;/p&gt;
 &lt;p&gt;我见过很多资深开发，因为维护一套复杂的ES集群而心力交瘁，甚至不敢请假。这种焦虑是会传染的，它会让团队在这个模块上变得保守，不敢轻易改动。&lt;/p&gt;
 &lt;p&gt;当我们切换到Loki后，发生了一个有趣的变化：团队里的初级工程师Xiao Lin，以前看到日志报错不敢查，因为Kibana太卡且语法复杂；换了Grafana界面后，他开始主动做仪表盘，甚至把错误日志的统计推送到钉钉群里。&lt;/p&gt;
 &lt;p&gt;&lt;strong&gt;工具的简化，带来了团队能动性的释放。&lt;/strong&gt;&lt;/p&gt;
 &lt;p&gt;我每周五下午复盘时，看着Grafana上清爽的日志流，常会有一种“断舍离”后的轻松感。我们不需要证明自己能驾驭多复杂的系统，我们需要的是一个能帮我们快速回家的系统。&lt;/p&gt;
-&lt;p&gt;&lt;img src=&#34;https://picsum.photos/800/450?random=1768455997725&#34;
-	
-	
-	
-	loading=&#34;lazy&#34;
-	
-		alt=&#34;配图&#34;
-	
-	
+&lt;p&gt;&lt;img src="https://picsum.photos/800/450?random=1768455997725"
+loading="lazy"
+alt="配图"
 &gt;&lt;/p&gt;
 &lt;hr&gt;
-&lt;h2 id=&#34;落地工具箱即刻行动&#34;&gt;落地工具箱：即刻行动
+&lt;h2 id="落地工具箱即刻行动"&gt;落地工具箱：即刻行动
 &lt;/h2&gt;&lt;p&gt;既然说要落地，我不想给你一堆空泛的文档链接。这里分享一套我自用的、适配中小项目的&lt;strong&gt;Loki轻量级部署配置&lt;/strong&gt;，你可以直接在本地Docker中试运行。&lt;/p&gt;
-&lt;h3 id=&#34;1-核心工具选型&#34;&gt;1. 核心工具选型
+&lt;h3 id="1-核心工具选型"&gt;1. 核心工具选型
 &lt;/h3&gt;&lt;ul&gt;
 &lt;li&gt;&lt;strong&gt;采集端：&lt;/strong&gt; Promtail（极轻量，资源消耗极低）&lt;/li&gt;
 &lt;li&gt;&lt;strong&gt;存储/查询端：&lt;/strong&gt; Loki&lt;/li&gt;
 &lt;li&gt;&lt;strong&gt;展示端：&lt;/strong&gt; Grafana&lt;/li&gt;
 &lt;/ul&gt;
-&lt;h3 id=&#34;2-复制即用的-docker-compose-模板&#34;&gt;2. 复制即用的 Docker Compose 模板
+&lt;h3 id="2-复制即用的-docker-compose-模板"&gt;2. 复制即用的 Docker Compose 模板
 &lt;/h3&gt;&lt;p&gt;这是一个最小化可行性配置，适合快速验证：&lt;/p&gt;
-&lt;div class=&#34;highlight&#34;&gt;&lt;pre tabindex=&#34;0&#34; style=&#34;color:#f8f8f2;background-color:#272822;-moz-tab-size:4;-o-tab-size:4;tab-size:4;&#34;&gt;&lt;code class=&#34;language-yaml&#34; data-lang=&#34;yaml&#34;&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;&lt;span style=&#34;color:#f92672&#34;&gt;version&lt;/span&gt;: &lt;span style=&#34;color:#e6db74&#34;&gt;&amp;#34;3&amp;#34;&lt;/span&gt;
-&lt;/span&gt;&lt;/span&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;&lt;span style=&#34;color:#f92672&#34;&gt;services&lt;/span&gt;:
-&lt;/span&gt;&lt;/span&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;  &lt;span style=&#34;color:#f92672&#34;&gt;loki&lt;/span&gt;:
-&lt;/span&gt;&lt;/span&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;    &lt;span style=&#34;color:#f92672&#34;&gt;image&lt;/span&gt;: &lt;span style=&#34;color:#ae81ff&#34;&gt;grafana/loki:2.9.0&lt;/span&gt;
-&lt;/span&gt;&lt;/span&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;    &lt;span style=&#34;color:#f92672&#34;&gt;ports&lt;/span&gt;:
-&lt;/span&gt;&lt;/span&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;      - &lt;span style=&#34;color:#e6db74&#34;&gt;&amp;#34;3100:3100&amp;#34;&lt;/span&gt;
-&lt;/span&gt;&lt;/span&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;    &lt;span style=&#34;color:#f92672&#34;&gt;command&lt;/span&gt;: -&lt;span style=&#34;color:#ae81ff&#34;&gt;config.file=/etc/loki/local-config.yaml&lt;/span&gt;
-&lt;/span&gt;&lt;/span&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;    
-&lt;/span&gt;&lt;/span&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;  &lt;span style=&#34;color:#f92672&#34;&gt;promtail&lt;/span&gt;:
-&lt;/span&gt;&lt;/span&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;    &lt;span style=&#34;color:#f92672&#34;&gt;image&lt;/span&gt;: &lt;span style=&#34;color:#ae81ff&#34;&gt;grafana/promtail:2.9.0&lt;/span&gt;
-&lt;/span&gt;&lt;/span&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;    &lt;span style=&#34;color:#f92672&#34;&gt;volumes&lt;/span&gt;:
-&lt;/span&gt;&lt;/span&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;      - &lt;span style=&#34;color:#ae81ff&#34;&gt;/var/log:/var/log &lt;/span&gt; &lt;span style=&#34;color:#75715e&#34;&gt;# 挂载宿主机日志目录&lt;/span&gt;
-&lt;/span&gt;&lt;/span&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;      - &lt;span style=&#34;color:#ae81ff&#34;&gt;./promtail-config.yaml:/etc/promtail/config.yaml&lt;/span&gt;
-&lt;/span&gt;&lt;/span&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;    &lt;span style=&#34;color:#f92672&#34;&gt;command&lt;/span&gt;: -&lt;span style=&#34;color:#ae81ff&#34;&gt;config.file=/etc/promtail/config.yaml&lt;/span&gt;
-&lt;/span&gt;&lt;/span&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;
-&lt;/span&gt;&lt;/span&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;  &lt;span style=&#34;color:#f92672&#34;&gt;grafana&lt;/span&gt;:
-&lt;/span&gt;&lt;/span&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;    &lt;span style=&#34;color:#f92672&#34;&gt;image&lt;/span&gt;: &lt;span style=&#34;color:#ae81ff&#34;&gt;grafana/grafana:latest&lt;/span&gt;
-&lt;/span&gt;&lt;/span&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;    &lt;span style=&#34;color:#f92672&#34;&gt;ports&lt;/span&gt;:
-&lt;/span&gt;&lt;/span&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;      - &lt;span style=&#34;color:#e6db74&#34;&gt;&amp;#34;3000:3000&amp;#34;&lt;/span&gt;
-&lt;/span&gt;&lt;/span&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;    &lt;span style=&#34;color:#f92672&#34;&gt;environment&lt;/span&gt;:
-&lt;/span&gt;&lt;/span&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;      - &lt;span style=&#34;color:#ae81ff&#34;&gt;GF_SECURITY_ADMIN_PASSWORD=admin&lt;/span&gt;
-&lt;/span&gt;&lt;/span&gt;&lt;/code&gt;&lt;/pre&gt;&lt;/div&gt;&lt;h3 id=&#34;3-接下来你可以做的3个具体步骤&#34;&gt;3. 接下来你可以做的3个具体步骤
+&lt;div class="highlight"&gt;&lt;div class="chroma"&gt;
+&lt;table class="lntable"&gt;&lt;tr&gt;&lt;td class="lntd"&gt;
+&lt;pre tabindex="0" class="chroma"&gt;&lt;code&gt;&lt;span class="lnt"&gt; 1
+&lt;/span&gt;&lt;span class="lnt"&gt; 2
+&lt;/span&gt;&lt;span class="lnt"&gt; 3
+&lt;/span&gt;&lt;span class="lnt"&gt; 4
+&lt;/span&gt;&lt;span class="lnt"&gt; 5
+&lt;/span&gt;&lt;span class="lnt"&gt; 6
+&lt;/span&gt;&lt;span class="lnt"&gt; 7
+&lt;/span&gt;&lt;span class="lnt"&gt; 8
+&lt;/span&gt;&lt;span class="lnt"&gt; 9
+&lt;/span&gt;&lt;span class="lnt"&gt;10
+&lt;/span&gt;&lt;span class="lnt"&gt;11
+&lt;/span&gt;&lt;span class="lnt"&gt;12
+&lt;/span&gt;&lt;span class="lnt"&gt;13
+&lt;/span&gt;&lt;span class="lnt"&gt;14
+&lt;/span&gt;&lt;span class="lnt"&gt;15
+&lt;/span&gt;&lt;span class="lnt"&gt;16
+&lt;/span&gt;&lt;span class="lnt"&gt;17
+&lt;/span&gt;&lt;span class="lnt"&gt;18
+&lt;/span&gt;&lt;span class="lnt"&gt;19
+&lt;/span&gt;&lt;span class="lnt"&gt;20
+&lt;/span&gt;&lt;span class="lnt"&gt;21
+&lt;/span&gt;&lt;/code&gt;&lt;/pre&gt;&lt;/td&gt;
+&lt;td class="lntd"&gt;
+&lt;pre tabindex="0" class="chroma"&gt;&lt;code class="language-yaml" data-lang="yaml"&gt;&lt;span class="line"&gt;&lt;span class="cl"&gt;&lt;span class="nt"&gt;version&lt;/span&gt;&lt;span class="p"&gt;:&lt;/span&gt;&lt;span class="w"&gt; &lt;/span&gt;&lt;span class="s2"&gt;&amp;#34;3&amp;#34;&lt;/span&gt;&lt;span class="w"&gt;
+&lt;/span&gt;&lt;/span&gt;&lt;/span&gt;&lt;span class="line"&gt;&lt;span class="cl"&gt;&lt;span class="w"&gt;&lt;/span&gt;&lt;span class="nt"&gt;services&lt;/span&gt;&lt;span class="p"&gt;:&lt;/span&gt;&lt;span class="w"&gt;
+&lt;/span&gt;&lt;/span&gt;&lt;/span&gt;&lt;span class="line"&gt;&lt;span class="cl"&gt;&lt;span class="w"&gt; &lt;/span&gt;&lt;span class="nt"&gt;loki&lt;/span&gt;&lt;span class="p"&gt;:&lt;/span&gt;&lt;span class="w"&gt;
+&lt;/span&gt;&lt;/span&gt;&lt;/span&gt;&lt;span class="line"&gt;&lt;span class="cl"&gt;&lt;span class="w"&gt; &lt;/span&gt;&lt;span class="nt"&gt;image&lt;/span&gt;&lt;span class="p"&gt;:&lt;/span&gt;&lt;span class="w"&gt; &lt;/span&gt;&lt;span class="l"&gt;grafana/loki:2.9.0&lt;/span&gt;&lt;span class="w"&gt;
+&lt;/span&gt;&lt;/span&gt;&lt;/span&gt;&lt;span class="line"&gt;&lt;span class="cl"&gt;&lt;span class="w"&gt; &lt;/span&gt;&lt;span class="nt"&gt;ports&lt;/span&gt;&lt;span class="p"&gt;:&lt;/span&gt;&lt;span class="w"&gt;
+&lt;/span&gt;&lt;/span&gt;&lt;/span&gt;&lt;span class="line"&gt;&lt;span class="cl"&gt;&lt;span class="w"&gt; &lt;/span&gt;- &lt;span class="s2"&gt;&amp;#34;3100:3100&amp;#34;&lt;/span&gt;&lt;span class="w"&gt;
+&lt;/span&gt;&lt;/span&gt;&lt;/span&gt;&lt;span class="line"&gt;&lt;span class="cl"&gt;&lt;span class="w"&gt; &lt;/span&gt;&lt;span class="nt"&gt;command&lt;/span&gt;&lt;span class="p"&gt;:&lt;/span&gt;&lt;span class="w"&gt; &lt;/span&gt;-&lt;span class="l"&gt;config.file=/etc/loki/local-config.yaml&lt;/span&gt;&lt;span class="w"&gt;
+&lt;/span&gt;&lt;/span&gt;&lt;/span&gt;&lt;span class="line"&gt;&lt;span class="cl"&gt;&lt;span class="w"&gt;
+&lt;/span&gt;&lt;/span&gt;&lt;/span&gt;&lt;span class="line"&gt;&lt;span class="cl"&gt;&lt;span class="w"&gt; &lt;/span&gt;&lt;span class="nt"&gt;promtail&lt;/span&gt;&lt;span class="p"&gt;:&lt;/span&gt;&lt;span class="w"&gt;
+&lt;/span&gt;&lt;/span&gt;&lt;/span&gt;&lt;span class="line"&gt;&lt;span class="cl"&gt;&lt;span class="w"&gt; &lt;/span&gt;&lt;span class="nt"&gt;image&lt;/span&gt;&lt;span class="p"&gt;:&lt;/span&gt;&lt;span class="w"&gt; &lt;/span&gt;&lt;span class="l"&gt;grafana/promtail:2.9.0&lt;/span&gt;&lt;span class="w"&gt;
+&lt;/span&gt;&lt;/span&gt;&lt;/span&gt;&lt;span class="line"&gt;&lt;span class="cl"&gt;&lt;span class="w"&gt; &lt;/span&gt;&lt;span class="nt"&gt;volumes&lt;/span&gt;&lt;span class="p"&gt;:&lt;/span&gt;&lt;span class="w"&gt;
+&lt;/span&gt;&lt;/span&gt;&lt;/span&gt;&lt;span class="line"&gt;&lt;span class="cl"&gt;&lt;span class="w"&gt; &lt;/span&gt;- &lt;span class="l"&gt;/var/log:/var/log &lt;/span&gt;&lt;span class="w"&gt; &lt;/span&gt;&lt;span class="c"&gt;# 挂载宿主机日志目录&lt;/span&gt;&lt;span class="w"&gt;
+&lt;/span&gt;&lt;/span&gt;&lt;/span&gt;&lt;span class="line"&gt;&lt;span class="cl"&gt;&lt;span class="w"&gt; &lt;/span&gt;- &lt;span class="l"&gt;./promtail-config.yaml:/etc/promtail/config.yaml&lt;/span&gt;&lt;span class="w"&gt;
+&lt;/span&gt;&lt;/span&gt;&lt;/span&gt;&lt;span class="line"&gt;&lt;span class="cl"&gt;&lt;span class="w"&gt; &lt;/span&gt;&lt;span class="nt"&gt;command&lt;/span&gt;&lt;span class="p"&gt;:&lt;/span&gt;&lt;span class="w"&gt; &lt;/span&gt;-&lt;span class="l"&gt;config.file=/etc/promtail/config.yaml&lt;/span&gt;&lt;span class="w"&gt;
+&lt;/span&gt;&lt;/span&gt;&lt;/span&gt;&lt;span class="line"&gt;&lt;span class="cl"&gt;&lt;span class="w"&gt;
+&lt;/span&gt;&lt;/span&gt;&lt;/span&gt;&lt;span class="line"&gt;&lt;span class="cl"&gt;&lt;span class="w"&gt; &lt;/span&gt;&lt;span class="nt"&gt;grafana&lt;/span&gt;&lt;span class="p"&gt;:&lt;/span&gt;&lt;span class="w"&gt;
+&lt;/span&gt;&lt;/span&gt;&lt;/span&gt;&lt;span class="line"&gt;&lt;span class="cl"&gt;&lt;span class="w"&gt; &lt;/span&gt;&lt;span class="nt"&gt;image&lt;/span&gt;&lt;span class="p"&gt;:&lt;/span&gt;&lt;span class="w"&gt; &lt;/span&gt;&lt;span class="l"&gt;grafana/grafana:latest&lt;/span&gt;&lt;span class="w"&gt;
+&lt;/span&gt;&lt;/span&gt;&lt;/span&gt;&lt;span class="line"&gt;&lt;span class="cl"&gt;&lt;span class="w"&gt; &lt;/span&gt;&lt;span class="nt"&gt;ports&lt;/span&gt;&lt;span class="p"&gt;:&lt;/span&gt;&lt;span class="w"&gt;
+&lt;/span&gt;&lt;/span&gt;&lt;/span&gt;&lt;span class="line"&gt;&lt;span class="cl"&gt;&lt;span class="w"&gt; &lt;/span&gt;- &lt;span class="s2"&gt;&amp;#34;3000:3000&amp;#34;&lt;/span&gt;&lt;span class="w"&gt;
+&lt;/span&gt;&lt;/span&gt;&lt;/span&gt;&lt;span class="line"&gt;&lt;span class="cl"&gt;&lt;span class="w"&gt; &lt;/span&gt;&lt;span class="nt"&gt;environment&lt;/span&gt;&lt;span class="p"&gt;:&lt;/span&gt;&lt;span class="w"&gt;
+&lt;/span&gt;&lt;/span&gt;&lt;/span&gt;&lt;span class="line"&gt;&lt;span class="cl"&gt;&lt;span class="w"&gt; &lt;/span&gt;- &lt;span class="l"&gt;GF_SECURITY_ADMIN_PASSWORD=admin&lt;/span&gt;&lt;span class="w"&gt;
+&lt;/span&gt;&lt;/span&gt;&lt;/span&gt;&lt;/code&gt;&lt;/pre&gt;&lt;/td&gt;&lt;/tr&gt;&lt;/table&gt;
+&lt;/div&gt;
+&lt;/div&gt;&lt;h3 id="3-接下来你可以做的3个具体步骤"&gt;3. 接下来你可以做的3个具体步骤
 &lt;/h3&gt;&lt;p&gt;如果你现在正被现有的日志系统折磨，建议按照以下节奏调整：&lt;/p&gt;
 &lt;ol&gt;
 &lt;li&gt;&lt;strong&gt;做一个“体检”：&lt;/strong&gt; 打开你的云厂商账单，计算一下现有日志存储（ES磁盘+内存机器）占总IT成本的比例。如果超过20%，说明无论从成本还是架构上，都偏重了。&lt;/li&gt;
@@ -129,9 +123,4 @@ Loki的核心在于&lt;strong&gt;Label（标签）设计&lt;/strong&gt;。千万
 &lt;/ol&gt;
 &lt;p&gt;&lt;strong&gt;写在最后：&lt;/strong&gt;&lt;/p&gt;
 &lt;p&gt;在这个技术日新月异的时代，我们容易产生“错失恐惧症”（FOMO），觉得不用最复杂的架构就落伍了。但作为过来人，我想告诉你：&lt;strong&gt;最适合当下团队规模、能让人睡安稳觉的架构，才是最好的架构。&lt;/strong&gt;&lt;/p&gt;
-&lt;p&gt;希望今晚，你的监控群里没有报警，服务器风扇声轻柔，你能早点下班，陪陪家人。&lt;/p&gt;
-</description>
-        </item>
-        
-    </channel>
-</rss>
+&lt;p&gt;希望今晚，你的监控群里没有报警，服务器风扇声轻柔，你能早点下班，陪陪家人。&lt;/p&gt;</description></item></channel></rss>

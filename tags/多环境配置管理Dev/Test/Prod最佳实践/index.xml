@@ -1,22 +1,8 @@
-<?xml version="1.0" encoding="utf-8" standalone="yes"?>
-<rss version="2.0" xmlns:atom="http://www.w3.org/2005/Atom">
-    <channel>
-        <title>多环境配置管理（Dev/Test/Prod）最佳实践 on SelfTechHub</title>
-        <link>https://blog.irudder.me/tags/%E5%A4%9A%E7%8E%AF%E5%A2%83%E9%85%8D%E7%BD%AE%E7%AE%A1%E7%90%86Dev/Test/Prod%E6%9C%80%E4%BD%B3%E5%AE%9E%E8%B7%B5.html</link>
-        <description>Recent content in 多环境配置管理（Dev/Test/Prod）最佳实践 on SelfTechHub</description>
-        <generator>Hugo -- gohugo.io</generator>
-        <language>zh-cn</language>
-        <lastBuildDate>Thu, 22 Oct 2020 00:00:00 +0000</lastBuildDate><atom:link href="https://blog.irudder.me/tags/%E5%A4%9A%E7%8E%AF%E5%A2%83%E9%85%8D%E7%BD%AE%E7%AE%A1%E7%90%86Dev/Test/Prod%E6%9C%80%E4%BD%B3%E5%AE%9E%E8%B7%B5/index.xml" rel="self" type="application/rss+xml" /><item>
-        <title>深夜炸库后，我悟出的配置管理“断舍离”法则</title>
-        <link>https://blog.irudder.me/tech/zhongxiaoxingxiangmujiagoushejizhinan/duohuanjingpeizhiguanlidev_test_prodzuijiashijian.html</link>
-        <pubDate>Thu, 22 Oct 2020 00:00:00 +0000</pubDate>
-        
-        <guid>https://blog.irudder.me/tech/zhongxiaoxingxiangmujiagoushejizhinan/duohuanjingpeizhiguanlidev_test_prodzuijiashijian.html</guid>
-        <description>&lt;p&gt;如果你曾在凌晨三点，盯着报错日志手脚冰凉，只因为生产环境连错了一个数据库地址，那么请深呼吸——你并不孤单。&lt;/p&gt;
+<?xml version="1.0" encoding="utf-8" standalone="yes"?><rss version="2.0" xmlns:atom="http://www.w3.org/2005/Atom"><channel><title>多环境配置管理（Dev/Test/Prod）最佳实践 on SelfTechHub</title><link>https://blog.irudder.me/tags/%E5%A4%9A%E7%8E%AF%E5%A2%83%E9%85%8D%E7%BD%AE%E7%AE%A1%E7%90%86Dev/Test/Prod%E6%9C%80%E4%BD%B3%E5%AE%9E%E8%B7%B5.html</link><description>Recent content in 多环境配置管理（Dev/Test/Prod）最佳实践 on SelfTechHub</description><generator>Hugo -- gohugo.io</generator><language>zh-cn</language><lastBuildDate>Thu, 22 Oct 2020 00:00:00 +0800</lastBuildDate><atom:link href="https://blog.irudder.me/tags/%E5%A4%9A%E7%8E%AF%E5%A2%83%E9%85%8D%E7%BD%AE%E7%AE%A1%E7%90%86Dev/Test/Prod%E6%9C%80%E4%BD%B3%E5%AE%9E%E8%B7%B5/index.xml" rel="self" type="application/rss+xml"/><item><title>深夜炸库后，我悟出的配置管理“断舍离”法则</title><link>https://blog.irudder.me/tech/zhongxiaoxingxiangmujiagoushejizhinan/duohuanjingpeizhiguanlidev_test_prodzuijiashijian.html</link><pubDate>Thu, 22 Oct 2020 00:00:00 +0800</pubDate><guid>https://blog.irudder.me/tech/zhongxiaoxingxiangmujiagoushejizhinan/duohuanjingpeizhiguanlidev_test_prodzuijiashijian.html</guid><description>&lt;p&gt;如果你曾在凌晨三点，盯着报错日志手脚冰凉，只因为生产环境连错了一个数据库地址，那么请深呼吸——你并不孤单。&lt;/p&gt;
 &lt;p&gt;很多年前，我还是个热血青年，坚信“架构要完美”、“配置要集中”。直到有一次，因为一个不起眼的 &lt;code&gt;.properties&lt;/code&gt; 文件覆盖错误，我把测试环境的脏数据写进了生产库。那晚为了回滚数据，我和运维兄弟抽掉了两包烟，东方既白时才敢合眼。&lt;/p&gt;
 &lt;p&gt;那次事故后，我陷入了深深的自我怀疑：&lt;strong&gt;对于只有十几人的中小团队，我们真的需要那些大厂标配的重型配置中心吗？&lt;/strong&gt; 还是说，我们把简单的问题复杂化了？&lt;/p&gt;
 &lt;p&gt;如果你也正对着 Dev/Test/Prod 复杂的环境差异感到头秃，或是被频繁的配置漂移搞得心力交瘁，这篇“老兵复盘”或许能给你一点温暖的慰藉和实用的解法。&lt;/p&gt;
-&lt;h2 id=&#34;告别人工同步哪怕你记性再好&#34;&gt;告别“人工同步”，哪怕你记性再好
+&lt;h2 id="告别人工同步哪怕你记性再好"&gt;告别“人工同步”，哪怕你记性再好
 &lt;/h2&gt;&lt;p&gt;早期带团队时，我最常听到的对话是这样的：
 “老张，测试环境那个支付开关你开了吗？”
 “哎呀忘了，马上改！”&lt;/p&gt;
@@ -32,23 +18,28 @@
 &lt;li&gt;&lt;strong&gt;代码库归零&lt;/strong&gt;：代码仓库里只保留 &lt;code&gt;config.example.yaml&lt;/code&gt;，不包含任何具体环境值。&lt;/li&gt;
 &lt;li&gt;&lt;strong&gt;环境变量注入&lt;/strong&gt;：利用 CI/CD 工具（当时用的 Jenkins，现在可能是 GitLab CI 或 GitHub Actions），在构建/部署阶段，根据目标环境（Dev/Test/Prod）动态注入配置。&lt;/li&gt;
 &lt;/ol&gt;
-&lt;div class=&#34;highlight&#34;&gt;&lt;pre tabindex=&#34;0&#34; style=&#34;color:#f8f8f2;background-color:#272822;-moz-tab-size:4;-o-tab-size:4;tab-size:4;&#34;&gt;&lt;code class=&#34;language-yaml&#34; data-lang=&#34;yaml&#34;&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;&lt;span style=&#34;color:#75715e&#34;&gt;# 这里的 DB_HOST 不再写死，完全依赖部署时的环境变量&lt;/span&gt;
-&lt;/span&gt;&lt;/span&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;&lt;span style=&#34;color:#f92672&#34;&gt;database&lt;/span&gt;:
-&lt;/span&gt;&lt;/span&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;  &lt;span style=&#34;color:#f92672&#34;&gt;host&lt;/span&gt;: &lt;span style=&#34;color:#ae81ff&#34;&gt;${DB_HOST}&lt;/span&gt;
-&lt;/span&gt;&lt;/span&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;  &lt;span style=&#34;color:#f92672&#34;&gt;password&lt;/span&gt;: &lt;span style=&#34;color:#ae81ff&#34;&gt;${DB_PASSWORD}&lt;/span&gt;
-&lt;/span&gt;&lt;/span&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;  &lt;span style=&#34;color:#f92672&#34;&gt;timeout&lt;/span&gt;: &lt;span style=&#34;color:#ae81ff&#34;&gt;${DB_TIMEOUT}&lt;/span&gt;
-&lt;/span&gt;&lt;/span&gt;&lt;/code&gt;&lt;/pre&gt;&lt;/div&gt;&lt;p&gt;这招虽然老套，但它强制切断了“人工修改文件”的路径。从此以后，不管是哪个开发人员提交代码，只要流水线配置没错，环境就不可能乱。&lt;/p&gt;
-&lt;h2 id=&#34;拒绝过度架构适合的才是最好的&#34;&gt;拒绝“过度架构”，适合的才是最好的
+&lt;div class="highlight"&gt;&lt;div class="chroma"&gt;
+&lt;table class="lntable"&gt;&lt;tr&gt;&lt;td class="lntd"&gt;
+&lt;pre tabindex="0" class="chroma"&gt;&lt;code&gt;&lt;span class="lnt"&gt;1
+&lt;/span&gt;&lt;span class="lnt"&gt;2
+&lt;/span&gt;&lt;span class="lnt"&gt;3
+&lt;/span&gt;&lt;span class="lnt"&gt;4
+&lt;/span&gt;&lt;span class="lnt"&gt;5
+&lt;/span&gt;&lt;/code&gt;&lt;/pre&gt;&lt;/td&gt;
+&lt;td class="lntd"&gt;
+&lt;pre tabindex="0" class="chroma"&gt;&lt;code class="language-yaml" data-lang="yaml"&gt;&lt;span class="line"&gt;&lt;span class="cl"&gt;&lt;span class="c"&gt;# 这里的 DB_HOST 不再写死，完全依赖部署时的环境变量&lt;/span&gt;&lt;span class="w"&gt;
+&lt;/span&gt;&lt;/span&gt;&lt;/span&gt;&lt;span class="line"&gt;&lt;span class="cl"&gt;&lt;span class="w"&gt;&lt;/span&gt;&lt;span class="nt"&gt;database&lt;/span&gt;&lt;span class="p"&gt;:&lt;/span&gt;&lt;span class="w"&gt;
+&lt;/span&gt;&lt;/span&gt;&lt;/span&gt;&lt;span class="line"&gt;&lt;span class="cl"&gt;&lt;span class="w"&gt; &lt;/span&gt;&lt;span class="nt"&gt;host&lt;/span&gt;&lt;span class="p"&gt;:&lt;/span&gt;&lt;span class="w"&gt; &lt;/span&gt;&lt;span class="l"&gt;${DB_HOST}&lt;/span&gt;&lt;span class="w"&gt;
+&lt;/span&gt;&lt;/span&gt;&lt;/span&gt;&lt;span class="line"&gt;&lt;span class="cl"&gt;&lt;span class="w"&gt; &lt;/span&gt;&lt;span class="nt"&gt;password&lt;/span&gt;&lt;span class="p"&gt;:&lt;/span&gt;&lt;span class="w"&gt; &lt;/span&gt;&lt;span class="l"&gt;${DB_PASSWORD}&lt;/span&gt;&lt;span class="w"&gt;
+&lt;/span&gt;&lt;/span&gt;&lt;/span&gt;&lt;span class="line"&gt;&lt;span class="cl"&gt;&lt;span class="w"&gt; &lt;/span&gt;&lt;span class="nt"&gt;timeout&lt;/span&gt;&lt;span class="p"&gt;:&lt;/span&gt;&lt;span class="w"&gt; &lt;/span&gt;&lt;span class="l"&gt;${DB_TIMEOUT}&lt;/span&gt;&lt;span class="w"&gt;
+&lt;/span&gt;&lt;/span&gt;&lt;/span&gt;&lt;/code&gt;&lt;/pre&gt;&lt;/td&gt;&lt;/tr&gt;&lt;/table&gt;
+&lt;/div&gt;
+&lt;/div&gt;&lt;p&gt;这招虽然老套，但它强制切断了“人工修改文件”的路径。从此以后，不管是哪个开发人员提交代码，只要流水线配置没错，环境就不可能乱。&lt;/p&gt;
+&lt;h2 id="拒绝过度架构适合的才是最好的"&gt;拒绝“过度架构”，适合的才是最好的
 &lt;/h2&gt;&lt;p&gt;随着团队扩张，大家开始嫌弃环境变量不好管理。于是，有人提议上某大厂开源的分布式配置中心（比如 Nacos 或 Apollo）。&lt;/p&gt;
-&lt;p&gt;&lt;img src=&#34;https://picsum.photos/800/450?random=1768456135067&#34;
-	
-	
-	
-	loading=&#34;lazy&#34;
-	
-		alt=&#34;配图&#34;
-	
-	
+&lt;p&gt;&lt;img src="https://picsum.photos/800/450?random=1768456135067"
+loading="lazy"
+alt="配图"
 &gt;&lt;/p&gt;
 &lt;p&gt;“大厂都在用，肯定没问题。”——这句话是个甜蜜的陷阱。&lt;/p&gt;
 &lt;p&gt;&lt;strong&gt;真实案例：&lt;/strong&gt;
@@ -62,21 +53,14 @@
 &lt;li&gt;&lt;strong&gt;GitOps 思维&lt;/strong&gt;：建立一个独立的私有 Git 仓库，专门存放各环境配置（Config Repo）。&lt;/li&gt;
 &lt;li&gt;&lt;strong&gt;K8s ConfigMap&lt;/strong&gt;：利用 Kubernetes 原生的 ConfigMap/Secret 管理配置。部署脚本从 Config Repo 拉取文件，生成 K8s 对象。&lt;/li&gt;
 &lt;/ul&gt;
-&lt;p&gt;&lt;img src=&#34;https://picsum.photos/800/450?random=1768456136670&#34;
-	
-	
-	
-	loading=&#34;lazy&#34;
-	
-		alt=&#34;配图&#34;
-	
-	
+&lt;p&gt;&lt;img src="https://picsum.photos/800/450?random=1768456136670"
+loading="lazy"
+alt="配图"
 &gt;&lt;/p&gt;
 &lt;p&gt;这种方式虽然不能“秒级热更”，但胜在&lt;strong&gt;极其稳定、可追溯、零维护成本&lt;/strong&gt;。对于 99% 的中小业务场景，重启服务生效那一分钟，完全是可以接受的。&lt;/p&gt;
 &lt;blockquote&gt;
-&lt;p&gt;“不要为了解决 1% 的极端问题，引入 100% 的复杂度。”这是我写在办公桌便利贴上的一句话。&lt;/p&gt;
-&lt;/blockquote&gt;
-&lt;h2 id=&#34;守住安全红线别让密钥裸奔&#34;&gt;守住“安全红线”，别让密钥裸奔
+&lt;p&gt;“不要为了解决 1% 的极端问题，引入 100% 的复杂度。”这是我写在办公桌便利贴上的一句话。&lt;/p&gt;&lt;/blockquote&gt;
+&lt;h2 id="守住安全红线别让密钥裸奔"&gt;守住“安全红线”，别让密钥裸奔
 &lt;/h2&gt;&lt;p&gt;这可能是最容易被忽视，却最致命的一点。为了方便调试，开发人员经常把 AWS 的 AK/SK 或者数据库密码直接写在代码注释里，或者硬编码在测试用例中。&lt;/p&gt;
 &lt;p&gt;&lt;strong&gt;真实案例：&lt;/strong&gt;
 2021年，我的一位朋友创业，招聘了一位实习生。实习生为了在家里也能跑通代码，把包含云服务 AccessKey 的配置文件传到了 GitHub 公开仓库。
@@ -90,18 +74,12 @@
 &lt;/ul&gt;
 &lt;p&gt;这样，即便代码库全网泄露，黑客拿到的也只是一堆 &lt;code&gt;${DB_PASSWORD}&lt;/code&gt; 的占位符，你的资产依然安全。&lt;/p&gt;
 &lt;hr&gt;
-&lt;h2 id=&#34;写在最后&#34;&gt;写在最后
+&lt;h2 id="写在最后"&gt;写在最后
 &lt;/h2&gt;&lt;p&gt;多环境配置管理，说到底不是技术问题，而是&lt;strong&gt;纪律问题&lt;/strong&gt;。&lt;/p&gt;
 &lt;p&gt;回顾这十几年的踩坑史，我发现最舒服的架构，往往不是那些听起来高大上的名词，而是那些&lt;strong&gt;你也懂、我也懂、新来的实习生看一眼文档也能懂&lt;/strong&gt;的方案。&lt;/p&gt;
-&lt;p&gt;&lt;img src=&#34;https://picsum.photos/800/450?random=1768456137532&#34;
-	
-	
-	
-	loading=&#34;lazy&#34;
-	
-		alt=&#34;配图&#34;
-	
-	
+&lt;p&gt;&lt;img src="https://picsum.photos/800/450?random=1768456137532"
+loading="lazy"
+alt="配图"
 &gt;&lt;/p&gt;
 &lt;p&gt;&lt;strong&gt;那么，你目前的团队更倾向于哪种方案呢？&lt;/strong&gt;
 A. 简单粗暴：环境变量/本地文件一把梭
@@ -114,9 +92,4 @@ C. 高端玩家：Nacos/Apollo 等专业配置中心
 &lt;li&gt;&lt;strong&gt;统一命名规范&lt;/strong&gt;：不管用什么工具，确保所有环境的变量名一致（比如都叫 &lt;code&gt;DB_URL&lt;/code&gt;，别一会儿叫 &lt;code&gt;TEST_DB&lt;/code&gt; 一会儿叫 &lt;code&gt;PROD_DB&lt;/code&gt;）。&lt;/li&gt;
 &lt;li&gt;&lt;strong&gt;建立“配置准入”机制&lt;/strong&gt;：在 Code Review 环节增加一项检查——“这次提交是否包含新的配置项？是否在所有环境都准备好了对应的值？”&lt;/li&gt;
 &lt;/ol&gt;
-&lt;p&gt;架构之路漫漫，愿你的生产环境永远宁静如水，愿你的周末不再有报警电话。&lt;/p&gt;
-</description>
-        </item>
-        
-    </channel>
-</rss>
+&lt;p&gt;架构之路漫漫，愿你的生产环境永远宁静如水，愿你的周末不再有报警电话。&lt;/p&gt;</description></item></channel></rss>

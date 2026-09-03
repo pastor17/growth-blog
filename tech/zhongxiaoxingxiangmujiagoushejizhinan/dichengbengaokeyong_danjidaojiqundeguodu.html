@@ -1,506 +1,77 @@
-<!DOCTYPE html>
-<html lang="zh-cn" dir="ltr">
-    <head><meta charset='utf-8'>
-<meta name='viewport' content='width=device-width, initial-scale=1'><meta name='description' content="我曾以为架构师的价值在于由于使用了多么牛逼的CNCF全家桶，直到2018年那个黑色的周五。\n那时我负责一个日活刚过万的电商SaaS，为了追求所谓的&quot;大厂标准&quot;，我强行上了一套自建Kubernetes集群。结果在一次大促前夕，Etcd节点因为磁盘IO抖动导致集群脑裂，整个系统瘫痪了4个小时。老板站在我身后，看着满屏红色的Pod重启日志，只问了一句：&ldquo;我们真的需要这么复杂的东西吗？&rdquo;\n那次事故后，我甚至形成了PTSD：每到周五下午，我都会下意识地去检查监控面板，生怕那个昂贵的&quot;高大上&quot;架构再次崩塌。\n痛定思痛，我开始给架构做减法。对于99%的中小团队来说，&ldquo;高可用&quot;不等于&quot;微服务+K8s&rdquo;，而是&quot;低成本+消除单点+快速恢复&quot;。\n如果你正处于单机扛不住、集群玩不转的尴尬阶段，下面这三个&quot;穷鬼&quot;过渡方案，或许能救你一命。\n接入层：别迷信硬负载，Keepalived+Nginx才是平民神器\r很多兄弟从单机扩展到双机时，第一反应是去买云厂商的SLB（负载均衡）。SLB确实好用，但如果你是私有化部署，或者预算极其有限（比如每年IT预算卡得死死的），硬件F5买不起，云SLB又是一笔持续的月租费。\n其实，两台2核4G的虚拟机，就能搞定千万级流量的入口高可用。\n2020年，我接手一个制造业的MES系统改造。现场只有两台破旧的物理服务器，却要求&quot;只要电不断，服务就不能断&quot;。\n我们没用任何收费组件，直接采用了 VIP（虚拟IP）漂移方案。\n操作逻辑很简单：\n两台服务器都装上Nginx和Keepalived。 对外只暴露一个VIP（比如 192.168.1.100）。 平时VIP绑定在主节点（Master）上，流量全走它。 一旦主节点Nginx进程挂了，Keepalived在3秒内感知，立马把VIP&quot;抢&quot;到备节点（Backup）上。 真实代码片段（keepalived.conf）：\nvrrp_script chk_nginx { script &#34;/etc/keepalived/check_nginx.sh&#34; # 检测Nginx存活的脚本 interval 2 weight -20 } vrrp_instance VI_1 { state MASTER interface eth0 virtual_router_id 51 priority 100 advert_int 1 authentication { auth_type PASS auth_pass 1111 } virtual_ipaddress { 192.168.1.100 # 对外暴露的VIP } track_script { chk_nginx } } 结果复盘： 上线三年，主服务器电源坏过一次，网卡松过一次。系统自动切换，工厂流水线甚至没感觉到卡顿。 核心教训： 在流量没撑爆网卡前，不要引入复杂的四层/七层负载均衡设备，简单的VIP漂移是最极致的低成本高可用。\n">
-<title>穷鬼架构师自白：单机转集群，别被K8s拖死</title>
-
-<link rel='canonical' href='https://blog.irudder.me/tech/zhongxiaoxingxiangmujiagoushejizhinan/dichengbengaokeyong_danjidaojiqundeguodu.html'>
-
-<link rel="stylesheet" href="/scss/style.min.b9e9128fec450ebccecc4ec9900157f32b85d0609bcd5ee3293968bcaa1235f2.css"><meta property='og:title' content="穷鬼架构师自白：单机转集群，别被K8s拖死">
-<meta property='og:description' content="我曾以为架构师的价值在于由于使用了多么牛逼的CNCF全家桶，直到2018年那个黑色的周五。\n那时我负责一个日活刚过万的电商SaaS，为了追求所谓的&quot;大厂标准&quot;，我强行上了一套自建Kubernetes集群。结果在一次大促前夕，Etcd节点因为磁盘IO抖动导致集群脑裂，整个系统瘫痪了4个小时。老板站在我身后，看着满屏红色的Pod重启日志，只问了一句：&ldquo;我们真的需要这么复杂的东西吗？&rdquo;\n那次事故后，我甚至形成了PTSD：每到周五下午，我都会下意识地去检查监控面板，生怕那个昂贵的&quot;高大上&quot;架构再次崩塌。\n痛定思痛，我开始给架构做减法。对于99%的中小团队来说，&ldquo;高可用&quot;不等于&quot;微服务+K8s&rdquo;，而是&quot;低成本+消除单点+快速恢复&quot;。\n如果你正处于单机扛不住、集群玩不转的尴尬阶段，下面这三个&quot;穷鬼&quot;过渡方案，或许能救你一命。\n接入层：别迷信硬负载，Keepalived+Nginx才是平民神器\r很多兄弟从单机扩展到双机时，第一反应是去买云厂商的SLB（负载均衡）。SLB确实好用，但如果你是私有化部署，或者预算极其有限（比如每年IT预算卡得死死的），硬件F5买不起，云SLB又是一笔持续的月租费。\n其实，两台2核4G的虚拟机，就能搞定千万级流量的入口高可用。\n2020年，我接手一个制造业的MES系统改造。现场只有两台破旧的物理服务器，却要求&quot;只要电不断，服务就不能断&quot;。\n我们没用任何收费组件，直接采用了 VIP（虚拟IP）漂移方案。\n操作逻辑很简单：\n两台服务器都装上Nginx和Keepalived。 对外只暴露一个VIP（比如 192.168.1.100）。 平时VIP绑定在主节点（Master）上，流量全走它。 一旦主节点Nginx进程挂了，Keepalived在3秒内感知，立马把VIP&quot;抢&quot;到备节点（Backup）上。 真实代码片段（keepalived.conf）：\nvrrp_script chk_nginx { script &#34;/etc/keepalived/check_nginx.sh&#34; # 检测Nginx存活的脚本 interval 2 weight -20 } vrrp_instance VI_1 { state MASTER interface eth0 virtual_router_id 51 priority 100 advert_int 1 authentication { auth_type PASS auth_pass 1111 } virtual_ipaddress { 192.168.1.100 # 对外暴露的VIP } track_script { chk_nginx } } 结果复盘： 上线三年，主服务器电源坏过一次，网卡松过一次。系统自动切换，工厂流水线甚至没感觉到卡顿。 核心教训： 在流量没撑爆网卡前，不要引入复杂的四层/七层负载均衡设备，简单的VIP漂移是最极致的低成本高可用。\n">
-<meta property='og:url' content='https://blog.irudder.me/tech/zhongxiaoxingxiangmujiagoushejizhinan/dichengbengaokeyong_danjidaojiqundeguodu.html'>
-<meta property='og:site_name' content='SelfTechHub'>
-<meta property='og:type' content='article'><meta property='article:section' content='Tech' /><meta property='article:tag' content='低成本高可用：单机到集群的过渡' /><meta property='article:published_time' content='2021-09-19T00:00:00&#43;00:00'/><meta property='article:modified_time' content='2021-09-19T00:00:00&#43;00:00'/>
-<meta name="twitter:title" content="穷鬼架构师自白：单机转集群，别被K8s拖死">
-<meta name="twitter:description" content="我曾以为架构师的价值在于由于使用了多么牛逼的CNCF全家桶，直到2018年那个黑色的周五。\n那时我负责一个日活刚过万的电商SaaS，为了追求所谓的&quot;大厂标准&quot;，我强行上了一套自建Kubernetes集群。结果在一次大促前夕，Etcd节点因为磁盘IO抖动导致集群脑裂，整个系统瘫痪了4个小时。老板站在我身后，看着满屏红色的Pod重启日志，只问了一句：&ldquo;我们真的需要这么复杂的东西吗？&rdquo;\n那次事故后，我甚至形成了PTSD：每到周五下午，我都会下意识地去检查监控面板，生怕那个昂贵的&quot;高大上&quot;架构再次崩塌。\n痛定思痛，我开始给架构做减法。对于99%的中小团队来说，&ldquo;高可用&quot;不等于&quot;微服务+K8s&rdquo;，而是&quot;低成本+消除单点+快速恢复&quot;。\n如果你正处于单机扛不住、集群玩不转的尴尬阶段，下面这三个&quot;穷鬼&quot;过渡方案，或许能救你一命。\n接入层：别迷信硬负载，Keepalived+Nginx才是平民神器\r很多兄弟从单机扩展到双机时，第一反应是去买云厂商的SLB（负载均衡）。SLB确实好用，但如果你是私有化部署，或者预算极其有限（比如每年IT预算卡得死死的），硬件F5买不起，云SLB又是一笔持续的月租费。\n其实，两台2核4G的虚拟机，就能搞定千万级流量的入口高可用。\n2020年，我接手一个制造业的MES系统改造。现场只有两台破旧的物理服务器，却要求&quot;只要电不断，服务就不能断&quot;。\n我们没用任何收费组件，直接采用了 VIP（虚拟IP）漂移方案。\n操作逻辑很简单：\n两台服务器都装上Nginx和Keepalived。 对外只暴露一个VIP（比如 192.168.1.100）。 平时VIP绑定在主节点（Master）上，流量全走它。 一旦主节点Nginx进程挂了，Keepalived在3秒内感知，立马把VIP&quot;抢&quot;到备节点（Backup）上。 真实代码片段（keepalived.conf）：\nvrrp_script chk_nginx { script &#34;/etc/keepalived/check_nginx.sh&#34; # 检测Nginx存活的脚本 interval 2 weight -20 } vrrp_instance VI_1 { state MASTER interface eth0 virtual_router_id 51 priority 100 advert_int 1 authentication { auth_type PASS auth_pass 1111 } virtual_ipaddress { 192.168.1.100 # 对外暴露的VIP } track_script { chk_nginx } } 结果复盘： 上线三年，主服务器电源坏过一次，网卡松过一次。系统自动切换，工厂流水线甚至没感觉到卡顿。 核心教训： 在流量没撑爆网卡前，不要引入复杂的四层/七层负载均衡设备，简单的VIP漂移是最极致的低成本高可用。\n">
-    </head>
-    <body class="
-    article-page
-    ">
-    <script>
-        (function() {
-            const colorSchemeKey = 'StackColorScheme';
-            if(!localStorage.getItem(colorSchemeKey)){
-                localStorage.setItem(colorSchemeKey, "auto");
-            }
-        })();
-    </script><script>
-    (function() {
-        const colorSchemeKey = 'StackColorScheme';
-        const colorSchemeItem = localStorage.getItem(colorSchemeKey);
-        const supportDarkMode = window.matchMedia('(prefers-color-scheme: dark)').matches === true;
-
-        if (colorSchemeItem == 'dark' || colorSchemeItem === 'auto' && supportDarkMode) {
-            
-
-            document.documentElement.dataset.scheme = 'dark';
-        } else {
-            document.documentElement.dataset.scheme = 'light';
-        }
-    })();
-</script>
-<div class="container main-container flex on-phone--column compact"><aside class="sidebar left-sidebar sticky ">
-    <button class="hamburger hamburger--spin" type="button" id="toggle-menu" aria-label="切换菜单">
-        <span class="hamburger-box">
-            <span class="hamburger-inner"></span>
-        </span>
-    </button>
-
-    <header>
-        
-            
-            <figure class="site-avatar">
-                <a href="/">
-                
-                    
-                    
-                    
-                        
-                        <img src="/img/avatar_hu_8588ce14af1147e2.png" width="300"
-                            height="286" class="site-logo" loading="lazy" alt="Avatar">
-                    
-                
-                </a>
-                
-            </figure>
-            
-        
-        
-        <div class="site-meta">
-            <h1 class="site-name"><a href="/">SelfTechHub</a></h1>
-            <h2 class="site-description"></h2>
-        </div>
-    </header><ol class="menu" id="main-menu">
-        
-        
-        <li class="menu-bottom-section">
-            <ol class="menu">
-
-                
-                    <li id="dark-mode-toggle">
-                        <svg xmlns="http://www.w3.org/2000/svg" class="icon icon-tabler icon-tabler-toggle-left" width="24" height="24" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor" fill="none" stroke-linecap="round" stroke-linejoin="round">
-  <path stroke="none" d="M0 0h24v24H0z"/>
-  <circle cx="8" cy="12" r="2" />
-  <rect x="2" y="6" width="20" height="12" rx="6" />
-</svg>
-
-
-
-                        <svg xmlns="http://www.w3.org/2000/svg" class="icon icon-tabler icon-tabler-toggle-right" width="24" height="24" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor" fill="none" stroke-linecap="round" stroke-linejoin="round">
-  <path stroke="none" d="M0 0h24v24H0z"/>
-  <circle cx="16" cy="12" r="2" />
-  <rect x="2" y="6" width="20" height="12" rx="6" />
-</svg>
-
-
-
-                        <span>暗色模式</span>
-                    </li>
-                
-            </ol>
-        </li>
-    </ol>
-</aside>
-
-    
-
-            <main class="main full-width">
-    <article class="main-article">
-    <header class="article-header">
-
-    <div class="article-details">
-    
-    <header class="article-category">
-        
-            <a href="/categories/%E6%8A%80%E6%9C%AF.html" >
-                技术精进
-            </a>
-        
-    </header>
-    
-
-    <div class="article-title-wrapper">
-        <h2 class="article-title">
-            <a href="/tech/zhongxiaoxingxiangmujiagoushejizhinan/dichengbengaokeyong_danjidaojiqundeguodu.html">穷鬼架构师自白：单机转集群，别被K8s拖死</a>
-        </h2>
-    
-        
-    </div>
-
-    
-    
-    
-    
-    <footer class="article-time">
-        
-            <div>
-                <svg xmlns="http://www.w3.org/2000/svg" class="icon icon-tabler icon-tabler-calendar-time" width="56" height="56" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor" fill="none" stroke-linecap="round" stroke-linejoin="round">
-  <path stroke="none" d="M0 0h24v24H0z"/>
-  <path d="M11.795 21h-6.795a2 2 0 0 1 -2 -2v-12a2 2 0 0 1 2 -2h12a2 2 0 0 1 2 2v4" />
-  <circle cx="18" cy="18" r="4" />
-  <path d="M15 3v4" />
-  <path d="M7 3v4" />
-  <path d="M3 11h16" />
-  <path d="M18 16.496v1.504l1 1" />
-</svg>
-                <time class="article-time--published" datetime='2021-09-19T00:00:00Z'>Sep 19, 2021</time>
-            </div>
-        
-
-        
-            <div>
-                <svg xmlns="http://www.w3.org/2000/svg" class="icon icon-tabler icon-tabler-clock" width="24" height="24" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor" fill="none" stroke-linecap="round" stroke-linejoin="round">
-  <path stroke="none" d="M0 0h24v24H0z"/>
-  <circle cx="12" cy="12" r="9" />
-  <polyline points="12 7 12 12 15 15" />
-</svg>
-
-
-
-                <time class="article-time--reading">
-                    阅读时长: 1 分钟
-                </time>
-            </div>
-        
-    </footer>
-    
-
-    
-</div>
-
-</header>
-
-    <section class="article-content">
-    
-    
-    <p>我曾以为架构师的价值在于由于使用了多么牛逼的CNCF全家桶，直到2018年那个黑色的周五。</p>
-<p>那时我负责一个日活刚过万的电商SaaS，为了追求所谓的&quot;大厂标准&quot;，我强行上了一套自建Kubernetes集群。结果在一次大促前夕，Etcd节点因为磁盘IO抖动导致集群脑裂，整个系统瘫痪了4个小时。老板站在我身后，看着满屏红色的Pod重启日志，只问了一句：&ldquo;我们真的需要这么复杂的东西吗？&rdquo;</p>
-<p>那次事故后，我甚至形成了PTSD：每到周五下午，我都会下意识地去检查监控面板，生怕那个昂贵的&quot;高大上&quot;架构再次崩塌。</p>
-<p>痛定思痛，我开始给架构做减法。对于99%的中小团队来说，<strong>&ldquo;高可用&quot;不等于&quot;微服务+K8s&rdquo;，而是&quot;低成本+消除单点+快速恢复&quot;。</strong></p>
-<p>如果你正处于单机扛不住、集群玩不转的尴尬阶段，下面这三个&quot;穷鬼&quot;过渡方案，或许能救你一命。</p>
-<h2 id="接入层别迷信硬负载keepalivednginx才是平民神器">接入层：别迷信硬负载，Keepalived+Nginx才是平民神器
-</h2><p>很多兄弟从单机扩展到双机时，第一反应是去买云厂商的SLB（负载均衡）。SLB确实好用，但如果你是私有化部署，或者预算极其有限（比如每年IT预算卡得死死的），硬件F5买不起，云SLB又是一笔持续的月租费。</p>
-<p><strong>其实，两台2核4G的虚拟机，就能搞定千万级流量的入口高可用。</strong></p>
-<p><img src="https://picsum.photos/800/450?random=1768456228959"
-	
-	
-	
-	loading="lazy"
-	
-		alt="配图"
-	
-	
-></p>
-<p>2020年，我接手一个制造业的MES系统改造。现场只有两台破旧的物理服务器，却要求&quot;只要电不断，服务就不能断&quot;。</p>
-<p><img src="https://picsum.photos/800/450?random=1768456234374"
-	
-	
-	
-	loading="lazy"
-	
-		alt="配图"
-	
-	
-></p>
-<p>我们没用任何收费组件，直接采用了 <strong>VIP（虚拟IP）漂移方案</strong>。</p>
-<p><strong>操作逻辑很简单：</strong></p>
-<ol>
-<li>两台服务器都装上Nginx和Keepalived。</li>
-<li>对外只暴露一个VIP（比如 192.168.1.100）。</li>
-<li>平时VIP绑定在主节点（Master）上，流量全走它。</li>
-<li>一旦主节点Nginx进程挂了，Keepalived在3秒内感知，立马把VIP&quot;抢&quot;到备节点（Backup）上。</li>
-</ol>
-<p><strong>真实代码片段（keepalived.conf）：</strong></p>
-<div class="highlight"><pre tabindex="0" style="color:#f8f8f2;background-color:#272822;-moz-tab-size:4;-o-tab-size:4;tab-size:4;"><code class="language-bash" data-lang="bash"><span style="display:flex;"><span>vrrp_script chk_nginx <span style="color:#f92672">{</span>
-</span></span><span style="display:flex;"><span>    script <span style="color:#e6db74">&#34;/etc/keepalived/check_nginx.sh&#34;</span> <span style="color:#75715e"># 检测Nginx存活的脚本</span>
-</span></span><span style="display:flex;"><span>    interval <span style="color:#ae81ff">2</span>
-</span></span><span style="display:flex;"><span>    weight -20
-</span></span><span style="display:flex;"><span><span style="color:#f92672">}</span>
-</span></span><span style="display:flex;"><span>
-</span></span><span style="display:flex;"><span>vrrp_instance VI_1 <span style="color:#f92672">{</span>
-</span></span><span style="display:flex;"><span>    state MASTER
-</span></span><span style="display:flex;"><span>    interface eth0
-</span></span><span style="display:flex;"><span>    virtual_router_id <span style="color:#ae81ff">51</span>
-</span></span><span style="display:flex;"><span>    priority <span style="color:#ae81ff">100</span>
-</span></span><span style="display:flex;"><span>    advert_int <span style="color:#ae81ff">1</span>
-</span></span><span style="display:flex;"><span>    authentication <span style="color:#f92672">{</span>
-</span></span><span style="display:flex;"><span>        auth_type PASS
-</span></span><span style="display:flex;"><span>        auth_pass <span style="color:#ae81ff">1111</span>
-</span></span><span style="display:flex;"><span>    <span style="color:#f92672">}</span>
-</span></span><span style="display:flex;"><span>    virtual_ipaddress <span style="color:#f92672">{</span>
-</span></span><span style="display:flex;"><span>        192.168.1.100 <span style="color:#75715e"># 对外暴露的VIP</span>
-</span></span><span style="display:flex;"><span>    <span style="color:#f92672">}</span>
-</span></span><span style="display:flex;"><span>    track_script <span style="color:#f92672">{</span>
-</span></span><span style="display:flex;"><span>        chk_nginx
-</span></span><span style="display:flex;"><span>    <span style="color:#f92672">}</span>
-</span></span><span style="display:flex;"><span><span style="color:#f92672">}</span>
-</span></span></code></pre></div><p><strong>结果复盘：</strong>
+<!doctype html><html lang=zh-cn dir=ltr><head><meta charset=utf-8><meta name=viewport content='width=device-width,initial-scale=1'><meta name=description content="我曾以为架构师的价值在于由于使用了多么牛逼的CNCF全家桶，直到2018年那个黑色的周五。"><title>穷鬼架构师自白：单机转集群，别被K8s拖死</title><link rel=canonical href=https://blog.irudder.me/tech/zhongxiaoxingxiangmujiagoushejizhinan/dichengbengaokeyong_danjidaojiqundeguodu.html><link rel=stylesheet href=/scss/style.min.c77ce1b874b29b2ee9e54a89066c79ebf35cbe9cf399b31ab5d79167f9a965c9.css><meta property='og:title' content="穷鬼架构师自白：单机转集群，别被K8s拖死"><meta property='og:description' content="我曾以为架构师的价值在于由于使用了多么牛逼的CNCF全家桶，直到2018年那个黑色的周五。"><meta property='og:url' content='https://blog.irudder.me/tech/zhongxiaoxingxiangmujiagoushejizhinan/dichengbengaokeyong_danjidaojiqundeguodu.html'><meta property='og:site_name' content='SelfTechHub'><meta property='og:type' content='article'><meta property='article:section' content='Tech'><meta property='article:tag' content='低成本高可用：单机到集群的过渡'><meta property='article:published_time' content='2021-09-19T00:00:00+08:00'><meta property='article:modified_time' content='2021-09-19T00:00:00+08:00'><meta name=twitter:title content="穷鬼架构师自白：单机转集群，别被K8s拖死"><meta name=twitter:description content="我曾以为架构师的价值在于由于使用了多么牛逼的CNCF全家桶，直到2018年那个黑色的周五。"><link rel="shortcut icon" href=/images/logo.png></head><body class=article-page><script>(function(){const e="StackColorScheme";localStorage.getItem(e)||localStorage.setItem(e,"auto")})()</script><script>(function(){const t="StackColorScheme",e=localStorage.getItem(t),n=window.matchMedia("(prefers-color-scheme: dark)").matches===!0;e=="dark"||e==="auto"&&n?document.documentElement.dataset.scheme="dark":document.documentElement.dataset.scheme="light"})()</script><div class="container main-container flex on-phone--column extended"><aside class="sidebar left-sidebar sticky"><button class="hamburger hamburger--spin" type=button id=toggle-menu aria-label=切换菜单>
+<span class=hamburger-box><span class=hamburger-inner></span></span></button><header><figure class=site-avatar><a href=/><img src=/img/avatar_hu_8588ce14af1147e2.png width=300 height=286 class=site-logo loading=lazy alt=Avatar>
+</a><span class=emoji>🧠</span></figure><div class=site-meta><h1 class=site-name><a href=/>SelfTechHub</a></h1><h2 class=site-description>成长 · 技术 · 商业 · AI —— 把碎片知识沉淀为可复用的记忆体系</h2></div></header><ol class=menu-social><li><a href=https://github.com/pastor17 target=_blank title=GitHub rel=me><svg class="icon icon-tabler icon-tabler-brand-github" width="24" height="24" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor" fill="none" stroke-linecap="round" stroke-linejoin="round"><path stroke="none" d="M0 0h24v24H0z" fill="none"/><path d="M9 19c-4.3 1.4-4.3-2.5-6-3m12 5v-3.5c0-1 .1-1.4-.5-2 2.8-.3 5.5-1.4 5.5-6a4.6 4.6.0 00-1.3-3.2 4.2 4.2.0 00-.1-3.2s-1.1-.3-3.5 1.3a12.3 12.3.0 00-6.2.0C6.5 2.8 5.4 3.1 5.4 3.1a4.2 4.2.0 00-.1 3.2A4.6 4.6.0 004 9.5c0 4.6 2.7 5.7 5.5 6-.6.6-.6 1.2-.5 2V21"/></svg></a></li></ol><ol class=menu id=main-menu><li><a href=/><svg class="icon icon-tabler icon-tabler-home" width="24" height="24" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor" fill="none" stroke-linecap="round" stroke-linejoin="round"><path stroke="none" d="M0 0h24v24H0z"/><polyline points="5 12 3 12 12 3 21 12 19 12"/><path d="M5 12v7a2 2 0 002 2h10a2 2 0 002-2v-7"/><path d="M9 21v-6a2 2 0 012-2h2a2 2 0 012 2v6"/></svg>
+<span>首页</span></a></li><li><a href=/categories/%E6%88%90%E9%95%BF.html><span>成长认知</span></a></li><li><a href=/categories/%E6%8A%80%E6%9C%AF.html><span>技术精进</span></a></li><li><a href=/categories/%E5%95%86%E4%B8%9A.html><span>商业·财富</span></a></li><li><a href=/categories/ai.html><span>探索AI</span></a></li><li><a href=/about/><svg class="icon icon-tabler icon-tabler-user" width="24" height="24" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor" fill="none" stroke-linecap="round" stroke-linejoin="round"><path stroke="none" d="M0 0h24v24H0z"/><circle cx="12" cy="7" r="4"/><path d="M6 21v-2a4 4 0 014-4h4a4 4 0 014 4v2"/></svg>
+<span>关于</span></a></li><li class=menu-bottom-section><ol class=menu><li id=dark-mode-toggle><svg class="icon icon-tabler icon-tabler-toggle-left" width="24" height="24" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor" fill="none" stroke-linecap="round" stroke-linejoin="round"><path stroke="none" d="M0 0h24v24H0z"/><circle cx="8" cy="12" r="2"/><rect x="2" y="6" width="20" height="12" rx="6"/></svg>
+<svg class="icon icon-tabler icon-tabler-toggle-right" width="24" height="24" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor" fill="none" stroke-linecap="round" stroke-linejoin="round"><path stroke="none" d="M0 0h24v24H0z"/><circle cx="16" cy="12" r="2"/><rect x="2" y="6" width="20" height="12" rx="6"/></svg>
+<span>暗色模式</span></li></ol></li></ol></aside><aside class="sidebar right-sidebar sticky"><section class="widget archives"><div class=widget-icon><svg class="icon icon-tabler icon-tabler-hash" width="24" height="24" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor" fill="none" stroke-linecap="round" stroke-linejoin="round"><path stroke="none" d="M0 0h24v24H0z"/><line x1="5" y1="9" x2="19" y2="9"/><line x1="5" y1="15" x2="19" y2="15"/><line x1="11" y1="4" x2="7" y2="20"/><line x1="17" y1="4" x2="13" y2="20"/></svg></div><h2 class="widget-title section-title">目录</h2><div class=widget--toc><nav id=TableOfContents><ul><li><a href=#接入层别迷信硬负载keepalivednginx才是平民神器>接入层：别迷信硬负载，Keepalived+Nginx才是平民神器</a></li><li><a href=#应用层文件存储的幽灵404别急着上ceph>应用层：文件存储的"幽灵404"，别急着上Ceph</a></li><li><a href=#数据层数据库的高可用半同步是底线>数据层：数据库的高可用，&ldquo;半同步"是底线</a></li><li><a href=#结尾架构是长出来的不是画出来的>结尾：架构是长出来的，不是画出来的</a></li></ul></nav></div></section></aside><main class="main full-width"><article class=main-article><header class=article-header><div class=article-details><header class=article-category><a href=/categories/%E6%8A%80%E6%9C%AF.html>技术精进</a></header><div class=article-title-wrapper><h2 class=article-title><a href=/tech/zhongxiaoxingxiangmujiagoushejizhinan/dichengbengaokeyong_danjidaojiqundeguodu.html>穷鬼架构师自白：单机转集群，别被K8s拖死</a></h2><h3 class=article-subtitle>我曾以为架构师的价值在于由于使用了多么牛逼的CNCF全家桶，直到2018年那个黑色的周五。</h3></div><footer class=article-time><div><svg class="icon icon-tabler icon-tabler-calendar-time" width="56" height="56" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor" fill="none" stroke-linecap="round" stroke-linejoin="round"><path stroke="none" d="M0 0h24v24H0z"/><path d="M11.795 21H5a2 2 0 01-2-2V7a2 2 0 012-2h12a2 2 0 012 2v4"/><circle cx="18" cy="18" r="4"/><path d="M15 3v4"/><path d="M7 3v4"/><path d="M3 11h16"/><path d="M18 16.496V18l1 1"/></svg>
+<time class=article-time--published datetime=2021-09-19T00:00:00+08:00>2021-09-19</time></div><div><svg class="icon icon-tabler icon-tabler-clock" width="24" height="24" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor" fill="none" stroke-linecap="round" stroke-linejoin="round"><path stroke="none" d="M0 0h24v24H0z"/><circle cx="12" cy="12" r="9"/><polyline points="12 7 12 12 15 15"/></svg>
+<time class=article-time--reading>阅读时长: 7 分钟</time></div></footer></div></header><section class=article-content><p>我曾以为架构师的价值在于由于使用了多么牛逼的CNCF全家桶，直到2018年那个黑色的周五。</p><p>那时我负责一个日活刚过万的电商SaaS，为了追求所谓的"大厂标准"，我强行上了一套自建Kubernetes集群。结果在一次大促前夕，Etcd节点因为磁盘IO抖动导致集群脑裂，整个系统瘫痪了4个小时。老板站在我身后，看着满屏红色的Pod重启日志，只问了一句：&ldquo;我们真的需要这么复杂的东西吗？&rdquo;</p><p>那次事故后，我甚至形成了PTSD：每到周五下午，我都会下意识地去检查监控面板，生怕那个昂贵的"高大上"架构再次崩塌。</p><p>痛定思痛，我开始给架构做减法。对于99%的中小团队来说，<strong>&ldquo;高可用"不等于"微服务+K8s&rdquo;，而是"低成本+消除单点+快速恢复"。</strong></p><p>如果你正处于单机扛不住、集群玩不转的尴尬阶段，下面这三个"穷鬼"过渡方案，或许能救你一命。</p><h2 id=接入层别迷信硬负载keepalivednginx才是平民神器>接入层：别迷信硬负载，Keepalived+Nginx才是平民神器</h2><p>很多兄弟从单机扩展到双机时，第一反应是去买云厂商的SLB（负载均衡）。SLB确实好用，但如果你是私有化部署，或者预算极其有限（比如每年IT预算卡得死死的），硬件F5买不起，云SLB又是一笔持续的月租费。</p><p><strong>其实，两台2核4G的虚拟机，就能搞定千万级流量的入口高可用。</strong></p><p><img src="https://picsum.photos/800/450?random=1768456228959" loading=lazy alt=配图></p><p>2020年，我接手一个制造业的MES系统改造。现场只有两台破旧的物理服务器，却要求"只要电不断，服务就不能断"。</p><p><img src="https://picsum.photos/800/450?random=1768456234374" loading=lazy alt=配图></p><p>我们没用任何收费组件，直接采用了 <strong>VIP（虚拟IP）漂移方案</strong>。</p><p><strong>操作逻辑很简单：</strong></p><ol><li>两台服务器都装上Nginx和Keepalived。</li><li>对外只暴露一个VIP（比如 192.168.1.100）。</li><li>平时VIP绑定在主节点（Master）上，流量全走它。</li><li>一旦主节点Nginx进程挂了，Keepalived在3秒内感知，立马把VIP"抢"到备节点（Backup）上。</li></ol><p><strong>真实代码片段（keepalived.conf）：</strong></p><div class=highlight><div class=chroma><table class=lntable><tr><td class=lntd><pre tabindex=0 class=chroma><code><span class=lnt> 1
+</span><span class=lnt> 2
+</span><span class=lnt> 3
+</span><span class=lnt> 4
+</span><span class=lnt> 5
+</span><span class=lnt> 6
+</span><span class=lnt> 7
+</span><span class=lnt> 8
+</span><span class=lnt> 9
+</span><span class=lnt>10
+</span><span class=lnt>11
+</span><span class=lnt>12
+</span><span class=lnt>13
+</span><span class=lnt>14
+</span><span class=lnt>15
+</span><span class=lnt>16
+</span><span class=lnt>17
+</span><span class=lnt>18
+</span><span class=lnt>19
+</span><span class=lnt>20
+</span><span class=lnt>21
+</span><span class=lnt>22
+</span><span class=lnt>23
+</span></code></pre></td><td class=lntd><pre tabindex=0 class=chroma><code class=language-bash data-lang=bash><span class=line><span class=cl>vrrp_script chk_nginx <span class=o>{</span>
+</span></span><span class=line><span class=cl>    script <span class=s2>&#34;/etc/keepalived/check_nginx.sh&#34;</span> <span class=c1># 检测Nginx存活的脚本</span>
+</span></span><span class=line><span class=cl>    interval <span class=m>2</span>
+</span></span><span class=line><span class=cl>    weight -20
+</span></span><span class=line><span class=cl><span class=o>}</span>
+</span></span><span class=line><span class=cl>
+</span></span><span class=line><span class=cl>vrrp_instance VI_1 <span class=o>{</span>
+</span></span><span class=line><span class=cl>    state MASTER
+</span></span><span class=line><span class=cl>    interface eth0
+</span></span><span class=line><span class=cl>    virtual_router_id <span class=m>51</span>
+</span></span><span class=line><span class=cl>    priority <span class=m>100</span>
+</span></span><span class=line><span class=cl>    advert_int <span class=m>1</span>
+</span></span><span class=line><span class=cl>    authentication <span class=o>{</span>
+</span></span><span class=line><span class=cl>        auth_type PASS
+</span></span><span class=line><span class=cl>        auth_pass <span class=m>1111</span>
+</span></span><span class=line><span class=cl>    <span class=o>}</span>
+</span></span><span class=line><span class=cl>    virtual_ipaddress <span class=o>{</span>
+</span></span><span class=line><span class=cl>        192.168.1.100 <span class=c1># 对外暴露的VIP</span>
+</span></span><span class=line><span class=cl>    <span class=o>}</span>
+</span></span><span class=line><span class=cl>    track_script <span class=o>{</span>
+</span></span><span class=line><span class=cl>        chk_nginx
+</span></span><span class=line><span class=cl>    <span class=o>}</span>
+</span></span><span class=line><span class=cl><span class=o>}</span>
+</span></span></code></pre></td></tr></table></div></div><p><strong>结果复盘：</strong>
 上线三年，主服务器电源坏过一次，网卡松过一次。系统自动切换，工厂流水线甚至没感觉到卡顿。
-<strong>核心教训：</strong> 在流量没撑爆网卡前，不要引入复杂的四层/七层负载均衡设备，<strong>简单的VIP漂移是最极致的低成本高可用。</strong></p>
-<h2 id="应用层文件存储的幽灵404别急着上ceph">应用层：文件存储的&quot;幽灵404&quot;，别急着上Ceph
-</h2><p>单机转集群，最大的坑往往不在代码，而在<strong>状态（State）</strong>。</p>
-<p>最典型的场景：用户A在服务器1上传了头像，下次请求被分发到了服务器2，结果图片裂了（404）。新手通常会想：&ldquo;我要搞个Ceph分布式存储！&rdquo;</p>
-<p><strong>千万别！</strong></p>
-<p>如果你团队里没有一个能手搓Crush算法的运维，上Ceph就是找死。由于维护难度极大，一旦Ceph集群崩了，数据恢复的成本是灾难级的。</p>
-<p>我曾经为了解决这个问题，在内网搭了一套GlusterFS。刚开始觉得很酷，双向同步。结果随着小文件数量达到百万级，同步延迟越来越高，导致用户刚上传完，刷新页面还是旧图。</p>
-<p><strong>针对中小项目，我有两个&quot;土办法&quot;：</strong></p>
-<ol>
-<li>
-<p><strong>极简版（适合内网/低并发）：NFS挂载</strong>
-找一台磁盘大的机器做NFS Server，所有应用服务器把<code>/data/uploads</code>目录挂载到这台NFS上。</p>
-<ul>
-<li><strong>优点</strong>：代码一行不用改，就像操作本地文件一样。</li>
-<li><strong>缺点</strong>：NFS Server是单点（虽然可以用DRBD做高可用，但复杂了）。</li>
-</ul>
-</li>
-<li>
-<p><strong>进阶版（推荐）：MinIO</strong>
-这是我目前最推崇的方案。MinIO兼容S3协议，部署极快（一个Docker命令搞定）。</p>
-</li>
-</ol>
-<p><strong>真实案例：</strong>
-某医疗SaaS项目，由于要做私有化交付，客户不提供云OSS。我们直接在两台应用服务器上各起一个MinIO容器，组建了一个最简单的分布式集群。</p>
-<ul>
-<li><strong>代码改动</strong>：把文件写入逻辑封装一个Interface，本地开发用Local实现，生产环境注入S3实现。</li>
-<li><strong>收益</strong>：数据自带冗余，任意坏一块盘数据不丢，且不用维护复杂的分布式文件系统元数据。</li>
-</ul>
-<p><strong>避坑指南：</strong> 除非你的数据量达到PB级，否则不要碰Hadoop/HDFS或Ceph。MinIO或者直接买云厂商的OSS（如果有外网），是性价比最高的选择。</p>
-<h2 id="数据层数据库的高可用半同步是底线">数据层：数据库的高可用，&ldquo;半同步&quot;是底线
-</h2><p>应用挂了可以重启，数据库挂了（或者数据丢了），你就得跑路了。</p>
-<p>很多资深开发在做架构设计时，喜欢搞&quot;双主（Master-Master）&ldquo;架构，觉得这样写谁都行。
-<strong>这绝对是中小团队最大的谎言。</strong> 如果没有强大的冲突解决机制，双主复制导致的数据不一致（Duplicate Key Error）会让你在半夜哭出声。</p>
-<p>我亲测最稳妥的低成本过渡方案是：<strong>MySQL主从（Master-Slave） + 半同步复制（Semi-Sync）。</strong></p>
-<p>为什么强调<strong>半同步</strong>？
-默认的异步复制，主库挂掉的那一瞬间，可能还有几条数据没传给从库。这时候如果强行把从库提升为主库，数据就丢了。涉及金钱交易的系统，这是死罪。</p>
-<p><strong>2021年的一次实战：</strong>
+<strong>核心教训：</strong> 在流量没撑爆网卡前，不要引入复杂的四层/七层负载均衡设备，<strong>简单的VIP漂移是最极致的低成本高可用。</strong></p><h2 id=应用层文件存储的幽灵404别急着上ceph>应用层：文件存储的"幽灵404"，别急着上Ceph</h2><p>单机转集群，最大的坑往往不在代码，而在<strong>状态（State）</strong>。</p><p>最典型的场景：用户A在服务器1上传了头像，下次请求被分发到了服务器2，结果图片裂了（404）。新手通常会想：&ldquo;我要搞个Ceph分布式存储！&rdquo;</p><p><strong>千万别！</strong></p><p>如果你团队里没有一个能手搓Crush算法的运维，上Ceph就是找死。由于维护难度极大，一旦Ceph集群崩了，数据恢复的成本是灾难级的。</p><p>我曾经为了解决这个问题，在内网搭了一套GlusterFS。刚开始觉得很酷，双向同步。结果随着小文件数量达到百万级，同步延迟越来越高，导致用户刚上传完，刷新页面还是旧图。</p><p><strong>针对中小项目，我有两个"土办法"：</strong></p><ol><li><p><strong>极简版（适合内网/低并发）：NFS挂载</strong>
+找一台磁盘大的机器做NFS Server，所有应用服务器把<code>/data/uploads</code>目录挂载到这台NFS上。</p><ul><li><strong>优点</strong>：代码一行不用改，就像操作本地文件一样。</li><li><strong>缺点</strong>：NFS Server是单点（虽然可以用DRBD做高可用，但复杂了）。</li></ul></li><li><p><strong>进阶版（推荐）：MinIO</strong>
+这是我目前最推崇的方案。MinIO兼容S3协议，部署极快（一个Docker命令搞定）。</p></li></ol><p><strong>真实案例：</strong>
+某医疗SaaS项目，由于要做私有化交付，客户不提供云OSS。我们直接在两台应用服务器上各起一个MinIO容器，组建了一个最简单的分布式集群。</p><ul><li><strong>代码改动</strong>：把文件写入逻辑封装一个Interface，本地开发用Local实现，生产环境注入S3实现。</li><li><strong>收益</strong>：数据自带冗余，任意坏一块盘数据不丢，且不用维护复杂的分布式文件系统元数据。</li></ul><p><strong>避坑指南：</strong> 除非你的数据量达到PB级，否则不要碰Hadoop/HDFS或Ceph。MinIO或者直接买云厂商的OSS（如果有外网），是性价比最高的选择。</p><h2 id=数据层数据库的高可用半同步是底线>数据层：数据库的高可用，&ldquo;半同步"是底线</h2><p>应用挂了可以重启，数据库挂了（或者数据丢了），你就得跑路了。</p><p>很多资深开发在做架构设计时，喜欢搞"双主（Master-Master）&ldquo;架构，觉得这样写谁都行。
+<strong>这绝对是中小团队最大的谎言。</strong> 如果没有强大的冲突解决机制，双主复制导致的数据不一致（Duplicate Key Error）会让你在半夜哭出声。</p><p>我亲测最稳妥的低成本过渡方案是：<strong>MySQL主从（Master-Slave） + 半同步复制（Semi-Sync）。</strong></p><p>为什么强调<strong>半同步</strong>？
+默认的异步复制，主库挂掉的那一瞬间，可能还有几条数据没传给从库。这时候如果强行把从库提升为主库，数据就丢了。涉及金钱交易的系统，这是死罪。</p><p><strong>2021年的一次实战：</strong>
 我们为一家物流公司做核心业务系统。为了省钱，没买云RDS高可用版（太贵）。
-我们配置了MySQL 5.7的半同步复制：</p>
-<blockquote>
-<p>事务提交时，主库必须收到至少一个从库的&quot;ACK&quot;确认，才算成功。</p>
-</blockquote>
-<p>这确实会损失一点点写性能（大约10%-20%），但换来了**RPO=0（数据零丢失）**的安全感。</p>
-<p>配合 orchestrator 或者简单的 MHA 工具，我们可以做到：</p>
-<ol>
-<li>主库宕机。</li>
-<li>检测脚本确认无法连接。</li>
-<li>自动把拥有最新数据的从库提升为主库。</li>
-<li>修改应用层的数据库连接配置（或VIP指向新主库）。</li>
-</ol>
-<p><strong>硬核建议：</strong>
-如果你连配置MHA都觉得费劲，我有一个更&quot;土&quot;但有效的建议：<strong>写一个自动备份脚本，每小时做一次binlog备份推送到异地。</strong> 高可用是这一秒的事，但数据备份是保命的事。在资源极其匮乏时，优先保数据，而不是保服务时长。</p>
-<hr>
-<h2 id="结尾架构是长出来的不是画出来的">结尾：架构是长出来的，不是画出来的
-</h2><p>回顾这几年的架构演进，我发现一个规律：<strong>好的架构都是被业务倒逼出来的，而不是架构师在白板上画出来的。</strong></p>
-<p>当你从单机走向集群时，不要一上来就追求Google级别的基础设施。</p>
-<ol>
-<li>用<strong>Keepalived</strong>搞定入口高可用；</li>
-<li>用<strong>MinIO</strong>或者<strong>NFS</strong>搞定文件共享；</li>
-<li>用<strong>MySQL半同步</strong>搞定数据安全。</li>
-</ol>
-<p>这三板斧，足够支撑你的业务从0做到10万日活。至于K8s、ServiceMesh、Serverless？等你的业务赚到了足够的钱，雇得起专门的SRE团队时，再考虑也不迟。</p>
-<p><strong>最后，做个小调查：</strong>
+我们配置了MySQL 5.7的半同步复制：</p><blockquote><p>事务提交时，主库必须收到至少一个从库的"ACK"确认，才算成功。</p></blockquote><p>这确实会损失一点点写性能（大约10%-20%），但换来了**RPO=0（数据零丢失）**的安全感。</p><p>配合 orchestrator 或者简单的 MHA 工具，我们可以做到：</p><ol><li>主库宕机。</li><li>检测脚本确认无法连接。</li><li>自动把拥有最新数据的从库提升为主库。</li><li>修改应用层的数据库连接配置（或VIP指向新主库）。</li></ol><p><strong>硬核建议：</strong>
+如果你连配置MHA都觉得费劲，我有一个更"土"但有效的建议：<strong>写一个自动备份脚本，每小时做一次binlog备份推送到异地。</strong> 高可用是这一秒的事，但数据备份是保命的事。在资源极其匮乏时，优先保数据，而不是保服务时长。</p><hr><h2 id=结尾架构是长出来的不是画出来的>结尾：架构是长出来的，不是画出来的</h2><p>回顾这几年的架构演进，我发现一个规律：<strong>好的架构都是被业务倒逼出来的，而不是架构师在白板上画出来的。</strong></p><p>当你从单机走向集群时，不要一上来就追求Google级别的基础设施。</p><ol><li>用<strong>Keepalived</strong>搞定入口高可用；</li><li>用<strong>MinIO</strong>或者<strong>NFS</strong>搞定文件共享；</li><li>用<strong>MySQL半同步</strong>搞定数据安全。</li></ol><p>这三板斧，足够支撑你的业务从0做到10万日活。至于K8s、ServiceMesh、Serverless？等你的业务赚到了足够的钱，雇得起专门的SRE团队时，再考虑也不迟。</p><p><strong>最后，做个小调查：</strong>
 在你们目前的团队中，如果你要引入一个新中间件，阻力最大的是什么？
 A. 没人会维护，出了事抓瞎
 B. 服务器资源不够，老板不批预算
-C. 现有代码改造成本太高</p>
-<p>欢迎在评论区告诉我你的痛点。</p>
-<p><strong>【落地行动卡】</strong>
-如果你想这周就开始改进，建议做这3件事：</p>
-<ol>
-<li><strong>大扫除</strong>：梳理现有的单机系统，找出所有的本地状态（Session、本地文件、本地缓存）。</li>
-<li><strong>实弹演习</strong>：找个夜深人静的时候，拔掉备用数据库的网线，看你的主从同步报错是否及时触发报警。</li>
-<li><strong>极简容灾</strong>：给你的Nginx配置一个特定的Error Page，当后端全挂时，至少给用户展示一个友好的&quot;系统维护中&quot;页面，而不是冷冰冰的502。</li>
-</ol>
-
-</section>
-
-
-    <footer class="article-footer">
-    
-    <section class="article-tags">
-        
-            <a href="/tags/%E4%BD%8E%E6%88%90%E6%9C%AC%E9%AB%98%E5%8F%AF%E7%94%A8%E5%8D%95%E6%9C%BA%E5%88%B0%E9%9B%86%E7%BE%A4%E7%9A%84%E8%BF%87%E6%B8%A1.html">低成本高可用：单机到集群的过渡</a>
-        
-    </section>
-
-
-    </footer>
-
-
-    
-</article>
-
-    
-
-    
-
-     
-    
-        
-    <script
-    src="https://giscus.app/client.js"
-    data-repo="pastor17/bloggiscus"
-    data-repo-id="R_kgDOQ6H9qQ"
-    data-category=""
-    data-category-id="DIC_kwDOQ6H9qc4C0-T8"
-    data-mapping="pathname"
-    data-strict="0"
-    data-reactions-enabled="1"
-    data-emit-metadata="0"
-    data-input-position="bottom"
-    data-theme="light"
-    data-lang="zh-CN"
-    data-loading="lazy"
-    crossorigin="anonymous"
-    async
-></script>
-<script>
-    function setGiscusTheme(theme) {
-        let giscus = document.querySelector("iframe.giscus-frame");
-        if (giscus) {
-            giscus.contentWindow.postMessage(
-                {
-                    giscus: {
-                        setConfig: {
-                            theme: theme,
-                        },
-                    },
-                },
-                "https://giscus.app"
-            );
-        }
-    }
-
-    (function () {
-        addEventListener("message", (e) => {
-            if (event.origin !== "https://giscus.app") return;
-            handler();
-        });
-        window.addEventListener("onColorSchemeChange", handler);
-
-        function handler() {
-            if (document.documentElement.dataset.scheme === "light") {
-                setGiscusTheme('light');
-            } else {
-                setGiscusTheme('dark_dimmed');
-            }
-        }
-    })();
-</script>
-
-    
-
-    <footer class="site-footer">
-    <section class="copyright">
-        &copy; 
-        
-        2026 SelfTechHub
-    </section>
-    
-    <section class="powerby">
-        
-
-    </section>
-</footer>
-
-
-    
-<div class="pswp" tabindex="-1" role="dialog" aria-hidden="true">
-
-    
-    <div class="pswp__bg"></div>
-
-    
-    <div class="pswp__scroll-wrap">
-
-        
-        <div class="pswp__container">
-            <div class="pswp__item"></div>
-            <div class="pswp__item"></div>
-            <div class="pswp__item"></div>
-        </div>
-
-        
-        <div class="pswp__ui pswp__ui--hidden">
-
-            <div class="pswp__top-bar">
-
-                
-
-                <div class="pswp__counter"></div>
-
-                <button class="pswp__button pswp__button--close" title="Close (Esc)"></button>
-
-                <button class="pswp__button pswp__button--share" title="Share"></button>
-
-                <button class="pswp__button pswp__button--fs" title="Toggle fullscreen"></button>
-
-                <button class="pswp__button pswp__button--zoom" title="Zoom in/out"></button>
-
-                
-                
-                <div class="pswp__preloader">
-                    <div class="pswp__preloader__icn">
-                        <div class="pswp__preloader__cut">
-                            <div class="pswp__preloader__donut"></div>
-                        </div>
-                    </div>
-                </div>
-            </div>
-
-            <div class="pswp__share-modal pswp__share-modal--hidden pswp__single-tap">
-                <div class="pswp__share-tooltip"></div>
-            </div>
-
-            <button class="pswp__button pswp__button--arrow--left" title="Previous (arrow left)">
-            </button>
-
-            <button class="pswp__button pswp__button--arrow--right" title="Next (arrow right)">
-            </button>
-
-            <div class="pswp__caption">
-                <div class="pswp__caption__center"></div>
-            </div>
-
-        </div>
-
-    </div>
-
-</div><script 
-                src="https://cdn.jsdelivr.net/npm/photoswipe@4.1.3/dist/photoswipe.min.js"integrity="sha256-ePwmChbbvXbsO02lbM3HoHbSHTHFAeChekF1xKJdleo="crossorigin="anonymous"
-                defer
-                >
-            </script><script 
-                src="https://cdn.jsdelivr.net/npm/photoswipe@4.1.3/dist/photoswipe-ui-default.min.js"integrity="sha256-UKkzOn/w1mBxRmLLGrSeyB4e1xbrp4xylgAWb3M42pU="crossorigin="anonymous"
-                defer
-                >
-            </script><link 
-                rel="stylesheet" 
-                href="https://cdn.jsdelivr.net/npm/photoswipe@4.1.3/dist/default-skin/default-skin.min.css"crossorigin="anonymous"
-            ><link 
-                rel="stylesheet" 
-                href="https://cdn.jsdelivr.net/npm/photoswipe@4.1.3/dist/photoswipe.min.css"crossorigin="anonymous"
-            >
-    
-
-            </main>
-        </div>
-        <script 
-                src="https://cdn.jsdelivr.net/npm/node-vibrant@3.1.6/dist/vibrant.min.js"integrity="sha256-awcR2jno4kI5X0zL8ex0vi2z&#43;KMkF24hUW8WePSA9HM="crossorigin="anonymous"
-                
-                >
-            </script><script type="text/javascript" src="/ts/main.c922af694cc257bf1ecc41c0dd7b0430f9114ec280ccf67cd2c6ad55f5316c4e.js" defer></script>
-<script>
-    (function () {
-        const customFont = document.createElement('link');
-        customFont.href = "https://fonts.googleapis.com/css2?family=Lato:wght@300;400;700&display=swap";
-
-        customFont.type = "text/css";
-        customFont.rel = "stylesheet";
-
-        document.head.appendChild(customFont);
-    }());
-</script>
-
-    </body>
-</html>
+C. 现有代码改造成本太高</p><p>欢迎在评论区告诉我你的痛点。</p><p><strong>【落地行动卡】</strong>
+如果你想这周就开始改进，建议做这3件事：</p><ol><li><strong>大扫除</strong>：梳理现有的单机系统，找出所有的本地状态（Session、本地文件、本地缓存）。</li><li><strong>实弹演习</strong>：找个夜深人静的时候，拔掉备用数据库的网线，看你的主从同步报错是否及时触发报警。</li><li><strong>极简容灾</strong>：给你的Nginx配置一个特定的Error Page，当后端全挂时，至少给用户展示一个友好的"系统维护中"页面，而不是冷冰冰的502。</li></ol></section><footer class=article-footer><section class=article-tags><a href=/tags/%E4%BD%8E%E6%88%90%E6%9C%AC%E9%AB%98%E5%8F%AF%E7%94%A8%E5%8D%95%E6%9C%BA%E5%88%B0%E9%9B%86%E7%BE%A4%E7%9A%84%E8%BF%87%E6%B8%A1.html>低成本高可用：单机到集群的过渡</a></section></footer></article><script src=https://giscus.app/client.js data-repo=pastor17/bloggiscus data-repo-id=R_kgDOQ6H9qQ data-category data-category-id=DIC_kwDOQ6H9qc4C0-T8 data-mapping=pathname data-strict=0 data-reactions-enabled=1 data-emit-metadata=0 data-input-position=bottom data-theme=light data-lang=zh-CN data-loading=lazy crossorigin=anonymous async></script><script>function setGiscusTheme(e){let t=document.querySelector("iframe.giscus-frame");t&&t.contentWindow.postMessage({giscus:{setConfig:{theme:e}}},"https://giscus.app")}(function(){addEventListener("message",t=>{if(event.origin!=="https://giscus.app")return;e()}),window.addEventListener("onColorSchemeChange",e);function e(){setGiscusTheme(document.documentElement.dataset.scheme==="light"?"light":"dark_dimmed")}})()</script><footer class=site-footer><section class=copyright>&copy;
+2021 -
+2026 SelfTechHub</section><section class=powerby>拒绝一次性认知，把碎片知识沉淀为可复用的记忆体系<br></section></footer><div class=pswp tabindex=-1 role=dialog aria-hidden=true><div class=pswp__bg></div><div class=pswp__scroll-wrap><div class=pswp__container><div class=pswp__item></div><div class=pswp__item></div><div class=pswp__item></div></div><div class="pswp__ui pswp__ui--hidden"><div class=pswp__top-bar><div class=pswp__counter></div><button class="pswp__button pswp__button--close" title="Close (Esc)"></button>
+<button class="pswp__button pswp__button--share" title=Share></button>
+<button class="pswp__button pswp__button--fs" title="Toggle fullscreen"></button>
+<button class="pswp__button pswp__button--zoom" title="Zoom in/out"></button><div class=pswp__preloader><div class=pswp__preloader__icn><div class=pswp__preloader__cut><div class=pswp__preloader__donut></div></div></div></div></div><div class="pswp__share-modal pswp__share-modal--hidden pswp__single-tap"><div class=pswp__share-tooltip></div></div><button class="pswp__button pswp__button--arrow--left" title="Previous (arrow left)">
+</button>
+<button class="pswp__button pswp__button--arrow--right" title="Next (arrow right)"></button><div class=pswp__caption><div class=pswp__caption__center></div></div></div></div></div><script src=https://cdn.jsdelivr.net/npm/photoswipe@4.1.3/dist/photoswipe.min.js integrity="sha256-ePwmChbbvXbsO02lbM3HoHbSHTHFAeChekF1xKJdleo=" crossorigin=anonymous defer></script><script src=https://cdn.jsdelivr.net/npm/photoswipe@4.1.3/dist/photoswipe-ui-default.min.js integrity="sha256-UKkzOn/w1mBxRmLLGrSeyB4e1xbrp4xylgAWb3M42pU=" crossorigin=anonymous defer></script><link rel=stylesheet href=https://cdn.jsdelivr.net/npm/photoswipe@4.1.3/dist/default-skin/default-skin.min.css crossorigin=anonymous><link rel=stylesheet href=https://cdn.jsdelivr.net/npm/photoswipe@4.1.3/dist/photoswipe.min.css crossorigin=anonymous></main></div><script src=https://cdn.jsdelivr.net/npm/node-vibrant@3.1.6/dist/vibrant.min.js integrity="sha256-awcR2jno4kI5X0zL8ex0vi2z+KMkF24hUW8WePSA9HM=" crossorigin=anonymous></script><script type=text/javascript src=/ts/main.c922af694cc257bf1ecc41c0dd7b0430f9114ec280ccf67cd2c6ad55f5316c4e.js defer></script><script>(function(){const e=document.createElement("link");e.href="https://fonts.googleapis.com/css2?family=Lato:wght@300;400;700&display=swap",e.type="text/css",e.rel="stylesheet",document.head.appendChild(e)})()</script></body></html>

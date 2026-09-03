@@ -1,32 +1,12 @@
-<?xml version="1.0" encoding="utf-8" standalone="yes"?>
-<rss version="2.0" xmlns:atom="http://www.w3.org/2005/Atom">
-    <channel>
-        <title>架构解耦：消除模块间紧耦合的案例 on SelfTechHub</title>
-        <link>https://blog.irudder.me/tags/%E6%9E%B6%E6%9E%84%E8%A7%A3%E8%80%A6%E6%B6%88%E9%99%A4%E6%A8%A1%E5%9D%97%E9%97%B4%E7%B4%A7%E8%80%A6%E5%90%88%E7%9A%84%E6%A1%88%E4%BE%8B.html</link>
-        <description>Recent content in 架构解耦：消除模块间紧耦合的案例 on SelfTechHub</description>
-        <generator>Hugo -- gohugo.io</generator>
-        <language>zh-cn</language>
-        <lastBuildDate>Wed, 15 Jan 2020 00:00:00 +0000</lastBuildDate><atom:link href="https://blog.irudder.me/tags/%E6%9E%B6%E6%9E%84%E8%A7%A3%E8%80%A6%E6%B6%88%E9%99%A4%E6%A8%A1%E5%9D%97%E9%97%B4%E7%B4%A7%E8%80%A6%E5%90%88%E7%9A%84%E6%A1%88%E4%BE%8B/index.xml" rel="self" type="application/rss+xml" /><item>
-        <title>系统从&#34;动一下挂一片&#34;到秒级发布：我的解耦复盘</title>
-        <link>https://blog.irudder.me/tech/jiagouyouhuashizhananlijiexi/jiagoujieou_xiaochumokuaijianjinouhedeanli.html</link>
-        <pubDate>Wed, 15 Jan 2020 00:00:00 +0000</pubDate>
-        
-        <guid>https://blog.irudder.me/tech/jiagouyouhuashizhananlijiexi/jiagoujieou_xiaochumokuaijianjinouhedeanli.html</guid>
-        <description>&lt;p&gt;五年前，我所在的团队维护着一个典型的&amp;quot;大泥球&amp;quot;单体应用。那时候，我最怕的就是周五下午的发布窗口。&lt;/p&gt;
+<?xml version="1.0" encoding="utf-8" standalone="yes"?><rss version="2.0" xmlns:atom="http://www.w3.org/2005/Atom"><channel><title>架构解耦：消除模块间紧耦合的案例 on SelfTechHub</title><link>https://blog.irudder.me/tags/%E6%9E%B6%E6%9E%84%E8%A7%A3%E8%80%A6%E6%B6%88%E9%99%A4%E6%A8%A1%E5%9D%97%E9%97%B4%E7%B4%A7%E8%80%A6%E5%90%88%E7%9A%84%E6%A1%88%E4%BE%8B.html</link><description>Recent content in 架构解耦：消除模块间紧耦合的案例 on SelfTechHub</description><generator>Hugo -- gohugo.io</generator><language>zh-cn</language><lastBuildDate>Wed, 15 Jan 2020 00:00:00 +0800</lastBuildDate><atom:link href="https://blog.irudder.me/tags/%E6%9E%B6%E6%9E%84%E8%A7%A3%E8%80%A6%E6%B6%88%E9%99%A4%E6%A8%A1%E5%9D%97%E9%97%B4%E7%B4%A7%E8%80%A6%E5%90%88%E7%9A%84%E6%A1%88%E4%BE%8B/index.xml" rel="self" type="application/rss+xml"/><item><title>系统从"动一下挂一片"到秒级发布：我的解耦复盘</title><link>https://blog.irudder.me/tech/jiagouyouhuashizhananlijiexi/jiagoujieou_xiaochumokuaijianjinouhedeanli.html</link><pubDate>Wed, 15 Jan 2020 00:00:00 +0800</pubDate><guid>https://blog.irudder.me/tech/jiagouyouhuashizhananlijiexi/jiagoujieou_xiaochumokuaijianjinouhedeanli.html</guid><description>&lt;p&gt;五年前，我所在的团队维护着一个典型的&amp;quot;大泥球&amp;quot;单体应用。那时候，我最怕的就是周五下午的发布窗口。&lt;/p&gt;
 &lt;p&gt;记得有一次，仅仅是为了修改用户积分的显示逻辑，代码合并后，竟然导致支付模块的退款功能不可用。那晚我们在会议室排查到凌晨三点，最后发现竟是因为两个模块共用了一个实体类，而在序列化时产生了一点微小的版本冲突。&lt;/p&gt;
 &lt;p&gt;那一刻我深刻意识到：&lt;strong&gt;模块间的隐形耦合，才是扼杀开发效率和系统稳定性的头号杀手。&lt;/strong&gt;&lt;/p&gt;
 &lt;p&gt;这几年，我经手了十几个系统的架构重构，从&amp;quot;牵一发而动全身&amp;quot;到现在的独立部署、秒级扩容，我总结了三个最容易被忽视的耦合陷阱，以及我们当时是如何一步步填坑的。&lt;/p&gt;
-&lt;h2 id=&#34;共享数据库看似方便实则致命&#34;&gt;共享数据库：看似方便，实则致命
+&lt;h2 id="共享数据库看似方便实则致命"&gt;共享数据库：看似方便，实则致命
 &lt;/h2&gt;&lt;p&gt;很多初创项目为了开发快，习惯让多个服务读写同一个数据库，甚至同一张表。这在流量低时是捷径，流量上来后就是地雷。&lt;/p&gt;
-&lt;p&gt;&lt;img src=&#34;https://picsum.photos/800/450?random=1768458157983&#34;
-	
-	
-	
-	loading=&#34;lazy&#34;
-	
-		alt=&#34;配图&#34;
-	
-	
+&lt;p&gt;&lt;img src="https://picsum.photos/800/450?random=1768458157983"
+loading="lazy"
+alt="配图"
 &gt;&lt;/p&gt;
 &lt;p&gt;&lt;strong&gt;真实案例回顾&lt;/strong&gt;
 2021年，我们负责的一个电商中台系统，&amp;ldquo;订单服务&amp;quot;和&amp;quot;营销服务&amp;quot;共用一个 MySQL 实例。双十一大促前夕，营销团队为了统计某个活动效果，在生产环境跑了一个复杂的联表查询 SQL。&lt;/p&gt;
@@ -39,14 +19,23 @@
 &lt;li&gt;&lt;strong&gt;数据异构&lt;/strong&gt;：针对营销查询需求，我们不再直接查主库，而是通过 Canal 监听 Binlog，将订单数据实时同步到 Elasticsearch 或独立的分析库中。&lt;/li&gt;
 &lt;/ol&gt;
 &lt;blockquote&gt;
-&lt;p&gt;只有当服务拥有自己私有的数据库，且其他服务只能通过 API 而非 SQL 访问时，解耦才算真正开始。&lt;/p&gt;
-&lt;/blockquote&gt;
+&lt;p&gt;只有当服务拥有自己私有的数据库，且其他服务只能通过 API 而非 SQL 访问时，解耦才算真正开始。&lt;/p&gt;&lt;/blockquote&gt;
 &lt;p&gt;这是一个简单的 Canal 配置示意，我们将这种配置标准化到了运维脚本中：&lt;/p&gt;
-&lt;div class=&#34;highlight&#34;&gt;&lt;pre tabindex=&#34;0&#34; style=&#34;color:#f8f8f2;background-color:#272822;-moz-tab-size:4;-o-tab-size:4;tab-size:4;&#34;&gt;&lt;code class=&#34;language-yaml&#34; data-lang=&#34;yaml&#34;&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;&lt;span style=&#34;color:#75715e&#34;&gt;# 这里的解耦关键在于：业务库只管写，分析库只管读，中间通过消息队列解耦&lt;/span&gt;
-&lt;/span&gt;&lt;/span&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;&lt;span style=&#34;color:#ae81ff&#34;&gt;canal.instance.master.address=192.168.1.100:3306&lt;/span&gt;
-&lt;/span&gt;&lt;/span&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;&lt;span style=&#34;color:#ae81ff&#34;&gt;canal.instance.filter.regex=shop_order\\.tbl_order&lt;/span&gt;
-&lt;/span&gt;&lt;/span&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;&lt;span style=&#34;color:#ae81ff&#34;&gt;destination=example&lt;/span&gt;
-&lt;/span&gt;&lt;/span&gt;&lt;/code&gt;&lt;/pre&gt;&lt;/div&gt;&lt;h2 id=&#34;同步调用链性能的多米诺骨牌&#34;&gt;同步调用链：性能的&amp;quot;多米诺骨牌&amp;rdquo;
+&lt;div class="highlight"&gt;&lt;div class="chroma"&gt;
+&lt;table class="lntable"&gt;&lt;tr&gt;&lt;td class="lntd"&gt;
+&lt;pre tabindex="0" class="chroma"&gt;&lt;code&gt;&lt;span class="lnt"&gt;1
+&lt;/span&gt;&lt;span class="lnt"&gt;2
+&lt;/span&gt;&lt;span class="lnt"&gt;3
+&lt;/span&gt;&lt;span class="lnt"&gt;4
+&lt;/span&gt;&lt;/code&gt;&lt;/pre&gt;&lt;/td&gt;
+&lt;td class="lntd"&gt;
+&lt;pre tabindex="0" class="chroma"&gt;&lt;code class="language-yaml" data-lang="yaml"&gt;&lt;span class="line"&gt;&lt;span class="cl"&gt;&lt;span class="c"&gt;# 这里的解耦关键在于：业务库只管写，分析库只管读，中间通过消息队列解耦&lt;/span&gt;&lt;span class="w"&gt;
+&lt;/span&gt;&lt;/span&gt;&lt;/span&gt;&lt;span class="line"&gt;&lt;span class="cl"&gt;&lt;span class="w"&gt;&lt;/span&gt;&lt;span class="l"&gt;canal.instance.master.address=192.168.1.100:3306&lt;/span&gt;&lt;span class="w"&gt;
+&lt;/span&gt;&lt;/span&gt;&lt;/span&gt;&lt;span class="line"&gt;&lt;span class="cl"&gt;&lt;span class="w"&gt;&lt;/span&gt;&lt;span class="l"&gt;canal.instance.filter.regex=shop_order\\.tbl_order&lt;/span&gt;&lt;span class="w"&gt;
+&lt;/span&gt;&lt;/span&gt;&lt;/span&gt;&lt;span class="line"&gt;&lt;span class="cl"&gt;&lt;span class="w"&gt;&lt;/span&gt;&lt;span class="l"&gt;destination=example&lt;/span&gt;&lt;span class="w"&gt;
+&lt;/span&gt;&lt;/span&gt;&lt;/span&gt;&lt;/code&gt;&lt;/pre&gt;&lt;/td&gt;&lt;/tr&gt;&lt;/table&gt;
+&lt;/div&gt;
+&lt;/div&gt;&lt;h2 id="同步调用链性能的多米诺骨牌"&gt;同步调用链：性能的&amp;quot;多米诺骨牌&amp;rdquo;
 &lt;/h2&gt;&lt;p&gt;微服务拆分后，如果不注意调用方式，很容易陷入&amp;quot;分布式单体&amp;quot;的怪圈。&lt;/p&gt;
 &lt;p&gt;&lt;strong&gt;真实案例回顾&lt;/strong&gt;
 我们的&amp;quot;用户注册&amp;quot;链路原本是这样设计的：
@@ -63,15 +52,29 @@
 &lt;/ol&gt;
 &lt;p&gt;&lt;strong&gt;效果对比：&lt;/strong&gt;
 即使邮件服务挂了，用户注册依然秒级完成。邮件服务恢复后，消费积压的消息补发即可，实现了真正的故障隔离。&lt;/p&gt;
-&lt;div class=&#34;highlight&#34;&gt;&lt;pre tabindex=&#34;0&#34; style=&#34;color:#f8f8f2;background-color:#272822;-moz-tab-size:4;-o-tab-size:4;tab-size:4;&#34;&gt;&lt;code class=&#34;language-java&#34; data-lang=&#34;java&#34;&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;&lt;span style=&#34;color:#75715e&#34;&gt;// 解耦后的伪代码：只做核心事，其余扔给 MQ&lt;/span&gt;
-&lt;/span&gt;&lt;/span&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;&lt;span style=&#34;color:#66d9ef&#34;&gt;public&lt;/span&gt; &lt;span style=&#34;color:#66d9ef&#34;&gt;void&lt;/span&gt; &lt;span style=&#34;color:#a6e22e&#34;&gt;registerUser&lt;/span&gt;(UserDTO user) {
-&lt;/span&gt;&lt;/span&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;    &lt;span style=&#34;color:#75715e&#34;&gt;// 1. 核心业务：落库&lt;/span&gt;
-&lt;/span&gt;&lt;/span&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;    userRepo.&lt;span style=&#34;color:#a6e22e&#34;&gt;save&lt;/span&gt;(user);
-&lt;/span&gt;&lt;/span&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;    
-&lt;/span&gt;&lt;/span&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;    &lt;span style=&#34;color:#75715e&#34;&gt;// 2. 解耦：发送领域事件&lt;/span&gt;
-&lt;/span&gt;&lt;/span&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;    eventBus.&lt;span style=&#34;color:#a6e22e&#34;&gt;publish&lt;/span&gt;(&lt;span style=&#34;color:#66d9ef&#34;&gt;new&lt;/span&gt; UserRegisteredEvent(user.&lt;span style=&#34;color:#a6e22e&#34;&gt;getId&lt;/span&gt;()));
-&lt;/span&gt;&lt;/span&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;}
-&lt;/span&gt;&lt;/span&gt;&lt;/code&gt;&lt;/pre&gt;&lt;/div&gt;&lt;h2 id=&#34;common包的滥用依赖地狱的温床&#34;&gt;&amp;ldquo;Common&amp;quot;包的滥用：依赖地狱的温床
+&lt;div class="highlight"&gt;&lt;div class="chroma"&gt;
+&lt;table class="lntable"&gt;&lt;tr&gt;&lt;td class="lntd"&gt;
+&lt;pre tabindex="0" class="chroma"&gt;&lt;code&gt;&lt;span class="lnt"&gt;1
+&lt;/span&gt;&lt;span class="lnt"&gt;2
+&lt;/span&gt;&lt;span class="lnt"&gt;3
+&lt;/span&gt;&lt;span class="lnt"&gt;4
+&lt;/span&gt;&lt;span class="lnt"&gt;5
+&lt;/span&gt;&lt;span class="lnt"&gt;6
+&lt;/span&gt;&lt;span class="lnt"&gt;7
+&lt;/span&gt;&lt;span class="lnt"&gt;8
+&lt;/span&gt;&lt;/code&gt;&lt;/pre&gt;&lt;/td&gt;
+&lt;td class="lntd"&gt;
+&lt;pre tabindex="0" class="chroma"&gt;&lt;code class="language-java" data-lang="java"&gt;&lt;span class="line"&gt;&lt;span class="cl"&gt;&lt;span class="c1"&gt;// 解耦后的伪代码：只做核心事，其余扔给 MQ&lt;/span&gt;&lt;span class="w"&gt;
+&lt;/span&gt;&lt;/span&gt;&lt;/span&gt;&lt;span class="line"&gt;&lt;span class="cl"&gt;&lt;span class="w"&gt;&lt;/span&gt;&lt;span class="kd"&gt;public&lt;/span&gt;&lt;span class="w"&gt; &lt;/span&gt;&lt;span class="kt"&gt;void&lt;/span&gt;&lt;span class="w"&gt; &lt;/span&gt;&lt;span class="nf"&gt;registerUser&lt;/span&gt;&lt;span class="p"&gt;(&lt;/span&gt;&lt;span class="n"&gt;UserDTO&lt;/span&gt;&lt;span class="w"&gt; &lt;/span&gt;&lt;span class="n"&gt;user&lt;/span&gt;&lt;span class="p"&gt;)&lt;/span&gt;&lt;span class="w"&gt; &lt;/span&gt;&lt;span class="p"&gt;{&lt;/span&gt;&lt;span class="w"&gt;
+&lt;/span&gt;&lt;/span&gt;&lt;/span&gt;&lt;span class="line"&gt;&lt;span class="cl"&gt;&lt;span class="w"&gt; &lt;/span&gt;&lt;span class="c1"&gt;// 1. 核心业务：落库&lt;/span&gt;&lt;span class="w"&gt;
+&lt;/span&gt;&lt;/span&gt;&lt;/span&gt;&lt;span class="line"&gt;&lt;span class="cl"&gt;&lt;span class="w"&gt; &lt;/span&gt;&lt;span class="n"&gt;userRepo&lt;/span&gt;&lt;span class="p"&gt;.&lt;/span&gt;&lt;span class="na"&gt;save&lt;/span&gt;&lt;span class="p"&gt;(&lt;/span&gt;&lt;span class="n"&gt;user&lt;/span&gt;&lt;span class="p"&gt;);&lt;/span&gt;&lt;span class="w"&gt;
+&lt;/span&gt;&lt;/span&gt;&lt;/span&gt;&lt;span class="line"&gt;&lt;span class="cl"&gt;&lt;span class="w"&gt;
+&lt;/span&gt;&lt;/span&gt;&lt;/span&gt;&lt;span class="line"&gt;&lt;span class="cl"&gt;&lt;span class="w"&gt; &lt;/span&gt;&lt;span class="c1"&gt;// 2. 解耦：发送领域事件&lt;/span&gt;&lt;span class="w"&gt;
+&lt;/span&gt;&lt;/span&gt;&lt;/span&gt;&lt;span class="line"&gt;&lt;span class="cl"&gt;&lt;span class="w"&gt; &lt;/span&gt;&lt;span class="n"&gt;eventBus&lt;/span&gt;&lt;span class="p"&gt;.&lt;/span&gt;&lt;span class="na"&gt;publish&lt;/span&gt;&lt;span class="p"&gt;(&lt;/span&gt;&lt;span class="k"&gt;new&lt;/span&gt;&lt;span class="w"&gt; &lt;/span&gt;&lt;span class="n"&gt;UserRegisteredEvent&lt;/span&gt;&lt;span class="p"&gt;(&lt;/span&gt;&lt;span class="n"&gt;user&lt;/span&gt;&lt;span class="p"&gt;.&lt;/span&gt;&lt;span class="na"&gt;getId&lt;/span&gt;&lt;span class="p"&gt;()));&lt;/span&gt;&lt;span class="w"&gt;
+&lt;/span&gt;&lt;/span&gt;&lt;/span&gt;&lt;span class="line"&gt;&lt;span class="cl"&gt;&lt;span class="w"&gt;&lt;/span&gt;&lt;span class="p"&gt;}&lt;/span&gt;&lt;span class="w"&gt;
+&lt;/span&gt;&lt;/span&gt;&lt;/span&gt;&lt;/code&gt;&lt;/pre&gt;&lt;/td&gt;&lt;/tr&gt;&lt;/table&gt;
+&lt;/div&gt;
+&lt;/div&gt;&lt;h2 id="common包的滥用依赖地狱的温床"&gt;&amp;ldquo;Common&amp;quot;包的滥用：依赖地狱的温床
 &lt;/h2&gt;&lt;p&gt;这可能是开发人员最容易踩的坑。为了复用代码，我们习惯搞一个 &lt;code&gt;common-utils&lt;/code&gt; 或者 &lt;code&gt;common-core&lt;/code&gt; 包，里面塞满了各种工具类、DTO、甚至枚举。&lt;/p&gt;
 &lt;p&gt;&lt;strong&gt;真实案例回顾&lt;/strong&gt;
 曾有一个核心交易系统，A 团队在 &lt;code&gt;common.jar&lt;/code&gt; 里修改了一个公共枚举类 &lt;code&gt;OrderStatus&lt;/code&gt;，增加了一个状态 &lt;code&gt;REFUNDING&lt;/code&gt;（退款中），并发布了新版 jar 包。&lt;/p&gt;
@@ -85,17 +88,11 @@
 &lt;li&gt;&lt;strong&gt;接口契约化&lt;/strong&gt;：服务间通信使用 IDL（如 Protobuf）或去繁就简的 JSON，而不是共享 Java 类。&lt;/li&gt;
 &lt;li&gt;&lt;strong&gt;防腐层（ACL）&lt;/strong&gt;：在调用外部服务时，不要直接在业务逻辑中使用对方的 DTO，而是在转换层将其转为自己内部的模型。&lt;/li&gt;
 &lt;/ol&gt;
-&lt;h2 id=&#34;总结与落地工具&#34;&gt;总结与落地工具
+&lt;h2 id="总结与落地工具"&gt;总结与落地工具
 &lt;/h2&gt;&lt;p&gt;架构解耦不是为了炫技，而是为了&lt;strong&gt;降低认知负载&lt;/strong&gt;和&lt;strong&gt;隔离故障风险&lt;/strong&gt;。&lt;/p&gt;
-&lt;p&gt;&lt;img src=&#34;https://picsum.photos/800/450?random=1768458157811&#34;
-	
-	
-	
-	loading=&#34;lazy&#34;
-	
-		alt=&#34;配图&#34;
-	
-	
+&lt;p&gt;&lt;img src="https://picsum.photos/800/450?random=1768458157811"
+loading="lazy"
+alt="配图"
 &gt;&lt;/p&gt;
 &lt;p&gt;回顾这几年的填坑之路，如果你的系统正面临&amp;quot;改不动、不敢发&amp;quot;的窘境，我建议你从这三个动作开始：&lt;/p&gt;
 &lt;ol&gt;
@@ -107,15 +104,9 @@
 &lt;blockquote&gt;
 &lt;p&gt;&lt;strong&gt;解耦自检清单（复制可用）：&lt;/strong&gt;&lt;/p&gt;
 &lt;ul&gt;
-&lt;li&gt;&lt;input disabled=&#34;&#34; type=&#34;checkbox&#34;&gt; &lt;strong&gt;数据独立性&lt;/strong&gt;：这个服务是否直接读取了别人的数据库？&lt;/li&gt;
-&lt;li&gt;&lt;input disabled=&#34;&#34; type=&#34;checkbox&#34;&gt; &lt;strong&gt;故障隔离性&lt;/strong&gt;：如果下游服务直接挂掉（宕机/超时），当前服务的主流程是否还能运行？&lt;/li&gt;
-&lt;li&gt;&lt;input disabled=&#34;&#34; type=&#34;checkbox&#34;&gt; &lt;strong&gt;版本兼容性&lt;/strong&gt;：如果在这个接口增加一个字段，旧版本的消费者会报错吗？&lt;/li&gt;
-&lt;li&gt;&lt;input disabled=&#34;&#34; type=&#34;checkbox&#34;&gt; &lt;strong&gt;异步必要性&lt;/strong&gt;：这个操作是用户必须立刻看到结果的吗？如果不是，能否放入消息队列？&lt;/li&gt;
-&lt;/ul&gt;
-&lt;/blockquote&gt;
-&lt;p&gt;架构优化没有终点，但每一次解耦，都会让你在周五下午的发布中，多一份从容。&lt;/p&gt;
-</description>
-        </item>
-        
-    </channel>
-</rss>
+&lt;li&gt;&lt;input disabled="" type="checkbox"&gt; &lt;strong&gt;数据独立性&lt;/strong&gt;：这个服务是否直接读取了别人的数据库？&lt;/li&gt;
+&lt;li&gt;&lt;input disabled="" type="checkbox"&gt; &lt;strong&gt;故障隔离性&lt;/strong&gt;：如果下游服务直接挂掉（宕机/超时），当前服务的主流程是否还能运行？&lt;/li&gt;
+&lt;li&gt;&lt;input disabled="" type="checkbox"&gt; &lt;strong&gt;版本兼容性&lt;/strong&gt;：如果在这个接口增加一个字段，旧版本的消费者会报错吗？&lt;/li&gt;
+&lt;li&gt;&lt;input disabled="" type="checkbox"&gt; &lt;strong&gt;异步必要性&lt;/strong&gt;：这个操作是用户必须立刻看到结果的吗？如果不是，能否放入消息队列？&lt;/li&gt;
+&lt;/ul&gt;&lt;/blockquote&gt;
+&lt;p&gt;架构优化没有终点，但每一次解耦，都会让你在周五下午的发布中，多一份从容。&lt;/p&gt;</description></item></channel></rss>

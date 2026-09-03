@@ -1,474 +1,134 @@
-<!DOCTYPE html>
-<html lang="zh-cn" dir="ltr">
-    <head><meta charset='utf-8'>
-<meta name='viewport' content='width=device-width, initial-scale=1'><meta name='description' content="我曾以为拥抱云原生就是要在第一时间上 Kubernetes（K8s），搞微服务，弄Service Mesh。直到2021年，我带着一个5人的技术团队，因为盲目上K8s，在某次大促前夕，因为Etcd集群的一个节点故障导致整个控制面瘫痪，我们修了整整一夜，业务停摆了6个小时。\n那个凌晨4点，看着依然红一片的监控面板，我意识到一个残酷的真相：对于没有专职运维的中小团队，复杂的架构不是护城河，而是随时会爆炸的地雷。\n也就是从那时起，我开始推行&quot;极简容器化&quot;策略。今天想和大家复盘一下，我们是如何仅靠单机Docker和Docker Compose，就解决了90%的运维痛点，让团队从此告别&quot;在我电脑上明明能运行&quot;的扯皮。\n拒绝过度设计：Docker Compose 才是中小团队的瑞士军刀\r很多技术负责人（包括曾经的我）都有&quot;大厂崇拜症&quot;。看到大厂都在用K8s，觉得自己不用就落伍了。但现实是，你的业务量可能连单机32G内存都跑不满，却要花一半的服务器资源去跑K8s的组件。\n观点： 只要你的机器数量还在个位数，Docker Compose 就足够了。它能解决服务编排、网络隔离、一键拉起，而且配置文件简单到连刚入职的实习生都能看懂。\n真实案例： 2022年，我接手了一个SaaS项目，前任留下了3套环境（开发、测试、生产），部署全靠文档里的20多步手动命令。每次发版，后端老张都要盯着屏幕敲半小时命令，少敲一个参数就报错。\n我接手后的第一件事，不是重构代码，而是写了一个 docker-compose.yml。\n我们将Nginx、API服务、Redis、MySQL全部编排进去。\n改造结果：\n部署时间： 从30分钟缩短到3分钟。 事故率： 因环境配置不一致导致的Bug归零。 硬件成本： 退订了专门用于跑K8s管理节点的2台服务器，每月省下1000多块。 硬核方法： 不要把数据库放在物理机，服务放在Docker里，要&quot;全员容器化&quot;。包括你的Nginx网关、定时任务脚本。这是我用了很多年的一个原则：除了Docker Daemon和SSH，宿主机上不要安装任何业务软件。\n统一开发环境：终结&quot;环境不一致&quot;的内耗\r除了部署，Docker在开发阶段的价值被严重低估了。你一定经历过新人入职，光是配环境就要花2天时间：Python版本不对、Node依赖冲突、本地Redis没启动&hellip;\n观点： 开发环境即生产环境。让Docker接管本地开发流程，是提升团队效率最立竿见影的手段。\n真实场景： 去年团队扩招，来了个前端小李。以前新人入职，我要专门派个老员工指导他装环境。这次，我只丢给他一个Git仓库地址，说了一句：&ldquo;Clone下来，运行 make dev。&rdquo;\n小李很惊讶，因为这行命令背后，执行了 docker-compose -f docker-compose.dev.yml up。15分钟后，所有依赖（包括不仅限于数据库、消息队列、模拟的第三方服务Mock）全部在他的Macbook上跑了起来，热更新功能也配置好了。\n落地细节： 为了让大家少敲命令，我强制要求每个项目根目录必须有一个 Makefile。这不仅是偷懒，更是将操作&quot;标准化&quot;。\n# Makefile 示例 .PHONY: dev build deploy dev: # 本地开发模式，挂载源代码 docker-compose -f docker-compose.yml -f docker-compose.override.yml up build: # 构建生产镜像 docker build -t my-app:latest . shell: # 快速进入容器调试 docker-compose exec app /bin/bash 这套机制运行了两年，最大的好处是：开发人员再也不用在本地安装乱七八糟的语言环境了，电脑干干净净。\n">
-<title>只有3个开发，别碰K8s！单机Docker救了我们的命</title>
-
-<link rel='canonical' href='https://blog.irudder.me/tech/zhongxiaoxingtuanduidevopsluodifangan/xiaotuanduiderongqihua_congdanjidockerkaishi.html'>
-
-<link rel="stylesheet" href="/scss/style.min.b9e9128fec450ebccecc4ec9900157f32b85d0609bcd5ee3293968bcaa1235f2.css"><meta property='og:title' content="只有3个开发，别碰K8s！单机Docker救了我们的命">
-<meta property='og:description' content="我曾以为拥抱云原生就是要在第一时间上 Kubernetes（K8s），搞微服务，弄Service Mesh。直到2021年，我带着一个5人的技术团队，因为盲目上K8s，在某次大促前夕，因为Etcd集群的一个节点故障导致整个控制面瘫痪，我们修了整整一夜，业务停摆了6个小时。\n那个凌晨4点，看着依然红一片的监控面板，我意识到一个残酷的真相：对于没有专职运维的中小团队，复杂的架构不是护城河，而是随时会爆炸的地雷。\n也就是从那时起，我开始推行&quot;极简容器化&quot;策略。今天想和大家复盘一下，我们是如何仅靠单机Docker和Docker Compose，就解决了90%的运维痛点，让团队从此告别&quot;在我电脑上明明能运行&quot;的扯皮。\n拒绝过度设计：Docker Compose 才是中小团队的瑞士军刀\r很多技术负责人（包括曾经的我）都有&quot;大厂崇拜症&quot;。看到大厂都在用K8s，觉得自己不用就落伍了。但现实是，你的业务量可能连单机32G内存都跑不满，却要花一半的服务器资源去跑K8s的组件。\n观点： 只要你的机器数量还在个位数，Docker Compose 就足够了。它能解决服务编排、网络隔离、一键拉起，而且配置文件简单到连刚入职的实习生都能看懂。\n真实案例： 2022年，我接手了一个SaaS项目，前任留下了3套环境（开发、测试、生产），部署全靠文档里的20多步手动命令。每次发版，后端老张都要盯着屏幕敲半小时命令，少敲一个参数就报错。\n我接手后的第一件事，不是重构代码，而是写了一个 docker-compose.yml。\n我们将Nginx、API服务、Redis、MySQL全部编排进去。\n改造结果：\n部署时间： 从30分钟缩短到3分钟。 事故率： 因环境配置不一致导致的Bug归零。 硬件成本： 退订了专门用于跑K8s管理节点的2台服务器，每月省下1000多块。 硬核方法： 不要把数据库放在物理机，服务放在Docker里，要&quot;全员容器化&quot;。包括你的Nginx网关、定时任务脚本。这是我用了很多年的一个原则：除了Docker Daemon和SSH，宿主机上不要安装任何业务软件。\n统一开发环境：终结&quot;环境不一致&quot;的内耗\r除了部署，Docker在开发阶段的价值被严重低估了。你一定经历过新人入职，光是配环境就要花2天时间：Python版本不对、Node依赖冲突、本地Redis没启动&hellip;\n观点： 开发环境即生产环境。让Docker接管本地开发流程，是提升团队效率最立竿见影的手段。\n真实场景： 去年团队扩招，来了个前端小李。以前新人入职，我要专门派个老员工指导他装环境。这次，我只丢给他一个Git仓库地址，说了一句：&ldquo;Clone下来，运行 make dev。&rdquo;\n小李很惊讶，因为这行命令背后，执行了 docker-compose -f docker-compose.dev.yml up。15分钟后，所有依赖（包括不仅限于数据库、消息队列、模拟的第三方服务Mock）全部在他的Macbook上跑了起来，热更新功能也配置好了。\n落地细节： 为了让大家少敲命令，我强制要求每个项目根目录必须有一个 Makefile。这不仅是偷懒，更是将操作&quot;标准化&quot;。\n# Makefile 示例 .PHONY: dev build deploy dev: # 本地开发模式，挂载源代码 docker-compose -f docker-compose.yml -f docker-compose.override.yml up build: # 构建生产镜像 docker build -t my-app:latest . shell: # 快速进入容器调试 docker-compose exec app /bin/bash 这套机制运行了两年，最大的好处是：开发人员再也不用在本地安装乱七八糟的语言环境了，电脑干干净净。\n">
-<meta property='og:url' content='https://blog.irudder.me/tech/zhongxiaoxingtuanduidevopsluodifangan/xiaotuanduiderongqihua_congdanjidockerkaishi.html'>
-<meta property='og:site_name' content='SelfTechHub'>
-<meta property='og:type' content='article'><meta property='article:section' content='Tech' /><meta property='article:tag' content='小团队的容器化：从单机Docker开始' /><meta property='article:published_time' content='2024-01-07T00:00:00&#43;00:00'/><meta property='article:modified_time' content='2024-01-07T00:00:00&#43;00:00'/>
-<meta name="twitter:title" content="只有3个开发，别碰K8s！单机Docker救了我们的命">
-<meta name="twitter:description" content="我曾以为拥抱云原生就是要在第一时间上 Kubernetes（K8s），搞微服务，弄Service Mesh。直到2021年，我带着一个5人的技术团队，因为盲目上K8s，在某次大促前夕，因为Etcd集群的一个节点故障导致整个控制面瘫痪，我们修了整整一夜，业务停摆了6个小时。\n那个凌晨4点，看着依然红一片的监控面板，我意识到一个残酷的真相：对于没有专职运维的中小团队，复杂的架构不是护城河，而是随时会爆炸的地雷。\n也就是从那时起，我开始推行&quot;极简容器化&quot;策略。今天想和大家复盘一下，我们是如何仅靠单机Docker和Docker Compose，就解决了90%的运维痛点，让团队从此告别&quot;在我电脑上明明能运行&quot;的扯皮。\n拒绝过度设计：Docker Compose 才是中小团队的瑞士军刀\r很多技术负责人（包括曾经的我）都有&quot;大厂崇拜症&quot;。看到大厂都在用K8s，觉得自己不用就落伍了。但现实是，你的业务量可能连单机32G内存都跑不满，却要花一半的服务器资源去跑K8s的组件。\n观点： 只要你的机器数量还在个位数，Docker Compose 就足够了。它能解决服务编排、网络隔离、一键拉起，而且配置文件简单到连刚入职的实习生都能看懂。\n真实案例： 2022年，我接手了一个SaaS项目，前任留下了3套环境（开发、测试、生产），部署全靠文档里的20多步手动命令。每次发版，后端老张都要盯着屏幕敲半小时命令，少敲一个参数就报错。\n我接手后的第一件事，不是重构代码，而是写了一个 docker-compose.yml。\n我们将Nginx、API服务、Redis、MySQL全部编排进去。\n改造结果：\n部署时间： 从30分钟缩短到3分钟。 事故率： 因环境配置不一致导致的Bug归零。 硬件成本： 退订了专门用于跑K8s管理节点的2台服务器，每月省下1000多块。 硬核方法： 不要把数据库放在物理机，服务放在Docker里，要&quot;全员容器化&quot;。包括你的Nginx网关、定时任务脚本。这是我用了很多年的一个原则：除了Docker Daemon和SSH，宿主机上不要安装任何业务软件。\n统一开发环境：终结&quot;环境不一致&quot;的内耗\r除了部署，Docker在开发阶段的价值被严重低估了。你一定经历过新人入职，光是配环境就要花2天时间：Python版本不对、Node依赖冲突、本地Redis没启动&hellip;\n观点： 开发环境即生产环境。让Docker接管本地开发流程，是提升团队效率最立竿见影的手段。\n真实场景： 去年团队扩招，来了个前端小李。以前新人入职，我要专门派个老员工指导他装环境。这次，我只丢给他一个Git仓库地址，说了一句：&ldquo;Clone下来，运行 make dev。&rdquo;\n小李很惊讶，因为这行命令背后，执行了 docker-compose -f docker-compose.dev.yml up。15分钟后，所有依赖（包括不仅限于数据库、消息队列、模拟的第三方服务Mock）全部在他的Macbook上跑了起来，热更新功能也配置好了。\n落地细节： 为了让大家少敲命令，我强制要求每个项目根目录必须有一个 Makefile。这不仅是偷懒，更是将操作&quot;标准化&quot;。\n# Makefile 示例 .PHONY: dev build deploy dev: # 本地开发模式，挂载源代码 docker-compose -f docker-compose.yml -f docker-compose.override.yml up build: # 构建生产镜像 docker build -t my-app:latest . shell: # 快速进入容器调试 docker-compose exec app /bin/bash 这套机制运行了两年，最大的好处是：开发人员再也不用在本地安装乱七八糟的语言环境了，电脑干干净净。\n">
-    </head>
-    <body class="
-    article-page
-    ">
-    <script>
-        (function() {
-            const colorSchemeKey = 'StackColorScheme';
-            if(!localStorage.getItem(colorSchemeKey)){
-                localStorage.setItem(colorSchemeKey, "auto");
-            }
-        })();
-    </script><script>
-    (function() {
-        const colorSchemeKey = 'StackColorScheme';
-        const colorSchemeItem = localStorage.getItem(colorSchemeKey);
-        const supportDarkMode = window.matchMedia('(prefers-color-scheme: dark)').matches === true;
-
-        if (colorSchemeItem == 'dark' || colorSchemeItem === 'auto' && supportDarkMode) {
-            
-
-            document.documentElement.dataset.scheme = 'dark';
-        } else {
-            document.documentElement.dataset.scheme = 'light';
-        }
-    })();
-</script>
-<div class="container main-container flex on-phone--column compact"><aside class="sidebar left-sidebar sticky ">
-    <button class="hamburger hamburger--spin" type="button" id="toggle-menu" aria-label="切换菜单">
-        <span class="hamburger-box">
-            <span class="hamburger-inner"></span>
-        </span>
-    </button>
-
-    <header>
-        
-            
-            <figure class="site-avatar">
-                <a href="/">
-                
-                    
-                    
-                    
-                        
-                        <img src="/img/avatar_hu_8588ce14af1147e2.png" width="300"
-                            height="286" class="site-logo" loading="lazy" alt="Avatar">
-                    
-                
-                </a>
-                
-            </figure>
-            
-        
-        
-        <div class="site-meta">
-            <h1 class="site-name"><a href="/">SelfTechHub</a></h1>
-            <h2 class="site-description"></h2>
-        </div>
-    </header><ol class="menu" id="main-menu">
-        
-        
-        <li class="menu-bottom-section">
-            <ol class="menu">
-
-                
-                    <li id="dark-mode-toggle">
-                        <svg xmlns="http://www.w3.org/2000/svg" class="icon icon-tabler icon-tabler-toggle-left" width="24" height="24" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor" fill="none" stroke-linecap="round" stroke-linejoin="round">
-  <path stroke="none" d="M0 0h24v24H0z"/>
-  <circle cx="8" cy="12" r="2" />
-  <rect x="2" y="6" width="20" height="12" rx="6" />
-</svg>
-
-
-
-                        <svg xmlns="http://www.w3.org/2000/svg" class="icon icon-tabler icon-tabler-toggle-right" width="24" height="24" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor" fill="none" stroke-linecap="round" stroke-linejoin="round">
-  <path stroke="none" d="M0 0h24v24H0z"/>
-  <circle cx="16" cy="12" r="2" />
-  <rect x="2" y="6" width="20" height="12" rx="6" />
-</svg>
-
-
-
-                        <span>暗色模式</span>
-                    </li>
-                
-            </ol>
-        </li>
-    </ol>
-</aside>
-
-    
-
-            <main class="main full-width">
-    <article class="main-article">
-    <header class="article-header">
-
-    <div class="article-details">
-    
-    <header class="article-category">
-        
-            <a href="/categories/%E6%8A%80%E6%9C%AF.html" >
-                技术精进
-            </a>
-        
-    </header>
-    
-
-    <div class="article-title-wrapper">
-        <h2 class="article-title">
-            <a href="/tech/zhongxiaoxingtuanduidevopsluodifangan/xiaotuanduiderongqihua_congdanjidockerkaishi.html">只有3个开发，别碰K8s！单机Docker救了我们的命</a>
-        </h2>
-    
-        
-    </div>
-
-    
-    
-    
-    
-    <footer class="article-time">
-        
-            <div>
-                <svg xmlns="http://www.w3.org/2000/svg" class="icon icon-tabler icon-tabler-calendar-time" width="56" height="56" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor" fill="none" stroke-linecap="round" stroke-linejoin="round">
-  <path stroke="none" d="M0 0h24v24H0z"/>
-  <path d="M11.795 21h-6.795a2 2 0 0 1 -2 -2v-12a2 2 0 0 1 2 -2h12a2 2 0 0 1 2 2v4" />
-  <circle cx="18" cy="18" r="4" />
-  <path d="M15 3v4" />
-  <path d="M7 3v4" />
-  <path d="M3 11h16" />
-  <path d="M18 16.496v1.504l1 1" />
-</svg>
-                <time class="article-time--published" datetime='2024-01-07T00:00:00Z'>Jan 07, 2024</time>
-            </div>
-        
-
-        
-            <div>
-                <svg xmlns="http://www.w3.org/2000/svg" class="icon icon-tabler icon-tabler-clock" width="24" height="24" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor" fill="none" stroke-linecap="round" stroke-linejoin="round">
-  <path stroke="none" d="M0 0h24v24H0z"/>
-  <circle cx="12" cy="12" r="9" />
-  <polyline points="12 7 12 12 15 15" />
-</svg>
-
-
-
-                <time class="article-time--reading">
-                    阅读时长: 2 分钟
-                </time>
-            </div>
-        
-    </footer>
-    
-
-    
-</div>
-
-</header>
-
-    <section class="article-content">
-    
-    
-    <p>我曾以为拥抱云原生就是要在第一时间上 Kubernetes（K8s），搞微服务，弄Service Mesh。直到2021年，我带着一个5人的技术团队，因为盲目上K8s，在某次大促前夕，因为Etcd集群的一个节点故障导致整个控制面瘫痪，我们修了整整一夜，业务停摆了6个小时。</p>
-<p>那个凌晨4点，看着依然红一片的监控面板，我意识到一个残酷的真相：<strong>对于没有专职运维的中小团队，复杂的架构不是护城河，而是随时会爆炸的地雷。</strong></p>
-<p>也就是从那时起，我开始推行&quot;极简容器化&quot;策略。今天想和大家复盘一下，我们是如何仅靠单机Docker和Docker Compose，就解决了90%的运维痛点，让团队从此告别&quot;在我电脑上明明能运行&quot;的扯皮。</p>
-<h2 id="拒绝过度设计docker-compose-才是中小团队的瑞士军刀">拒绝过度设计：Docker Compose 才是中小团队的瑞士军刀
-</h2><p>很多技术负责人（包括曾经的我）都有&quot;大厂崇拜症&quot;。看到大厂都在用K8s，觉得自己不用就落伍了。但现实是，你的业务量可能连单机32G内存都跑不满，却要花一半的服务器资源去跑K8s的组件。</p>
-<p><strong>观点：</strong> 只要你的机器数量还在个位数，Docker Compose 就足够了。它能解决服务编排、网络隔离、一键拉起，而且配置文件简单到连刚入职的实习生都能看懂。</p>
-<p><strong>真实案例：</strong>
-2022年，我接手了一个SaaS项目，前任留下了3套环境（开发、测试、生产），部署全靠文档里的20多步手动命令。每次发版，后端老张都要盯着屏幕敲半小时命令，少敲一个参数就报错。</p>
-<p>我接手后的第一件事，不是重构代码，而是写了一个 <code>docker-compose.yml</code>。</p>
-<p>我们将Nginx、API服务、Redis、MySQL全部编排进去。</p>
-<p><strong>改造结果：</strong></p>
-<ul>
-<li><strong>部署时间：</strong> 从30分钟缩短到3分钟。</li>
-<li><strong>事故率：</strong> 因环境配置不一致导致的Bug归零。</li>
-<li><strong>硬件成本：</strong> 退订了专门用于跑K8s管理节点的2台服务器，每月省下1000多块。</li>
-</ul>
-<p><strong>硬核方法：</strong>
-不要把数据库放在物理机，服务放在Docker里，要&quot;全员容器化&quot;。包括你的Nginx网关、定时任务脚本。这是我用了很多年的一个原则：<strong>除了Docker Daemon和SSH，宿主机上不要安装任何业务软件。</strong></p>
-<h2 id="统一开发环境终结环境不一致的内耗">统一开发环境：终结&quot;环境不一致&quot;的内耗
-</h2><p>除了部署，Docker在开发阶段的价值被严重低估了。你一定经历过新人入职，光是配环境就要花2天时间：Python版本不对、Node依赖冲突、本地Redis没启动&hellip;</p>
-<p><strong>观点：</strong> 开发环境即生产环境。让Docker接管本地开发流程，是提升团队效率最立竿见影的手段。</p>
-<p><strong>真实场景：</strong>
-去年团队扩招，来了个前端小李。以前新人入职，我要专门派个老员工指导他装环境。这次，我只丢给他一个Git仓库地址，说了一句：&ldquo;Clone下来，运行 <code>make dev</code>。&rdquo;</p>
-<p>小李很惊讶，因为这行命令背后，执行了 <code>docker-compose -f docker-compose.dev.yml up</code>。15分钟后，所有依赖（包括不仅限于数据库、消息队列、模拟的第三方服务Mock）全部在他的Macbook上跑了起来，热更新功能也配置好了。</p>
-<p><strong>落地细节：</strong>
-为了让大家少敲命令，我强制要求每个项目根目录必须有一个 <code>Makefile</code>。这不仅是偷懒，更是将操作&quot;标准化&quot;。</p>
-<div class="highlight"><pre tabindex="0" style="color:#f8f8f2;background-color:#272822;-moz-tab-size:4;-o-tab-size:4;tab-size:4;"><code class="language-makefile" data-lang="makefile"><span style="display:flex;"><span><span style="color:#75715e"># Makefile 示例
-</span></span></span><span style="display:flex;"><span><span style="color:#75715e"></span><span style="color:#a6e22e">.PHONY</span><span style="color:#f92672">:</span> dev build deploy
-</span></span><span style="display:flex;"><span>
-</span></span><span style="display:flex;"><span><span style="color:#a6e22e">dev</span><span style="color:#f92672">:</span>
-</span></span><span style="display:flex;"><span>    <span style="color:#75715e"># 本地开发模式，挂载源代码</span>
-</span></span><span style="display:flex;"><span>    docker-compose -f docker-compose.yml -f docker-compose.override.yml up
-</span></span><span style="display:flex;"><span>
-</span></span><span style="display:flex;"><span><span style="color:#a6e22e">build</span><span style="color:#f92672">:</span>
-</span></span><span style="display:flex;"><span>    <span style="color:#75715e"># 构建生产镜像</span>
-</span></span><span style="display:flex;"><span>    docker build -t my-app:latest .
-</span></span><span style="display:flex;"><span>
-</span></span><span style="display:flex;"><span><span style="color:#a6e22e">shell</span><span style="color:#f92672">:</span>
-</span></span><span style="display:flex;"><span>    <span style="color:#75715e"># 快速进入容器调试</span>
-</span></span><span style="display:flex;"><span>    docker-compose exec app /bin/bash
-</span></span></code></pre></div><p>这套机制运行了两年，最大的好处是：<strong>开发人员再也不用在本地安装乱七八糟的语言环境了，电脑干干净净。</strong></p>
-<h2 id="穷人的cicdshell脚本git-hook足够用">穷人的CI/CD：Shell脚本+Git Hook足够用
-</h2><p>说到自动化部署，很多人第一反应是搭建Jenkins，或者配置复杂的GitLab CI Runner。这些都很棒，但对于只有两三个后端的小团队，维护Jenkins本身就是负担。</p>
-<p><strong>观点：</strong> 在资源受限时，越原始的工具越可靠。一个精心编写的Shell脚本，配合Git，就是最稳健的CD系统。</p>
-<p><strong>实操复盘：</strong>
-我们目前的生产环境部署，并没有用昂贵的商业CI/CD工具。我们的流程简单到令人发指，但极其稳定：</p>
-<ol>
-<li><strong>本地构建：</strong> 开发者本地（或一台专门的构建机）Build镜像，推送到私有仓库（阿里云/腾讯云的免费版镜像仓库就很好用）。</li>
-<li><strong>触发更新：</strong> 通过SSH登录到目标服务器，执行一个部署脚本。</li>
-</ol>
-<p>为了防止误操作，我写了一个 <code>deploy.sh</code>，放在服务器上。</p>
-<div class="highlight"><pre tabindex="0" style="color:#f8f8f2;background-color:#272822;-moz-tab-size:4;-o-tab-size:4;tab-size:4;"><code class="language-bash" data-lang="bash"><span style="display:flex;"><span><span style="color:#75715e">#!/bin/bash
-</span></span></span><span style="display:flex;"><span><span style="color:#75715e"></span><span style="color:#75715e"># 简单的零停机更新策略（虽然会有短暂中断，但对小业务可接受）</span>
-</span></span><span style="display:flex;"><span>
-</span></span><span style="display:flex;"><span>IMAGE_NAME<span style="color:#f92672">=</span><span style="color:#e6db74">&#34;registry.cn-hangzhou.aliyuncs.com/myteam/backend:latest&#34;</span>
-</span></span><span style="display:flex;"><span>
-</span></span><span style="display:flex;"><span>echo <span style="color:#e6db74">&#34;Step 1: Pulling latest image...&#34;</span>
-</span></span><span style="display:flex;"><span>docker pull $IMAGE_NAME
-</span></span><span style="display:flex;"><span>
-</span></span><span style="display:flex;"><span>echo <span style="color:#e6db74">&#34;Step 2: Stopping old container...&#34;</span>
-</span></span><span style="display:flex;"><span>docker-compose down
-</span></span><span style="display:flex;"><span>
-</span></span><span style="display:flex;"><span>!<span style="color:#f92672">[</span>配图<span style="color:#f92672">](</span>https://picsum.photos/800/450?random<span style="color:#f92672">=</span>1768390391607<span style="color:#f92672">)</span>
-</span></span><span style="display:flex;"><span>
-</span></span><span style="display:flex;"><span>echo <span style="color:#e6db74">&#34;Step 3: Starting new container...&#34;</span>
-</span></span><span style="display:flex;"><span>docker-compose up -d
-</span></span><span style="display:flex;"><span>
-</span></span><span style="display:flex;"><span>echo <span style="color:#e6db74">&#34;Step 4: Pruning unused images...&#34;</span>
-</span></span><span style="display:flex;"><span>docker image prune -f
-</span></span><span style="display:flex;"><span>
-</span></span><span style="display:flex;"><span>echo <span style="color:#e6db74">&#34;Deployment Done!&#34;</span>
-</span></span></code></pre></div><p>你可能会质疑：这不还是会停机吗？
-是的，<code>docker-compose down</code> 再 <code>up</code> 会有几秒的中断。但请扪心自问：你的业务真的每秒都有几百万上下吗？如果是在深夜低峰期发布，或者配合Nginx的重试机制，这几秒钟用户根本无感。</p>
-<p><strong>反思：</strong> 我们曾尝试搞蓝绿部署，配置了一堆复杂的Nginx Lua脚本，结果因为配置错误导致流量切不过去。后来回退到这个&quot;笨办法&quot;，反而再没出过岔子。<strong>技术选型要匹配团队的掌控力，而不是匹配PPT的酷炫程度。</strong></p>
-<h2 id="总结与落地指南">总结与落地指南
-</h2><p>小团队做容器化，核心不在于&quot;技术先进性&quot;，而在于&quot;可维护性&quot;。<strong>单机Docker + Docker Compose + Shell脚本</strong>，这个组合就像一把AK47，结构简单、皮实耐用，哪怕扔进泥潭里捞出来还能打响。</p>
-<p>如果你现在正被繁杂的运维工作缠身，建议按以下步骤行动：</p>
-<ol>
-<li><strong>第一周：</strong> 挑选一个边缘服务（如内部管理后台），编写 <code>Dockerfile</code> 和 <code>docker-compose.yml</code>，跑通本地运行。</li>
-<li><strong>第二周：</strong> 编写 <code>Makefile</code>，将启动、停止、日志查看等高频操作封装成命令，强迫团队使用。</li>
-<li><strong>第三周：</strong> 购买一个云厂商的容器镜像服务（很多都有免费额度），打通&quot;本地构建 -&gt; 推送镜像 -&gt; 服务器拉取&quot;的流程。</li>
-</ol>
-<p>最后，分享一个我常用的 <strong>Dockerfile 黄金模板</strong>（以Node.js为例），直接复制微调即可避开很多坑（如时区、权限问题）：</p>
-<div class="highlight"><pre tabindex="0" style="color:#f8f8f2;background-color:#272822;-moz-tab-size:4;-o-tab-size:4;tab-size:4;"><code class="language-dockerfile" data-lang="dockerfile"><span style="display:flex;"><span><span style="color:#75715e"># 使用具体版本号，别用 latest</span><span style="color:#960050;background-color:#1e0010">
-</span></span></span><span style="display:flex;"><span><span style="color:#960050;background-color:#1e0010"></span><span style="color:#66d9ef">FROM</span> <span style="color:#e6db74">node:18-alpine</span> <span style="color:#960050;background-color:#1e0010">
-</span></span></span><span style="display:flex;"><span><span style="color:#960050;background-color:#1e0010">
-</span></span></span><span style="display:flex;"><span><span style="color:#960050;background-color:#1e0010"></span><span style="color:#75715e"># 设置时区，防止日志时间差8小时</span><span style="color:#960050;background-color:#1e0010">
-</span></span></span><span style="display:flex;"><span><span style="color:#960050;background-color:#1e0010"></span><span style="color:#66d9ef">RUN</span> apk add --no-cache tzdata <span style="color:#f92672">&amp;&amp;</span> <span style="color:#ae81ff">\
-</span></span></span><span style="display:flex;"><span><span style="color:#ae81ff"></span>    cp /usr/share/zoneinfo/Asia/Shanghai /etc/localtime <span style="color:#f92672">&amp;&amp;</span> <span style="color:#ae81ff">\
-</span></span></span><span style="display:flex;"><span><span style="color:#ae81ff"></span>    echo <span style="color:#e6db74">&#34;Asia/Shanghai&#34;</span> &gt; /etc/timezone<span style="color:#960050;background-color:#1e0010">
-</span></span></span><span style="display:flex;"><span><span style="color:#960050;background-color:#1e0010">
-</span></span></span><span style="display:flex;"><span><span style="color:#960050;background-color:#1e0010"></span><span style="color:#66d9ef">WORKDIR</span> <span style="color:#e6db74">/app</span><span style="color:#960050;background-color:#1e0010">
-</span></span></span><span style="display:flex;"><span><span style="color:#960050;background-color:#1e0010">
-</span></span></span><span style="display:flex;"><span><span style="color:#960050;background-color:#1e0010"></span><span style="color:#75715e"># 分层构建技巧：先拷 package.json，利用缓存加速</span><span style="color:#960050;background-color:#1e0010">
-</span></span></span><span style="display:flex;"><span><span style="color:#960050;background-color:#1e0010"></span><span style="color:#66d9ef">COPY</span> package*.json ./<span style="color:#960050;background-color:#1e0010">
-</span></span></span><span style="display:flex;"><span><span style="color:#960050;background-color:#1e0010"></span><span style="color:#66d9ef">RUN</span> npm ci --only<span style="color:#f92672">=</span>production<span style="color:#960050;background-color:#1e0010">
-</span></span></span><span style="display:flex;"><span><span style="color:#960050;background-color:#1e0010">
-</span></span></span><span style="display:flex;"><span><span style="color:#960050;background-color:#1e0010"></span><span style="color:#66d9ef">COPY</span> . .<span style="color:#960050;background-color:#1e0010">
-</span></span></span><span style="display:flex;"><span><span style="color:#960050;background-color:#1e0010">
-</span></span></span><span style="display:flex;"><span><span style="color:#960050;background-color:#1e0010"></span><span style="color:#75715e"># 不要用 root 用户运行应用</span><span style="color:#960050;background-color:#1e0010">
-</span></span></span><span style="display:flex;"><span><span style="color:#960050;background-color:#1e0010"></span><span style="color:#66d9ef">USER</span> <span style="color:#e6db74">node</span><span style="color:#960050;background-color:#1e0010">
-</span></span></span><span style="display:flex;"><span><span style="color:#960050;background-color:#1e0010">
-</span></span></span><span style="display:flex;"><span><span style="color:#960050;background-color:#1e0010"></span>!<span style="color:#f92672">[</span>配图<span style="color:#f92672">](</span>https://picsum.photos/800/450?random<span style="color:#f92672">=</span>1768390394652<span style="color:#f92672">)</span><span style="color:#960050;background-color:#1e0010">
-</span></span></span><span style="display:flex;"><span><span style="color:#960050;background-color:#1e0010">
-</span></span></span><span style="display:flex;"><span><span style="color:#960050;background-color:#1e0010"></span><span style="color:#66d9ef">CMD</span> [<span style="color:#e6db74">&#34;node&#34;</span>, <span style="color:#e6db74">&#34;src/index.js&#34;</span>]<span style="color:#960050;background-color:#1e0010">
-</span></span></span></code></pre></div><p>记住，<strong>DevOps的尽头不是K8s，而是早点下班。</strong></p>
-
-</section>
-
-
-    <footer class="article-footer">
-    
-    <section class="article-tags">
-        
-            <a href="/tags/%E5%B0%8F%E5%9B%A2%E9%98%9F%E7%9A%84%E5%AE%B9%E5%99%A8%E5%8C%96%E4%BB%8E%E5%8D%95%E6%9C%BADocker%E5%BC%80%E5%A7%8B.html">小团队的容器化：从单机Docker开始</a>
-        
-    </section>
-
-
-    </footer>
-
-
-    
-</article>
-
-    
-
-    
-
-     
-    
-        
-    <script
-    src="https://giscus.app/client.js"
-    data-repo="pastor17/bloggiscus"
-    data-repo-id="R_kgDOQ6H9qQ"
-    data-category=""
-    data-category-id="DIC_kwDOQ6H9qc4C0-T8"
-    data-mapping="pathname"
-    data-strict="0"
-    data-reactions-enabled="1"
-    data-emit-metadata="0"
-    data-input-position="bottom"
-    data-theme="light"
-    data-lang="zh-CN"
-    data-loading="lazy"
-    crossorigin="anonymous"
-    async
-></script>
-<script>
-    function setGiscusTheme(theme) {
-        let giscus = document.querySelector("iframe.giscus-frame");
-        if (giscus) {
-            giscus.contentWindow.postMessage(
-                {
-                    giscus: {
-                        setConfig: {
-                            theme: theme,
-                        },
-                    },
-                },
-                "https://giscus.app"
-            );
-        }
-    }
-
-    (function () {
-        addEventListener("message", (e) => {
-            if (event.origin !== "https://giscus.app") return;
-            handler();
-        });
-        window.addEventListener("onColorSchemeChange", handler);
-
-        function handler() {
-            if (document.documentElement.dataset.scheme === "light") {
-                setGiscusTheme('light');
-            } else {
-                setGiscusTheme('dark_dimmed');
-            }
-        }
-    })();
-</script>
-
-    
-
-    <footer class="site-footer">
-    <section class="copyright">
-        &copy; 
-        
-        2026 SelfTechHub
-    </section>
-    
-    <section class="powerby">
-        
-
-    </section>
-</footer>
-
-
-    
-<div class="pswp" tabindex="-1" role="dialog" aria-hidden="true">
-
-    
-    <div class="pswp__bg"></div>
-
-    
-    <div class="pswp__scroll-wrap">
-
-        
-        <div class="pswp__container">
-            <div class="pswp__item"></div>
-            <div class="pswp__item"></div>
-            <div class="pswp__item"></div>
-        </div>
-
-        
-        <div class="pswp__ui pswp__ui--hidden">
-
-            <div class="pswp__top-bar">
-
-                
-
-                <div class="pswp__counter"></div>
-
-                <button class="pswp__button pswp__button--close" title="Close (Esc)"></button>
-
-                <button class="pswp__button pswp__button--share" title="Share"></button>
-
-                <button class="pswp__button pswp__button--fs" title="Toggle fullscreen"></button>
-
-                <button class="pswp__button pswp__button--zoom" title="Zoom in/out"></button>
-
-                
-                
-                <div class="pswp__preloader">
-                    <div class="pswp__preloader__icn">
-                        <div class="pswp__preloader__cut">
-                            <div class="pswp__preloader__donut"></div>
-                        </div>
-                    </div>
-                </div>
-            </div>
-
-            <div class="pswp__share-modal pswp__share-modal--hidden pswp__single-tap">
-                <div class="pswp__share-tooltip"></div>
-            </div>
-
-            <button class="pswp__button pswp__button--arrow--left" title="Previous (arrow left)">
-            </button>
-
-            <button class="pswp__button pswp__button--arrow--right" title="Next (arrow right)">
-            </button>
-
-            <div class="pswp__caption">
-                <div class="pswp__caption__center"></div>
-            </div>
-
-        </div>
-
-    </div>
-
-</div><script 
-                src="https://cdn.jsdelivr.net/npm/photoswipe@4.1.3/dist/photoswipe.min.js"integrity="sha256-ePwmChbbvXbsO02lbM3HoHbSHTHFAeChekF1xKJdleo="crossorigin="anonymous"
-                defer
-                >
-            </script><script 
-                src="https://cdn.jsdelivr.net/npm/photoswipe@4.1.3/dist/photoswipe-ui-default.min.js"integrity="sha256-UKkzOn/w1mBxRmLLGrSeyB4e1xbrp4xylgAWb3M42pU="crossorigin="anonymous"
-                defer
-                >
-            </script><link 
-                rel="stylesheet" 
-                href="https://cdn.jsdelivr.net/npm/photoswipe@4.1.3/dist/default-skin/default-skin.min.css"crossorigin="anonymous"
-            ><link 
-                rel="stylesheet" 
-                href="https://cdn.jsdelivr.net/npm/photoswipe@4.1.3/dist/photoswipe.min.css"crossorigin="anonymous"
-            >
-    
-
-            </main>
-        </div>
-        <script 
-                src="https://cdn.jsdelivr.net/npm/node-vibrant@3.1.6/dist/vibrant.min.js"integrity="sha256-awcR2jno4kI5X0zL8ex0vi2z&#43;KMkF24hUW8WePSA9HM="crossorigin="anonymous"
-                
-                >
-            </script><script type="text/javascript" src="/ts/main.c922af694cc257bf1ecc41c0dd7b0430f9114ec280ccf67cd2c6ad55f5316c4e.js" defer></script>
-<script>
-    (function () {
-        const customFont = document.createElement('link');
-        customFont.href = "https://fonts.googleapis.com/css2?family=Lato:wght@300;400;700&display=swap";
-
-        customFont.type = "text/css";
-        customFont.rel = "stylesheet";
-
-        document.head.appendChild(customFont);
-    }());
-</script>
-
-    </body>
-</html>
+<!doctype html><html lang=zh-cn dir=ltr><head><meta charset=utf-8><meta name=viewport content='width=device-width,initial-scale=1'><meta name=description content="我曾以为拥抱云原生就是要在第一时间上 Kubernetes（K8s），搞微服务，弄Service Mesh。"><title>只有3个开发，别碰K8s！单机Docker救了我们的命</title><link rel=canonical href=https://blog.irudder.me/tech/zhongxiaoxingtuanduidevopsluodifangan/xiaotuanduiderongqihua_congdanjidockerkaishi.html><link rel=stylesheet href=/scss/style.min.c77ce1b874b29b2ee9e54a89066c79ebf35cbe9cf399b31ab5d79167f9a965c9.css><meta property='og:title' content="只有3个开发，别碰K8s！单机Docker救了我们的命"><meta property='og:description' content="我曾以为拥抱云原生就是要在第一时间上 Kubernetes（K8s），搞微服务，弄Service Mesh。"><meta property='og:url' content='https://blog.irudder.me/tech/zhongxiaoxingtuanduidevopsluodifangan/xiaotuanduiderongqihua_congdanjidockerkaishi.html'><meta property='og:site_name' content='SelfTechHub'><meta property='og:type' content='article'><meta property='article:section' content='Tech'><meta property='article:tag' content='小团队的容器化：从单机Docker开始'><meta property='article:published_time' content='2024-01-07T00:00:00+08:00'><meta property='article:modified_time' content='2024-01-07T00:00:00+08:00'><meta name=twitter:title content="只有3个开发，别碰K8s！单机Docker救了我们的命"><meta name=twitter:description content="我曾以为拥抱云原生就是要在第一时间上 Kubernetes（K8s），搞微服务，弄Service Mesh。"><link rel="shortcut icon" href=/images/logo.png></head><body class=article-page><script>(function(){const e="StackColorScheme";localStorage.getItem(e)||localStorage.setItem(e,"auto")})()</script><script>(function(){const t="StackColorScheme",e=localStorage.getItem(t),n=window.matchMedia("(prefers-color-scheme: dark)").matches===!0;e=="dark"||e==="auto"&&n?document.documentElement.dataset.scheme="dark":document.documentElement.dataset.scheme="light"})()</script><div class="container main-container flex on-phone--column extended"><aside class="sidebar left-sidebar sticky"><button class="hamburger hamburger--spin" type=button id=toggle-menu aria-label=切换菜单>
+<span class=hamburger-box><span class=hamburger-inner></span></span></button><header><figure class=site-avatar><a href=/><img src=/img/avatar_hu_8588ce14af1147e2.png width=300 height=286 class=site-logo loading=lazy alt=Avatar>
+</a><span class=emoji>🧠</span></figure><div class=site-meta><h1 class=site-name><a href=/>SelfTechHub</a></h1><h2 class=site-description>成长 · 技术 · 商业 · AI —— 把碎片知识沉淀为可复用的记忆体系</h2></div></header><ol class=menu-social><li><a href=https://github.com/pastor17 target=_blank title=GitHub rel=me><svg class="icon icon-tabler icon-tabler-brand-github" width="24" height="24" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor" fill="none" stroke-linecap="round" stroke-linejoin="round"><path stroke="none" d="M0 0h24v24H0z" fill="none"/><path d="M9 19c-4.3 1.4-4.3-2.5-6-3m12 5v-3.5c0-1 .1-1.4-.5-2 2.8-.3 5.5-1.4 5.5-6a4.6 4.6.0 00-1.3-3.2 4.2 4.2.0 00-.1-3.2s-1.1-.3-3.5 1.3a12.3 12.3.0 00-6.2.0C6.5 2.8 5.4 3.1 5.4 3.1a4.2 4.2.0 00-.1 3.2A4.6 4.6.0 004 9.5c0 4.6 2.7 5.7 5.5 6-.6.6-.6 1.2-.5 2V21"/></svg></a></li></ol><ol class=menu id=main-menu><li><a href=/><svg class="icon icon-tabler icon-tabler-home" width="24" height="24" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor" fill="none" stroke-linecap="round" stroke-linejoin="round"><path stroke="none" d="M0 0h24v24H0z"/><polyline points="5 12 3 12 12 3 21 12 19 12"/><path d="M5 12v7a2 2 0 002 2h10a2 2 0 002-2v-7"/><path d="M9 21v-6a2 2 0 012-2h2a2 2 0 012 2v6"/></svg>
+<span>首页</span></a></li><li><a href=/categories/%E6%88%90%E9%95%BF.html><span>成长认知</span></a></li><li><a href=/categories/%E6%8A%80%E6%9C%AF.html><span>技术精进</span></a></li><li><a href=/categories/%E5%95%86%E4%B8%9A.html><span>商业·财富</span></a></li><li><a href=/categories/ai.html><span>探索AI</span></a></li><li><a href=/about/><svg class="icon icon-tabler icon-tabler-user" width="24" height="24" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor" fill="none" stroke-linecap="round" stroke-linejoin="round"><path stroke="none" d="M0 0h24v24H0z"/><circle cx="12" cy="7" r="4"/><path d="M6 21v-2a4 4 0 014-4h4a4 4 0 014 4v2"/></svg>
+<span>关于</span></a></li><li class=menu-bottom-section><ol class=menu><li id=dark-mode-toggle><svg class="icon icon-tabler icon-tabler-toggle-left" width="24" height="24" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor" fill="none" stroke-linecap="round" stroke-linejoin="round"><path stroke="none" d="M0 0h24v24H0z"/><circle cx="8" cy="12" r="2"/><rect x="2" y="6" width="20" height="12" rx="6"/></svg>
+<svg class="icon icon-tabler icon-tabler-toggle-right" width="24" height="24" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor" fill="none" stroke-linecap="round" stroke-linejoin="round"><path stroke="none" d="M0 0h24v24H0z"/><circle cx="16" cy="12" r="2"/><rect x="2" y="6" width="20" height="12" rx="6"/></svg>
+<span>暗色模式</span></li></ol></li></ol></aside><aside class="sidebar right-sidebar sticky"><section class="widget archives"><div class=widget-icon><svg class="icon icon-tabler icon-tabler-hash" width="24" height="24" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor" fill="none" stroke-linecap="round" stroke-linejoin="round"><path stroke="none" d="M0 0h24v24H0z"/><line x1="5" y1="9" x2="19" y2="9"/><line x1="5" y1="15" x2="19" y2="15"/><line x1="11" y1="4" x2="7" y2="20"/><line x1="17" y1="4" x2="13" y2="20"/></svg></div><h2 class="widget-title section-title">目录</h2><div class=widget--toc><nav id=TableOfContents><ul><li><a href=#拒绝过度设计docker-compose-才是中小团队的瑞士军刀>拒绝过度设计：Docker Compose 才是中小团队的瑞士军刀</a></li><li><a href=#统一开发环境终结环境不一致的内耗>统一开发环境：终结"环境不一致"的内耗</a></li><li><a href=#穷人的cicdshell脚本git-hook足够用>穷人的CI/CD：Shell脚本+Git Hook足够用</a></li><li><a href=#总结与落地指南>总结与落地指南</a></li></ul></nav></div></section></aside><main class="main full-width"><article class=main-article><header class=article-header><div class=article-details><header class=article-category><a href=/categories/%E6%8A%80%E6%9C%AF.html>技术精进</a></header><div class=article-title-wrapper><h2 class=article-title><a href=/tech/zhongxiaoxingtuanduidevopsluodifangan/xiaotuanduiderongqihua_congdanjidockerkaishi.html>只有3个开发，别碰K8s！单机Docker救了我们的命</a></h2><h3 class=article-subtitle>我曾以为拥抱云原生就是要在第一时间上 Kubernetes（K8s），搞微服务，弄Service Mesh。</h3></div><footer class=article-time><div><svg class="icon icon-tabler icon-tabler-calendar-time" width="56" height="56" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor" fill="none" stroke-linecap="round" stroke-linejoin="round"><path stroke="none" d="M0 0h24v24H0z"/><path d="M11.795 21H5a2 2 0 01-2-2V7a2 2 0 012-2h12a2 2 0 012 2v4"/><circle cx="18" cy="18" r="4"/><path d="M15 3v4"/><path d="M7 3v4"/><path d="M3 11h16"/><path d="M18 16.496V18l1 1"/></svg>
+<time class=article-time--published datetime=2024-01-07T00:00:00+08:00>2024-01-07</time></div><div><svg class="icon icon-tabler icon-tabler-clock" width="24" height="24" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor" fill="none" stroke-linecap="round" stroke-linejoin="round"><path stroke="none" d="M0 0h24v24H0z"/><circle cx="12" cy="12" r="9"/><polyline points="12 7 12 12 15 15"/></svg>
+<time class=article-time--reading>阅读时长: 6 分钟</time></div></footer></div></header><section class=article-content><p>我曾以为拥抱云原生就是要在第一时间上 Kubernetes（K8s），搞微服务，弄Service Mesh。直到2021年，我带着一个5人的技术团队，因为盲目上K8s，在某次大促前夕，因为Etcd集群的一个节点故障导致整个控制面瘫痪，我们修了整整一夜，业务停摆了6个小时。</p><p>那个凌晨4点，看着依然红一片的监控面板，我意识到一个残酷的真相：<strong>对于没有专职运维的中小团队，复杂的架构不是护城河，而是随时会爆炸的地雷。</strong></p><p>也就是从那时起，我开始推行"极简容器化"策略。今天想和大家复盘一下，我们是如何仅靠单机Docker和Docker Compose，就解决了90%的运维痛点，让团队从此告别"在我电脑上明明能运行"的扯皮。</p><h2 id=拒绝过度设计docker-compose-才是中小团队的瑞士军刀>拒绝过度设计：Docker Compose 才是中小团队的瑞士军刀</h2><p>很多技术负责人（包括曾经的我）都有"大厂崇拜症"。看到大厂都在用K8s，觉得自己不用就落伍了。但现实是，你的业务量可能连单机32G内存都跑不满，却要花一半的服务器资源去跑K8s的组件。</p><p><strong>观点：</strong> 只要你的机器数量还在个位数，Docker Compose 就足够了。它能解决服务编排、网络隔离、一键拉起，而且配置文件简单到连刚入职的实习生都能看懂。</p><p><strong>真实案例：</strong>
+2022年，我接手了一个SaaS项目，前任留下了3套环境（开发、测试、生产），部署全靠文档里的20多步手动命令。每次发版，后端老张都要盯着屏幕敲半小时命令，少敲一个参数就报错。</p><p>我接手后的第一件事，不是重构代码，而是写了一个 <code>docker-compose.yml</code>。</p><p>我们将Nginx、API服务、Redis、MySQL全部编排进去。</p><p><strong>改造结果：</strong></p><ul><li><strong>部署时间：</strong> 从30分钟缩短到3分钟。</li><li><strong>事故率：</strong> 因环境配置不一致导致的Bug归零。</li><li><strong>硬件成本：</strong> 退订了专门用于跑K8s管理节点的2台服务器，每月省下1000多块。</li></ul><p><strong>硬核方法：</strong>
+不要把数据库放在物理机，服务放在Docker里，要"全员容器化"。包括你的Nginx网关、定时任务脚本。这是我用了很多年的一个原则：<strong>除了Docker Daemon和SSH，宿主机上不要安装任何业务软件。</strong></p><h2 id=统一开发环境终结环境不一致的内耗>统一开发环境：终结"环境不一致"的内耗</h2><p>除了部署，Docker在开发阶段的价值被严重低估了。你一定经历过新人入职，光是配环境就要花2天时间：Python版本不对、Node依赖冲突、本地Redis没启动&mldr;</p><p><strong>观点：</strong> 开发环境即生产环境。让Docker接管本地开发流程，是提升团队效率最立竿见影的手段。</p><p><strong>真实场景：</strong>
+去年团队扩招，来了个前端小李。以前新人入职，我要专门派个老员工指导他装环境。这次，我只丢给他一个Git仓库地址，说了一句：&ldquo;Clone下来，运行 <code>make dev</code>。&rdquo;</p><p>小李很惊讶，因为这行命令背后，执行了 <code>docker-compose -f docker-compose.dev.yml up</code>。15分钟后，所有依赖（包括不仅限于数据库、消息队列、模拟的第三方服务Mock）全部在他的Macbook上跑了起来，热更新功能也配置好了。</p><p><strong>落地细节：</strong>
+为了让大家少敲命令，我强制要求每个项目根目录必须有一个 <code>Makefile</code>。这不仅是偷懒，更是将操作"标准化"。</p><div class=highlight><div class=chroma><table class=lntable><tr><td class=lntd><pre tabindex=0 class=chroma><code><span class=lnt> 1
+</span><span class=lnt> 2
+</span><span class=lnt> 3
+</span><span class=lnt> 4
+</span><span class=lnt> 5
+</span><span class=lnt> 6
+</span><span class=lnt> 7
+</span><span class=lnt> 8
+</span><span class=lnt> 9
+</span><span class=lnt>10
+</span><span class=lnt>11
+</span><span class=lnt>12
+</span><span class=lnt>13
+</span><span class=lnt>14
+</span></code></pre></td><td class=lntd><pre tabindex=0 class=chroma><code class=language-makefile data-lang=makefile><span class=line><span class=cl><span class=c># Makefile 示例
+</span></span></span><span class=line><span class=cl><span class=c></span><span class=nf>.PHONY</span><span class=o>:</span> <span class=n>dev</span> <span class=n>build</span> <span class=n>deploy</span>
+</span></span><span class=line><span class=cl>
+</span></span><span class=line><span class=cl><span class=nf>dev</span><span class=o>:</span>
+</span></span><span class=line><span class=cl>    <span class=c1># 本地开发模式，挂载源代码</span>
+</span></span><span class=line><span class=cl>    docker-compose -f docker-compose.yml -f docker-compose.override.yml up
+</span></span><span class=line><span class=cl>
+</span></span><span class=line><span class=cl><span class=nf>build</span><span class=o>:</span>
+</span></span><span class=line><span class=cl>    <span class=c1># 构建生产镜像</span>
+</span></span><span class=line><span class=cl>    docker build -t my-app:latest .
+</span></span><span class=line><span class=cl>
+</span></span><span class=line><span class=cl><span class=nf>shell</span><span class=o>:</span>
+</span></span><span class=line><span class=cl>    <span class=c1># 快速进入容器调试</span>
+</span></span><span class=line><span class=cl>    docker-compose <span class=nb>exec</span> app /bin/bash
+</span></span></code></pre></td></tr></table></div></div><p>这套机制运行了两年，最大的好处是：<strong>开发人员再也不用在本地安装乱七八糟的语言环境了，电脑干干净净。</strong></p><h2 id=穷人的cicdshell脚本git-hook足够用>穷人的CI/CD：Shell脚本+Git Hook足够用</h2><p>说到自动化部署，很多人第一反应是搭建Jenkins，或者配置复杂的GitLab CI Runner。这些都很棒，但对于只有两三个后端的小团队，维护Jenkins本身就是负担。</p><p><strong>观点：</strong> 在资源受限时，越原始的工具越可靠。一个精心编写的Shell脚本，配合Git，就是最稳健的CD系统。</p><p><strong>实操复盘：</strong>
+我们目前的生产环境部署，并没有用昂贵的商业CI/CD工具。我们的流程简单到令人发指，但极其稳定：</p><ol><li><strong>本地构建：</strong> 开发者本地（或一台专门的构建机）Build镜像，推送到私有仓库（阿里云/腾讯云的免费版镜像仓库就很好用）。</li><li><strong>触发更新：</strong> 通过SSH登录到目标服务器，执行一个部署脚本。</li></ol><p>为了防止误操作，我写了一个 <code>deploy.sh</code>，放在服务器上。</p><div class=highlight><div class=chroma><table class=lntable><tr><td class=lntd><pre tabindex=0 class=chroma><code><span class=lnt> 1
+</span><span class=lnt> 2
+</span><span class=lnt> 3
+</span><span class=lnt> 4
+</span><span class=lnt> 5
+</span><span class=lnt> 6
+</span><span class=lnt> 7
+</span><span class=lnt> 8
+</span><span class=lnt> 9
+</span><span class=lnt>10
+</span><span class=lnt>11
+</span><span class=lnt>12
+</span><span class=lnt>13
+</span><span class=lnt>14
+</span><span class=lnt>15
+</span><span class=lnt>16
+</span><span class=lnt>17
+</span><span class=lnt>18
+</span><span class=lnt>19
+</span><span class=lnt>20
+</span></code></pre></td><td class=lntd><pre tabindex=0 class=chroma><code class=language-bash data-lang=bash><span class=line><span class=cl><span class=cp>#!/bin/bash
+</span></span></span><span class=line><span class=cl><span class=cp></span><span class=c1># 简单的零停机更新策略（虽然会有短暂中断，但对小业务可接受）</span>
+</span></span><span class=line><span class=cl>
+</span></span><span class=line><span class=cl><span class=nv>IMAGE_NAME</span><span class=o>=</span><span class=s2>&#34;registry.cn-hangzhou.aliyuncs.com/myteam/backend:latest&#34;</span>
+</span></span><span class=line><span class=cl>
+</span></span><span class=line><span class=cl><span class=nb>echo</span> <span class=s2>&#34;Step 1: Pulling latest image...&#34;</span>
+</span></span><span class=line><span class=cl>docker pull <span class=nv>$IMAGE_NAME</span>
+</span></span><span class=line><span class=cl>
+</span></span><span class=line><span class=cl><span class=nb>echo</span> <span class=s2>&#34;Step 2: Stopping old container...&#34;</span>
+</span></span><span class=line><span class=cl>docker-compose down
+</span></span><span class=line><span class=cl>
+</span></span><span class=line><span class=cl>!<span class=o>[</span>配图<span class=o>](</span>https://picsum.photos/800/450?random<span class=o>=</span>1768390391607<span class=o>)</span>
+</span></span><span class=line><span class=cl>
+</span></span><span class=line><span class=cl><span class=nb>echo</span> <span class=s2>&#34;Step 3: Starting new container...&#34;</span>
+</span></span><span class=line><span class=cl>docker-compose up -d
+</span></span><span class=line><span class=cl>
+</span></span><span class=line><span class=cl><span class=nb>echo</span> <span class=s2>&#34;Step 4: Pruning unused images...&#34;</span>
+</span></span><span class=line><span class=cl>docker image prune -f
+</span></span><span class=line><span class=cl>
+</span></span><span class=line><span class=cl><span class=nb>echo</span> <span class=s2>&#34;Deployment Done!&#34;</span>
+</span></span></code></pre></td></tr></table></div></div><p>你可能会质疑：这不还是会停机吗？
+是的，<code>docker-compose down</code> 再 <code>up</code> 会有几秒的中断。但请扪心自问：你的业务真的每秒都有几百万上下吗？如果是在深夜低峰期发布，或者配合Nginx的重试机制，这几秒钟用户根本无感。</p><p><strong>反思：</strong> 我们曾尝试搞蓝绿部署，配置了一堆复杂的Nginx Lua脚本，结果因为配置错误导致流量切不过去。后来回退到这个"笨办法"，反而再没出过岔子。<strong>技术选型要匹配团队的掌控力，而不是匹配PPT的酷炫程度。</strong></p><h2 id=总结与落地指南>总结与落地指南</h2><p>小团队做容器化，核心不在于"技术先进性"，而在于"可维护性"。<strong>单机Docker + Docker Compose + Shell脚本</strong>，这个组合就像一把AK47，结构简单、皮实耐用，哪怕扔进泥潭里捞出来还能打响。</p><p>如果你现在正被繁杂的运维工作缠身，建议按以下步骤行动：</p><ol><li><strong>第一周：</strong> 挑选一个边缘服务（如内部管理后台），编写 <code>Dockerfile</code> 和 <code>docker-compose.yml</code>，跑通本地运行。</li><li><strong>第二周：</strong> 编写 <code>Makefile</code>，将启动、停止、日志查看等高频操作封装成命令，强迫团队使用。</li><li><strong>第三周：</strong> 购买一个云厂商的容器镜像服务（很多都有免费额度），打通"本地构建 -> 推送镜像 -> 服务器拉取"的流程。</li></ol><p>最后，分享一个我常用的 <strong>Dockerfile 黄金模板</strong>（以Node.js为例），直接复制微调即可避开很多坑（如时区、权限问题）：</p><div class=highlight><div class=chroma><table class=lntable><tr><td class=lntd><pre tabindex=0 class=chroma><code><span class=lnt> 1
+</span><span class=lnt> 2
+</span><span class=lnt> 3
+</span><span class=lnt> 4
+</span><span class=lnt> 5
+</span><span class=lnt> 6
+</span><span class=lnt> 7
+</span><span class=lnt> 8
+</span><span class=lnt> 9
+</span><span class=lnt>10
+</span><span class=lnt>11
+</span><span class=lnt>12
+</span><span class=lnt>13
+</span><span class=lnt>14
+</span><span class=lnt>15
+</span><span class=lnt>16
+</span><span class=lnt>17
+</span><span class=lnt>18
+</span><span class=lnt>19
+</span><span class=lnt>20
+</span><span class=lnt>21
+</span><span class=lnt>22
+</span></code></pre></td><td class=lntd><pre tabindex=0 class=chroma><code class=language-dockerfile data-lang=dockerfile><span class=line><span class=cl><span class=c># 使用具体版本号，别用 latest</span><span class=err>
+</span></span></span><span class=line><span class=cl><span class=err></span><span class=k>FROM</span><span class=w> </span><span class=s>node:18-alpine</span> <span class=err>
+</span></span></span><span class=line><span class=cl><span class=err>
+</span></span></span><span class=line><span class=cl><span class=err></span><span class=c># 设置时区，防止日志时间差8小时</span><span class=err>
+</span></span></span><span class=line><span class=cl><span class=err></span><span class=k>RUN</span> apk add --no-cache tzdata <span class=o>&amp;&amp;</span> <span class=se>\
+</span></span></span><span class=line><span class=cl><span class=se></span>    cp /usr/share/zoneinfo/Asia/Shanghai /etc/localtime <span class=o>&amp;&amp;</span> <span class=se>\
+</span></span></span><span class=line><span class=cl><span class=se></span>    <span class=nb>echo</span> <span class=s2>&#34;Asia/Shanghai&#34;</span> &gt; /etc/timezone<span class=err>
+</span></span></span><span class=line><span class=cl><span class=err>
+</span></span></span><span class=line><span class=cl><span class=err></span><span class=k>WORKDIR</span><span class=w> </span><span class=s>/app</span><span class=err>
+</span></span></span><span class=line><span class=cl><span class=err>
+</span></span></span><span class=line><span class=cl><span class=err></span><span class=c># 分层构建技巧：先拷 package.json，利用缓存加速</span><span class=err>
+</span></span></span><span class=line><span class=cl><span class=err></span><span class=k>COPY</span> package*.json ./<span class=err>
+</span></span></span><span class=line><span class=cl><span class=err></span><span class=k>RUN</span> npm ci --only<span class=o>=</span>production<span class=err>
+</span></span></span><span class=line><span class=cl><span class=err>
+</span></span></span><span class=line><span class=cl><span class=err></span><span class=k>COPY</span> . .<span class=err>
+</span></span></span><span class=line><span class=cl><span class=err>
+</span></span></span><span class=line><span class=cl><span class=err></span><span class=c># 不要用 root 用户运行应用</span><span class=err>
+</span></span></span><span class=line><span class=cl><span class=err></span><span class=k>USER</span><span class=w> </span><span class=s>node</span><span class=err>
+</span></span></span><span class=line><span class=cl><span class=err>
+</span></span></span><span class=line><span class=cl><span class=err></span>!<span class=o>[</span>配图<span class=o>](</span>https://picsum.photos/800/450?random<span class=o>=</span>1768390394652<span class=o>)</span><span class=err>
+</span></span></span><span class=line><span class=cl><span class=err>
+</span></span></span><span class=line><span class=cl><span class=err></span><span class=k>CMD</span> <span class=p>[</span><span class=s2>&#34;node&#34;</span><span class=p>,</span> <span class=s2>&#34;src/index.js&#34;</span><span class=p>]</span><span class=err>
+</span></span></span></code></pre></td></tr></table></div></div><p>记住，<strong>DevOps的尽头不是K8s，而是早点下班。</strong></p></section><footer class=article-footer><section class=article-tags><a href=/tags/%E5%B0%8F%E5%9B%A2%E9%98%9F%E7%9A%84%E5%AE%B9%E5%99%A8%E5%8C%96%E4%BB%8E%E5%8D%95%E6%9C%BADocker%E5%BC%80%E5%A7%8B.html>小团队的容器化：从单机Docker开始</a></section></footer></article><script src=https://giscus.app/client.js data-repo=pastor17/bloggiscus data-repo-id=R_kgDOQ6H9qQ data-category data-category-id=DIC_kwDOQ6H9qc4C0-T8 data-mapping=pathname data-strict=0 data-reactions-enabled=1 data-emit-metadata=0 data-input-position=bottom data-theme=light data-lang=zh-CN data-loading=lazy crossorigin=anonymous async></script><script>function setGiscusTheme(e){let t=document.querySelector("iframe.giscus-frame");t&&t.contentWindow.postMessage({giscus:{setConfig:{theme:e}}},"https://giscus.app")}(function(){addEventListener("message",t=>{if(event.origin!=="https://giscus.app")return;e()}),window.addEventListener("onColorSchemeChange",e);function e(){setGiscusTheme(document.documentElement.dataset.scheme==="light"?"light":"dark_dimmed")}})()</script><footer class=site-footer><section class=copyright>&copy;
+2021 -
+2026 SelfTechHub</section><section class=powerby>拒绝一次性认知，把碎片知识沉淀为可复用的记忆体系<br></section></footer><div class=pswp tabindex=-1 role=dialog aria-hidden=true><div class=pswp__bg></div><div class=pswp__scroll-wrap><div class=pswp__container><div class=pswp__item></div><div class=pswp__item></div><div class=pswp__item></div></div><div class="pswp__ui pswp__ui--hidden"><div class=pswp__top-bar><div class=pswp__counter></div><button class="pswp__button pswp__button--close" title="Close (Esc)"></button>
+<button class="pswp__button pswp__button--share" title=Share></button>
+<button class="pswp__button pswp__button--fs" title="Toggle fullscreen"></button>
+<button class="pswp__button pswp__button--zoom" title="Zoom in/out"></button><div class=pswp__preloader><div class=pswp__preloader__icn><div class=pswp__preloader__cut><div class=pswp__preloader__donut></div></div></div></div></div><div class="pswp__share-modal pswp__share-modal--hidden pswp__single-tap"><div class=pswp__share-tooltip></div></div><button class="pswp__button pswp__button--arrow--left" title="Previous (arrow left)">
+</button>
+<button class="pswp__button pswp__button--arrow--right" title="Next (arrow right)"></button><div class=pswp__caption><div class=pswp__caption__center></div></div></div></div></div><script src=https://cdn.jsdelivr.net/npm/photoswipe@4.1.3/dist/photoswipe.min.js integrity="sha256-ePwmChbbvXbsO02lbM3HoHbSHTHFAeChekF1xKJdleo=" crossorigin=anonymous defer></script><script src=https://cdn.jsdelivr.net/npm/photoswipe@4.1.3/dist/photoswipe-ui-default.min.js integrity="sha256-UKkzOn/w1mBxRmLLGrSeyB4e1xbrp4xylgAWb3M42pU=" crossorigin=anonymous defer></script><link rel=stylesheet href=https://cdn.jsdelivr.net/npm/photoswipe@4.1.3/dist/default-skin/default-skin.min.css crossorigin=anonymous><link rel=stylesheet href=https://cdn.jsdelivr.net/npm/photoswipe@4.1.3/dist/photoswipe.min.css crossorigin=anonymous></main></div><script src=https://cdn.jsdelivr.net/npm/node-vibrant@3.1.6/dist/vibrant.min.js integrity="sha256-awcR2jno4kI5X0zL8ex0vi2z+KMkF24hUW8WePSA9HM=" crossorigin=anonymous></script><script type=text/javascript src=/ts/main.c922af694cc257bf1ecc41c0dd7b0430f9114ec280ccf67cd2c6ad55f5316c4e.js defer></script><script>(function(){const e=document.createElement("link");e.href="https://fonts.googleapis.com/css2?family=Lato:wght@300;400;700&display=swap",e.type="text/css",e.rel="stylesheet",document.head.appendChild(e)})()</script></body></html>

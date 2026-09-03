@@ -1,494 +1,88 @@
-<!DOCTYPE html>
-<html lang="zh-cn" dir="ltr">
-    <head><meta charset='utf-8'>
-<meta name='viewport' content='width=device-width, initial-scale=1'><meta name='description' content="记得三年前，作为一家20人规模初创公司的技术负责人，我最害怕的就是周五下午。\n那时候我们还在用一台老旧的阿里云ECS跑Jenkins。每当有新人入职，我就得花半天教他怎么配置构建参数；每隔两个月，Jenkins的插件升级就会搞崩整个流水线，导致我要在深夜盯着报错日志发愁。\n我曾坚定地认为：只有自建CI/CD系统才足够安全、可控。 直到2021年的一次&quot;灾难&quot;——由于构建节点磁盘爆满，我们错过了一个紧急修复的黄金发布窗口，导致客户投诉量激增。\n那天之后，我痛定思痛，决定带领团队从重型运维转向轻量化DevOps，全面迁移至GitHub Actions。今天这篇复盘，就是想聊聊对于没有专职运维的中小团队，如何用最低的成本，搭建一套不输大厂的自动化发布流。\n算清楚&quot;隐形账&quot;：免费的往往是最贵的\r很多技术主管在选型时会陷入一个误区：开源软件免费，所以成本低。\n在我们团队只有5个开发的时候，维护Jenkins似乎没什么问题。但当团队扩张到15人，后端、前端、移动端项目混杂时，问题爆发了。\n2021年Q3，我做了一次详细的成本核算：\n显性成本：一台4核8G的构建服务器，每年约3000元。 隐性成本：我每周至少花3小时在维护环境、升级插件、清理磁盘、处理构建排队上。按照时薪计算，这部分人力成本每年超过5万元。更别提因为构建失败导致全组人停下来等修复的&quot;等待成本&quot;。 迁移到GitHub Actions后，这笔账发生了惊人的变化。\n对于公共仓库，GitHub Actions完全免费；对于私有仓库，Free计划每月赠送2000分钟构建时间。即使是我们这样每天提交频次较高的团队，配合Pro版（每人$4/月），只要配置得当，几乎不需要额外购买构建时长。\n&ldquo;中小团队的核心资源是开发者的注意力，而不是服务器资源。任何能让开发者少操心的工具，都是在省钱。&rdquo;\n告别&quot;黑盒&quot;：让流水线代码化 (Pipeline as Code)\r以前用Jenkins时，构建逻辑都藏在复杂的UI配置里。\n有个叫小李的后端同事，想给自己的微服务加一个简单的代码风格检查（Lint）。他得先找我要Jenkins权限，然后在一堆输入框里摸索，最后因为配错了一个环境变量，把整个测试环境搞挂了。\nCI/CD不应该只是运维人员的&quot;特权&quot;，它应该是代码的一部分。\n迁移到GitHub Actions后，所有的构建逻辑都变成了一个 .github/workflows/main.yml 文件。这带来了两个立竿见影的改变：\n版本控制：流水线的每一次修改都有Git记录，谁改的、改了什么、什么时候改的，一清二楚。 全员参与：现在，连刚入职的实习生都能照葫芦画瓢，通过提交PR来修改构建流程。 这里分享一个我们目前正在使用的、针对Node.js服务的标准化配置模版。它包含了缓存优化，这也是降低成本的关键：\nname: Production Build on: push: branches: [ &#34;main&#34; ] # 关键点：只在相关文件变动时触发，节省构建分钟数 paths-ignore: - &#39;**.md&#39; - &#39;docs/**&#39; jobs: build: runs-on: ubuntu-latest steps: - uses: actions/checkout@v4 - name: Setup Node.js uses: actions/setup-node@v4 with: node-version: &#39;18&#39; # 开启缓存，大幅减少依赖下载时间 cache: &#39;npm&#39; - name: Install Dependencies # 使用 ci 命令比 install 更快更稳定 run: npm ci - name: Run Tests run: npm test - name: Build run: npm run build 这个简单的配置，让我们的平均构建时间从Jenkins时代的8分钟，缩短到了3分钟以内。\n">
-<title>抛弃Jenkins后，我用GitHub Actions帮团队省下80%维护成本</title>
-
-<link rel='canonical' href='https://blog.irudder.me/tech/zhongxiaoxingtuanduidevopsluodifangan/dichengbendajianci_cd_github-actionsshizhan.html'>
-
-<link rel="stylesheet" href="/scss/style.min.b9e9128fec450ebccecc4ec9900157f32b85d0609bcd5ee3293968bcaa1235f2.css"><meta property='og:title' content="抛弃Jenkins后，我用GitHub Actions帮团队省下80%维护成本">
-<meta property='og:description' content="记得三年前，作为一家20人规模初创公司的技术负责人，我最害怕的就是周五下午。\n那时候我们还在用一台老旧的阿里云ECS跑Jenkins。每当有新人入职，我就得花半天教他怎么配置构建参数；每隔两个月，Jenkins的插件升级就会搞崩整个流水线，导致我要在深夜盯着报错日志发愁。\n我曾坚定地认为：只有自建CI/CD系统才足够安全、可控。 直到2021年的一次&quot;灾难&quot;——由于构建节点磁盘爆满，我们错过了一个紧急修复的黄金发布窗口，导致客户投诉量激增。\n那天之后，我痛定思痛，决定带领团队从重型运维转向轻量化DevOps，全面迁移至GitHub Actions。今天这篇复盘，就是想聊聊对于没有专职运维的中小团队，如何用最低的成本，搭建一套不输大厂的自动化发布流。\n算清楚&quot;隐形账&quot;：免费的往往是最贵的\r很多技术主管在选型时会陷入一个误区：开源软件免费，所以成本低。\n在我们团队只有5个开发的时候，维护Jenkins似乎没什么问题。但当团队扩张到15人，后端、前端、移动端项目混杂时，问题爆发了。\n2021年Q3，我做了一次详细的成本核算：\n显性成本：一台4核8G的构建服务器，每年约3000元。 隐性成本：我每周至少花3小时在维护环境、升级插件、清理磁盘、处理构建排队上。按照时薪计算，这部分人力成本每年超过5万元。更别提因为构建失败导致全组人停下来等修复的&quot;等待成本&quot;。 迁移到GitHub Actions后，这笔账发生了惊人的变化。\n对于公共仓库，GitHub Actions完全免费；对于私有仓库，Free计划每月赠送2000分钟构建时间。即使是我们这样每天提交频次较高的团队，配合Pro版（每人$4/月），只要配置得当，几乎不需要额外购买构建时长。\n&ldquo;中小团队的核心资源是开发者的注意力，而不是服务器资源。任何能让开发者少操心的工具，都是在省钱。&rdquo;\n告别&quot;黑盒&quot;：让流水线代码化 (Pipeline as Code)\r以前用Jenkins时，构建逻辑都藏在复杂的UI配置里。\n有个叫小李的后端同事，想给自己的微服务加一个简单的代码风格检查（Lint）。他得先找我要Jenkins权限，然后在一堆输入框里摸索，最后因为配错了一个环境变量，把整个测试环境搞挂了。\nCI/CD不应该只是运维人员的&quot;特权&quot;，它应该是代码的一部分。\n迁移到GitHub Actions后，所有的构建逻辑都变成了一个 .github/workflows/main.yml 文件。这带来了两个立竿见影的改变：\n版本控制：流水线的每一次修改都有Git记录，谁改的、改了什么、什么时候改的，一清二楚。 全员参与：现在，连刚入职的实习生都能照葫芦画瓢，通过提交PR来修改构建流程。 这里分享一个我们目前正在使用的、针对Node.js服务的标准化配置模版。它包含了缓存优化，这也是降低成本的关键：\nname: Production Build on: push: branches: [ &#34;main&#34; ] # 关键点：只在相关文件变动时触发，节省构建分钟数 paths-ignore: - &#39;**.md&#39; - &#39;docs/**&#39; jobs: build: runs-on: ubuntu-latest steps: - uses: actions/checkout@v4 - name: Setup Node.js uses: actions/setup-node@v4 with: node-version: &#39;18&#39; # 开启缓存，大幅减少依赖下载时间 cache: &#39;npm&#39; - name: Install Dependencies # 使用 ci 命令比 install 更快更稳定 run: npm ci - name: Run Tests run: npm test - name: Build run: npm run build 这个简单的配置，让我们的平均构建时间从Jenkins时代的8分钟，缩短到了3分钟以内。\n">
-<meta property='og:url' content='https://blog.irudder.me/tech/zhongxiaoxingtuanduidevopsluodifangan/dichengbendajianci_cd_github-actionsshizhan.html'>
-<meta property='og:site_name' content='SelfTechHub'>
-<meta property='og:type' content='article'><meta property='article:section' content='Tech' /><meta property='article:tag' content='低成本搭建CI/CD：GitHub Actions实战' /><meta property='article:published_time' content='2022-08-17T00:00:00&#43;00:00'/><meta property='article:modified_time' content='2022-08-17T00:00:00&#43;00:00'/>
-<meta name="twitter:title" content="抛弃Jenkins后，我用GitHub Actions帮团队省下80%维护成本">
-<meta name="twitter:description" content="记得三年前，作为一家20人规模初创公司的技术负责人，我最害怕的就是周五下午。\n那时候我们还在用一台老旧的阿里云ECS跑Jenkins。每当有新人入职，我就得花半天教他怎么配置构建参数；每隔两个月，Jenkins的插件升级就会搞崩整个流水线，导致我要在深夜盯着报错日志发愁。\n我曾坚定地认为：只有自建CI/CD系统才足够安全、可控。 直到2021年的一次&quot;灾难&quot;——由于构建节点磁盘爆满，我们错过了一个紧急修复的黄金发布窗口，导致客户投诉量激增。\n那天之后，我痛定思痛，决定带领团队从重型运维转向轻量化DevOps，全面迁移至GitHub Actions。今天这篇复盘，就是想聊聊对于没有专职运维的中小团队，如何用最低的成本，搭建一套不输大厂的自动化发布流。\n算清楚&quot;隐形账&quot;：免费的往往是最贵的\r很多技术主管在选型时会陷入一个误区：开源软件免费，所以成本低。\n在我们团队只有5个开发的时候，维护Jenkins似乎没什么问题。但当团队扩张到15人，后端、前端、移动端项目混杂时，问题爆发了。\n2021年Q3，我做了一次详细的成本核算：\n显性成本：一台4核8G的构建服务器，每年约3000元。 隐性成本：我每周至少花3小时在维护环境、升级插件、清理磁盘、处理构建排队上。按照时薪计算，这部分人力成本每年超过5万元。更别提因为构建失败导致全组人停下来等修复的&quot;等待成本&quot;。 迁移到GitHub Actions后，这笔账发生了惊人的变化。\n对于公共仓库，GitHub Actions完全免费；对于私有仓库，Free计划每月赠送2000分钟构建时间。即使是我们这样每天提交频次较高的团队，配合Pro版（每人$4/月），只要配置得当，几乎不需要额外购买构建时长。\n&ldquo;中小团队的核心资源是开发者的注意力，而不是服务器资源。任何能让开发者少操心的工具，都是在省钱。&rdquo;\n告别&quot;黑盒&quot;：让流水线代码化 (Pipeline as Code)\r以前用Jenkins时，构建逻辑都藏在复杂的UI配置里。\n有个叫小李的后端同事，想给自己的微服务加一个简单的代码风格检查（Lint）。他得先找我要Jenkins权限，然后在一堆输入框里摸索，最后因为配错了一个环境变量，把整个测试环境搞挂了。\nCI/CD不应该只是运维人员的&quot;特权&quot;，它应该是代码的一部分。\n迁移到GitHub Actions后，所有的构建逻辑都变成了一个 .github/workflows/main.yml 文件。这带来了两个立竿见影的改变：\n版本控制：流水线的每一次修改都有Git记录，谁改的、改了什么、什么时候改的，一清二楚。 全员参与：现在，连刚入职的实习生都能照葫芦画瓢，通过提交PR来修改构建流程。 这里分享一个我们目前正在使用的、针对Node.js服务的标准化配置模版。它包含了缓存优化，这也是降低成本的关键：\nname: Production Build on: push: branches: [ &#34;main&#34; ] # 关键点：只在相关文件变动时触发，节省构建分钟数 paths-ignore: - &#39;**.md&#39; - &#39;docs/**&#39; jobs: build: runs-on: ubuntu-latest steps: - uses: actions/checkout@v4 - name: Setup Node.js uses: actions/setup-node@v4 with: node-version: &#39;18&#39; # 开启缓存，大幅减少依赖下载时间 cache: &#39;npm&#39; - name: Install Dependencies # 使用 ci 命令比 install 更快更稳定 run: npm ci - name: Run Tests run: npm test - name: Build run: npm run build 这个简单的配置，让我们的平均构建时间从Jenkins时代的8分钟，缩短到了3分钟以内。\n">
-    </head>
-    <body class="
-    article-page
-    ">
-    <script>
-        (function() {
-            const colorSchemeKey = 'StackColorScheme';
-            if(!localStorage.getItem(colorSchemeKey)){
-                localStorage.setItem(colorSchemeKey, "auto");
-            }
-        })();
-    </script><script>
-    (function() {
-        const colorSchemeKey = 'StackColorScheme';
-        const colorSchemeItem = localStorage.getItem(colorSchemeKey);
-        const supportDarkMode = window.matchMedia('(prefers-color-scheme: dark)').matches === true;
-
-        if (colorSchemeItem == 'dark' || colorSchemeItem === 'auto' && supportDarkMode) {
-            
-
-            document.documentElement.dataset.scheme = 'dark';
-        } else {
-            document.documentElement.dataset.scheme = 'light';
-        }
-    })();
-</script>
-<div class="container main-container flex on-phone--column compact"><aside class="sidebar left-sidebar sticky ">
-    <button class="hamburger hamburger--spin" type="button" id="toggle-menu" aria-label="切换菜单">
-        <span class="hamburger-box">
-            <span class="hamburger-inner"></span>
-        </span>
-    </button>
-
-    <header>
-        
-            
-            <figure class="site-avatar">
-                <a href="/">
-                
-                    
-                    
-                    
-                        
-                        <img src="/img/avatar_hu_8588ce14af1147e2.png" width="300"
-                            height="286" class="site-logo" loading="lazy" alt="Avatar">
-                    
-                
-                </a>
-                
-            </figure>
-            
-        
-        
-        <div class="site-meta">
-            <h1 class="site-name"><a href="/">SelfTechHub</a></h1>
-            <h2 class="site-description"></h2>
-        </div>
-    </header><ol class="menu" id="main-menu">
-        
-        
-        <li class="menu-bottom-section">
-            <ol class="menu">
-
-                
-                    <li id="dark-mode-toggle">
-                        <svg xmlns="http://www.w3.org/2000/svg" class="icon icon-tabler icon-tabler-toggle-left" width="24" height="24" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor" fill="none" stroke-linecap="round" stroke-linejoin="round">
-  <path stroke="none" d="M0 0h24v24H0z"/>
-  <circle cx="8" cy="12" r="2" />
-  <rect x="2" y="6" width="20" height="12" rx="6" />
-</svg>
-
-
-
-                        <svg xmlns="http://www.w3.org/2000/svg" class="icon icon-tabler icon-tabler-toggle-right" width="24" height="24" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor" fill="none" stroke-linecap="round" stroke-linejoin="round">
-  <path stroke="none" d="M0 0h24v24H0z"/>
-  <circle cx="16" cy="12" r="2" />
-  <rect x="2" y="6" width="20" height="12" rx="6" />
-</svg>
-
-
-
-                        <span>暗色模式</span>
-                    </li>
-                
-            </ol>
-        </li>
-    </ol>
-</aside>
-
-    
-
-            <main class="main full-width">
-    <article class="main-article">
-    <header class="article-header">
-
-    <div class="article-details">
-    
-    <header class="article-category">
-        
-            <a href="/categories/%E6%8A%80%E6%9C%AF.html" >
-                技术精进
-            </a>
-        
-    </header>
-    
-
-    <div class="article-title-wrapper">
-        <h2 class="article-title">
-            <a href="/tech/zhongxiaoxingtuanduidevopsluodifangan/dichengbendajianci_cd_github-actionsshizhan.html">抛弃Jenkins后，我用GitHub Actions帮团队省下80%维护成本</a>
-        </h2>
-    
-        
-    </div>
-
-    
-    
-    
-    
-    <footer class="article-time">
-        
-            <div>
-                <svg xmlns="http://www.w3.org/2000/svg" class="icon icon-tabler icon-tabler-calendar-time" width="56" height="56" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor" fill="none" stroke-linecap="round" stroke-linejoin="round">
-  <path stroke="none" d="M0 0h24v24H0z"/>
-  <path d="M11.795 21h-6.795a2 2 0 0 1 -2 -2v-12a2 2 0 0 1 2 -2h12a2 2 0 0 1 2 2v4" />
-  <circle cx="18" cy="18" r="4" />
-  <path d="M15 3v4" />
-  <path d="M7 3v4" />
-  <path d="M3 11h16" />
-  <path d="M18 16.496v1.504l1 1" />
-</svg>
-                <time class="article-time--published" datetime='2022-08-17T00:00:00Z'>Aug 17, 2022</time>
-            </div>
-        
-
-        
-            <div>
-                <svg xmlns="http://www.w3.org/2000/svg" class="icon icon-tabler icon-tabler-clock" width="24" height="24" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor" fill="none" stroke-linecap="round" stroke-linejoin="round">
-  <path stroke="none" d="M0 0h24v24H0z"/>
-  <circle cx="12" cy="12" r="9" />
-  <polyline points="12 7 12 12 15 15" />
-</svg>
-
-
-
-                <time class="article-time--reading">
-                    阅读时长: 1 分钟
-                </time>
-            </div>
-        
-    </footer>
-    
-
-    
-</div>
-
-</header>
-
-    <section class="article-content">
-    
-    
-    <p>记得三年前，作为一家20人规模初创公司的技术负责人，我最害怕的就是周五下午。</p>
-<p>那时候我们还在用一台老旧的阿里云ECS跑Jenkins。每当有新人入职，我就得花半天教他怎么配置构建参数；每隔两个月，Jenkins的插件升级就会搞崩整个流水线，导致我要在深夜盯着报错日志发愁。</p>
-<p>我曾坚定地认为：<strong>只有自建CI/CD系统才足够安全、可控。</strong> 直到2021年的一次&quot;灾难&quot;——由于构建节点磁盘爆满，我们错过了一个紧急修复的黄金发布窗口，导致客户投诉量激增。</p>
-<p>那天之后，我痛定思痛，决定带领团队从重型运维转向轻量化DevOps，全面迁移至GitHub Actions。今天这篇复盘，就是想聊聊对于没有专职运维的中小团队，如何用最低的成本，搭建一套不输大厂的自动化发布流。</p>
-<h2 id="算清楚隐形账免费的往往是最贵的">算清楚&quot;隐形账&quot;：免费的往往是最贵的
-</h2><p><img src="https://picsum.photos/800/450?random=1768389248585"
-	
-	
-	
-	loading="lazy"
-	
-		alt="配图"
-	
-	
-></p>
-<p>很多技术主管在选型时会陷入一个误区：开源软件免费，所以成本低。</p>
-<p>在我们团队只有5个开发的时候，维护Jenkins似乎没什么问题。但当团队扩张到15人，后端、前端、移动端项目混杂时，问题爆发了。</p>
-<p>2021年Q3，我做了一次详细的成本核算：</p>
-<ul>
-<li><strong>显性成本</strong>：一台4核8G的构建服务器，每年约3000元。</li>
-<li><strong>隐性成本</strong>：我每周至少花<strong>3小时</strong>在维护环境、升级插件、清理磁盘、处理构建排队上。按照时薪计算，这部分人力成本每年超过5万元。更别提因为构建失败导致全组人停下来等修复的&quot;等待成本&quot;。</li>
-</ul>
-<p><strong>迁移到GitHub Actions后，这笔账发生了惊人的变化。</strong></p>
-<p>对于公共仓库，GitHub Actions完全免费；对于私有仓库，Free计划每月赠送2000分钟构建时间。即使是我们这样每天提交频次较高的团队，配合Pro版（每人$4/月），只要配置得当，几乎不需要额外购买构建时长。</p>
-<blockquote>
-<p><strong>&ldquo;中小团队的核心资源是开发者的注意力，而不是服务器资源。任何能让开发者少操心的工具，都是在省钱。&rdquo;</strong></p>
-</blockquote>
-<h2 id="告别黑盒让流水线代码化-pipeline-as-code">告别&quot;黑盒&quot;：让流水线代码化 (Pipeline as Code)
-</h2><p>以前用Jenkins时，构建逻辑都藏在复杂的UI配置里。</p>
-<p><img src="https://picsum.photos/800/450?random=1768389249903"
-	
-	
-	
-	loading="lazy"
-	
-		alt="配图"
-	
-	
-></p>
-<p>有个叫小李的后端同事，想给自己的微服务加一个简单的代码风格检查（Lint）。他得先找我要Jenkins权限，然后在一堆输入框里摸索，最后因为配错了一个环境变量，把整个测试环境搞挂了。</p>
-<p><strong>CI/CD不应该只是运维人员的&quot;特权&quot;，它应该是代码的一部分。</strong></p>
-<p>迁移到GitHub Actions后，所有的构建逻辑都变成了一个 <code>.github/workflows/main.yml</code> 文件。这带来了两个立竿见影的改变：</p>
-<ol>
-<li><strong>版本控制</strong>：流水线的每一次修改都有Git记录，谁改的、改了什么、什么时候改的，一清二楚。</li>
-<li><strong>全员参与</strong>：现在，连刚入职的实习生都能照葫芦画瓢，通过提交PR来修改构建流程。</li>
-</ol>
-<p>这里分享一个我们目前正在使用的、针对Node.js服务的标准化配置模版。它包含了缓存优化，这也是降低成本的关键：</p>
-<div class="highlight"><pre tabindex="0" style="color:#f8f8f2;background-color:#272822;-moz-tab-size:4;-o-tab-size:4;tab-size:4;"><code class="language-yaml" data-lang="yaml"><span style="display:flex;"><span><span style="color:#f92672">name</span>: <span style="color:#ae81ff">Production Build</span>
-</span></span><span style="display:flex;"><span><span style="color:#f92672">on</span>:
-</span></span><span style="display:flex;"><span>  <span style="color:#f92672">push</span>:
-</span></span><span style="display:flex;"><span>    <span style="color:#f92672">branches</span>: [ <span style="color:#e6db74">&#34;main&#34;</span> ]
-</span></span><span style="display:flex;"><span>    <span style="color:#75715e"># 关键点：只在相关文件变动时触发，节省构建分钟数</span>
-</span></span><span style="display:flex;"><span>    <span style="color:#f92672">paths-ignore</span>:
-</span></span><span style="display:flex;"><span>      - <span style="color:#e6db74">&#39;**.md&#39;</span>
-</span></span><span style="display:flex;"><span>      - <span style="color:#e6db74">&#39;docs/**&#39;</span>
-</span></span><span style="display:flex;"><span>
-</span></span><span style="display:flex;"><span><span style="color:#f92672">jobs</span>:
-</span></span><span style="display:flex;"><span>  <span style="color:#f92672">build</span>:
-</span></span><span style="display:flex;"><span>    <span style="color:#f92672">runs-on</span>: <span style="color:#ae81ff">ubuntu-latest</span>
-</span></span><span style="display:flex;"><span>    <span style="color:#f92672">steps</span>:
-</span></span><span style="display:flex;"><span>      - <span style="color:#f92672">uses</span>: <span style="color:#ae81ff">actions/checkout@v4</span>
-</span></span><span style="display:flex;"><span>      
-</span></span><span style="display:flex;"><span>      - <span style="color:#f92672">name</span>: <span style="color:#ae81ff">Setup Node.js</span>
-</span></span><span style="display:flex;"><span>        <span style="color:#f92672">uses</span>: <span style="color:#ae81ff">actions/setup-node@v4</span>
-</span></span><span style="display:flex;"><span>        <span style="color:#f92672">with</span>:
-</span></span><span style="display:flex;"><span>          <span style="color:#f92672">node-version</span>: <span style="color:#e6db74">&#39;18&#39;</span>
-</span></span><span style="display:flex;"><span>          <span style="color:#75715e"># 开启缓存，大幅减少依赖下载时间</span>
-</span></span><span style="display:flex;"><span>          <span style="color:#f92672">cache</span>: <span style="color:#e6db74">&#39;npm&#39;</span>
-</span></span><span style="display:flex;"><span>          
-</span></span><span style="display:flex;"><span>      - <span style="color:#f92672">name</span>: <span style="color:#ae81ff">Install Dependencies</span>
-</span></span><span style="display:flex;"><span>        <span style="color:#75715e"># 使用 ci 命令比 install 更快更稳定</span>
-</span></span><span style="display:flex;"><span>        <span style="color:#f92672">run</span>: <span style="color:#ae81ff">npm ci</span>
-</span></span><span style="display:flex;"><span>        
-</span></span><span style="display:flex;"><span>      - <span style="color:#f92672">name</span>: <span style="color:#ae81ff">Run Tests</span>
-</span></span><span style="display:flex;"><span>        <span style="color:#f92672">run</span>: <span style="color:#ae81ff">npm test</span>
-</span></span><span style="display:flex;"><span>        
-</span></span><span style="display:flex;"><span>      - <span style="color:#f92672">name</span>: <span style="color:#ae81ff">Build</span>
-</span></span><span style="display:flex;"><span>        <span style="color:#f92672">run</span>: <span style="color:#ae81ff">npm run build</span>
-</span></span></code></pre></div><p>这个简单的配置，让我们的平均构建时间从Jenkins时代的8分钟，缩短到了<strong>3分钟以内</strong>。</p>
-<h2 id="拒绝乱收费精细化控制每一分钟">拒绝&quot;乱收费&quot;：精细化控制每一分钟
-</h2><p>刚开始迁移时，我也踩过坑。第一个月，我们还没到月底就收到了GitHub的额度耗尽提醒。</p>
-<p>排查后发现，<strong>90%的浪费来自于无效构建</strong>。</p>
-<p>比如，前端改了一个 <code>README.md</code> 文档，却触发了后端API的完整构建和测试；或者同一个PR由于反复提交代码，导致同时跑了5个并行的构建任务。</p>
-<p>为了解决这个问题，我总结了三个&quot;省钱妙招&quot;，一直沿用至今：</p>
-<ol>
-<li>
-<p><strong>路径过滤（Path Filtering）</strong>：如上文代码所示，严格配置 <code>paths</code> 或 <code>paths-ignore</code>。文档变动绝不触发代码构建。</p>
-</li>
-<li>
-<p><strong>并发控制（Concurrency Control）</strong>：这是个神器。当同一个分支有新的提交推上来时，自动取消正在进行的旧构建。这一个配置帮我们节省了约30%的分钟数。</p>
-<div class="highlight"><pre tabindex="0" style="color:#f8f8f2;background-color:#272822;-moz-tab-size:4;-o-tab-size:4;tab-size:4;"><code class="language-yaml" data-lang="yaml"><span style="display:flex;"><span><span style="color:#f92672">concurrency</span>:
-</span></span><span style="display:flex;"><span>  <span style="color:#f92672">group</span>: <span style="color:#ae81ff">$-$</span>
-</span></span><span style="display:flex;"><span>  <span style="color:#f92672">cancel-in-progress</span>: <span style="color:#66d9ef">true</span>
-</span></span></code></pre></div></li>
-<li>
-<p><strong>善用Cache</strong>：无论是npm、maven还是docker layer，都要利用 <code>actions/cache</code>。我亲测，加上缓存后，构建过程中最耗时的&quot;下载依赖&quot;环节几乎变成了秒级。</p>
-</li>
-</ol>
-<p>通过这套组合拳，即使现在我们的代码库规模翻了一倍，每月的构建费用依然控制在Pro订阅费之内，几乎没有产生额外的分钟数账单。</p>
-<h2 id="写在最后">写在最后
-</h2><p>从自建Jenkins到拥抱GitHub Actions，不仅仅是工具的替换，更是团队DevOps文化的升级。</p>
-<p>我们不再需要一个专门的&quot;发布管理员&quot;，每个开发者在提交代码的那一刻，就对自己代码的构建和测试负责。我也终于把周五下午的时间解放出来，可以安安心心地做一些技术预研，而不是盯着进度条祈祷不要报错。</p>
-<p><img src="https://picsum.photos/800/450?random=1768389244913"
-	
-	
-	
-	loading="lazy"
-	
-		alt="配图"
-	
-	
-></p>
-<p><strong>对于正在纠结的中小团队，我的建议很直接：</strong>
-如果是100人以下的研发团队，且没有复杂的合规（如金融级内网隔离）要求，<strong>尽早切到GitHub Actions或GitLab CI。</strong> 别让维护工具本身，成为了你们的负担。</p>
-<hr>
-<p><strong>最后做个小调查：</strong>
+<!doctype html><html lang=zh-cn dir=ltr><head><meta charset=utf-8><meta name=viewport content='width=device-width,initial-scale=1'><meta name=description content="记得三年前，作为一家20人规模初创公司的技术负责人，我最害怕的就是周五下午。那时候我们还在用一台老旧的阿里云ECS跑Jenkins。每当有新人入职，我就得花半天教他怎么配置构建参数；"><title>抛弃Jenkins后，我用GitHub Actions帮团队省下80%维护成本</title><link rel=canonical href=https://blog.irudder.me/tech/zhongxiaoxingtuanduidevopsluodifangan/dichengbendajianci_cd_github-actionsshizhan.html><link rel=stylesheet href=/scss/style.min.c77ce1b874b29b2ee9e54a89066c79ebf35cbe9cf399b31ab5d79167f9a965c9.css><meta property='og:title' content="抛弃Jenkins后，我用GitHub Actions帮团队省下80%维护成本"><meta property='og:description' content="记得三年前，作为一家20人规模初创公司的技术负责人，我最害怕的就是周五下午。那时候我们还在用一台老旧的阿里云ECS跑Jenkins。每当有新人入职，我就得花半天教他怎么配置构建参数；"><meta property='og:url' content='https://blog.irudder.me/tech/zhongxiaoxingtuanduidevopsluodifangan/dichengbendajianci_cd_github-actionsshizhan.html'><meta property='og:site_name' content='SelfTechHub'><meta property='og:type' content='article'><meta property='article:section' content='Tech'><meta property='article:tag' content='低成本搭建CI/CD：GitHub Actions实战'><meta property='article:published_time' content='2022-08-17T00:00:00+08:00'><meta property='article:modified_time' content='2022-08-17T00:00:00+08:00'><meta name=twitter:title content="抛弃Jenkins后，我用GitHub Actions帮团队省下80%维护成本"><meta name=twitter:description content="记得三年前，作为一家20人规模初创公司的技术负责人，我最害怕的就是周五下午。那时候我们还在用一台老旧的阿里云ECS跑Jenkins。每当有新人入职，我就得花半天教他怎么配置构建参数；"><link rel="shortcut icon" href=/images/logo.png></head><body class=article-page><script>(function(){const e="StackColorScheme";localStorage.getItem(e)||localStorage.setItem(e,"auto")})()</script><script>(function(){const t="StackColorScheme",e=localStorage.getItem(t),n=window.matchMedia("(prefers-color-scheme: dark)").matches===!0;e=="dark"||e==="auto"&&n?document.documentElement.dataset.scheme="dark":document.documentElement.dataset.scheme="light"})()</script><div class="container main-container flex on-phone--column extended"><aside class="sidebar left-sidebar sticky"><button class="hamburger hamburger--spin" type=button id=toggle-menu aria-label=切换菜单>
+<span class=hamburger-box><span class=hamburger-inner></span></span></button><header><figure class=site-avatar><a href=/><img src=/img/avatar_hu_8588ce14af1147e2.png width=300 height=286 class=site-logo loading=lazy alt=Avatar>
+</a><span class=emoji>🧠</span></figure><div class=site-meta><h1 class=site-name><a href=/>SelfTechHub</a></h1><h2 class=site-description>成长 · 技术 · 商业 · AI —— 把碎片知识沉淀为可复用的记忆体系</h2></div></header><ol class=menu-social><li><a href=https://github.com/pastor17 target=_blank title=GitHub rel=me><svg class="icon icon-tabler icon-tabler-brand-github" width="24" height="24" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor" fill="none" stroke-linecap="round" stroke-linejoin="round"><path stroke="none" d="M0 0h24v24H0z" fill="none"/><path d="M9 19c-4.3 1.4-4.3-2.5-6-3m12 5v-3.5c0-1 .1-1.4-.5-2 2.8-.3 5.5-1.4 5.5-6a4.6 4.6.0 00-1.3-3.2 4.2 4.2.0 00-.1-3.2s-1.1-.3-3.5 1.3a12.3 12.3.0 00-6.2.0C6.5 2.8 5.4 3.1 5.4 3.1a4.2 4.2.0 00-.1 3.2A4.6 4.6.0 004 9.5c0 4.6 2.7 5.7 5.5 6-.6.6-.6 1.2-.5 2V21"/></svg></a></li></ol><ol class=menu id=main-menu><li><a href=/><svg class="icon icon-tabler icon-tabler-home" width="24" height="24" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor" fill="none" stroke-linecap="round" stroke-linejoin="round"><path stroke="none" d="M0 0h24v24H0z"/><polyline points="5 12 3 12 12 3 21 12 19 12"/><path d="M5 12v7a2 2 0 002 2h10a2 2 0 002-2v-7"/><path d="M9 21v-6a2 2 0 012-2h2a2 2 0 012 2v6"/></svg>
+<span>首页</span></a></li><li><a href=/categories/%E6%88%90%E9%95%BF.html><span>成长认知</span></a></li><li><a href=/categories/%E6%8A%80%E6%9C%AF.html><span>技术精进</span></a></li><li><a href=/categories/%E5%95%86%E4%B8%9A.html><span>商业·财富</span></a></li><li><a href=/categories/ai.html><span>探索AI</span></a></li><li><a href=/about/><svg class="icon icon-tabler icon-tabler-user" width="24" height="24" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor" fill="none" stroke-linecap="round" stroke-linejoin="round"><path stroke="none" d="M0 0h24v24H0z"/><circle cx="12" cy="7" r="4"/><path d="M6 21v-2a4 4 0 014-4h4a4 4 0 014 4v2"/></svg>
+<span>关于</span></a></li><li class=menu-bottom-section><ol class=menu><li id=dark-mode-toggle><svg class="icon icon-tabler icon-tabler-toggle-left" width="24" height="24" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor" fill="none" stroke-linecap="round" stroke-linejoin="round"><path stroke="none" d="M0 0h24v24H0z"/><circle cx="8" cy="12" r="2"/><rect x="2" y="6" width="20" height="12" rx="6"/></svg>
+<svg class="icon icon-tabler icon-tabler-toggle-right" width="24" height="24" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor" fill="none" stroke-linecap="round" stroke-linejoin="round"><path stroke="none" d="M0 0h24v24H0z"/><circle cx="16" cy="12" r="2"/><rect x="2" y="6" width="20" height="12" rx="6"/></svg>
+<span>暗色模式</span></li></ol></li></ol></aside><aside class="sidebar right-sidebar sticky"><section class="widget archives"><div class=widget-icon><svg class="icon icon-tabler icon-tabler-hash" width="24" height="24" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor" fill="none" stroke-linecap="round" stroke-linejoin="round"><path stroke="none" d="M0 0h24v24H0z"/><line x1="5" y1="9" x2="19" y2="9"/><line x1="5" y1="15" x2="19" y2="15"/><line x1="11" y1="4" x2="7" y2="20"/><line x1="17" y1="4" x2="13" y2="20"/></svg></div><h2 class="widget-title section-title">目录</h2><div class=widget--toc><nav id=TableOfContents><ul><li><a href=#算清楚隐形账免费的往往是最贵的>算清楚"隐形账"：免费的往往是最贵的</a></li><li><a href=#告别黑盒让流水线代码化-pipeline-as-code>告别"黑盒"：让流水线代码化 (Pipeline as Code)</a></li><li><a href=#拒绝乱收费精细化控制每一分钟>拒绝"乱收费"：精细化控制每一分钟</a></li><li><a href=#写在最后>写在最后</a></li></ul></nav></div></section></aside><main class="main full-width"><article class=main-article><header class=article-header><div class=article-details><header class=article-category><a href=/categories/%E6%8A%80%E6%9C%AF.html>技术精进</a></header><div class=article-title-wrapper><h2 class=article-title><a href=/tech/zhongxiaoxingtuanduidevopsluodifangan/dichengbendajianci_cd_github-actionsshizhan.html>抛弃Jenkins后，我用GitHub Actions帮团队省下80%维护成本</a></h2><h3 class=article-subtitle>记得三年前，作为一家20人规模初创公司的技术负责人，我最害怕的就是周五下午。那时候我们还在用一台老旧的阿里云ECS跑Jenkins。每当有新人入职，我就得花半天教他怎么配置构建参数；</h3></div><footer class=article-time><div><svg class="icon icon-tabler icon-tabler-calendar-time" width="56" height="56" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor" fill="none" stroke-linecap="round" stroke-linejoin="round"><path stroke="none" d="M0 0h24v24H0z"/><path d="M11.795 21H5a2 2 0 01-2-2V7a2 2 0 012-2h12a2 2 0 012 2v4"/><circle cx="18" cy="18" r="4"/><path d="M15 3v4"/><path d="M7 3v4"/><path d="M3 11h16"/><path d="M18 16.496V18l1 1"/></svg>
+<time class=article-time--published datetime=2022-08-17T00:00:00+08:00>2022-08-17</time></div><div><svg class="icon icon-tabler icon-tabler-clock" width="24" height="24" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor" fill="none" stroke-linecap="round" stroke-linejoin="round"><path stroke="none" d="M0 0h24v24H0z"/><circle cx="12" cy="12" r="9"/><polyline points="12 7 12 12 15 15"/></svg>
+<time class=article-time--reading>阅读时长: 5 分钟</time></div></footer></div></header><section class=article-content><p>记得三年前，作为一家20人规模初创公司的技术负责人，我最害怕的就是周五下午。</p><p>那时候我们还在用一台老旧的阿里云ECS跑Jenkins。每当有新人入职，我就得花半天教他怎么配置构建参数；每隔两个月，Jenkins的插件升级就会搞崩整个流水线，导致我要在深夜盯着报错日志发愁。</p><p>我曾坚定地认为：<strong>只有自建CI/CD系统才足够安全、可控。</strong> 直到2021年的一次"灾难"——由于构建节点磁盘爆满，我们错过了一个紧急修复的黄金发布窗口，导致客户投诉量激增。</p><p>那天之后，我痛定思痛，决定带领团队从重型运维转向轻量化DevOps，全面迁移至GitHub Actions。今天这篇复盘，就是想聊聊对于没有专职运维的中小团队，如何用最低的成本，搭建一套不输大厂的自动化发布流。</p><h2 id=算清楚隐形账免费的往往是最贵的>算清楚"隐形账"：免费的往往是最贵的</h2><p><img src="https://picsum.photos/800/450?random=1768389248585" loading=lazy alt=配图></p><p>很多技术主管在选型时会陷入一个误区：开源软件免费，所以成本低。</p><p>在我们团队只有5个开发的时候，维护Jenkins似乎没什么问题。但当团队扩张到15人，后端、前端、移动端项目混杂时，问题爆发了。</p><p>2021年Q3，我做了一次详细的成本核算：</p><ul><li><strong>显性成本</strong>：一台4核8G的构建服务器，每年约3000元。</li><li><strong>隐性成本</strong>：我每周至少花<strong>3小时</strong>在维护环境、升级插件、清理磁盘、处理构建排队上。按照时薪计算，这部分人力成本每年超过5万元。更别提因为构建失败导致全组人停下来等修复的"等待成本"。</li></ul><p><strong>迁移到GitHub Actions后，这笔账发生了惊人的变化。</strong></p><p>对于公共仓库，GitHub Actions完全免费；对于私有仓库，Free计划每月赠送2000分钟构建时间。即使是我们这样每天提交频次较高的团队，配合Pro版（每人$4/月），只要配置得当，几乎不需要额外购买构建时长。</p><blockquote><p><strong>&ldquo;中小团队的核心资源是开发者的注意力，而不是服务器资源。任何能让开发者少操心的工具，都是在省钱。&rdquo;</strong></p></blockquote><h2 id=告别黑盒让流水线代码化-pipeline-as-code>告别"黑盒"：让流水线代码化 (Pipeline as Code)</h2><p>以前用Jenkins时，构建逻辑都藏在复杂的UI配置里。</p><p><img src="https://picsum.photos/800/450?random=1768389249903" loading=lazy alt=配图></p><p>有个叫小李的后端同事，想给自己的微服务加一个简单的代码风格检查（Lint）。他得先找我要Jenkins权限，然后在一堆输入框里摸索，最后因为配错了一个环境变量，把整个测试环境搞挂了。</p><p><strong>CI/CD不应该只是运维人员的"特权"，它应该是代码的一部分。</strong></p><p>迁移到GitHub Actions后，所有的构建逻辑都变成了一个 <code>.github/workflows/main.yml</code> 文件。这带来了两个立竿见影的改变：</p><ol><li><strong>版本控制</strong>：流水线的每一次修改都有Git记录，谁改的、改了什么、什么时候改的，一清二楚。</li><li><strong>全员参与</strong>：现在，连刚入职的实习生都能照葫芦画瓢，通过提交PR来修改构建流程。</li></ol><p>这里分享一个我们目前正在使用的、针对Node.js服务的标准化配置模版。它包含了缓存优化，这也是降低成本的关键：</p><div class=highlight><div class=chroma><table class=lntable><tr><td class=lntd><pre tabindex=0 class=chroma><code><span class=lnt> 1
+</span><span class=lnt> 2
+</span><span class=lnt> 3
+</span><span class=lnt> 4
+</span><span class=lnt> 5
+</span><span class=lnt> 6
+</span><span class=lnt> 7
+</span><span class=lnt> 8
+</span><span class=lnt> 9
+</span><span class=lnt>10
+</span><span class=lnt>11
+</span><span class=lnt>12
+</span><span class=lnt>13
+</span><span class=lnt>14
+</span><span class=lnt>15
+</span><span class=lnt>16
+</span><span class=lnt>17
+</span><span class=lnt>18
+</span><span class=lnt>19
+</span><span class=lnt>20
+</span><span class=lnt>21
+</span><span class=lnt>22
+</span><span class=lnt>23
+</span><span class=lnt>24
+</span><span class=lnt>25
+</span><span class=lnt>26
+</span><span class=lnt>27
+</span><span class=lnt>28
+</span><span class=lnt>29
+</span><span class=lnt>30
+</span><span class=lnt>31
+</span></code></pre></td><td class=lntd><pre tabindex=0 class=chroma><code class=language-yaml data-lang=yaml><span class=line><span class=cl><span class=nt>name</span><span class=p>:</span><span class=w> </span><span class=l>Production Build</span><span class=w>
+</span></span></span><span class=line><span class=cl><span class=w></span><span class=nt>on</span><span class=p>:</span><span class=w>
+</span></span></span><span class=line><span class=cl><span class=w>  </span><span class=nt>push</span><span class=p>:</span><span class=w>
+</span></span></span><span class=line><span class=cl><span class=w>    </span><span class=nt>branches</span><span class=p>:</span><span class=w> </span><span class=p>[</span><span class=w> </span><span class=s2>&#34;main&#34;</span><span class=w> </span><span class=p>]</span><span class=w>
+</span></span></span><span class=line><span class=cl><span class=w>    </span><span class=c># 关键点：只在相关文件变动时触发，节省构建分钟数</span><span class=w>
+</span></span></span><span class=line><span class=cl><span class=w>    </span><span class=nt>paths-ignore</span><span class=p>:</span><span class=w>
+</span></span></span><span class=line><span class=cl><span class=w>      </span>- <span class=s1>&#39;**.md&#39;</span><span class=w>
+</span></span></span><span class=line><span class=cl><span class=w>      </span>- <span class=s1>&#39;docs/**&#39;</span><span class=w>
+</span></span></span><span class=line><span class=cl><span class=w>
+</span></span></span><span class=line><span class=cl><span class=w></span><span class=nt>jobs</span><span class=p>:</span><span class=w>
+</span></span></span><span class=line><span class=cl><span class=w>  </span><span class=nt>build</span><span class=p>:</span><span class=w>
+</span></span></span><span class=line><span class=cl><span class=w>    </span><span class=nt>runs-on</span><span class=p>:</span><span class=w> </span><span class=l>ubuntu-latest</span><span class=w>
+</span></span></span><span class=line><span class=cl><span class=w>    </span><span class=nt>steps</span><span class=p>:</span><span class=w>
+</span></span></span><span class=line><span class=cl><span class=w>      </span>- <span class=nt>uses</span><span class=p>:</span><span class=w> </span><span class=l>actions/checkout@v4</span><span class=w>
+</span></span></span><span class=line><span class=cl><span class=w>      
+</span></span></span><span class=line><span class=cl><span class=w>      </span>- <span class=nt>name</span><span class=p>:</span><span class=w> </span><span class=l>Setup Node.js</span><span class=w>
+</span></span></span><span class=line><span class=cl><span class=w>        </span><span class=nt>uses</span><span class=p>:</span><span class=w> </span><span class=l>actions/setup-node@v4</span><span class=w>
+</span></span></span><span class=line><span class=cl><span class=w>        </span><span class=nt>with</span><span class=p>:</span><span class=w>
+</span></span></span><span class=line><span class=cl><span class=w>          </span><span class=nt>node-version</span><span class=p>:</span><span class=w> </span><span class=s1>&#39;18&#39;</span><span class=w>
+</span></span></span><span class=line><span class=cl><span class=w>          </span><span class=c># 开启缓存，大幅减少依赖下载时间</span><span class=w>
+</span></span></span><span class=line><span class=cl><span class=w>          </span><span class=nt>cache</span><span class=p>:</span><span class=w> </span><span class=s1>&#39;npm&#39;</span><span class=w>
+</span></span></span><span class=line><span class=cl><span class=w>          
+</span></span></span><span class=line><span class=cl><span class=w>      </span>- <span class=nt>name</span><span class=p>:</span><span class=w> </span><span class=l>Install Dependencies</span><span class=w>
+</span></span></span><span class=line><span class=cl><span class=w>        </span><span class=c># 使用 ci 命令比 install 更快更稳定</span><span class=w>
+</span></span></span><span class=line><span class=cl><span class=w>        </span><span class=nt>run</span><span class=p>:</span><span class=w> </span><span class=l>npm ci</span><span class=w>
+</span></span></span><span class=line><span class=cl><span class=w>        
+</span></span></span><span class=line><span class=cl><span class=w>      </span>- <span class=nt>name</span><span class=p>:</span><span class=w> </span><span class=l>Run Tests</span><span class=w>
+</span></span></span><span class=line><span class=cl><span class=w>        </span><span class=nt>run</span><span class=p>:</span><span class=w> </span><span class=l>npm test</span><span class=w>
+</span></span></span><span class=line><span class=cl><span class=w>        
+</span></span></span><span class=line><span class=cl><span class=w>      </span>- <span class=nt>name</span><span class=p>:</span><span class=w> </span><span class=l>Build</span><span class=w>
+</span></span></span><span class=line><span class=cl><span class=w>        </span><span class=nt>run</span><span class=p>:</span><span class=w> </span><span class=l>npm run build</span><span class=w>
+</span></span></span></code></pre></td></tr></table></div></div><p>这个简单的配置，让我们的平均构建时间从Jenkins时代的8分钟，缩短到了<strong>3分钟以内</strong>。</p><h2 id=拒绝乱收费精细化控制每一分钟>拒绝"乱收费"：精细化控制每一分钟</h2><p>刚开始迁移时，我也踩过坑。第一个月，我们还没到月底就收到了GitHub的额度耗尽提醒。</p><p>排查后发现，<strong>90%的浪费来自于无效构建</strong>。</p><p>比如，前端改了一个 <code>README.md</code> 文档，却触发了后端API的完整构建和测试；或者同一个PR由于反复提交代码，导致同时跑了5个并行的构建任务。</p><p>为了解决这个问题，我总结了三个"省钱妙招"，一直沿用至今：</p><ol><li><p><strong>路径过滤（Path Filtering）</strong>：如上文代码所示，严格配置 <code>paths</code> 或 <code>paths-ignore</code>。文档变动绝不触发代码构建。</p></li><li><p><strong>并发控制（Concurrency Control）</strong>：这是个神器。当同一个分支有新的提交推上来时，自动取消正在进行的旧构建。这一个配置帮我们节省了约30%的分钟数。</p><div class=highlight><div class=chroma><table class=lntable><tr><td class=lntd><pre tabindex=0 class=chroma><code><span class=lnt>1
+</span><span class=lnt>2
+</span><span class=lnt>3
+</span></code></pre></td><td class=lntd><pre tabindex=0 class=chroma><code class=language-yaml data-lang=yaml><span class=line><span class=cl><span class=nt>concurrency</span><span class=p>:</span><span class=w>
+</span></span></span><span class=line><span class=cl><span class=w>  </span><span class=nt>group</span><span class=p>:</span><span class=w> </span><span class=l>$-$</span><span class=w>
+</span></span></span><span class=line><span class=cl><span class=w>  </span><span class=nt>cancel-in-progress</span><span class=p>:</span><span class=w> </span><span class=kc>true</span><span class=w>
+</span></span></span></code></pre></td></tr></table></div></div></li><li><p><strong>善用Cache</strong>：无论是npm、maven还是docker layer，都要利用 <code>actions/cache</code>。我亲测，加上缓存后，构建过程中最耗时的"下载依赖"环节几乎变成了秒级。</p></li></ol><p>通过这套组合拳，即使现在我们的代码库规模翻了一倍，每月的构建费用依然控制在Pro订阅费之内，几乎没有产生额外的分钟数账单。</p><h2 id=写在最后>写在最后</h2><p>从自建Jenkins到拥抱GitHub Actions，不仅仅是工具的替换，更是团队DevOps文化的升级。</p><p>我们不再需要一个专门的"发布管理员"，每个开发者在提交代码的那一刻，就对自己代码的构建和测试负责。我也终于把周五下午的时间解放出来，可以安安心心地做一些技术预研，而不是盯着进度条祈祷不要报错。</p><p><img src="https://picsum.photos/800/450?random=1768389244913" loading=lazy alt=配图></p><p><strong>对于正在纠结的中小团队，我的建议很直接：</strong>
+如果是100人以下的研发团队，且没有复杂的合规（如金融级内网隔离）要求，<strong>尽早切到GitHub Actions或GitLab CI。</strong> 别让维护工具本身，成为了你们的负担。</p><hr><p><strong>最后做个小调查：</strong>
 在CI/CD选型上，你更看重哪一点？
 A. <strong>完全的可控性</strong>（哪怕麻烦点，也要数据都在自己服务器上）
-B. <strong>极致的效率与低维护</strong>（托管服务真香，少折腾才是硬道理）</p>
-<p>欢迎在评论区留下你的选择。</p>
-<p>如果你准备开始行动，建议从以下3步着手：</p>
-<ol>
-<li><strong>盘点高频痛点</strong>：找出目前部署流程中最耗时、最容易出错的环节（通常是环境配置或依赖安装）。</li>
-<li><strong>Copy &amp; Paste</strong>：不要从零写，去GitHub Marketplace找一个成熟的Action模版，先跑通&quot;Hello World&quot;。</li>
-<li><strong>配置缓存</strong>：这是让体验从&quot;能用&quot;变成&quot;好用&quot;的关键一步，务必在第一时间加上依赖缓存。</li>
-</ol>
-
-</section>
-
-
-    <footer class="article-footer">
-    
-    <section class="article-tags">
-        
-            <a href="/tags/%E4%BD%8E%E6%88%90%E6%9C%AC%E6%90%AD%E5%BB%BACI/CDGitHub-Actions%E5%AE%9E%E6%88%98.html">低成本搭建CI/CD：GitHub Actions实战</a>
-        
-    </section>
-
-
-    </footer>
-
-
-    
-</article>
-
-    
-
-    
-
-     
-    
-        
-    <script
-    src="https://giscus.app/client.js"
-    data-repo="pastor17/bloggiscus"
-    data-repo-id="R_kgDOQ6H9qQ"
-    data-category=""
-    data-category-id="DIC_kwDOQ6H9qc4C0-T8"
-    data-mapping="pathname"
-    data-strict="0"
-    data-reactions-enabled="1"
-    data-emit-metadata="0"
-    data-input-position="bottom"
-    data-theme="light"
-    data-lang="zh-CN"
-    data-loading="lazy"
-    crossorigin="anonymous"
-    async
-></script>
-<script>
-    function setGiscusTheme(theme) {
-        let giscus = document.querySelector("iframe.giscus-frame");
-        if (giscus) {
-            giscus.contentWindow.postMessage(
-                {
-                    giscus: {
-                        setConfig: {
-                            theme: theme,
-                        },
-                    },
-                },
-                "https://giscus.app"
-            );
-        }
-    }
-
-    (function () {
-        addEventListener("message", (e) => {
-            if (event.origin !== "https://giscus.app") return;
-            handler();
-        });
-        window.addEventListener("onColorSchemeChange", handler);
-
-        function handler() {
-            if (document.documentElement.dataset.scheme === "light") {
-                setGiscusTheme('light');
-            } else {
-                setGiscusTheme('dark_dimmed');
-            }
-        }
-    })();
-</script>
-
-    
-
-    <footer class="site-footer">
-    <section class="copyright">
-        &copy; 
-        
-        2026 SelfTechHub
-    </section>
-    
-    <section class="powerby">
-        
-
-    </section>
-</footer>
-
-
-    
-<div class="pswp" tabindex="-1" role="dialog" aria-hidden="true">
-
-    
-    <div class="pswp__bg"></div>
-
-    
-    <div class="pswp__scroll-wrap">
-
-        
-        <div class="pswp__container">
-            <div class="pswp__item"></div>
-            <div class="pswp__item"></div>
-            <div class="pswp__item"></div>
-        </div>
-
-        
-        <div class="pswp__ui pswp__ui--hidden">
-
-            <div class="pswp__top-bar">
-
-                
-
-                <div class="pswp__counter"></div>
-
-                <button class="pswp__button pswp__button--close" title="Close (Esc)"></button>
-
-                <button class="pswp__button pswp__button--share" title="Share"></button>
-
-                <button class="pswp__button pswp__button--fs" title="Toggle fullscreen"></button>
-
-                <button class="pswp__button pswp__button--zoom" title="Zoom in/out"></button>
-
-                
-                
-                <div class="pswp__preloader">
-                    <div class="pswp__preloader__icn">
-                        <div class="pswp__preloader__cut">
-                            <div class="pswp__preloader__donut"></div>
-                        </div>
-                    </div>
-                </div>
-            </div>
-
-            <div class="pswp__share-modal pswp__share-modal--hidden pswp__single-tap">
-                <div class="pswp__share-tooltip"></div>
-            </div>
-
-            <button class="pswp__button pswp__button--arrow--left" title="Previous (arrow left)">
-            </button>
-
-            <button class="pswp__button pswp__button--arrow--right" title="Next (arrow right)">
-            </button>
-
-            <div class="pswp__caption">
-                <div class="pswp__caption__center"></div>
-            </div>
-
-        </div>
-
-    </div>
-
-</div><script 
-                src="https://cdn.jsdelivr.net/npm/photoswipe@4.1.3/dist/photoswipe.min.js"integrity="sha256-ePwmChbbvXbsO02lbM3HoHbSHTHFAeChekF1xKJdleo="crossorigin="anonymous"
-                defer
-                >
-            </script><script 
-                src="https://cdn.jsdelivr.net/npm/photoswipe@4.1.3/dist/photoswipe-ui-default.min.js"integrity="sha256-UKkzOn/w1mBxRmLLGrSeyB4e1xbrp4xylgAWb3M42pU="crossorigin="anonymous"
-                defer
-                >
-            </script><link 
-                rel="stylesheet" 
-                href="https://cdn.jsdelivr.net/npm/photoswipe@4.1.3/dist/default-skin/default-skin.min.css"crossorigin="anonymous"
-            ><link 
-                rel="stylesheet" 
-                href="https://cdn.jsdelivr.net/npm/photoswipe@4.1.3/dist/photoswipe.min.css"crossorigin="anonymous"
-            >
-    
-
-            </main>
-        </div>
-        <script 
-                src="https://cdn.jsdelivr.net/npm/node-vibrant@3.1.6/dist/vibrant.min.js"integrity="sha256-awcR2jno4kI5X0zL8ex0vi2z&#43;KMkF24hUW8WePSA9HM="crossorigin="anonymous"
-                
-                >
-            </script><script type="text/javascript" src="/ts/main.c922af694cc257bf1ecc41c0dd7b0430f9114ec280ccf67cd2c6ad55f5316c4e.js" defer></script>
-<script>
-    (function () {
-        const customFont = document.createElement('link');
-        customFont.href = "https://fonts.googleapis.com/css2?family=Lato:wght@300;400;700&display=swap";
-
-        customFont.type = "text/css";
-        customFont.rel = "stylesheet";
-
-        document.head.appendChild(customFont);
-    }());
-</script>
-
-    </body>
-</html>
+B. <strong>极致的效率与低维护</strong>（托管服务真香，少折腾才是硬道理）</p><p>欢迎在评论区留下你的选择。</p><p>如果你准备开始行动，建议从以下3步着手：</p><ol><li><strong>盘点高频痛点</strong>：找出目前部署流程中最耗时、最容易出错的环节（通常是环境配置或依赖安装）。</li><li><strong>Copy & Paste</strong>：不要从零写，去GitHub Marketplace找一个成熟的Action模版，先跑通"Hello World"。</li><li><strong>配置缓存</strong>：这是让体验从"能用"变成"好用"的关键一步，务必在第一时间加上依赖缓存。</li></ol></section><footer class=article-footer><section class=article-tags><a href=/tags/%E4%BD%8E%E6%88%90%E6%9C%AC%E6%90%AD%E5%BB%BACI/CDGitHub-Actions%E5%AE%9E%E6%88%98.html>低成本搭建CI/CD：GitHub Actions实战</a></section></footer></article><script src=https://giscus.app/client.js data-repo=pastor17/bloggiscus data-repo-id=R_kgDOQ6H9qQ data-category data-category-id=DIC_kwDOQ6H9qc4C0-T8 data-mapping=pathname data-strict=0 data-reactions-enabled=1 data-emit-metadata=0 data-input-position=bottom data-theme=light data-lang=zh-CN data-loading=lazy crossorigin=anonymous async></script><script>function setGiscusTheme(e){let t=document.querySelector("iframe.giscus-frame");t&&t.contentWindow.postMessage({giscus:{setConfig:{theme:e}}},"https://giscus.app")}(function(){addEventListener("message",t=>{if(event.origin!=="https://giscus.app")return;e()}),window.addEventListener("onColorSchemeChange",e);function e(){setGiscusTheme(document.documentElement.dataset.scheme==="light"?"light":"dark_dimmed")}})()</script><footer class=site-footer><section class=copyright>&copy;
+2021 -
+2026 SelfTechHub</section><section class=powerby>拒绝一次性认知，把碎片知识沉淀为可复用的记忆体系<br></section></footer><div class=pswp tabindex=-1 role=dialog aria-hidden=true><div class=pswp__bg></div><div class=pswp__scroll-wrap><div class=pswp__container><div class=pswp__item></div><div class=pswp__item></div><div class=pswp__item></div></div><div class="pswp__ui pswp__ui--hidden"><div class=pswp__top-bar><div class=pswp__counter></div><button class="pswp__button pswp__button--close" title="Close (Esc)"></button>
+<button class="pswp__button pswp__button--share" title=Share></button>
+<button class="pswp__button pswp__button--fs" title="Toggle fullscreen"></button>
+<button class="pswp__button pswp__button--zoom" title="Zoom in/out"></button><div class=pswp__preloader><div class=pswp__preloader__icn><div class=pswp__preloader__cut><div class=pswp__preloader__donut></div></div></div></div></div><div class="pswp__share-modal pswp__share-modal--hidden pswp__single-tap"><div class=pswp__share-tooltip></div></div><button class="pswp__button pswp__button--arrow--left" title="Previous (arrow left)">
+</button>
+<button class="pswp__button pswp__button--arrow--right" title="Next (arrow right)"></button><div class=pswp__caption><div class=pswp__caption__center></div></div></div></div></div><script src=https://cdn.jsdelivr.net/npm/photoswipe@4.1.3/dist/photoswipe.min.js integrity="sha256-ePwmChbbvXbsO02lbM3HoHbSHTHFAeChekF1xKJdleo=" crossorigin=anonymous defer></script><script src=https://cdn.jsdelivr.net/npm/photoswipe@4.1.3/dist/photoswipe-ui-default.min.js integrity="sha256-UKkzOn/w1mBxRmLLGrSeyB4e1xbrp4xylgAWb3M42pU=" crossorigin=anonymous defer></script><link rel=stylesheet href=https://cdn.jsdelivr.net/npm/photoswipe@4.1.3/dist/default-skin/default-skin.min.css crossorigin=anonymous><link rel=stylesheet href=https://cdn.jsdelivr.net/npm/photoswipe@4.1.3/dist/photoswipe.min.css crossorigin=anonymous></main></div><script src=https://cdn.jsdelivr.net/npm/node-vibrant@3.1.6/dist/vibrant.min.js integrity="sha256-awcR2jno4kI5X0zL8ex0vi2z+KMkF24hUW8WePSA9HM=" crossorigin=anonymous></script><script type=text/javascript src=/ts/main.c922af694cc257bf1ecc41c0dd7b0430f9114ec280ccf67cd2c6ad55f5316c4e.js defer></script><script>(function(){const e=document.createElement("link");e.href="https://fonts.googleapis.com/css2?family=Lato:wght@300;400;700&display=swap",e.type="text/css",e.rel="stylesheet",document.head.appendChild(e)})()</script></body></html>

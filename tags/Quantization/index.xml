@@ -1,23 +1,8 @@
-<?xml version="1.0" encoding="utf-8" standalone="yes"?>
-<rss version="2.0" xmlns:atom="http://www.w3.org/2005/Atom">
-    <channel>
-        <title>Quantization on SelfTechHub</title>
-        <link>https://blog.irudder.me/tags/Quantization.html</link>
-        <description>Recent content in Quantization on SelfTechHub</description>
-        <generator>Hugo -- gohugo.io</generator>
-        <language>zh-cn</language>
-        <lastBuildDate>Fri, 17 Jul 2026 00:00:00 +0000</lastBuildDate><atom:link href="https://blog.irudder.me/tags/Quantization/index.xml" rel="self" type="application/rss+xml" /><item>
-        <title>第17章：推理优化——KV Cache、量化与高效生成</title>
-        <link>https://blog.irudder.me/ai/knowledge-series/17-Inference-Optimization-and-KV-Cache.html</link>
-        <pubDate>Fri, 17 Jul 2026 00:00:00 +0000</pubDate>
-        
-        <guid>https://blog.irudder.me/ai/knowledge-series/17-Inference-Optimization-and-KV-Cache.html</guid>
-        <description>&lt;h1 id=&#34;第17章推理优化kv-cache量化与高效生成&#34;&gt;第17章：推理优化——KV Cache、量化与高效生成
+<?xml version="1.0" encoding="utf-8" standalone="yes"?><rss version="2.0" xmlns:atom="http://www.w3.org/2005/Atom"><channel><title>Quantization on SelfTechHub</title><link>https://blog.irudder.me/tags/Quantization.html</link><description>Recent content in Quantization on SelfTechHub</description><generator>Hugo -- gohugo.io</generator><language>zh-cn</language><lastBuildDate>Fri, 17 Jul 2026 00:00:00 +0800</lastBuildDate><atom:link href="https://blog.irudder.me/tags/Quantization/index.xml" rel="self" type="application/rss+xml"/><item><title>第17章：推理优化——KV Cache、量化与高效生成</title><link>https://blog.irudder.me/ai/knowledge-series/17-Inference-Optimization-and-KV-Cache.html</link><pubDate>Fri, 17 Jul 2026 00:00:00 +0800</pubDate><guid>https://blog.irudder.me/ai/knowledge-series/17-Inference-Optimization-and-KV-Cache.html</guid><description>&lt;h1 id="第17章推理优化kv-cache量化与高效生成"&gt;第17章：推理优化——KV Cache、量化与高效生成
 &lt;/h1&gt;&lt;blockquote&gt;
-&lt;p&gt;系列导读：本章是 LLM 工程的核心技术之一。如果你要自建 LLM 服务或做推理调优，KV Cache 是必须理解的第一块基础。&lt;/p&gt;
-&lt;/blockquote&gt;
+&lt;p&gt;系列导读：本章是 LLM 工程的核心技术之一。如果你要自建 LLM 服务或做推理调优，KV Cache 是必须理解的第一块基础。&lt;/p&gt;&lt;/blockquote&gt;
 &lt;hr&gt;
-&lt;h2 id=&#34;一llm-推理有多贵&#34;&gt;一、LLM 推理有多贵？
+&lt;h2 id="一llm-推理有多贵"&gt;一、LLM 推理有多贵？
 &lt;/h2&gt;&lt;p&gt;GPT-4 处理一个 4000 token 的文档 + 生成 500 token 的答案，单次调用的推理成本是多少？&lt;/p&gt;
 &lt;ul&gt;
 &lt;li&gt;&lt;strong&gt;Prompt token&lt;/strong&gt;：每 token 都有成本&lt;/li&gt;
@@ -25,7 +10,7 @@
 &lt;li&gt;&lt;strong&gt;长上下文&lt;/strong&gt;：注意力计算是 O(n²)，token 越多越慢&lt;/li&gt;
 &lt;/ul&gt;
 &lt;p&gt;高频服务的推理成本会是最大的运营开销。优化不是锦上添花，是生死线。&lt;/p&gt;
-&lt;h2 id=&#34;二kv-cache为什么解码慢&#34;&gt;二、KV Cache：为什么解码慢？
+&lt;h2 id="二kv-cache为什么解码慢"&gt;二、KV Cache：为什么解码慢？
 &lt;/h2&gt;&lt;p&gt;Transformer 在生成时有一个核心特性：&lt;strong&gt;自回归生成&lt;/strong&gt;——每次只能生成一个 token。&lt;/p&gt;
 &lt;p&gt;假设你在生成第 K 个 token，模型需要：&lt;/p&gt;
 &lt;ol&gt;
@@ -34,27 +19,45 @@
 &lt;li&gt;用这些 KV 做注意力，生成第 K 个 token&lt;/li&gt;
 &lt;/ol&gt;
 &lt;p&gt;&lt;strong&gt;重复计算极大浪费&lt;/strong&gt;。前面的 token 的 Key 和 Value 计算结果，在第 100 步和第 101 步怎么可能变？&lt;/p&gt;
-&lt;h3 id=&#34;kv-cache-的核心思想&#34;&gt;KV Cache 的核心思想
+&lt;h3 id="kv-cache-的核心思想"&gt;KV Cache 的核心思想
 &lt;/h3&gt;&lt;p&gt;&lt;strong&gt;缓存历史 token 的 Key 和 Value 向量，每步只计算新 token 的 KV。&lt;/strong&gt;&lt;/p&gt;
-&lt;div class=&#34;highlight&#34;&gt;&lt;pre tabindex=&#34;0&#34; style=&#34;color:#f8f8f2;background-color:#272822;-moz-tab-size:4;-o-tab-size:4;tab-size:4;&#34;&gt;&lt;code class=&#34;language-python&#34; data-lang=&#34;python&#34;&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;&lt;span style=&#34;color:#75715e&#34;&gt;# 没有 KV Cache（每次全量计算）&lt;/span&gt;
-&lt;/span&gt;&lt;/span&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;&lt;span style=&#34;color:#66d9ef&#34;&gt;for&lt;/span&gt; i &lt;span style=&#34;color:#f92672&#34;&gt;in&lt;/span&gt; range(max_new_tokens):
-&lt;/span&gt;&lt;/span&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;    output &lt;span style=&#34;color:#f92672&#34;&gt;=&lt;/span&gt; model(full_input &lt;span style=&#34;color:#f92672&#34;&gt;+&lt;/span&gt; generated_tokens)  &lt;span style=&#34;color:#75715e&#34;&gt;# O(n²) 的注意力&lt;/span&gt;
-&lt;/span&gt;&lt;/span&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;    next_token &lt;span style=&#34;color:#f92672&#34;&gt;=&lt;/span&gt; sample(output)
-&lt;/span&gt;&lt;/span&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;    generated_tokens&lt;span style=&#34;color:#f92672&#34;&gt;.&lt;/span&gt;append(next_token)
-&lt;/span&gt;&lt;/span&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;
-&lt;/span&gt;&lt;/span&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;&lt;span style=&#34;color:#75715e&#34;&gt;# 有 KV Cache（只计算新内容）&lt;/span&gt;
-&lt;/span&gt;&lt;/span&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;&lt;span style=&#34;color:#66d9ef&#34;&gt;for&lt;/span&gt; i &lt;span style=&#34;color:#f92672&#34;&gt;in&lt;/span&gt; range(max_new_tokens):
-&lt;/span&gt;&lt;/span&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;    &lt;span style=&#34;color:#75715e&#34;&gt;# 只输入最新一个 token，KV Cache 提供历史注意力&lt;/span&gt;
-&lt;/span&gt;&lt;/span&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;    output &lt;span style=&#34;color:#f92672&#34;&gt;=&lt;/span&gt; model(next_token, past_key_values&lt;span style=&#34;color:#f92672&#34;&gt;=&lt;/span&gt;kv_cache)
-&lt;/span&gt;&lt;/span&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;    kv_cache&lt;span style=&#34;color:#f92672&#34;&gt;.&lt;/span&gt;update(output&lt;span style=&#34;color:#f92672&#34;&gt;.&lt;/span&gt;kv)  &lt;span style=&#34;color:#75715e&#34;&gt;# 新 token 的 KV 加入缓存&lt;/span&gt;
-&lt;/span&gt;&lt;/span&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;    next_token &lt;span style=&#34;color:#f92672&#34;&gt;=&lt;/span&gt; sample(output)
-&lt;/span&gt;&lt;/span&gt;&lt;/code&gt;&lt;/pre&gt;&lt;/div&gt;&lt;h3 id=&#34;效果&#34;&gt;效果
+&lt;div class="highlight"&gt;&lt;div class="chroma"&gt;
+&lt;table class="lntable"&gt;&lt;tr&gt;&lt;td class="lntd"&gt;
+&lt;pre tabindex="0" class="chroma"&gt;&lt;code&gt;&lt;span class="lnt"&gt; 1
+&lt;/span&gt;&lt;span class="lnt"&gt; 2
+&lt;/span&gt;&lt;span class="lnt"&gt; 3
+&lt;/span&gt;&lt;span class="lnt"&gt; 4
+&lt;/span&gt;&lt;span class="lnt"&gt; 5
+&lt;/span&gt;&lt;span class="lnt"&gt; 6
+&lt;/span&gt;&lt;span class="lnt"&gt; 7
+&lt;/span&gt;&lt;span class="lnt"&gt; 8
+&lt;/span&gt;&lt;span class="lnt"&gt; 9
+&lt;/span&gt;&lt;span class="lnt"&gt;10
+&lt;/span&gt;&lt;span class="lnt"&gt;11
+&lt;/span&gt;&lt;span class="lnt"&gt;12
+&lt;/span&gt;&lt;/code&gt;&lt;/pre&gt;&lt;/td&gt;
+&lt;td class="lntd"&gt;
+&lt;pre tabindex="0" class="chroma"&gt;&lt;code class="language-python" data-lang="python"&gt;&lt;span class="line"&gt;&lt;span class="cl"&gt;&lt;span class="c1"&gt;# 没有 KV Cache（每次全量计算）&lt;/span&gt;
+&lt;/span&gt;&lt;/span&gt;&lt;span class="line"&gt;&lt;span class="cl"&gt;&lt;span class="k"&gt;for&lt;/span&gt; &lt;span class="n"&gt;i&lt;/span&gt; &lt;span class="ow"&gt;in&lt;/span&gt; &lt;span class="nb"&gt;range&lt;/span&gt;&lt;span class="p"&gt;(&lt;/span&gt;&lt;span class="n"&gt;max_new_tokens&lt;/span&gt;&lt;span class="p"&gt;):&lt;/span&gt;
+&lt;/span&gt;&lt;/span&gt;&lt;span class="line"&gt;&lt;span class="cl"&gt; &lt;span class="n"&gt;output&lt;/span&gt; &lt;span class="o"&gt;=&lt;/span&gt; &lt;span class="n"&gt;model&lt;/span&gt;&lt;span class="p"&gt;(&lt;/span&gt;&lt;span class="n"&gt;full_input&lt;/span&gt; &lt;span class="o"&gt;+&lt;/span&gt; &lt;span class="n"&gt;generated_tokens&lt;/span&gt;&lt;span class="p"&gt;)&lt;/span&gt; &lt;span class="c1"&gt;# O(n²) 的注意力&lt;/span&gt;
+&lt;/span&gt;&lt;/span&gt;&lt;span class="line"&gt;&lt;span class="cl"&gt; &lt;span class="n"&gt;next_token&lt;/span&gt; &lt;span class="o"&gt;=&lt;/span&gt; &lt;span class="n"&gt;sample&lt;/span&gt;&lt;span class="p"&gt;(&lt;/span&gt;&lt;span class="n"&gt;output&lt;/span&gt;&lt;span class="p"&gt;)&lt;/span&gt;
+&lt;/span&gt;&lt;/span&gt;&lt;span class="line"&gt;&lt;span class="cl"&gt; &lt;span class="n"&gt;generated_tokens&lt;/span&gt;&lt;span class="o"&gt;.&lt;/span&gt;&lt;span class="n"&gt;append&lt;/span&gt;&lt;span class="p"&gt;(&lt;/span&gt;&lt;span class="n"&gt;next_token&lt;/span&gt;&lt;span class="p"&gt;)&lt;/span&gt;
+&lt;/span&gt;&lt;/span&gt;&lt;span class="line"&gt;&lt;span class="cl"&gt;
+&lt;/span&gt;&lt;/span&gt;&lt;span class="line"&gt;&lt;span class="cl"&gt;&lt;span class="c1"&gt;# 有 KV Cache（只计算新内容）&lt;/span&gt;
+&lt;/span&gt;&lt;/span&gt;&lt;span class="line"&gt;&lt;span class="cl"&gt;&lt;span class="k"&gt;for&lt;/span&gt; &lt;span class="n"&gt;i&lt;/span&gt; &lt;span class="ow"&gt;in&lt;/span&gt; &lt;span class="nb"&gt;range&lt;/span&gt;&lt;span class="p"&gt;(&lt;/span&gt;&lt;span class="n"&gt;max_new_tokens&lt;/span&gt;&lt;span class="p"&gt;):&lt;/span&gt;
+&lt;/span&gt;&lt;/span&gt;&lt;span class="line"&gt;&lt;span class="cl"&gt; &lt;span class="c1"&gt;# 只输入最新一个 token，KV Cache 提供历史注意力&lt;/span&gt;
+&lt;/span&gt;&lt;/span&gt;&lt;span class="line"&gt;&lt;span class="cl"&gt; &lt;span class="n"&gt;output&lt;/span&gt; &lt;span class="o"&gt;=&lt;/span&gt; &lt;span class="n"&gt;model&lt;/span&gt;&lt;span class="p"&gt;(&lt;/span&gt;&lt;span class="n"&gt;next_token&lt;/span&gt;&lt;span class="p"&gt;,&lt;/span&gt; &lt;span class="n"&gt;past_key_values&lt;/span&gt;&lt;span class="o"&gt;=&lt;/span&gt;&lt;span class="n"&gt;kv_cache&lt;/span&gt;&lt;span class="p"&gt;)&lt;/span&gt;
+&lt;/span&gt;&lt;/span&gt;&lt;span class="line"&gt;&lt;span class="cl"&gt; &lt;span class="n"&gt;kv_cache&lt;/span&gt;&lt;span class="o"&gt;.&lt;/span&gt;&lt;span class="n"&gt;update&lt;/span&gt;&lt;span class="p"&gt;(&lt;/span&gt;&lt;span class="n"&gt;output&lt;/span&gt;&lt;span class="o"&gt;.&lt;/span&gt;&lt;span class="n"&gt;kv&lt;/span&gt;&lt;span class="p"&gt;)&lt;/span&gt; &lt;span class="c1"&gt;# 新 token 的 KV 加入缓存&lt;/span&gt;
+&lt;/span&gt;&lt;/span&gt;&lt;span class="line"&gt;&lt;span class="cl"&gt; &lt;span class="n"&gt;next_token&lt;/span&gt; &lt;span class="o"&gt;=&lt;/span&gt; &lt;span class="n"&gt;sample&lt;/span&gt;&lt;span class="p"&gt;(&lt;/span&gt;&lt;span class="n"&gt;output&lt;/span&gt;&lt;span class="p"&gt;)&lt;/span&gt;
+&lt;/span&gt;&lt;/span&gt;&lt;/code&gt;&lt;/pre&gt;&lt;/td&gt;&lt;/tr&gt;&lt;/table&gt;
+&lt;/div&gt;
+&lt;/div&gt;&lt;h3 id="效果"&gt;效果
 &lt;/h3&gt;&lt;ul&gt;
 &lt;li&gt;时间复杂度：从 O(n²) → O(n)（每个新 token 的计算量几乎恒定）&lt;/li&gt;
 &lt;li&gt;速度提升：长上下文时提升数倍&lt;/li&gt;
 &lt;li&gt;内存消耗：需要额外存储所有历史 KV（通常几百 MB 到几 GB）&lt;/li&gt;
 &lt;/ul&gt;
-&lt;h3 id=&#34;kv-cache-的容量压力&#34;&gt;KV Cache 的容量压力
+&lt;h3 id="kv-cache-的容量压力"&gt;KV Cache 的容量压力
 &lt;/h3&gt;&lt;p&gt;KV Cache 的大小 = 层数 × 注意力头数 × 序列长度 × 每头维度 × 2 (K+V) × 每个值精度&lt;/p&gt;
 &lt;p&gt;以 LLaMA-2-70B 为例：&lt;/p&gt;
 &lt;ul&gt;
@@ -62,64 +65,64 @@
 &lt;li&gt;≈ &lt;strong&gt;160 GB 内存&lt;/strong&gt; 才能存放一个 batch_size=1 的 KV Cache&lt;/li&gt;
 &lt;/ul&gt;
 &lt;p&gt;这就是为什么 &lt;strong&gt;长上下文 + 大 batch_size&lt;/strong&gt; 的 LLM 推理内存需求极高。&lt;/p&gt;
-&lt;h2 id=&#34;三量化推理quantization&#34;&gt;三、量化推理（Quantization）
+&lt;h2 id="三量化推理quantization"&gt;三、量化推理（Quantization）
 &lt;/h2&gt;&lt;p&gt;模型推理时的参数量极大（GPT-3 175B → ~350GB FP16），加载到 GPU 需要巨量显存。&lt;/p&gt;
 &lt;p&gt;量化：把模型权重从高精度（FP16/32）压缩到低精度（INT8/INT4），降低内存占用和计算带宽需求。&lt;/p&gt;
 &lt;table&gt;
-  &lt;thead&gt;
-      &lt;tr&gt;
-          &lt;th&gt;精度&lt;/th&gt;
-          &lt;th&gt;每参数占存&lt;/th&gt;
-          &lt;th&gt;效果影响&lt;/th&gt;
-          &lt;th&gt;适用&lt;/th&gt;
-      &lt;/tr&gt;
-  &lt;/thead&gt;
-  &lt;tbody&gt;
-      &lt;tr&gt;
-          &lt;td&gt;FP32&lt;/td&gt;
-          &lt;td&gt;4 bytes&lt;/td&gt;
-          &lt;td&gt;基准&lt;/td&gt;
-          &lt;td&gt;训练&lt;/td&gt;
-      &lt;/tr&gt;
-      &lt;tr&gt;
-          &lt;td&gt;FP16/BF16&lt;/td&gt;
-          &lt;td&gt;2 bytes&lt;/td&gt;
-          &lt;td&gt;几乎无损&lt;/td&gt;
-          &lt;td&gt;推理&lt;/td&gt;
-      &lt;/tr&gt;
-      &lt;tr&gt;
-          &lt;td&gt;INT8&lt;/td&gt;
-          &lt;td&gt;1 byte&lt;/td&gt;
-          &lt;td&gt;轻微损失&lt;/td&gt;
-          &lt;td&gt;推理&lt;/td&gt;
-      &lt;/tr&gt;
-      &lt;tr&gt;
-          &lt;td&gt;INT4&lt;/td&gt;
-          &lt;td&gt;0.5 bytes&lt;/td&gt;
-          &lt;td&gt;可观测损失&lt;/td&gt;
-          &lt;td&gt;边缘/消费级&lt;/td&gt;
-      &lt;/tr&gt;
-      &lt;tr&gt;
-          &lt;td&gt;GPTQ/AWQ&lt;/td&gt;
-          &lt;td&gt;INT4 级&lt;/td&gt;
-          &lt;td&gt;优化后接近 INT8&lt;/td&gt;
-          &lt;td&gt;本地推理&lt;/td&gt;
-      &lt;/tr&gt;
-  &lt;/tbody&gt;
+&lt;thead&gt;
+&lt;tr&gt;
+&lt;th&gt;精度&lt;/th&gt;
+&lt;th&gt;每参数占存&lt;/th&gt;
+&lt;th&gt;效果影响&lt;/th&gt;
+&lt;th&gt;适用&lt;/th&gt;
+&lt;/tr&gt;
+&lt;/thead&gt;
+&lt;tbody&gt;
+&lt;tr&gt;
+&lt;td&gt;FP32&lt;/td&gt;
+&lt;td&gt;4 bytes&lt;/td&gt;
+&lt;td&gt;基准&lt;/td&gt;
+&lt;td&gt;训练&lt;/td&gt;
+&lt;/tr&gt;
+&lt;tr&gt;
+&lt;td&gt;FP16/BF16&lt;/td&gt;
+&lt;td&gt;2 bytes&lt;/td&gt;
+&lt;td&gt;几乎无损&lt;/td&gt;
+&lt;td&gt;推理&lt;/td&gt;
+&lt;/tr&gt;
+&lt;tr&gt;
+&lt;td&gt;INT8&lt;/td&gt;
+&lt;td&gt;1 byte&lt;/td&gt;
+&lt;td&gt;轻微损失&lt;/td&gt;
+&lt;td&gt;推理&lt;/td&gt;
+&lt;/tr&gt;
+&lt;tr&gt;
+&lt;td&gt;INT4&lt;/td&gt;
+&lt;td&gt;0.5 bytes&lt;/td&gt;
+&lt;td&gt;可观测损失&lt;/td&gt;
+&lt;td&gt;边缘/消费级&lt;/td&gt;
+&lt;/tr&gt;
+&lt;tr&gt;
+&lt;td&gt;GPTQ/AWQ&lt;/td&gt;
+&lt;td&gt;INT4 级&lt;/td&gt;
+&lt;td&gt;优化后接近 INT8&lt;/td&gt;
+&lt;td&gt;本地推理&lt;/td&gt;
+&lt;/tr&gt;
+&lt;/tbody&gt;
 &lt;/table&gt;
-&lt;h3 id=&#34;gptq--awq--gguf&#34;&gt;GPTQ / AWQ / GGUF
+&lt;h3 id="gptq--awq--gguf"&gt;GPTQ / AWQ / GGUF
 &lt;/h3&gt;&lt;p&gt;这些是在 INT4 量级上做的高级量化技术，核心改进是：&lt;/p&gt;
 &lt;ul&gt;
 &lt;li&gt;&lt;strong&gt;GPTQ&lt;/strong&gt;：基于二阶 Hessian 信息做分组量化，误差更小&lt;/li&gt;
 &lt;li&gt;&lt;strong&gt;AWQ&lt;/strong&gt;：观察到&amp;quot;权重中 1% 离群值对效果影响极大&amp;quot;，对离群值保持高精度&lt;/li&gt;
 &lt;li&gt;&lt;strong&gt;GGUF&lt;/strong&gt;：llama.cpp 的格式，CPU 推理友好，消费级 GPU 也能跑大模型&lt;/li&gt;
 &lt;/ul&gt;
-&lt;h2 id=&#34;四pagedattention-与-vllm&#34;&gt;四、PagedAttention 与 vLLM
+&lt;h2 id="四pagedattention-与-vllm"&gt;四、PagedAttention 与 vLLM
 &lt;/h2&gt;&lt;p&gt;除了 KV Cache 和量化，还有一个革命性的推理优化：&lt;strong&gt;PagedAttention&lt;/strong&gt;。&lt;/p&gt;
-&lt;h3 id=&#34;问题kv-cache-的内存碎片&#34;&gt;问题：KV Cache 的内存碎片
+&lt;h3 id="问题kv-cache-的内存碎片"&gt;问题：KV Cache 的内存碎片
 &lt;/h3&gt;&lt;p&gt;系统同时服务多个请求，每个请求的序列长度不同。显存分配像内存分配一样，会产生碎片。&lt;/p&gt;
 &lt;p&gt;传统做法：每个请求预分配最大可能的 KV Cache 空间 → 大量内存浪费。&lt;/p&gt;
-&lt;h3 id=&#34;pagedattention-的思路&#34;&gt;PagedAttention 的思路
+&lt;h3 id="pagedattention-的思路"&gt;PagedAttention 的思路
 &lt;/h3&gt;&lt;p&gt;借鉴操作系统虚拟内存的&lt;strong&gt;分页机制&lt;/strong&gt;：&lt;/p&gt;
 &lt;ul&gt;
 &lt;li&gt;把 KV Cache 切成固定大小的 &amp;ldquo;block&amp;rdquo;（比如 16 token 一组 KV）&lt;/li&gt;
@@ -133,15 +136,28 @@
 &lt;li&gt;吞吐量提升 3-5 倍（论文数据）&lt;/li&gt;
 &lt;/ul&gt;
 &lt;p&gt;&lt;strong&gt;vLLM&lt;/strong&gt;：基于 PagedAttention 的高性能推理引擎，是自建 LLM 服务的首选开源框架。&lt;/p&gt;
-&lt;h2 id=&#34;五推理优化的决策树&#34;&gt;五、推理优化的决策树
-&lt;/h2&gt;&lt;pre tabindex=&#34;0&#34;&gt;&lt;code&gt;你要优化推理？先看你的瓶颈：
-
-内存不够？ → 量化（FP16→INT8或INT4）
-速度不够？ → KV Cache + PagedAttention (vLLM)
-并发不够？ → 批处理优化（continuous batching）
-长上下文慢？ → KV Cache + 稀疏注意力 / 滑动窗口注意力
-网络延迟？ → 流式输出（SSE）+ 输出压缩
-&lt;/code&gt;&lt;/pre&gt;&lt;h2 id=&#34;六本章小结&#34;&gt;六、本章小结
+&lt;h2 id="五推理优化的决策树"&gt;五、推理优化的决策树
+&lt;/h2&gt;&lt;div class="highlight"&gt;&lt;div class="chroma"&gt;
+&lt;table class="lntable"&gt;&lt;tr&gt;&lt;td class="lntd"&gt;
+&lt;pre tabindex="0" class="chroma"&gt;&lt;code&gt;&lt;span class="lnt"&gt;1
+&lt;/span&gt;&lt;span class="lnt"&gt;2
+&lt;/span&gt;&lt;span class="lnt"&gt;3
+&lt;/span&gt;&lt;span class="lnt"&gt;4
+&lt;/span&gt;&lt;span class="lnt"&gt;5
+&lt;/span&gt;&lt;span class="lnt"&gt;6
+&lt;/span&gt;&lt;span class="lnt"&gt;7
+&lt;/span&gt;&lt;/code&gt;&lt;/pre&gt;&lt;/td&gt;
+&lt;td class="lntd"&gt;
+&lt;pre tabindex="0" class="chroma"&gt;&lt;code class="language-fallback" data-lang="fallback"&gt;&lt;span class="line"&gt;&lt;span class="cl"&gt;你要优化推理？先看你的瓶颈：
+&lt;/span&gt;&lt;/span&gt;&lt;span class="line"&gt;&lt;span class="cl"&gt;
+&lt;/span&gt;&lt;/span&gt;&lt;span class="line"&gt;&lt;span class="cl"&gt;内存不够？ → 量化（FP16→INT8或INT4）
+&lt;/span&gt;&lt;/span&gt;&lt;span class="line"&gt;&lt;span class="cl"&gt;速度不够？ → KV Cache + PagedAttention (vLLM)
+&lt;/span&gt;&lt;/span&gt;&lt;span class="line"&gt;&lt;span class="cl"&gt;并发不够？ → 批处理优化（continuous batching）
+&lt;/span&gt;&lt;/span&gt;&lt;span class="line"&gt;&lt;span class="cl"&gt;长上下文慢？ → KV Cache + 稀疏注意力 / 滑动窗口注意力
+&lt;/span&gt;&lt;/span&gt;&lt;span class="line"&gt;&lt;span class="cl"&gt;网络延迟？ → 流式输出（SSE）+ 输出压缩
+&lt;/span&gt;&lt;/span&gt;&lt;/code&gt;&lt;/pre&gt;&lt;/td&gt;&lt;/tr&gt;&lt;/table&gt;
+&lt;/div&gt;
+&lt;/div&gt;&lt;h2 id="六本章小结"&gt;六、本章小结
 &lt;/h2&gt;&lt;ul&gt;
 &lt;li&gt;KV Cache 是 LLM 推理加速的第一性原理：避免重复计算历史 token&lt;/li&gt;
 &lt;li&gt;KV Cache 的内存消耗极大，是大 batch / 长上下文推理的主要瓶颈&lt;/li&gt;
@@ -149,13 +165,8 @@
 &lt;li&gt;PagedAttention 用分页管理 KV Cache，消除碎片、提升吞吐量&lt;/li&gt;
 &lt;li&gt;vLLM 结合了 KV Cache + PagedAttention + 高效调度，是当前主流的高性能推理方案&lt;/li&gt;
 &lt;/ul&gt;
-&lt;h2 id=&#34;思考题&#34;&gt;思考题
+&lt;h2 id="思考题"&gt;思考题
 &lt;/h2&gt;&lt;ol&gt;
 &lt;li&gt;KV Cache 的内存占用和 batch_size 成正比。如果要在单卡 24GB 显存上实现比较大的并发，你会从哪些角度做取舍设计？&lt;/li&gt;
 &lt;li&gt;量化到 INT4 后精度损失最大的是哪些类型的权重？为什么 Transformer 的注意力层权重比较敏感？&lt;/li&gt;
-&lt;/ol&gt;
-</description>
-        </item>
-        
-    </channel>
-</rss>
+&lt;/ol&gt;</description></item></channel></rss>

@@ -1,1288 +1,158 @@
-<!DOCTYPE html>
-<html lang="zh-cn" dir="ltr">
-    <head><meta charset='utf-8'>
-<meta name='viewport' content='width=device-width, initial-scale=1'><meta name='description' content="大模型基础与工程化实践\r本文是&quot;AI 知识体系&quot;系列的开篇，系统梳理大语言模型从底层原理到工程落地的完整知识链路。定位是：让初学者理解 LLM 的本质，让有经验者加深对底层原理的理解。\n核心问题列表\r在深入正文之前，先列出本文要回答的 8 个核心问题。如果你能对每一个都给出有深度的回答，说明你对大模型工程化已经有了扎实的理解：\n为什么&quot;预测下一个 token&quot;这个看似简单的训练目标，能造就一个能写代码、解数学题、创作诗歌的通用智能模型？ 它和传统 NLP&quot;一任务一模型&quot;的范式区别到底在哪？\nSelf-Attention 为什么要用 Q/K/V 三个矩阵，而不是直接用输入本身？ 公式里那个 /√d_k 到底在防止什么？为什么 Decoder-only 架构最终胜出？\nMHA、MQA、GQA、Flash Attention 这四者是什么关系？ 它们是替代还是叠加？为什么主流大模型都是&quot;GQA + Flash Attention&quot;一起用？\n为什么主流大模型几乎全部选择了 RoPE 而不是 sin/cos 或 ALiBi？ 绝对位置编码和相对位置编码的本质差异是什么？\n大模型训练为什么要分&quot;预训练 → SFT → 对齐&quot;三个阶段，缺一不可？ Chinchilla 的 1:20 比例为什么被 Llama 3 的 1:1875 打破了？\nLoRA 除了&quot;省参数&quot;，还有哪些被低估的优点？ 为什么它能成为 PEFT 的事实标准，把 Adapter 等早期方案完全淘汰？\nRLHF、DPO、GRPO、拒绝采样、RLAIF 这五种 Post-Training 方法是什么关系？ 为什么 DeepSeek R1 让 GRPO 火遍整个圈子？\nKV Cache 和 Prompt Caching 是同一个东西吗？ 量化时 GPTQ、AWQ、NF4 各自的核心创新是什么？MoE 为什么能&quot;学得多 + 跑得快&quot;？\n">
-<title>大模型基础与工程化实践</title>
-
-<link rel='canonical' href='https://blog.irudder.me/ai/ai-systematization/01-Foundation-of-Large-Models-and-Engineering-Practice.html'>
-
-<link rel="stylesheet" href="/scss/style.min.b9e9128fec450ebccecc4ec9900157f32b85d0609bcd5ee3293968bcaa1235f2.css"><meta property='og:title' content="大模型基础与工程化实践">
-<meta property='og:description' content="大模型基础与工程化实践\r本文是&quot;AI 知识体系&quot;系列的开篇，系统梳理大语言模型从底层原理到工程落地的完整知识链路。定位是：让初学者理解 LLM 的本质，让有经验者加深对底层原理的理解。\n核心问题列表\r在深入正文之前，先列出本文要回答的 8 个核心问题。如果你能对每一个都给出有深度的回答，说明你对大模型工程化已经有了扎实的理解：\n为什么&quot;预测下一个 token&quot;这个看似简单的训练目标，能造就一个能写代码、解数学题、创作诗歌的通用智能模型？ 它和传统 NLP&quot;一任务一模型&quot;的范式区别到底在哪？\nSelf-Attention 为什么要用 Q/K/V 三个矩阵，而不是直接用输入本身？ 公式里那个 /√d_k 到底在防止什么？为什么 Decoder-only 架构最终胜出？\nMHA、MQA、GQA、Flash Attention 这四者是什么关系？ 它们是替代还是叠加？为什么主流大模型都是&quot;GQA + Flash Attention&quot;一起用？\n为什么主流大模型几乎全部选择了 RoPE 而不是 sin/cos 或 ALiBi？ 绝对位置编码和相对位置编码的本质差异是什么？\n大模型训练为什么要分&quot;预训练 → SFT → 对齐&quot;三个阶段，缺一不可？ Chinchilla 的 1:20 比例为什么被 Llama 3 的 1:1875 打破了？\nLoRA 除了&quot;省参数&quot;，还有哪些被低估的优点？ 为什么它能成为 PEFT 的事实标准，把 Adapter 等早期方案完全淘汰？\nRLHF、DPO、GRPO、拒绝采样、RLAIF 这五种 Post-Training 方法是什么关系？ 为什么 DeepSeek R1 让 GRPO 火遍整个圈子？\nKV Cache 和 Prompt Caching 是同一个东西吗？ 量化时 GPTQ、AWQ、NF4 各自的核心创新是什么？MoE 为什么能&quot;学得多 + 跑得快&quot;？\n">
-<meta property='og:url' content='https://blog.irudder.me/ai/ai-systematization/01-Foundation-of-Large-Models-and-Engineering-Practice.html'>
-<meta property='og:site_name' content='SelfTechHub'>
-<meta property='og:type' content='article'><meta property='article:section' content='Ai' /><meta property='article:tag' content='LLM' /><meta property='article:tag' content='Foundation' /><meta property='article:tag' content='Engineering' /><meta property='article:tag' content='Transformer' /><meta property='article:tag' content='Inference' /><meta property='article:published_time' content='2026-07-24T00:00:00&#43;00:00'/><meta property='article:modified_time' content='2026-07-24T00:00:00&#43;00:00'/>
-<meta name="twitter:title" content="大模型基础与工程化实践">
-<meta name="twitter:description" content="大模型基础与工程化实践\r本文是&quot;AI 知识体系&quot;系列的开篇，系统梳理大语言模型从底层原理到工程落地的完整知识链路。定位是：让初学者理解 LLM 的本质，让有经验者加深对底层原理的理解。\n核心问题列表\r在深入正文之前，先列出本文要回答的 8 个核心问题。如果你能对每一个都给出有深度的回答，说明你对大模型工程化已经有了扎实的理解：\n为什么&quot;预测下一个 token&quot;这个看似简单的训练目标，能造就一个能写代码、解数学题、创作诗歌的通用智能模型？ 它和传统 NLP&quot;一任务一模型&quot;的范式区别到底在哪？\nSelf-Attention 为什么要用 Q/K/V 三个矩阵，而不是直接用输入本身？ 公式里那个 /√d_k 到底在防止什么？为什么 Decoder-only 架构最终胜出？\nMHA、MQA、GQA、Flash Attention 这四者是什么关系？ 它们是替代还是叠加？为什么主流大模型都是&quot;GQA + Flash Attention&quot;一起用？\n为什么主流大模型几乎全部选择了 RoPE 而不是 sin/cos 或 ALiBi？ 绝对位置编码和相对位置编码的本质差异是什么？\n大模型训练为什么要分&quot;预训练 → SFT → 对齐&quot;三个阶段，缺一不可？ Chinchilla 的 1:20 比例为什么被 Llama 3 的 1:1875 打破了？\nLoRA 除了&quot;省参数&quot;，还有哪些被低估的优点？ 为什么它能成为 PEFT 的事实标准，把 Adapter 等早期方案完全淘汰？\nRLHF、DPO、GRPO、拒绝采样、RLAIF 这五种 Post-Training 方法是什么关系？ 为什么 DeepSeek R1 让 GRPO 火遍整个圈子？\nKV Cache 和 Prompt Caching 是同一个东西吗？ 量化时 GPTQ、AWQ、NF4 各自的核心创新是什么？MoE 为什么能&quot;学得多 + 跑得快&quot;？\n">
-    </head>
-    <body class="
-    article-page
-    ">
-    <script>
-        (function() {
-            const colorSchemeKey = 'StackColorScheme';
-            if(!localStorage.getItem(colorSchemeKey)){
-                localStorage.setItem(colorSchemeKey, "auto");
-            }
-        })();
-    </script><script>
-    (function() {
-        const colorSchemeKey = 'StackColorScheme';
-        const colorSchemeItem = localStorage.getItem(colorSchemeKey);
-        const supportDarkMode = window.matchMedia('(prefers-color-scheme: dark)').matches === true;
-
-        if (colorSchemeItem == 'dark' || colorSchemeItem === 'auto' && supportDarkMode) {
-            
-
-            document.documentElement.dataset.scheme = 'dark';
-        } else {
-            document.documentElement.dataset.scheme = 'light';
-        }
-    })();
-</script>
-<div class="container main-container flex on-phone--column compact"><aside class="sidebar left-sidebar sticky ">
-    <button class="hamburger hamburger--spin" type="button" id="toggle-menu" aria-label="切换菜单">
-        <span class="hamburger-box">
-            <span class="hamburger-inner"></span>
-        </span>
-    </button>
-
-    <header>
-        
-            
-            <figure class="site-avatar">
-                <a href="/">
-                
-                    
-                    
-                    
-                        
-                        <img src="/img/avatar_hu_8588ce14af1147e2.png" width="300"
-                            height="286" class="site-logo" loading="lazy" alt="Avatar">
-                    
-                
-                </a>
-                
-            </figure>
-            
-        
-        
-        <div class="site-meta">
-            <h1 class="site-name"><a href="/">SelfTechHub</a></h1>
-            <h2 class="site-description"></h2>
-        </div>
-    </header><ol class="menu" id="main-menu">
-        
-        
-        <li class="menu-bottom-section">
-            <ol class="menu">
-
-                
-                    <li id="dark-mode-toggle">
-                        <svg xmlns="http://www.w3.org/2000/svg" class="icon icon-tabler icon-tabler-toggle-left" width="24" height="24" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor" fill="none" stroke-linecap="round" stroke-linejoin="round">
-  <path stroke="none" d="M0 0h24v24H0z"/>
-  <circle cx="8" cy="12" r="2" />
-  <rect x="2" y="6" width="20" height="12" rx="6" />
-</svg>
-
-
-
-                        <svg xmlns="http://www.w3.org/2000/svg" class="icon icon-tabler icon-tabler-toggle-right" width="24" height="24" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor" fill="none" stroke-linecap="round" stroke-linejoin="round">
-  <path stroke="none" d="M0 0h24v24H0z"/>
-  <circle cx="16" cy="12" r="2" />
-  <rect x="2" y="6" width="20" height="12" rx="6" />
-</svg>
-
-
-
-                        <span>暗色模式</span>
-                    </li>
-                
-            </ol>
-        </li>
-    </ol>
-</aside>
-
-    
-
-            <main class="main full-width">
-    <article class="main-article">
-    <header class="article-header">
-
-    <div class="article-details">
-    
-    <header class="article-category">
-        
-            <a href="/categories/ai.html" >
-                AI探索
-            </a>
-        
-    </header>
-    
-
-    <div class="article-title-wrapper">
-        <h2 class="article-title">
-            <a href="/ai/ai-systematization/01-Foundation-of-Large-Models-and-Engineering-Practice.html">大模型基础与工程化实践</a>
-        </h2>
-    
-        
-    </div>
-
-    
-    
-    
-    
-    <footer class="article-time">
-        
-            <div>
-                <svg xmlns="http://www.w3.org/2000/svg" class="icon icon-tabler icon-tabler-calendar-time" width="56" height="56" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor" fill="none" stroke-linecap="round" stroke-linejoin="round">
-  <path stroke="none" d="M0 0h24v24H0z"/>
-  <path d="M11.795 21h-6.795a2 2 0 0 1 -2 -2v-12a2 2 0 0 1 2 -2h12a2 2 0 0 1 2 2v4" />
-  <circle cx="18" cy="18" r="4" />
-  <path d="M15 3v4" />
-  <path d="M7 3v4" />
-  <path d="M3 11h16" />
-  <path d="M18 16.496v1.504l1 1" />
-</svg>
-                <time class="article-time--published" datetime='2026-07-24T00:00:00Z'>Jul 24, 2026</time>
-            </div>
-        
-
-        
-            <div>
-                <svg xmlns="http://www.w3.org/2000/svg" class="icon icon-tabler icon-tabler-clock" width="24" height="24" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor" fill="none" stroke-linecap="round" stroke-linejoin="round">
-  <path stroke="none" d="M0 0h24v24H0z"/>
-  <circle cx="12" cy="12" r="9" />
-  <polyline points="12 7 12 12 15 15" />
-</svg>
-
-
-
-                <time class="article-time--reading">
-                    阅读时长: 15 分钟
-                </time>
-            </div>
-        
-    </footer>
-    
-
-    
-</div>
-
-</header>
-
-    <section class="article-content">
-    
-    
-    <h1 id="大模型基础与工程化实践">大模型基础与工程化实践
-</h1><blockquote>
-<p>本文是&quot;AI 知识体系&quot;系列的开篇，系统梳理大语言模型从底层原理到工程落地的完整知识链路。定位是：让初学者理解 LLM 的本质，让有经验者加深对底层原理的理解。</p>
-</blockquote>
-<hr>
-<h2 id="核心问题列表">核心问题列表
-</h2><p>在深入正文之前，先列出本文要回答的 8 个核心问题。如果你能对每一个都给出有深度的回答，说明你对大模型工程化已经有了扎实的理解：</p>
-<ol>
-<li>
-<p><strong>为什么&quot;预测下一个 token&quot;这个看似简单的训练目标，能造就一个能写代码、解数学题、创作诗歌的通用智能模型？</strong> 它和传统 NLP&quot;一任务一模型&quot;的范式区别到底在哪？</p>
-</li>
-<li>
-<p><strong>Self-Attention 为什么要用 Q/K/V 三个矩阵，而不是直接用输入本身？</strong> 公式里那个 <code>/√d_k</code> 到底在防止什么？为什么 Decoder-only 架构最终胜出？</p>
-</li>
-<li>
-<p><strong>MHA、MQA、GQA、Flash Attention 这四者是什么关系？</strong> 它们是替代还是叠加？为什么主流大模型都是&quot;GQA + Flash Attention&quot;一起用？</p>
-</li>
-<li>
-<p><strong>为什么主流大模型几乎全部选择了 RoPE 而不是 sin/cos 或 ALiBi？</strong> 绝对位置编码和相对位置编码的本质差异是什么？</p>
-</li>
-<li>
-<p><strong>大模型训练为什么要分&quot;预训练 → SFT → 对齐&quot;三个阶段，缺一不可？</strong> Chinchilla 的 1:20 比例为什么被 Llama 3 的 1:1875 打破了？</p>
-</li>
-<li>
-<p><strong>LoRA 除了&quot;省参数&quot;，还有哪些被低估的优点？</strong> 为什么它能成为 PEFT 的事实标准，把 Adapter 等早期方案完全淘汰？</p>
-</li>
-<li>
-<p><strong>RLHF、DPO、GRPO、拒绝采样、RLAIF 这五种 Post-Training 方法是什么关系？</strong> 为什么 DeepSeek R1 让 GRPO 火遍整个圈子？</p>
-</li>
-<li>
-<p><strong>KV Cache 和 Prompt Caching 是同一个东西吗？</strong> 量化时 GPTQ、AWQ、NF4 各自的核心创新是什么？MoE 为什么能&quot;学得多 + 跑得快&quot;？</p>
-</li>
-</ol>
-<hr>
-<h2 id="引言为什么理解大模型底层原理对-ai-工程至关重要">引言：为什么理解大模型底层原理对 AI 工程至关重要
-</h2><p>很多人第一次接触大模型，是从&quot;调用 OpenAI API&quot;开始的。在他们的认知里，大模型是一个黑盒——输入一段文字，输出一段文字，中间发生了什么不重要，只要效果够好就行。</p>
-<p>这种&quot;工具使用者&quot;的视角在原型阶段没问题，但一旦进入真正的工程化阶段，就会处处碰壁：</p>
-<ul>
-<li><strong>为什么同样的 Prompt，换一个模型效果就差很多？</strong> 因为你不理解不同模型的架构差异（Dense vs MoE）、训练阶段差异（有没有做过 RLHF）、上下文处理方式差异（用什么位置编码、支持多长上下文）。</li>
-<li><strong>为什么长上下文场景下显存爆了？</strong> 因为你不理解 KV Cache 的显存占用规律，不知道 GQA 和 Flash Attention 是怎么省显存的，也不会评估该用什么量化方案。</li>
-<li><strong>为什么微调后模型&quot;变笨了&quot;？</strong> 因为你不理解灾难性遗忘的机制，不知道 LoRA 为什么能缓解它，更不知道微调的目标（SFT/DPO）和方法（全量/LoRA/QLoRA）是两个正交维度。</li>
-<li><strong>为什么模型一本正经地胡说八道，Temperature 调到 0 也止不住？</strong> 因为你不理解幻觉的根因——LLM 本质是&quot;按概率续写&quot;不是&quot;查询数据库&quot;，温度只能减少随机偏差，不能修正记忆错误。</li>
-<li><strong>为什么排行榜上第一的模型，用到自己业务里反而不行？</strong> 因为你不理解数据污染问题，也没有建立自己的业务测试集，更没有从&quot;合规、成本、延迟、能力&quot;四个维度做选型。</li>
-</ul>
-<p>这些问题的共性是：<strong>它们都不是&quot;调 API&quot;能解决的，必须回到底层原理去理解。</strong></p>
-<p>大模型工程和传统软件工程有一个根本区别：传统软件的行为是确定性的、可预测的，你写什么样的代码就得到什么样的结果；而大模型是概率性的、涌现的，它的行为由训练数据、模型架构、训练目标、推理参数共同决定，任何一个环节理解不到位，都会导致线上事故。</p>
-<p>这就是为什么理解底层原理对 AI 工程至关重要。它不是&quot;学术修养&quot;，而是&quot;工程能力&quot;——决定了你能不能把大模型从&quot;Demo 能跑&quot;推进到&quot;生产可用&quot;。</p>
-<p>本文将带你从 LLM 的本质出发，逐层深入到 Transformer 架构、注意力优化、位置编码、分词器、训练全景、微调与对齐、推理优化、Prompt 工程、部署与评测，构建一张完整的知识地图。</p>
-<hr>
-<h2 id="第一章大语言模型的本质">第一章：大语言模型的本质
-</h2><h3 id="11-llm-与传统-nlp-模型的根本区别">1.1 LLM 与传统 NLP 模型的根本区别
-</h3><p>要理解大语言模型&quot;大&quot;在哪里，得先看看在它之前，业界是怎么处理自然语言任务的。</p>
-<p>传统 NLP 的工作方式是&quot;流水线&quot;式的，一个完整任务要拆成好几个独立步骤，每一步用一个专门的模型来完成。以智能客服为例：第一步分词，把&quot;我想退货&quot;拆成&quot;我 / 想 / 退货&quot;；第二步词性标注，标出&quot;我&quot;是代词、&ldquo;退货&quot;是动词；第三步命名实体识别，找出有没有商品名、订单号；第四步意图分类，判断这是&quot;咨询&quot;还是&quot;投诉&rdquo;；第五步去知识库匹配预设答案。</p>
-<p>这种 pipeline 又长又脆。光是&quot;分词&quot;这一步就有一堆坑——中文不像英文有空格天然分隔，&ldquo;南京市长江大桥&quot;到底是&quot;南京市/长江大桥&quot;还是&quot;南京/市长/江大桥&rdquo;？这种歧义靠规则解决不了，必须有一个专门的分词模型来判断。而分词模型本身又依赖大量人工标注语料，遇到训练时没见过的新词（比如&quot;奥利给&quot;&ldquo;绝绝子&rdquo;），它就懵了，这就是著名的 <strong>OOV（Out-of-Vocabulary，未登录词）</strong> 问题。</p>
-<p>每一步都有独立的痛点，每一步都得有自己的模型、自己的训练数据。前面一步错了后面全错，错误会<strong>累积传导</strong>。更糟糕的是迁移成本——换个领域，所有模型基本都得重新训练。</p>
-<p><strong>任务越细分，模型越多；模型越多，标注成本越高；标注越贵，迁移越难。</strong> 整个 NLP 行业都被困在这个死循环里。</p>
-<p>2018 年 BERT 的出现打破了第一次僵局。BERT 的核心创新是<strong>预训练 + 微调</strong>两阶段范式：在海量无标注文本上做 MLM（掩码语言模型），学到通用语言表示，然后在下游任务上接一个小&quot;任务头&quot;微调。这一招把 NLP 各项任务的 SOTA 刷了个遍。</p>
-<p>但 BERT 走到一半就停了。它解决了&quot;特征通用&quot;但没解决&quot;任务统一&quot;——不同任务还是要不同的微调副本、不同的任务头。而且 BERT 是判别式的，不擅长生成。</p>
-<p>LLM 最根本的转变，是把所有 NLP 任务统一成了一件事：<strong>预测下一个 token</strong>。</p>
-<div class="table-wrapper"><table>
-  <thead>
-      <tr>
-          <th>维度</th>
-          <th>传统 NLP</th>
-          <th>LLM</th>
-      </tr>
-  </thead>
-  <tbody>
-      <tr>
-          <td>任务方式</td>
-          <td>一任务一模型，pipeline 串联</td>
-          <td>一个模型干所有事，Prompt 统一接口</td>
-      </tr>
-      <tr>
-          <td>输出范式</td>
-          <td>判别式（输出标签/概率）</td>
-          <td>生成式（输出文本）</td>
-      </tr>
-      <tr>
-          <td>能力来源</td>
-          <td>显式监督训练（喂什么学什么）</td>
-          <td>大规模预训练 + 涌现（学到没教过的能力）</td>
-      </tr>
-  </tbody>
-</table></div>
-<p>这张表的三行，分别从&quot;工程层面&quot;&ldquo;范式层面&quot;&ldquo;能力层面&quot;刻画了同一个变化的不同侧面。工程层面，团队结构从&quot;N 个小模型组各管一摊&quot;变成&quot;一个大模型组统一服务&rdquo;；范式层面，从&quot;分类器思维&quot;切换到&quot;生成器思维&rdquo;；能力层面，模型可以做&quot;人没明确教过&quot;的任务——这在整个 NLP 历史上是前所未有的事。</p>
-<h3 id="12-预测下一个-token为什么威力如此之大">1.2 &ldquo;预测下一个 token&quot;为什么威力如此之大
-</h3><p>这个训练目标叫 <strong>CLM（Causal Language Modeling，因果语言模型）</strong>。训练数据格式特别简单：给一段文本，模型从左到右一个字一个字地往后猜，每一步都预测&quot;下一个 token 是什么&rdquo;。比如训练数据是&quot;我喜欢吃苹果&quot;，模型要学会：看到&quot;我&quot;预测&quot;喜&quot;，看到&quot;我喜&quot;预测&quot;欢&quot;，看到&quot;我喜欢&quot;预测&quot;吃&quot;，依此类推。</p>
-<p>听起来太简单了，但威力极大。看几个例子：</p>
-<ul>
-<li><strong>翻译</strong>：Prompt 写&quot;把下面这句翻译成英文：我喜欢你 -&gt;&quot;，LLM 接着预测下一个 token，就会输出&quot;I like you&quot;</li>
-<li><strong>分类</strong>：Prompt 写&quot;下面这条评论是正面还是负面？&lsquo;这家店太黑了&rsquo; -&gt; 答：&quot;，LLM 预测下一个 token 就会输出&quot;负面&quot;</li>
-<li><strong>总结</strong>：Prompt 写&quot;请用一句话总结：xxxxxx -&gt; 总结：&quot;，LLM 接着写下去就是总结</li>
-<li><strong>写代码</strong>：Prompt 写&quot;写一个 Python 函数，返回斐波那契数列前 N 项 -&gt; def&quot;，LLM 接着续写就是完整代码</li>
-</ul>
-<p>所有任务都被&quot;Prompt + 续写&quot;这个统一接口收编了。你不需要为每个任务训不同的模型，只需要在 Prompt 里换个说法。</p>
-<p>那为什么这个简单目标能学到这么多东西？关键是<strong>规模 + 数据</strong>两个杠杆。</p>
-<p>数据的杠杆是：CLM 不需要任何人工标注，互联网上所有文本天然都是合格的训练数据。GPT-3 用了 3000 亿 token，Llama 3 用了 15 万亿 token，这种规模在 BERT 时代是不可想象的。</p>
-<p>模型的杠杆是：参数量从 BERT 的 0.3B 一路堆到 GPT-3 的 175B，再到后来更大的模型。模型要在不同上下文里准确预测，就必须学到语法、事实和推理模式。要预测&quot;北京是中国的____&ldquo;的下一个词，模型必须知道&quot;北京是首都&quot;这个事实；要预测&quot;如果 x=2，那么 x²=____&quot;，模型必须会算数。所有这些能力，都被&quot;预测下一个 token&quot;这个目标<strong>逼着学会了</strong>。</p>
-<p>还有一个让人惊讶的副产物，叫 <strong>In-Context Learning（上下文学习）</strong>。在 Prompt 里给模型几个例子，模型就能学会新的任务模式，不需要更新参数：</p>
-<pre tabindex="0"><code>苹果 -&gt; apple
-香蕉 -&gt; banana
-草莓 -&gt; strawberry
-橘子 -&gt;
-</code></pre><p>模型看到这个 Prompt，不需要任何额外训练，就能输出&quot;orange&rdquo;。它从几个例子里推出了&quot;中译英水果名&quot;这个模式。这种能力是 GPT-3 之后才被业界发现的，也是 Prompt Engineering 这门工程学科诞生的基础。</p>
-<h3 id="13-自回归生成的数学直觉">1.3 自回归生成的数学直觉
-</h3><p>LLM 的生成方式叫<strong>自回归（Autoregressive）</strong>，意思是&quot;下一步的预测依赖上一步的输出&quot;。数学上可以写成：</p>
-<p>$$P(x_1, x_2, &hellip;, x_n) = \prod_{i=1}^{n} P(x_i \mid x_1, x_2, &hellip;, x_{i-1})$$</p>
-<p>即整个序列的概率等于每一步条件概率的乘积。每生成一个新 token，模型都会输出一个 vocabulary 大小（典型 5 万到 15 万）的概率分布，告诉你&quot;下一个 token 是各个词的可能性&quot;，然后按某种解码策略选一个 token，拼到上下文后面，循环直到结束。</p>
-<p>这里有一个朴素实现隐藏的巨大低效：如果每次都从头算所有 token 的 attention，N 个 token 的总计算量是 O(N³)。KV Cache 的出现把这个问题解决了（详见第九章），但理解自回归的本质——<strong>每一步只依赖前一步的输出，逐步展开</strong>——是理解后续 KV Cache、推理优化、解码策略的基础。</p>
-<h3 id="14-规模与数据两个杠杆">1.4 规模与数据两个杠杆
-</h3><p>LLM 还有一个让传统 NLP 模型望尘莫及的特点，叫<strong>涌现能力（Emergent Abilities）</strong>。</p>
-<p>涌现的常见定义是：&quot;<strong>某项能力在小模型上几乎看不到，规模到了某个临界点之后突然表现出来</strong>&quot;。典型例子：</p>
-<ul>
-<li><strong>多步算术</strong>：参数量 8B 以下准确率几乎为 0；62B 约 5%；540B（PaLM）突然跳到 60%</li>
-<li><strong>In-Context Learning</strong>：1.5B 的 GPT-2 完全看不到，175B 的 GPT-3 突然就有了，临界点在 100B 左右</li>
-<li><strong>跨语言迁移</strong>：GPT-3 训练数据 92% 是英文，但训完能直接处理中文、阿拉伯语甚至冰岛语</li>
-</ul>
-<p>为什么会涌现？业界给出的工程经验叫 <strong>Scaling Law（缩放定律）</strong>。简单说就是模型规模、训练数据量、训练算力这三者之间存在一种可预测的关系：你把这三个量按一定比例同时放大，模型的损失值会沿着一条幂律曲线下降。这个经验律 OpenAI 在 2020 年提出，DeepMind 后来在 Chinchilla 论文里给出了更精细的比例（详见第六章）。</p>
-<p>不过要注意 2023 年斯坦福的 <em>Are Emergent Abilities of Large Language Models a Mirage?</em> 论文的挑战：很多&quot;涌现&quot;可能只是&quot;评估指标的不连续性&quot;造成的测量假象，换成连续指标曲线就平滑了。学术争议还在继续，但工程层面，模型规模带来的能力跃迁是客观存在的。</p>
-<blockquote>
-<p><strong>实践要点：</strong> 理解 LLM 的本质是&quot;用海量语料预训练、参数到百亿千亿规模、自回归生成文本的统一模型&quot;。三个本质区别（任务统一、生成式、涌现）分别从工程、范式、能力三个层面刻画了它与传统 NLP 的不同。做 LLM 项目时，工作方式从&quot;先拆任务再选模型&quot;变成了&quot;先想 Prompt 怎么写&quot;，这是范式转变的直接体现。</p>
-</blockquote>
-<hr>
-<h2 id="第二章transformer-架构深度剖析">第二章：Transformer 架构深度剖析
-</h2><h3 id="21-self-attention-的数学原理">2.1 Self-Attention 的数学原理
-</h3><p>2017 年 Google 在论文《Attention is All You Need》里提出了 Transformer，用一个全新的架构一举解决了 RNN 的两个老问题：顺序计算无法并行、长距离梯度消失。</p>
-<p>Self-Attention（自注意力）的核心思路是：让序列中的每个 token 都能<strong>直接关注</strong>序列中任意其他位置的 token，计算出&quot;我和其他位置的相关程度&quot;，然后根据相关程度加权聚合其他位置的信息。</p>
-<p>这里有三个关键向量：<strong>Q（Query，查询）</strong> 代表&quot;我想找什么&quot;，<strong>K（Key，键）</strong> 代表&quot;我有什么标签&quot;，<strong>V（Value，值）</strong> 代表&quot;我的实际内容&quot;。</p>
-<p>可以用图书馆检索来类比：你有一个搜索关键词（Q），图书馆里每本书都有标签（K）和内容（V）。注意力机制就是用你的关键词（Q）去匹配每本书的标签（K），计算出相似度分数，然后按照分数的权重把书的内容（V）加权求和，得到你的搜索结果。</p>
-<p><strong>Q/K/V 是怎么从输入变换得到的？</strong> 这是理解 Self-Attention 的关键一步。Q/K/V 不是模型&quot;凭空生成&quot;的，而是把输入 embedding 通过<strong>三个独立的线性投影矩阵</strong> W_Q、W_K、W_V 算出来的：</p>
-<div class="highlight"><pre tabindex="0" style="color:#f8f8f2;background-color:#272822;-moz-tab-size:4;-o-tab-size:4;tab-size:4;"><code class="language-python" data-lang="python"><span style="display:flex;"><span><span style="color:#75715e"># 假设输入 X 是 (序列长度 N, embedding 维度 d_model)</span>
-</span></span><span style="display:flex;"><span><span style="color:#75715e"># W_Q, W_K, W_V 都是可训练参数矩阵，形状 (d_model, d_k)</span>
-</span></span><span style="display:flex;"><span>
-</span></span><span style="display:flex;"><span>Q <span style="color:#f92672">=</span> X <span style="color:#f92672">@</span> W_Q     <span style="color:#75715e"># 形状 (N, d_k)，每个 token 都有自己的 Query 向量</span>
-</span></span><span style="display:flex;"><span>K <span style="color:#f92672">=</span> X <span style="color:#f92672">@</span> W_K     <span style="color:#75715e"># 形状 (N, d_k)，每个 token 都有自己的 Key 向量</span>
-</span></span><span style="display:flex;"><span>V <span style="color:#f92672">=</span> X <span style="color:#f92672">@</span> W_V     <span style="color:#75715e"># 形状 (N, d_v)，每个 token 都有自己的 Value 向量</span>
-</span></span></code></pre></div><p>几个关键点要抓住：</p>
-<p>最关键的是 Q/K/V 都是<strong>从同一个输入 X 算出来</strong>的——输入既要扮演&quot;提问者&quot;（Q），也要扮演&quot;被查者&quot;（K + V），这就是&quot;<strong>自</strong>注意力&quot;里那个&quot;自&quot;字的含义。</p>
-<p>W_Q、W_K、W_V 是三个<strong>独立学习</strong>的矩阵。如果让 Q/K/V 都直接等于 X 不做变换，模型就没法学到&quot;该从什么角度提问&quot;&ldquo;该用什么标签匹配&quot;这种细致差异。三个独立投影让模型有 3 倍的自由度去学习角度上的差异。</p>
-<p>投影维度 d_k 通常等于 d_model / H（H 是头数），目的是让多头总参数量和单头版本基本一致。</p>
-<p>代入注意力公式：</p>
-<p>$$\text{Attention}(Q, K, V) = \text{softmax}\left(\frac{Q \cdot K^T}{\sqrt{d_k}}\right) \cdot V$$</p>
-<p><strong>为什么要除以 √d_k？</strong> 这个常被叫做 <strong>Scaled Dot-Product Attention（缩放点积注意力）</strong>。当 d_k 很大时（比如 128），Q 和 K 都是 128 维向量，点积是 128 个数相加。假设每维都是均值 0、方差 1 的随机数，点积方差就是 d_k=128，标准差约 11.3。这意味着点积数值会散布在 -30 到 +30 的范围，过 softmax 后最大的那个数对应概率接近 1、其他接近 0，<strong>输出几乎变成 one-hot 分布</strong>。</p>
-<p>one-hot 分布的问题是<strong>梯度消失</strong>——softmax 的梯度公式里有 <code>p · (1-p)</code> 项，p 接近 0 或 1 时梯度都接近 0。除以 √d_k 后，点积方差被压回 1，softmax 输出分布合理，梯度能正常传播。这是被 8 年实践验证的&quot;简单且数学上合理&quot;的选择。</p>
-<h3 id="22-为什么-self-attention-优于-rnncnn">2.2 为什么 Self-Attention 优于 RNN/CNN
-</h3><p>Transformer 之前，处理序列数据的主流是 RNN（循环神经网络）及其变体（LSTM、GRU）。RNN 有两个致命缺陷：</p>
-<p><strong>第一，顺序计算，无法并行。</strong> RNN 从左到右逐个处理每个词，第 N 步必须等第 N-1 步算完才能开始，无法利用 GPU 并行。训练大型 RNN 极慢。</p>
-<p><strong>第二，长距离梯度消失。</strong> 序列很长时（比如 1000 个词），梯度在反向传播时指数级衰减，网络很难学习&quot;第 1 个词和第 800 个词之间的关系&rdquo;。LSTM 门控机制有所缓解，但根本问题没解决。</p>
-<p>Self-Attention 一举解决了这两个问题：整个过程对序列中所有位置的计算可以<strong>并行</strong>（所有 token 的 Q/K/V 一次性算出），而且每对位置之间都有<strong>直接连接</strong>（通过注意力分数），不存在长距离信息衰减。</p>
-<h3 id="23-encoder-vs-decoder为什么-decoder-only-架构胜出">2.3 Encoder vs Decoder：为什么 Decoder-only 架构胜出
-</h3><p>理解了 Attention 的基本机制，可以解释三种架构的区别：</p>
-<ul>
-<li><strong>Encoder-only（以 BERT 为代表）</strong>：每个 token 可以双向关注所有其他 token。擅长&quot;理解任务&quot;（分类、NER、语义相似度）。预训练目标是 MLM（掩码语言模型）。</li>
-<li><strong>Decoder-only（以 GPT/Claude/Qwen 为代表）</strong>：使用因果掩码（Causal Mask），每个 token 只能关注它前面的 token。天然适合文本生成。预训练目标是 CLM（预测下一个 token）。现在几乎所有大语言模型都是这个架构。</li>
-<li><strong>Encoder-Decoder（以 T5、BART 为代表）</strong>：Encoder 双向理解输入，Decoder 单向生成输出，通过 Cross-Attention 读取 Encoder 的输出。适合翻译、摘要等&quot;输入输出不同&quot;的任务。</li>
-</ul>
-<p><strong>为什么 Decoder-only 赢了？</strong> 根本原因是&quot;预测下一个 token&quot;这个目标极其统一。所有类型的任务（问答、写作、推理、代码、翻译）都可以统一表达成&quot;续写&quot;这一件事。更关键的是，这个目标可以直接在海量无标注文本上做自监督训练，不需要逐条人工标注。最厉害的是，随着规模增大，这个简单目标下涌现出的能力越来越强。</p>
-<h3 id="24-多头注意力的意义">2.4 多头注意力的意义
-</h3><p>单组 Q/K/V 只能学习到一种&quot;关联关系&quot;，但语言中的关联是多维度的：&ldquo;我&quot;和&quot;吃&quot;是主谓关系，&ldquo;苹果&quot;和&quot;吃&quot;是宾动关系，&ldquo;苹果&quot;和前文的&quot;苹果树&quot;是指代关系。</p>
-<p><strong>Multi-Head Attention</strong> 把 Q/K/V 投影到多个不同的子空间（比如 8 个或 32 个头），每组独立计算注意力，最后把所有头的输出拼接起来。每个头可以专注于捕捉不同类型的语言关联，整体上表达能力更强。</p>
-<p>除了注意力层，每个 Transformer 块里还有一个前馈网络（FFN），结构是两层全连接加激活函数。FFN 对每个位置独立做非线性变换，补充注意力层学不到的信息（注意力层本质是线性加权，FFN 引入非线性）。研究表明 <strong>FFN 层储存了大量的&quot;事实知识&rdquo;</strong>，可以理解为模型的&quot;记忆仓库&rdquo;。</p>
-<blockquote>
-<p><strong>实践要点：</strong> 理解 Transformer，最重要的是讲清 RNN 卡在哪两点、Self-Attention 怎么破、为什么 Decoder-only 赢。Q/K/V 是从同一个 X 通过三个独立矩阵投影得到的，除以 √d_k 是防止 softmax 变 one-hot 导致梯度消失。Decoder-only 胜在&quot;目标统一 + 数据规模 + 涌现&quot;的组合。</p>
-</blockquote>
-<hr>
-<h2 id="第三章注意力优化演进">第三章：注意力优化演进
-</h2><h3 id="31-mha-的局限性">3.1 MHA 的局限性
-</h3><p>要讲清楚 MHA（Multi-Head Attention）的局限，得先把&quot;训练&quot;和&quot;推理&quot;两个阶段分开看。</p>
-<p><strong>训练阶段</strong>：每一层 Attention 都要算一个 N×N 的注意力分数矩阵 <code>softmax(QK^T/√d) · V</code>。N=32K 时这个矩阵膨胀到 10 亿个数（FP16 约 2GB），计算复杂度 O(N²)。</p>
-<p><strong>推理阶段</strong>：LLM 自回归生成，每次生成一个新 token 都要重新对前面所有 token 算注意力。如果每次从头算，成本累加成 O(N³)。聪明的做法是 <strong>KV Cache</strong>：把前面所有 token 的 K 和 V 矩阵存下来，每次新 token 只算自己的 Q。但 KV Cache 本身就是个显存大户：</p>
-<pre tabindex="0"><code>KV Cache 显存 = 2（K和V各一份）× B（batch）× N（序列长）× L（层数）
-              × H（头数）× d_k（每头维度）× 2 字节（FP16）
-</code></pre><p>对一个 7B 模型（L=32、H=32、d_k=128），跑 batch=1、N=32K：</p>
-<pre tabindex="0"><code>2 × 1 × 32000 × 32 × 32 × 128 × 2 ≈ 17 GB
-</code></pre><p>光 KV Cache 就 17GB，加上模型权重 14GB，总共 31GB，一张 4090（24GB）根本放不下。</p>
-<p>还有更隐蔽的痛点是&rdquo;<strong>访存慢</strong>&quot;。GPU 计算单元算力很猛，但显存带宽跟不上。Attention 计算大量时间花在&quot;等数据从显存搬到计算单元&quot;，这就是 <strong>memory-bound（访存受限）</strong> 问题。</p>
-<p>三个痛点连成一条线：<strong>N² 复杂度让计算量平方膨胀；KV Cache 让长上下文显存爆掉；访存带宽让 GPU 算力发挥不出来。</strong></p>
-<h3 id="32-mqa极端共享的代价">3.2 MQA：极端共享的代价
-</h3><p>MQA（Multi-Query Attention）的思路非常暴力：<strong>所有 head 共享同一份 K 和 V，只有 Q 是每个 head 独立的</strong>。</p>
-<p>直接后果是 KV Cache 立刻变成 1/H——原本 32 套 K/V 现在只存 1 套，显存压到 1/32。前面那个 17GB 的 KV Cache，用 MQA 后只剩 0.5GB。</p>
-<p>但代价是<strong>表达能力下降</strong>。原本 32 个 head 各有 32 套不同的&quot;视角&quot;，可以从 32 个角度理解上下文；MQA 强行让 32 个 head 共用一套 K/V，多视角能力被压缩成单视角。实测大模型效果会下降 2-5%，对推理类任务有明显损失。</p>
-<h3 id="33-gqa折中之道">3.3 GQA：折中之道
-</h3><p>GQA（Grouped-Query Attention）是 MHA 和 MQA 的折中：<strong>把 H 个 head 分成 G 组，每组内部共享一份 K/V，组之间各自独立</strong>。</p>
-<p>数学上是一个连续光谱：</p>
-<ul>
-<li>MHA：H 个 head，H 套 K/V</li>
-<li>MQA：H 个 head，1 套 K/V</li>
-<li>GQA：H 个 head，G 套 K/V（1 ≤ G ≤ H）</li>
-</ul>
-<p>G=H 退化成 MHA，G=1 退化成 MQA。Meta 的 GQA 论文里，G=8 配置下模型效果几乎和 MHA 持平（差距 &lt; 0.5%），但 KV Cache 压到 1/4。这种&quot;显存大幅下降、效果几乎不损失&quot;的甜蜜点，让 GQA 成为现代大模型标配。</p>
-<p><strong>谁在用 GQA：</strong> Llama 2 70B、Llama 3 全系、Qwen 2/3 主力模型。DeepSeek V2/V3 用了另一条更激进的路线 MLA（Multi-head Latent Attention），把 K/V 压缩到低秩潜在空间存储，目标同样是压低 KV Cache。</p>
-<h3 id="34-flash-attention从算法层面优化">3.4 Flash Attention：从算法层面优化
-</h3><p>Flash Attention 完全是另一条赛道——<strong>不改 Attention 的数学公式，从底层实现优化</strong>。</p>
-<p>问题的根源在于 GPU 存储分两层：</p>
-<ul>
-<li><strong>HBM（高带宽显存）</strong>：容量大（A100 是 80GB），带宽相对慢（1.5 TB/s）</li>
-<li><strong>SRAM（片上缓存）</strong>：容量小（A100 每个 SM 只有 192KB），带宽极快（19 TB/s，是 HBM 的 13 倍）</li>
-</ul>
-<p>标准实现把 N×N 注意力矩阵在 HBM 上反复读写，访存时间远超计算时间。Flash Attention 提出<strong>分块 + 在线 softmax</strong>：把 Q、K、V 切成小块（比如 128×128），每次只在 SRAM 里算一小块，算完直接累加到最终输出，不把 N×N 中间矩阵写回 HBM。</p>
-<p>在线 softmax 是关键数学技巧——softmax 本来要看&quot;整行&quot;才能算，Flash Attention 用分块计算同时维护&quot;当前最大值 + 累积和&quot;状态，每来一块做增量更新，最终结果和一次性算完全一样。</p>
-<p>效果：<strong>显存从 O(N²) 降到 O(N)，速度提升 2-4 倍，结果数学等价</strong>。已迭代到 v3 版本，基本成为大模型推理框架的默认实现。</p>
-<h3 id="35-四者的叠加关系">3.5 四者的叠加关系
-</h3><div class="table-wrapper"><table>
-  <thead>
-      <tr>
-          <th>优化方案</th>
-          <th>改的是什么</th>
-          <th>攻击的痛点</th>
-          <th>效果损失</th>
-      </tr>
-  </thead>
-  <tbody>
-      <tr>
-          <td><strong>MQA</strong></td>
-          <td>Attention 结构（K/V 压成 1 份）</td>
-          <td>显存大</td>
-          <td>中等（2-5%）</td>
-      </tr>
-      <tr>
-          <td><strong>GQA</strong></td>
-          <td>Attention 结构（K/V 压成 G 份）</td>
-          <td>显存大</td>
-          <td>几乎无（&lt; 0.5%）</td>
-      </tr>
-      <tr>
-          <td><strong>Flash Attention</strong></td>
-          <td>Attention 实现（分块 + 在线 softmax）</td>
-          <td>显存 + 访存 + 速度</td>
-          <td>基本无（数学等价）</td>
-      </tr>
-  </tbody>
-</table></div>
-<p>最关键的认知：<strong>这三类优化是叠加关系，不是替代关系。</strong> MQA/GQA 是&quot;结构层&quot;优化（改有几套 K/V），Flash Attention 是&quot;实现层&quot;优化（改计算执行方式）。它们攻击不同维度，可以同时使用。主流大模型的标配是：</p>
-<pre tabindex="0"><code>GQA 结构 + Flash Attention 实现
-</code></pre><p>比如 Llama 3、Qwen 2、DeepSeek V3 都是这个组合。两者叠加后，7B 模型能在消费级显卡上跑 32K 长上下文。</p>
-<blockquote>
-<p><strong>实践要点：</strong> 面试官如果追问&quot;只能选一个用，选哪个&quot;，这是伪命题——真实工程里它们一定组合用，因为攻击的是不同维度的瓶颈。MLA（DeepSeek 用的低秩潜在注意力）可以作为加分项提一句。</p>
-</blockquote>
-<hr>
-<h2 id="第四章位置编码">第四章：位置编码
-</h2><h3 id="41-为什么需要位置编码">4.1 为什么需要位置编码
-</h3><p>Self-Attention 有一个天然的缺陷：<strong>它的计算是对称的，不考虑词的顺序</strong>。&ldquo;我打你&quot;和&quot;你打我&quot;对 Attention 来说可能得到一样的结果，因为它只看哪些词相关，不看谁在前谁在后。</p>
-<p>如果把输入换成&quot;你打我&rdquo;，三个 embedding 一模一样（只是位置变了），Attention 算出来的结果和&quot;我打你&quot;<strong>几乎完全相同</strong>。但这两句话语义是反的。模型如果分不清位置，就分不清主语和宾语。</p>
-<p>那为什么不能直接用&quot;1, 2, 3, 4&quot;这种位置序号？因为序号是离散整数，加到连续 embedding 上会很别扭：第 1000 位的&quot;1000&quot;会把原本 -1 到 1 之间的 embedding 数值拉爆；而且整数序号对长序列没法泛化，训练见过 1-2048，推理来了 4096，这个数字模型从没见过。</p>
-<p>所以位置编码必须满足三个要求：<strong>数值范围合理</strong>（不能覆盖 token embedding）、<strong>能区分不同位置</strong>（每个位置有独特&quot;指纹&quot;）、<strong>能泛化到长序列</strong>（最好支持外推）。</p>
-<h3 id="42-sincos-绝对编码">4.2 sin/cos 绝对编码
-</h3><p>2017 年原始 Transformer 用的就是 sin/cos 位置编码（Sinusoidal PE）。核心思路是用一组不同频率的 sin/cos 函数，给每个位置生成一个独特的&quot;指纹向量&quot;。</p>
-<p>模型 embedding 维度有 d 维，分成 d/2 对，每对用一组 sin/cos：第 1 对频率最快（高频），适合区分近距离位置；第 d/2 对频率最慢（低频），跨越很远位置才能区分开。类比几个不同频率的振子叠加，高频记&quot;精细位置&quot;，低频记&quot;粗略位置&quot;。</p>
-<p>使用方式是直接<strong>加到 token embedding 上</strong>：最终输入 = token embedding + position embedding。加法不增加维度，神经网络可以从相加结果里自动解开两部分信息。</p>
-<p>优点是零参数、泛化性看起来不错。但致命问题是<strong>长上下文外推能力差</strong>——训练时只学过&quot;2K 以内的相对位置关系&quot;，推理给 4K 输入，效果断崖下跌。</p>
-<h3 id="43-rope-旋转位置编码">4.3 RoPE 旋转位置编码
-</h3><p>RoPE（Rotary Position Embedding）是 2021 年中国学者苏剑林提出的，现已是大模型标配。核心思路一句话：<strong>不把位置信息加到 embedding 上，而是旋转 Q 和 K 向量</strong>。</p>
-<p>每个 token 的 Q/K 向量根据它的位置 m，被旋转一个对应角度 mθ（θ 是预设常数）。位置 0 不旋转，位置 1 旋转 θ，位置 2 旋转 2θ。类比钟表指针，位置越靠后指针转得越多。</p>
-<p>为什么旋转能表达位置？关键数学性质是：<strong>两个旋转后的向量做点积，结果只依赖于它们的&quot;旋转角度差&quot;</strong>。位置 m 的 Q 和位置 n 的 K 做点积，结果只跟 (m-n) 这个相对距离有关，跟 m 和 n 各自的绝对值无关。这就把&quot;相对位置&quot;信息天然编进了 Attention 计算里。</p>
-<p>RoPE 的优点叠加起来才让它成为标配：</p>
-<ul>
-<li><strong>天然的相对位置编码</strong>，不用模型自己学相对关系</li>
-<li><strong>零参数</strong>，纯数学旋转</li>
-<li><strong>保留 token 向量长度</strong>，旋转不改变模长只改变方向，不破坏 embedding 数值范围</li>
-<li><strong>和现代推理优化兼容</strong>，只在 Q/K 上做旋转，跟 KV Cache、Flash Attention、GQA 无缝叠加</li>
-<li><strong>长上下文外推能力远好于 sin/cos</strong>，配合 NTK Scaling、YaRN 等扩展技巧，可推到 32K、100K 甚至更长</li>
-</ul>
-<p><strong>谁在用 RoPE：</strong> Llama 1/2/3 全系、Qwen 1/2/3 全系、DeepSeek 全系、Mistral/Mixtral 全系、GLM 系列。可以说 RoPE 已是大模型架构的事实标准。</p>
-<h3 id="44-alibi-外推编码">4.4 ALiBi 外推编码
-</h3><p>ALiBi（Attention with Linear Biases）是另一种相对位置编码方案，思路比 RoPE 更暴力：<strong>根本不动 Q、K、V，直接在注意力分数里加一个&quot;距离惩罚项&quot;</strong>。</p>
-<p>在 <code>softmax(QK^T)</code> 之前，给每对 token 的注意力分数加上偏置 <code>-m × |i-j|</code>，其中 |i-j| 是距离，m 是固定斜率（每个 head 不同）。直观理解：离得越远扣分越多，模型越倾向关注近邻。每个 head 用不同斜率，让不同 head 关注不同范围。</p>
-<p>优点是零参数、极简实现、天然支持长上下文外推（线性距离惩罚不存在训练截止）。缺点是表达力弱、过强的局部偏置，对需要长距离依赖的任务不利。</p>
-<p><strong>谁用过 ALiBi：</strong> MosaicML 的 MPT 系列、BLOOM 的某些版本。但都不是主流大模型。</p>
-<h3 id="45-三者对比与选型">4.5 三者对比与选型
-</h3><div class="table-wrapper"><table>
-  <thead>
-      <tr>
-          <th>维度</th>
-          <th>sin/cos</th>
-          <th>ALiBi</th>
-          <th>RoPE</th>
-      </tr>
-  </thead>
-  <tbody>
-      <tr>
-          <td>编码类型</td>
-          <td>绝对位置</td>
-          <td>相对位置（距离惩罚）</td>
-          <td>相对位置（旋转）</td>
-      </tr>
-      <tr>
-          <td>注入方式</td>
-          <td>加到 token embedding</td>
-          <td>加到注意力分数</td>
-          <td>旋转 Q/K 向量</td>
-      </tr>
-      <tr>
-          <td>长上下文外推</td>
-          <td>较差（容易断崖）</td>
-          <td>好（线性外推）</td>
-          <td>很强（配合 NTK/YaRN）</td>
-      </tr>
-      <tr>
-          <td>表达力</td>
-          <td>中等</td>
-          <td>弱（过强局部偏置）</td>
-          <td>强</td>
-      </tr>
-      <tr>
-          <td>主流采用</td>
-          <td>原始 Transformer</td>
-          <td>MPT、BLOOM</td>
-          <td>Llama/Qwen/DeepSeek 全系</td>
-      </tr>
-  </tbody>
-</table></div>
-<p>RoPE 赢在三个理由：<strong>长上下文外推能力</strong>（配合 NTK/YaRN 生态，但上线前要看长上下文评测）；<strong>相对位置 + 表达力的平衡</strong>（ALiBi 外推好但表达力不够，sin/cos 表达力够但外推差）；<strong>工程兼容性</strong>（只在 Q/K 上做旋转，不改变其他计算，和所有推理优化无缝叠加）。</p>
-<blockquote>
-<p><strong>实践要点：</strong> 长上下文外推技巧（PI / NTK / YaRN）有些可以推理时直接改 RoPE 参数，但要做到稳定的 100K+ 长上下文，很多模型还会配合长上下文继续训练或校准。RoPE 地位稳固不是因为它能无成本无限外推，而是因为它给了社区一个很好调、很好扩展的基础。</p>
-</blockquote>
-<hr>
-<h2 id="第五章分词器tokenizer">第五章：分词器（Tokenizer）
-</h2><h3 id="51-为什么需要分词">5.1 为什么需要分词
-</h3><p>大语言模型的本质是一个函数：输入一串整数（token ID 序列），输出下一个整数的概率分布。<strong>模型只能处理整数，不认识字符串。</strong> Tokenizer 就是连接人类文字和模型整数世界的桥梁，做两件事：编码（文本 → token ID 序列）和解码（token ID 序列 → 文本）。</p>
-<h3 id="52-bpe-算法原理">5.2 BPE 算法原理
-</h3><p>最直接的两种分词方案都有致命缺陷：</p>
-<p><strong>字符级分词</strong>（每个字母/汉字一个 token）：词汇表小，但序列极长。一个&quot;hello&quot;变 5 个 token，Attention 的 O(N²) 计算量飙升，而且字符语义信息太少。</p>
-<p><strong>词级分词</strong>（每个完整单词一个 token）：词汇表膨胀到几十万，而且有严重的 OOV 问题——遇到训练时没见过的新词就无法处理，模型只能输出&quot;未知词&quot;标记，语义完全丢失。</p>
-<p><strong>子词分词</strong>就是这两者中间的甜蜜点。BPE（Byte Pair Encoding）是最常见的一类，原理分三步：</p>
-<ol>
-<li><strong>初始化</strong>：把训练语料拆成最小单元（单个字节或字符），形成初始词汇表</li>
-<li><strong>反复合并</strong>：统计相邻 token pair 的出现频率，找到最高频的那对合并成新 token。比如&quot;t&quot;和&quot;h&quot;经常在一起，合并成&quot;th&quot;加入词汇表。继续找下一个，比如&quot;th&quot;和&quot;e&quot;合并成&quot;the&quot;</li>
-<li><strong>重复</strong>直到词汇表达到预设大小（GPT-2 用了 50257，Llama 3 用了 128000）</li>
-</ol>
-<p>以&quot;lowest&quot;为例，BPE 可能分成&quot;low&quot;+&ldquo;est&rdquo;，因为都是高频子词。遇到新词&quot;lowest123&quot;，分成&quot;low&quot;+&ldquo;est&rdquo;+&ldquo;1&rdquo;+&ldquo;2&rdquo;+&ldquo;3&rdquo;，<strong>不会出现 OOV</strong>。</p>
-<h3 id="53-子词分词的优势">5.3 子词分词的优势
-</h3><p>子词分词的优势在于&quot;动态范围&quot;：高频词/字被合并成独立 token（效率高），低频词被拆成子词（能处理新词），介于字符级和词级之间。BPE 只是子词分词的一种，SentencePiece / Unigram、WordPiece 也很常见。</p>
-<p>中文没有空格分隔，BPE 面对中文的处理方式不同：常用汉字会直接作为独立 token（频率足够高），常见词语可能合并也可能拆分，取决于训练数据频率。实践估算经验规则：<strong>1000 个汉字大约对应 1000-1500 个 token</strong>（汉字 token 化效率略低于英文）。但这只是粗估，Qwen、Llama、OpenAI 的 tokenizer 都不一样，正式算成本前一定要用目标模型的 tokenizer 跑一遍。</p>
-<h3 id="54-分词对模型能力的影响">5.4 分词对模型能力的影响
-</h3><p>理解 Tokenizer 对实际工程有几个直接影响：</p>
-<p><strong>API 成本估算</strong>：主流 LLM API 都按 token 计费，不是按字数。1000 汉字约 1000-1500 tokens，1000 英文单词约 1300 tokens，代码效率更低。预估费用必须用目标模型的 tokenizer 数出来。</p>
-<p><strong>上下文窗口管理</strong>：每个模型有最大 token 限制（Claude 200K、Qwen 128K），中文 + 代码混合内容很容易让你以为&quot;才 5 万字应该不超&quot;，实际算成 token 已经 8 万了。</p>
-<p><strong>避免截断重要信息</strong>：文档卡在上下文边缘时，Tokenizer 可能把一个词从中间硬切开，导致下游解析或检索失败。工程上要保留几百 token 的安全 buffer。</p>
-<p>特殊 token（BOS、EOS、PAD、SEP，以及 ChatML 格式里的 <code>&lt;|im_start|&gt;</code>）不是来自文本，而是给模型传递结构信息的，它们的 embedding 在训练中被专门优化。</p>
-<blockquote>
-<p><strong>实践要点：</strong> 面试被问到 Tokenizer，最重要的是先说清&quot;模型只能处理整数&quot;，Tokenizer 是文字到整数世界的桥梁。然后讲三种分词粒度的取舍（字符级太碎、词级太散、子词折中），再补实际工程影响（API 计费、上下文管理、避免截断）。</p>
-</blockquote>
-<hr>
-<h2 id="第六章大模型训练全景">第六章：大模型训练全景
-</h2><h3 id="61-预训练从海量文本中学习语言规律">6.1 预训练：从海量文本中学习语言规律
-</h3><p>预训练是大模型能力的根基。做一个类比：培养一个能独当一面的员工，他得先有基础知识（从小学读到大学），再学会公司流程（SFT），最后懂职业素养（对齐）。大模型的三个训练阶段对应这三件事。</p>
-<p><strong>数据从哪来？</strong> GPT-3 用了 3000 亿 token，Llama 3 用了 15 万亿 token。数据来源包括互联网网页（Common Crawl）、GitHub 代码、维基百科、扫描图书、论文、新闻。但原始数据充满垃圾，预训练前要做大量清洗——去重、过滤低质量、识别语言、剔除有害信息。<strong>一个高质量训练集的清洗成本可能比模型训练本身还贵</strong>，这是大模型公司的核心竞争力之一。</p>
-<p><strong>训练目标</strong>：CLM（预测下一个 token）。要预测&quot;北京是中国的____&quot;，模型必须知道&quot;北京是首都&quot;；要预测&quot;如果 x=2，那么 x²=____&quot;，模型必须会算数。所有能力都被这个目标<strong>逼着学会了</strong>。</p>
-<p><strong>计算开销</strong>：训练 GPT-3 据估算花了约 3.14×10²³ 次浮点运算。用一张 A100 需 36 万年。OpenAI 用几百到几千张 GPU 并行训练几个月，算力成本上千万美元。</p>
-<p>预训练完后，模型有了一个&quot;大脑&quot;，但它<strong>不会回答问题，只会续写</strong>。</p>
-<h3 id="62-sft从续写器到对话助手">6.2 SFT：从&quot;续写器&quot;到&quot;对话助手&quot;
-</h3><p>预训练后的模型本质是&quot;文本续写机器&quot;。你问它&quot;天空为什么是蓝色的？&quot;，它可能续写成&quot;天空为什么是蓝色的？这是个有趣的科学问题。今天天气不错……&ldquo;一直发散下去，根本没在回答你。</p>
-<p>SFT 的目的就是把这个&quot;续写机器&quot;改造成&quot;对话机器&rdquo;。训练数据格式从&quot;连续文本&quot;变成&quot;(指令，期望回答)&ldquo;对：</p>
-<pre tabindex="0"><code>指令：请用简单易懂的语言解释为什么天空是蓝色的
-回答：天空呈现蓝色是因为大气中的散射现象……
-</code></pre><p>模型慢慢学会&quot;看到这种格式就该给完整答案，不要无限续写&rdquo;。</p>
-<p><strong>数据质量比数量更重要。</strong> Llama 2 用了约 100 万条 SFT 数据，每条精心标注。AlpacaFarm 的研究发现：<strong>几千条高质量数据训出来的效果，比几十万条低质量数据要好</strong>。数据多样性也很关键，要覆盖问答、写作、代码、数学、翻译等各种场景。</p>
-<h3 id="63-对齐rlhfdpo让模型符合人类偏好">6.3 对齐（RLHF/DPO）：让模型符合人类偏好
-</h3><p>SFT 后模型会按指令回答了，但回答风格不一定讨喜——可能太啰嗦、太简洁、偶尔说不该说的话。对齐（Alignment）就是补这一课。</p>
-<p>经典方法是 <strong>RLHF</strong>（基于人类反馈的强化学习）：先让人类标注员对同一问题的多个回答排序 → 训一个独立的&quot;奖励模型&quot;学会自动打分 → 用 PPO 算法调整大模型参数让它生成高分回答。同时维护一个&quot;参考模型&quot;用 KL 散度约束，防止主模型&quot;钻空子&quot;（reward hacking）。</p>
-<p>后来斯坦福提出 <strong>DPO</strong>（直接偏好优化），把 RLHF 的优化目标用数学等价方式改写成纯监督学习，<strong>不需要奖励模型，也不需要 PPO</strong>。直接拿(问题，好回答，差回答)三元组训练。训练简单、稳定、容易实现，开源社区大量采用。（对齐技术的详细对比见第八章。）</p>
-<h3 id="64-三个阶段为什么缺一不可">6.4 三个阶段为什么缺一不可
-</h3><ul>
-<li>只做预训练不做 SFT：模型只会续写，根本不会对话</li>
-<li>只做预训练 + SFT 不做对齐：模型会对话了，但可能生成有害内容、自信地胡说</li>
-<li>只做 SFT + 对齐跳过预训练：在&quot;空壳&quot;上优化，没有底层知识</li>
-</ul>
-<p><strong>预训练决定能力天花板，SFT 给格式，对齐给价值观。</strong> 所有主流大模型训练的基本框架都是这三段。</p>
-<h3 id="65-scaling-law-与涌现能力">6.5 Scaling Law 与涌现能力
-</h3><p><strong>Scaling Law</strong> 讲的是大模型的损失值如何随<strong>模型规模 N、训练数据量 D、训练算力 C</strong> 这三个量变化的可预测关系：</p>
-<p>$$\text{loss}(N) \approx \left(\frac{N_c}{N}\right)^{\alpha_N}$$</p>
-<p>它震撼业界有三个原因：<strong>可预测</strong>（能提前算投入产出比）、<strong>没有看到饱和点</strong>（继续加大还能提升）、<strong>三个变量可独立做幂律分析</strong>。</p>
-<p><strong>涌现能力</strong>是 Scaling Law 的特殊副产物：某项能力在小模型上几乎看不到，规模超过临界点（典型 50B-100B）突然表现出来——多步推理、上下文学习、跨语言迁移。但要注意 2023 年斯坦福 <em>Mirage</em> 论文的挑战：很多&quot;涌现&quot;可能只是评估指标不连续造成的测量假象。</p>
-<h3 id="66-chinchilla-比例与-llama-3-的数据突破">6.6 Chinchilla 比例与 Llama 3 的数据突破
-</h3><p>2022 年 DeepMind 的 Chinchilla 论文做了个壕实验：<strong>训了 400 个不同规模的模型</strong>，发现给定固定训练算力 C，参数和数据要按接近 <strong>1:20</strong> 的比例配（每个参数配 20 tokens）。</p>
-<p>验证实验震撼业界：70B 的 Chinchilla 配 1.4T tokens，<strong>明显超过</strong> 4 倍参数的 280B Gopher 和 175B 的 GPT-3。GPT-3 的比例是 1:1.7，<strong>严重欠训</strong>，数据缺口 12 倍。</p>
-<p>但 2024 年 Llama 3 做了件激进的事：<strong>把数据量推到 1:1875 的极端配比</strong>（8B 参数 / 15T tokens，是 Chinchilla 推荐的 94 倍），loss 一直稳定下降，训出来的 8B 模型<strong>多项基准超过 GPT-3 175B</strong>。</p>
-<p>这说明 Chinchilla 的 1:20 不是&quot;数据上限&quot;，而是&quot;<strong>给定训练算力时怎么分配更划算</strong>&ldquo;的经验答案。如果愿意投入更多训练计算，继续喂更多高质量 token，loss 仍可能下降。Qwen3-0.6B 用 36T tokens 训一个 0.6B 小模型（比例 1:60000），把这个趋势推到更极端。</p>
-<p>为什么会出现这个趋势？两个工程原因：<strong>推理成本</strong>（8B 部署一台消费级 GPU，175B 要好几台 H100）和<strong>数据相对便宜</strong>（数据清洗花钱但比 GPU 集群便宜得多）。</p>
-<blockquote>
-<p><strong>实践要点：</strong> 选型时问的不是&quot;谁最大&rdquo;，而是&quot;这个模型训练充分吗？数据质量怎么样？它为训练算力最优还是推理成本最优设计？&quot;。涌现能力对选型的影响：依赖多步推理/ICL 的任务最低门槛 30B-70B，简单分类/抽取/摘要 7B-13B 完全够用。</p>
-</blockquote>
-<hr>
-<h2 id="第七章微调技术">第七章：微调技术
-</h2><h3 id="71-全量微调-vs-参数高效微调">7.1 全量微调 vs 参数高效微调
-</h3><p>首先回答一个前置问题：<strong>什么时候才真的需要微调？</strong> 很多人一遇到&quot;模型表现不好&quot;就想上微调，但工业界踩过坑的人都知道，<strong>微调是最后手段，不是第一选择</strong>。</p>
-<p>能用 Prompt + Few-shot 解决就别上微调；能用 System Prompt 控制风格就别上微调；能用 RAG 接知识库就别上微调。微调的成本远比想象大：需要高质量数据集（标注几万到几十万）、GPU 资源、工程经验，最坑的是维护成本——基础模型一升级，之前微调的版本基本就废了。</p>
-<p>只有这些都不行时才考虑微调。特别提醒：如果需求是&quot;补充经常变化的事实知识&quot;（产品价格、政策条款、库存状态），微调不是好选择，应该用 RAG 实时查。</p>
-<p>理解了&quot;该不该微调&quot;，再看&quot;微调有哪些方案&quot;。这里有个特别容易踩的坑：很多人把&quot;全量微调、LoRA、QLoRA、SFT、DPO&quot;都当成同一类&quot;不同微调方法&quot;，其实它们分两个<strong>正交维度</strong>：</p>
-<ul>
-<li><strong>维度一：改哪些参数</strong>（全量微调 / LoRA / QLoRA）</li>
-<li><strong>维度二：学什么目标</strong>（SFT / DPO）</li>
-</ul>
-<p>这两个维度可以任意组合：可以用 LoRA 做 SFT，也可以用 LoRA 做 DPO。</p>
-<p><strong>全量微调</strong>：所有参数都改。效果上限最高，但代价大——7B 模型 FP16 训练要存权重(14GB) + 梯度(14GB) + 优化器状态(56GB) = 80GB+。更糟的是<strong>灾难性遗忘</strong>：所有参数被改写，新任务学好了，预训练的通用能力反而下降。</p>
-<h3 id="72-lora-的五大优点与原理">7.2 LoRA 的五大优点与原理
-</h3><p>LoRA（Low-Rank Adaptation）的核心洞见：模型参数的&quot;更新量&quot;（ΔW = W微调后 - W原始）虽然维度很大，但真正有意义的变化只发生在一个<strong>低维子空间</strong>里。权重的更新具有&quot;<strong>内在低秩性</strong>&quot;，秩通常只有 8-16。</p>
-<p>基于此，LoRA 冻结原始权重 W 不动，在旁边新增两个小矩阵 A（d×r）和 B（r×d），训练时只更新 A 和 B：</p>
-<div class="highlight"><pre tabindex="0" style="color:#f8f8f2;background-color:#272822;-moz-tab-size:4;-o-tab-size:4;tab-size:4;"><code class="language-python" data-lang="python"><span style="display:flex;"><span><span style="color:#75715e"># W 是原始权重（冻结），A 和 B 是两个小矩阵（可训练）</span>
-</span></span><span style="display:flex;"><span><span style="color:#75715e"># α 是缩放因子（超参，控制 LoRA 更新强度）</span>
-</span></span><span style="display:flex;"><span>output <span style="color:#f92672">=</span> x <span style="color:#f92672">@</span> (W <span style="color:#f92672">+</span> α <span style="color:#f92672">*</span> (B <span style="color:#f92672">@</span> A))
-</span></span></code></pre></div><p>类比&quot;给书批注&quot;：全量微调是把书重印一遍改掉原文，LoRA 是在空白处贴便利贴，原文一字不动。</p>
-<p>参数量对比：4096×4096 权重原本 1677 万参数，LoRA r=16 只需 13.1 万参数，减少约 128 倍。整个 7B 模型可训练参数从 70 亿降到 2000 万左右。</p>
-<p>LoRA 除了&quot;省参数&quot;，还有五个被低估的优点：</p>
-<p><strong>优点一：推理零开销。</strong> 训练完把 <code>α * B·A</code> 合并到 W 上得到 <code>W_merged</code>，推理时和原始模型完全一样，没有额外计算。这一点比 Adapter 强——Adapter 推理时每层都要过额外小网络。</p>
-<div class="highlight"><pre tabindex="0" style="color:#f8f8f2;background-color:#272822;-moz-tab-size:4;-o-tab-size:4;tab-size:4;"><code class="language-python" data-lang="python"><span style="display:flex;"><span>W_merged <span style="color:#f92672">=</span> W <span style="color:#f92672">+</span> α <span style="color:#f92672">*</span> (B <span style="color:#f92672">@</span> A)  <span style="color:#75715e"># 提前算好，只做一次</span>
-</span></span><span style="display:flex;"><span>output <span style="color:#f92672">=</span> x <span style="color:#f92672">@</span> W_merged       <span style="color:#75715e"># 推理时和原始模型完全一样</span>
-</span></span></code></pre></div><p><strong>优点二：模块化插拔。</strong> 一个基础模型 + 多套 LoRA 权重，按需加载。7B 基础模型 14GB，每套 LoRA 才几十 MB，可以同时维护客服、代码、翻译几套 LoRA 热切换。</p>
-<div class="highlight"><pre tabindex="0" style="color:#f8f8f2;background-color:#272822;-moz-tab-size:4;-o-tab-size:4;tab-size:4;"><code class="language-python" data-lang="python"><span style="display:flex;"><span><span style="color:#f92672">from</span> peft <span style="color:#f92672">import</span> PeftModel
-</span></span><span style="display:flex;"><span>base_model <span style="color:#f92672">=</span> AutoModelForCausalLM<span style="color:#f92672">.</span>from_pretrained(<span style="color:#e6db74">&#34;Qwen2.5-7B&#34;</span>)
-</span></span><span style="display:flex;"><span><span style="color:#75715e"># 场景一：客服请求，挂载客服 LoRA</span>
-</span></span><span style="display:flex;"><span>lora_cs <span style="color:#f92672">=</span> PeftModel<span style="color:#f92672">.</span>from_pretrained(base_model, <span style="color:#e6db74">&#34;path/to/customer_service_lora&#34;</span>)
-</span></span><span style="display:flex;"><span><span style="color:#75715e"># 场景二：代码问题，换成代码 LoRA，基础模型不用重新加载</span>
-</span></span><span style="display:flex;"><span>lora_code <span style="color:#f92672">=</span> PeftModel<span style="color:#f92672">.</span>from_pretrained(base_model, <span style="color:#e6db74">&#34;path/to/coding_lora&#34;</span>)
-</span></span></code></pre></div><p><strong>优点三：灾难性遗忘风险更低。</strong> 原始权重全程冻结，所有学习都在旁路小矩阵里，相当于在原知识旁边贴便利贴，通用能力更容易保住。</p>
-<p><strong>优点四：训练更稳定。</strong> 可训练参数少 100 倍以上，梯度搜索空间大幅缩小，对学习率等超参不敏感，调参成本低。</p>
-<p><strong>优点五（进阶）：权重可加权混合。</strong> 多个 LoRA 可以加权混合实现能力融合，不用重新训练：</p>
-<div class="highlight"><pre tabindex="0" style="color:#f8f8f2;background-color:#272822;-moz-tab-size:4;-o-tab-size:4;tab-size:4;"><code class="language-python" data-lang="python"><span style="display:flex;"><span>W<span style="color:#e6db74">&#39; = W + α₁ * (B₁ · A₁) + α₂ * (B₂ · A₂)</span>
-</span></span></code></pre></div><p>调整 α₁ 和 α₂ 的比例就能调整两种能力的&quot;配比&quot;。这叫 <strong>LoRA Merging</strong>，是 Model Merging 领域的重要方向。</p>
-<div class="table-wrapper"><table>
-  <thead>
-      <tr>
-          <th>维度</th>
-          <th>全量微调</th>
-          <th>Adapter</th>
-          <th>LoRA</th>
-      </tr>
-  </thead>
-  <tbody>
-      <tr>
-          <td>可训练参数量</td>
-          <td>全部（100%）</td>
-          <td>少量额外参数（~1%）</td>
-          <td>少量旁路参数（~0.1%-1%）</td>
-      </tr>
-      <tr>
-          <td>推理额外开销</td>
-          <td>无</td>
-          <td>有（每层额外网络）</td>
-          <td>无（可合并进 W）</td>
-      </tr>
-      <tr>
-          <td>灾难性遗忘风险</td>
-          <td>高</td>
-          <td>低</td>
-          <td>低</td>
-      </tr>
-      <tr>
-          <td>部署灵活性</td>
-          <td>低</td>
-          <td>中</td>
-          <td>高（一基底 + 多套 LoRA）</td>
-      </tr>
-      <tr>
-          <td>权重可组合性</td>
-          <td>不支持</td>
-          <td>不支持</td>
-          <td>支持（LoRA Merging）</td>
-      </tr>
-  </tbody>
-</table></div>
-<h3 id="73-qlora">7.3 QLoRA
-</h3><p>QLoRA 把微调门槛进一步往下打：先把基础模型用 4-bit 量化（NF4 格式），把 7B 模型显存从 14GB 压到 4GB，然后套 LoRA。整个微调显存降到 10GB 以内，<strong>一张 4090（24GB）就能微调 7B 甚至 13B 模型</strong>。</p>
-<p>QLoRA 的精度损失非常小，实测和全精度 LoRA 几乎没差别。这一招直接让微调民主化了，Alpaca、Vicuna 这些早期开源指令模型基本都是用 QLoRA 训出来的。</p>
-<h3 id="74-post-training-的五种家族">7.4 Post-Training 的五种家族
-</h3><p>SFT 之后还有一整族 Post-Training 方法，详见第八章。这里只需记住：微调的两个维度（改哪些参数 × 学什么目标）可以任意组合，最常见的工业组合是 <strong>QLoRA + SFT</strong>（个人开发者，性价比最高）和 <strong>LoRA + SFT + DPO</strong>（社区主流）。</p>
-<blockquote>
-<p><strong>实践要点：</strong> 绝大多数项目能用 QLoRA + SFT 搞定，没必要上更重的方案。这种&quot;克制&quot;的工程态度，比&quot;为了微调而微调&quot;的新人思维成熟得多。能用轻量方案搞定的需求，一定不要上重的——训练成本、调参难度、维护成本都会指数级上升。</p>
-</blockquote>
-<hr>
-<h2 id="第八章对齐技术">第八章：对齐技术
-</h2><h3 id="81-rlhfppo的完整流程">8.1 RLHF（PPO）的完整流程
-</h3><p>RLHF 是 OpenAI 在 InstructGPT 中开创的方案，也是 ChatGPT 早期版本的核心训练方法。整个流程分三步：</p>
-<p><strong>第一步：收集偏好数据。</strong> 人类标注员对同一 Prompt 的多个回答排序（A 比 B 好、B 比 C 好）。排序比绝对评分更稳定，因为人类比较两个回答的相对好坏比给绝对分数容易。</p>
-<p><strong>第二步：训练奖励模型（Reward Model）。</strong> 用偏好数据训一个独立的小模型，输入(Prompt + 回答)，输出一个分数。训练目标是让&quot;人类觉得好的回答&quot;分数高。这个奖励模型代替了人类，可以批量自动打分。</p>
-<p><strong>第三步：用 PPO 优化主模型。</strong> 主模型生成回答 → 奖励模型打分 → PPO 调整主模型参数往高分方向走。同时维护&quot;参考模型&quot;（SFT 模型冻结副本），用 KL 散度约束主模型不要离参考模型太远，防止 reward hacking。</p>
-<p>整个 PPO 训练同时需要维护 <strong>4 个模型</strong>：</p>
-<div class="highlight"><pre tabindex="0" style="color:#f8f8f2;background-color:#272822;-moz-tab-size:4;-o-tab-size:4;tab-size:4;"><code class="language-python" data-lang="python"><span style="display:flex;"><span><span style="color:#75715e"># PPO 训练时需要同时维护的四个模型</span>
-</span></span><span style="display:flex;"><span>policy_model     <span style="color:#f92672">=</span> load_sft_model()    <span style="color:#75715e"># 主模型（正在被优化的）</span>
-</span></span><span style="display:flex;"><span>reference_model  <span style="color:#f92672">=</span> load_sft_model()    <span style="color:#75715e"># 参考模型（冻结，SFT 副本，用于 KL 约束）</span>
-</span></span><span style="display:flex;"><span>reward_model     <span style="color:#f92672">=</span> load_reward_model() <span style="color:#75715e"># 奖励模型（裁判，给回答打分）</span>
-</span></span><span style="display:flex;"><span>value_model      <span style="color:#f92672">=</span> load_value_model()  <span style="color:#75715e"># 价值模型（RL 辅助，估算未来奖励期望）</span>
-</span></span></code></pre></div><p>4 个模型同时加载到显存，每个都和主模型差不多大，显存占用是 SFT 的好几倍。加上 RL 本身的不稳定性（超参敏感、容易 reward hacking、训练曲线震荡），能驾驭 PPO 的团队凤毛麟角。</p>
-<h3 id="82-dpo去掉奖励模型的两步法">8.2 DPO：去掉奖励模型的两步法
-</h3><p>DPO 是 2023 年斯坦福提出的方案，核心是一个数学上的<strong>等价转换</strong>：RLHF 的优化目标可以推导改写成纯监督学习目标函数，<strong>不需要显式训练奖励模型</strong>。直觉上，&ldquo;奖励模型&quot;的功能可以被&quot;主模型相对于参考模型的概率比值&quot;完全替代。</p>
-<p>数据格式简单到不能再简单：</p>
-<div class="highlight"><pre tabindex="0" style="color:#f8f8f2;background-color:#272822;-moz-tab-size:4;-o-tab-size:4;tab-size:4;"><code class="language-json" data-lang="json"><span style="display:flex;"><span>{
-</span></span><span style="display:flex;"><span>  <span style="color:#f92672">&#34;prompt&#34;</span>: <span style="color:#e6db74">&#34;如何学好 Python？&#34;</span>,
-</span></span><span style="display:flex;"><span>  <span style="color:#f92672">&#34;chosen&#34;</span>: <span style="color:#e6db74">&#34;建议先从官方文档入手，配合做小项目实践……&#34;</span>,
-</span></span><span style="display:flex;"><span>  <span style="color:#f92672">&#34;rejected&#34;</span>: <span style="color:#e6db74">&#34;Python 很简单，随便找个教程看看就行了……&#34;</span>
-</span></span><span style="display:flex;"><span>}
-</span></span></code></pre></div><p>DPO 损失函数直觉：</p>
-<div class="highlight"><pre tabindex="0" style="color:#f8f8f2;background-color:#272822;-moz-tab-size:4;-o-tab-size:4;tab-size:4;"><code class="language-python" data-lang="python"><span style="display:flex;"><span><span style="color:#75715e"># DPO 损失（简化直觉版）</span>
-</span></span><span style="display:flex;"><span>loss <span style="color:#f92672">=</span> <span style="color:#f92672">-</span>log(sigma(
-</span></span><span style="display:flex;"><span>    beta <span style="color:#f92672">*</span> (
-</span></span><span style="display:flex;"><span>        log(policy(chosen) <span style="color:#f92672">/</span> ref(chosen))     <span style="color:#75715e"># 主模型 vs 参考模型在&#34;好回答&#34;上的概率比</span>
-</span></span><span style="display:flex;"><span>        <span style="color:#f92672">-</span> log(policy(rejected) <span style="color:#f92672">/</span> ref(rejected)) <span style="color:#75715e"># 主模型 vs 参考模型在&#34;差回答&#34;上的概率比</span>
-</span></span><span style="display:flex;"><span>    )
-</span></span><span style="display:flex;"><span>))
-</span></span><span style="display:flex;"><span><span style="color:#75715e"># 目标：让 chosen 的比值 &gt; rejected 的比值</span>
-</span></span></code></pre></div><p>只需 <strong>2 个模型</strong>（policy + reference），训练稳定，实现简单。代价是效果上限略低于精心调过的 PPO（没法像 RL 那样探索数据之外的好回答），且依赖偏好数据质量。</p>
-<h3 id="83-ppo-vs-dpo-的核心区别4-模型-vs-2-模型">8.3 PPO vs DPO 的核心区别（4 模型 vs 2 模型）
-</h3><div class="table-wrapper"><table>
-  <thead>
-      <tr>
-          <th>维度</th>
-          <th>PPO</th>
-          <th>DPO</th>
-      </tr>
-  </thead>
-  <tbody>
-      <tr>
-          <td>是否需要奖励模型</td>
-          <td>需要（单独训练）</td>
-          <td>不需要</td>
-      </tr>
-      <tr>
-          <td>同时维护的模型数</td>
-          <td>4 个</td>
-          <td>2 个</td>
-      </tr>
-      <tr>
-          <td>训练稳定性</td>
-          <td>较差（RL 不稳定）</td>
-          <td>好（等价监督学习）</td>
-      </tr>
-      <tr>
-          <td>实现难度</td>
-          <td>高（需要 RL 基础设施）</td>
-          <td>低（标准训练框架即可）</td>
-      </tr>
-      <tr>
-          <td>表达能力</td>
-          <td>强（可探索数据之外）</td>
-          <td>稍弱（受偏好数据分布限制）</td>
-      </tr>
-  </tbody>
-</table></div>
-<p>一句话总结：<strong>PPO 是&quot;先训裁判再训选手&rdquo;，DPO 是&quot;直接拿比赛录像告诉选手哪个动作对哪个动作错&quot;。</strong> 两者目标一致，但 DPO 省掉了&quot;奖励模型&quot;这个中间层。</p>
-<h3 id="84-grpo-等新方法">8.4 GRPO 等新方法
-</h3><p>GRPO（Group Relative Policy Optimization）是 DeepSeek 2024 年在 DeepSeekMath 论文里提出的 PPO 改进版，因 DeepSeek R1 火遍整个圈子。</p>
-<p>要理解 GRPO，得先搞清 PPO 为什么需要 Value Model。PPO 的优势函数（Advantage）= 实际奖励 - 预期奖励，Value Model 的作用就是估计&quot;预期奖励&quot;作为基线。但 Value Model 是独立神经网络，规模和主模型一样大，要单独训练占显存。</p>
-<p><strong>GRPO 的核心创新：直接砍掉 Value Model，用&quot;组内相对排名&quot;估计优势。</strong></p>
-<p>具体流程：对一个问题 q，从主模型采样 G 个回答（典型 G=8），用奖励模型（或对错判定）打分得到 r₁&hellip;r_G，计算组内相对优势：</p>
-<div class="highlight"><pre tabindex="0" style="color:#f8f8f2;background-color:#272822;-moz-tab-size:4;-o-tab-size:4;tab-size:4;"><code class="language-python" data-lang="python"><span style="display:flex;"><span>A_i <span style="color:#f92672">=</span> (r_i <span style="color:#f92672">-</span> mean(r_1<span style="color:#f92672">..</span>r_G)) <span style="color:#f92672">/</span> std(r_1<span style="color:#f92672">..</span>r_G)
-</span></span></code></pre></div><p>&ldquo;组内平均分&quot;充当了 Value Model 的角色，这个基线天然就有，不用单独训练。4 模型架构变成 3 模型（Policy / Reference / Reward），显存接近 DPO 但保留 RL 探索能力。</p>
-<p>GRPO 还有个杀手级特性：<strong>对&quot;可验证任务&quot;特别友好</strong>。数学题、代码题这类&quot;答案对就是对、错就是错&quot;的场景，r_i 直接用 0/1 判定就行，连 Reward Model 都省了。DeepSeek R1-Zero 就是这么做的，纯靠强化学习训出推理能力。</p>
-<p><strong>谁在用 GRPO：</strong> DeepSeek R1 / R1-Zero、DeepSeek-Math、Qwen-Math 系列。</p>
-<p>除了 GRPO，还有两类重要的 Post-Training 方法：</p>
-<p><strong>拒绝采样（Rejection Sampling）</strong>：根本不用 RL。让模型对每个 Prompt 生成多个回答 → 用奖励模型筛出高分的 → 当作新 SFT 数据再做一轮 SFT。就是&quot;生成 → 筛选 → 再 SFT&quot;循环。Llama 2 的对齐流程用了这个。</p>
-<p><strong>RLAIF</strong>：用更强的 AI 模型代替人类标注偏好。Anthropic 的 Constitutional AI 用 Claude 自己批评自己的回答生成偏好对。优点是批量生成、成本低，缺点是依赖强教师 AI。</p>
-<p>最关键的认知：<strong>这五类方法是组合用的，不是替代。</strong> Llama 2-Chat 用的是&quot;SFT + 拒绝采样 + PPO/RLHF&rdquo;；DeepSeek R1 用的是&quot;SFT 冷启动 + 多轮 GRPO + 拒绝采样&quot;。</p>
-<blockquote>
-<p><strong>实践要点：</strong> 选型逻辑——资源有限 + 实现优先简单选 DPO；推理类任务（数学、代码）+ 想用 RL 探索上限选 GRPO；想要稳定基线再精修先做拒绝采样；数据规模大 + 标注成本敏感用 RLAIF；大厂资源充足追求最高上限跑完整 RLHF 或 GRPO。注意别说&quot;Llama 2 是 DPO 路线&quot;，它公开流程是 SFT + 拒绝采样 + PPO/RLHF。</p>
-</blockquote>
-<hr>
-<h2 id="第九章推理优化">第九章：推理优化
-</h2><h3 id="91-解码策略greedybeam-search采样">9.1 解码策略（Greedy/Beam Search/采样）
-</h3><p>每生成一个 token，模型输出一个 vocabulary 大小的概率分布，解码策略就是&quot;怎么从这个分布里挑下一个 token&quot;。不同策略对应&quot;生成任务到底有没有最优答案&quot;的不同假设。</p>
-<p><strong>贪心解码</strong>：每步选概率最高的 token。简单、可复现，但有&quot;复读机问题&quot;——一旦走进自我加强的循环就出不来，会一直重复。适合代码生成、SQL、JSON 抽取等有标准答案的精确任务。</p>
-<p><strong>Beam Search</strong>：每步保留 Top-B 条候选路径，最后选总概率最高的整条序列。在翻译时代是王者（翻译有&quot;单一最优译文&quot;），但 LLM 时代几乎被弃用——开放式生成没有&quot;最优答案&quot;，Beam Search 优化&quot;整体概率最高&quot;反而输出最 boring 的回答，还和 KV Cache、Flash Attention 等推理优化不兼容。</p>
-<p><strong>采样族</strong>：用随机性换多样性。普通采样有长尾噪声问题，发展出三种调节器：</p>
-<ul>
-<li><strong>Temperature</strong>：缩放概率分布锐度。T=0 等价贪心，T&lt;1 更确定，T&gt;1 更发散</li>
-<li><strong>Top-K</strong>：固定截断，只从概率最高 K 个 token 里采样</li>
-<li><strong>Top-P（Nucleus）</strong>：自适应截断，按累积概率到 P 为止。比 Top-K 智能——确定性问题候选池小，开放问题候选池大</li>
-</ul>
-<p>选型口诀：<strong>任务有标准答案 → 贪心或 T=0；任务有多种合理答案要稳 → Top-P=0.9 + T=0.7；任务鼓励多样性 → Top-P=0.95 + T=1.0+。</strong></p>
-<h3 id="92-temperaturetop-ptop-k-参数调节">9.2 Temperature/Top-p/Top-k 参数调节
-</h3><p>这三个参数的作用维度：</p>
-<ul>
-<li><strong>Temperature</strong> 控制&quot;分布的松紧&quot;（缩放尖锐度）</li>
-<li><strong>Top-K</strong> 是&quot;固定截断&quot;（只保留前 K 个词）</li>
-<li><strong>Top-P</strong> 是&quot;自适应截断&quot;（按累积概率截断到 P）</li>
-</ul>
-<p><strong>最关键的实战经验：一次主要调一个参数。</strong> 最常见做法是先调 Temperature，Top-P 保持默认或 0.9~1.0，Top-K 不设置。不要同时大幅调 temperature 和 top_p，两者会互相干扰。</p>
-<p>常见踩坑：</p>
-<ul>
-<li>同时调 temperature 高 + top_p 低（让分布变平坦再截掉一半，互相打架）</li>
-<li>同时设置 top_k 和 top_p（两个都在做截断，候选池变得奇怪）</li>
-</ul>
-<p>参考配置：</p>
-<div class="highlight"><pre tabindex="0" style="color:#f8f8f2;background-color:#272822;-moz-tab-size:4;-o-tab-size:4;tab-size:4;"><code class="language-python" data-lang="python"><span style="display:flex;"><span><span style="color:#75715e"># 代码生成 / 精确问答（要可重复、不能出错）</span>
-</span></span><span style="display:flex;"><span>temperature<span style="color:#f92672">=</span><span style="color:#ae81ff">0.0</span> <span style="color:#f92672">~</span> <span style="color:#ae81ff">0.2</span>, top_p<span style="color:#f92672">=</span><span style="color:#ae81ff">1.0</span>
-</span></span><span style="display:flex;"><span>
-</span></span><span style="display:flex;"><span><span style="color:#75715e"># 日常对话 / 总结摘要（要连贯自然但不能太发散）</span>
-</span></span><span style="display:flex;"><span>temperature<span style="color:#f92672">=</span><span style="color:#ae81ff">0.5</span> <span style="color:#f92672">~</span> <span style="color:#ae81ff">0.7</span>, top_p<span style="color:#f92672">=</span><span style="color:#ae81ff">0.9</span>
-</span></span><span style="display:flex;"><span>
-</span></span><span style="display:flex;"><span><span style="color:#75715e"># 创意写作 / 头脑风暴（要多样性，允许偶尔出奇）</span>
-</span></span><span style="display:flex;"><span>temperature<span style="color:#f92672">=</span><span style="color:#ae81ff">0.8</span> <span style="color:#f92672">~</span> <span style="color:#ae81ff">1.2</span>, top_p<span style="color:#f92672">=</span><span style="color:#ae81ff">0.95</span>
-</span></span></code></pre></div><h3 id="93-kv-cache-原理与-prompt-caching">9.3 KV Cache 原理与 Prompt Caching
-</h3><p><strong>KV Cache 是&quot;单次推理内&quot;的优化。</strong> 自回归生成的朴素实现是 O(N³)——每步都重算前面所有 token 的 attention。但第 2 步算的&quot;P&quot;的 attention 和第 1 步完全一样，纯浪费。</p>
-<p>KV Cache 把前面所有 token 的 K 和 V 缓存在显存里，每次新 token 只算自己的 Q、K、V，然后跟缓存的 K/V 做 attention。总计算量从 O(N³) 降到 O(N²)。这不是&quot;锦上添花&quot;，是&quot;让自回归生成可行的基本盘&quot;。</p>
-<p>但 KV Cache 显存代价不小（7B 模型 32K 上下文要 17GB），所以有一系列围绕它的优化（PagedAttention、KV Cache 量化、MQA/GQA 共享 K/V）。</p>
-<p><strong>Prompt Caching 是&quot;跨请求&quot;的优化。</strong> 把 KV Cache 的复用范围从&quot;单次推理内&quot;扩展到&quot;不同请求之间&quot;。如果两个请求的 Prompt 前缀完全相同（比如都用同样的 System Prompt），第一个请求算完的 KV Cache 保留下来，第二个请求直接复用，只算新增部分。</p>
-<p>两者关系：<strong>同一个底层机制在两个时间尺度上的应用。</strong> KV Cache 是单次推理内 token 之间共享，Prompt Caching 是不同请求之间共享。</p>
-<p>主流 API 实现分两派：Claude 用显式标记（<code>cache_control</code> 断点），OpenAI 用自动缓存（前缀超过 1024 tokens 自动缓存）。Claude 命中缓存的 token 费用是正常的 10%，写入有 1.25x 费用，后续 2 次以上命中就省钱。</p>
-<p><strong>最常见的工程陷阱：固定内容在前、动态内容在后。</strong> 前缀必须完全一致才能命中，哪怕多一个空格、改一个字符就 miss。把日期、用户名这类动态内容放在固定内容前面，会让缓存永远失效。Claude 的 ephemeral 缓存默认 5 分钟有效期，低流量应用可能省不到。</p>
-<h3 id="94-量化技术awqgptqnf4">9.4 量化技术（AWQ/GPTQ/NF4）
-</h3><p>量化（Quantization）的本质是把模型参数从高精度浮点（FP16）映射到低精度整数（INT8/INT4）。7B 模型 FP16 占 14GB，INT4 只剩 3.5GB，推理还能加速 2-4 倍。</p>
-<p>精度边界：</p>
-<div class="table-wrapper"><table>
-  <thead>
-      <tr>
-          <th>量化位数</th>
-          <th>模型体积</th>
-          <th>平均精度损失</th>
-          <th>实用性</th>
-      </tr>
-  </thead>
-  <tbody>
-      <tr>
-          <td>FP16</td>
-          <td>14 GB（7B）</td>
-          <td>基线</td>
-          <td>训练用</td>
-      </tr>
-      <tr>
-          <td>INT8</td>
-          <td>7 GB</td>
-          <td>&lt; 0.5%</td>
-          <td>几乎无损</td>
-      </tr>
-      <tr>
-          <td>INT4</td>
-          <td>3.5 GB</td>
-          <td>1-3%</td>
-          <td>主流部署</td>
-      </tr>
-      <tr>
-          <td>INT3</td>
-          <td>2.6 GB</td>
-          <td>5-10%</td>
-          <td>边缘设备</td>
-      </tr>
-  </tbody>
-</table></div>
-<p>但&quot;平均损失 1-3%&ldquo;背后藏着一个魔鬼：<strong>精度损失不是均匀分布的</strong>。简单分类几乎无损，数学推理可能损失 5-10%，长链路代码生成可能损失 10%+。</p>
-<p>三种主流算法各有核心创新：</p>
-<p><strong>GPTQ</strong>：基于&quot;误差补偿&quot;的逐层量化。每量化一层，用校准数据测出量化误差，把误差补偿到下一层。数学严谨，支持 INT3 极端低位，但量化耗时长。</p>
-<p><strong>AWQ</strong>：基于&quot;激活感知&quot;的权重保护。核心洞见是<strong>模型里约 1% 的权重承担了 99% 的输出贡献</strong>（Salient Weights）。通过逐通道缩放把重要权重保护好，其他激进压缩。推理速度快、效果稳。</p>
-<p><strong>QLoRA 的 NF4</strong>：NormalFloat 4-bit，专为权重的近高斯分布设计的非均匀量化。让 16 个量化值的分布也成正态分布形状，0 附近刻度密、远离 0 刻度少。配合双重量化和分页优化器，让 4090 能微调 7B 模型。</p>
-<p><strong>关键认知：量化算法（GPTQ/AWQ）和文件格式（GGUF）是两层东西。</strong> GPTQ/AWQ 是&quot;怎么把高精度变低精度&quot;的算法，GGUF 是 llama.cpp 用的&quot;怎么存低精度权重&quot;的文件格式容器。两者经常被混淆。</p>
-<p>选型：生产部署看重速度优先 AWQ / GPTQ / FP8；追求精度选 FP16 / INT8；个人微选取 QLoRA NF4；边缘设备选 GGUF Q4_K_M。<strong>部署量化模型前必须在自己的业务场景下做评测</strong>，不能直接看论文平均数。</p>
-<h3 id="95-moe-混合专家架构">9.5 MoE 混合专家架构
-</h3><p>MoE（Mixture of Experts）的核心思想是把 Transformer 中的 FFN 复制成 N 份&quot;专家&rdquo;，加一个 Router 决定每个 token 进哪个专家。</p>
-<p>核心设计哲学是&quot;<strong>总参数大，但激活参数小</strong>&quot;。比如 DeepSeek V3 总参数 671B，但每个 token 推理时只激活 37B（约 1/18）。能用&quot;总参数 671B 的知识量&quot;+&ldquo;激活参数 37B 的推理成本&rdquo;，达到 Dense 模型做不到的&quot;学得多 + 跑得快&quot;。</p>
-<p>三个核心组件：</p>
-<p><strong>1. 多个专家</strong>：FFN 复制 N 份，各自学到不同&quot;擅长方向&quot;（数学、代码、中文等）。专家分化不是预先指定的，是训练中自然涌现的。</p>
-<p><strong>2. Router</strong>：一个简单线性层算分 + Top-K 选取：</p>
-<div class="highlight"><pre tabindex="0" style="color:#f8f8f2;background-color:#272822;-moz-tab-size:4;-o-tab-size:4;tab-size:4;"><code class="language-python" data-lang="python"><span style="display:flex;"><span>gate_logits <span style="color:#f92672">=</span> token_embedding <span style="color:#f92672">@</span> W_router   <span style="color:#75715e"># 算每个专家的偏好分数</span>
-</span></span><span style="display:flex;"><span>expert_weights <span style="color:#f92672">=</span> softmax(gate_logits)      <span style="color:#75715e"># 归一化成概率</span>
-</span></span><span style="display:flex;"><span>top_k_experts <span style="color:#f92672">=</span> topk(expert_weights, k<span style="color:#f92672">=</span><span style="color:#ae81ff">2</span>)  <span style="color:#75715e"># 选 Top-K 个专家</span>
-</span></span></code></pre></div><p><strong>3. 负载均衡损失</strong>：防止&quot;专家不平衡&quot;——Router 偏爱某几个专家，其他专家根本没被训过。把专家使用率的方差作为惩罚加进总损失。DeepSeek V3 还提出了 Auxiliary-Loss-Free 策略（动态调整专家偏置项，不引入额外损失）。</p>
-<p>主流 MoE 对比：</p>
-<ul>
-<li><strong>DeepSeek V3</strong>：256 routed experts + 1 shared，Top-8 激活，671B/37B，激活率 5.5%</li>
-<li><strong>Mixtral 8x7B</strong>：8 experts，Top-2 激活，47B/13B，激活率 28%</li>
-<li><strong>Qwen MoE 30B-A3B</strong>：30B/3B，激活率 10%</li>
-</ul>
-<p>趋势是&quot;专家越来越多、激活率越来越低&quot;，更细粒度的稀疏化带来更好的算力性价比。</p>
-<p>关键的反直觉点：<strong>显存按总参数走（671B 全量加载），但推理速度按激活参数走（接近 37B Dense）</strong>。这就是 MoE&quot;学得多 + 跑得快&quot;的来源。</p>
-<blockquote>
-<p><strong>实践要点：</strong> 推理优化是多层叠加的体系：KV Cache 是基本盘，GQA + Flash Attention 压显存和加速，量化压模型体积，MoE 解耦知识量和推理成本，Prompt Caching 省跨请求成本。选型时看的是&quot;攻击哪个维度的瓶颈&quot;，不是单点替换。部署 MoE 模型比 Dense 复杂得多（需要专家并行、All-to-All 通信），建议先测试环境跑通再上生产。</p>
-</blockquote>
-<hr>
-<h2 id="第十章prompt-工程与思维链">第十章：Prompt 工程与思维链
-</h2><h3 id="101-prompt-的五要素">10.1 Prompt 的五要素
-</h3><p>同一个模型、同一个任务，一个好 Prompt 和一个差 Prompt 输出的质量差距可以有一个数量级。新手写 Prompt 最常见的问题不是&quot;太短&quot;，而是&quot;<strong>模糊</strong>&quot;——没说清楚角色、任务、上下文、格式、示例。</p>
-<p><strong>Role（角色设定）</strong>：告诉模型&quot;你是谁&quot;。角色越具体，模型&quot;人设&quot;越稳定。</p>
-<pre tabindex="0"><code>❌ 你是一个助手，帮我分析这段代码。
-✅ 你是一位有 10 年经验的 Python 后端工程师，专注代码 Review 和性能优化，
-   熟悉常见的安全漏洞。回答时直接指出问题，解释原因，给出具体的修改方案。
-</code></pre><p><strong>Task（任务描述）</strong>：用清晰动词把任务边界说明白，复杂任务拆成子步骤。</p>
-<pre tabindex="0"><code>❌ 帮我写一篇文章。
-✅ 写一篇面向高中生的 800 字科普文章，主题是「为什么黑洞会弯曲时空」。
-   用日常生活类比帮助读者理解，避免数学公式，结尾给一个思考题。
-</code></pre><p><strong>Context（背景信息）</strong>：把业务场景塞给模型。模型不了解你的行业、用户是谁。</p>
-<p><strong>Format（输出格式）</strong>：最容易被忽略但对程序解析影响最大的要素。</p>
-<pre tabindex="0"><code>❌ 分析这条用户评论的情感。
-✅ 以 JSON 格式输出，包含：
-   - &#34;summary&#34;：20 字以内的评论概述
-   - &#34;sentiment&#34;：正面 / 中性 / 负面 三选一
-   - &#34;keywords&#34;：最多 3 个关键词的列表
-</code></pre><p><strong>Examples（示例）</strong>：Few-shot 学习，比纯文字描述效果好得多。与其花很多时间描述想要的风格，不如直接给 1-3 个输入/输出例子。</p>
-<p>一个完整的好 Prompt 把五要素都补全：角色（技术内容编辑）、任务（摘要提炼）、背景（后端工程师受众）、格式（三段式固定结构）、长度约束。交给不同模型、不同时间执行，输出格式和质量都会高度稳定。</p>
-<h3 id="102-cot-的草稿纸原理">10.2 CoT 的&quot;草稿纸&quot;原理
-</h3><p>CoT（Chain-of-Thought）的本质是让模型&quot;推出来&quot;而不是&quot;直接猜出来&quot;。</p>
-<p>为什么有效？模型是一个 token 一个 token 生成的，每生成一个新 token 时都能&quot;看到&quot;前面所有已生成的内容。让它先生成推理步骤，等于给了它一张&quot;<strong>草稿纸</strong>&quot;——复杂的中间状态不再需要全部存在模型的隐状态里，通过显式输出记下来，减轻了推理负担。后面生成答案时能利用前面的推理上下文，自然出错就少了。</p>
-<p>两种 CoT 形式：</p>
-<ul>
-<li><strong>Few-shot CoT</strong>：Prompt 里给几个完整的&quot;推理示例&quot;，效果最稳定</li>
-<li><strong>Zero-shot CoT</strong>：问题末尾加一句&quot;请分步思考后再给结论&quot;，简单但效果略差</li>
-</ul>
-<p>Self-Consistency 是 CoT 的升级版：对同一问题用较高 Temperature 采样 N 条独立推理路径，取最终答案出现最多次的那个（多数投票）。直觉是&quot;正确答案可通过多种路径得到，错误答案相对分散&quot;。在数学推理任务上经常能提升 5-15 个百分点，代价是 N 倍 API 调用成本。</p>
-<h3 id="103-cot-的局限性">10.3 CoT 的局限性
-</h3><p>CoT 不是万能的：</p>
-<ul>
-<li><strong>token 消耗大</strong>：推理链额外几百上千 token，成本和延迟都上去</li>
-<li><strong>对简单问题适得其反</strong>：让模型对&quot;1+1 等于几&quot;也展开推理是浪费</li>
-<li><strong>推理链本身会出错</strong>：第 2 步错了，第 3、4 步基于错误前提继续推导，错误累积传导</li>
-<li><strong>对纯记忆类任务没帮助</strong>：&ldquo;2020 年奥运会在哪&quot;不需要推理</li>
-</ul>
-<p>2026 年的工程实践里，不建议默认把完整推理链原样展示给最终用户——一方面多花 token，另一方面完整思考链里可能有不稳定或不该暴露的内容。更稳的做法是让模型内部先分析，最终只输出简洁依据或关键步骤。</p>
-<h3 id="104-幻觉的三层根因与缓解策略">10.4 幻觉的三层根因与缓解策略
-</h3><p>学术界对 LLM 幻觉的定义：<strong>模型生成了与训练事实、用户输入、或已知世界不一致的内容，但语言上看起来很流畅合理。</strong> 关键两个特征：内容错 + 听起来对。</p>
-<p>根因有三层：</p>
-<p><strong>根因一：训练数据本身有错。</strong> 互联网语料充满错误、矛盾、过时信息，模型全都学进参数，没有&quot;真假区分&quot;机制。但这只是冰山一角——即使数据 100% 正确，模型还是会幻觉。</p>
-<p><strong>根因二：生成机制是&quot;续写&quot;不是&quot;查询&rdquo;。</strong> 这是最深的根因。LLM 本质是 next-token prediction，不是查询知识库。模型对&quot;自己知不知道某件事&quot;没有显式信号。碰到不熟悉的问题，会按训练时见过的相似上下文&quot;编一个看起来合理的答案&quot;。</p>
-<p>这就是为什么 <strong>Temperature=0 也会幻觉</strong>——贪心解码选概率最高的 token，但&quot;概率最高&quot;不等于&quot;正确&quot;。如果模型对某事实记忆模糊，概率分布可能是&quot;茅 35% / 周 32%&quot;，T=0 铁定选&quot;茅&quot;，错得很自信。温度只能减少&quot;同一错误重复出现的随机性&quot;，不能修正&quot;错误本身&quot;。</p>
-<p>LLM 的事实记忆是<strong>参数化知识</strong>（分布式编码在 1700 亿参数里）——模糊的、不可检索的、不可验证的。而 RAG 的<strong>检索式知识</strong>每个事实有明确出处，找到了就找到了，找不到就明确返回空。</p>
-<p><strong>根因三：对齐目标的副作用。</strong> SFT 和 RLHF 训练时，&ldquo;自信地回答&quot;几乎永远比&quot;我不知道&quot;得分高——人类标注员打分依据更多是&quot;读起来像不像专家&rdquo;，不一定知道答案对不对。奖励模型学到&quot;自信 = 高分，谨慎 = 低分&quot;，PPO 把这个偏好放大，模型变成&quot;永远自信、永远不拒答&quot;。</p>
-<p>三类幻觉：<strong>事实性幻觉</strong>（编造不存在的事实）、<strong>推理性幻觉</strong>（推理链条错乱）、<strong>上下文不一致</strong>（违背用户给的明确条件）。</p>
-<p>缓解方案分三层组合用：</p>
-<p><strong>训练层</strong>：SFT 数据加大量&quot;拒答样例&quot;、校准（Calibration）训练让&quot;自信度&quot;和&quot;正确率&quot;对齐、用奖励模型筛掉幻觉回答。</p>
-<p><strong>推理层</strong>：CoT 暴露推理错误、Temperature 调低减少随机偏差、Self-Consistency 多次采样投票、约束解码限制只能输出合法 vocabulary。</p>
-<p><strong>系统层</strong>：RAG 让模型&quot;看着资料答&quot;、后处理事实核查、强制带引用来源。</p>
-<p>最关键的认知：<strong>幻觉不可能完全消除</strong>，因为它是 LLM 概率生成机制的固有副产物。工程目标是&quot;降低发生率 + 让用户能识别&quot;，不是&quot;彻底消灭&quot;。</p>
-<blockquote>
-<p><strong>实践要点：</strong> Prompt 工程不是&quot;把人话写清楚&quot;，是有方法论的工程问题——五要素、Few-shot、CoT 触发、迭代闭环。要建测试集（30-50 条覆盖正常和边缘情况），每次改动都跑一遍看通过率，遵循&quot;每次只改一处&quot;原则。幻觉缓解要训练、推理、系统三层一起上，少哪层都不行。</p>
-</blockquote>
-<hr>
-<h2 id="第十一章部署与评测">第十一章：部署与评测
-</h2><h3 id="111-主流部署框架对比vllmsglangtgi">11.1 主流部署框架对比（vLLM/SGLang/TGI）
-</h3><p>部署框架解决的核心问题：<strong>怎么在固定硬件上跑得更快、更省显存、支持更多并发？</strong> 直接用 transformers 库有三大痛点：KV Cache 显存碎片严重、批量调度低效、重复计算。</p>
-<p><strong>vLLM</strong>（UC Berkeley）：核心创新是 <strong>PagedAttention</strong>，灵感来自操作系统虚拟内存。把 KV Cache 切成固定大小 Block（16 个 token 一块），每个请求拿到逻辑 Block 列表，由 Block Table 映射到物理显存。显存利用率从 30-40% 拉到 90%+。配合 <strong>Continuous Batching</strong>（请求异步加入退出，每个 token 步骤动态组 batch），吞吐率比 static batching 高 3-5 倍。是当前生产 API 的事实标准。</p>
-<p><strong>SGLang</strong>（LMSYS）：核心创新是 <strong>RadixAttention</strong>，把多请求的共享前缀组织成 Radix Tree（基数树）。多个请求如果开头 N 个 tokens 一样，就共享根节点到第 N 层的同一条路径。KV Cache 显存按&quot;所有请求的并集&quot;算，而不是&quot;各自的总和&quot;。在 Agent / 多轮对话 / Few-shot 场景（前缀重复率高）下比 vLLM 省 50-80% 显存、首 token 延迟降 2-3 倍。</p>
-<p><strong>TGI</strong>（HuggingFace）：核心卖点是生态集成 + 企业级特性。直接读 HF Hub 模型 ID 自动下载，支持鉴权、Prometheus metrics、健康检查。适合已有 HF 流程的团队，但极致吞吐通常不如 vLLM / SGLang。</p>
-<p><strong>llama.cpp</strong>：CPU / 边缘设备的事实标准。纯 C++ 重写整个推理栈，配合 GGUF 量化文件格式，让 7B 模型在 MacBook Pro、树莓派、手机上跑。M3 Max（128GB 统一内存）能跑 70B 模型。</p>
-<p><strong>TensorRT-LLM</strong>（NVIDIA）：针对 NVIDIA GPU 做极致优化，性能通常比 vLLM 再高 10-30%，但部署复杂（每个模型/GPU 组合要编译 engine），只支持 NVIDIA GPU。</p>
-<p>选型决策矩阵：</p>
-<div class="table-wrapper"><table>
-  <thead>
-      <tr>
-          <th>场景</th>
-          <th>推荐</th>
-      </tr>
-  </thead>
-  <tbody>
-      <tr>
-          <td>生产高吞吐 LLM API</td>
-          <td>vLLM</td>
-      </tr>
-      <tr>
-          <td>Agent / 多轮对话 / Few-shot</td>
-          <td>SGLang</td>
-      </tr>
-      <tr>
-          <td>拥抱 HF 生态、企业级</td>
-          <td>TGI</td>
-      </tr>
-      <tr>
-          <td>本地 / Mac / 边缘 / 无 GPU</td>
-          <td>llama.cpp</td>
-      </tr>
-      <tr>
-          <td>极致性能、自家定制</td>
-          <td>TensorRT-LLM</td>
-      </tr>
-  </tbody>
-</table></div>
-<p>vLLM 和 SGLang 是&quot;<strong>互补不替代</strong>&ldquo;的关系——业内已有公司混用（高吞吐路由用 vLLM，Agent 路由用 SGLang）。</p>
-<h3 id="112-评测体系的三个层次">11.2 评测体系的三个层次
-</h3><p>学术 Benchmark 适合横向对比，但<strong>不能完全相信</strong>，因为存在严重的&rdquo;<strong>数据污染</strong>&ldquo;问题——模型在预训练时可能已经见过测试题。</p>
-<p>主流学术 Benchmark：</p>
-<ul>
-<li><strong>MMLU / MMLU-Pro</strong>：57 学科综合知识</li>
-<li><strong>HumanEval / MBPP / SWE-bench Verified</strong>：代码能力</li>
-<li><strong>GSM8K / MATH / GPQA</strong>：数学和科学推理</li>
-<li><strong>MT-Bench / Arena / τ-bench</strong>：对话、偏好、工具调用</li>
-<li><strong>HELM / LiveBench / Humanity&rsquo;s Last Exam</strong>：综合或更新型评测</li>
-</ul>
-<p>面对 Benchmark 局限，最务实的做法是建<strong>业务测试集</strong>：从真实用户请求采样 50-200 条，人工标注期望答案，每次改 Prompt 或换模型都跑一遍。评分方式：客观任务用程序自动验证，主观任务用 LLM-as-Judge（让强模型代评分，人工抽查 10-20% 校准）。</p>
-<p>完整的评测体系是**&ldquo;学术 Benchmark + 业务测试集 + 线上指标&quot;的闭环**：离线评估帮你找问题、快速迭代；线上指标（满意度、任务完成率、会话放弃率）告诉你优化是否真正改善了用户体验。</p>
-<h3 id="113-模型选型四维度">11.3 模型选型四维度
-</h3><p>模型选型从来不是看跑分最高，是看&rdquo;<strong>合规、成本、延迟、能力特征</strong>&ldquo;四个维度匹配业务需求。</p>
-<p><strong>合规</strong>：国内 ToB 项目里，数据出境合规是死线。再强的海外模型，数据分类分级、客户合同、监管要求过不了就只能做离线评测。</p>
-<p><strong>成本</strong>：Agent 内部循环调用如果硬上最贵的标杆模型，可能一个月把预算烧穿。高频节点要用性价比高的模型。</p>
-<p><strong>延迟</strong>：对延迟敏感的在线服务，推理速度和首 token 延迟是硬指标。</p>
-<p><strong>能力特征</strong>：不同模型各有特长——DeepSeek 推理和性价比突出、Qwen 中文和工具调用稳定、豆包工程生态和并发能力强。</p>
-<p>实战中不死磕单一模型，而是设计<strong>Model Routing（模型路由）</strong>：格式要求严格的调度节点用结构化输出稳定的模型，高频推理用性价比高的模型，特别难的问题路由给更强但更贵的模型，敏感数据走合规可控的链路。</p>
-<blockquote>
-<p><strong>实践要点：</strong> 部署选型看的是&quot;攻击哪个痛点&rdquo;——vLLM 攻显存碎片和吞吐，SGLang 攻共享前缀，TGI 攻生态集成，llama.cpp 攻 CPU/边缘。评测不能只看学术 Benchmark（数据污染），必须建自己的业务测试集 + 线上指标闭环。模型选型四维度（合规、成本、延迟、能力），国内企业项目合规是死线。</p>
-</blockquote>
-<hr>
-<h2 id="结尾">结尾
-</h2><h3 id="核心知识点回顾">核心知识点回顾
-</h3><ol>
-<li>
-<p><strong>LLM 的本质</strong>是&quot;用海量语料预训练、参数到百亿千亿规模、自回归生成文本的统一模型&rdquo;。三个本质区别：任务统一（Prompt 接口）、生成式（输出文本）、涌现（学到没教过的能力）。</p>
-</li>
-<li>
-<p><strong>Transformer 的核心</strong>是 Self-Attention：Q/K/V 从同一输入通过三个独立矩阵投影得到，除以 √d_k 防止 softmax 变 one-hot 导致梯度消失。Decoder-only 胜在&quot;预测下一个 token&quot;目标极其统一 + 可在海量无标注文本上自监督 + 规模越大涌现越强。</p>
-</li>
-<li>
-<p><strong>注意力优化是叠加不是替代</strong>：MQA/GQA 是&quot;结构层&quot;优化（改 K/V 套数），Flash Attention 是&quot;实现层&quot;优化（分块 + 在线 softmax）。主流标配是 GQA + Flash Attention。</p>
-</li>
-<li>
-<p><strong>RoPE 赢在三个维度的均衡</strong>：相对位置编码 + 长上下文外推（配合 NTK/YaRN）+ 工程兼容性（和 KV Cache/Flash Attention/GQA 无缝叠加）。</p>
-</li>
-<li>
-<p><strong>BPE 子词分词</strong>是字符级和词级的甜蜜点：控制词汇表大小 + 处理新词不 OOV + 保留语义信息。1000 汉字约 1000-1500 tokens，正式算成本必须用目标模型 tokenizer。</p>
-</li>
-<li>
-<p><strong>训练三阶段缺一不可</strong>：预训练定天花板（预测下一个 token，烧钱最多）、SFT 给格式（几千条高质量 &gt; 几十万条粗糙）、对齐给价值观（RLHF/DPO）。</p>
-</li>
-<li>
-<p><strong>Chinchilla 1:20 不是数据上限</strong>，是&quot;给定训练算力时怎么分配更划算&quot;。Llama 3 用 1:1875 配比训出 8B 超越 GPT-3 175B，说明&quot;小参数 + 海量数据&quot;在推理成本最优方向上大有可为。</p>
-</li>
-<li>
-<p><strong>LoRA 五大优点</strong>：推理零开销（可合并进 W）、模块化插拔（一基底多 LoRA）、灾难性遗忘风险低、训练稳定、权重可组合。它是 PEFT 事实标准不是因为单一优势，是五者叠加。</p>
-</li>
-<li>
-<p><strong>对齐五大家族组合使用</strong>：RLHF（4 模型，效果上限高）、DPO（2 模型，绕过奖励模型）、GRPO（砍 Value Model 用组内归一化，对可验证任务友好）、拒绝采样（迭代 SFT 不用 RL）、RLAIF（强 AI 当老师）。</p>
-</li>
-<li>
-<p><strong>幻觉不可能完全消除</strong>，因为 LLM 本质是&quot;按概率续写&quot;不是&quot;查询数据库&quot;。Temperature=0 也会幻觉——概率最高的 token 不等于正确的 token。缓解要训练、推理、系统三层一起上。</p>
-</li>
-</ol>
-<h3 id="与其他主题的关联">与其他主题的关联
-</h3><p>本文是&quot;AI 知识体系&quot;系列的开篇，后续主题与本篇的关联如下：</p>
-<ul>
-<li><strong>RAG（检索增强生成）</strong>：是幻觉缓解的系统层方案，把&quot;模糊的参数化记忆&quot;换成&quot;精确的检索结果&quot;。理解 KV Cache 和 Prompt Caching 是理解 RAG 性能优化的前提。</li>
-<li><strong>Agent / 多智能体</strong>：依赖 Tool Use、多轮对话、长上下文，这正是 SGLang RadixAttention 的优势场景。Model Routing 是 Agent 系统的成本控制核心。</li>
-<li><strong>微调实战</strong>：本文讲了 LoRA/QLoRA 的原理，实战篇会讲数据构造、训练参数调优、回归评测的具体流程。</li>
-<li><strong>推理服务架构</strong>：本文讲了 vLLM/SGLang 的核心创新，架构篇会讲多副本部署、负载均衡、显存调度、监控告警的完整方案。</li>
-</ul>
-<h3 id="推荐进一步阅读">推荐进一步阅读
-</h3><ul>
-<li><strong>论文</strong>：《Attention is All You Need》（Transformer）、Chinchilla（缩放定律）、《Are Emergent Abilities a Mirage?》（涌现争议）、RoPE 原文（苏剑林）、LoRA 原文、DPO 原文、Flash Attention 原文、DeepSeek V3 / R1 技术报告</li>
-<li><strong>官方文档</strong>：vLLM（PagedAttention）、SGLang（RadixAttention）、HuggingFace PEFT（LoRA/QLoRA 实践）</li>
-<li><strong>实践资源</strong>：Llama 3 / Qwen / DeepSeek 的模型卡和技术报告，了解真实工业级模型的训练配比和架构选择</li>
-</ul>
-<hr>
-<blockquote>
-<p><em>本文基于 22 篇大模型工程主题素材整理而成，覆盖从 LLM 本质、Transformer 架构、注意力优化、位置编码、分词器、训练全景、微调、对齐、推理优化、Prompt 工程到部署评测的完整知识链路。如有错误欢迎指正。</em></p>
-</blockquote>
-
-</section>
-
-
-    <footer class="article-footer">
-    
-    <section class="article-tags">
-        
-            <a href="/tags/LLM.html">LLM</a>
-        
-            <a href="/tags/Foundation.html">Foundation</a>
-        
-            <a href="/tags/Engineering.html">Engineering</a>
-        
-            <a href="/tags/Transformer.html">Transformer</a>
-        
-            <a href="/tags/Inference.html">Inference</a>
-        
-    </section>
-
-
-    </footer>
-
-
-    
-</article>
-
-    
-
-    
-
-<aside class="related-content--wrapper">
-    <h2 class="section-title">相关文章</h2>
-    <div class="related-content">
-        <div class="flex article-list--tile">
-            
-                
-<article class="">
-    <a href="/ai/ai-systematization/00-Introduction-to-AI-Large-Model-Engineering-Knowledge-System.html">
-        
-        
-
-        <div class="article-details">
-            <h2 class="article-title">AI大模型工程知识体系总览与导论</h2>
-        </div>
-    </a>
-</article>
-
-            
-                
-<article class="">
-    <a href="/ai/knowledge-series/06-What-is-RAG.html">
-        
-        
-
-        <div class="article-details">
-            <h2 class="article-title">第6章：RAG——给大模型一本「开卷考试」的参考资料</h2>
-        </div>
-    </a>
-</article>
-
-            
-                
-<article class="">
-    <a href="/ai/knowledge-series/04-Function-Calling.html">
-        
-        
-
-        <div class="article-details">
-            <h2 class="article-title">第4章：Function Calling——让大模型从「聊天者」变成「执行者」</h2>
-        </div>
-    </a>
-</article>
-
-            
-                
-<article class="">
-    <a href="/ai/knowledge-series/02-Transformer-Architecture-Explained.html">
-        
-        
-
-        <div class="article-details">
-            <h2 class="article-title">第2章：Transformer架构——LLM的心脏，你必须了解的结构</h2>
-        </div>
-    </a>
-</article>
-
-            
-                
-<article class="">
-    <a href="/ai/knowledge-series/03-Hallucination-and-Controllability.html">
-        
-        
-
-        <div class="article-details">
-            <h2 class="article-title">第3章：大模型幻觉——它为什么胡说八道？如何让它老实？</h2>
-        </div>
-    </a>
-</article>
-
-            
-        </div>
-    </div>
-</aside>
-
-     
-    
-        
-    <script
-    src="https://giscus.app/client.js"
-    data-repo="pastor17/bloggiscus"
-    data-repo-id="R_kgDOQ6H9qQ"
-    data-category=""
-    data-category-id="DIC_kwDOQ6H9qc4C0-T8"
-    data-mapping="pathname"
-    data-strict="0"
-    data-reactions-enabled="1"
-    data-emit-metadata="0"
-    data-input-position="bottom"
-    data-theme="light"
-    data-lang="zh-CN"
-    data-loading="lazy"
-    crossorigin="anonymous"
-    async
-></script>
-<script>
-    function setGiscusTheme(theme) {
-        let giscus = document.querySelector("iframe.giscus-frame");
-        if (giscus) {
-            giscus.contentWindow.postMessage(
-                {
-                    giscus: {
-                        setConfig: {
-                            theme: theme,
-                        },
-                    },
-                },
-                "https://giscus.app"
-            );
-        }
-    }
-
-    (function () {
-        addEventListener("message", (e) => {
-            if (event.origin !== "https://giscus.app") return;
-            handler();
-        });
-        window.addEventListener("onColorSchemeChange", handler);
-
-        function handler() {
-            if (document.documentElement.dataset.scheme === "light") {
-                setGiscusTheme('light');
-            } else {
-                setGiscusTheme('dark_dimmed');
-            }
-        }
-    })();
-</script>
-
-    
-
-    <footer class="site-footer">
-    <section class="copyright">
-        &copy; 
-        
-        2026 SelfTechHub
-    </section>
-    
-    <section class="powerby">
-        
-
-    </section>
-</footer>
-
-
-    
-<div class="pswp" tabindex="-1" role="dialog" aria-hidden="true">
-
-    
-    <div class="pswp__bg"></div>
-
-    
-    <div class="pswp__scroll-wrap">
-
-        
-        <div class="pswp__container">
-            <div class="pswp__item"></div>
-            <div class="pswp__item"></div>
-            <div class="pswp__item"></div>
-        </div>
-
-        
-        <div class="pswp__ui pswp__ui--hidden">
-
-            <div class="pswp__top-bar">
-
-                
-
-                <div class="pswp__counter"></div>
-
-                <button class="pswp__button pswp__button--close" title="Close (Esc)"></button>
-
-                <button class="pswp__button pswp__button--share" title="Share"></button>
-
-                <button class="pswp__button pswp__button--fs" title="Toggle fullscreen"></button>
-
-                <button class="pswp__button pswp__button--zoom" title="Zoom in/out"></button>
-
-                
-                
-                <div class="pswp__preloader">
-                    <div class="pswp__preloader__icn">
-                        <div class="pswp__preloader__cut">
-                            <div class="pswp__preloader__donut"></div>
-                        </div>
-                    </div>
-                </div>
-            </div>
-
-            <div class="pswp__share-modal pswp__share-modal--hidden pswp__single-tap">
-                <div class="pswp__share-tooltip"></div>
-            </div>
-
-            <button class="pswp__button pswp__button--arrow--left" title="Previous (arrow left)">
-            </button>
-
-            <button class="pswp__button pswp__button--arrow--right" title="Next (arrow right)">
-            </button>
-
-            <div class="pswp__caption">
-                <div class="pswp__caption__center"></div>
-            </div>
-
-        </div>
-
-    </div>
-
-</div><script 
-                src="https://cdn.jsdelivr.net/npm/photoswipe@4.1.3/dist/photoswipe.min.js"integrity="sha256-ePwmChbbvXbsO02lbM3HoHbSHTHFAeChekF1xKJdleo="crossorigin="anonymous"
-                defer
-                >
-            </script><script 
-                src="https://cdn.jsdelivr.net/npm/photoswipe@4.1.3/dist/photoswipe-ui-default.min.js"integrity="sha256-UKkzOn/w1mBxRmLLGrSeyB4e1xbrp4xylgAWb3M42pU="crossorigin="anonymous"
-                defer
-                >
-            </script><link 
-                rel="stylesheet" 
-                href="https://cdn.jsdelivr.net/npm/photoswipe@4.1.3/dist/default-skin/default-skin.min.css"crossorigin="anonymous"
-            ><link 
-                rel="stylesheet" 
-                href="https://cdn.jsdelivr.net/npm/photoswipe@4.1.3/dist/photoswipe.min.css"crossorigin="anonymous"
-            >
-    
-
-            </main>
-        </div>
-        <script 
-                src="https://cdn.jsdelivr.net/npm/node-vibrant@3.1.6/dist/vibrant.min.js"integrity="sha256-awcR2jno4kI5X0zL8ex0vi2z&#43;KMkF24hUW8WePSA9HM="crossorigin="anonymous"
-                
-                >
-            </script><script type="text/javascript" src="/ts/main.c922af694cc257bf1ecc41c0dd7b0430f9114ec280ccf67cd2c6ad55f5316c4e.js" defer></script>
-<script>
-    (function () {
-        const customFont = document.createElement('link');
-        customFont.href = "https://fonts.googleapis.com/css2?family=Lato:wght@300;400;700&display=swap";
-
-        customFont.type = "text/css";
-        customFont.rel = "stylesheet";
-
-        document.head.appendChild(customFont);
-    }());
-</script>
-
-    </body>
-</html>
+<!doctype html><html lang=zh-cn dir=ltr><head><meta charset=utf-8><meta name=viewport content='width=device-width,initial-scale=1'><meta name=description content="本文是\" ai 知识体系\"系列的开篇，系统梳理大语言模型从底层原理到工程落地的完整知识链路。定位是：让初学者理解 llm 的本质，让有经验者加深对底层原理的理解。"><title>大模型基础与工程化实践</title><link rel=canonical href=https://blog.irudder.me/ai/ai-systematization/01-Foundation-of-Large-Models-and-Engineering-Practice.html><link rel=stylesheet href=/scss/style.min.c77ce1b874b29b2ee9e54a89066c79ebf35cbe9cf399b31ab5d79167f9a965c9.css><meta property='og:title' content="大模型基础与工程化实践"><meta property='og:description' content="本文是\" ai 知识体系\"系列的开篇，系统梳理大语言模型从底层原理到工程落地的完整知识链路。定位是：让初学者理解 llm 的本质，让有经验者加深对底层原理的理解。"><meta property='og:url' content='https://blog.irudder.me/ai/ai-systematization/01-Foundation-of-Large-Models-and-Engineering-Practice.html'><meta property='og:site_name' content='SelfTechHub'><meta property='og:type' content='article'><meta property='article:section' content='Ai'><meta property='article:tag' content='LLM'><meta property='article:tag' content='Foundation'><meta property='article:tag' content='Engineering'><meta property='article:tag' content='Transformer'><meta property='article:tag' content='Inference'><meta property='article:published_time' content='2026-07-24T00:00:00+08:00'><meta property='article:modified_time' content='2026-07-24T00:00:00+08:00'><meta name=twitter:title content="大模型基础与工程化实践"><meta name=twitter:description content="本文是\" ai 知识体系\"系列的开篇，系统梳理大语言模型从底层原理到工程落地的完整知识链路。定位是：让初学者理解 llm 的本质，让有经验者加深对底层原理的理解。"><link rel="shortcut icon" href=/images/logo.png></head><body class=article-page><script>(function(){const e="StackColorScheme";localStorage.getItem(e)||localStorage.setItem(e,"auto")})()</script><script>(function(){const t="StackColorScheme",e=localStorage.getItem(t),n=window.matchMedia("(prefers-color-scheme: dark)").matches===!0;e=="dark"||e==="auto"&&n?document.documentElement.dataset.scheme="dark":document.documentElement.dataset.scheme="light"})()</script><div class="container main-container flex on-phone--column extended"><aside class="sidebar left-sidebar sticky"><button class="hamburger hamburger--spin" type=button id=toggle-menu aria-label=切换菜单>
+<span class=hamburger-box><span class=hamburger-inner></span></span></button><header><figure class=site-avatar><a href=/><img src=/img/avatar_hu_8588ce14af1147e2.png width=300 height=286 class=site-logo loading=lazy alt=Avatar>
+</a><span class=emoji>🧠</span></figure><div class=site-meta><h1 class=site-name><a href=/>SelfTechHub</a></h1><h2 class=site-description>成长 · 技术 · 商业 · AI —— 把碎片知识沉淀为可复用的记忆体系</h2></div></header><ol class=menu-social><li><a href=https://github.com/pastor17 target=_blank title=GitHub rel=me><svg class="icon icon-tabler icon-tabler-brand-github" width="24" height="24" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor" fill="none" stroke-linecap="round" stroke-linejoin="round"><path stroke="none" d="M0 0h24v24H0z" fill="none"/><path d="M9 19c-4.3 1.4-4.3-2.5-6-3m12 5v-3.5c0-1 .1-1.4-.5-2 2.8-.3 5.5-1.4 5.5-6a4.6 4.6.0 00-1.3-3.2 4.2 4.2.0 00-.1-3.2s-1.1-.3-3.5 1.3a12.3 12.3.0 00-6.2.0C6.5 2.8 5.4 3.1 5.4 3.1a4.2 4.2.0 00-.1 3.2A4.6 4.6.0 004 9.5c0 4.6 2.7 5.7 5.5 6-.6.6-.6 1.2-.5 2V21"/></svg></a></li></ol><ol class=menu id=main-menu><li><a href=/><svg class="icon icon-tabler icon-tabler-home" width="24" height="24" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor" fill="none" stroke-linecap="round" stroke-linejoin="round"><path stroke="none" d="M0 0h24v24H0z"/><polyline points="5 12 3 12 12 3 21 12 19 12"/><path d="M5 12v7a2 2 0 002 2h10a2 2 0 002-2v-7"/><path d="M9 21v-6a2 2 0 012-2h2a2 2 0 012 2v6"/></svg>
+<span>首页</span></a></li><li><a href=/categories/%E6%88%90%E9%95%BF.html><span>成长认知</span></a></li><li><a href=/categories/%E6%8A%80%E6%9C%AF.html><span>技术精进</span></a></li><li><a href=/categories/%E5%95%86%E4%B8%9A.html><span>商业·财富</span></a></li><li><a href=/categories/ai.html><span>探索AI</span></a></li><li><a href=/about/><svg class="icon icon-tabler icon-tabler-user" width="24" height="24" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor" fill="none" stroke-linecap="round" stroke-linejoin="round"><path stroke="none" d="M0 0h24v24H0z"/><circle cx="12" cy="7" r="4"/><path d="M6 21v-2a4 4 0 014-4h4a4 4 0 014 4v2"/></svg>
+<span>关于</span></a></li><li class=menu-bottom-section><ol class=menu><li id=dark-mode-toggle><svg class="icon icon-tabler icon-tabler-toggle-left" width="24" height="24" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor" fill="none" stroke-linecap="round" stroke-linejoin="round"><path stroke="none" d="M0 0h24v24H0z"/><circle cx="8" cy="12" r="2"/><rect x="2" y="6" width="20" height="12" rx="6"/></svg>
+<svg class="icon icon-tabler icon-tabler-toggle-right" width="24" height="24" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor" fill="none" stroke-linecap="round" stroke-linejoin="round"><path stroke="none" d="M0 0h24v24H0z"/><circle cx="16" cy="12" r="2"/><rect x="2" y="6" width="20" height="12" rx="6"/></svg>
+<span>暗色模式</span></li></ol></li></ol></aside><aside class="sidebar right-sidebar sticky"><section class="widget archives"><div class=widget-icon><svg class="icon icon-tabler icon-tabler-hash" width="24" height="24" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor" fill="none" stroke-linecap="round" stroke-linejoin="round"><path stroke="none" d="M0 0h24v24H0z"/><line x1="5" y1="9" x2="19" y2="9"/><line x1="5" y1="15" x2="19" y2="15"/><line x1="11" y1="4" x2="7" y2="20"/><line x1="17" y1="4" x2="13" y2="20"/></svg></div><h2 class="widget-title section-title">目录</h2><div class=widget--toc><nav id=TableOfContents><ul><li><a href=#核心问题列表>核心问题列表</a></li><li><a href=#引言为什么理解大模型底层原理对-ai-工程至关重要>引言：为什么理解大模型底层原理对 AI 工程至关重要</a></li><li><a href=#第一章大语言模型的本质>第一章：大语言模型的本质</a><ul><li><a href=#11-llm-与传统-nlp-模型的根本区别>1.1 LLM 与传统 NLP 模型的根本区别</a></li><li><a href=#12-预测下一个-token为什么威力如此之大>1.2 &ldquo;预测下一个 token"为什么威力如此之大</a></li><li><a href=#13-自回归生成的数学直觉>1.3 自回归生成的数学直觉</a></li><li><a href=#14-规模与数据两个杠杆>1.4 规模与数据两个杠杆</a></li></ul></li><li><a href=#第二章transformer-架构深度剖析>第二章：Transformer 架构深度剖析</a><ul><li><a href=#21-self-attention-的数学原理>2.1 Self-Attention 的数学原理</a></li><li><a href=#22-为什么-self-attention-优于-rnncnn>2.2 为什么 Self-Attention 优于 RNN/CNN</a></li><li><a href=#23-encoder-vs-decoder为什么-decoder-only-架构胜出>2.3 Encoder vs Decoder：为什么 Decoder-only 架构胜出</a></li><li><a href=#24-多头注意力的意义>2.4 多头注意力的意义</a></li></ul></li><li><a href=#第三章注意力优化演进>第三章：注意力优化演进</a><ul><li><a href=#31-mha-的局限性>3.1 MHA 的局限性</a></li><li><a href=#32-mqa极端共享的代价>3.2 MQA：极端共享的代价</a></li><li><a href=#33-gqa折中之道>3.3 GQA：折中之道</a></li><li><a href=#34-flash-attention从算法层面优化>3.4 Flash Attention：从算法层面优化</a></li><li><a href=#35-四者的叠加关系>3.5 四者的叠加关系</a></li></ul></li><li><a href=#第四章位置编码>第四章：位置编码</a><ul><li><a href=#41-为什么需要位置编码>4.1 为什么需要位置编码</a></li><li><a href=#42-sincos-绝对编码>4.2 sin/cos 绝对编码</a></li><li><a href=#43-rope-旋转位置编码>4.3 RoPE 旋转位置编码</a></li><li><a href=#44-alibi-外推编码>4.4 ALiBi 外推编码</a></li><li><a href=#45-三者对比与选型>4.5 三者对比与选型</a></li></ul></li><li><a href=#第五章分词器tokenizer>第五章：分词器（Tokenizer）</a><ul><li><a href=#51-为什么需要分词>5.1 为什么需要分词</a></li><li><a href=#52-bpe-算法原理>5.2 BPE 算法原理</a></li><li><a href=#53-子词分词的优势>5.3 子词分词的优势</a></li><li><a href=#54-分词对模型能力的影响>5.4 分词对模型能力的影响</a></li></ul></li><li><a href=#第六章大模型训练全景>第六章：大模型训练全景</a><ul><li><a href=#61-预训练从海量文本中学习语言规律>6.1 预训练：从海量文本中学习语言规律</a></li><li><a href=#62-sft从续写器到对话助手>6.2 SFT：从"续写器"到"对话助手"</a></li><li><a href=#63-对齐rlhfdpo让模型符合人类偏好>6.3 对齐（RLHF/DPO）：让模型符合人类偏好</a></li><li><a href=#64-三个阶段为什么缺一不可>6.4 三个阶段为什么缺一不可</a></li><li><a href=#65-scaling-law-与涌现能力>6.5 Scaling Law 与涌现能力</a></li><li><a href=#66-chinchilla-比例与-llama-3-的数据突破>6.6 Chinchilla 比例与 Llama 3 的数据突破</a></li></ul></li><li><a href=#第七章微调技术>第七章：微调技术</a><ul><li><a href=#71-全量微调-vs-参数高效微调>7.1 全量微调 vs 参数高效微调</a></li><li><a href=#72-lora-的五大优点与原理>7.2 LoRA 的五大优点与原理</a></li><li><a href=#73-qlora>7.3 QLoRA</a></li><li><a href=#74-post-training-的五种家族>7.4 Post-Training 的五种家族</a></li></ul></li><li><a href=#第八章对齐技术>第八章：对齐技术</a><ul><li><a href=#81-rlhfppo的完整流程>8.1 RLHF（PPO）的完整流程</a></li><li><a href=#82-dpo去掉奖励模型的两步法>8.2 DPO：去掉奖励模型的两步法</a></li><li><a href=#83-ppo-vs-dpo-的核心区别4-模型-vs-2-模型>8.3 PPO vs DPO 的核心区别（4 模型 vs 2 模型）</a></li><li><a href=#84-grpo-等新方法>8.4 GRPO 等新方法</a></li></ul></li><li><a href=#第九章推理优化>第九章：推理优化</a><ul><li><a href=#91-解码策略greedybeam-search采样>9.1 解码策略（Greedy/Beam Search/采样）</a></li><li><a href=#92-temperaturetop-ptop-k-参数调节>9.2 Temperature/Top-p/Top-k 参数调节</a></li><li><a href=#93-kv-cache-原理与-prompt-caching>9.3 KV Cache 原理与 Prompt Caching</a></li><li><a href=#94-量化技术awqgptqnf4>9.4 量化技术（AWQ/GPTQ/NF4）</a></li><li><a href=#95-moe-混合专家架构>9.5 MoE 混合专家架构</a></li></ul></li><li><a href=#第十章prompt-工程与思维链>第十章：Prompt 工程与思维链</a><ul><li><a href=#101-prompt-的五要素>10.1 Prompt 的五要素</a></li><li><a href=#102-cot-的草稿纸原理>10.2 CoT 的"草稿纸"原理</a></li><li><a href=#103-cot-的局限性>10.3 CoT 的局限性</a></li><li><a href=#104-幻觉的三层根因与缓解策略>10.4 幻觉的三层根因与缓解策略</a></li></ul></li><li><a href=#第十一章部署与评测>第十一章：部署与评测</a><ul><li><a href=#111-主流部署框架对比vllmsglangtgi>11.1 主流部署框架对比（vLLM/SGLang/TGI）</a></li><li><a href=#112-评测体系的三个层次>11.2 评测体系的三个层次</a></li><li><a href=#113-模型选型四维度>11.3 模型选型四维度</a></li></ul></li><li><a href=#结尾>结尾</a><ul><li><a href=#核心知识点回顾>核心知识点回顾</a></li><li><a href=#与其他主题的关联>与其他主题的关联</a></li><li><a href=#推荐进一步阅读>推荐进一步阅读</a></li></ul></li></ul></nav></div></section></aside><main class="main full-width"><article class=main-article><header class=article-header><div class=article-details><header class=article-category><a href=/categories/ai.html>AI探索</a></header><div class=article-title-wrapper><h2 class=article-title><a href=/ai/ai-systematization/01-Foundation-of-Large-Models-and-Engineering-Practice.html>大模型基础与工程化实践</a></h2><h3 class=article-subtitle>本文是"AI 知识体系"系列的开篇，系统梳理大语言模型从底层原理到工程落地的完整知识链路。定位是：让初学者理解 LLM 的本质，让有经验者加深对底层原理的理解。</h3></div><footer class=article-time><div><svg class="icon icon-tabler icon-tabler-calendar-time" width="56" height="56" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor" fill="none" stroke-linecap="round" stroke-linejoin="round"><path stroke="none" d="M0 0h24v24H0z"/><path d="M11.795 21H5a2 2 0 01-2-2V7a2 2 0 012-2h12a2 2 0 012 2v4"/><circle cx="18" cy="18" r="4"/><path d="M15 3v4"/><path d="M7 3v4"/><path d="M3 11h16"/><path d="M18 16.496V18l1 1"/></svg>
+<time class=article-time--published datetime=2026-07-24T00:00:00+08:00>2026-07-24</time></div><div><svg class="icon icon-tabler icon-tabler-clock" width="24" height="24" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor" fill="none" stroke-linecap="round" stroke-linejoin="round"><path stroke="none" d="M0 0h24v24H0z"/><circle cx="12" cy="12" r="9"/><polyline points="12 7 12 12 15 15"/></svg>
+<time class=article-time--reading>阅读时长: 58 分钟</time></div></footer></div></header><section class=article-content><h1 id=大模型基础与工程化实践>大模型基础与工程化实践</h1><blockquote><p>本文是"AI 知识体系"系列的开篇，系统梳理大语言模型从底层原理到工程落地的完整知识链路。定位是：让初学者理解 LLM 的本质，让有经验者加深对底层原理的理解。</p></blockquote><hr><h2 id=核心问题列表>核心问题列表</h2><p>在深入正文之前，先列出本文要回答的 8 个核心问题。如果你能对每一个都给出有深度的回答，说明你对大模型工程化已经有了扎实的理解：</p><ol><li><p><strong>为什么"预测下一个 token"这个看似简单的训练目标，能造就一个能写代码、解数学题、创作诗歌的通用智能模型？</strong> 它和传统 NLP"一任务一模型"的范式区别到底在哪？</p></li><li><p><strong>Self-Attention 为什么要用 Q/K/V 三个矩阵，而不是直接用输入本身？</strong> 公式里那个 <code>/√d_k</code> 到底在防止什么？为什么 Decoder-only 架构最终胜出？</p></li><li><p><strong>MHA、MQA、GQA、Flash Attention 这四者是什么关系？</strong> 它们是替代还是叠加？为什么主流大模型都是"GQA + Flash Attention"一起用？</p></li><li><p><strong>为什么主流大模型几乎全部选择了 RoPE 而不是 sin/cos 或 ALiBi？</strong> 绝对位置编码和相对位置编码的本质差异是什么？</p></li><li><p><strong>大模型训练为什么要分"预训练 → SFT → 对齐"三个阶段，缺一不可？</strong> Chinchilla 的 1:20 比例为什么被 Llama 3 的 1:1875 打破了？</p></li><li><p><strong>LoRA 除了"省参数"，还有哪些被低估的优点？</strong> 为什么它能成为 PEFT 的事实标准，把 Adapter 等早期方案完全淘汰？</p></li><li><p><strong>RLHF、DPO、GRPO、拒绝采样、RLAIF 这五种 Post-Training 方法是什么关系？</strong> 为什么 DeepSeek R1 让 GRPO 火遍整个圈子？</p></li><li><p><strong>KV Cache 和 Prompt Caching 是同一个东西吗？</strong> 量化时 GPTQ、AWQ、NF4 各自的核心创新是什么？MoE 为什么能"学得多 + 跑得快"？</p></li></ol><hr><h2 id=引言为什么理解大模型底层原理对-ai-工程至关重要>引言：为什么理解大模型底层原理对 AI 工程至关重要</h2><p>很多人第一次接触大模型，是从"调用 OpenAI API"开始的。在他们的认知里，大模型是一个黑盒——输入一段文字，输出一段文字，中间发生了什么不重要，只要效果够好就行。</p><p>这种"工具使用者"的视角在原型阶段没问题，但一旦进入真正的工程化阶段，就会处处碰壁：</p><ul><li><strong>为什么同样的 Prompt，换一个模型效果就差很多？</strong> 因为你不理解不同模型的架构差异（Dense vs MoE）、训练阶段差异（有没有做过 RLHF）、上下文处理方式差异（用什么位置编码、支持多长上下文）。</li><li><strong>为什么长上下文场景下显存爆了？</strong> 因为你不理解 KV Cache 的显存占用规律，不知道 GQA 和 Flash Attention 是怎么省显存的，也不会评估该用什么量化方案。</li><li><strong>为什么微调后模型"变笨了"？</strong> 因为你不理解灾难性遗忘的机制，不知道 LoRA 为什么能缓解它，更不知道微调的目标（SFT/DPO）和方法（全量/LoRA/QLoRA）是两个正交维度。</li><li><strong>为什么模型一本正经地胡说八道，Temperature 调到 0 也止不住？</strong> 因为你不理解幻觉的根因——LLM 本质是"按概率续写"不是"查询数据库"，温度只能减少随机偏差，不能修正记忆错误。</li><li><strong>为什么排行榜上第一的模型，用到自己业务里反而不行？</strong> 因为你不理解数据污染问题，也没有建立自己的业务测试集，更没有从"合规、成本、延迟、能力"四个维度做选型。</li></ul><p>这些问题的共性是：<strong>它们都不是"调 API"能解决的，必须回到底层原理去理解。</strong></p><p>大模型工程和传统软件工程有一个根本区别：传统软件的行为是确定性的、可预测的，你写什么样的代码就得到什么样的结果；而大模型是概率性的、涌现的，它的行为由训练数据、模型架构、训练目标、推理参数共同决定，任何一个环节理解不到位，都会导致线上事故。</p><p>这就是为什么理解底层原理对 AI 工程至关重要。它不是"学术修养"，而是"工程能力"——决定了你能不能把大模型从"Demo 能跑"推进到"生产可用"。</p><p>本文将带你从 LLM 的本质出发，逐层深入到 Transformer 架构、注意力优化、位置编码、分词器、训练全景、微调与对齐、推理优化、Prompt 工程、部署与评测，构建一张完整的知识地图。</p><hr><h2 id=第一章大语言模型的本质>第一章：大语言模型的本质</h2><h3 id=11-llm-与传统-nlp-模型的根本区别>1.1 LLM 与传统 NLP 模型的根本区别</h3><p>要理解大语言模型"大"在哪里，得先看看在它之前，业界是怎么处理自然语言任务的。</p><p>传统 NLP 的工作方式是"流水线"式的，一个完整任务要拆成好几个独立步骤，每一步用一个专门的模型来完成。以智能客服为例：第一步分词，把"我想退货"拆成"我 / 想 / 退货"；第二步词性标注，标出"我"是代词、&ldquo;退货"是动词；第三步命名实体识别，找出有没有商品名、订单号；第四步意图分类，判断这是"咨询"还是"投诉&rdquo;；第五步去知识库匹配预设答案。</p><p>这种 pipeline 又长又脆。光是"分词"这一步就有一堆坑——中文不像英文有空格天然分隔，&ldquo;南京市长江大桥"到底是"南京市/长江大桥"还是"南京/市长/江大桥&rdquo;？这种歧义靠规则解决不了，必须有一个专门的分词模型来判断。而分词模型本身又依赖大量人工标注语料，遇到训练时没见过的新词（比如"奥利给"&ldquo;绝绝子&rdquo;），它就懵了，这就是著名的 <strong>OOV（Out-of-Vocabulary，未登录词）</strong> 问题。</p><p>每一步都有独立的痛点，每一步都得有自己的模型、自己的训练数据。前面一步错了后面全错，错误会<strong>累积传导</strong>。更糟糕的是迁移成本——换个领域，所有模型基本都得重新训练。</p><p><strong>任务越细分，模型越多；模型越多，标注成本越高；标注越贵，迁移越难。</strong> 整个 NLP 行业都被困在这个死循环里。</p><p>2018 年 BERT 的出现打破了第一次僵局。BERT 的核心创新是<strong>预训练 + 微调</strong>两阶段范式：在海量无标注文本上做 MLM（掩码语言模型），学到通用语言表示，然后在下游任务上接一个小"任务头"微调。这一招把 NLP 各项任务的 SOTA 刷了个遍。</p><p>但 BERT 走到一半就停了。它解决了"特征通用"但没解决"任务统一"——不同任务还是要不同的微调副本、不同的任务头。而且 BERT 是判别式的，不擅长生成。</p><p>LLM 最根本的转变，是把所有 NLP 任务统一成了一件事：<strong>预测下一个 token</strong>。</p><div class=table-wrapper><table><thead><tr><th>维度</th><th>传统 NLP</th><th>LLM</th></tr></thead><tbody><tr><td>任务方式</td><td>一任务一模型，pipeline 串联</td><td>一个模型干所有事，Prompt 统一接口</td></tr><tr><td>输出范式</td><td>判别式（输出标签/概率）</td><td>生成式（输出文本）</td></tr><tr><td>能力来源</td><td>显式监督训练（喂什么学什么）</td><td>大规模预训练 + 涌现（学到没教过的能力）</td></tr></tbody></table></div><p>这张表的三行，分别从"工程层面"&ldquo;范式层面"&ldquo;能力层面"刻画了同一个变化的不同侧面。工程层面，团队结构从"N 个小模型组各管一摊"变成"一个大模型组统一服务&rdquo;；范式层面，从"分类器思维"切换到"生成器思维&rdquo;；能力层面，模型可以做"人没明确教过"的任务——这在整个 NLP 历史上是前所未有的事。</p><h3 id=12-预测下一个-token为什么威力如此之大>1.2 &ldquo;预测下一个 token"为什么威力如此之大</h3><p>这个训练目标叫 <strong>CLM（Causal Language Modeling，因果语言模型）</strong>。训练数据格式特别简单：给一段文本，模型从左到右一个字一个字地往后猜，每一步都预测"下一个 token 是什么&rdquo;。比如训练数据是"我喜欢吃苹果"，模型要学会：看到"我"预测"喜"，看到"我喜"预测"欢"，看到"我喜欢"预测"吃"，依此类推。</p><p>听起来太简单了，但威力极大。看几个例子：</p><ul><li><strong>翻译</strong>：Prompt 写"把下面这句翻译成英文：我喜欢你 ->"，LLM 接着预测下一个 token，就会输出"I like you"</li><li><strong>分类</strong>：Prompt 写"下面这条评论是正面还是负面？&lsquo;这家店太黑了&rsquo; -> 答："，LLM 预测下一个 token 就会输出"负面"</li><li><strong>总结</strong>：Prompt 写"请用一句话总结：xxxxxx -> 总结："，LLM 接着写下去就是总结</li><li><strong>写代码</strong>：Prompt 写"写一个 Python 函数，返回斐波那契数列前 N 项 -> def"，LLM 接着续写就是完整代码</li></ul><p>所有任务都被"Prompt + 续写"这个统一接口收编了。你不需要为每个任务训不同的模型，只需要在 Prompt 里换个说法。</p><p>那为什么这个简单目标能学到这么多东西？关键是<strong>规模 + 数据</strong>两个杠杆。</p><p>数据的杠杆是：CLM 不需要任何人工标注，互联网上所有文本天然都是合格的训练数据。GPT-3 用了 3000 亿 token，Llama 3 用了 15 万亿 token，这种规模在 BERT 时代是不可想象的。</p><p>模型的杠杆是：参数量从 BERT 的 0.3B 一路堆到 GPT-3 的 175B，再到后来更大的模型。模型要在不同上下文里准确预测，就必须学到语法、事实和推理模式。要预测"北京是中国的____&ldquo;的下一个词，模型必须知道"北京是首都"这个事实；要预测"如果 x=2，那么 x²=____"，模型必须会算数。所有这些能力，都被"预测下一个 token"这个目标<strong>逼着学会了</strong>。</p><p>还有一个让人惊讶的副产物，叫 <strong>In-Context Learning（上下文学习）</strong>。在 Prompt 里给模型几个例子，模型就能学会新的任务模式，不需要更新参数：</p><div class=highlight><div class=chroma><table class=lntable><tr><td class=lntd><pre tabindex=0 class=chroma><code><span class=lnt>1
+</span><span class=lnt>2
+</span><span class=lnt>3
+</span><span class=lnt>4
+</span></code></pre></td><td class=lntd><pre tabindex=0 class=chroma><code class=language-fallback data-lang=fallback><span class=line><span class=cl>苹果 -&gt; apple
+</span></span><span class=line><span class=cl>香蕉 -&gt; banana
+</span></span><span class=line><span class=cl>草莓 -&gt; strawberry
+</span></span><span class=line><span class=cl>橘子 -&gt;
+</span></span></code></pre></td></tr></table></div></div><p>模型看到这个 Prompt，不需要任何额外训练，就能输出"orange&rdquo;。它从几个例子里推出了"中译英水果名"这个模式。这种能力是 GPT-3 之后才被业界发现的，也是 Prompt Engineering 这门工程学科诞生的基础。</p><h3 id=13-自回归生成的数学直觉>1.3 自回归生成的数学直觉</h3><p>LLM 的生成方式叫<strong>自回归（Autoregressive）</strong>，意思是"下一步的预测依赖上一步的输出"。数学上可以写成：</p><p>$$P(x_1, x_2, &mldr;, x_n) = \prod_{i=1}^{n} P(x_i \mid x_1, x_2, &mldr;, x_{i-1})$$</p><p>即整个序列的概率等于每一步条件概率的乘积。每生成一个新 token，模型都会输出一个 vocabulary 大小（典型 5 万到 15 万）的概率分布，告诉你"下一个 token 是各个词的可能性"，然后按某种解码策略选一个 token，拼到上下文后面，循环直到结束。</p><p>这里有一个朴素实现隐藏的巨大低效：如果每次都从头算所有 token 的 attention，N 个 token 的总计算量是 O(N³)。KV Cache 的出现把这个问题解决了（详见第九章），但理解自回归的本质——<strong>每一步只依赖前一步的输出，逐步展开</strong>——是理解后续 KV Cache、推理优化、解码策略的基础。</p><h3 id=14-规模与数据两个杠杆>1.4 规模与数据两个杠杆</h3><p>LLM 还有一个让传统 NLP 模型望尘莫及的特点，叫<strong>涌现能力（Emergent Abilities）</strong>。</p><p>涌现的常见定义是："<strong>某项能力在小模型上几乎看不到，规模到了某个临界点之后突然表现出来</strong>"。典型例子：</p><ul><li><strong>多步算术</strong>：参数量 8B 以下准确率几乎为 0；62B 约 5%；540B（PaLM）突然跳到 60%</li><li><strong>In-Context Learning</strong>：1.5B 的 GPT-2 完全看不到，175B 的 GPT-3 突然就有了，临界点在 100B 左右</li><li><strong>跨语言迁移</strong>：GPT-3 训练数据 92% 是英文，但训完能直接处理中文、阿拉伯语甚至冰岛语</li></ul><p>为什么会涌现？业界给出的工程经验叫 <strong>Scaling Law（缩放定律）</strong>。简单说就是模型规模、训练数据量、训练算力这三者之间存在一种可预测的关系：你把这三个量按一定比例同时放大，模型的损失值会沿着一条幂律曲线下降。这个经验律 OpenAI 在 2020 年提出，DeepMind 后来在 Chinchilla 论文里给出了更精细的比例（详见第六章）。</p><p>不过要注意 2023 年斯坦福的 <em>Are Emergent Abilities of Large Language Models a Mirage?</em> 论文的挑战：很多"涌现"可能只是"评估指标的不连续性"造成的测量假象，换成连续指标曲线就平滑了。学术争议还在继续，但工程层面，模型规模带来的能力跃迁是客观存在的。</p><blockquote><p><strong>实践要点：</strong> 理解 LLM 的本质是"用海量语料预训练、参数到百亿千亿规模、自回归生成文本的统一模型"。三个本质区别（任务统一、生成式、涌现）分别从工程、范式、能力三个层面刻画了它与传统 NLP 的不同。做 LLM 项目时，工作方式从"先拆任务再选模型"变成了"先想 Prompt 怎么写"，这是范式转变的直接体现。</p></blockquote><hr><h2 id=第二章transformer-架构深度剖析>第二章：Transformer 架构深度剖析</h2><h3 id=21-self-attention-的数学原理>2.1 Self-Attention 的数学原理</h3><p>2017 年 Google 在论文《Attention is All You Need》里提出了 Transformer，用一个全新的架构一举解决了 RNN 的两个老问题：顺序计算无法并行、长距离梯度消失。</p><p>Self-Attention（自注意力）的核心思路是：让序列中的每个 token 都能<strong>直接关注</strong>序列中任意其他位置的 token，计算出"我和其他位置的相关程度"，然后根据相关程度加权聚合其他位置的信息。</p><p>这里有三个关键向量：<strong>Q（Query，查询）</strong> 代表"我想找什么"，<strong>K（Key，键）</strong> 代表"我有什么标签"，<strong>V（Value，值）</strong> 代表"我的实际内容"。</p><p>可以用图书馆检索来类比：你有一个搜索关键词（Q），图书馆里每本书都有标签（K）和内容（V）。注意力机制就是用你的关键词（Q）去匹配每本书的标签（K），计算出相似度分数，然后按照分数的权重把书的内容（V）加权求和，得到你的搜索结果。</p><p><strong>Q/K/V 是怎么从输入变换得到的？</strong> 这是理解 Self-Attention 的关键一步。Q/K/V 不是模型"凭空生成"的，而是把输入 embedding 通过<strong>三个独立的线性投影矩阵</strong> W_Q、W_K、W_V 算出来的：</p><div class=highlight><div class=chroma><table class=lntable><tr><td class=lntd><pre tabindex=0 class=chroma><code><span class=lnt>1
+</span><span class=lnt>2
+</span><span class=lnt>3
+</span><span class=lnt>4
+</span><span class=lnt>5
+</span><span class=lnt>6
+</span></code></pre></td><td class=lntd><pre tabindex=0 class=chroma><code class=language-python data-lang=python><span class=line><span class=cl><span class=c1># 假设输入 X 是 (序列长度 N, embedding 维度 d_model)</span>
+</span></span><span class=line><span class=cl><span class=c1># W_Q, W_K, W_V 都是可训练参数矩阵，形状 (d_model, d_k)</span>
+</span></span><span class=line><span class=cl>
+</span></span><span class=line><span class=cl><span class=n>Q</span> <span class=o>=</span> <span class=n>X</span> <span class=o>@</span> <span class=n>W_Q</span>     <span class=c1># 形状 (N, d_k)，每个 token 都有自己的 Query 向量</span>
+</span></span><span class=line><span class=cl><span class=n>K</span> <span class=o>=</span> <span class=n>X</span> <span class=o>@</span> <span class=n>W_K</span>     <span class=c1># 形状 (N, d_k)，每个 token 都有自己的 Key 向量</span>
+</span></span><span class=line><span class=cl><span class=n>V</span> <span class=o>=</span> <span class=n>X</span> <span class=o>@</span> <span class=n>W_V</span>     <span class=c1># 形状 (N, d_v)，每个 token 都有自己的 Value 向量</span>
+</span></span></code></pre></td></tr></table></div></div><p>几个关键点要抓住：</p><p>最关键的是 Q/K/V 都是<strong>从同一个输入 X 算出来</strong>的——输入既要扮演"提问者"（Q），也要扮演"被查者"（K + V），这就是"<strong>自</strong>注意力"里那个"自"字的含义。</p><p>W_Q、W_K、W_V 是三个<strong>独立学习</strong>的矩阵。如果让 Q/K/V 都直接等于 X 不做变换，模型就没法学到"该从什么角度提问"&ldquo;该用什么标签匹配"这种细致差异。三个独立投影让模型有 3 倍的自由度去学习角度上的差异。</p><p>投影维度 d_k 通常等于 d_model / H（H 是头数），目的是让多头总参数量和单头版本基本一致。</p><p>代入注意力公式：</p><p>$$\text{Attention}(Q, K, V) = \text{softmax}\left(\frac{Q \cdot K^T}{\sqrt{d_k}}\right) \cdot V$$</p><p><strong>为什么要除以 √d_k？</strong> 这个常被叫做 <strong>Scaled Dot-Product Attention（缩放点积注意力）</strong>。当 d_k 很大时（比如 128），Q 和 K 都是 128 维向量，点积是 128 个数相加。假设每维都是均值 0、方差 1 的随机数，点积方差就是 d_k=128，标准差约 11.3。这意味着点积数值会散布在 -30 到 +30 的范围，过 softmax 后最大的那个数对应概率接近 1、其他接近 0，<strong>输出几乎变成 one-hot 分布</strong>。</p><p>one-hot 分布的问题是<strong>梯度消失</strong>——softmax 的梯度公式里有 <code>p · (1-p)</code> 项，p 接近 0 或 1 时梯度都接近 0。除以 √d_k 后，点积方差被压回 1，softmax 输出分布合理，梯度能正常传播。这是被 8 年实践验证的"简单且数学上合理"的选择。</p><h3 id=22-为什么-self-attention-优于-rnncnn>2.2 为什么 Self-Attention 优于 RNN/CNN</h3><p>Transformer 之前，处理序列数据的主流是 RNN（循环神经网络）及其变体（LSTM、GRU）。RNN 有两个致命缺陷：</p><p><strong>第一，顺序计算，无法并行。</strong> RNN 从左到右逐个处理每个词，第 N 步必须等第 N-1 步算完才能开始，无法利用 GPU 并行。训练大型 RNN 极慢。</p><p><strong>第二，长距离梯度消失。</strong> 序列很长时（比如 1000 个词），梯度在反向传播时指数级衰减，网络很难学习"第 1 个词和第 800 个词之间的关系&rdquo;。LSTM 门控机制有所缓解，但根本问题没解决。</p><p>Self-Attention 一举解决了这两个问题：整个过程对序列中所有位置的计算可以<strong>并行</strong>（所有 token 的 Q/K/V 一次性算出），而且每对位置之间都有<strong>直接连接</strong>（通过注意力分数），不存在长距离信息衰减。</p><h3 id=23-encoder-vs-decoder为什么-decoder-only-架构胜出>2.3 Encoder vs Decoder：为什么 Decoder-only 架构胜出</h3><p>理解了 Attention 的基本机制，可以解释三种架构的区别：</p><ul><li><strong>Encoder-only（以 BERT 为代表）</strong>：每个 token 可以双向关注所有其他 token。擅长"理解任务"（分类、NER、语义相似度）。预训练目标是 MLM（掩码语言模型）。</li><li><strong>Decoder-only（以 GPT/Claude/Qwen 为代表）</strong>：使用因果掩码（Causal Mask），每个 token 只能关注它前面的 token。天然适合文本生成。预训练目标是 CLM（预测下一个 token）。现在几乎所有大语言模型都是这个架构。</li><li><strong>Encoder-Decoder（以 T5、BART 为代表）</strong>：Encoder 双向理解输入，Decoder 单向生成输出，通过 Cross-Attention 读取 Encoder 的输出。适合翻译、摘要等"输入输出不同"的任务。</li></ul><p><strong>为什么 Decoder-only 赢了？</strong> 根本原因是"预测下一个 token"这个目标极其统一。所有类型的任务（问答、写作、推理、代码、翻译）都可以统一表达成"续写"这一件事。更关键的是，这个目标可以直接在海量无标注文本上做自监督训练，不需要逐条人工标注。最厉害的是，随着规模增大，这个简单目标下涌现出的能力越来越强。</p><h3 id=24-多头注意力的意义>2.4 多头注意力的意义</h3><p>单组 Q/K/V 只能学习到一种"关联关系"，但语言中的关联是多维度的：&ldquo;我"和"吃"是主谓关系，&ldquo;苹果"和"吃"是宾动关系，&ldquo;苹果"和前文的"苹果树"是指代关系。</p><p><strong>Multi-Head Attention</strong> 把 Q/K/V 投影到多个不同的子空间（比如 8 个或 32 个头），每组独立计算注意力，最后把所有头的输出拼接起来。每个头可以专注于捕捉不同类型的语言关联，整体上表达能力更强。</p><p>除了注意力层，每个 Transformer 块里还有一个前馈网络（FFN），结构是两层全连接加激活函数。FFN 对每个位置独立做非线性变换，补充注意力层学不到的信息（注意力层本质是线性加权，FFN 引入非线性）。研究表明 <strong>FFN 层储存了大量的"事实知识&rdquo;</strong>，可以理解为模型的"记忆仓库&rdquo;。</p><blockquote><p><strong>实践要点：</strong> 理解 Transformer，最重要的是讲清 RNN 卡在哪两点、Self-Attention 怎么破、为什么 Decoder-only 赢。Q/K/V 是从同一个 X 通过三个独立矩阵投影得到的，除以 √d_k 是防止 softmax 变 one-hot 导致梯度消失。Decoder-only 胜在"目标统一 + 数据规模 + 涌现"的组合。</p></blockquote><hr><h2 id=第三章注意力优化演进>第三章：注意力优化演进</h2><h3 id=31-mha-的局限性>3.1 MHA 的局限性</h3><p>要讲清楚 MHA（Multi-Head Attention）的局限，得先把"训练"和"推理"两个阶段分开看。</p><p><strong>训练阶段</strong>：每一层 Attention 都要算一个 N×N 的注意力分数矩阵 <code>softmax(QK^T/√d) · V</code>。N=32K 时这个矩阵膨胀到 10 亿个数（FP16 约 2GB），计算复杂度 O(N²)。</p><p><strong>推理阶段</strong>：LLM 自回归生成，每次生成一个新 token 都要重新对前面所有 token 算注意力。如果每次从头算，成本累加成 O(N³)。聪明的做法是 <strong>KV Cache</strong>：把前面所有 token 的 K 和 V 矩阵存下来，每次新 token 只算自己的 Q。但 KV Cache 本身就是个显存大户：</p><div class=highlight><div class=chroma><table class=lntable><tr><td class=lntd><pre tabindex=0 class=chroma><code><span class=lnt>1
+</span><span class=lnt>2
+</span></code></pre></td><td class=lntd><pre tabindex=0 class=chroma><code class=language-fallback data-lang=fallback><span class=line><span class=cl>KV Cache 显存 = 2（K和V各一份）× B（batch）× N（序列长）× L（层数）
+</span></span><span class=line><span class=cl>              × H（头数）× d_k（每头维度）× 2 字节（FP16）
+</span></span></code></pre></td></tr></table></div></div><p>对一个 7B 模型（L=32、H=32、d_k=128），跑 batch=1、N=32K：</p><div class=highlight><div class=chroma><table class=lntable><tr><td class=lntd><pre tabindex=0 class=chroma><code><span class=lnt>1
+</span></code></pre></td><td class=lntd><pre tabindex=0 class=chroma><code class=language-fallback data-lang=fallback><span class=line><span class=cl>2 × 1 × 32000 × 32 × 32 × 128 × 2 ≈ 17 GB
+</span></span></code></pre></td></tr></table></div></div><p>光 KV Cache 就 17GB，加上模型权重 14GB，总共 31GB，一张 4090（24GB）根本放不下。</p><p>还有更隐蔽的痛点是&rdquo;<strong>访存慢</strong>"。GPU 计算单元算力很猛，但显存带宽跟不上。Attention 计算大量时间花在"等数据从显存搬到计算单元"，这就是 <strong>memory-bound（访存受限）</strong> 问题。</p><p>三个痛点连成一条线：<strong>N² 复杂度让计算量平方膨胀；KV Cache 让长上下文显存爆掉；访存带宽让 GPU 算力发挥不出来。</strong></p><h3 id=32-mqa极端共享的代价>3.2 MQA：极端共享的代价</h3><p>MQA（Multi-Query Attention）的思路非常暴力：<strong>所有 head 共享同一份 K 和 V，只有 Q 是每个 head 独立的</strong>。</p><p>直接后果是 KV Cache 立刻变成 1/H——原本 32 套 K/V 现在只存 1 套，显存压到 1/32。前面那个 17GB 的 KV Cache，用 MQA 后只剩 0.5GB。</p><p>但代价是<strong>表达能力下降</strong>。原本 32 个 head 各有 32 套不同的"视角"，可以从 32 个角度理解上下文；MQA 强行让 32 个 head 共用一套 K/V，多视角能力被压缩成单视角。实测大模型效果会下降 2-5%，对推理类任务有明显损失。</p><h3 id=33-gqa折中之道>3.3 GQA：折中之道</h3><p>GQA（Grouped-Query Attention）是 MHA 和 MQA 的折中：<strong>把 H 个 head 分成 G 组，每组内部共享一份 K/V，组之间各自独立</strong>。</p><p>数学上是一个连续光谱：</p><ul><li>MHA：H 个 head，H 套 K/V</li><li>MQA：H 个 head，1 套 K/V</li><li>GQA：H 个 head，G 套 K/V（1 ≤ G ≤ H）</li></ul><p>G=H 退化成 MHA，G=1 退化成 MQA。Meta 的 GQA 论文里，G=8 配置下模型效果几乎和 MHA 持平（差距 &lt; 0.5%），但 KV Cache 压到 1/4。这种"显存大幅下降、效果几乎不损失"的甜蜜点，让 GQA 成为现代大模型标配。</p><p><strong>谁在用 GQA：</strong> Llama 2 70B、Llama 3 全系、Qwen 2/3 主力模型。DeepSeek V2/V3 用了另一条更激进的路线 MLA（Multi-head Latent Attention），把 K/V 压缩到低秩潜在空间存储，目标同样是压低 KV Cache。</p><h3 id=34-flash-attention从算法层面优化>3.4 Flash Attention：从算法层面优化</h3><p>Flash Attention 完全是另一条赛道——<strong>不改 Attention 的数学公式，从底层实现优化</strong>。</p><p>问题的根源在于 GPU 存储分两层：</p><ul><li><strong>HBM（高带宽显存）</strong>：容量大（A100 是 80GB），带宽相对慢（1.5 TB/s）</li><li><strong>SRAM（片上缓存）</strong>：容量小（A100 每个 SM 只有 192KB），带宽极快（19 TB/s，是 HBM 的 13 倍）</li></ul><p>标准实现把 N×N 注意力矩阵在 HBM 上反复读写，访存时间远超计算时间。Flash Attention 提出<strong>分块 + 在线 softmax</strong>：把 Q、K、V 切成小块（比如 128×128），每次只在 SRAM 里算一小块，算完直接累加到最终输出，不把 N×N 中间矩阵写回 HBM。</p><p>在线 softmax 是关键数学技巧——softmax 本来要看"整行"才能算，Flash Attention 用分块计算同时维护"当前最大值 + 累积和"状态，每来一块做增量更新，最终结果和一次性算完全一样。</p><p>效果：<strong>显存从 O(N²) 降到 O(N)，速度提升 2-4 倍，结果数学等价</strong>。已迭代到 v3 版本，基本成为大模型推理框架的默认实现。</p><h3 id=35-四者的叠加关系>3.5 四者的叠加关系</h3><div class=table-wrapper><table><thead><tr><th>优化方案</th><th>改的是什么</th><th>攻击的痛点</th><th>效果损失</th></tr></thead><tbody><tr><td><strong>MQA</strong></td><td>Attention 结构（K/V 压成 1 份）</td><td>显存大</td><td>中等（2-5%）</td></tr><tr><td><strong>GQA</strong></td><td>Attention 结构（K/V 压成 G 份）</td><td>显存大</td><td>几乎无（&lt; 0.5%）</td></tr><tr><td><strong>Flash Attention</strong></td><td>Attention 实现（分块 + 在线 softmax）</td><td>显存 + 访存 + 速度</td><td>基本无（数学等价）</td></tr></tbody></table></div><p>最关键的认知：<strong>这三类优化是叠加关系，不是替代关系。</strong> MQA/GQA 是"结构层"优化（改有几套 K/V），Flash Attention 是"实现层"优化（改计算执行方式）。它们攻击不同维度，可以同时使用。主流大模型的标配是：</p><div class=highlight><div class=chroma><table class=lntable><tr><td class=lntd><pre tabindex=0 class=chroma><code><span class=lnt>1
+</span></code></pre></td><td class=lntd><pre tabindex=0 class=chroma><code class=language-fallback data-lang=fallback><span class=line><span class=cl>GQA 结构 + Flash Attention 实现
+</span></span></code></pre></td></tr></table></div></div><p>比如 Llama 3、Qwen 2、DeepSeek V3 都是这个组合。两者叠加后，7B 模型能在消费级显卡上跑 32K 长上下文。</p><blockquote><p><strong>实践要点：</strong> 面试官如果追问"只能选一个用，选哪个"，这是伪命题——真实工程里它们一定组合用，因为攻击的是不同维度的瓶颈。MLA（DeepSeek 用的低秩潜在注意力）可以作为加分项提一句。</p></blockquote><hr><h2 id=第四章位置编码>第四章：位置编码</h2><h3 id=41-为什么需要位置编码>4.1 为什么需要位置编码</h3><p>Self-Attention 有一个天然的缺陷：<strong>它的计算是对称的，不考虑词的顺序</strong>。&ldquo;我打你"和"你打我"对 Attention 来说可能得到一样的结果，因为它只看哪些词相关，不看谁在前谁在后。</p><p>如果把输入换成"你打我&rdquo;，三个 embedding 一模一样（只是位置变了），Attention 算出来的结果和"我打你"<strong>几乎完全相同</strong>。但这两句话语义是反的。模型如果分不清位置，就分不清主语和宾语。</p><p>那为什么不能直接用"1, 2, 3, 4"这种位置序号？因为序号是离散整数，加到连续 embedding 上会很别扭：第 1000 位的"1000"会把原本 -1 到 1 之间的 embedding 数值拉爆；而且整数序号对长序列没法泛化，训练见过 1-2048，推理来了 4096，这个数字模型从没见过。</p><p>所以位置编码必须满足三个要求：<strong>数值范围合理</strong>（不能覆盖 token embedding）、<strong>能区分不同位置</strong>（每个位置有独特"指纹"）、<strong>能泛化到长序列</strong>（最好支持外推）。</p><h3 id=42-sincos-绝对编码>4.2 sin/cos 绝对编码</h3><p>2017 年原始 Transformer 用的就是 sin/cos 位置编码（Sinusoidal PE）。核心思路是用一组不同频率的 sin/cos 函数，给每个位置生成一个独特的"指纹向量"。</p><p>模型 embedding 维度有 d 维，分成 d/2 对，每对用一组 sin/cos：第 1 对频率最快（高频），适合区分近距离位置；第 d/2 对频率最慢（低频），跨越很远位置才能区分开。类比几个不同频率的振子叠加，高频记"精细位置"，低频记"粗略位置"。</p><p>使用方式是直接<strong>加到 token embedding 上</strong>：最终输入 = token embedding + position embedding。加法不增加维度，神经网络可以从相加结果里自动解开两部分信息。</p><p>优点是零参数、泛化性看起来不错。但致命问题是<strong>长上下文外推能力差</strong>——训练时只学过"2K 以内的相对位置关系"，推理给 4K 输入，效果断崖下跌。</p><h3 id=43-rope-旋转位置编码>4.3 RoPE 旋转位置编码</h3><p>RoPE（Rotary Position Embedding）是 2021 年中国学者苏剑林提出的，现已是大模型标配。核心思路一句话：<strong>不把位置信息加到 embedding 上，而是旋转 Q 和 K 向量</strong>。</p><p>每个 token 的 Q/K 向量根据它的位置 m，被旋转一个对应角度 mθ（θ 是预设常数）。位置 0 不旋转，位置 1 旋转 θ，位置 2 旋转 2θ。类比钟表指针，位置越靠后指针转得越多。</p><p>为什么旋转能表达位置？关键数学性质是：<strong>两个旋转后的向量做点积，结果只依赖于它们的"旋转角度差"</strong>。位置 m 的 Q 和位置 n 的 K 做点积，结果只跟 (m-n) 这个相对距离有关，跟 m 和 n 各自的绝对值无关。这就把"相对位置"信息天然编进了 Attention 计算里。</p><p>RoPE 的优点叠加起来才让它成为标配：</p><ul><li><strong>天然的相对位置编码</strong>，不用模型自己学相对关系</li><li><strong>零参数</strong>，纯数学旋转</li><li><strong>保留 token 向量长度</strong>，旋转不改变模长只改变方向，不破坏 embedding 数值范围</li><li><strong>和现代推理优化兼容</strong>，只在 Q/K 上做旋转，跟 KV Cache、Flash Attention、GQA 无缝叠加</li><li><strong>长上下文外推能力远好于 sin/cos</strong>，配合 NTK Scaling、YaRN 等扩展技巧，可推到 32K、100K 甚至更长</li></ul><p><strong>谁在用 RoPE：</strong> Llama 1/2/3 全系、Qwen 1/2/3 全系、DeepSeek 全系、Mistral/Mixtral 全系、GLM 系列。可以说 RoPE 已是大模型架构的事实标准。</p><h3 id=44-alibi-外推编码>4.4 ALiBi 外推编码</h3><p>ALiBi（Attention with Linear Biases）是另一种相对位置编码方案，思路比 RoPE 更暴力：<strong>根本不动 Q、K、V，直接在注意力分数里加一个"距离惩罚项"</strong>。</p><p>在 <code>softmax(QK^T)</code> 之前，给每对 token 的注意力分数加上偏置 <code>-m × |i-j|</code>，其中 |i-j| 是距离，m 是固定斜率（每个 head 不同）。直观理解：离得越远扣分越多，模型越倾向关注近邻。每个 head 用不同斜率，让不同 head 关注不同范围。</p><p>优点是零参数、极简实现、天然支持长上下文外推（线性距离惩罚不存在训练截止）。缺点是表达力弱、过强的局部偏置，对需要长距离依赖的任务不利。</p><p><strong>谁用过 ALiBi：</strong> MosaicML 的 MPT 系列、BLOOM 的某些版本。但都不是主流大模型。</p><h3 id=45-三者对比与选型>4.5 三者对比与选型</h3><div class=table-wrapper><table><thead><tr><th>维度</th><th>sin/cos</th><th>ALiBi</th><th>RoPE</th></tr></thead><tbody><tr><td>编码类型</td><td>绝对位置</td><td>相对位置（距离惩罚）</td><td>相对位置（旋转）</td></tr><tr><td>注入方式</td><td>加到 token embedding</td><td>加到注意力分数</td><td>旋转 Q/K 向量</td></tr><tr><td>长上下文外推</td><td>较差（容易断崖）</td><td>好（线性外推）</td><td>很强（配合 NTK/YaRN）</td></tr><tr><td>表达力</td><td>中等</td><td>弱（过强局部偏置）</td><td>强</td></tr><tr><td>主流采用</td><td>原始 Transformer</td><td>MPT、BLOOM</td><td>Llama/Qwen/DeepSeek 全系</td></tr></tbody></table></div><p>RoPE 赢在三个理由：<strong>长上下文外推能力</strong>（配合 NTK/YaRN 生态，但上线前要看长上下文评测）；<strong>相对位置 + 表达力的平衡</strong>（ALiBi 外推好但表达力不够，sin/cos 表达力够但外推差）；<strong>工程兼容性</strong>（只在 Q/K 上做旋转，不改变其他计算，和所有推理优化无缝叠加）。</p><blockquote><p><strong>实践要点：</strong> 长上下文外推技巧（PI / NTK / YaRN）有些可以推理时直接改 RoPE 参数，但要做到稳定的 100K+ 长上下文，很多模型还会配合长上下文继续训练或校准。RoPE 地位稳固不是因为它能无成本无限外推，而是因为它给了社区一个很好调、很好扩展的基础。</p></blockquote><hr><h2 id=第五章分词器tokenizer>第五章：分词器（Tokenizer）</h2><h3 id=51-为什么需要分词>5.1 为什么需要分词</h3><p>大语言模型的本质是一个函数：输入一串整数（token ID 序列），输出下一个整数的概率分布。<strong>模型只能处理整数，不认识字符串。</strong> Tokenizer 就是连接人类文字和模型整数世界的桥梁，做两件事：编码（文本 → token ID 序列）和解码（token ID 序列 → 文本）。</p><h3 id=52-bpe-算法原理>5.2 BPE 算法原理</h3><p>最直接的两种分词方案都有致命缺陷：</p><p><strong>字符级分词</strong>（每个字母/汉字一个 token）：词汇表小，但序列极长。一个"hello"变 5 个 token，Attention 的 O(N²) 计算量飙升，而且字符语义信息太少。</p><p><strong>词级分词</strong>（每个完整单词一个 token）：词汇表膨胀到几十万，而且有严重的 OOV 问题——遇到训练时没见过的新词就无法处理，模型只能输出"未知词"标记，语义完全丢失。</p><p><strong>子词分词</strong>就是这两者中间的甜蜜点。BPE（Byte Pair Encoding）是最常见的一类，原理分三步：</p><ol><li><strong>初始化</strong>：把训练语料拆成最小单元（单个字节或字符），形成初始词汇表</li><li><strong>反复合并</strong>：统计相邻 token pair 的出现频率，找到最高频的那对合并成新 token。比如"t"和"h"经常在一起，合并成"th"加入词汇表。继续找下一个，比如"th"和"e"合并成"the"</li><li><strong>重复</strong>直到词汇表达到预设大小（GPT-2 用了 50257，Llama 3 用了 128000）</li></ol><p>以"lowest"为例，BPE 可能分成"low"+&ldquo;est&rdquo;，因为都是高频子词。遇到新词"lowest123"，分成"low"+&ldquo;est&rdquo;+&ldquo;1&rdquo;+&ldquo;2&rdquo;+&ldquo;3&rdquo;，<strong>不会出现 OOV</strong>。</p><h3 id=53-子词分词的优势>5.3 子词分词的优势</h3><p>子词分词的优势在于"动态范围"：高频词/字被合并成独立 token（效率高），低频词被拆成子词（能处理新词），介于字符级和词级之间。BPE 只是子词分词的一种，SentencePiece / Unigram、WordPiece 也很常见。</p><p>中文没有空格分隔，BPE 面对中文的处理方式不同：常用汉字会直接作为独立 token（频率足够高），常见词语可能合并也可能拆分，取决于训练数据频率。实践估算经验规则：<strong>1000 个汉字大约对应 1000-1500 个 token</strong>（汉字 token 化效率略低于英文）。但这只是粗估，Qwen、Llama、OpenAI 的 tokenizer 都不一样，正式算成本前一定要用目标模型的 tokenizer 跑一遍。</p><h3 id=54-分词对模型能力的影响>5.4 分词对模型能力的影响</h3><p>理解 Tokenizer 对实际工程有几个直接影响：</p><p><strong>API 成本估算</strong>：主流 LLM API 都按 token 计费，不是按字数。1000 汉字约 1000-1500 tokens，1000 英文单词约 1300 tokens，代码效率更低。预估费用必须用目标模型的 tokenizer 数出来。</p><p><strong>上下文窗口管理</strong>：每个模型有最大 token 限制（Claude 200K、Qwen 128K），中文 + 代码混合内容很容易让你以为"才 5 万字应该不超"，实际算成 token 已经 8 万了。</p><p><strong>避免截断重要信息</strong>：文档卡在上下文边缘时，Tokenizer 可能把一个词从中间硬切开，导致下游解析或检索失败。工程上要保留几百 token 的安全 buffer。</p><p>特殊 token（BOS、EOS、PAD、SEP，以及 ChatML 格式里的 <code>&lt;|im_start|></code>）不是来自文本，而是给模型传递结构信息的，它们的 embedding 在训练中被专门优化。</p><blockquote><p><strong>实践要点：</strong> 面试被问到 Tokenizer，最重要的是先说清"模型只能处理整数"，Tokenizer 是文字到整数世界的桥梁。然后讲三种分词粒度的取舍（字符级太碎、词级太散、子词折中），再补实际工程影响（API 计费、上下文管理、避免截断）。</p></blockquote><hr><h2 id=第六章大模型训练全景>第六章：大模型训练全景</h2><h3 id=61-预训练从海量文本中学习语言规律>6.1 预训练：从海量文本中学习语言规律</h3><p>预训练是大模型能力的根基。做一个类比：培养一个能独当一面的员工，他得先有基础知识（从小学读到大学），再学会公司流程（SFT），最后懂职业素养（对齐）。大模型的三个训练阶段对应这三件事。</p><p><strong>数据从哪来？</strong> GPT-3 用了 3000 亿 token，Llama 3 用了 15 万亿 token。数据来源包括互联网网页（Common Crawl）、GitHub 代码、维基百科、扫描图书、论文、新闻。但原始数据充满垃圾，预训练前要做大量清洗——去重、过滤低质量、识别语言、剔除有害信息。<strong>一个高质量训练集的清洗成本可能比模型训练本身还贵</strong>，这是大模型公司的核心竞争力之一。</p><p><strong>训练目标</strong>：CLM（预测下一个 token）。要预测"北京是中国的____"，模型必须知道"北京是首都"；要预测"如果 x=2，那么 x²=____"，模型必须会算数。所有能力都被这个目标<strong>逼着学会了</strong>。</p><p><strong>计算开销</strong>：训练 GPT-3 据估算花了约 3.14×10²³ 次浮点运算。用一张 A100 需 36 万年。OpenAI 用几百到几千张 GPU 并行训练几个月，算力成本上千万美元。</p><p>预训练完后，模型有了一个"大脑"，但它<strong>不会回答问题，只会续写</strong>。</p><h3 id=62-sft从续写器到对话助手>6.2 SFT：从"续写器"到"对话助手"</h3><p>预训练后的模型本质是"文本续写机器"。你问它"天空为什么是蓝色的？"，它可能续写成"天空为什么是蓝色的？这是个有趣的科学问题。今天天气不错……&ldquo;一直发散下去，根本没在回答你。</p><p>SFT 的目的就是把这个"续写机器"改造成"对话机器&rdquo;。训练数据格式从"连续文本"变成"(指令，期望回答)&ldquo;对：</p><div class=highlight><div class=chroma><table class=lntable><tr><td class=lntd><pre tabindex=0 class=chroma><code><span class=lnt>1
+</span><span class=lnt>2
+</span></code></pre></td><td class=lntd><pre tabindex=0 class=chroma><code class=language-fallback data-lang=fallback><span class=line><span class=cl>指令：请用简单易懂的语言解释为什么天空是蓝色的
+</span></span><span class=line><span class=cl>回答：天空呈现蓝色是因为大气中的散射现象……
+</span></span></code></pre></td></tr></table></div></div><p>模型慢慢学会"看到这种格式就该给完整答案，不要无限续写&rdquo;。</p><p><strong>数据质量比数量更重要。</strong> Llama 2 用了约 100 万条 SFT 数据，每条精心标注。AlpacaFarm 的研究发现：<strong>几千条高质量数据训出来的效果，比几十万条低质量数据要好</strong>。数据多样性也很关键，要覆盖问答、写作、代码、数学、翻译等各种场景。</p><h3 id=63-对齐rlhfdpo让模型符合人类偏好>6.3 对齐（RLHF/DPO）：让模型符合人类偏好</h3><p>SFT 后模型会按指令回答了，但回答风格不一定讨喜——可能太啰嗦、太简洁、偶尔说不该说的话。对齐（Alignment）就是补这一课。</p><p>经典方法是 <strong>RLHF</strong>（基于人类反馈的强化学习）：先让人类标注员对同一问题的多个回答排序 → 训一个独立的"奖励模型"学会自动打分 → 用 PPO 算法调整大模型参数让它生成高分回答。同时维护一个"参考模型"用 KL 散度约束，防止主模型"钻空子"（reward hacking）。</p><p>后来斯坦福提出 <strong>DPO</strong>（直接偏好优化），把 RLHF 的优化目标用数学等价方式改写成纯监督学习，<strong>不需要奖励模型，也不需要 PPO</strong>。直接拿(问题，好回答，差回答)三元组训练。训练简单、稳定、容易实现，开源社区大量采用。（对齐技术的详细对比见第八章。）</p><h3 id=64-三个阶段为什么缺一不可>6.4 三个阶段为什么缺一不可</h3><ul><li>只做预训练不做 SFT：模型只会续写，根本不会对话</li><li>只做预训练 + SFT 不做对齐：模型会对话了，但可能生成有害内容、自信地胡说</li><li>只做 SFT + 对齐跳过预训练：在"空壳"上优化，没有底层知识</li></ul><p><strong>预训练决定能力天花板，SFT 给格式，对齐给价值观。</strong> 所有主流大模型训练的基本框架都是这三段。</p><h3 id=65-scaling-law-与涌现能力>6.5 Scaling Law 与涌现能力</h3><p><strong>Scaling Law</strong> 讲的是大模型的损失值如何随<strong>模型规模 N、训练数据量 D、训练算力 C</strong> 这三个量变化的可预测关系：</p><p>$$\text{loss}(N) \approx \left(\frac{N_c}{N}\right)^{\alpha_N}$$</p><p>它震撼业界有三个原因：<strong>可预测</strong>（能提前算投入产出比）、<strong>没有看到饱和点</strong>（继续加大还能提升）、<strong>三个变量可独立做幂律分析</strong>。</p><p><strong>涌现能力</strong>是 Scaling Law 的特殊副产物：某项能力在小模型上几乎看不到，规模超过临界点（典型 50B-100B）突然表现出来——多步推理、上下文学习、跨语言迁移。但要注意 2023 年斯坦福 <em>Mirage</em> 论文的挑战：很多"涌现"可能只是评估指标不连续造成的测量假象。</p><h3 id=66-chinchilla-比例与-llama-3-的数据突破>6.6 Chinchilla 比例与 Llama 3 的数据突破</h3><p>2022 年 DeepMind 的 Chinchilla 论文做了个壕实验：<strong>训了 400 个不同规模的模型</strong>，发现给定固定训练算力 C，参数和数据要按接近 <strong>1:20</strong> 的比例配（每个参数配 20 tokens）。</p><p>验证实验震撼业界：70B 的 Chinchilla 配 1.4T tokens，<strong>明显超过</strong> 4 倍参数的 280B Gopher 和 175B 的 GPT-3。GPT-3 的比例是 1:1.7，<strong>严重欠训</strong>，数据缺口 12 倍。</p><p>但 2024 年 Llama 3 做了件激进的事：<strong>把数据量推到 1:1875 的极端配比</strong>（8B 参数 / 15T tokens，是 Chinchilla 推荐的 94 倍），loss 一直稳定下降，训出来的 8B 模型<strong>多项基准超过 GPT-3 175B</strong>。</p><p>这说明 Chinchilla 的 1:20 不是"数据上限"，而是"<strong>给定训练算力时怎么分配更划算</strong>&ldquo;的经验答案。如果愿意投入更多训练计算，继续喂更多高质量 token，loss 仍可能下降。Qwen3-0.6B 用 36T tokens 训一个 0.6B 小模型（比例 1:60000），把这个趋势推到更极端。</p><p>为什么会出现这个趋势？两个工程原因：<strong>推理成本</strong>（8B 部署一台消费级 GPU，175B 要好几台 H100）和<strong>数据相对便宜</strong>（数据清洗花钱但比 GPU 集群便宜得多）。</p><blockquote><p><strong>实践要点：</strong> 选型时问的不是"谁最大&rdquo;，而是"这个模型训练充分吗？数据质量怎么样？它为训练算力最优还是推理成本最优设计？"。涌现能力对选型的影响：依赖多步推理/ICL 的任务最低门槛 30B-70B，简单分类/抽取/摘要 7B-13B 完全够用。</p></blockquote><hr><h2 id=第七章微调技术>第七章：微调技术</h2><h3 id=71-全量微调-vs-参数高效微调>7.1 全量微调 vs 参数高效微调</h3><p>首先回答一个前置问题：<strong>什么时候才真的需要微调？</strong> 很多人一遇到"模型表现不好"就想上微调，但工业界踩过坑的人都知道，<strong>微调是最后手段，不是第一选择</strong>。</p><p>能用 Prompt + Few-shot 解决就别上微调；能用 System Prompt 控制风格就别上微调；能用 RAG 接知识库就别上微调。微调的成本远比想象大：需要高质量数据集（标注几万到几十万）、GPU 资源、工程经验，最坑的是维护成本——基础模型一升级，之前微调的版本基本就废了。</p><p>只有这些都不行时才考虑微调。特别提醒：如果需求是"补充经常变化的事实知识"（产品价格、政策条款、库存状态），微调不是好选择，应该用 RAG 实时查。</p><p>理解了"该不该微调"，再看"微调有哪些方案"。这里有个特别容易踩的坑：很多人把"全量微调、LoRA、QLoRA、SFT、DPO"都当成同一类"不同微调方法"，其实它们分两个<strong>正交维度</strong>：</p><ul><li><strong>维度一：改哪些参数</strong>（全量微调 / LoRA / QLoRA）</li><li><strong>维度二：学什么目标</strong>（SFT / DPO）</li></ul><p>这两个维度可以任意组合：可以用 LoRA 做 SFT，也可以用 LoRA 做 DPO。</p><p><strong>全量微调</strong>：所有参数都改。效果上限最高，但代价大——7B 模型 FP16 训练要存权重(14GB) + 梯度(14GB) + 优化器状态(56GB) = 80GB+。更糟的是<strong>灾难性遗忘</strong>：所有参数被改写，新任务学好了，预训练的通用能力反而下降。</p><h3 id=72-lora-的五大优点与原理>7.2 LoRA 的五大优点与原理</h3><p>LoRA（Low-Rank Adaptation）的核心洞见：模型参数的"更新量"（ΔW = W微调后 - W原始）虽然维度很大，但真正有意义的变化只发生在一个<strong>低维子空间</strong>里。权重的更新具有"<strong>内在低秩性</strong>"，秩通常只有 8-16。</p><p>基于此，LoRA 冻结原始权重 W 不动，在旁边新增两个小矩阵 A（d×r）和 B（r×d），训练时只更新 A 和 B：</p><div class=highlight><div class=chroma><table class=lntable><tr><td class=lntd><pre tabindex=0 class=chroma><code><span class=lnt>1
+</span><span class=lnt>2
+</span><span class=lnt>3
+</span></code></pre></td><td class=lntd><pre tabindex=0 class=chroma><code class=language-python data-lang=python><span class=line><span class=cl><span class=c1># W 是原始权重（冻结），A 和 B 是两个小矩阵（可训练）</span>
+</span></span><span class=line><span class=cl><span class=c1># α 是缩放因子（超参，控制 LoRA 更新强度）</span>
+</span></span><span class=line><span class=cl><span class=n>output</span> <span class=o>=</span> <span class=n>x</span> <span class=o>@</span> <span class=p>(</span><span class=n>W</span> <span class=o>+</span> <span class=n>α</span> <span class=o>*</span> <span class=p>(</span><span class=n>B</span> <span class=o>@</span> <span class=n>A</span><span class=p>))</span>
+</span></span></code></pre></td></tr></table></div></div><p>类比"给书批注"：全量微调是把书重印一遍改掉原文，LoRA 是在空白处贴便利贴，原文一字不动。</p><p>参数量对比：4096×4096 权重原本 1677 万参数，LoRA r=16 只需 13.1 万参数，减少约 128 倍。整个 7B 模型可训练参数从 70 亿降到 2000 万左右。</p><p>LoRA 除了"省参数"，还有五个被低估的优点：</p><p><strong>优点一：推理零开销。</strong> 训练完把 <code>α * B·A</code> 合并到 W 上得到 <code>W_merged</code>，推理时和原始模型完全一样，没有额外计算。这一点比 Adapter 强——Adapter 推理时每层都要过额外小网络。</p><div class=highlight><div class=chroma><table class=lntable><tr><td class=lntd><pre tabindex=0 class=chroma><code><span class=lnt>1
+</span><span class=lnt>2
+</span></code></pre></td><td class=lntd><pre tabindex=0 class=chroma><code class=language-python data-lang=python><span class=line><span class=cl><span class=n>W_merged</span> <span class=o>=</span> <span class=n>W</span> <span class=o>+</span> <span class=n>α</span> <span class=o>*</span> <span class=p>(</span><span class=n>B</span> <span class=o>@</span> <span class=n>A</span><span class=p>)</span>  <span class=c1># 提前算好，只做一次</span>
+</span></span><span class=line><span class=cl><span class=n>output</span> <span class=o>=</span> <span class=n>x</span> <span class=o>@</span> <span class=n>W_merged</span>       <span class=c1># 推理时和原始模型完全一样</span>
+</span></span></code></pre></td></tr></table></div></div><p><strong>优点二：模块化插拔。</strong> 一个基础模型 + 多套 LoRA 权重，按需加载。7B 基础模型 14GB，每套 LoRA 才几十 MB，可以同时维护客服、代码、翻译几套 LoRA 热切换。</p><div class=highlight><div class=chroma><table class=lntable><tr><td class=lntd><pre tabindex=0 class=chroma><code><span class=lnt>1
+</span><span class=lnt>2
+</span><span class=lnt>3
+</span><span class=lnt>4
+</span><span class=lnt>5
+</span><span class=lnt>6
+</span></code></pre></td><td class=lntd><pre tabindex=0 class=chroma><code class=language-python data-lang=python><span class=line><span class=cl><span class=kn>from</span> <span class=nn>peft</span> <span class=kn>import</span> <span class=n>PeftModel</span>
+</span></span><span class=line><span class=cl><span class=n>base_model</span> <span class=o>=</span> <span class=n>AutoModelForCausalLM</span><span class=o>.</span><span class=n>from_pretrained</span><span class=p>(</span><span class=s2>&#34;Qwen2.5-7B&#34;</span><span class=p>)</span>
+</span></span><span class=line><span class=cl><span class=c1># 场景一：客服请求，挂载客服 LoRA</span>
+</span></span><span class=line><span class=cl><span class=n>lora_cs</span> <span class=o>=</span> <span class=n>PeftModel</span><span class=o>.</span><span class=n>from_pretrained</span><span class=p>(</span><span class=n>base_model</span><span class=p>,</span> <span class=s2>&#34;path/to/customer_service_lora&#34;</span><span class=p>)</span>
+</span></span><span class=line><span class=cl><span class=c1># 场景二：代码问题，换成代码 LoRA，基础模型不用重新加载</span>
+</span></span><span class=line><span class=cl><span class=n>lora_code</span> <span class=o>=</span> <span class=n>PeftModel</span><span class=o>.</span><span class=n>from_pretrained</span><span class=p>(</span><span class=n>base_model</span><span class=p>,</span> <span class=s2>&#34;path/to/coding_lora&#34;</span><span class=p>)</span>
+</span></span></code></pre></td></tr></table></div></div><p><strong>优点三：灾难性遗忘风险更低。</strong> 原始权重全程冻结，所有学习都在旁路小矩阵里，相当于在原知识旁边贴便利贴，通用能力更容易保住。</p><p><strong>优点四：训练更稳定。</strong> 可训练参数少 100 倍以上，梯度搜索空间大幅缩小，对学习率等超参不敏感，调参成本低。</p><p><strong>优点五（进阶）：权重可加权混合。</strong> 多个 LoRA 可以加权混合实现能力融合，不用重新训练：</p><div class=highlight><div class=chroma><table class=lntable><tr><td class=lntd><pre tabindex=0 class=chroma><code><span class=lnt>1
+</span></code></pre></td><td class=lntd><pre tabindex=0 class=chroma><code class=language-python data-lang=python><span class=line><span class=cl><span class=n>W</span><span class=s1>&#39; = W + α₁ * (B₁ · A₁) + α₂ * (B₂ · A₂)</span>
+</span></span></code></pre></td></tr></table></div></div><p>调整 α₁ 和 α₂ 的比例就能调整两种能力的"配比"。这叫 <strong>LoRA Merging</strong>，是 Model Merging 领域的重要方向。</p><div class=table-wrapper><table><thead><tr><th>维度</th><th>全量微调</th><th>Adapter</th><th>LoRA</th></tr></thead><tbody><tr><td>可训练参数量</td><td>全部（100%）</td><td>少量额外参数（~1%）</td><td>少量旁路参数（~0.1%-1%）</td></tr><tr><td>推理额外开销</td><td>无</td><td>有（每层额外网络）</td><td>无（可合并进 W）</td></tr><tr><td>灾难性遗忘风险</td><td>高</td><td>低</td><td>低</td></tr><tr><td>部署灵活性</td><td>低</td><td>中</td><td>高（一基底 + 多套 LoRA）</td></tr><tr><td>权重可组合性</td><td>不支持</td><td>不支持</td><td>支持（LoRA Merging）</td></tr></tbody></table></div><h3 id=73-qlora>7.3 QLoRA</h3><p>QLoRA 把微调门槛进一步往下打：先把基础模型用 4-bit 量化（NF4 格式），把 7B 模型显存从 14GB 压到 4GB，然后套 LoRA。整个微调显存降到 10GB 以内，<strong>一张 4090（24GB）就能微调 7B 甚至 13B 模型</strong>。</p><p>QLoRA 的精度损失非常小，实测和全精度 LoRA 几乎没差别。这一招直接让微调民主化了，Alpaca、Vicuna 这些早期开源指令模型基本都是用 QLoRA 训出来的。</p><h3 id=74-post-training-的五种家族>7.4 Post-Training 的五种家族</h3><p>SFT 之后还有一整族 Post-Training 方法，详见第八章。这里只需记住：微调的两个维度（改哪些参数 × 学什么目标）可以任意组合，最常见的工业组合是 <strong>QLoRA + SFT</strong>（个人开发者，性价比最高）和 <strong>LoRA + SFT + DPO</strong>（社区主流）。</p><blockquote><p><strong>实践要点：</strong> 绝大多数项目能用 QLoRA + SFT 搞定，没必要上更重的方案。这种"克制"的工程态度，比"为了微调而微调"的新人思维成熟得多。能用轻量方案搞定的需求，一定不要上重的——训练成本、调参难度、维护成本都会指数级上升。</p></blockquote><hr><h2 id=第八章对齐技术>第八章：对齐技术</h2><h3 id=81-rlhfppo的完整流程>8.1 RLHF（PPO）的完整流程</h3><p>RLHF 是 OpenAI 在 InstructGPT 中开创的方案，也是 ChatGPT 早期版本的核心训练方法。整个流程分三步：</p><p><strong>第一步：收集偏好数据。</strong> 人类标注员对同一 Prompt 的多个回答排序（A 比 B 好、B 比 C 好）。排序比绝对评分更稳定，因为人类比较两个回答的相对好坏比给绝对分数容易。</p><p><strong>第二步：训练奖励模型（Reward Model）。</strong> 用偏好数据训一个独立的小模型，输入(Prompt + 回答)，输出一个分数。训练目标是让"人类觉得好的回答"分数高。这个奖励模型代替了人类，可以批量自动打分。</p><p><strong>第三步：用 PPO 优化主模型。</strong> 主模型生成回答 → 奖励模型打分 → PPO 调整主模型参数往高分方向走。同时维护"参考模型"（SFT 模型冻结副本），用 KL 散度约束主模型不要离参考模型太远，防止 reward hacking。</p><p>整个 PPO 训练同时需要维护 <strong>4 个模型</strong>：</p><div class=highlight><div class=chroma><table class=lntable><tr><td class=lntd><pre tabindex=0 class=chroma><code><span class=lnt>1
+</span><span class=lnt>2
+</span><span class=lnt>3
+</span><span class=lnt>4
+</span><span class=lnt>5
+</span></code></pre></td><td class=lntd><pre tabindex=0 class=chroma><code class=language-python data-lang=python><span class=line><span class=cl><span class=c1># PPO 训练时需要同时维护的四个模型</span>
+</span></span><span class=line><span class=cl><span class=n>policy_model</span>     <span class=o>=</span> <span class=n>load_sft_model</span><span class=p>()</span>    <span class=c1># 主模型（正在被优化的）</span>
+</span></span><span class=line><span class=cl><span class=n>reference_model</span>  <span class=o>=</span> <span class=n>load_sft_model</span><span class=p>()</span>    <span class=c1># 参考模型（冻结，SFT 副本，用于 KL 约束）</span>
+</span></span><span class=line><span class=cl><span class=n>reward_model</span>     <span class=o>=</span> <span class=n>load_reward_model</span><span class=p>()</span> <span class=c1># 奖励模型（裁判，给回答打分）</span>
+</span></span><span class=line><span class=cl><span class=n>value_model</span>      <span class=o>=</span> <span class=n>load_value_model</span><span class=p>()</span>  <span class=c1># 价值模型（RL 辅助，估算未来奖励期望）</span>
+</span></span></code></pre></td></tr></table></div></div><p>4 个模型同时加载到显存，每个都和主模型差不多大，显存占用是 SFT 的好几倍。加上 RL 本身的不稳定性（超参敏感、容易 reward hacking、训练曲线震荡），能驾驭 PPO 的团队凤毛麟角。</p><h3 id=82-dpo去掉奖励模型的两步法>8.2 DPO：去掉奖励模型的两步法</h3><p>DPO 是 2023 年斯坦福提出的方案，核心是一个数学上的<strong>等价转换</strong>：RLHF 的优化目标可以推导改写成纯监督学习目标函数，<strong>不需要显式训练奖励模型</strong>。直觉上，&ldquo;奖励模型"的功能可以被"主模型相对于参考模型的概率比值"完全替代。</p><p>数据格式简单到不能再简单：</p><div class=highlight><div class=chroma><table class=lntable><tr><td class=lntd><pre tabindex=0 class=chroma><code><span class=lnt>1
+</span><span class=lnt>2
+</span><span class=lnt>3
+</span><span class=lnt>4
+</span><span class=lnt>5
+</span></code></pre></td><td class=lntd><pre tabindex=0 class=chroma><code class=language-json data-lang=json><span class=line><span class=cl><span class=p>{</span>
+</span></span><span class=line><span class=cl>  <span class=nt>&#34;prompt&#34;</span><span class=p>:</span> <span class=s2>&#34;如何学好 Python？&#34;</span><span class=p>,</span>
+</span></span><span class=line><span class=cl>  <span class=nt>&#34;chosen&#34;</span><span class=p>:</span> <span class=s2>&#34;建议先从官方文档入手，配合做小项目实践……&#34;</span><span class=p>,</span>
+</span></span><span class=line><span class=cl>  <span class=nt>&#34;rejected&#34;</span><span class=p>:</span> <span class=s2>&#34;Python 很简单，随便找个教程看看就行了……&#34;</span>
+</span></span><span class=line><span class=cl><span class=p>}</span>
+</span></span></code></pre></td></tr></table></div></div><p>DPO 损失函数直觉：</p><div class=highlight><div class=chroma><table class=lntable><tr><td class=lntd><pre tabindex=0 class=chroma><code><span class=lnt>1
+</span><span class=lnt>2
+</span><span class=lnt>3
+</span><span class=lnt>4
+</span><span class=lnt>5
+</span><span class=lnt>6
+</span><span class=lnt>7
+</span><span class=lnt>8
+</span></code></pre></td><td class=lntd><pre tabindex=0 class=chroma><code class=language-python data-lang=python><span class=line><span class=cl><span class=c1># DPO 损失（简化直觉版）</span>
+</span></span><span class=line><span class=cl><span class=n>loss</span> <span class=o>=</span> <span class=o>-</span><span class=n>log</span><span class=p>(</span><span class=n>sigma</span><span class=p>(</span>
+</span></span><span class=line><span class=cl>    <span class=n>beta</span> <span class=o>*</span> <span class=p>(</span>
+</span></span><span class=line><span class=cl>        <span class=n>log</span><span class=p>(</span><span class=n>policy</span><span class=p>(</span><span class=n>chosen</span><span class=p>)</span> <span class=o>/</span> <span class=n>ref</span><span class=p>(</span><span class=n>chosen</span><span class=p>))</span>     <span class=c1># 主模型 vs 参考模型在&#34;好回答&#34;上的概率比</span>
+</span></span><span class=line><span class=cl>        <span class=o>-</span> <span class=n>log</span><span class=p>(</span><span class=n>policy</span><span class=p>(</span><span class=n>rejected</span><span class=p>)</span> <span class=o>/</span> <span class=n>ref</span><span class=p>(</span><span class=n>rejected</span><span class=p>))</span> <span class=c1># 主模型 vs 参考模型在&#34;差回答&#34;上的概率比</span>
+</span></span><span class=line><span class=cl>    <span class=p>)</span>
+</span></span><span class=line><span class=cl><span class=p>))</span>
+</span></span><span class=line><span class=cl><span class=c1># 目标：让 chosen 的比值 &gt; rejected 的比值</span>
+</span></span></code></pre></td></tr></table></div></div><p>只需 <strong>2 个模型</strong>（policy + reference），训练稳定，实现简单。代价是效果上限略低于精心调过的 PPO（没法像 RL 那样探索数据之外的好回答），且依赖偏好数据质量。</p><h3 id=83-ppo-vs-dpo-的核心区别4-模型-vs-2-模型>8.3 PPO vs DPO 的核心区别（4 模型 vs 2 模型）</h3><div class=table-wrapper><table><thead><tr><th>维度</th><th>PPO</th><th>DPO</th></tr></thead><tbody><tr><td>是否需要奖励模型</td><td>需要（单独训练）</td><td>不需要</td></tr><tr><td>同时维护的模型数</td><td>4 个</td><td>2 个</td></tr><tr><td>训练稳定性</td><td>较差（RL 不稳定）</td><td>好（等价监督学习）</td></tr><tr><td>实现难度</td><td>高（需要 RL 基础设施）</td><td>低（标准训练框架即可）</td></tr><tr><td>表达能力</td><td>强（可探索数据之外）</td><td>稍弱（受偏好数据分布限制）</td></tr></tbody></table></div><p>一句话总结：<strong>PPO 是"先训裁判再训选手&rdquo;，DPO 是"直接拿比赛录像告诉选手哪个动作对哪个动作错"。</strong> 两者目标一致，但 DPO 省掉了"奖励模型"这个中间层。</p><h3 id=84-grpo-等新方法>8.4 GRPO 等新方法</h3><p>GRPO（Group Relative Policy Optimization）是 DeepSeek 2024 年在 DeepSeekMath 论文里提出的 PPO 改进版，因 DeepSeek R1 火遍整个圈子。</p><p>要理解 GRPO，得先搞清 PPO 为什么需要 Value Model。PPO 的优势函数（Advantage）= 实际奖励 - 预期奖励，Value Model 的作用就是估计"预期奖励"作为基线。但 Value Model 是独立神经网络，规模和主模型一样大，要单独训练占显存。</p><p><strong>GRPO 的核心创新：直接砍掉 Value Model，用"组内相对排名"估计优势。</strong></p><p>具体流程：对一个问题 q，从主模型采样 G 个回答（典型 G=8），用奖励模型（或对错判定）打分得到 r₁&mldr;r_G，计算组内相对优势：</p><div class=highlight><div class=chroma><table class=lntable><tr><td class=lntd><pre tabindex=0 class=chroma><code><span class=lnt>1
+</span></code></pre></td><td class=lntd><pre tabindex=0 class=chroma><code class=language-python data-lang=python><span class=line><span class=cl><span class=n>A_i</span> <span class=o>=</span> <span class=p>(</span><span class=n>r_i</span> <span class=o>-</span> <span class=n>mean</span><span class=p>(</span><span class=n>r_1</span><span class=o>..</span><span class=n>r_G</span><span class=p>))</span> <span class=o>/</span> <span class=n>std</span><span class=p>(</span><span class=n>r_1</span><span class=o>..</span><span class=n>r_G</span><span class=p>)</span>
+</span></span></code></pre></td></tr></table></div></div><p>&ldquo;组内平均分"充当了 Value Model 的角色，这个基线天然就有，不用单独训练。4 模型架构变成 3 模型（Policy / Reference / Reward），显存接近 DPO 但保留 RL 探索能力。</p><p>GRPO 还有个杀手级特性：<strong>对"可验证任务"特别友好</strong>。数学题、代码题这类"答案对就是对、错就是错"的场景，r_i 直接用 0/1 判定就行，连 Reward Model 都省了。DeepSeek R1-Zero 就是这么做的，纯靠强化学习训出推理能力。</p><p><strong>谁在用 GRPO：</strong> DeepSeek R1 / R1-Zero、DeepSeek-Math、Qwen-Math 系列。</p><p>除了 GRPO，还有两类重要的 Post-Training 方法：</p><p><strong>拒绝采样（Rejection Sampling）</strong>：根本不用 RL。让模型对每个 Prompt 生成多个回答 → 用奖励模型筛出高分的 → 当作新 SFT 数据再做一轮 SFT。就是"生成 → 筛选 → 再 SFT"循环。Llama 2 的对齐流程用了这个。</p><p><strong>RLAIF</strong>：用更强的 AI 模型代替人类标注偏好。Anthropic 的 Constitutional AI 用 Claude 自己批评自己的回答生成偏好对。优点是批量生成、成本低，缺点是依赖强教师 AI。</p><p>最关键的认知：<strong>这五类方法是组合用的，不是替代。</strong> Llama 2-Chat 用的是"SFT + 拒绝采样 + PPO/RLHF&rdquo;；DeepSeek R1 用的是"SFT 冷启动 + 多轮 GRPO + 拒绝采样"。</p><blockquote><p><strong>实践要点：</strong> 选型逻辑——资源有限 + 实现优先简单选 DPO；推理类任务（数学、代码）+ 想用 RL 探索上限选 GRPO；想要稳定基线再精修先做拒绝采样；数据规模大 + 标注成本敏感用 RLAIF；大厂资源充足追求最高上限跑完整 RLHF 或 GRPO。注意别说"Llama 2 是 DPO 路线"，它公开流程是 SFT + 拒绝采样 + PPO/RLHF。</p></blockquote><hr><h2 id=第九章推理优化>第九章：推理优化</h2><h3 id=91-解码策略greedybeam-search采样>9.1 解码策略（Greedy/Beam Search/采样）</h3><p>每生成一个 token，模型输出一个 vocabulary 大小的概率分布，解码策略就是"怎么从这个分布里挑下一个 token"。不同策略对应"生成任务到底有没有最优答案"的不同假设。</p><p><strong>贪心解码</strong>：每步选概率最高的 token。简单、可复现，但有"复读机问题"——一旦走进自我加强的循环就出不来，会一直重复。适合代码生成、SQL、JSON 抽取等有标准答案的精确任务。</p><p><strong>Beam Search</strong>：每步保留 Top-B 条候选路径，最后选总概率最高的整条序列。在翻译时代是王者（翻译有"单一最优译文"），但 LLM 时代几乎被弃用——开放式生成没有"最优答案"，Beam Search 优化"整体概率最高"反而输出最 boring 的回答，还和 KV Cache、Flash Attention 等推理优化不兼容。</p><p><strong>采样族</strong>：用随机性换多样性。普通采样有长尾噪声问题，发展出三种调节器：</p><ul><li><strong>Temperature</strong>：缩放概率分布锐度。T=0 等价贪心，T&lt;1 更确定，T>1 更发散</li><li><strong>Top-K</strong>：固定截断，只从概率最高 K 个 token 里采样</li><li><strong>Top-P（Nucleus）</strong>：自适应截断，按累积概率到 P 为止。比 Top-K 智能——确定性问题候选池小，开放问题候选池大</li></ul><p>选型口诀：<strong>任务有标准答案 → 贪心或 T=0；任务有多种合理答案要稳 → Top-P=0.9 + T=0.7；任务鼓励多样性 → Top-P=0.95 + T=1.0+。</strong></p><h3 id=92-temperaturetop-ptop-k-参数调节>9.2 Temperature/Top-p/Top-k 参数调节</h3><p>这三个参数的作用维度：</p><ul><li><strong>Temperature</strong> 控制"分布的松紧"（缩放尖锐度）</li><li><strong>Top-K</strong> 是"固定截断"（只保留前 K 个词）</li><li><strong>Top-P</strong> 是"自适应截断"（按累积概率截断到 P）</li></ul><p><strong>最关键的实战经验：一次主要调一个参数。</strong> 最常见做法是先调 Temperature，Top-P 保持默认或 0.9~1.0，Top-K 不设置。不要同时大幅调 temperature 和 top_p，两者会互相干扰。</p><p>常见踩坑：</p><ul><li>同时调 temperature 高 + top_p 低（让分布变平坦再截掉一半，互相打架）</li><li>同时设置 top_k 和 top_p（两个都在做截断，候选池变得奇怪）</li></ul><p>参考配置：</p><div class=highlight><div class=chroma><table class=lntable><tr><td class=lntd><pre tabindex=0 class=chroma><code><span class=lnt>1
+</span><span class=lnt>2
+</span><span class=lnt>3
+</span><span class=lnt>4
+</span><span class=lnt>5
+</span><span class=lnt>6
+</span><span class=lnt>7
+</span><span class=lnt>8
+</span></code></pre></td><td class=lntd><pre tabindex=0 class=chroma><code class=language-python data-lang=python><span class=line><span class=cl><span class=c1># 代码生成 / 精确问答（要可重复、不能出错）</span>
+</span></span><span class=line><span class=cl><span class=n>temperature</span><span class=o>=</span><span class=mf>0.0</span> <span class=o>~</span> <span class=mf>0.2</span><span class=p>,</span> <span class=n>top_p</span><span class=o>=</span><span class=mf>1.0</span>
+</span></span><span class=line><span class=cl>
+</span></span><span class=line><span class=cl><span class=c1># 日常对话 / 总结摘要（要连贯自然但不能太发散）</span>
+</span></span><span class=line><span class=cl><span class=n>temperature</span><span class=o>=</span><span class=mf>0.5</span> <span class=o>~</span> <span class=mf>0.7</span><span class=p>,</span> <span class=n>top_p</span><span class=o>=</span><span class=mf>0.9</span>
+</span></span><span class=line><span class=cl>
+</span></span><span class=line><span class=cl><span class=c1># 创意写作 / 头脑风暴（要多样性，允许偶尔出奇）</span>
+</span></span><span class=line><span class=cl><span class=n>temperature</span><span class=o>=</span><span class=mf>0.8</span> <span class=o>~</span> <span class=mf>1.2</span><span class=p>,</span> <span class=n>top_p</span><span class=o>=</span><span class=mf>0.95</span>
+</span></span></code></pre></td></tr></table></div></div><h3 id=93-kv-cache-原理与-prompt-caching>9.3 KV Cache 原理与 Prompt Caching</h3><p><strong>KV Cache 是"单次推理内"的优化。</strong> 自回归生成的朴素实现是 O(N³)——每步都重算前面所有 token 的 attention。但第 2 步算的"P"的 attention 和第 1 步完全一样，纯浪费。</p><p>KV Cache 把前面所有 token 的 K 和 V 缓存在显存里，每次新 token 只算自己的 Q、K、V，然后跟缓存的 K/V 做 attention。总计算量从 O(N³) 降到 O(N²)。这不是"锦上添花"，是"让自回归生成可行的基本盘"。</p><p>但 KV Cache 显存代价不小（7B 模型 32K 上下文要 17GB），所以有一系列围绕它的优化（PagedAttention、KV Cache 量化、MQA/GQA 共享 K/V）。</p><p><strong>Prompt Caching 是"跨请求"的优化。</strong> 把 KV Cache 的复用范围从"单次推理内"扩展到"不同请求之间"。如果两个请求的 Prompt 前缀完全相同（比如都用同样的 System Prompt），第一个请求算完的 KV Cache 保留下来，第二个请求直接复用，只算新增部分。</p><p>两者关系：<strong>同一个底层机制在两个时间尺度上的应用。</strong> KV Cache 是单次推理内 token 之间共享，Prompt Caching 是不同请求之间共享。</p><p>主流 API 实现分两派：Claude 用显式标记（<code>cache_control</code> 断点），OpenAI 用自动缓存（前缀超过 1024 tokens 自动缓存）。Claude 命中缓存的 token 费用是正常的 10%，写入有 1.25x 费用，后续 2 次以上命中就省钱。</p><p><strong>最常见的工程陷阱：固定内容在前、动态内容在后。</strong> 前缀必须完全一致才能命中，哪怕多一个空格、改一个字符就 miss。把日期、用户名这类动态内容放在固定内容前面，会让缓存永远失效。Claude 的 ephemeral 缓存默认 5 分钟有效期，低流量应用可能省不到。</p><h3 id=94-量化技术awqgptqnf4>9.4 量化技术（AWQ/GPTQ/NF4）</h3><p>量化（Quantization）的本质是把模型参数从高精度浮点（FP16）映射到低精度整数（INT8/INT4）。7B 模型 FP16 占 14GB，INT4 只剩 3.5GB，推理还能加速 2-4 倍。</p><p>精度边界：</p><div class=table-wrapper><table><thead><tr><th>量化位数</th><th>模型体积</th><th>平均精度损失</th><th>实用性</th></tr></thead><tbody><tr><td>FP16</td><td>14 GB（7B）</td><td>基线</td><td>训练用</td></tr><tr><td>INT8</td><td>7 GB</td><td>&lt; 0.5%</td><td>几乎无损</td></tr><tr><td>INT4</td><td>3.5 GB</td><td>1-3%</td><td>主流部署</td></tr><tr><td>INT3</td><td>2.6 GB</td><td>5-10%</td><td>边缘设备</td></tr></tbody></table></div><p>但"平均损失 1-3%&ldquo;背后藏着一个魔鬼：<strong>精度损失不是均匀分布的</strong>。简单分类几乎无损，数学推理可能损失 5-10%，长链路代码生成可能损失 10%+。</p><p>三种主流算法各有核心创新：</p><p><strong>GPTQ</strong>：基于"误差补偿"的逐层量化。每量化一层，用校准数据测出量化误差，把误差补偿到下一层。数学严谨，支持 INT3 极端低位，但量化耗时长。</p><p><strong>AWQ</strong>：基于"激活感知"的权重保护。核心洞见是<strong>模型里约 1% 的权重承担了 99% 的输出贡献</strong>（Salient Weights）。通过逐通道缩放把重要权重保护好，其他激进压缩。推理速度快、效果稳。</p><p><strong>QLoRA 的 NF4</strong>：NormalFloat 4-bit，专为权重的近高斯分布设计的非均匀量化。让 16 个量化值的分布也成正态分布形状，0 附近刻度密、远离 0 刻度少。配合双重量化和分页优化器，让 4090 能微调 7B 模型。</p><p><strong>关键认知：量化算法（GPTQ/AWQ）和文件格式（GGUF）是两层东西。</strong> GPTQ/AWQ 是"怎么把高精度变低精度"的算法，GGUF 是 llama.cpp 用的"怎么存低精度权重"的文件格式容器。两者经常被混淆。</p><p>选型：生产部署看重速度优先 AWQ / GPTQ / FP8；追求精度选 FP16 / INT8；个人微选取 QLoRA NF4；边缘设备选 GGUF Q4_K_M。<strong>部署量化模型前必须在自己的业务场景下做评测</strong>，不能直接看论文平均数。</p><h3 id=95-moe-混合专家架构>9.5 MoE 混合专家架构</h3><p>MoE（Mixture of Experts）的核心思想是把 Transformer 中的 FFN 复制成 N 份"专家&rdquo;，加一个 Router 决定每个 token 进哪个专家。</p><p>核心设计哲学是"<strong>总参数大，但激活参数小</strong>"。比如 DeepSeek V3 总参数 671B，但每个 token 推理时只激活 37B（约 1/18）。能用"总参数 671B 的知识量"+&ldquo;激活参数 37B 的推理成本&rdquo;，达到 Dense 模型做不到的"学得多 + 跑得快"。</p><p>三个核心组件：</p><p><strong>1. 多个专家</strong>：FFN 复制 N 份，各自学到不同"擅长方向"（数学、代码、中文等）。专家分化不是预先指定的，是训练中自然涌现的。</p><p><strong>2. Router</strong>：一个简单线性层算分 + Top-K 选取：</p><div class=highlight><div class=chroma><table class=lntable><tr><td class=lntd><pre tabindex=0 class=chroma><code><span class=lnt>1
+</span><span class=lnt>2
+</span><span class=lnt>3
+</span></code></pre></td><td class=lntd><pre tabindex=0 class=chroma><code class=language-python data-lang=python><span class=line><span class=cl><span class=n>gate_logits</span> <span class=o>=</span> <span class=n>token_embedding</span> <span class=o>@</span> <span class=n>W_router</span>   <span class=c1># 算每个专家的偏好分数</span>
+</span></span><span class=line><span class=cl><span class=n>expert_weights</span> <span class=o>=</span> <span class=n>softmax</span><span class=p>(</span><span class=n>gate_logits</span><span class=p>)</span>      <span class=c1># 归一化成概率</span>
+</span></span><span class=line><span class=cl><span class=n>top_k_experts</span> <span class=o>=</span> <span class=n>topk</span><span class=p>(</span><span class=n>expert_weights</span><span class=p>,</span> <span class=n>k</span><span class=o>=</span><span class=mi>2</span><span class=p>)</span>  <span class=c1># 选 Top-K 个专家</span>
+</span></span></code></pre></td></tr></table></div></div><p><strong>3. 负载均衡损失</strong>：防止"专家不平衡"——Router 偏爱某几个专家，其他专家根本没被训过。把专家使用率的方差作为惩罚加进总损失。DeepSeek V3 还提出了 Auxiliary-Loss-Free 策略（动态调整专家偏置项，不引入额外损失）。</p><p>主流 MoE 对比：</p><ul><li><strong>DeepSeek V3</strong>：256 routed experts + 1 shared，Top-8 激活，671B/37B，激活率 5.5%</li><li><strong>Mixtral 8x7B</strong>：8 experts，Top-2 激活，47B/13B，激活率 28%</li><li><strong>Qwen MoE 30B-A3B</strong>：30B/3B，激活率 10%</li></ul><p>趋势是"专家越来越多、激活率越来越低"，更细粒度的稀疏化带来更好的算力性价比。</p><p>关键的反直觉点：<strong>显存按总参数走（671B 全量加载），但推理速度按激活参数走（接近 37B Dense）</strong>。这就是 MoE"学得多 + 跑得快"的来源。</p><blockquote><p><strong>实践要点：</strong> 推理优化是多层叠加的体系：KV Cache 是基本盘，GQA + Flash Attention 压显存和加速，量化压模型体积，MoE 解耦知识量和推理成本，Prompt Caching 省跨请求成本。选型时看的是"攻击哪个维度的瓶颈"，不是单点替换。部署 MoE 模型比 Dense 复杂得多（需要专家并行、All-to-All 通信），建议先测试环境跑通再上生产。</p></blockquote><hr><h2 id=第十章prompt-工程与思维链>第十章：Prompt 工程与思维链</h2><h3 id=101-prompt-的五要素>10.1 Prompt 的五要素</h3><p>同一个模型、同一个任务，一个好 Prompt 和一个差 Prompt 输出的质量差距可以有一个数量级。新手写 Prompt 最常见的问题不是"太短"，而是"<strong>模糊</strong>"——没说清楚角色、任务、上下文、格式、示例。</p><p><strong>Role（角色设定）</strong>：告诉模型"你是谁"。角色越具体，模型"人设"越稳定。</p><div class=highlight><div class=chroma><table class=lntable><tr><td class=lntd><pre tabindex=0 class=chroma><code><span class=lnt>1
+</span><span class=lnt>2
+</span><span class=lnt>3
+</span></code></pre></td><td class=lntd><pre tabindex=0 class=chroma><code class=language-fallback data-lang=fallback><span class=line><span class=cl>❌ 你是一个助手，帮我分析这段代码。
+</span></span><span class=line><span class=cl>✅ 你是一位有 10 年经验的 Python 后端工程师，专注代码 Review 和性能优化，
+</span></span><span class=line><span class=cl>   熟悉常见的安全漏洞。回答时直接指出问题，解释原因，给出具体的修改方案。
+</span></span></code></pre></td></tr></table></div></div><p><strong>Task（任务描述）</strong>：用清晰动词把任务边界说明白，复杂任务拆成子步骤。</p><div class=highlight><div class=chroma><table class=lntable><tr><td class=lntd><pre tabindex=0 class=chroma><code><span class=lnt>1
+</span><span class=lnt>2
+</span><span class=lnt>3
+</span></code></pre></td><td class=lntd><pre tabindex=0 class=chroma><code class=language-fallback data-lang=fallback><span class=line><span class=cl>❌ 帮我写一篇文章。
+</span></span><span class=line><span class=cl>✅ 写一篇面向高中生的 800 字科普文章，主题是「为什么黑洞会弯曲时空」。
+</span></span><span class=line><span class=cl>   用日常生活类比帮助读者理解，避免数学公式，结尾给一个思考题。
+</span></span></code></pre></td></tr></table></div></div><p><strong>Context（背景信息）</strong>：把业务场景塞给模型。模型不了解你的行业、用户是谁。</p><p><strong>Format（输出格式）</strong>：最容易被忽略但对程序解析影响最大的要素。</p><div class=highlight><div class=chroma><table class=lntable><tr><td class=lntd><pre tabindex=0 class=chroma><code><span class=lnt>1
+</span><span class=lnt>2
+</span><span class=lnt>3
+</span><span class=lnt>4
+</span><span class=lnt>5
+</span></code></pre></td><td class=lntd><pre tabindex=0 class=chroma><code class=language-fallback data-lang=fallback><span class=line><span class=cl>❌ 分析这条用户评论的情感。
+</span></span><span class=line><span class=cl>✅ 以 JSON 格式输出，包含：
+</span></span><span class=line><span class=cl>   - &#34;summary&#34;：20 字以内的评论概述
+</span></span><span class=line><span class=cl>   - &#34;sentiment&#34;：正面 / 中性 / 负面 三选一
+</span></span><span class=line><span class=cl>   - &#34;keywords&#34;：最多 3 个关键词的列表
+</span></span></code></pre></td></tr></table></div></div><p><strong>Examples（示例）</strong>：Few-shot 学习，比纯文字描述效果好得多。与其花很多时间描述想要的风格，不如直接给 1-3 个输入/输出例子。</p><p>一个完整的好 Prompt 把五要素都补全：角色（技术内容编辑）、任务（摘要提炼）、背景（后端工程师受众）、格式（三段式固定结构）、长度约束。交给不同模型、不同时间执行，输出格式和质量都会高度稳定。</p><h3 id=102-cot-的草稿纸原理>10.2 CoT 的"草稿纸"原理</h3><p>CoT（Chain-of-Thought）的本质是让模型"推出来"而不是"直接猜出来"。</p><p>为什么有效？模型是一个 token 一个 token 生成的，每生成一个新 token 时都能"看到"前面所有已生成的内容。让它先生成推理步骤，等于给了它一张"<strong>草稿纸</strong>"——复杂的中间状态不再需要全部存在模型的隐状态里，通过显式输出记下来，减轻了推理负担。后面生成答案时能利用前面的推理上下文，自然出错就少了。</p><p>两种 CoT 形式：</p><ul><li><strong>Few-shot CoT</strong>：Prompt 里给几个完整的"推理示例"，效果最稳定</li><li><strong>Zero-shot CoT</strong>：问题末尾加一句"请分步思考后再给结论"，简单但效果略差</li></ul><p>Self-Consistency 是 CoT 的升级版：对同一问题用较高 Temperature 采样 N 条独立推理路径，取最终答案出现最多次的那个（多数投票）。直觉是"正确答案可通过多种路径得到，错误答案相对分散"。在数学推理任务上经常能提升 5-15 个百分点，代价是 N 倍 API 调用成本。</p><h3 id=103-cot-的局限性>10.3 CoT 的局限性</h3><p>CoT 不是万能的：</p><ul><li><strong>token 消耗大</strong>：推理链额外几百上千 token，成本和延迟都上去</li><li><strong>对简单问题适得其反</strong>：让模型对"1+1 等于几"也展开推理是浪费</li><li><strong>推理链本身会出错</strong>：第 2 步错了，第 3、4 步基于错误前提继续推导，错误累积传导</li><li><strong>对纯记忆类任务没帮助</strong>：&ldquo;2020 年奥运会在哪"不需要推理</li></ul><p>2026 年的工程实践里，不建议默认把完整推理链原样展示给最终用户——一方面多花 token，另一方面完整思考链里可能有不稳定或不该暴露的内容。更稳的做法是让模型内部先分析，最终只输出简洁依据或关键步骤。</p><h3 id=104-幻觉的三层根因与缓解策略>10.4 幻觉的三层根因与缓解策略</h3><p>学术界对 LLM 幻觉的定义：<strong>模型生成了与训练事实、用户输入、或已知世界不一致的内容，但语言上看起来很流畅合理。</strong> 关键两个特征：内容错 + 听起来对。</p><p>根因有三层：</p><p><strong>根因一：训练数据本身有错。</strong> 互联网语料充满错误、矛盾、过时信息，模型全都学进参数，没有"真假区分"机制。但这只是冰山一角——即使数据 100% 正确，模型还是会幻觉。</p><p><strong>根因二：生成机制是"续写"不是"查询&rdquo;。</strong> 这是最深的根因。LLM 本质是 next-token prediction，不是查询知识库。模型对"自己知不知道某件事"没有显式信号。碰到不熟悉的问题，会按训练时见过的相似上下文"编一个看起来合理的答案"。</p><p>这就是为什么 <strong>Temperature=0 也会幻觉</strong>——贪心解码选概率最高的 token，但"概率最高"不等于"正确"。如果模型对某事实记忆模糊，概率分布可能是"茅 35% / 周 32%"，T=0 铁定选"茅"，错得很自信。温度只能减少"同一错误重复出现的随机性"，不能修正"错误本身"。</p><p>LLM 的事实记忆是<strong>参数化知识</strong>（分布式编码在 1700 亿参数里）——模糊的、不可检索的、不可验证的。而 RAG 的<strong>检索式知识</strong>每个事实有明确出处，找到了就找到了，找不到就明确返回空。</p><p><strong>根因三：对齐目标的副作用。</strong> SFT 和 RLHF 训练时，&ldquo;自信地回答"几乎永远比"我不知道"得分高——人类标注员打分依据更多是"读起来像不像专家&rdquo;，不一定知道答案对不对。奖励模型学到"自信 = 高分，谨慎 = 低分"，PPO 把这个偏好放大，模型变成"永远自信、永远不拒答"。</p><p>三类幻觉：<strong>事实性幻觉</strong>（编造不存在的事实）、<strong>推理性幻觉</strong>（推理链条错乱）、<strong>上下文不一致</strong>（违背用户给的明确条件）。</p><p>缓解方案分三层组合用：</p><p><strong>训练层</strong>：SFT 数据加大量"拒答样例"、校准（Calibration）训练让"自信度"和"正确率"对齐、用奖励模型筛掉幻觉回答。</p><p><strong>推理层</strong>：CoT 暴露推理错误、Temperature 调低减少随机偏差、Self-Consistency 多次采样投票、约束解码限制只能输出合法 vocabulary。</p><p><strong>系统层</strong>：RAG 让模型"看着资料答"、后处理事实核查、强制带引用来源。</p><p>最关键的认知：<strong>幻觉不可能完全消除</strong>，因为它是 LLM 概率生成机制的固有副产物。工程目标是"降低发生率 + 让用户能识别"，不是"彻底消灭"。</p><blockquote><p><strong>实践要点：</strong> Prompt 工程不是"把人话写清楚"，是有方法论的工程问题——五要素、Few-shot、CoT 触发、迭代闭环。要建测试集（30-50 条覆盖正常和边缘情况），每次改动都跑一遍看通过率，遵循"每次只改一处"原则。幻觉缓解要训练、推理、系统三层一起上，少哪层都不行。</p></blockquote><hr><h2 id=第十一章部署与评测>第十一章：部署与评测</h2><h3 id=111-主流部署框架对比vllmsglangtgi>11.1 主流部署框架对比（vLLM/SGLang/TGI）</h3><p>部署框架解决的核心问题：<strong>怎么在固定硬件上跑得更快、更省显存、支持更多并发？</strong> 直接用 transformers 库有三大痛点：KV Cache 显存碎片严重、批量调度低效、重复计算。</p><p><strong>vLLM</strong>（UC Berkeley）：核心创新是 <strong>PagedAttention</strong>，灵感来自操作系统虚拟内存。把 KV Cache 切成固定大小 Block（16 个 token 一块），每个请求拿到逻辑 Block 列表，由 Block Table 映射到物理显存。显存利用率从 30-40% 拉到 90%+。配合 <strong>Continuous Batching</strong>（请求异步加入退出，每个 token 步骤动态组 batch），吞吐率比 static batching 高 3-5 倍。是当前生产 API 的事实标准。</p><p><strong>SGLang</strong>（LMSYS）：核心创新是 <strong>RadixAttention</strong>，把多请求的共享前缀组织成 Radix Tree（基数树）。多个请求如果开头 N 个 tokens 一样，就共享根节点到第 N 层的同一条路径。KV Cache 显存按"所有请求的并集"算，而不是"各自的总和"。在 Agent / 多轮对话 / Few-shot 场景（前缀重复率高）下比 vLLM 省 50-80% 显存、首 token 延迟降 2-3 倍。</p><p><strong>TGI</strong>（HuggingFace）：核心卖点是生态集成 + 企业级特性。直接读 HF Hub 模型 ID 自动下载，支持鉴权、Prometheus metrics、健康检查。适合已有 HF 流程的团队，但极致吞吐通常不如 vLLM / SGLang。</p><p><strong>llama.cpp</strong>：CPU / 边缘设备的事实标准。纯 C++ 重写整个推理栈，配合 GGUF 量化文件格式，让 7B 模型在 MacBook Pro、树莓派、手机上跑。M3 Max（128GB 统一内存）能跑 70B 模型。</p><p><strong>TensorRT-LLM</strong>（NVIDIA）：针对 NVIDIA GPU 做极致优化，性能通常比 vLLM 再高 10-30%，但部署复杂（每个模型/GPU 组合要编译 engine），只支持 NVIDIA GPU。</p><p>选型决策矩阵：</p><div class=table-wrapper><table><thead><tr><th>场景</th><th>推荐</th></tr></thead><tbody><tr><td>生产高吞吐 LLM API</td><td>vLLM</td></tr><tr><td>Agent / 多轮对话 / Few-shot</td><td>SGLang</td></tr><tr><td>拥抱 HF 生态、企业级</td><td>TGI</td></tr><tr><td>本地 / Mac / 边缘 / 无 GPU</td><td>llama.cpp</td></tr><tr><td>极致性能、自家定制</td><td>TensorRT-LLM</td></tr></tbody></table></div><p>vLLM 和 SGLang 是"<strong>互补不替代</strong>&ldquo;的关系——业内已有公司混用（高吞吐路由用 vLLM，Agent 路由用 SGLang）。</p><h3 id=112-评测体系的三个层次>11.2 评测体系的三个层次</h3><p>学术 Benchmark 适合横向对比，但<strong>不能完全相信</strong>，因为存在严重的&rdquo;<strong>数据污染</strong>&ldquo;问题——模型在预训练时可能已经见过测试题。</p><p>主流学术 Benchmark：</p><ul><li><strong>MMLU / MMLU-Pro</strong>：57 学科综合知识</li><li><strong>HumanEval / MBPP / SWE-bench Verified</strong>：代码能力</li><li><strong>GSM8K / MATH / GPQA</strong>：数学和科学推理</li><li><strong>MT-Bench / Arena / τ-bench</strong>：对话、偏好、工具调用</li><li><strong>HELM / LiveBench / Humanity&rsquo;s Last Exam</strong>：综合或更新型评测</li></ul><p>面对 Benchmark 局限，最务实的做法是建<strong>业务测试集</strong>：从真实用户请求采样 50-200 条，人工标注期望答案，每次改 Prompt 或换模型都跑一遍。评分方式：客观任务用程序自动验证，主观任务用 LLM-as-Judge（让强模型代评分，人工抽查 10-20% 校准）。</p><p>完整的评测体系是**&ldquo;学术 Benchmark + 业务测试集 + 线上指标"的闭环**：离线评估帮你找问题、快速迭代；线上指标（满意度、任务完成率、会话放弃率）告诉你优化是否真正改善了用户体验。</p><h3 id=113-模型选型四维度>11.3 模型选型四维度</h3><p>模型选型从来不是看跑分最高，是看&rdquo;<strong>合规、成本、延迟、能力特征</strong>&ldquo;四个维度匹配业务需求。</p><p><strong>合规</strong>：国内 ToB 项目里，数据出境合规是死线。再强的海外模型，数据分类分级、客户合同、监管要求过不了就只能做离线评测。</p><p><strong>成本</strong>：Agent 内部循环调用如果硬上最贵的标杆模型，可能一个月把预算烧穿。高频节点要用性价比高的模型。</p><p><strong>延迟</strong>：对延迟敏感的在线服务，推理速度和首 token 延迟是硬指标。</p><p><strong>能力特征</strong>：不同模型各有特长——DeepSeek 推理和性价比突出、Qwen 中文和工具调用稳定、豆包工程生态和并发能力强。</p><p>实战中不死磕单一模型，而是设计<strong>Model Routing（模型路由）</strong>：格式要求严格的调度节点用结构化输出稳定的模型，高频推理用性价比高的模型，特别难的问题路由给更强但更贵的模型，敏感数据走合规可控的链路。</p><blockquote><p><strong>实践要点：</strong> 部署选型看的是"攻击哪个痛点&rdquo;——vLLM 攻显存碎片和吞吐，SGLang 攻共享前缀，TGI 攻生态集成，llama.cpp 攻 CPU/边缘。评测不能只看学术 Benchmark（数据污染），必须建自己的业务测试集 + 线上指标闭环。模型选型四维度（合规、成本、延迟、能力），国内企业项目合规是死线。</p></blockquote><hr><h2 id=结尾>结尾</h2><h3 id=核心知识点回顾>核心知识点回顾</h3><ol><li><p><strong>LLM 的本质</strong>是"用海量语料预训练、参数到百亿千亿规模、自回归生成文本的统一模型&rdquo;。三个本质区别：任务统一（Prompt 接口）、生成式（输出文本）、涌现（学到没教过的能力）。</p></li><li><p><strong>Transformer 的核心</strong>是 Self-Attention：Q/K/V 从同一输入通过三个独立矩阵投影得到，除以 √d_k 防止 softmax 变 one-hot 导致梯度消失。Decoder-only 胜在"预测下一个 token"目标极其统一 + 可在海量无标注文本上自监督 + 规模越大涌现越强。</p></li><li><p><strong>注意力优化是叠加不是替代</strong>：MQA/GQA 是"结构层"优化（改 K/V 套数），Flash Attention 是"实现层"优化（分块 + 在线 softmax）。主流标配是 GQA + Flash Attention。</p></li><li><p><strong>RoPE 赢在三个维度的均衡</strong>：相对位置编码 + 长上下文外推（配合 NTK/YaRN）+ 工程兼容性（和 KV Cache/Flash Attention/GQA 无缝叠加）。</p></li><li><p><strong>BPE 子词分词</strong>是字符级和词级的甜蜜点：控制词汇表大小 + 处理新词不 OOV + 保留语义信息。1000 汉字约 1000-1500 tokens，正式算成本必须用目标模型 tokenizer。</p></li><li><p><strong>训练三阶段缺一不可</strong>：预训练定天花板（预测下一个 token，烧钱最多）、SFT 给格式（几千条高质量 > 几十万条粗糙）、对齐给价值观（RLHF/DPO）。</p></li><li><p><strong>Chinchilla 1:20 不是数据上限</strong>，是"给定训练算力时怎么分配更划算"。Llama 3 用 1:1875 配比训出 8B 超越 GPT-3 175B，说明"小参数 + 海量数据"在推理成本最优方向上大有可为。</p></li><li><p><strong>LoRA 五大优点</strong>：推理零开销（可合并进 W）、模块化插拔（一基底多 LoRA）、灾难性遗忘风险低、训练稳定、权重可组合。它是 PEFT 事实标准不是因为单一优势，是五者叠加。</p></li><li><p><strong>对齐五大家族组合使用</strong>：RLHF（4 模型，效果上限高）、DPO（2 模型，绕过奖励模型）、GRPO（砍 Value Model 用组内归一化，对可验证任务友好）、拒绝采样（迭代 SFT 不用 RL）、RLAIF（强 AI 当老师）。</p></li><li><p><strong>幻觉不可能完全消除</strong>，因为 LLM 本质是"按概率续写"不是"查询数据库"。Temperature=0 也会幻觉——概率最高的 token 不等于正确的 token。缓解要训练、推理、系统三层一起上。</p></li></ol><h3 id=与其他主题的关联>与其他主题的关联</h3><p>本文是"AI 知识体系"系列的开篇，后续主题与本篇的关联如下：</p><ul><li><strong>RAG（检索增强生成）</strong>：是幻觉缓解的系统层方案，把"模糊的参数化记忆"换成"精确的检索结果"。理解 KV Cache 和 Prompt Caching 是理解 RAG 性能优化的前提。</li><li><strong>Agent / 多智能体</strong>：依赖 Tool Use、多轮对话、长上下文，这正是 SGLang RadixAttention 的优势场景。Model Routing 是 Agent 系统的成本控制核心。</li><li><strong>微调实战</strong>：本文讲了 LoRA/QLoRA 的原理，实战篇会讲数据构造、训练参数调优、回归评测的具体流程。</li><li><strong>推理服务架构</strong>：本文讲了 vLLM/SGLang 的核心创新，架构篇会讲多副本部署、负载均衡、显存调度、监控告警的完整方案。</li></ul><h3 id=推荐进一步阅读>推荐进一步阅读</h3><ul><li><strong>论文</strong>：《Attention is All You Need》（Transformer）、Chinchilla（缩放定律）、《Are Emergent Abilities a Mirage?》（涌现争议）、RoPE 原文（苏剑林）、LoRA 原文、DPO 原文、Flash Attention 原文、DeepSeek V3 / R1 技术报告</li><li><strong>官方文档</strong>：vLLM（PagedAttention）、SGLang（RadixAttention）、HuggingFace PEFT（LoRA/QLoRA 实践）</li><li><strong>实践资源</strong>：Llama 3 / Qwen / DeepSeek 的模型卡和技术报告，了解真实工业级模型的训练配比和架构选择</li></ul><hr><blockquote><p><em>本文基于 22 篇大模型工程主题素材整理而成，覆盖从 LLM 本质、Transformer 架构、注意力优化、位置编码、分词器、训练全景、微调、对齐、推理优化、Prompt 工程到部署评测的完整知识链路。如有错误欢迎指正。</em></p></blockquote></section><footer class=article-footer><section class=article-tags><a href=/tags/LLM.html>LLM</a>
+<a href=/tags/Foundation.html>Foundation</a>
+<a href=/tags/Engineering.html>Engineering</a>
+<a href=/tags/Transformer.html>Transformer</a>
+<a href=/tags/Inference.html>Inference</a></section></footer></article><aside class=related-content--wrapper><h2 class=section-title>相关文章</h2><div class=related-content><div class="flex article-list--tile"><article><a href=/ai/ai-systematization/00-Introduction-to-AI-Large-Model-Engineering-Knowledge-System.html><div class=article-details><h2 class=article-title>AI大模型工程知识体系总览与导论</h2></div></a></article><article><a href=/ai/knowledge-series/06-What-is-RAG.html><div class=article-details><h2 class=article-title>第6章：RAG——给大模型一本「开卷考试」的参考资料</h2></div></a></article><article><a href=/ai/knowledge-series/04-Function-Calling.html><div class=article-details><h2 class=article-title>第4章：Function Calling——让大模型从「聊天者」变成「执行者」</h2></div></a></article><article><a href=/ai/knowledge-series/02-Transformer-Architecture-Explained.html><div class=article-details><h2 class=article-title>第2章：Transformer架构——LLM的心脏，你必须了解的结构</h2></div></a></article><article><a href=/ai/knowledge-series/03-Hallucination-and-Controllability.html><div class=article-details><h2 class=article-title>第3章：大模型幻觉——它为什么胡说八道？如何让它老实？</h2></div></a></article></div></div></aside><script src=https://giscus.app/client.js data-repo=pastor17/bloggiscus data-repo-id=R_kgDOQ6H9qQ data-category data-category-id=DIC_kwDOQ6H9qc4C0-T8 data-mapping=pathname data-strict=0 data-reactions-enabled=1 data-emit-metadata=0 data-input-position=bottom data-theme=light data-lang=zh-CN data-loading=lazy crossorigin=anonymous async></script><script>function setGiscusTheme(e){let t=document.querySelector("iframe.giscus-frame");t&&t.contentWindow.postMessage({giscus:{setConfig:{theme:e}}},"https://giscus.app")}(function(){addEventListener("message",t=>{if(event.origin!=="https://giscus.app")return;e()}),window.addEventListener("onColorSchemeChange",e);function e(){setGiscusTheme(document.documentElement.dataset.scheme==="light"?"light":"dark_dimmed")}})()</script><footer class=site-footer><section class=copyright>&copy;
+2021 -
+2026 SelfTechHub</section><section class=powerby>拒绝一次性认知，把碎片知识沉淀为可复用的记忆体系<br></section></footer><div class=pswp tabindex=-1 role=dialog aria-hidden=true><div class=pswp__bg></div><div class=pswp__scroll-wrap><div class=pswp__container><div class=pswp__item></div><div class=pswp__item></div><div class=pswp__item></div></div><div class="pswp__ui pswp__ui--hidden"><div class=pswp__top-bar><div class=pswp__counter></div><button class="pswp__button pswp__button--close" title="Close (Esc)"></button>
+<button class="pswp__button pswp__button--share" title=Share></button>
+<button class="pswp__button pswp__button--fs" title="Toggle fullscreen"></button>
+<button class="pswp__button pswp__button--zoom" title="Zoom in/out"></button><div class=pswp__preloader><div class=pswp__preloader__icn><div class=pswp__preloader__cut><div class=pswp__preloader__donut></div></div></div></div></div><div class="pswp__share-modal pswp__share-modal--hidden pswp__single-tap"><div class=pswp__share-tooltip></div></div><button class="pswp__button pswp__button--arrow--left" title="Previous (arrow left)">
+</button>
+<button class="pswp__button pswp__button--arrow--right" title="Next (arrow right)"></button><div class=pswp__caption><div class=pswp__caption__center></div></div></div></div></div><script src=https://cdn.jsdelivr.net/npm/photoswipe@4.1.3/dist/photoswipe.min.js integrity="sha256-ePwmChbbvXbsO02lbM3HoHbSHTHFAeChekF1xKJdleo=" crossorigin=anonymous defer></script><script src=https://cdn.jsdelivr.net/npm/photoswipe@4.1.3/dist/photoswipe-ui-default.min.js integrity="sha256-UKkzOn/w1mBxRmLLGrSeyB4e1xbrp4xylgAWb3M42pU=" crossorigin=anonymous defer></script><link rel=stylesheet href=https://cdn.jsdelivr.net/npm/photoswipe@4.1.3/dist/default-skin/default-skin.min.css crossorigin=anonymous><link rel=stylesheet href=https://cdn.jsdelivr.net/npm/photoswipe@4.1.3/dist/photoswipe.min.css crossorigin=anonymous></main></div><script src=https://cdn.jsdelivr.net/npm/node-vibrant@3.1.6/dist/vibrant.min.js integrity="sha256-awcR2jno4kI5X0zL8ex0vi2z+KMkF24hUW8WePSA9HM=" crossorigin=anonymous></script><script type=text/javascript src=/ts/main.c922af694cc257bf1ecc41c0dd7b0430f9114ec280ccf67cd2c6ad55f5316c4e.js defer></script><script>(function(){const e=document.createElement("link");e.href="https://fonts.googleapis.com/css2?family=Lato:wght@300;400;700&display=swap",e.type="text/css",e.rel="stylesheet",document.head.appendChild(e)})()</script></body></html>

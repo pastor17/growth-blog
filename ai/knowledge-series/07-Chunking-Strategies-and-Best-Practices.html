@@ -1,628 +1,131 @@
-<!DOCTYPE html>
-<html lang="zh-cn" dir="ltr">
-    <head><meta charset='utf-8'>
-<meta name='viewport' content='width=device-width, initial-scale=1'><meta name='description' content="第7章：文档切割——Chunking 的策略与最佳实践\r系列导读：本章是 RAG 的进阶篇。很多人以为 chunking 就是「切成 500 token」，但实际上它是影响检索质量最关键的工程决策之一。不好的 chunking 策略会让检索系统形同虚设——合适的内容检索不到，不合适的内容塞给 LLM，最终答案质量大打折扣。\n一、为什么 chunking 决定 RAG 生死？\rRAG 系统里有一个核心事实：\nLLM 最终回答的质量，取决于你放进 prompt 里的参考资料质量。\n参考资料哪来的？从向量库里检索来的。 向量库里存的是 chunk，chunk 是切割出来的。\n如果 chunk 把一段重要信息中间切断了，或者把两段无关内容塞进了一个 chunk，检索出来的就是垃圾。垃圾进，垃圾出。你放再贵的 Embedding 模型、再牛的 LLM，都救不回一块切烂的 chunk。\n二、Chunking 的四大基础策略\r策略1：固定大小 + 重叠（Fixed Size with Overlap）\r原文：今天天气很好，小明去公园散步。他在湖边看到一只白鹭... |-------chunk1-------|--------chunk2-------| 今天天气很好，小明去 明去公园散步。他在湖边 (size=12, overlap=4) 看到一只白鹭在水面上 (size=12, overlap=4) 适用场景：通用文本，写起来最快，作为基线方案再用别的方法优化。 参数建议：每 chunk 500-1000 token 是常见起点；重叠 10-20% 防止信息在切分处丢失。 问题：机械切分会切断语义边界。一个句子被拦腰截断，LLM 收到 chunk 后理解困难。\n优点：实现极其简单，不需要解析文档结构，可移植性好。几乎所有初级 RAG 教程都用这个方案。\n策略2：按语义边界切割（Semantic Chunking）\r观察文档结构，在天然边界处切：\n">
-<title>第7章：文档切割——Chunking 的策略与最佳实践</title>
-
-<link rel='canonical' href='https://blog.irudder.me/ai/knowledge-series/07-Chunking-Strategies-and-Best-Practices.html'>
-
-<link rel="stylesheet" href="/scss/style.min.b9e9128fec450ebccecc4ec9900157f32b85d0609bcd5ee3293968bcaa1235f2.css"><meta property='og:title' content="第7章：文档切割——Chunking 的策略与最佳实践">
-<meta property='og:description' content="第7章：文档切割——Chunking 的策略与最佳实践\r系列导读：本章是 RAG 的进阶篇。很多人以为 chunking 就是「切成 500 token」，但实际上它是影响检索质量最关键的工程决策之一。不好的 chunking 策略会让检索系统形同虚设——合适的内容检索不到，不合适的内容塞给 LLM，最终答案质量大打折扣。\n一、为什么 chunking 决定 RAG 生死？\rRAG 系统里有一个核心事实：\nLLM 最终回答的质量，取决于你放进 prompt 里的参考资料质量。\n参考资料哪来的？从向量库里检索来的。 向量库里存的是 chunk，chunk 是切割出来的。\n如果 chunk 把一段重要信息中间切断了，或者把两段无关内容塞进了一个 chunk，检索出来的就是垃圾。垃圾进，垃圾出。你放再贵的 Embedding 模型、再牛的 LLM，都救不回一块切烂的 chunk。\n二、Chunking 的四大基础策略\r策略1：固定大小 + 重叠（Fixed Size with Overlap）\r原文：今天天气很好，小明去公园散步。他在湖边看到一只白鹭... |-------chunk1-------|--------chunk2-------| 今天天气很好，小明去 明去公园散步。他在湖边 (size=12, overlap=4) 看到一只白鹭在水面上 (size=12, overlap=4) 适用场景：通用文本，写起来最快，作为基线方案再用别的方法优化。 参数建议：每 chunk 500-1000 token 是常见起点；重叠 10-20% 防止信息在切分处丢失。 问题：机械切分会切断语义边界。一个句子被拦腰截断，LLM 收到 chunk 后理解困难。\n优点：实现极其简单，不需要解析文档结构，可移植性好。几乎所有初级 RAG 教程都用这个方案。\n策略2：按语义边界切割（Semantic Chunking）\r观察文档结构，在天然边界处切：\n">
-<meta property='og:url' content='https://blog.irudder.me/ai/knowledge-series/07-Chunking-Strategies-and-Best-Practices.html'>
-<meta property='og:site_name' content='SelfTechHub'>
-<meta property='og:type' content='article'><meta property='article:section' content='Ai' /><meta property='article:tag' content='Chunking' /><meta property='article:tag' content='RAG' /><meta property='article:tag' content='Document Splitting' /><meta property='article:tag' content='Retrieval' /><meta property='article:tag' content='Best Practices' /><meta property='article:published_time' content='2026-06-12T00:00:00&#43;00:00'/><meta property='article:modified_time' content='2026-06-12T00:00:00&#43;00:00'/>
-<meta name="twitter:title" content="第7章：文档切割——Chunking 的策略与最佳实践">
-<meta name="twitter:description" content="第7章：文档切割——Chunking 的策略与最佳实践\r系列导读：本章是 RAG 的进阶篇。很多人以为 chunking 就是「切成 500 token」，但实际上它是影响检索质量最关键的工程决策之一。不好的 chunking 策略会让检索系统形同虚设——合适的内容检索不到，不合适的内容塞给 LLM，最终答案质量大打折扣。\n一、为什么 chunking 决定 RAG 生死？\rRAG 系统里有一个核心事实：\nLLM 最终回答的质量，取决于你放进 prompt 里的参考资料质量。\n参考资料哪来的？从向量库里检索来的。 向量库里存的是 chunk，chunk 是切割出来的。\n如果 chunk 把一段重要信息中间切断了，或者把两段无关内容塞进了一个 chunk，检索出来的就是垃圾。垃圾进，垃圾出。你放再贵的 Embedding 模型、再牛的 LLM，都救不回一块切烂的 chunk。\n二、Chunking 的四大基础策略\r策略1：固定大小 + 重叠（Fixed Size with Overlap）\r原文：今天天气很好，小明去公园散步。他在湖边看到一只白鹭... |-------chunk1-------|--------chunk2-------| 今天天气很好，小明去 明去公园散步。他在湖边 (size=12, overlap=4) 看到一只白鹭在水面上 (size=12, overlap=4) 适用场景：通用文本，写起来最快，作为基线方案再用别的方法优化。 参数建议：每 chunk 500-1000 token 是常见起点；重叠 10-20% 防止信息在切分处丢失。 问题：机械切分会切断语义边界。一个句子被拦腰截断，LLM 收到 chunk 后理解困难。\n优点：实现极其简单，不需要解析文档结构，可移植性好。几乎所有初级 RAG 教程都用这个方案。\n策略2：按语义边界切割（Semantic Chunking）\r观察文档结构，在天然边界处切：\n">
-    </head>
-    <body class="
-    article-page
-    ">
-    <script>
-        (function() {
-            const colorSchemeKey = 'StackColorScheme';
-            if(!localStorage.getItem(colorSchemeKey)){
-                localStorage.setItem(colorSchemeKey, "auto");
-            }
-        })();
-    </script><script>
-    (function() {
-        const colorSchemeKey = 'StackColorScheme';
-        const colorSchemeItem = localStorage.getItem(colorSchemeKey);
-        const supportDarkMode = window.matchMedia('(prefers-color-scheme: dark)').matches === true;
-
-        if (colorSchemeItem == 'dark' || colorSchemeItem === 'auto' && supportDarkMode) {
-            
-
-            document.documentElement.dataset.scheme = 'dark';
-        } else {
-            document.documentElement.dataset.scheme = 'light';
-        }
-    })();
-</script>
-<div class="container main-container flex on-phone--column compact"><aside class="sidebar left-sidebar sticky ">
-    <button class="hamburger hamburger--spin" type="button" id="toggle-menu" aria-label="切换菜单">
-        <span class="hamburger-box">
-            <span class="hamburger-inner"></span>
-        </span>
-    </button>
-
-    <header>
-        
-            
-            <figure class="site-avatar">
-                <a href="/">
-                
-                    
-                    
-                    
-                        
-                        <img src="/img/avatar_hu_8588ce14af1147e2.png" width="300"
-                            height="286" class="site-logo" loading="lazy" alt="Avatar">
-                    
-                
-                </a>
-                
-            </figure>
-            
-        
-        
-        <div class="site-meta">
-            <h1 class="site-name"><a href="/">SelfTechHub</a></h1>
-            <h2 class="site-description"></h2>
-        </div>
-    </header><ol class="menu" id="main-menu">
-        
-        
-        <li class="menu-bottom-section">
-            <ol class="menu">
-
-                
-                    <li id="dark-mode-toggle">
-                        <svg xmlns="http://www.w3.org/2000/svg" class="icon icon-tabler icon-tabler-toggle-left" width="24" height="24" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor" fill="none" stroke-linecap="round" stroke-linejoin="round">
-  <path stroke="none" d="M0 0h24v24H0z"/>
-  <circle cx="8" cy="12" r="2" />
-  <rect x="2" y="6" width="20" height="12" rx="6" />
-</svg>
-
-
-
-                        <svg xmlns="http://www.w3.org/2000/svg" class="icon icon-tabler icon-tabler-toggle-right" width="24" height="24" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor" fill="none" stroke-linecap="round" stroke-linejoin="round">
-  <path stroke="none" d="M0 0h24v24H0z"/>
-  <circle cx="16" cy="12" r="2" />
-  <rect x="2" y="6" width="20" height="12" rx="6" />
-</svg>
-
-
-
-                        <span>暗色模式</span>
-                    </li>
-                
-            </ol>
-        </li>
-    </ol>
-</aside>
-
-    
-
-            <main class="main full-width">
-    <article class="main-article">
-    <header class="article-header">
-
-    <div class="article-details">
-    
-    <header class="article-category">
-        
-            <a href="/categories/ai.html" >
-                AI探索
-            </a>
-        
-    </header>
-    
-
-    <div class="article-title-wrapper">
-        <h2 class="article-title">
-            <a href="/ai/knowledge-series/07-Chunking-Strategies-and-Best-Practices.html">第7章：文档切割——Chunking 的策略与最佳实践</a>
-        </h2>
-    
-        
-    </div>
-
-    
-    
-    
-    
-    <footer class="article-time">
-        
-            <div>
-                <svg xmlns="http://www.w3.org/2000/svg" class="icon icon-tabler icon-tabler-calendar-time" width="56" height="56" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor" fill="none" stroke-linecap="round" stroke-linejoin="round">
-  <path stroke="none" d="M0 0h24v24H0z"/>
-  <path d="M11.795 21h-6.795a2 2 0 0 1 -2 -2v-12a2 2 0 0 1 2 -2h12a2 2 0 0 1 2 2v4" />
-  <circle cx="18" cy="18" r="4" />
-  <path d="M15 3v4" />
-  <path d="M7 3v4" />
-  <path d="M3 11h16" />
-  <path d="M18 16.496v1.504l1 1" />
-</svg>
-                <time class="article-time--published" datetime='2026-06-12T00:00:00Z'>Jun 12, 2026</time>
-            </div>
-        
-
-        
-            <div>
-                <svg xmlns="http://www.w3.org/2000/svg" class="icon icon-tabler icon-tabler-clock" width="24" height="24" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor" fill="none" stroke-linecap="round" stroke-linejoin="round">
-  <path stroke="none" d="M0 0h24v24H0z"/>
-  <circle cx="12" cy="12" r="9" />
-  <polyline points="12 7 12 12 15 15" />
-</svg>
-
-
-
-                <time class="article-time--reading">
-                    阅读时长: 2 分钟
-                </time>
-            </div>
-        
-    </footer>
-    
-
-    
-</div>
-
-</header>
-
-    <section class="article-content">
-    
-    
-    <h1 id="第7章文档切割chunking-的策略与最佳实践">第7章：文档切割——Chunking 的策略与最佳实践
-</h1><blockquote>
-<p>系列导读：本章是 RAG 的进阶篇。很多人以为 chunking 就是「切成 500 token」，但实际上它是影响检索质量最关键的工程决策之一。不好的 chunking 策略会让检索系统形同虚设——合适的内容检索不到，不合适的内容塞给 LLM，最终答案质量大打折扣。</p>
-</blockquote>
-<h2 id="一为什么-chunking-决定-rag-生死">一、为什么 chunking 决定 RAG 生死？
-</h2><p>RAG 系统里有一个核心事实：</p>
-<blockquote>
-<p>LLM 最终回答的质量，取决于你放进 prompt 里的参考资料质量。</p>
-</blockquote>
-<p>参考资料哪来的？从向量库里检索来的。
-向量库里存的是 chunk，chunk 是切割出来的。</p>
-<p>如果 chunk 把一段重要信息中间切断了，或者把两段无关内容塞进了一个 chunk，检索出来的就是垃圾。垃圾进，垃圾出。你放再贵的 Embedding 模型、再牛的 LLM，都救不回一块切烂的 chunk。</p>
-<h2 id="二chunking-的四大基础策略">二、Chunking 的四大基础策略
-</h2><h3 id="策略1固定大小--重叠fixed-size-with-overlap">策略1：固定大小 + 重叠（Fixed Size with Overlap）
-</h3><pre tabindex="0"><code>    原文：今天天气很好，小明去公园散步。他在湖边看到一只白鹭...
-          |-------chunk1-------|--------chunk2-------|
-          今天天气很好，小明去   明去公园散步。他在湖边
-          (size=12, overlap=4)   看到一只白鹭在水面上
-                                 (size=12, overlap=4)
-</code></pre><p><strong>适用场景</strong>：通用文本，写起来最快，作为基线方案再用别的方法优化。
+<!doctype html><html lang=zh-cn dir=ltr><head><meta charset=utf-8><meta name=viewport content='width=device-width,initial-scale=1'><meta name=description content="系列导读：本章是 RAG 的进阶篇。很多人以为 chunking 就是「切成 500 token」，但实际上它是影响检索质量最关键的工程决策之一。"><title>第7章：文档切割——Chunking 的策略与最佳实践</title><link rel=canonical href=https://blog.irudder.me/ai/knowledge-series/07-Chunking-Strategies-and-Best-Practices.html><link rel=stylesheet href=/scss/style.min.c77ce1b874b29b2ee9e54a89066c79ebf35cbe9cf399b31ab5d79167f9a965c9.css><meta property='og:title' content="第7章：文档切割——Chunking 的策略与最佳实践"><meta property='og:description' content="系列导读：本章是 RAG 的进阶篇。很多人以为 chunking 就是「切成 500 token」，但实际上它是影响检索质量最关键的工程决策之一。"><meta property='og:url' content='https://blog.irudder.me/ai/knowledge-series/07-Chunking-Strategies-and-Best-Practices.html'><meta property='og:site_name' content='SelfTechHub'><meta property='og:type' content='article'><meta property='article:section' content='Ai'><meta property='article:tag' content='Chunking'><meta property='article:tag' content='RAG'><meta property='article:tag' content='Document Splitting'><meta property='article:tag' content='Retrieval'><meta property='article:tag' content='Best Practices'><meta property='article:published_time' content='2026-06-12T00:00:00+08:00'><meta property='article:modified_time' content='2026-06-12T00:00:00+08:00'><meta name=twitter:title content="第7章：文档切割——Chunking 的策略与最佳实践"><meta name=twitter:description content="系列导读：本章是 RAG 的进阶篇。很多人以为 chunking 就是「切成 500 token」，但实际上它是影响检索质量最关键的工程决策之一。"><link rel="shortcut icon" href=/images/logo.png></head><body class=article-page><script>(function(){const e="StackColorScheme";localStorage.getItem(e)||localStorage.setItem(e,"auto")})()</script><script>(function(){const t="StackColorScheme",e=localStorage.getItem(t),n=window.matchMedia("(prefers-color-scheme: dark)").matches===!0;e=="dark"||e==="auto"&&n?document.documentElement.dataset.scheme="dark":document.documentElement.dataset.scheme="light"})()</script><div class="container main-container flex on-phone--column extended"><aside class="sidebar left-sidebar sticky"><button class="hamburger hamburger--spin" type=button id=toggle-menu aria-label=切换菜单>
+<span class=hamburger-box><span class=hamburger-inner></span></span></button><header><figure class=site-avatar><a href=/><img src=/img/avatar_hu_8588ce14af1147e2.png width=300 height=286 class=site-logo loading=lazy alt=Avatar>
+</a><span class=emoji>🧠</span></figure><div class=site-meta><h1 class=site-name><a href=/>SelfTechHub</a></h1><h2 class=site-description>成长 · 技术 · 商业 · AI —— 把碎片知识沉淀为可复用的记忆体系</h2></div></header><ol class=menu-social><li><a href=https://github.com/pastor17 target=_blank title=GitHub rel=me><svg class="icon icon-tabler icon-tabler-brand-github" width="24" height="24" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor" fill="none" stroke-linecap="round" stroke-linejoin="round"><path stroke="none" d="M0 0h24v24H0z" fill="none"/><path d="M9 19c-4.3 1.4-4.3-2.5-6-3m12 5v-3.5c0-1 .1-1.4-.5-2 2.8-.3 5.5-1.4 5.5-6a4.6 4.6.0 00-1.3-3.2 4.2 4.2.0 00-.1-3.2s-1.1-.3-3.5 1.3a12.3 12.3.0 00-6.2.0C6.5 2.8 5.4 3.1 5.4 3.1a4.2 4.2.0 00-.1 3.2A4.6 4.6.0 004 9.5c0 4.6 2.7 5.7 5.5 6-.6.6-.6 1.2-.5 2V21"/></svg></a></li></ol><ol class=menu id=main-menu><li><a href=/><svg class="icon icon-tabler icon-tabler-home" width="24" height="24" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor" fill="none" stroke-linecap="round" stroke-linejoin="round"><path stroke="none" d="M0 0h24v24H0z"/><polyline points="5 12 3 12 12 3 21 12 19 12"/><path d="M5 12v7a2 2 0 002 2h10a2 2 0 002-2v-7"/><path d="M9 21v-6a2 2 0 012-2h2a2 2 0 012 2v6"/></svg>
+<span>首页</span></a></li><li><a href=/categories/%E6%88%90%E9%95%BF.html><span>成长认知</span></a></li><li><a href=/categories/%E6%8A%80%E6%9C%AF.html><span>技术精进</span></a></li><li><a href=/categories/%E5%95%86%E4%B8%9A.html><span>商业·财富</span></a></li><li><a href=/categories/ai.html><span>探索AI</span></a></li><li><a href=/about/><svg class="icon icon-tabler icon-tabler-user" width="24" height="24" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor" fill="none" stroke-linecap="round" stroke-linejoin="round"><path stroke="none" d="M0 0h24v24H0z"/><circle cx="12" cy="7" r="4"/><path d="M6 21v-2a4 4 0 014-4h4a4 4 0 014 4v2"/></svg>
+<span>关于</span></a></li><li class=menu-bottom-section><ol class=menu><li id=dark-mode-toggle><svg class="icon icon-tabler icon-tabler-toggle-left" width="24" height="24" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor" fill="none" stroke-linecap="round" stroke-linejoin="round"><path stroke="none" d="M0 0h24v24H0z"/><circle cx="8" cy="12" r="2"/><rect x="2" y="6" width="20" height="12" rx="6"/></svg>
+<svg class="icon icon-tabler icon-tabler-toggle-right" width="24" height="24" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor" fill="none" stroke-linecap="round" stroke-linejoin="round"><path stroke="none" d="M0 0h24v24H0z"/><circle cx="16" cy="12" r="2"/><rect x="2" y="6" width="20" height="12" rx="6"/></svg>
+<span>暗色模式</span></li></ol></li></ol></aside><aside class="sidebar right-sidebar sticky"><section class="widget archives"><div class=widget-icon><svg class="icon icon-tabler icon-tabler-hash" width="24" height="24" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor" fill="none" stroke-linecap="round" stroke-linejoin="round"><path stroke="none" d="M0 0h24v24H0z"/><line x1="5" y1="9" x2="19" y2="9"/><line x1="5" y1="15" x2="19" y2="15"/><line x1="11" y1="4" x2="7" y2="20"/><line x1="17" y1="4" x2="13" y2="20"/></svg></div><h2 class="widget-title section-title">目录</h2><div class=widget--toc><nav id=TableOfContents><ul><li><a href=#一为什么-chunking-决定-rag-生死>一、为什么 chunking 决定 RAG 生死？</a></li><li><a href=#二chunking-的四大基础策略>二、Chunking 的四大基础策略</a><ul><li><a href=#策略1固定大小--重叠fixed-size-with-overlap>策略1：固定大小 + 重叠（Fixed Size with Overlap）</a></li><li><a href=#策略2按语义边界切割semantic-chunking>策略2：按语义边界切割（Semantic Chunking）</a></li><li><a href=#策略3按代码逻辑切割>策略3：按代码逻辑切割</a></li><li><a href=#策略4父子切割parent-child-chunking生产级推荐>策略4：父子切割（Parent-Child Chunking）【生产级推荐】</a></li></ul></li><li><a href=#三chunk-的-metadata-设计>三、Chunk 的 Metadata 设计</a></li><li><a href=#四切分粒度的黄金法则>四、切分粒度的黄金法则</a></li><li><a href=#五常见-bad-case-及解决>五、常见 bad case 及解决</a></li><li><a href=#六本章小结>六、本章小结</a></li><li><a href=#思考题>思考题</a></li></ul></nav></div></section></aside><main class="main full-width"><article class=main-article><header class=article-header><div class=article-details><header class=article-category><a href=/categories/ai.html>AI探索</a></header><div class=article-title-wrapper><h2 class=article-title><a href=/ai/knowledge-series/07-Chunking-Strategies-and-Best-Practices.html>第7章：文档切割——Chunking 的策略与最佳实践</a></h2><h3 class=article-subtitle>系列导读：本章是 RAG 的进阶篇。很多人以为 chunking 就是「切成 500 token」，但实际上它是影响检索质量最关键的工程决策之一。</h3></div><footer class=article-time><div><svg class="icon icon-tabler icon-tabler-calendar-time" width="56" height="56" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor" fill="none" stroke-linecap="round" stroke-linejoin="round"><path stroke="none" d="M0 0h24v24H0z"/><path d="M11.795 21H5a2 2 0 01-2-2V7a2 2 0 012-2h12a2 2 0 012 2v4"/><circle cx="18" cy="18" r="4"/><path d="M15 3v4"/><path d="M7 3v4"/><path d="M3 11h16"/><path d="M18 16.496V18l1 1"/></svg>
+<time class=article-time--published datetime=2026-06-12T00:00:00+08:00>2026-06-12</time></div><div><svg class="icon icon-tabler icon-tabler-clock" width="24" height="24" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor" fill="none" stroke-linecap="round" stroke-linejoin="round"><path stroke="none" d="M0 0h24v24H0z"/><circle cx="12" cy="12" r="9"/><polyline points="12 7 12 12 15 15"/></svg>
+<time class=article-time--reading>阅读时长: 5 分钟</time></div></footer></div></header><section class=article-content><h1 id=第7章文档切割chunking-的策略与最佳实践>第7章：文档切割——Chunking 的策略与最佳实践</h1><blockquote><p>系列导读：本章是 RAG 的进阶篇。很多人以为 chunking 就是「切成 500 token」，但实际上它是影响检索质量最关键的工程决策之一。不好的 chunking 策略会让检索系统形同虚设——合适的内容检索不到，不合适的内容塞给 LLM，最终答案质量大打折扣。</p></blockquote><h2 id=一为什么-chunking-决定-rag-生死>一、为什么 chunking 决定 RAG 生死？</h2><p>RAG 系统里有一个核心事实：</p><blockquote><p>LLM 最终回答的质量，取决于你放进 prompt 里的参考资料质量。</p></blockquote><p>参考资料哪来的？从向量库里检索来的。
+向量库里存的是 chunk，chunk 是切割出来的。</p><p>如果 chunk 把一段重要信息中间切断了，或者把两段无关内容塞进了一个 chunk，检索出来的就是垃圾。垃圾进，垃圾出。你放再贵的 Embedding 模型、再牛的 LLM，都救不回一块切烂的 chunk。</p><h2 id=二chunking-的四大基础策略>二、Chunking 的四大基础策略</h2><h3 id=策略1固定大小--重叠fixed-size-with-overlap>策略1：固定大小 + 重叠（Fixed Size with Overlap）</h3><div class=highlight><div class=chroma><table class=lntable><tr><td class=lntd><pre tabindex=0 class=chroma><code><span class=lnt>1
+</span><span class=lnt>2
+</span><span class=lnt>3
+</span><span class=lnt>4
+</span><span class=lnt>5
+</span></code></pre></td><td class=lntd><pre tabindex=0 class=chroma><code class=language-fallback data-lang=fallback><span class=line><span class=cl>    原文：今天天气很好，小明去公园散步。他在湖边看到一只白鹭...
+</span></span><span class=line><span class=cl>          |-------chunk1-------|--------chunk2-------|
+</span></span><span class=line><span class=cl>          今天天气很好，小明去   明去公园散步。他在湖边
+</span></span><span class=line><span class=cl>          (size=12, overlap=4)   看到一只白鹭在水面上
+</span></span><span class=line><span class=cl>                                 (size=12, overlap=4)
+</span></span></code></pre></td></tr></table></div></div><p><strong>适用场景</strong>：通用文本，写起来最快，作为基线方案再用别的方法优化。
 <strong>参数建议</strong>：每 chunk 500-1000 token 是常见起点；重叠 10-20% 防止信息在切分处丢失。
-<strong>问题</strong>：机械切分会切断语义边界。一个句子被拦腰截断，LLM 收到 chunk 后理解困难。</p>
-<p><strong>优点</strong>：实现极其简单，不需要解析文档结构，可移植性好。几乎所有初级 RAG 教程都用这个方案。</p>
-<h3 id="策略2按语义边界切割semantic-chunking">策略2：按语义边界切割（Semantic Chunking）
-</h3><p>观察文档结构，在天然边界处切：</p>
-<ul>
-<li>Markdown/HTML 的标题、段落</li>
-<li>文档的章节层次</li>
-<li>知识库的主题切换</li>
-</ul>
-<pre tabindex="0"><code>    【原文】
-    # 第一章 Java 基础
-    第一节 变量和数据类型
-    变量是程序中...
-
-    第二节 控制流
-    if 语句用于...
-
-    ### 切分点：标题边界
-    chunk1 = &#34;第一节 变量和数据类型\n变量是程序中...&#34;
-    chunk2 = &#34;第二节 控制流\nif 语句用于...&#34;
-</code></pre><p><strong>适用场景</strong>：结构化的知识库、技术文档、产品手册。
+<strong>问题</strong>：机械切分会切断语义边界。一个句子被拦腰截断，LLM 收到 chunk 后理解困难。</p><p><strong>优点</strong>：实现极其简单，不需要解析文档结构，可移植性好。几乎所有初级 RAG 教程都用这个方案。</p><h3 id=策略2按语义边界切割semantic-chunking>策略2：按语义边界切割（Semantic Chunking）</h3><p>观察文档结构，在天然边界处切：</p><ul><li>Markdown/HTML 的标题、段落</li><li>文档的章节层次</li><li>知识库的主题切换</li></ul><div class=highlight><div class=chroma><table class=lntable><tr><td class=lntd><pre tabindex=0 class=chroma><code><span class=lnt> 1
+</span><span class=lnt> 2
+</span><span class=lnt> 3
+</span><span class=lnt> 4
+</span><span class=lnt> 5
+</span><span class=lnt> 6
+</span><span class=lnt> 7
+</span><span class=lnt> 8
+</span><span class=lnt> 9
+</span><span class=lnt>10
+</span><span class=lnt>11
+</span></code></pre></td><td class=lntd><pre tabindex=0 class=chroma><code class=language-fallback data-lang=fallback><span class=line><span class=cl>    【原文】
+</span></span><span class=line><span class=cl>    # 第一章 Java 基础
+</span></span><span class=line><span class=cl>    第一节 变量和数据类型
+</span></span><span class=line><span class=cl>    变量是程序中...
+</span></span><span class=line><span class=cl>
+</span></span><span class=line><span class=cl>    第二节 控制流
+</span></span><span class=line><span class=cl>    if 语句用于...
+</span></span><span class=line><span class=cl>
+</span></span><span class=line><span class=cl>    ### 切分点：标题边界
+</span></span><span class=line><span class=cl>    chunk1 = &#34;第一节 变量和数据类型\n变量是程序中...&#34;
+</span></span><span class=line><span class=cl>    chunk2 = &#34;第二节 控制流\nif 语句用于...&#34;
+</span></span></code></pre></td></tr></table></div></div><p><strong>适用场景</strong>：结构化的知识库、技术文档、产品手册。
 <strong>优势</strong>：语意完整，检索命中后 LLM 能有完整上下文。
-<strong>挑战</strong>：不同文档格式解析不一致，需要自定义切分逻辑。比如 PDF 就没有天然的分段标记，需要先解析出文本结构再决定切割点。</p>
-<h3 id="策略3按代码逻辑切割">策略3：按代码逻辑切割
-</h3><p>代码不是普通文本。函数、类、接口这些天然边界就是最合理的 chunk 粒度：</p>
-<div class="highlight"><pre tabindex="0" style="color:#f8f8f2;background-color:#272822;-moz-tab-size:4;-o-tab-size:4;tab-size:4;"><code class="language-python" data-lang="python"><span style="display:flex;"><span>    <span style="color:#66d9ef">def</span> <span style="color:#a6e22e">calculate_discount</span>(price, user_type):
-</span></span><span style="display:flex;"><span>        <span style="color:#e6db74">&#34;&#34;&#34;根据用户类型计算折扣&#34;&#34;&#34;</span>
-</span></span><span style="display:flex;"><span>        <span style="color:#66d9ef">if</span> user_type <span style="color:#f92672">==</span> <span style="color:#e6db74">&#34;vip&#34;</span>:
-</span></span><span style="display:flex;"><span>            <span style="color:#66d9ef">return</span> price <span style="color:#f92672">*</span> <span style="color:#ae81ff">0.8</span>
-</span></span><span style="display:flex;"><span>        <span style="color:#66d9ef">return</span> price
-</span></span><span style="display:flex;"><span>
-</span></span><span style="display:flex;"><span>    <span style="color:#66d9ef">class</span> <span style="color:#a6e22e">PaymentHandler</span>:
-</span></span><span style="display:flex;"><span>        <span style="color:#e6db74">&#34;&#34;&#34;支付处理器&#34;&#34;&#34;</span>
-</span></span><span style="display:flex;"><span>        <span style="color:#66d9ef">def</span> <span style="color:#a6e22e">process</span>(self, order_id):
-</span></span><span style="display:flex;"><span>            <span style="color:#f92672">...</span>
-</span></span><span style="display:flex;"><span>
-</span></span><span style="display:flex;"><span>    chunk1 <span style="color:#f92672">=</span> <span style="color:#e6db74">&#34;def calculate_discount(...)&#34;</span>  <span style="color:#75715e"># 函数级</span>
-</span></span><span style="display:flex;"><span>    chunk2 <span style="color:#f92672">=</span> <span style="color:#e6db74">&#34;class PaymentHandler&#34;</span>           <span style="color:#75715e"># 类级</span>
-</span></span></code></pre></div><p><strong>适用场景</strong>：代码仓库的 RAG 问答。
-<strong>优势</strong>：每个 chunk 保留了一个逻辑单元（一个函数/类），检索命中后 LLM 可以完整理解这个单元的实现。</p>
-<h3 id="策略4父子切割parent-child-chunking生产级推荐">策略4：父子切割（Parent-Child Chunking）【生产级推荐】
-</h3><p>RAG 系统里有一个经典矛盾：</p>
-<ul>
-<li>chunk 越小，检索匹配越精准（粒度细）</li>
-<li>chunk 越大，LLM 阅读时上下文越完整（信息多）</li>
-</ul>
-<p><strong>父子切割的解决思路</strong>：</p>
-<ul>
-<li>用小块做检索（精准匹配）</li>
-<li>匹配命中后，返回这个 chunk 对应的大块（完整上下文）</li>
-</ul>
-<pre tabindex="0"><code>    父 chunk（大块）:
-      第3章 Python 数据类型
-      3.1 列表操作：列表是 Python 中最常用的数据类型之一...
-      [包含完整的章节内容]
-
-    子 chunk（小块）:
-      列表 append 方法使用说明
-      append(x) 在列表末尾添加元素...
-
-    检索 &#34;append 怎么用&#34; → 命中子 chunk → 返回父 chunk 到 LLM
-</code></pre><p><strong>适用场景</strong>：几乎所有生产级 RAG 都在用或应该用这个策略。
-<strong>实现要点</strong>：子 chunk 需要存储指向父 chunk 的引用 ID；检索时先查子 chunk，命中后取回对应的父 chunk 全文。</p>
-<h2 id="三chunk-的-metadata-设计">三、Chunk 的 Metadata 设计
-</h2><p>每个 chunk 存储时，除了 text 和 vector，还需要丰富的 metadata：</p>
-<div class="highlight"><pre tabindex="0" style="color:#f8f8f2;background-color:#272822;-moz-tab-size:4;-o-tab-size:4;tab-size:4;"><code class="language-json" data-lang="json"><span style="display:flex;"><span>    {
-</span></span><span style="display:flex;"><span>      <span style="color:#f92672">&#34;text&#34;</span>: <span style="color:#e6db74">&#34;列表 append 方法使用说明...&#34;</span>,
-</span></span><span style="display:flex;"><span>      <span style="color:#f92672">&#34;vector&#34;</span>: [<span style="color:#ae81ff">0.1</span>, <span style="color:#ae81ff">0.02</span>, <span style="color:#960050;background-color:#1e0010">...</span>],
-</span></span><span style="display:flex;"><span>      <span style="color:#f92672">&#34;metadata&#34;</span>: {
-</span></span><span style="display:flex;"><span>        <span style="color:#f92672">&#34;source_file&#34;</span>: <span style="color:#e6db74">&#34;python_guide.md&#34;</span>,
-</span></span><span style="display:flex;"><span>        <span style="color:#f92672">&#34;chapter&#34;</span>: <span style="color:#e6db74">&#34;3.1&#34;</span>,
-</span></span><span style="display:flex;"><span>        <span style="color:#f92672">&#34;tags&#34;</span>: [<span style="color:#e6db74">&#34;data_structure&#34;</span>, <span style="color:#e6db74">&#34;list&#34;</span>],
-</span></span><span style="display:flex;"><span>        <span style="color:#f92672">&#34;doc_type&#34;</span>: <span style="color:#e6db74">&#34;api_reference&#34;</span>,
-</span></span><span style="display:flex;"><span>        <span style="color:#f92672">&#34;page_number&#34;</span>: <span style="color:#ae81ff">42</span>,
-</span></span><span style="display:flex;"><span>        <span style="color:#f92672">&#34;created_at&#34;</span>: <span style="color:#e6db74">&#34;2026-01-15&#34;</span>,
-</span></span><span style="display:flex;"><span>        <span style="color:#f92672">&#34;parent_id&#34;</span>: <span style="color:#e6db74">&#34;chunk_3_1_parent&#34;</span>   <span style="color:#75715e">// 父子切割时使用
-</span></span></span><span style="display:flex;"><span><span style="color:#75715e"></span>      }
-</span></span><span style="display:flex;"><span>    }
-</span></span></code></pre></div><p><strong>Metadata 的作用</strong>：</p>
-<ul>
-<li>过滤：只检索某个文件类型或某个分类，缩小搜索范围</li>
-<li>溯源：LLM 生成的答案可以标注来源出处</li>
-<li>去重：避免同一来源的 chunk 全部进答案</li>
-<li>父子关联：维系父子切割的关系映射</li>
-</ul>
-<h2 id="四切分粒度的黄金法则">四、切分粒度的黄金法则
-</h2><p>没有绝对的「最优粒度」，取决于你的检索目标：</p>
-<div class="table-wrapper"><table>
-  <thead>
-      <tr>
-          <th>检索目标</th>
-          <th>推荐粒度</th>
-          <th>原因</th>
-      </tr>
-  </thead>
-  <tbody>
-      <tr>
-          <td>回答事实性问题</td>
-          <td>句子/段落级</td>
-          <td>需要精确匹配术语</td>
-      </tr>
-      <tr>
-          <td>回答解释性问题</td>
-          <td>段落/章节级</td>
-          <td>需要完整上下文才能理解</td>
-      </tr>
-      <tr>
-          <td>代码问答</td>
-          <td>函数/类级</td>
-          <td>保留逻辑单元，问答精准到函数</td>
-      </tr>
-      <tr>
-          <td>支持多跳推理</td>
-          <td>父子结构</td>
-          <td>小块检索精准，大块总结完整</td>
-      </tr>
-  </tbody>
-</table></div>
-<p><strong>经验法则</strong>：先按合理的中等粒度（500-1000 token）做基线，然后通过检索日志分析「有没有该命中没命中」「命中的是否相关」，再逐步调优。不要盲目追求小粒度——检索精度提升了，但 LLM 理解难度可能增加了。</p>
-<h2 id="五常见-bad-case-及解决">五、常见 bad case 及解决
-</h2><div class="table-wrapper"><table>
-  <thead>
-      <tr>
-          <th>问题</th>
-          <th>表现</th>
-          <th>解决</th>
-      </tr>
-  </thead>
-  <tbody>
-      <tr>
-          <td>语义被切断</td>
-          <td>切在句子中间，LLM 收到后理解出错</td>
-          <td>以语义边界为切分优先</td>
-      </tr>
-      <tr>
-          <td>信息密度不均匀</td>
-          <td>有些 chunk 太空泛，有些太密集</td>
-          <td>混合策略，或过滤短 chunk</td>
-      </tr>
-      <tr>
-          <td>多语言混合</td>
-          <td>中英混杂切分点不准确</td>
-          <td>按 tokenizer 的 token 计数而非字符数</td>
-      </tr>
-      <tr>
-          <td>过细噪音多</td>
-          <td>切太小导致检索到很多无关碎片</td>
-          <td>加最低长度阈值或使用父子结构</td>
-      </tr>
-      <tr>
-          <td>过粗精度低</td>
-          <td>切太大细节信息被「平均掉」</td>
-          <td>减小 chunk 大小或加摘要</td>
-      </tr>
-  </tbody>
-</table></div>
-<p>PDF 文档的 chunking 特别难：解析出来的文本往往丧失段落结构，表格和代码块混在一起。对于这类文档，通常需要先做一次结构解析（用 PDF 解析器提取段落、表格、列表信息），然后再做语义 chunking。</p>
-<h2 id="六本章小结">六、本章小结
-</h2><ul>
-<li>Chunking 是 RAG 系统里最关键也最被低估的工程决策</li>
-<li>四大策略：固定大小（基线）、语义边界（结构化文档）、代码逻辑（代码库）、父子结构（兼顾精度+完整上下文）</li>
-<li>Metadata 设计能让你在检索时做精准过滤、溯源和去重</li>
-<li>没有统一的「最好粒度」，先跑基线、有数据再优化，比一把梭效果更稳定</li>
-<li>生产级推荐：父子切割（小块检索 + 大块返回），解决精度与完整性的天然矛盾</li>
-</ul>
-<h2 id="思考题">思考题
-</h2><ol>
-<li>父子切割虽然好用，但实现上需要做父-子映射关系管理。你怎么设计这个映射系统，让它既高效又容错？</li>
-<li>对于 PDF 解析出来的文本（排版丢失、表格混乱），你有什么 chunking 策略？</li>
-</ol>
-
-</section>
-
-
-    <footer class="article-footer">
-    
-    <section class="article-tags">
-        
-            <a href="/tags/Chunking.html">Chunking</a>
-        
-            <a href="/tags/RAG.html">RAG</a>
-        
-            <a href="/tags/Document-Splitting.html">Document Splitting</a>
-        
-            <a href="/tags/Retrieval.html">Retrieval</a>
-        
-            <a href="/tags/Best-Practices.html">Best Practices</a>
-        
-    </section>
-
-
-    </footer>
-
-
-    
-</article>
-
-    
-
-    
-
-<aside class="related-content--wrapper">
-    <h2 class="section-title">相关文章</h2>
-    <div class="related-content">
-        <div class="flex article-list--tile">
-            
-                
-<article class="">
-    <a href="/ai/knowledge-series/06-What-is-RAG.html">
-        
-        
-
-        <div class="article-details">
-            <h2 class="article-title">第6章：RAG——给大模型一本「开卷考试」的参考资料</h2>
-        </div>
-    </a>
-</article>
-
-            
-                
-<article class="">
-    <a href="/ai/knowledge-series/03-Hallucination-and-Controllability.html">
-        
-        
-
-        <div class="article-details">
-            <h2 class="article-title">第3章：大模型幻觉——它为什么胡说八道？如何让它老实？</h2>
-        </div>
-    </a>
-</article>
-
-            
-                
-<article class="">
-    <a href="/ai/ped/Chapter07-AI-Tech-Fundamentals-and-Tool-Selection.html">
-        
-        
-
-        <div class="article-details">
-            <h2 class="article-title">第7章 AI技术基础与工具选型</h2>
-        </div>
-    </a>
-</article>
-
-            
-                
-<article class="">
-    <a href="/ai/ped/Chapter04-AI-Implementation-Basic-Terms.html">
-        
-        
-
-        <div class="article-details">
-            <h2 class="article-title">第4章 AI落地基础术语扫盲</h2>
-        </div>
-    </a>
-</article>
-
-            
-        </div>
-    </div>
-</aside>
-
-     
-    
-        
-    <script
-    src="https://giscus.app/client.js"
-    data-repo="pastor17/bloggiscus"
-    data-repo-id="R_kgDOQ6H9qQ"
-    data-category=""
-    data-category-id="DIC_kwDOQ6H9qc4C0-T8"
-    data-mapping="pathname"
-    data-strict="0"
-    data-reactions-enabled="1"
-    data-emit-metadata="0"
-    data-input-position="bottom"
-    data-theme="light"
-    data-lang="zh-CN"
-    data-loading="lazy"
-    crossorigin="anonymous"
-    async
-></script>
-<script>
-    function setGiscusTheme(theme) {
-        let giscus = document.querySelector("iframe.giscus-frame");
-        if (giscus) {
-            giscus.contentWindow.postMessage(
-                {
-                    giscus: {
-                        setConfig: {
-                            theme: theme,
-                        },
-                    },
-                },
-                "https://giscus.app"
-            );
-        }
-    }
-
-    (function () {
-        addEventListener("message", (e) => {
-            if (event.origin !== "https://giscus.app") return;
-            handler();
-        });
-        window.addEventListener("onColorSchemeChange", handler);
-
-        function handler() {
-            if (document.documentElement.dataset.scheme === "light") {
-                setGiscusTheme('light');
-            } else {
-                setGiscusTheme('dark_dimmed');
-            }
-        }
-    })();
-</script>
-
-    
-
-    <footer class="site-footer">
-    <section class="copyright">
-        &copy; 
-        
-        2026 SelfTechHub
-    </section>
-    
-    <section class="powerby">
-        
-
-    </section>
-</footer>
-
-
-    
-<div class="pswp" tabindex="-1" role="dialog" aria-hidden="true">
-
-    
-    <div class="pswp__bg"></div>
-
-    
-    <div class="pswp__scroll-wrap">
-
-        
-        <div class="pswp__container">
-            <div class="pswp__item"></div>
-            <div class="pswp__item"></div>
-            <div class="pswp__item"></div>
-        </div>
-
-        
-        <div class="pswp__ui pswp__ui--hidden">
-
-            <div class="pswp__top-bar">
-
-                
-
-                <div class="pswp__counter"></div>
-
-                <button class="pswp__button pswp__button--close" title="Close (Esc)"></button>
-
-                <button class="pswp__button pswp__button--share" title="Share"></button>
-
-                <button class="pswp__button pswp__button--fs" title="Toggle fullscreen"></button>
-
-                <button class="pswp__button pswp__button--zoom" title="Zoom in/out"></button>
-
-                
-                
-                <div class="pswp__preloader">
-                    <div class="pswp__preloader__icn">
-                        <div class="pswp__preloader__cut">
-                            <div class="pswp__preloader__donut"></div>
-                        </div>
-                    </div>
-                </div>
-            </div>
-
-            <div class="pswp__share-modal pswp__share-modal--hidden pswp__single-tap">
-                <div class="pswp__share-tooltip"></div>
-            </div>
-
-            <button class="pswp__button pswp__button--arrow--left" title="Previous (arrow left)">
-            </button>
-
-            <button class="pswp__button pswp__button--arrow--right" title="Next (arrow right)">
-            </button>
-
-            <div class="pswp__caption">
-                <div class="pswp__caption__center"></div>
-            </div>
-
-        </div>
-
-    </div>
-
-</div><script 
-                src="https://cdn.jsdelivr.net/npm/photoswipe@4.1.3/dist/photoswipe.min.js"integrity="sha256-ePwmChbbvXbsO02lbM3HoHbSHTHFAeChekF1xKJdleo="crossorigin="anonymous"
-                defer
-                >
-            </script><script 
-                src="https://cdn.jsdelivr.net/npm/photoswipe@4.1.3/dist/photoswipe-ui-default.min.js"integrity="sha256-UKkzOn/w1mBxRmLLGrSeyB4e1xbrp4xylgAWb3M42pU="crossorigin="anonymous"
-                defer
-                >
-            </script><link 
-                rel="stylesheet" 
-                href="https://cdn.jsdelivr.net/npm/photoswipe@4.1.3/dist/default-skin/default-skin.min.css"crossorigin="anonymous"
-            ><link 
-                rel="stylesheet" 
-                href="https://cdn.jsdelivr.net/npm/photoswipe@4.1.3/dist/photoswipe.min.css"crossorigin="anonymous"
-            >
-    
-
-            </main>
-        </div>
-        <script 
-                src="https://cdn.jsdelivr.net/npm/node-vibrant@3.1.6/dist/vibrant.min.js"integrity="sha256-awcR2jno4kI5X0zL8ex0vi2z&#43;KMkF24hUW8WePSA9HM="crossorigin="anonymous"
-                
-                >
-            </script><script type="text/javascript" src="/ts/main.c922af694cc257bf1ecc41c0dd7b0430f9114ec280ccf67cd2c6ad55f5316c4e.js" defer></script>
-<script>
-    (function () {
-        const customFont = document.createElement('link');
-        customFont.href = "https://fonts.googleapis.com/css2?family=Lato:wght@300;400;700&display=swap";
-
-        customFont.type = "text/css";
-        customFont.rel = "stylesheet";
-
-        document.head.appendChild(customFont);
-    }());
-</script>
-
-    </body>
-</html>
+<strong>挑战</strong>：不同文档格式解析不一致，需要自定义切分逻辑。比如 PDF 就没有天然的分段标记，需要先解析出文本结构再决定切割点。</p><h3 id=策略3按代码逻辑切割>策略3：按代码逻辑切割</h3><p>代码不是普通文本。函数、类、接口这些天然边界就是最合理的 chunk 粒度：</p><div class=highlight><div class=chroma><table class=lntable><tr><td class=lntd><pre tabindex=0 class=chroma><code><span class=lnt> 1
+</span><span class=lnt> 2
+</span><span class=lnt> 3
+</span><span class=lnt> 4
+</span><span class=lnt> 5
+</span><span class=lnt> 6
+</span><span class=lnt> 7
+</span><span class=lnt> 8
+</span><span class=lnt> 9
+</span><span class=lnt>10
+</span><span class=lnt>11
+</span><span class=lnt>12
+</span><span class=lnt>13
+</span></code></pre></td><td class=lntd><pre tabindex=0 class=chroma><code class=language-python data-lang=python><span class=line><span class=cl>    <span class=k>def</span> <span class=nf>calculate_discount</span><span class=p>(</span><span class=n>price</span><span class=p>,</span> <span class=n>user_type</span><span class=p>):</span>
+</span></span><span class=line><span class=cl>        <span class=s2>&#34;&#34;&#34;根据用户类型计算折扣&#34;&#34;&#34;</span>
+</span></span><span class=line><span class=cl>        <span class=k>if</span> <span class=n>user_type</span> <span class=o>==</span> <span class=s2>&#34;vip&#34;</span><span class=p>:</span>
+</span></span><span class=line><span class=cl>            <span class=k>return</span> <span class=n>price</span> <span class=o>*</span> <span class=mf>0.8</span>
+</span></span><span class=line><span class=cl>        <span class=k>return</span> <span class=n>price</span>
+</span></span><span class=line><span class=cl>
+</span></span><span class=line><span class=cl>    <span class=k>class</span> <span class=nc>PaymentHandler</span><span class=p>:</span>
+</span></span><span class=line><span class=cl>        <span class=s2>&#34;&#34;&#34;支付处理器&#34;&#34;&#34;</span>
+</span></span><span class=line><span class=cl>        <span class=k>def</span> <span class=nf>process</span><span class=p>(</span><span class=bp>self</span><span class=p>,</span> <span class=n>order_id</span><span class=p>):</span>
+</span></span><span class=line><span class=cl>            <span class=o>...</span>
+</span></span><span class=line><span class=cl>
+</span></span><span class=line><span class=cl>    <span class=n>chunk1</span> <span class=o>=</span> <span class=s2>&#34;def calculate_discount(...)&#34;</span>  <span class=c1># 函数级</span>
+</span></span><span class=line><span class=cl>    <span class=n>chunk2</span> <span class=o>=</span> <span class=s2>&#34;class PaymentHandler&#34;</span>           <span class=c1># 类级</span>
+</span></span></code></pre></td></tr></table></div></div><p><strong>适用场景</strong>：代码仓库的 RAG 问答。
+<strong>优势</strong>：每个 chunk 保留了一个逻辑单元（一个函数/类），检索命中后 LLM 可以完整理解这个单元的实现。</p><h3 id=策略4父子切割parent-child-chunking生产级推荐>策略4：父子切割（Parent-Child Chunking）【生产级推荐】</h3><p>RAG 系统里有一个经典矛盾：</p><ul><li>chunk 越小，检索匹配越精准（粒度细）</li><li>chunk 越大，LLM 阅读时上下文越完整（信息多）</li></ul><p><strong>父子切割的解决思路</strong>：</p><ul><li>用小块做检索（精准匹配）</li><li>匹配命中后，返回这个 chunk 对应的大块（完整上下文）</li></ul><div class=highlight><div class=chroma><table class=lntable><tr><td class=lntd><pre tabindex=0 class=chroma><code><span class=lnt> 1
+</span><span class=lnt> 2
+</span><span class=lnt> 3
+</span><span class=lnt> 4
+</span><span class=lnt> 5
+</span><span class=lnt> 6
+</span><span class=lnt> 7
+</span><span class=lnt> 8
+</span><span class=lnt> 9
+</span><span class=lnt>10
+</span></code></pre></td><td class=lntd><pre tabindex=0 class=chroma><code class=language-fallback data-lang=fallback><span class=line><span class=cl>    父 chunk（大块）:
+</span></span><span class=line><span class=cl>      第3章 Python 数据类型
+</span></span><span class=line><span class=cl>      3.1 列表操作：列表是 Python 中最常用的数据类型之一...
+</span></span><span class=line><span class=cl>      [包含完整的章节内容]
+</span></span><span class=line><span class=cl>
+</span></span><span class=line><span class=cl>    子 chunk（小块）:
+</span></span><span class=line><span class=cl>      列表 append 方法使用说明
+</span></span><span class=line><span class=cl>      append(x) 在列表末尾添加元素...
+</span></span><span class=line><span class=cl>
+</span></span><span class=line><span class=cl>    检索 &#34;append 怎么用&#34; → 命中子 chunk → 返回父 chunk 到 LLM
+</span></span></code></pre></td></tr></table></div></div><p><strong>适用场景</strong>：几乎所有生产级 RAG 都在用或应该用这个策略。
+<strong>实现要点</strong>：子 chunk 需要存储指向父 chunk 的引用 ID；检索时先查子 chunk，命中后取回对应的父 chunk 全文。</p><h2 id=三chunk-的-metadata-设计>三、Chunk 的 Metadata 设计</h2><p>每个 chunk 存储时，除了 text 和 vector，还需要丰富的 metadata：</p><div class=highlight><div class=chroma><table class=lntable><tr><td class=lntd><pre tabindex=0 class=chroma><code><span class=lnt> 1
+</span><span class=lnt> 2
+</span><span class=lnt> 3
+</span><span class=lnt> 4
+</span><span class=lnt> 5
+</span><span class=lnt> 6
+</span><span class=lnt> 7
+</span><span class=lnt> 8
+</span><span class=lnt> 9
+</span><span class=lnt>10
+</span><span class=lnt>11
+</span><span class=lnt>12
+</span><span class=lnt>13
+</span></code></pre></td><td class=lntd><pre tabindex=0 class=chroma><code class=language-json data-lang=json><span class=line><span class=cl>    <span class=p>{</span>
+</span></span><span class=line><span class=cl>      <span class=nt>&#34;text&#34;</span><span class=p>:</span> <span class=s2>&#34;列表 append 方法使用说明...&#34;</span><span class=p>,</span>
+</span></span><span class=line><span class=cl>      <span class=nt>&#34;vector&#34;</span><span class=p>:</span> <span class=p>[</span><span class=mf>0.1</span><span class=p>,</span> <span class=mf>0.02</span><span class=p>,</span> <span class=err>...</span><span class=p>],</span>
+</span></span><span class=line><span class=cl>      <span class=nt>&#34;metadata&#34;</span><span class=p>:</span> <span class=p>{</span>
+</span></span><span class=line><span class=cl>        <span class=nt>&#34;source_file&#34;</span><span class=p>:</span> <span class=s2>&#34;python_guide.md&#34;</span><span class=p>,</span>
+</span></span><span class=line><span class=cl>        <span class=nt>&#34;chapter&#34;</span><span class=p>:</span> <span class=s2>&#34;3.1&#34;</span><span class=p>,</span>
+</span></span><span class=line><span class=cl>        <span class=nt>&#34;tags&#34;</span><span class=p>:</span> <span class=p>[</span><span class=s2>&#34;data_structure&#34;</span><span class=p>,</span> <span class=s2>&#34;list&#34;</span><span class=p>],</span>
+</span></span><span class=line><span class=cl>        <span class=nt>&#34;doc_type&#34;</span><span class=p>:</span> <span class=s2>&#34;api_reference&#34;</span><span class=p>,</span>
+</span></span><span class=line><span class=cl>        <span class=nt>&#34;page_number&#34;</span><span class=p>:</span> <span class=mi>42</span><span class=p>,</span>
+</span></span><span class=line><span class=cl>        <span class=nt>&#34;created_at&#34;</span><span class=p>:</span> <span class=s2>&#34;2026-01-15&#34;</span><span class=p>,</span>
+</span></span><span class=line><span class=cl>        <span class=nt>&#34;parent_id&#34;</span><span class=p>:</span> <span class=s2>&#34;chunk_3_1_parent&#34;</span>   <span class=c1>// 父子切割时使用
+</span></span></span><span class=line><span class=cl><span class=c1></span>      <span class=p>}</span>
+</span></span><span class=line><span class=cl>    <span class=p>}</span>
+</span></span></code></pre></td></tr></table></div></div><p><strong>Metadata 的作用</strong>：</p><ul><li>过滤：只检索某个文件类型或某个分类，缩小搜索范围</li><li>溯源：LLM 生成的答案可以标注来源出处</li><li>去重：避免同一来源的 chunk 全部进答案</li><li>父子关联：维系父子切割的关系映射</li></ul><h2 id=四切分粒度的黄金法则>四、切分粒度的黄金法则</h2><p>没有绝对的「最优粒度」，取决于你的检索目标：</p><div class=table-wrapper><table><thead><tr><th>检索目标</th><th>推荐粒度</th><th>原因</th></tr></thead><tbody><tr><td>回答事实性问题</td><td>句子/段落级</td><td>需要精确匹配术语</td></tr><tr><td>回答解释性问题</td><td>段落/章节级</td><td>需要完整上下文才能理解</td></tr><tr><td>代码问答</td><td>函数/类级</td><td>保留逻辑单元，问答精准到函数</td></tr><tr><td>支持多跳推理</td><td>父子结构</td><td>小块检索精准，大块总结完整</td></tr></tbody></table></div><p><strong>经验法则</strong>：先按合理的中等粒度（500-1000 token）做基线，然后通过检索日志分析「有没有该命中没命中」「命中的是否相关」，再逐步调优。不要盲目追求小粒度——检索精度提升了，但 LLM 理解难度可能增加了。</p><h2 id=五常见-bad-case-及解决>五、常见 bad case 及解决</h2><div class=table-wrapper><table><thead><tr><th>问题</th><th>表现</th><th>解决</th></tr></thead><tbody><tr><td>语义被切断</td><td>切在句子中间，LLM 收到后理解出错</td><td>以语义边界为切分优先</td></tr><tr><td>信息密度不均匀</td><td>有些 chunk 太空泛，有些太密集</td><td>混合策略，或过滤短 chunk</td></tr><tr><td>多语言混合</td><td>中英混杂切分点不准确</td><td>按 tokenizer 的 token 计数而非字符数</td></tr><tr><td>过细噪音多</td><td>切太小导致检索到很多无关碎片</td><td>加最低长度阈值或使用父子结构</td></tr><tr><td>过粗精度低</td><td>切太大细节信息被「平均掉」</td><td>减小 chunk 大小或加摘要</td></tr></tbody></table></div><p>PDF 文档的 chunking 特别难：解析出来的文本往往丧失段落结构，表格和代码块混在一起。对于这类文档，通常需要先做一次结构解析（用 PDF 解析器提取段落、表格、列表信息），然后再做语义 chunking。</p><h2 id=六本章小结>六、本章小结</h2><ul><li>Chunking 是 RAG 系统里最关键也最被低估的工程决策</li><li>四大策略：固定大小（基线）、语义边界（结构化文档）、代码逻辑（代码库）、父子结构（兼顾精度+完整上下文）</li><li>Metadata 设计能让你在检索时做精准过滤、溯源和去重</li><li>没有统一的「最好粒度」，先跑基线、有数据再优化，比一把梭效果更稳定</li><li>生产级推荐：父子切割（小块检索 + 大块返回），解决精度与完整性的天然矛盾</li></ul><h2 id=思考题>思考题</h2><ol><li>父子切割虽然好用，但实现上需要做父-子映射关系管理。你怎么设计这个映射系统，让它既高效又容错？</li><li>对于 PDF 解析出来的文本（排版丢失、表格混乱），你有什么 chunking 策略？</li></ol></section><footer class=article-footer><section class=article-tags><a href=/tags/Chunking.html>Chunking</a>
+<a href=/tags/RAG.html>RAG</a>
+<a href=/tags/Document-Splitting.html>Document Splitting</a>
+<a href=/tags/Retrieval.html>Retrieval</a>
+<a href=/tags/Best-Practices.html>Best Practices</a></section></footer></article><aside class=related-content--wrapper><h2 class=section-title>相关文章</h2><div class=related-content><div class="flex article-list--tile"><article><a href=/ai/knowledge-series/06-What-is-RAG.html><div class=article-details><h2 class=article-title>第6章：RAG——给大模型一本「开卷考试」的参考资料</h2></div></a></article><article><a href=/ai/knowledge-series/03-Hallucination-and-Controllability.html><div class=article-details><h2 class=article-title>第3章：大模型幻觉——它为什么胡说八道？如何让它老实？</h2></div></a></article><article><a href=/ai/ped/Chapter07-AI-Tech-Fundamentals-and-Tool-Selection.html><div class=article-details><h2 class=article-title>第7章 AI技术基础与工具选型</h2></div></a></article><article><a href=/ai/ped/Chapter04-AI-Implementation-Basic-Terms.html><div class=article-details><h2 class=article-title>第4章 AI落地基础术语扫盲</h2></div></a></article></div></div></aside><script src=https://giscus.app/client.js data-repo=pastor17/bloggiscus data-repo-id=R_kgDOQ6H9qQ data-category data-category-id=DIC_kwDOQ6H9qc4C0-T8 data-mapping=pathname data-strict=0 data-reactions-enabled=1 data-emit-metadata=0 data-input-position=bottom data-theme=light data-lang=zh-CN data-loading=lazy crossorigin=anonymous async></script><script>function setGiscusTheme(e){let t=document.querySelector("iframe.giscus-frame");t&&t.contentWindow.postMessage({giscus:{setConfig:{theme:e}}},"https://giscus.app")}(function(){addEventListener("message",t=>{if(event.origin!=="https://giscus.app")return;e()}),window.addEventListener("onColorSchemeChange",e);function e(){setGiscusTheme(document.documentElement.dataset.scheme==="light"?"light":"dark_dimmed")}})()</script><footer class=site-footer><section class=copyright>&copy;
+2021 -
+2026 SelfTechHub</section><section class=powerby>拒绝一次性认知，把碎片知识沉淀为可复用的记忆体系<br></section></footer><div class=pswp tabindex=-1 role=dialog aria-hidden=true><div class=pswp__bg></div><div class=pswp__scroll-wrap><div class=pswp__container><div class=pswp__item></div><div class=pswp__item></div><div class=pswp__item></div></div><div class="pswp__ui pswp__ui--hidden"><div class=pswp__top-bar><div class=pswp__counter></div><button class="pswp__button pswp__button--close" title="Close (Esc)"></button>
+<button class="pswp__button pswp__button--share" title=Share></button>
+<button class="pswp__button pswp__button--fs" title="Toggle fullscreen"></button>
+<button class="pswp__button pswp__button--zoom" title="Zoom in/out"></button><div class=pswp__preloader><div class=pswp__preloader__icn><div class=pswp__preloader__cut><div class=pswp__preloader__donut></div></div></div></div></div><div class="pswp__share-modal pswp__share-modal--hidden pswp__single-tap"><div class=pswp__share-tooltip></div></div><button class="pswp__button pswp__button--arrow--left" title="Previous (arrow left)">
+</button>
+<button class="pswp__button pswp__button--arrow--right" title="Next (arrow right)"></button><div class=pswp__caption><div class=pswp__caption__center></div></div></div></div></div><script src=https://cdn.jsdelivr.net/npm/photoswipe@4.1.3/dist/photoswipe.min.js integrity="sha256-ePwmChbbvXbsO02lbM3HoHbSHTHFAeChekF1xKJdleo=" crossorigin=anonymous defer></script><script src=https://cdn.jsdelivr.net/npm/photoswipe@4.1.3/dist/photoswipe-ui-default.min.js integrity="sha256-UKkzOn/w1mBxRmLLGrSeyB4e1xbrp4xylgAWb3M42pU=" crossorigin=anonymous defer></script><link rel=stylesheet href=https://cdn.jsdelivr.net/npm/photoswipe@4.1.3/dist/default-skin/default-skin.min.css crossorigin=anonymous><link rel=stylesheet href=https://cdn.jsdelivr.net/npm/photoswipe@4.1.3/dist/photoswipe.min.css crossorigin=anonymous></main></div><script src=https://cdn.jsdelivr.net/npm/node-vibrant@3.1.6/dist/vibrant.min.js integrity="sha256-awcR2jno4kI5X0zL8ex0vi2z+KMkF24hUW8WePSA9HM=" crossorigin=anonymous></script><script type=text/javascript src=/ts/main.c922af694cc257bf1ecc41c0dd7b0430f9114ec280ccf67cd2c6ad55f5316c4e.js defer></script><script>(function(){const e=document.createElement("link");e.href="https://fonts.googleapis.com/css2?family=Lato:wght@300;400;700&display=swap",e.type="text/css",e.rel="stylesheet",document.head.appendChild(e)})()</script></body></html>

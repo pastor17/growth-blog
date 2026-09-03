@@ -1,57 +1,65 @@
-<?xml version="1.0" encoding="utf-8" standalone="yes"?>
-<rss version="2.0" xmlns:atom="http://www.w3.org/2005/Atom">
-    <channel>
-        <title>Docker核心概念图解：镜像、容器与仓库 on SelfTechHub</title>
-        <link>https://blog.irudder.me/tags/Docker%E6%A0%B8%E5%BF%83%E6%A6%82%E5%BF%B5%E5%9B%BE%E8%A7%A3%E9%95%9C%E5%83%8F%E5%AE%B9%E5%99%A8%E4%B8%8E%E4%BB%93%E5%BA%93.html</link>
-        <description>Recent content in Docker核心概念图解：镜像、容器与仓库 on SelfTechHub</description>
-        <generator>Hugo -- gohugo.io</generator>
-        <language>zh-cn</language>
-        <lastBuildDate>Sun, 25 May 2025 00:00:00 +0000</lastBuildDate><atom:link href="https://blog.irudder.me/tags/Docker%E6%A0%B8%E5%BF%83%E6%A6%82%E5%BF%B5%E5%9B%BE%E8%A7%A3%E9%95%9C%E5%83%8F%E5%AE%B9%E5%99%A8%E4%B8%8E%E4%BB%93%E5%BA%93/index.xml" rel="self" type="application/rss+xml" /><item>
-        <title>告别“在我这能跑”！10分钟吃透Docker三大核心</title>
-        <link>https://blog.irudder.me/tech/devopsjichugongjurumenyushicao/dockerhexingainiantujie_jingxiangrongqiyucangku.html</link>
-        <pubDate>Sun, 25 May 2025 00:00:00 +0000</pubDate>
-        
-        <guid>https://blog.irudder.me/tech/devopsjichugongjurumenyushicao/dockerhexingainiantujie_jingxiangrongqiyucangku.html</guid>
-        <description>&lt;p&gt;记得我刚入行做后端开发的那年，最怕听到运维同事在工位对面喊那一嗓子：“喂，你给我的包在生产环境起不来啊！”&lt;/p&gt;
+<?xml version="1.0" encoding="utf-8" standalone="yes"?><rss version="2.0" xmlns:atom="http://www.w3.org/2005/Atom"><channel><title>Docker核心概念图解：镜像、容器与仓库 on SelfTechHub</title><link>https://blog.irudder.me/tags/Docker%E6%A0%B8%E5%BF%83%E6%A6%82%E5%BF%B5%E5%9B%BE%E8%A7%A3%E9%95%9C%E5%83%8F%E5%AE%B9%E5%99%A8%E4%B8%8E%E4%BB%93%E5%BA%93.html</link><description>Recent content in Docker核心概念图解：镜像、容器与仓库 on SelfTechHub</description><generator>Hugo -- gohugo.io</generator><language>zh-cn</language><lastBuildDate>Sun, 25 May 2025 00:00:00 +0800</lastBuildDate><atom:link href="https://blog.irudder.me/tags/Docker%E6%A0%B8%E5%BF%83%E6%A6%82%E5%BF%B5%E5%9B%BE%E8%A7%A3%E9%95%9C%E5%83%8F%E5%AE%B9%E5%99%A8%E4%B8%8E%E4%BB%93%E5%BA%93/index.xml" rel="self" type="application/rss+xml"/><item><title>告别“在我这能跑”！10分钟吃透Docker三大核心</title><link>https://blog.irudder.me/tech/devopsjichugongjurumenyushicao/dockerhexingainiantujie_jingxiangrongqiyucangku.html</link><pubDate>Sun, 25 May 2025 00:00:00 +0800</pubDate><guid>https://blog.irudder.me/tech/devopsjichugongjurumenyushicao/dockerhexingainiantujie_jingxiangrongqiyucangku.html</guid><description>&lt;p&gt;记得我刚入行做后端开发的那年，最怕听到运维同事在工位对面喊那一嗓子：“喂，你给我的包在生产环境起不来啊！”&lt;/p&gt;
 &lt;p&gt;我当时的第一反应总是委屈地打开自己的笔记本，演示一遍：“怎么可能？&lt;strong&gt;在我这明明能跑啊！&lt;/strong&gt;”&lt;/p&gt;
 &lt;p&gt;后来我才明白，这种“环境差异”带来的焦虑，是无数开发者的噩梦。我们花费了大量时间在配置环境、解决依赖冲突上，而不是写代码本身。直到我真正开始在项目中使用Docker，那种“交付即标准”的确定感，才让我彻底摆脱了这种内耗。&lt;/p&gt;
 &lt;p&gt;如果你也正对着黑乎乎的终端窗口发愁，觉得Docker那些概念晦涩难懂，请先深吸一口气。今天我们不背枯燥的概念，我带你用“搬家”的逻辑，把镜像、容器和仓库这三个核心彻底理顺。&lt;/p&gt;
 &lt;hr&gt;
-&lt;h2 id=&#34;一-镜像image那个打包好的精装房&#34;&gt;一、 镜像（Image）：那个“打包好的精装房”
+&lt;h2 id="一-镜像image那个打包好的精装房"&gt;一、 镜像（Image）：那个“打包好的精装房”
 &lt;/h2&gt;&lt;p&gt;很多新手在初学时，最容易搞混镜像和容器。其实，你可以把&lt;strong&gt;镜像&lt;/strong&gt;想象成是一个&lt;strong&gt;只读的系统光盘&lt;/strong&gt;，或者更形象一点——一套&lt;strong&gt;打包好的精装房设计方案&lt;/strong&gt;。&lt;/p&gt;
 &lt;p&gt;&lt;strong&gt;它的核心价值在于：封存环境。&lt;/strong&gt;&lt;/p&gt;
-&lt;h3 id=&#34;真实的环境地狱&#34;&gt;真实的“环境地狱”
+&lt;h3 id="真实的环境地狱"&gt;真实的“环境地狱”
 &lt;/h3&gt;&lt;p&gt;2019年，我接手过一个老旧的Java项目。当时团队里每个人电脑上装的JDK版本都不一样，有的是Java 8，有的是Java 11。新来的实习生小李，为了跑通代码，光是配置环境变量、安装对应版本的MySQL和Redis，就折腾了整整3天。结果一上线，因为Linux服务器上的系统库缺失，服务直接崩溃。&lt;/p&gt;
-&lt;h3 id=&#34;docker的解法&#34;&gt;Docker的解法
+&lt;h3 id="docker的解法"&gt;Docker的解法
 &lt;/h3&gt;&lt;p&gt;后来我们将这个项目“容器化”了。我们写了一个&lt;code&gt;Dockerfile&lt;/code&gt;（制作镜像的清单），把JDK 8、项目代码、甚至操作系统里需要的字体库，全部“打包”进了一个镜像文件里。&lt;/p&gt;
 &lt;p&gt;这就好比我们不再给每个人发一堆散乱的家具（代码和依赖），让他们自己去组装；而是直接交付给他们一个&lt;strong&gt;完整的、装修好的样板间&lt;/strong&gt;。无论把这个镜像放到谁的电脑上，里面的环境都是一模一样的。&lt;/p&gt;
 &lt;p&gt;&lt;strong&gt;新手避坑指南：&lt;/strong&gt;&lt;/p&gt;
 &lt;blockquote&gt;
-&lt;p&gt;很多新手喜欢把配置文件（如数据库密码）也打死在镜像里。千万别这么做！镜像应该是无状态的、通用的。配置信息应该在启动时通过环境变量注入。&lt;/p&gt;
-&lt;/blockquote&gt;
+&lt;p&gt;很多新手喜欢把配置文件（如数据库密码）也打死在镜像里。千万别这么做！镜像应该是无状态的、通用的。配置信息应该在启动时通过环境变量注入。&lt;/p&gt;&lt;/blockquote&gt;
 &lt;p&gt;看看这个简单的&lt;code&gt;Dockerfile&lt;/code&gt;，它就是制作镜像的说明书：&lt;/p&gt;
-&lt;div class=&#34;highlight&#34;&gt;&lt;pre tabindex=&#34;0&#34; style=&#34;color:#f8f8f2;background-color:#272822;-moz-tab-size:4;-o-tab-size:4;tab-size:4;&#34;&gt;&lt;code class=&#34;language-dockerfile&#34; data-lang=&#34;dockerfile&#34;&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;&lt;span style=&#34;color:#75715e&#34;&gt;# 1. 找个基础底座（比如官方的Node环境）&lt;/span&gt;&lt;span style=&#34;color:#960050;background-color:#1e0010&#34;&gt;
-&lt;/span&gt;&lt;/span&gt;&lt;/span&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;&lt;span style=&#34;color:#960050;background-color:#1e0010&#34;&gt;&lt;/span&gt;&lt;span style=&#34;color:#66d9ef&#34;&gt;FROM&lt;/span&gt; &lt;span style=&#34;color:#e6db74&#34;&gt;node:14-alpine&lt;/span&gt;&lt;span style=&#34;color:#960050;background-color:#1e0010&#34;&gt;
-&lt;/span&gt;&lt;/span&gt;&lt;/span&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;&lt;span style=&#34;color:#960050;background-color:#1e0010&#34;&gt;
-&lt;/span&gt;&lt;/span&gt;&lt;/span&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;&lt;span style=&#34;color:#960050;background-color:#1e0010&#34;&gt;&lt;/span&gt;&lt;span style=&#34;color:#75715e&#34;&gt;# 2. 设定工作目录&lt;/span&gt;&lt;span style=&#34;color:#960050;background-color:#1e0010&#34;&gt;
-&lt;/span&gt;&lt;/span&gt;&lt;/span&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;&lt;span style=&#34;color:#960050;background-color:#1e0010&#34;&gt;&lt;/span&gt;&lt;span style=&#34;color:#66d9ef&#34;&gt;WORKDIR&lt;/span&gt; &lt;span style=&#34;color:#e6db74&#34;&gt;/app&lt;/span&gt;&lt;span style=&#34;color:#960050;background-color:#1e0010&#34;&gt;
-&lt;/span&gt;&lt;/span&gt;&lt;/span&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;&lt;span style=&#34;color:#960050;background-color:#1e0010&#34;&gt;
-&lt;/span&gt;&lt;/span&gt;&lt;/span&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;&lt;span style=&#34;color:#960050;background-color:#1e0010&#34;&gt;&lt;/span&gt;&lt;span style=&#34;color:#75715e&#34;&gt;# 3. 复制依赖描述文件&lt;/span&gt;&lt;span style=&#34;color:#960050;background-color:#1e0010&#34;&gt;
-&lt;/span&gt;&lt;/span&gt;&lt;/span&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;&lt;span style=&#34;color:#960050;background-color:#1e0010&#34;&gt;&lt;/span&gt;&lt;span style=&#34;color:#66d9ef&#34;&gt;COPY&lt;/span&gt; package*.json ./&lt;span style=&#34;color:#960050;background-color:#1e0010&#34;&gt;
-&lt;/span&gt;&lt;/span&gt;&lt;/span&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;&lt;span style=&#34;color:#960050;background-color:#1e0010&#34;&gt;
-&lt;/span&gt;&lt;/span&gt;&lt;/span&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;&lt;span style=&#34;color:#960050;background-color:#1e0010&#34;&gt;&lt;/span&gt;&lt;span style=&#34;color:#75715e&#34;&gt;# 4. 安装依赖（这一步被封存在镜像里了）&lt;/span&gt;&lt;span style=&#34;color:#960050;background-color:#1e0010&#34;&gt;
-&lt;/span&gt;&lt;/span&gt;&lt;/span&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;&lt;span style=&#34;color:#960050;background-color:#1e0010&#34;&gt;&lt;/span&gt;&lt;span style=&#34;color:#66d9ef&#34;&gt;RUN&lt;/span&gt; npm install&lt;span style=&#34;color:#960050;background-color:#1e0010&#34;&gt;
-&lt;/span&gt;&lt;/span&gt;&lt;/span&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;&lt;span style=&#34;color:#960050;background-color:#1e0010&#34;&gt;
-&lt;/span&gt;&lt;/span&gt;&lt;/span&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;&lt;span style=&#34;color:#960050;background-color:#1e0010&#34;&gt;&lt;/span&gt;&lt;span style=&#34;color:#75715e&#34;&gt;# 5. 复制源代码&lt;/span&gt;&lt;span style=&#34;color:#960050;background-color:#1e0010&#34;&gt;
-&lt;/span&gt;&lt;/span&gt;&lt;/span&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;&lt;span style=&#34;color:#960050;background-color:#1e0010&#34;&gt;&lt;/span&gt;&lt;span style=&#34;color:#66d9ef&#34;&gt;COPY&lt;/span&gt; . .&lt;span style=&#34;color:#960050;background-color:#1e0010&#34;&gt;
-&lt;/span&gt;&lt;/span&gt;&lt;/span&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;&lt;span style=&#34;color:#960050;background-color:#1e0010&#34;&gt;
-&lt;/span&gt;&lt;/span&gt;&lt;/span&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;&lt;span style=&#34;color:#960050;background-color:#1e0010&#34;&gt;&lt;/span&gt;&lt;span style=&#34;color:#75715e&#34;&gt;# 6. 告诉Docker启动命令是什么&lt;/span&gt;&lt;span style=&#34;color:#960050;background-color:#1e0010&#34;&gt;
-&lt;/span&gt;&lt;/span&gt;&lt;/span&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;&lt;span style=&#34;color:#960050;background-color:#1e0010&#34;&gt;&lt;/span&gt;&lt;span style=&#34;color:#66d9ef&#34;&gt;CMD&lt;/span&gt; [&lt;span style=&#34;color:#e6db74&#34;&gt;&amp;#34;npm&amp;#34;&lt;/span&gt;, &lt;span style=&#34;color:#e6db74&#34;&gt;&amp;#34;start&amp;#34;&lt;/span&gt;]&lt;span style=&#34;color:#960050;background-color:#1e0010&#34;&gt;
-&lt;/span&gt;&lt;/span&gt;&lt;/span&gt;&lt;/code&gt;&lt;/pre&gt;&lt;/div&gt;&lt;hr&gt;
-&lt;h2 id=&#34;二-容器container那个真正住人的房间&#34;&gt;二、 容器（Container）：那个“真正住人的房间”
+&lt;div class="highlight"&gt;&lt;div class="chroma"&gt;
+&lt;table class="lntable"&gt;&lt;tr&gt;&lt;td class="lntd"&gt;
+&lt;pre tabindex="0" class="chroma"&gt;&lt;code&gt;&lt;span class="lnt"&gt; 1
+&lt;/span&gt;&lt;span class="lnt"&gt; 2
+&lt;/span&gt;&lt;span class="lnt"&gt; 3
+&lt;/span&gt;&lt;span class="lnt"&gt; 4
+&lt;/span&gt;&lt;span class="lnt"&gt; 5
+&lt;/span&gt;&lt;span class="lnt"&gt; 6
+&lt;/span&gt;&lt;span class="lnt"&gt; 7
+&lt;/span&gt;&lt;span class="lnt"&gt; 8
+&lt;/span&gt;&lt;span class="lnt"&gt; 9
+&lt;/span&gt;&lt;span class="lnt"&gt;10
+&lt;/span&gt;&lt;span class="lnt"&gt;11
+&lt;/span&gt;&lt;span class="lnt"&gt;12
+&lt;/span&gt;&lt;span class="lnt"&gt;13
+&lt;/span&gt;&lt;span class="lnt"&gt;14
+&lt;/span&gt;&lt;span class="lnt"&gt;15
+&lt;/span&gt;&lt;span class="lnt"&gt;16
+&lt;/span&gt;&lt;span class="lnt"&gt;17
+&lt;/span&gt;&lt;/code&gt;&lt;/pre&gt;&lt;/td&gt;
+&lt;td class="lntd"&gt;
+&lt;pre tabindex="0" class="chroma"&gt;&lt;code class="language-dockerfile" data-lang="dockerfile"&gt;&lt;span class="line"&gt;&lt;span class="cl"&gt;&lt;span class="c"&gt;# 1. 找个基础底座（比如官方的Node环境）&lt;/span&gt;&lt;span class="err"&gt;
+&lt;/span&gt;&lt;/span&gt;&lt;/span&gt;&lt;span class="line"&gt;&lt;span class="cl"&gt;&lt;span class="err"&gt;&lt;/span&gt;&lt;span class="k"&gt;FROM&lt;/span&gt;&lt;span class="w"&gt; &lt;/span&gt;&lt;span class="s"&gt;node:14-alpine&lt;/span&gt;&lt;span class="err"&gt;
+&lt;/span&gt;&lt;/span&gt;&lt;/span&gt;&lt;span class="line"&gt;&lt;span class="cl"&gt;&lt;span class="err"&gt;
+&lt;/span&gt;&lt;/span&gt;&lt;/span&gt;&lt;span class="line"&gt;&lt;span class="cl"&gt;&lt;span class="err"&gt;&lt;/span&gt;&lt;span class="c"&gt;# 2. 设定工作目录&lt;/span&gt;&lt;span class="err"&gt;
+&lt;/span&gt;&lt;/span&gt;&lt;/span&gt;&lt;span class="line"&gt;&lt;span class="cl"&gt;&lt;span class="err"&gt;&lt;/span&gt;&lt;span class="k"&gt;WORKDIR&lt;/span&gt;&lt;span class="w"&gt; &lt;/span&gt;&lt;span class="s"&gt;/app&lt;/span&gt;&lt;span class="err"&gt;
+&lt;/span&gt;&lt;/span&gt;&lt;/span&gt;&lt;span class="line"&gt;&lt;span class="cl"&gt;&lt;span class="err"&gt;
+&lt;/span&gt;&lt;/span&gt;&lt;/span&gt;&lt;span class="line"&gt;&lt;span class="cl"&gt;&lt;span class="err"&gt;&lt;/span&gt;&lt;span class="c"&gt;# 3. 复制依赖描述文件&lt;/span&gt;&lt;span class="err"&gt;
+&lt;/span&gt;&lt;/span&gt;&lt;/span&gt;&lt;span class="line"&gt;&lt;span class="cl"&gt;&lt;span class="err"&gt;&lt;/span&gt;&lt;span class="k"&gt;COPY&lt;/span&gt; package*.json ./&lt;span class="err"&gt;
+&lt;/span&gt;&lt;/span&gt;&lt;/span&gt;&lt;span class="line"&gt;&lt;span class="cl"&gt;&lt;span class="err"&gt;
+&lt;/span&gt;&lt;/span&gt;&lt;/span&gt;&lt;span class="line"&gt;&lt;span class="cl"&gt;&lt;span class="err"&gt;&lt;/span&gt;&lt;span class="c"&gt;# 4. 安装依赖（这一步被封存在镜像里了）&lt;/span&gt;&lt;span class="err"&gt;
+&lt;/span&gt;&lt;/span&gt;&lt;/span&gt;&lt;span class="line"&gt;&lt;span class="cl"&gt;&lt;span class="err"&gt;&lt;/span&gt;&lt;span class="k"&gt;RUN&lt;/span&gt; npm install&lt;span class="err"&gt;
+&lt;/span&gt;&lt;/span&gt;&lt;/span&gt;&lt;span class="line"&gt;&lt;span class="cl"&gt;&lt;span class="err"&gt;
+&lt;/span&gt;&lt;/span&gt;&lt;/span&gt;&lt;span class="line"&gt;&lt;span class="cl"&gt;&lt;span class="err"&gt;&lt;/span&gt;&lt;span class="c"&gt;# 5. 复制源代码&lt;/span&gt;&lt;span class="err"&gt;
+&lt;/span&gt;&lt;/span&gt;&lt;/span&gt;&lt;span class="line"&gt;&lt;span class="cl"&gt;&lt;span class="err"&gt;&lt;/span&gt;&lt;span class="k"&gt;COPY&lt;/span&gt; . .&lt;span class="err"&gt;
+&lt;/span&gt;&lt;/span&gt;&lt;/span&gt;&lt;span class="line"&gt;&lt;span class="cl"&gt;&lt;span class="err"&gt;
+&lt;/span&gt;&lt;/span&gt;&lt;/span&gt;&lt;span class="line"&gt;&lt;span class="cl"&gt;&lt;span class="err"&gt;&lt;/span&gt;&lt;span class="c"&gt;# 6. 告诉Docker启动命令是什么&lt;/span&gt;&lt;span class="err"&gt;
+&lt;/span&gt;&lt;/span&gt;&lt;/span&gt;&lt;span class="line"&gt;&lt;span class="cl"&gt;&lt;span class="err"&gt;&lt;/span&gt;&lt;span class="k"&gt;CMD&lt;/span&gt; &lt;span class="p"&gt;[&lt;/span&gt;&lt;span class="s2"&gt;&amp;#34;npm&amp;#34;&lt;/span&gt;&lt;span class="p"&gt;,&lt;/span&gt; &lt;span class="s2"&gt;&amp;#34;start&amp;#34;&lt;/span&gt;&lt;span class="p"&gt;]&lt;/span&gt;&lt;span class="err"&gt;
+&lt;/span&gt;&lt;/span&gt;&lt;/span&gt;&lt;/code&gt;&lt;/pre&gt;&lt;/td&gt;&lt;/tr&gt;&lt;/table&gt;
+&lt;/div&gt;
+&lt;/div&gt;&lt;hr&gt;
+&lt;h2 id="二-容器container那个真正住人的房间"&gt;二、 容器（Container）：那个“真正住人的房间”
 &lt;/h2&gt;&lt;p&gt;如果说镜像是“样板间的设计图纸”，那么&lt;strong&gt;容器&lt;/strong&gt;就是根据这张图纸，&lt;strong&gt;真正盖出来的、有人住的房子&lt;/strong&gt;。&lt;/p&gt;
 &lt;p&gt;&lt;strong&gt;它的核心价值在于：隔离与运行。&lt;/strong&gt;&lt;/p&gt;
-&lt;h3 id=&#34;一次惊心动魄的误操作&#34;&gt;一次惊心动魄的误操作
+&lt;h3 id="一次惊心动魄的误操作"&gt;一次惊心动魄的误操作
 &lt;/h3&gt;&lt;p&gt;我有个习惯，每周五下午会清理测试环境的数据。有一次手快，误删了本机数据库的一个核心表。当时我吓出了一身冷汗，因为重新搭建那个复杂的数据库环境通常需要半天时间。&lt;/p&gt;
 &lt;p&gt;但因为我用的是Docker容器，我只做了一件事：&lt;/p&gt;
 &lt;ol&gt;
@@ -60,40 +68,38 @@
 &lt;/ol&gt;
 &lt;p&gt;整个过程不到30秒，一切恢复如初。&lt;/p&gt;
 &lt;p&gt;这就是容器的魅力：&lt;strong&gt;它是临时的、可丢弃的。&lt;/strong&gt; 镜像（图纸）是只读的，不会变；容器（房子）里你可以随意折腾，墙脏了、家具坏了，推倒重来就是一个新房子，成本几乎为零。&lt;/p&gt;
-&lt;h3 id=&#34;实操演示&#34;&gt;实操演示
+&lt;h3 id="实操演示"&gt;实操演示
 &lt;/h3&gt;&lt;p&gt;启动容器并没有想象中那么复杂，一行命令就够了：&lt;/p&gt;
-&lt;div class=&#34;highlight&#34;&gt;&lt;pre tabindex=&#34;0&#34; style=&#34;color:#f8f8f2;background-color:#272822;-moz-tab-size:4;-o-tab-size:4;tab-size:4;&#34;&gt;&lt;code class=&#34;language-bash&#34; data-lang=&#34;bash&#34;&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;&lt;span style=&#34;color:#75715e&#34;&gt;# 启动一个nginx容器&lt;/span&gt;
-&lt;/span&gt;&lt;/span&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;&lt;span style=&#34;color:#75715e&#34;&gt;# -d: 后台运行&lt;/span&gt;
-&lt;/span&gt;&lt;/span&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;&lt;span style=&#34;color:#75715e&#34;&gt;# -p: 把容器里的80端口映射到你电脑的8080端口&lt;/span&gt;
-&lt;/span&gt;&lt;/span&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;docker run -d -p 8080:80 nginx:latest
-&lt;/span&gt;&lt;/span&gt;&lt;/code&gt;&lt;/pre&gt;&lt;/div&gt;&lt;p&gt;&lt;img src=&#34;https://picsum.photos/800/450?random=1768387533982&#34;
-	
-	
-	
-	loading=&#34;lazy&#34;
-	
-		alt=&#34;配图&#34;
-	
-	
+&lt;div class="highlight"&gt;&lt;div class="chroma"&gt;
+&lt;table class="lntable"&gt;&lt;tr&gt;&lt;td class="lntd"&gt;
+&lt;pre tabindex="0" class="chroma"&gt;&lt;code&gt;&lt;span class="lnt"&gt;1
+&lt;/span&gt;&lt;span class="lnt"&gt;2
+&lt;/span&gt;&lt;span class="lnt"&gt;3
+&lt;/span&gt;&lt;span class="lnt"&gt;4
+&lt;/span&gt;&lt;/code&gt;&lt;/pre&gt;&lt;/td&gt;
+&lt;td class="lntd"&gt;
+&lt;pre tabindex="0" class="chroma"&gt;&lt;code class="language-bash" data-lang="bash"&gt;&lt;span class="line"&gt;&lt;span class="cl"&gt;&lt;span class="c1"&gt;# 启动一个nginx容器&lt;/span&gt;
+&lt;/span&gt;&lt;/span&gt;&lt;span class="line"&gt;&lt;span class="cl"&gt;&lt;span class="c1"&gt;# -d: 后台运行&lt;/span&gt;
+&lt;/span&gt;&lt;/span&gt;&lt;span class="line"&gt;&lt;span class="cl"&gt;&lt;span class="c1"&gt;# -p: 把容器里的80端口映射到你电脑的8080端口&lt;/span&gt;
+&lt;/span&gt;&lt;/span&gt;&lt;span class="line"&gt;&lt;span class="cl"&gt;docker run -d -p 8080:80 nginx:latest
+&lt;/span&gt;&lt;/span&gt;&lt;/code&gt;&lt;/pre&gt;&lt;/td&gt;&lt;/tr&gt;&lt;/table&gt;
+&lt;/div&gt;
+&lt;/div&gt;&lt;p&gt;&lt;img src="https://picsum.photos/800/450?random=1768387533982"
+loading="lazy"
+alt="配图"
 &gt;&lt;/p&gt;
 &lt;p&gt;现在，你访问浏览器 &lt;code&gt;localhost:8080&lt;/code&gt;，就能看到那个熟悉的“Welcome to nginx!”页面了。&lt;/p&gt;
 &lt;p&gt;&lt;strong&gt;思考一下：&lt;/strong&gt;
 你有没有过因为安装一个软件，导致系统变得越来越卡，最后不得不重装系统的经历？容器技术让你的主系统永远保持“洁癖”，软件都在容器里运行，用完即焚。&lt;/p&gt;
 &lt;hr&gt;
-&lt;h2 id=&#34;三-仓库registry那个云端家具城&#34;&gt;三、 仓库（Registry）：那个“云端家具城”
+&lt;h2 id="三-仓库registry那个云端家具城"&gt;三、 仓库（Registry）：那个“云端家具城”
 &lt;/h2&gt;&lt;p&gt;现在你有了镜像（图纸），也能跑起来容器（房子）了。但如果你想把这个好用的镜像分享给隔壁组的同事，或者传到服务器上，该怎么办？&lt;/p&gt;
 &lt;p&gt;这就需要&lt;strong&gt;仓库（Registry）&lt;/strong&gt;。你可以把它理解为&lt;strong&gt;手机的应用商店&lt;/strong&gt;，或者&lt;strong&gt;GitHub&lt;/strong&gt;，只不过这里存的不是源码，而是打包好的镜像。&lt;/p&gt;
-&lt;p&gt;&lt;img src=&#34;https://picsum.photos/800/450?random=1768387535821&#34;
-	
-	
-	
-	loading=&#34;lazy&#34;
-	
-		alt=&#34;配图&#34;
-	
-	
+&lt;p&gt;&lt;img src="https://picsum.photos/800/450?random=1768387535821"
+loading="lazy"
+alt="配图"
 &gt;&lt;/p&gt;
-&lt;h3 id=&#34;告别u盘传代码&#34;&gt;告别“U盘传代码”
+&lt;h3 id="告别u盘传代码"&gt;告别“U盘传代码”
 &lt;/h3&gt;&lt;p&gt;在没有搭建私有仓库之前，我们团队交付软件的方式非常原始：打一个压缩包，通过FTP传到服务器，或者直接用聊天软件发给运维。&lt;/p&gt;
 &lt;p&gt;有一次，因为网络波动，传上去的压缩包损坏了几个字节。运维部署时报错，我们排查了整整两个小时，最后对比MD5值才发现是文件损坏。&lt;/p&gt;
 &lt;p&gt;后来我们搭建了公司内部的Docker Registry（私有仓库）。&lt;/p&gt;
@@ -104,7 +110,7 @@
 &lt;p&gt;&lt;strong&gt;过程完全标准化，没有中间商赚差价，也不会出现文件传输导致的损坏。&lt;/strong&gt;&lt;/p&gt;
 &lt;p&gt;全球最大的公共仓库是 Docker Hub。你可以在上面找到几乎所有知名软件的官方镜像（MySQL, Redis, Python等），拿来即用。&lt;/p&gt;
 &lt;hr&gt;
-&lt;h2 id=&#34;总结从现在开始换种思维&#34;&gt;总结：从现在开始，换种思维
+&lt;h2 id="总结从现在开始换种思维"&gt;总结：从现在开始，换种思维
 &lt;/h2&gt;&lt;p&gt;回顾一下今天的内容，其实Docker的核心逻辑非常简单：&lt;/p&gt;
 &lt;ol&gt;
 &lt;li&gt;&lt;strong&gt;镜像 (Image)&lt;/strong&gt; = &lt;strong&gt;类 (Class)&lt;/strong&gt; / 游戏安装包 / 样板间图纸 （只读，核心资产）&lt;/li&gt;
@@ -113,17 +119,11 @@
 &lt;/ol&gt;
 &lt;p&gt;&lt;strong&gt;你有没有发现自己也有这样的思维误区？&lt;/strong&gt;
 总觉得要把服务器当成“宠物”细心呵护，生怕弄坏了环境。其实，在Docker的世界里，服务器环境应该像“牲口”一样（Cattle not Pets），坏了就换，随时重建。&lt;/p&gt;
-&lt;p&gt;&lt;img src=&#34;https://picsum.photos/800/450?random=1768387533083&#34;
-	
-	
-	
-	loading=&#34;lazy&#34;
-	
-		alt=&#34;配图&#34;
-	
-	
+&lt;p&gt;&lt;img src="https://picsum.photos/800/450?random=1768387533083"
+loading="lazy"
+alt="配图"
 &gt;&lt;/p&gt;
-&lt;h3 id=&#34;给新手的3个落地行动建议&#34;&gt;给新手的3个落地行动建议
+&lt;h3 id="给新手的3个落地行动建议"&gt;给新手的3个落地行动建议
 &lt;/h3&gt;&lt;p&gt;不需要去背几百页的文档，哪怕你现在还不懂K8s，光是Docker本身就能极大地提升你的幸福感。建议你这周尝试做三件事：&lt;/p&gt;
 &lt;ol&gt;
 &lt;li&gt;&lt;strong&gt;安装 Docker Desktop&lt;/strong&gt;：不管你是Mac还是Windows，先装上它。看着那个小鲸鱼图标亮起来，你就迈出了第一步。&lt;/li&gt;
@@ -131,9 +131,4 @@
 &lt;li&gt;&lt;strong&gt;容器化你的个人项目&lt;/strong&gt;：找一个你写的简单的HTML页面或者Python脚本，试着为它写一个&lt;code&gt;Dockerfile&lt;/code&gt;，打包成镜像，然后发给你的朋友，让他用Docker跑起来。&lt;/li&gt;
 &lt;/ol&gt;
 &lt;p&gt;当你第一次看到别人的电脑上，跑着和你一模一样的界面，而不需要安装任何环境时，你会爱上这种掌控感的。&lt;/p&gt;
-&lt;p&gt;&lt;strong&gt;别急，技术是用来服务生活的，不是用来制造焦虑的。慢慢来，你一定行。&lt;/strong&gt;&lt;/p&gt;
-</description>
-        </item>
-        
-    </channel>
-</rss>
+&lt;p&gt;&lt;strong&gt;别急，技术是用来服务生活的，不是用来制造焦虑的。慢慢来，你一定行。&lt;/strong&gt;&lt;/p&gt;</description></item></channel></rss>

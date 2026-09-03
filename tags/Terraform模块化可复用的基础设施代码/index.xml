@@ -1,27 +1,13 @@
-<?xml version="1.0" encoding="utf-8" standalone="yes"?>
-<rss version="2.0" xmlns:atom="http://www.w3.org/2005/Atom">
-    <channel>
-        <title>Terraform模块化：可复用的基础设施代码 on SelfTechHub</title>
-        <link>https://blog.irudder.me/tags/Terraform%E6%A8%A1%E5%9D%97%E5%8C%96%E5%8F%AF%E5%A4%8D%E7%94%A8%E7%9A%84%E5%9F%BA%E7%A1%80%E8%AE%BE%E6%96%BD%E4%BB%A3%E7%A0%81.html</link>
-        <description>Recent content in Terraform模块化：可复用的基础设施代码 on SelfTechHub</description>
-        <generator>Hugo -- gohugo.io</generator>
-        <language>zh-cn</language>
-        <lastBuildDate>Tue, 06 Sep 2022 00:00:00 +0000</lastBuildDate><atom:link href="https://blog.irudder.me/tags/Terraform%E6%A8%A1%E5%9D%97%E5%8C%96%E5%8F%AF%E5%A4%8D%E7%94%A8%E7%9A%84%E5%9F%BA%E7%A1%80%E8%AE%BE%E6%96%BD%E4%BB%A3%E7%A0%81/index.xml" rel="self" type="application/rss+xml" /><item>
-        <title>拒绝复制粘贴！Terraform模块化让架构部署快3倍</title>
-        <link>https://blog.irudder.me/tech/devopsjichugongjurumenyushicao/terraformmokuaihua_kefuyongdejichusheshidaima.html</link>
-        <pubDate>Tue, 06 Sep 2022 00:00:00 +0000</pubDate>
-        
-        <guid>https://blog.irudder.me/tech/devopsjichugongjurumenyushicao/terraformmokuaihua_kefuyongdejichusheshidaima.html</guid>
-        <description>&lt;p&gt;作为一名长期在DevOps一线摸爬滚打的工程师，我见过太多团队在基础设施代码（IaC）上栽跟头。&lt;/p&gt;
+<?xml version="1.0" encoding="utf-8" standalone="yes"?><rss version="2.0" xmlns:atom="http://www.w3.org/2005/Atom"><channel><title>Terraform模块化：可复用的基础设施代码 on SelfTechHub</title><link>https://blog.irudder.me/tags/Terraform%E6%A8%A1%E5%9D%97%E5%8C%96%E5%8F%AF%E5%A4%8D%E7%94%A8%E7%9A%84%E5%9F%BA%E7%A1%80%E8%AE%BE%E6%96%BD%E4%BB%A3%E7%A0%81.html</link><description>Recent content in Terraform模块化：可复用的基础设施代码 on SelfTechHub</description><generator>Hugo -- gohugo.io</generator><language>zh-cn</language><lastBuildDate>Tue, 06 Sep 2022 00:00:00 +0800</lastBuildDate><atom:link href="https://blog.irudder.me/tags/Terraform%E6%A8%A1%E5%9D%97%E5%8C%96%E5%8F%AF%E5%A4%8D%E7%94%A8%E7%9A%84%E5%9F%BA%E7%A1%80%E8%AE%BE%E6%96%BD%E4%BB%A3%E7%A0%81/index.xml" rel="self" type="application/rss+xml"/><item><title>拒绝复制粘贴！Terraform模块化让架构部署快3倍</title><link>https://blog.irudder.me/tech/devopsjichugongjurumenyushicao/terraformmokuaihua_kefuyongdejichusheshidaima.html</link><pubDate>Tue, 06 Sep 2022 00:00:00 +0800</pubDate><guid>https://blog.irudder.me/tech/devopsjichugongjurumenyushicao/terraformmokuaihua_kefuyongdejichusheshidaima.html</guid><description>&lt;p&gt;作为一名长期在DevOps一线摸爬滚打的工程师，我见过太多团队在基础设施代码（IaC）上栽跟头。&lt;/p&gt;
 &lt;p&gt;最典型的一个场景是：由于业务扩张，公司需要快速在AWS上新开一个测试环境。开发负责人小张打开了生产环境的 &lt;code&gt;main.tf&lt;/code&gt; 文件——那是一个长达2500行的庞然大物，里面混杂着VPC、EC2、RDS和一大堆安全组规则。&lt;/p&gt;
 &lt;p&gt;他深吸一口气，按下 &lt;code&gt;Ctrl+C&lt;/code&gt; 和 &lt;code&gt;Ctrl+V&lt;/code&gt;，然后开始漫长的&amp;quot;查找替换&amp;quot;之旅。结果不出所料，新环境部署失败了。因为他在第1800行漏改了一个子网ID，导致数据库无法连接。&lt;/p&gt;
 &lt;p&gt;这不仅仅是小张的问题，这是**反模式（Anti-pattern）**的胜利。&lt;/p&gt;
 &lt;p&gt;如果你还在维护那种几千行的&amp;quot;单体&amp;quot;Terraform文件，或者你的团队在跨环境部署时依赖的是&amp;quot;复制粘贴&amp;quot;，那么这篇文章就是为你准备的。今天我们不谈高深的云原生理论，只聊聊如何用乐高积木的思维，把Terraform玩出效率。&lt;/p&gt;
-&lt;h2 id=&#34;什么是模块化从手搓零件到组装积木&#34;&gt;什么是模块化？从&amp;quot;手搓零件&amp;quot;到&amp;quot;组装积木&amp;quot;
+&lt;h2 id="什么是模块化从手搓零件到组装积木"&gt;什么是模块化？从&amp;quot;手搓零件&amp;quot;到&amp;quot;组装积木&amp;quot;
 &lt;/h2&gt;&lt;p&gt;很多新手对模块（Module）有误解，觉得那是大厂才需要的&amp;quot;重型武器&amp;quot;。其实，&lt;strong&gt;模块化本质上是对配置的封装和复用&lt;/strong&gt;。&lt;/p&gt;
 &lt;p&gt;想象一下你要造一辆车。如果你每次都得从冶炼钢铁、制造轮胎开始，那造车效率极低且容易出错。模块化就是有人已经把&amp;quot;轮胎&amp;quot;造好了（甚至分好了雪地胎、赛道胎），你只需要在造车时声明：&lt;code&gt;source = &amp;quot;./tires&amp;quot;&lt;/code&gt;，然后指定参数 &lt;code&gt;size = &amp;quot;18inch&amp;quot;&lt;/code&gt;。&lt;/p&gt;
 &lt;p&gt;在Terraform中，任何包含 &lt;code&gt;.tf&lt;/code&gt; 文件的目录都是一个模块。&lt;/p&gt;
-&lt;h3 id=&#34;真实案例某saas团队的救赎&#34;&gt;真实案例：某SaaS团队的救赎
+&lt;h3 id="真实案例某saas团队的救赎"&gt;真实案例：某SaaS团队的救赎
 &lt;/h3&gt;&lt;p&gt;我曾协助过一个SaaS团队进行架构改造。在改造前，他们有 Dev、Staging、Prod 三个环境，分别对应三个完全独立的Git仓库。每个仓库里的代码相似度高达90%，但又有着微妙的差异。&lt;/p&gt;
 &lt;p&gt;&lt;strong&gt;痛点爆发：&lt;/strong&gt;
 由于安全合规要求，他们所有的SaaS存储桶（S3 Bucket）都必须强制开启加密和日志记录。运维主管不得不分别修改三个仓库的代码。结果是：Dev环境改好了，Prod环境因为漏改了一个参数，被审计部门开了红牌罚单。&lt;/p&gt;
@@ -34,34 +20,66 @@
 &lt;/ol&gt;
 &lt;p&gt;&lt;strong&gt;结果：&lt;/strong&gt;
 下次再有合规变动，他们只需要修改那一个模块文件，三个环境 &lt;code&gt;terraform apply&lt;/code&gt; 一下，全部同步生效。&lt;strong&gt;维护成本降低了66%，合规风险几乎归零。&lt;/strong&gt;&lt;/p&gt;
-&lt;h2 id=&#34;如何设计一个好用的模块&#34;&gt;如何设计一个&amp;quot;好用&amp;quot;的模块？
+&lt;h2 id="如何设计一个好用的模块"&gt;如何设计一个&amp;quot;好用&amp;quot;的模块？
 &lt;/h2&gt;&lt;p&gt;不是把代码剪切到一个文件夹里就叫模块化。我见过很多为了模块化而模块化的代码，结果是用起来比原生资源还麻烦。&lt;/p&gt;
 &lt;p&gt;设计良好的模块应遵循 &lt;strong&gt;&amp;ldquo;强默认值，弱定制化&amp;rdquo;&lt;/strong&gt; 的原则。&lt;/p&gt;
-&lt;h3 id=&#34;1-糟糕的模块设计&#34;&gt;1. 糟糕的模块设计
-&lt;/h3&gt;&lt;div class=&#34;highlight&#34;&gt;&lt;pre tabindex=&#34;0&#34; style=&#34;color:#f8f8f2;background-color:#272822;-moz-tab-size:4;-o-tab-size:4;tab-size:4;&#34;&gt;&lt;code class=&#34;language-hcl&#34; data-lang=&#34;hcl&#34;&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;&lt;span style=&#34;color:#75715e&#34;&gt;# 这是一个反面教材
-&lt;/span&gt;&lt;/span&gt;&lt;/span&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;&lt;span style=&#34;color:#75715e&#34;&gt;&lt;/span&gt;&lt;span style=&#34;color:#66d9ef&#34;&gt;module&lt;/span&gt; &lt;span style=&#34;color:#e6db74&#34;&gt;&amp;#34;my_server&amp;#34;&lt;/span&gt; {
-&lt;/span&gt;&lt;/span&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;  source          &lt;span style=&#34;color:#f92672&#34;&gt;=&lt;/span&gt; &lt;span style=&#34;color:#e6db74&#34;&gt;&amp;#34;./modules/ec2&amp;#34;&lt;/span&gt;
-&lt;/span&gt;&lt;/span&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;  ami             &lt;span style=&#34;color:#f92672&#34;&gt;=&lt;/span&gt; &lt;span style=&#34;color:#e6db74&#34;&gt;&amp;#34;ami-123456&amp;#34;&lt;/span&gt;
-&lt;/span&gt;&lt;/span&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;  instance_type   &lt;span style=&#34;color:#f92672&#34;&gt;=&lt;/span&gt; &lt;span style=&#34;color:#e6db74&#34;&gt;&amp;#34;t3.micro&amp;#34;&lt;/span&gt;
-&lt;/span&gt;&lt;/span&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;  subnet_id       &lt;span style=&#34;color:#f92672&#34;&gt;=&lt;/span&gt; &lt;span style=&#34;color:#e6db74&#34;&gt;&amp;#34;subnet-abc&amp;#34;&lt;/span&gt;
-&lt;/span&gt;&lt;/span&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;  security_groups &lt;span style=&#34;color:#f92672&#34;&gt;=&lt;/span&gt; [&lt;span style=&#34;color:#e6db74&#34;&gt;&amp;#34;sg-1&amp;#34;, &amp;#34;sg-2&amp;#34;&lt;/span&gt;]
-&lt;/span&gt;&lt;/span&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;  user_data       &lt;span style=&#34;color:#f92672&#34;&gt;=&lt;/span&gt; &lt;span style=&#34;color:#e6db74&#34;&gt;&amp;#34;...&amp;#34;&lt;/span&gt;&lt;span style=&#34;color:#75715e&#34;&gt;
-&lt;/span&gt;&lt;/span&gt;&lt;/span&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;&lt;span style=&#34;color:#75715e&#34;&gt;  # ...又要传几十个参数
-&lt;/span&gt;&lt;/span&gt;&lt;/span&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;&lt;span style=&#34;color:#75715e&#34;&gt;&lt;/span&gt;}
-&lt;/span&gt;&lt;/span&gt;&lt;/code&gt;&lt;/pre&gt;&lt;/div&gt;&lt;p&gt;如果你写了一个模块，把AWS资源的所有参数都原封不动地暴露出来，那这个模块毫无意义。用户调用它和直接写 &lt;code&gt;resource &amp;quot;aws_instance&amp;quot;&lt;/code&gt; 没有任何区别，反而增加了一层阅读障碍。&lt;/p&gt;
-&lt;h3 id=&#34;2-优秀的模块设计opinionated&#34;&gt;2. 优秀的模块设计（Opinionated）
+&lt;h3 id="1-糟糕的模块设计"&gt;1. 糟糕的模块设计
+&lt;/h3&gt;&lt;div class="highlight"&gt;&lt;div class="chroma"&gt;
+&lt;table class="lntable"&gt;&lt;tr&gt;&lt;td class="lntd"&gt;
+&lt;pre tabindex="0" class="chroma"&gt;&lt;code&gt;&lt;span class="lnt"&gt; 1
+&lt;/span&gt;&lt;span class="lnt"&gt; 2
+&lt;/span&gt;&lt;span class="lnt"&gt; 3
+&lt;/span&gt;&lt;span class="lnt"&gt; 4
+&lt;/span&gt;&lt;span class="lnt"&gt; 5
+&lt;/span&gt;&lt;span class="lnt"&gt; 6
+&lt;/span&gt;&lt;span class="lnt"&gt; 7
+&lt;/span&gt;&lt;span class="lnt"&gt; 8
+&lt;/span&gt;&lt;span class="lnt"&gt; 9
+&lt;/span&gt;&lt;span class="lnt"&gt;10
+&lt;/span&gt;&lt;/code&gt;&lt;/pre&gt;&lt;/td&gt;
+&lt;td class="lntd"&gt;
+&lt;pre tabindex="0" class="chroma"&gt;&lt;code class="language-hcl" data-lang="hcl"&gt;&lt;span class="line"&gt;&lt;span class="cl"&gt;&lt;span class="c1"&gt;# 这是一个反面教材
+&lt;/span&gt;&lt;/span&gt;&lt;/span&gt;&lt;span class="line"&gt;&lt;span class="cl"&gt;&lt;span class="c1"&gt;&lt;/span&gt;&lt;span class="k"&gt;module&lt;/span&gt; &lt;span class="s2"&gt;&amp;#34;my_server&amp;#34;&lt;/span&gt; {
+&lt;/span&gt;&lt;/span&gt;&lt;span class="line"&gt;&lt;span class="cl"&gt;&lt;span class="n"&gt; source&lt;/span&gt; &lt;span class="o"&gt;=&lt;/span&gt; &lt;span class="s2"&gt;&amp;#34;./modules/ec2&amp;#34;&lt;/span&gt;
+&lt;/span&gt;&lt;/span&gt;&lt;span class="line"&gt;&lt;span class="cl"&gt;&lt;span class="n"&gt; ami&lt;/span&gt; &lt;span class="o"&gt;=&lt;/span&gt; &lt;span class="s2"&gt;&amp;#34;ami-123456&amp;#34;&lt;/span&gt;
+&lt;/span&gt;&lt;/span&gt;&lt;span class="line"&gt;&lt;span class="cl"&gt;&lt;span class="n"&gt; instance_type&lt;/span&gt; &lt;span class="o"&gt;=&lt;/span&gt; &lt;span class="s2"&gt;&amp;#34;t3.micro&amp;#34;&lt;/span&gt;
+&lt;/span&gt;&lt;/span&gt;&lt;span class="line"&gt;&lt;span class="cl"&gt;&lt;span class="n"&gt; subnet_id&lt;/span&gt; &lt;span class="o"&gt;=&lt;/span&gt; &lt;span class="s2"&gt;&amp;#34;subnet-abc&amp;#34;&lt;/span&gt;
+&lt;/span&gt;&lt;/span&gt;&lt;span class="line"&gt;&lt;span class="cl"&gt;&lt;span class="n"&gt; security_groups&lt;/span&gt; &lt;span class="o"&gt;=&lt;/span&gt; &lt;span class="p"&gt;[&lt;/span&gt;&lt;span class="s2"&gt;&amp;#34;sg-1&amp;#34;, &amp;#34;sg-2&amp;#34;&lt;/span&gt;&lt;span class="p"&gt;]&lt;/span&gt;
+&lt;/span&gt;&lt;/span&gt;&lt;span class="line"&gt;&lt;span class="cl"&gt;&lt;span class="n"&gt; user_data&lt;/span&gt; &lt;span class="o"&gt;=&lt;/span&gt; &lt;span class="s2"&gt;&amp;#34;...&amp;#34;&lt;/span&gt;&lt;span class="c1"&gt;
+&lt;/span&gt;&lt;/span&gt;&lt;/span&gt;&lt;span class="line"&gt;&lt;span class="cl"&gt;&lt;span class="c1"&gt; # ...又要传几十个参数
+&lt;/span&gt;&lt;/span&gt;&lt;/span&gt;&lt;span class="line"&gt;&lt;span class="cl"&gt;&lt;span class="c1"&gt;&lt;/span&gt;}
+&lt;/span&gt;&lt;/span&gt;&lt;/code&gt;&lt;/pre&gt;&lt;/td&gt;&lt;/tr&gt;&lt;/table&gt;
+&lt;/div&gt;
+&lt;/div&gt;&lt;p&gt;如果你写了一个模块，把AWS资源的所有参数都原封不动地暴露出来，那这个模块毫无意义。用户调用它和直接写 &lt;code&gt;resource &amp;quot;aws_instance&amp;quot;&lt;/code&gt; 没有任何区别，反而增加了一层阅读障碍。&lt;/p&gt;
+&lt;h3 id="2-优秀的模块设计opinionated"&gt;2. 优秀的模块设计（Opinionated）
 &lt;/h3&gt;&lt;p&gt;好的模块应该包含你的&lt;strong&gt;技术观点（Opinion）&lt;/strong&gt;。比如，作为运维负责人，你规定公司的Web服务器必须挂载数据盘，必须有特定的Tag。&lt;/p&gt;
-&lt;div class=&#34;highlight&#34;&gt;&lt;pre tabindex=&#34;0&#34; style=&#34;color:#f8f8f2;background-color:#272822;-moz-tab-size:4;-o-tab-size:4;tab-size:4;&#34;&gt;&lt;code class=&#34;language-hcl&#34; data-lang=&#34;hcl&#34;&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;&lt;span style=&#34;color:#75715e&#34;&gt;# 这是一个优秀的模块调用示例
-&lt;/span&gt;&lt;/span&gt;&lt;/span&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;&lt;span style=&#34;color:#75715e&#34;&gt;&lt;/span&gt;&lt;span style=&#34;color:#66d9ef&#34;&gt;module&lt;/span&gt; &lt;span style=&#34;color:#e6db74&#34;&gt;&amp;#34;web_server&amp;#34;&lt;/span&gt; {
-&lt;/span&gt;&lt;/span&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;  source &lt;span style=&#34;color:#f92672&#34;&gt;=&lt;/span&gt; &lt;span style=&#34;color:#e6db74&#34;&gt;&amp;#34;./modules/company-standard-web&amp;#34;&lt;/span&gt;
-&lt;/span&gt;&lt;/span&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;
-&lt;/span&gt;&lt;/span&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;![配图](https://picsum.photos/800/450?random&lt;span style=&#34;color:#f92672&#34;&gt;=&lt;/span&gt;&lt;span style=&#34;color:#ae81ff&#34;&gt;1768389055495&lt;/span&gt;)&lt;span style=&#34;color:#75715e&#34;&gt;
-&lt;/span&gt;&lt;/span&gt;&lt;/span&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;&lt;span style=&#34;color:#75715e&#34;&gt;
-&lt;/span&gt;&lt;/span&gt;&lt;/span&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;&lt;span style=&#34;color:#75715e&#34;&gt;  # 必填项极少，降低心智负担
-&lt;/span&gt;&lt;/span&gt;&lt;/span&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;&lt;span style=&#34;color:#75715e&#34;&gt;&lt;/span&gt;  app_name &lt;span style=&#34;color:#f92672&#34;&gt;=&lt;/span&gt; &lt;span style=&#34;color:#e6db74&#34;&gt;&amp;#34;payment-service&amp;#34;&lt;/span&gt;
-&lt;/span&gt;&lt;/span&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;  env      &lt;span style=&#34;color:#f92672&#34;&gt;=&lt;/span&gt; &lt;span style=&#34;color:#e6db74&#34;&gt;&amp;#34;prod&amp;#34;&lt;/span&gt;
-&lt;/span&gt;&lt;/span&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;}
-&lt;/span&gt;&lt;/span&gt;&lt;/code&gt;&lt;/pre&gt;&lt;/div&gt;&lt;p&gt;&lt;strong&gt;底层逻辑拆解：&lt;/strong&gt;
+&lt;div class="highlight"&gt;&lt;div class="chroma"&gt;
+&lt;table class="lntable"&gt;&lt;tr&gt;&lt;td class="lntd"&gt;
+&lt;pre tabindex="0" class="chroma"&gt;&lt;code&gt;&lt;span class="lnt"&gt; 1
+&lt;/span&gt;&lt;span class="lnt"&gt; 2
+&lt;/span&gt;&lt;span class="lnt"&gt; 3
+&lt;/span&gt;&lt;span class="lnt"&gt; 4
+&lt;/span&gt;&lt;span class="lnt"&gt; 5
+&lt;/span&gt;&lt;span class="lnt"&gt; 6
+&lt;/span&gt;&lt;span class="lnt"&gt; 7
+&lt;/span&gt;&lt;span class="lnt"&gt; 8
+&lt;/span&gt;&lt;span class="lnt"&gt; 9
+&lt;/span&gt;&lt;span class="lnt"&gt;10
+&lt;/span&gt;&lt;/code&gt;&lt;/pre&gt;&lt;/td&gt;
+&lt;td class="lntd"&gt;
+&lt;pre tabindex="0" class="chroma"&gt;&lt;code class="language-hcl" data-lang="hcl"&gt;&lt;span class="line"&gt;&lt;span class="cl"&gt;&lt;span class="c1"&gt;# 这是一个优秀的模块调用示例
+&lt;/span&gt;&lt;/span&gt;&lt;/span&gt;&lt;span class="line"&gt;&lt;span class="cl"&gt;&lt;span class="c1"&gt;&lt;/span&gt;&lt;span class="k"&gt;module&lt;/span&gt; &lt;span class="s2"&gt;&amp;#34;web_server&amp;#34;&lt;/span&gt; {
+&lt;/span&gt;&lt;/span&gt;&lt;span class="line"&gt;&lt;span class="cl"&gt;&lt;span class="n"&gt; source&lt;/span&gt; &lt;span class="o"&gt;=&lt;/span&gt; &lt;span class="s2"&gt;&amp;#34;./modules/company-standard-web&amp;#34;&lt;/span&gt;
+&lt;/span&gt;&lt;/span&gt;&lt;span class="line"&gt;&lt;span class="cl"&gt;
+&lt;/span&gt;&lt;/span&gt;&lt;span class="line"&gt;&lt;span class="cl"&gt;&lt;span class="n"&gt;![配图](https://picsum.photos/800/450?random&lt;/span&gt;&lt;span class="o"&gt;=&lt;/span&gt;&lt;span class="m"&gt;1768389055495&lt;/span&gt;&lt;span class="p"&gt;)&lt;/span&gt;&lt;span class="c1"&gt;
+&lt;/span&gt;&lt;/span&gt;&lt;/span&gt;&lt;span class="line"&gt;&lt;span class="cl"&gt;&lt;span class="c1"&gt;
+&lt;/span&gt;&lt;/span&gt;&lt;/span&gt;&lt;span class="line"&gt;&lt;span class="cl"&gt;&lt;span class="c1"&gt; # 必填项极少，降低心智负担
+&lt;/span&gt;&lt;/span&gt;&lt;/span&gt;&lt;span class="line"&gt;&lt;span class="cl"&gt;&lt;span class="c1"&gt;&lt;/span&gt;&lt;span class="n"&gt; app_name&lt;/span&gt; &lt;span class="o"&gt;=&lt;/span&gt; &lt;span class="s2"&gt;&amp;#34;payment-service&amp;#34;&lt;/span&gt;
+&lt;/span&gt;&lt;/span&gt;&lt;span class="line"&gt;&lt;span class="cl"&gt;&lt;span class="n"&gt; env&lt;/span&gt; &lt;span class="o"&gt;=&lt;/span&gt; &lt;span class="s2"&gt;&amp;#34;prod&amp;#34;&lt;/span&gt;
+&lt;/span&gt;&lt;/span&gt;&lt;span class="line"&gt;&lt;span class="cl"&gt;}
+&lt;/span&gt;&lt;/span&gt;&lt;/code&gt;&lt;/pre&gt;&lt;/td&gt;&lt;/tr&gt;&lt;/table&gt;
+&lt;/div&gt;
+&lt;/div&gt;&lt;p&gt;&lt;strong&gt;底层逻辑拆解：&lt;/strong&gt;
 在这个 &lt;code&gt;company-standard-web&lt;/code&gt; 模块内部，我们已经：&lt;/p&gt;
 &lt;ul&gt;
 &lt;li&gt;根据 &lt;code&gt;env&lt;/code&gt; 变量自动选择了机型（Prod用大机型，Dev用小机型）；&lt;/li&gt;
@@ -70,11 +88,10 @@
 &lt;li&gt;注入了标准的监控Agent。&lt;/li&gt;
 &lt;/ul&gt;
 &lt;p&gt;&lt;strong&gt;这才是模块化的核心价值：不仅是复用代码，更是复用架构标准。&lt;/strong&gt;&lt;/p&gt;
-&lt;h2 id=&#34;版本控制避开依赖地狱的护城河&#34;&gt;版本控制：避开&amp;quot;依赖地狱&amp;quot;的护城河
+&lt;h2 id="版本控制避开依赖地狱的护城河"&gt;版本控制：避开&amp;quot;依赖地狱&amp;quot;的护城河
 &lt;/h2&gt;&lt;p&gt;很多中小团队在实施模块化时，会犯一个致命错误：&lt;strong&gt;直接引用Git分支或本地路径。&lt;/strong&gt;&lt;/p&gt;
 &lt;blockquote&gt;
-&lt;p&gt;&amp;ldquo;昨天代码还能跑，今天我也没动过，怎么就报错了？&amp;rdquo;&lt;/p&gt;
-&lt;/blockquote&gt;
+&lt;p&gt;&amp;ldquo;昨天代码还能跑，今天我也没动过，怎么就报错了？&amp;rdquo;&lt;/p&gt;&lt;/blockquote&gt;
 &lt;p&gt;这种情况通常是因为你引用的模块代码被别人改了。可能是某个同事为了适配他的需求，修改了模块里的一个输出变量，直接导致依赖该模块的其他十几个项目全部瘫痪。&lt;/p&gt;
 &lt;p&gt;我个人在两年前踩过这个大坑。当时为了图省事，所有项目都指向 &lt;code&gt;source = &amp;quot;git::.../modules/vpc?ref=master&amp;quot;&lt;/code&gt;。周五下午，我为了新项目微调了一下VPC模块，提交到了master分支。结果周一早上，整个公司的CI/CD流水线全红了。&lt;/p&gt;
 &lt;p&gt;&lt;strong&gt;修正方法：严格的版本锁定&lt;/strong&gt;&lt;/p&gt;
@@ -83,51 +100,74 @@
 &lt;li&gt;&lt;strong&gt;打Tag：&lt;/strong&gt; 每次模块修改完成后，打上Git Tag（如 &lt;code&gt;v1.0.0&lt;/code&gt;）。&lt;/li&gt;
 &lt;li&gt;&lt;strong&gt;显式引用：&lt;/strong&gt; 在调用时指定版本号。&lt;/li&gt;
 &lt;/ol&gt;
-&lt;div class=&#34;highlight&#34;&gt;&lt;pre tabindex=&#34;0&#34; style=&#34;color:#f8f8f2;background-color:#272822;-moz-tab-size:4;-o-tab-size:4;tab-size:4;&#34;&gt;&lt;code class=&#34;language-hcl&#34; data-lang=&#34;hcl&#34;&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;&lt;span style=&#34;color:#66d9ef&#34;&gt;module&lt;/span&gt; &lt;span style=&#34;color:#e6db74&#34;&gt;&amp;#34;vpc&amp;#34;&lt;/span&gt; {
-&lt;/span&gt;&lt;/span&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;  source &lt;span style=&#34;color:#f92672&#34;&gt;=&lt;/span&gt; &amp;#34;git::https://github.com/my-org/terraform-modules.git//aws-vpc?ref&lt;span style=&#34;color:#f92672&#34;&gt;=&lt;/span&gt;&lt;span style=&#34;color:#66d9ef&#34;&gt;v1&lt;/span&gt;.&lt;span style=&#34;color:#ae81ff&#34;&gt;2&lt;/span&gt;.&lt;span style=&#34;color:#ae81ff&#34;&gt;0&lt;/span&gt;&lt;span style=&#34;color:#960050;background-color:#1e0010&#34;&gt;&amp;#34;&lt;/span&gt;
-&lt;/span&gt;&lt;/span&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;  
-&lt;/span&gt;&lt;/span&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;  cidr_block &lt;span style=&#34;color:#f92672&#34;&gt;=&lt;/span&gt; &lt;span style=&#34;color:#e6db74&#34;&gt;&amp;#34;10.0.0.0/16&amp;#34;&lt;/span&gt;
-&lt;/span&gt;&lt;/span&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;}
-&lt;/span&gt;&lt;/span&gt;&lt;/code&gt;&lt;/pre&gt;&lt;/div&gt;&lt;p&gt;这样，即使模块开发到了 &lt;code&gt;v2.0.0&lt;/code&gt;，你的旧项目依然稳稳地跑在 &lt;code&gt;v1.2.0&lt;/code&gt; 上，互不干扰。这在Terraform的世界里，就是你的安全带。&lt;/p&gt;
-&lt;h2 id=&#34;总结与落地工具箱&#34;&gt;总结与落地工具箱
+&lt;div class="highlight"&gt;&lt;div class="chroma"&gt;
+&lt;table class="lntable"&gt;&lt;tr&gt;&lt;td class="lntd"&gt;
+&lt;pre tabindex="0" class="chroma"&gt;&lt;code&gt;&lt;span class="lnt"&gt;1
+&lt;/span&gt;&lt;span class="lnt"&gt;2
+&lt;/span&gt;&lt;span class="lnt"&gt;3
+&lt;/span&gt;&lt;span class="lnt"&gt;4
+&lt;/span&gt;&lt;span class="lnt"&gt;5
+&lt;/span&gt;&lt;/code&gt;&lt;/pre&gt;&lt;/td&gt;
+&lt;td class="lntd"&gt;
+&lt;pre tabindex="0" class="chroma"&gt;&lt;code class="language-hcl" data-lang="hcl"&gt;&lt;span class="line"&gt;&lt;span class="cl"&gt;&lt;span class="k"&gt;module&lt;/span&gt; &lt;span class="s2"&gt;&amp;#34;vpc&amp;#34;&lt;/span&gt; {
+&lt;/span&gt;&lt;/span&gt;&lt;span class="line"&gt;&lt;span class="cl"&gt;&lt;span class="n"&gt; source&lt;/span&gt; &lt;span class="o"&gt;=&lt;/span&gt;&lt;span class="n"&gt; &amp;#34;git::https://github.com/my-org/terraform-modules.git//aws-vpc?ref&lt;/span&gt;&lt;span class="o"&gt;=&lt;/span&gt;&lt;span class="k"&gt;v1&lt;/span&gt;&lt;span class="p"&gt;.&lt;/span&gt;&lt;span class="m"&gt;2&lt;/span&gt;&lt;span class="p"&gt;.&lt;/span&gt;&lt;span class="m"&gt;0&lt;/span&gt;&lt;span class="err"&gt;&amp;#34;&lt;/span&gt;
+&lt;/span&gt;&lt;/span&gt;&lt;span class="line"&gt;&lt;span class="cl"&gt;
+&lt;/span&gt;&lt;/span&gt;&lt;span class="line"&gt;&lt;span class="cl"&gt; &lt;span class="n"&gt;cidr_block&lt;/span&gt; &lt;span class="o"&gt;=&lt;/span&gt; &lt;span class="s2"&gt;&amp;#34;10.0.0.0/16&amp;#34;&lt;/span&gt;
+&lt;/span&gt;&lt;/span&gt;&lt;span class="line"&gt;&lt;span class="cl"&gt;}
+&lt;/span&gt;&lt;/span&gt;&lt;/code&gt;&lt;/pre&gt;&lt;/td&gt;&lt;/tr&gt;&lt;/table&gt;
+&lt;/div&gt;
+&lt;/div&gt;&lt;p&gt;这样，即使模块开发到了 &lt;code&gt;v2.0.0&lt;/code&gt;，你的旧项目依然稳稳地跑在 &lt;code&gt;v1.2.0&lt;/code&gt; 上，互不干扰。这在Terraform的世界里，就是你的安全带。&lt;/p&gt;
+&lt;h2 id="总结与落地工具箱"&gt;总结与落地工具箱
 &lt;/h2&gt;&lt;p&gt;Terraform模块化不是为了炫技，而是为了&lt;strong&gt;让基础设施像应用代码一样可维护&lt;/strong&gt;。它能帮你把&amp;quot;部落知识&amp;quot;（比如：我们的服务器必须配这三个安全组）固化成代码逻辑。&lt;/p&gt;
 &lt;p&gt;最后，分享一个我自用的&lt;strong&gt;模块化目录结构模板&lt;/strong&gt;，你可以直接在项目中复刻：&lt;/p&gt;
-&lt;p&gt;&lt;img src=&#34;https://picsum.photos/800/450?random=1768389055837&#34;
-	
-	
-	
-	loading=&#34;lazy&#34;
-	
-		alt=&#34;配图&#34;
-	
-	
+&lt;p&gt;&lt;img src="https://picsum.photos/800/450?random=1768389055837"
+loading="lazy"
+alt="配图"
 &gt;&lt;/p&gt;
-&lt;div class=&#34;highlight&#34;&gt;&lt;pre tabindex=&#34;0&#34; style=&#34;color:#f8f8f2;background-color:#272822;-moz-tab-size:4;-o-tab-size:4;tab-size:4;&#34;&gt;&lt;code class=&#34;language-text&#34; data-lang=&#34;text&#34;&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;infrastructure-live/  (实际部署的环境)
-&lt;/span&gt;&lt;/span&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;├── prod/
-&lt;/span&gt;&lt;/span&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;│   ├── main.tf       (调用 modules/app)
-&lt;/span&gt;&lt;/span&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;│   └── provider.tf
-&lt;/span&gt;&lt;/span&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;├── stage/
-&lt;/span&gt;&lt;/span&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;│   ├── main.tf       (调用 modules/app)
-&lt;/span&gt;&lt;/span&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;│   └── provider.tf
-&lt;/span&gt;&lt;/span&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;
-&lt;/span&gt;&lt;/span&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;infrastructure-modules/ (可复用的积木)
-&lt;/span&gt;&lt;/span&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;├── aws-network/      (基础网络模块)
-&lt;/span&gt;&lt;/span&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;│   ├── main.tf
-&lt;/span&gt;&lt;/span&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;│   ├── variables.tf
-&lt;/span&gt;&lt;/span&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;│   ├── outputs.tf
-&lt;/span&gt;&lt;/span&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;│   └── README.md     (必须写！说明输入输出)
-&lt;/span&gt;&lt;/span&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;├── company-app/      (业务应用模块)
-&lt;/span&gt;&lt;/span&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;│   ├── main.tf
-&lt;/span&gt;&lt;/span&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;│   └── ...
-&lt;/span&gt;&lt;/span&gt;&lt;/code&gt;&lt;/pre&gt;&lt;/div&gt;&lt;p&gt;&lt;strong&gt;给你的3个具体行动建议：&lt;/strong&gt;&lt;/p&gt;
+&lt;div class="highlight"&gt;&lt;div class="chroma"&gt;
+&lt;table class="lntable"&gt;&lt;tr&gt;&lt;td class="lntd"&gt;
+&lt;pre tabindex="0" class="chroma"&gt;&lt;code&gt;&lt;span class="lnt"&gt; 1
+&lt;/span&gt;&lt;span class="lnt"&gt; 2
+&lt;/span&gt;&lt;span class="lnt"&gt; 3
+&lt;/span&gt;&lt;span class="lnt"&gt; 4
+&lt;/span&gt;&lt;span class="lnt"&gt; 5
+&lt;/span&gt;&lt;span class="lnt"&gt; 6
+&lt;/span&gt;&lt;span class="lnt"&gt; 7
+&lt;/span&gt;&lt;span class="lnt"&gt; 8
+&lt;/span&gt;&lt;span class="lnt"&gt; 9
+&lt;/span&gt;&lt;span class="lnt"&gt;10
+&lt;/span&gt;&lt;span class="lnt"&gt;11
+&lt;/span&gt;&lt;span class="lnt"&gt;12
+&lt;/span&gt;&lt;span class="lnt"&gt;13
+&lt;/span&gt;&lt;span class="lnt"&gt;14
+&lt;/span&gt;&lt;span class="lnt"&gt;15
+&lt;/span&gt;&lt;span class="lnt"&gt;16
+&lt;/span&gt;&lt;span class="lnt"&gt;17
+&lt;/span&gt;&lt;/code&gt;&lt;/pre&gt;&lt;/td&gt;
+&lt;td class="lntd"&gt;
+&lt;pre tabindex="0" class="chroma"&gt;&lt;code class="language-text" data-lang="text"&gt;&lt;span class="line"&gt;&lt;span class="cl"&gt;infrastructure-live/ (实际部署的环境)
+&lt;/span&gt;&lt;/span&gt;&lt;span class="line"&gt;&lt;span class="cl"&gt;├── prod/
+&lt;/span&gt;&lt;/span&gt;&lt;span class="line"&gt;&lt;span class="cl"&gt;│ ├── main.tf (调用 modules/app)
+&lt;/span&gt;&lt;/span&gt;&lt;span class="line"&gt;&lt;span class="cl"&gt;│ └── provider.tf
+&lt;/span&gt;&lt;/span&gt;&lt;span class="line"&gt;&lt;span class="cl"&gt;├── stage/
+&lt;/span&gt;&lt;/span&gt;&lt;span class="line"&gt;&lt;span class="cl"&gt;│ ├── main.tf (调用 modules/app)
+&lt;/span&gt;&lt;/span&gt;&lt;span class="line"&gt;&lt;span class="cl"&gt;│ └── provider.tf
+&lt;/span&gt;&lt;/span&gt;&lt;span class="line"&gt;&lt;span class="cl"&gt;
+&lt;/span&gt;&lt;/span&gt;&lt;span class="line"&gt;&lt;span class="cl"&gt;infrastructure-modules/ (可复用的积木)
+&lt;/span&gt;&lt;/span&gt;&lt;span class="line"&gt;&lt;span class="cl"&gt;├── aws-network/ (基础网络模块)
+&lt;/span&gt;&lt;/span&gt;&lt;span class="line"&gt;&lt;span class="cl"&gt;│ ├── main.tf
+&lt;/span&gt;&lt;/span&gt;&lt;span class="line"&gt;&lt;span class="cl"&gt;│ ├── variables.tf
+&lt;/span&gt;&lt;/span&gt;&lt;span class="line"&gt;&lt;span class="cl"&gt;│ ├── outputs.tf
+&lt;/span&gt;&lt;/span&gt;&lt;span class="line"&gt;&lt;span class="cl"&gt;│ └── README.md (必须写！说明输入输出)
+&lt;/span&gt;&lt;/span&gt;&lt;span class="line"&gt;&lt;span class="cl"&gt;├── company-app/ (业务应用模块)
+&lt;/span&gt;&lt;/span&gt;&lt;span class="line"&gt;&lt;span class="cl"&gt;│ ├── main.tf
+&lt;/span&gt;&lt;/span&gt;&lt;span class="line"&gt;&lt;span class="cl"&gt;│ └── ...
+&lt;/span&gt;&lt;/span&gt;&lt;/code&gt;&lt;/pre&gt;&lt;/td&gt;&lt;/tr&gt;&lt;/table&gt;
+&lt;/div&gt;
+&lt;/div&gt;&lt;p&gt;&lt;strong&gt;给你的3个具体行动建议：&lt;/strong&gt;&lt;/p&gt;
 &lt;ol&gt;
 &lt;li&gt;&lt;strong&gt;盘点现状：&lt;/strong&gt; 打开你现有的 Terraform 代码，找到重复出现 3 次以上的资源组合（比如 EC2+EBS+SG）。&lt;/li&gt;
 &lt;li&gt;&lt;strong&gt;小步重构：&lt;/strong&gt; 不要试图一次性重写所有代码。下周选择一个新的微服务或者非核心组件，尝试将其配置提取为一个本地模块。&lt;/li&gt;
 &lt;li&gt;&lt;strong&gt;建立文档：&lt;/strong&gt; 为你的第一个模块写一个 &lt;code&gt;README&lt;/code&gt;，列出 Inputs（必填/选填）和 Outputs。&lt;/li&gt;
 &lt;/ol&gt;
-&lt;p&gt;基础设施即代码，不仅是让机器读得懂，更要让人读得懂。从今天开始，停止复制粘贴，开始组装你的&amp;quot;积木&amp;quot;吧。&lt;/p&gt;
-</description>
-        </item>
-        
-    </channel>
-</rss>
+&lt;p&gt;基础设施即代码，不仅是让机器读得懂，更要让人读得懂。从今天开始，停止复制粘贴，开始组装你的&amp;quot;积木&amp;quot;吧。&lt;/p&gt;</description></item></channel></rss>

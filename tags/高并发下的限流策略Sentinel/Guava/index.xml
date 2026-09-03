@@ -1,100 +1,106 @@
-<?xml version="1.0" encoding="utf-8" standalone="yes"?>
-<rss version="2.0" xmlns:atom="http://www.w3.org/2005/Atom">
-    <channel>
-        <title>高并发下的限流策略（Sentinel/Guava） on SelfTechHub</title>
-        <link>https://blog.irudder.me/tags/%E9%AB%98%E5%B9%B6%E5%8F%91%E4%B8%8B%E7%9A%84%E9%99%90%E6%B5%81%E7%AD%96%E7%95%A5Sentinel/Guava.html</link>
-        <description>Recent content in 高并发下的限流策略（Sentinel/Guava） on SelfTechHub</description>
-        <generator>Hugo -- gohugo.io</generator>
-        <language>zh-cn</language>
-        <lastBuildDate>Mon, 01 Jul 2024 00:00:00 +0000</lastBuildDate><atom:link href="https://blog.irudder.me/tags/%E9%AB%98%E5%B9%B6%E5%8F%91%E4%B8%8B%E7%9A%84%E9%99%90%E6%B5%81%E7%AD%96%E7%95%A5Sentinel/Guava/index.xml" rel="self" type="application/rss+xml" /><item>
-        <title>服务雪崩？深夜3点，我用限流救回了崩溃的系统</title>
-        <link>https://blog.irudder.me/tech/jiagouyouhuashizhananlijiexi/gaobingfaxiadexianliucelvesentinel_guava.html</link>
-        <pubDate>Mon, 01 Jul 2024 00:00:00 +0000</pubDate>
-        
-        <guid>https://blog.irudder.me/tech/jiagouyouhuashizhananlijiexi/gaobingfaxiadexianliucelvesentinel_guava.html</guid>
-        <description>&lt;p&gt;&amp;ldquo;叮叮叮……&amp;rdquo;&lt;/p&gt;
+<?xml version="1.0" encoding="utf-8" standalone="yes"?><rss version="2.0" xmlns:atom="http://www.w3.org/2005/Atom"><channel><title>高并发下的限流策略（Sentinel/Guava） on SelfTechHub</title><link>https://blog.irudder.me/tags/%E9%AB%98%E5%B9%B6%E5%8F%91%E4%B8%8B%E7%9A%84%E9%99%90%E6%B5%81%E7%AD%96%E7%95%A5Sentinel/Guava.html</link><description>Recent content in 高并发下的限流策略（Sentinel/Guava） on SelfTechHub</description><generator>Hugo -- gohugo.io</generator><language>zh-cn</language><lastBuildDate>Mon, 01 Jul 2024 00:00:00 +0800</lastBuildDate><atom:link href="https://blog.irudder.me/tags/%E9%AB%98%E5%B9%B6%E5%8F%91%E4%B8%8B%E7%9A%84%E9%99%90%E6%B5%81%E7%AD%96%E7%95%A5Sentinel/Guava/index.xml" rel="self" type="application/rss+xml"/><item><title>服务雪崩？深夜3点，我用限流救回了崩溃的系统</title><link>https://blog.irudder.me/tech/jiagouyouhuashizhananlijiexi/gaobingfaxiadexianliucelvesentinel_guava.html</link><pubDate>Mon, 01 Jul 2024 00:00:00 +0800</pubDate><guid>https://blog.irudder.me/tech/jiagouyouhuashizhananlijiexi/gaobingfaxiadexianliucelvesentinel_guava.html</guid><description>&lt;p&gt;&amp;ldquo;叮叮叮……&amp;rdquo;&lt;/p&gt;
 &lt;p&gt;凌晨 3 点 15 分，手机疯狂震动，运维告警群的消息像雪花一样炸开。作为后端负责人的我，迷迷糊糊抓起手机，看到那行让人心跳骤停的红字：&amp;ldquo;数据库 CPU 使用率 99%，连接数耗尽，订单服务响应超时。&amp;rdquo;&lt;/p&gt;
 &lt;p&gt;那是我刚升任架构师的第一个月。为了迎接一场大促，我们扩容了服务器，优化了 SQL，甚至提前喝了两罐红牛。但我唯独忽略了一件事：&lt;strong&gt;当流量像海啸一样涌来时，大坝如果没有泄洪闸，崩塌只在一瞬间。&lt;/strong&gt;&lt;/p&gt;
-&lt;p&gt;&lt;img src=&#34;https://picsum.photos/800/450?random=1768457395047&#34;
-	
-	
-	
-	loading=&#34;lazy&#34;
-	
-		alt=&#34;配图&#34;
-	
-	
+&lt;p&gt;&lt;img src="https://picsum.photos/800/450?random=1768457395047"
+loading="lazy"
+alt="配图"
 &gt;&lt;/p&gt;
 &lt;p&gt;以前我总以为，&amp;ldquo;限流&amp;quot;是拒绝用户，是把送上门的钱推出去。直到踩了这个大坑，我才明白：&lt;strong&gt;限流不是为了拒绝，而是为了保护。它是在告诉系统：&amp;ldquo;别逞强，活下来最重要。&amp;rdquo;&lt;/strong&gt;&lt;/p&gt;
 &lt;p&gt;如果你也曾面对流量洪峰手足无措，或者对着 Sentinel 和 Guava 的文档一头雾水，请深呼吸。今天我们不谈枯燥的原理，聊聊怎么用这两个&amp;quot;保命符&amp;rdquo;，让你的服务（和你自己）睡个安稳觉。&lt;/p&gt;
-&lt;h2 id=&#34;既然扩容了为什么还要限流&#34;&gt;既然扩容了，为什么还要限流？
+&lt;h2 id="既然扩容了为什么还要限流"&gt;既然扩容了，为什么还要限流？
 &lt;/h2&gt;&lt;p&gt;很多新手开发常有一个误区：并发高了？加机器啊！&lt;/p&gt;
 &lt;p&gt;让我讲个真实的故事。那是两年前的一个周五下午，我们上线了一个&amp;quot;整点抢券&amp;quot;活动。预估 QPS（每秒请求数）大概在 2000 左右。为了保险，我把应用服务器从 3 台扩到了 10 台。&lt;/p&gt;
 &lt;p&gt;结果呢？活动开始第 5 秒，系统全挂。&lt;/p&gt;
 &lt;p&gt;&lt;strong&gt;复盘时我们发现了一个惨痛的真相：&lt;/strong&gt;
 应用服务器是扩容了，但底层的数据库和 Redis 并没有无限抗压能力。10 台机器同时向数据库发起请求，瞬间打满了数据库连接池。这就像是你把公路拓宽了 10 倍，但收费站的窗口还是只有 2 个，结果就是所有车都堵死在收费站门口。&lt;/p&gt;
 &lt;blockquote&gt;
-&lt;p&gt;&lt;strong&gt;核心观点&lt;/strong&gt;：系统的短板永远在最脆弱的那个环节（通常是数据库）。限流，就是给这个脆弱环节加一个&amp;quot;排号机&amp;quot;。&lt;/p&gt;
-&lt;/blockquote&gt;
+&lt;p&gt;&lt;strong&gt;核心观点&lt;/strong&gt;：系统的短板永远在最脆弱的那个环节（通常是数据库）。限流，就是给这个脆弱环节加一个&amp;quot;排号机&amp;quot;。&lt;/p&gt;&lt;/blockquote&gt;
 &lt;hr&gt;
-&lt;h2 id=&#34;单机卫士guava-ratelimiter-的极简主义&#34;&gt;单机卫士：Guava RateLimiter 的&amp;quot;极简主义&amp;quot;
+&lt;h2 id="单机卫士guava-ratelimiter-的极简主义"&gt;单机卫士：Guava RateLimiter 的&amp;quot;极简主义&amp;quot;
 &lt;/h2&gt;&lt;p&gt;如果你的业务场景比较简单，比如写一个内部的数据同步脚本，或者是非集群环境下的接口保护，Google 的 Guava 工具包是你最好的朋友。&lt;/p&gt;
 &lt;p&gt;&lt;strong&gt;场景还原：&lt;/strong&gt;
 那个让我崩溃的深夜之后，我接手了一个旧项目：一个导出 Excel 报表的接口。这个接口非常耗内存，一旦有超过 5 个人同时点&amp;quot;导出&amp;quot;，服务器就会因为 OOM（内存溢出）宕机。&lt;/p&gt;
 &lt;p&gt;&lt;strong&gt;我的解决方案：&lt;/strong&gt;
 我没有重构代码（风险太大），而是引入了 Guava 的 &lt;code&gt;RateLimiter&lt;/code&gt;。你可以把它想象成一个拿着秒表的体育老师，它不管有多少学生想跑步，它只按固定的节奏发令。&lt;/p&gt;
 &lt;p&gt;看看这几行救命的代码，简单到令人发指：&lt;/p&gt;
-&lt;div class=&#34;highlight&#34;&gt;&lt;pre tabindex=&#34;0&#34; style=&#34;color:#f8f8f2;background-color:#272822;-moz-tab-size:4;-o-tab-size:4;tab-size:4;&#34;&gt;&lt;code class=&#34;language-java&#34; data-lang=&#34;java&#34;&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;&lt;span style=&#34;color:#75715e&#34;&gt;// 每秒只允许 2 个请求通过（令牌桶算法）&lt;/span&gt;
-&lt;/span&gt;&lt;/span&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;RateLimiter limiter &lt;span style=&#34;color:#f92672&#34;&gt;=&lt;/span&gt; RateLimiter.&lt;span style=&#34;color:#a6e22e&#34;&gt;create&lt;/span&gt;(2.&lt;span style=&#34;color:#a6e22e&#34;&gt;0&lt;/span&gt;);
-&lt;/span&gt;&lt;/span&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;
-&lt;/span&gt;&lt;/span&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;&lt;span style=&#34;color:#66d9ef&#34;&gt;public&lt;/span&gt; &lt;span style=&#34;color:#66d9ef&#34;&gt;void&lt;/span&gt; &lt;span style=&#34;color:#a6e22e&#34;&gt;exportReport&lt;/span&gt;() {
-&lt;/span&gt;&lt;/span&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;    &lt;span style=&#34;color:#75715e&#34;&gt;// 尝试获取令牌，拿不到就等待（或者你可以选择直接拒绝）&lt;/span&gt;
-&lt;/span&gt;&lt;/span&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;    limiter.&lt;span style=&#34;color:#a6e22e&#34;&gt;acquire&lt;/span&gt;(); 
-&lt;/span&gt;&lt;/span&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;    
-&lt;/span&gt;&lt;/span&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;    &lt;span style=&#34;color:#75715e&#34;&gt;// 下面是原本的业务逻辑&lt;/span&gt;
-&lt;/span&gt;&lt;/span&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;    System.&lt;span style=&#34;color:#a6e22e&#34;&gt;out&lt;/span&gt;.&lt;span style=&#34;color:#a6e22e&#34;&gt;println&lt;/span&gt;(&lt;span style=&#34;color:#e6db74&#34;&gt;&amp;#34;开始执行耗时的导出任务...&amp;#34;&lt;/span&gt;);
-&lt;/span&gt;&lt;/span&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;}
-&lt;/span&gt;&lt;/span&gt;&lt;/code&gt;&lt;/pre&gt;&lt;/div&gt;&lt;p&gt;&lt;strong&gt;效果立竿见影：&lt;/strong&gt;
+&lt;div class="highlight"&gt;&lt;div class="chroma"&gt;
+&lt;table class="lntable"&gt;&lt;tr&gt;&lt;td class="lntd"&gt;
+&lt;pre tabindex="0" class="chroma"&gt;&lt;code&gt;&lt;span class="lnt"&gt; 1
+&lt;/span&gt;&lt;span class="lnt"&gt; 2
+&lt;/span&gt;&lt;span class="lnt"&gt; 3
+&lt;/span&gt;&lt;span class="lnt"&gt; 4
+&lt;/span&gt;&lt;span class="lnt"&gt; 5
+&lt;/span&gt;&lt;span class="lnt"&gt; 6
+&lt;/span&gt;&lt;span class="lnt"&gt; 7
+&lt;/span&gt;&lt;span class="lnt"&gt; 8
+&lt;/span&gt;&lt;span class="lnt"&gt; 9
+&lt;/span&gt;&lt;span class="lnt"&gt;10
+&lt;/span&gt;&lt;/code&gt;&lt;/pre&gt;&lt;/td&gt;
+&lt;td class="lntd"&gt;
+&lt;pre tabindex="0" class="chroma"&gt;&lt;code class="language-java" data-lang="java"&gt;&lt;span class="line"&gt;&lt;span class="cl"&gt;&lt;span class="c1"&gt;// 每秒只允许 2 个请求通过（令牌桶算法）&lt;/span&gt;&lt;span class="w"&gt;
+&lt;/span&gt;&lt;/span&gt;&lt;/span&gt;&lt;span class="line"&gt;&lt;span class="cl"&gt;&lt;span class="w"&gt;&lt;/span&gt;&lt;span class="n"&gt;RateLimiter&lt;/span&gt;&lt;span class="w"&gt; &lt;/span&gt;&lt;span class="n"&gt;limiter&lt;/span&gt;&lt;span class="w"&gt; &lt;/span&gt;&lt;span class="o"&gt;=&lt;/span&gt;&lt;span class="w"&gt; &lt;/span&gt;&lt;span class="n"&gt;RateLimiter&lt;/span&gt;&lt;span class="p"&gt;.&lt;/span&gt;&lt;span class="na"&gt;create&lt;/span&gt;&lt;span class="p"&gt;(&lt;/span&gt;&lt;span class="n"&gt;2&lt;/span&gt;&lt;span class="p"&gt;.&lt;/span&gt;&lt;span class="na"&gt;0&lt;/span&gt;&lt;span class="p"&gt;);&lt;/span&gt;&lt;span class="w"&gt;
+&lt;/span&gt;&lt;/span&gt;&lt;/span&gt;&lt;span class="line"&gt;&lt;span class="cl"&gt;&lt;span class="w"&gt;
+&lt;/span&gt;&lt;/span&gt;&lt;/span&gt;&lt;span class="line"&gt;&lt;span class="cl"&gt;&lt;span class="w"&gt;&lt;/span&gt;&lt;span class="kd"&gt;public&lt;/span&gt;&lt;span class="w"&gt; &lt;/span&gt;&lt;span class="kt"&gt;void&lt;/span&gt;&lt;span class="w"&gt; &lt;/span&gt;&lt;span class="nf"&gt;exportReport&lt;/span&gt;&lt;span class="p"&gt;()&lt;/span&gt;&lt;span class="w"&gt; &lt;/span&gt;&lt;span class="p"&gt;{&lt;/span&gt;&lt;span class="w"&gt;
+&lt;/span&gt;&lt;/span&gt;&lt;/span&gt;&lt;span class="line"&gt;&lt;span class="cl"&gt;&lt;span class="w"&gt; &lt;/span&gt;&lt;span class="c1"&gt;// 尝试获取令牌，拿不到就等待（或者你可以选择直接拒绝）&lt;/span&gt;&lt;span class="w"&gt;
+&lt;/span&gt;&lt;/span&gt;&lt;/span&gt;&lt;span class="line"&gt;&lt;span class="cl"&gt;&lt;span class="w"&gt; &lt;/span&gt;&lt;span class="n"&gt;limiter&lt;/span&gt;&lt;span class="p"&gt;.&lt;/span&gt;&lt;span class="na"&gt;acquire&lt;/span&gt;&lt;span class="p"&gt;();&lt;/span&gt;&lt;span class="w"&gt;
+&lt;/span&gt;&lt;/span&gt;&lt;/span&gt;&lt;span class="line"&gt;&lt;span class="cl"&gt;&lt;span class="w"&gt;
+&lt;/span&gt;&lt;/span&gt;&lt;/span&gt;&lt;span class="line"&gt;&lt;span class="cl"&gt;&lt;span class="w"&gt; &lt;/span&gt;&lt;span class="c1"&gt;// 下面是原本的业务逻辑&lt;/span&gt;&lt;span class="w"&gt;
+&lt;/span&gt;&lt;/span&gt;&lt;/span&gt;&lt;span class="line"&gt;&lt;span class="cl"&gt;&lt;span class="w"&gt; &lt;/span&gt;&lt;span class="n"&gt;System&lt;/span&gt;&lt;span class="p"&gt;.&lt;/span&gt;&lt;span class="na"&gt;out&lt;/span&gt;&lt;span class="p"&gt;.&lt;/span&gt;&lt;span class="na"&gt;println&lt;/span&gt;&lt;span class="p"&gt;(&lt;/span&gt;&lt;span class="s"&gt;&amp;#34;开始执行耗时的导出任务...&amp;#34;&lt;/span&gt;&lt;span class="p"&gt;);&lt;/span&gt;&lt;span class="w"&gt;
+&lt;/span&gt;&lt;/span&gt;&lt;/span&gt;&lt;span class="line"&gt;&lt;span class="cl"&gt;&lt;span class="w"&gt;&lt;/span&gt;&lt;span class="p"&gt;}&lt;/span&gt;&lt;span class="w"&gt;
+&lt;/span&gt;&lt;/span&gt;&lt;/span&gt;&lt;/code&gt;&lt;/pre&gt;&lt;/td&gt;&lt;/tr&gt;&lt;/table&gt;
+&lt;/div&gt;
+&lt;/div&gt;&lt;p&gt;&lt;strong&gt;效果立竿见影：&lt;/strong&gt;
 那天之后，无论运营部的同事怎么狂点&amp;quot;导出&amp;quot;按钮，服务器始终稳如老狗。多余的请求会自动排队，大家顶多觉得&amp;quot;稍微慢了一点&amp;quot;，但再也没有人喊&amp;quot;系统挂了&amp;quot;。&lt;/p&gt;
 &lt;p&gt;&lt;strong&gt;避坑提示：&lt;/strong&gt;
 Guava 是&lt;strong&gt;单机限流&lt;/strong&gt;。如果你有 10 台服务器，每台限制 2 QPS，那么总的流量就是 20 QPS。千万别在分布式大流量场景下，把它当做唯一的防线。&lt;/p&gt;
 &lt;hr&gt;
-&lt;h2 id=&#34;集群指挥官sentinel-的上帝视角&#34;&gt;集群指挥官：Sentinel 的&amp;quot;上帝视角&amp;quot;
+&lt;h2 id="集群指挥官sentinel-的上帝视角"&gt;集群指挥官：Sentinel 的&amp;quot;上帝视角&amp;quot;
 &lt;/h2&gt;&lt;p&gt;当你面对的是微服务架构，或者像&amp;quot;双十一&amp;quot;那种级别的流量，Guava 就显得力不从心了。这时候，你需要阿里巴巴开源的 &lt;strong&gt;Sentinel&lt;/strong&gt;。&lt;/p&gt;
 &lt;p&gt;&lt;strong&gt;场景还原：&lt;/strong&gt;
 去年，我们的支付服务因为依赖的第三方渠道偶尔超时，导致整个调用链路卡死。只要第三方一抖动，我们的线程池就被占满，连带其他正常的查询业务也无法响应。这就是典型的&amp;quot;雪崩&amp;quot;。&lt;/p&gt;
 &lt;p&gt;&lt;strong&gt;我的行动：&lt;/strong&gt;
 我花了一个下午接入 Sentinel。这东西最治愈的地方在于它有一个&lt;strong&gt;可视化控制台&lt;/strong&gt;。你不需要改一行代码，就能在界面上看到每个接口的实时流量。&lt;/p&gt;
-&lt;p&gt;&lt;img src=&#34;https://picsum.photos/800/450?random=1768457398790&#34;
-	
-	
-	
-	loading=&#34;lazy&#34;
-	
-		alt=&#34;配图&#34;
-	
-	
+&lt;p&gt;&lt;img src="https://picsum.photos/800/450?random=1768457398790"
+loading="lazy"
+alt="配图"
 &gt;&lt;/p&gt;
 &lt;p&gt;针对支付接口，我配置了一条&amp;quot;熔断降级&amp;quot;规则：&lt;/p&gt;
 &lt;ul&gt;
 &lt;li&gt;&lt;strong&gt;规则&lt;/strong&gt;：当 1 秒内响应时间超过 500ms 的请求比例达到 50%。&lt;/li&gt;
 &lt;li&gt;&lt;strong&gt;动作&lt;/strong&gt;：自动熔断 10 秒（这 10 秒内直接返回&amp;quot;支付繁忙&amp;quot;，不再请求第三方）。&lt;/li&gt;
 &lt;/ul&gt;
-&lt;div class=&#34;highlight&#34;&gt;&lt;pre tabindex=&#34;0&#34; style=&#34;color:#f8f8f2;background-color:#272822;-moz-tab-size:4;-o-tab-size:4;tab-size:4;&#34;&gt;&lt;code class=&#34;language-java&#34; data-lang=&#34;java&#34;&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;&lt;span style=&#34;color:#75715e&#34;&gt;// 使用注解定义资源，配置 fallback 处理降级逻辑&lt;/span&gt;
-&lt;/span&gt;&lt;/span&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;&lt;span style=&#34;color:#a6e22e&#34;&gt;@SentinelResource&lt;/span&gt;(value &lt;span style=&#34;color:#f92672&#34;&gt;=&lt;/span&gt; &lt;span style=&#34;color:#e6db74&#34;&gt;&amp;#34;payOrder&amp;#34;&lt;/span&gt;, fallback &lt;span style=&#34;color:#f92672&#34;&gt;=&lt;/span&gt; &lt;span style=&#34;color:#e6db74&#34;&gt;&amp;#34;handleFallback&amp;#34;&lt;/span&gt;)
-&lt;/span&gt;&lt;/span&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;&lt;span style=&#34;color:#66d9ef&#34;&gt;public&lt;/span&gt; String &lt;span style=&#34;color:#a6e22e&#34;&gt;payOrder&lt;/span&gt;(String orderId) {
-&lt;/span&gt;&lt;/span&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;    &lt;span style=&#34;color:#75715e&#34;&gt;// 模拟调用第三方支付&lt;/span&gt;
-&lt;/span&gt;&lt;/span&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;    &lt;span style=&#34;color:#66d9ef&#34;&gt;return&lt;/span&gt; paymentService.&lt;span style=&#34;color:#a6e22e&#34;&gt;process&lt;/span&gt;(orderId);
-&lt;/span&gt;&lt;/span&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;}
-&lt;/span&gt;&lt;/span&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;
-&lt;/span&gt;&lt;/span&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;&lt;span style=&#34;color:#75715e&#34;&gt;// 降级后的兜底方法：给用户一个温暖的提示，而不是报错页面&lt;/span&gt;
-&lt;/span&gt;&lt;/span&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;&lt;span style=&#34;color:#66d9ef&#34;&gt;public&lt;/span&gt; String &lt;span style=&#34;color:#a6e22e&#34;&gt;handleFallback&lt;/span&gt;(String orderId, Throwable e) {
-&lt;/span&gt;&lt;/span&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;    &lt;span style=&#34;color:#66d9ef&#34;&gt;return&lt;/span&gt; &lt;span style=&#34;color:#e6db74&#34;&gt;&amp;#34;支付通道拥挤，请稍后重试（我们正在全力疏通中...）&amp;#34;&lt;/span&gt;;
-&lt;/span&gt;&lt;/span&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;}
-&lt;/span&gt;&lt;/span&gt;&lt;/code&gt;&lt;/pre&gt;&lt;/div&gt;&lt;p&gt;&lt;strong&gt;最终结果：&lt;/strong&gt;
+&lt;div class="highlight"&gt;&lt;div class="chroma"&gt;
+&lt;table class="lntable"&gt;&lt;tr&gt;&lt;td class="lntd"&gt;
+&lt;pre tabindex="0" class="chroma"&gt;&lt;code&gt;&lt;span class="lnt"&gt; 1
+&lt;/span&gt;&lt;span class="lnt"&gt; 2
+&lt;/span&gt;&lt;span class="lnt"&gt; 3
+&lt;/span&gt;&lt;span class="lnt"&gt; 4
+&lt;/span&gt;&lt;span class="lnt"&gt; 5
+&lt;/span&gt;&lt;span class="lnt"&gt; 6
+&lt;/span&gt;&lt;span class="lnt"&gt; 7
+&lt;/span&gt;&lt;span class="lnt"&gt; 8
+&lt;/span&gt;&lt;span class="lnt"&gt; 9
+&lt;/span&gt;&lt;span class="lnt"&gt;10
+&lt;/span&gt;&lt;span class="lnt"&gt;11
+&lt;/span&gt;&lt;/code&gt;&lt;/pre&gt;&lt;/td&gt;
+&lt;td class="lntd"&gt;
+&lt;pre tabindex="0" class="chroma"&gt;&lt;code class="language-java" data-lang="java"&gt;&lt;span class="line"&gt;&lt;span class="cl"&gt;&lt;span class="c1"&gt;// 使用注解定义资源，配置 fallback 处理降级逻辑&lt;/span&gt;&lt;span class="w"&gt;
+&lt;/span&gt;&lt;/span&gt;&lt;/span&gt;&lt;span class="line"&gt;&lt;span class="cl"&gt;&lt;span class="w"&gt;&lt;/span&gt;&lt;span class="nd"&gt;@SentinelResource&lt;/span&gt;&lt;span class="p"&gt;(&lt;/span&gt;&lt;span class="n"&gt;value&lt;/span&gt;&lt;span class="w"&gt; &lt;/span&gt;&lt;span class="o"&gt;=&lt;/span&gt;&lt;span class="w"&gt; &lt;/span&gt;&lt;span class="s"&gt;&amp;#34;payOrder&amp;#34;&lt;/span&gt;&lt;span class="p"&gt;,&lt;/span&gt;&lt;span class="w"&gt; &lt;/span&gt;&lt;span class="n"&gt;fallback&lt;/span&gt;&lt;span class="w"&gt; &lt;/span&gt;&lt;span class="o"&gt;=&lt;/span&gt;&lt;span class="w"&gt; &lt;/span&gt;&lt;span class="s"&gt;&amp;#34;handleFallback&amp;#34;&lt;/span&gt;&lt;span class="p"&gt;)&lt;/span&gt;&lt;span class="w"&gt;
+&lt;/span&gt;&lt;/span&gt;&lt;/span&gt;&lt;span class="line"&gt;&lt;span class="cl"&gt;&lt;span class="w"&gt;&lt;/span&gt;&lt;span class="kd"&gt;public&lt;/span&gt;&lt;span class="w"&gt; &lt;/span&gt;&lt;span class="n"&gt;String&lt;/span&gt;&lt;span class="w"&gt; &lt;/span&gt;&lt;span class="nf"&gt;payOrder&lt;/span&gt;&lt;span class="p"&gt;(&lt;/span&gt;&lt;span class="n"&gt;String&lt;/span&gt;&lt;span class="w"&gt; &lt;/span&gt;&lt;span class="n"&gt;orderId&lt;/span&gt;&lt;span class="p"&gt;)&lt;/span&gt;&lt;span class="w"&gt; &lt;/span&gt;&lt;span class="p"&gt;{&lt;/span&gt;&lt;span class="w"&gt;
+&lt;/span&gt;&lt;/span&gt;&lt;/span&gt;&lt;span class="line"&gt;&lt;span class="cl"&gt;&lt;span class="w"&gt; &lt;/span&gt;&lt;span class="c1"&gt;// 模拟调用第三方支付&lt;/span&gt;&lt;span class="w"&gt;
+&lt;/span&gt;&lt;/span&gt;&lt;/span&gt;&lt;span class="line"&gt;&lt;span class="cl"&gt;&lt;span class="w"&gt; &lt;/span&gt;&lt;span class="k"&gt;return&lt;/span&gt;&lt;span class="w"&gt; &lt;/span&gt;&lt;span class="n"&gt;paymentService&lt;/span&gt;&lt;span class="p"&gt;.&lt;/span&gt;&lt;span class="na"&gt;process&lt;/span&gt;&lt;span class="p"&gt;(&lt;/span&gt;&lt;span class="n"&gt;orderId&lt;/span&gt;&lt;span class="p"&gt;);&lt;/span&gt;&lt;span class="w"&gt;
+&lt;/span&gt;&lt;/span&gt;&lt;/span&gt;&lt;span class="line"&gt;&lt;span class="cl"&gt;&lt;span class="w"&gt;&lt;/span&gt;&lt;span class="p"&gt;}&lt;/span&gt;&lt;span class="w"&gt;
+&lt;/span&gt;&lt;/span&gt;&lt;/span&gt;&lt;span class="line"&gt;&lt;span class="cl"&gt;&lt;span class="w"&gt;
+&lt;/span&gt;&lt;/span&gt;&lt;/span&gt;&lt;span class="line"&gt;&lt;span class="cl"&gt;&lt;span class="w"&gt;&lt;/span&gt;&lt;span class="c1"&gt;// 降级后的兜底方法：给用户一个温暖的提示，而不是报错页面&lt;/span&gt;&lt;span class="w"&gt;
+&lt;/span&gt;&lt;/span&gt;&lt;/span&gt;&lt;span class="line"&gt;&lt;span class="cl"&gt;&lt;span class="w"&gt;&lt;/span&gt;&lt;span class="kd"&gt;public&lt;/span&gt;&lt;span class="w"&gt; &lt;/span&gt;&lt;span class="n"&gt;String&lt;/span&gt;&lt;span class="w"&gt; &lt;/span&gt;&lt;span class="nf"&gt;handleFallback&lt;/span&gt;&lt;span class="p"&gt;(&lt;/span&gt;&lt;span class="n"&gt;String&lt;/span&gt;&lt;span class="w"&gt; &lt;/span&gt;&lt;span class="n"&gt;orderId&lt;/span&gt;&lt;span class="p"&gt;,&lt;/span&gt;&lt;span class="w"&gt; &lt;/span&gt;&lt;span class="n"&gt;Throwable&lt;/span&gt;&lt;span class="w"&gt; &lt;/span&gt;&lt;span class="n"&gt;e&lt;/span&gt;&lt;span class="p"&gt;)&lt;/span&gt;&lt;span class="w"&gt; &lt;/span&gt;&lt;span class="p"&gt;{&lt;/span&gt;&lt;span class="w"&gt;
+&lt;/span&gt;&lt;/span&gt;&lt;/span&gt;&lt;span class="line"&gt;&lt;span class="cl"&gt;&lt;span class="w"&gt; &lt;/span&gt;&lt;span class="k"&gt;return&lt;/span&gt;&lt;span class="w"&gt; &lt;/span&gt;&lt;span class="s"&gt;&amp;#34;支付通道拥挤，请稍后重试（我们正在全力疏通中...）&amp;#34;&lt;/span&gt;&lt;span class="p"&gt;;&lt;/span&gt;&lt;span class="w"&gt;
+&lt;/span&gt;&lt;/span&gt;&lt;/span&gt;&lt;span class="line"&gt;&lt;span class="cl"&gt;&lt;span class="w"&gt;&lt;/span&gt;&lt;span class="p"&gt;}&lt;/span&gt;&lt;span class="w"&gt;
+&lt;/span&gt;&lt;/span&gt;&lt;/span&gt;&lt;/code&gt;&lt;/pre&gt;&lt;/td&gt;&lt;/tr&gt;&lt;/table&gt;
+&lt;/div&gt;
+&lt;/div&gt;&lt;p&gt;&lt;strong&gt;最终结果：&lt;/strong&gt;
 一周后，第三方渠道再次故障。监控大屏上显示支付接口触发熔断，红线飙升，但整个系统的 CPU 仅仅波动了 5%。用户看到了友好的提示，而不是白屏。那一刻，我坐在工位上喝着我的冻顶乌龙，心里前所未有的平静。&lt;/p&gt;
 &lt;hr&gt;
-&lt;h2 id=&#34;写给正在焦虑的你&#34;&gt;写给正在焦虑的你
+&lt;h2 id="写给正在焦虑的你"&gt;写给正在焦虑的你
 &lt;/h2&gt;&lt;p&gt;技术圈里，我们总在追求高性能、高可用，却很少谈论&lt;strong&gt;开发者的心理可用性&lt;/strong&gt;。&lt;/p&gt;
 &lt;p&gt;我见过太多优秀的工程师，因为一次线上故障而陷入深深的自责，甚至产生&amp;quot;我不适合做开发&amp;quot;的念头。其实，&lt;strong&gt;系统出问题是常态，不出问题才是运气。&lt;/strong&gt;&lt;/p&gt;
 &lt;p&gt;限流策略，本质上是一种&amp;quot;接受不完美&amp;quot;的智慧。它承认系统的能力有上限，承认我们无法掌控所有外部流量。&lt;/p&gt;
@@ -103,17 +109,11 @@ Guava 是&lt;strong&gt;单机限流&lt;/strong&gt;。如果你有 10 台服务�
 &lt;li&gt;&lt;strong&gt;Sentinel&lt;/strong&gt; 告诉我们：当压力大到无法承受时，懂得拒绝和休息（熔断），是为了稍后更好地出发。&lt;/li&gt;
 &lt;/ul&gt;
 &lt;p&gt;这难道不像我们的人生吗？&lt;/p&gt;
-&lt;h2 id=&#34;马上行动给自己穿上铠甲&#34;&gt;马上行动：给自己穿上铠甲
+&lt;h2 id="马上行动给自己穿上铠甲"&gt;马上行动：给自己穿上铠甲
 &lt;/h2&gt;&lt;p&gt;看完文章，不需要你马上去重构系统。我建议你做 3 件小事，明天上班就能落地：&lt;/p&gt;
-&lt;p&gt;&lt;img src=&#34;https://picsum.photos/800/450?random=1768457396294&#34;
-	
-	
-	
-	loading=&#34;lazy&#34;
-	
-		alt=&#34;配图&#34;
-	
-	
+&lt;p&gt;&lt;img src="https://picsum.photos/800/450?random=1768457396294"
+loading="lazy"
+alt="配图"
 &gt;&lt;/p&gt;
 &lt;ol&gt;
 &lt;li&gt;&lt;strong&gt;盘点核心接口&lt;/strong&gt;：找出你们系统中那 20% 最重要、或者最容易出问题的接口（通常是写库频繁或依赖第三方的接口）。&lt;/li&gt;
@@ -121,9 +121,4 @@ Guava 是&lt;strong&gt;单机限流&lt;/strong&gt;。如果你有 10 台服务�
 &lt;li&gt;&lt;strong&gt;准备一个兜底文案&lt;/strong&gt;：找产品经理聊聊，如果触发限流，给用户返回什么？是冷冰冰的 &lt;code&gt;429 Too Many Requests&lt;/code&gt;，还是&amp;quot;哎呀，挤爆了，正在为您疏通&amp;quot;？相信我，温暖的文案能减少一半的客诉。&lt;/li&gt;
 &lt;/ol&gt;
 &lt;p&gt;&lt;strong&gt;你在项目中遇到过因为流量过大导致的&amp;quot;惊魂时刻&amp;quot;吗？你是怎么解决的？&lt;/strong&gt;&lt;/p&gt;
-&lt;p&gt;欢迎在评论区分享你的故事（或者吐槽），说不定你的经历，恰好能帮到另一个正在熬夜排查问题的兄弟。&lt;/p&gt;
-</description>
-        </item>
-        
-    </channel>
-</rss>
+&lt;p&gt;欢迎在评论区分享你的故事（或者吐槽），说不定你的经历，恰好能帮到另一个正在熬夜排查问题的兄弟。&lt;/p&gt;</description></item></channel></rss>

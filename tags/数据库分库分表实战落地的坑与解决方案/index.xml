@@ -1,45 +1,19 @@
-<?xml version="1.0" encoding="utf-8" standalone="yes"?>
-<rss version="2.0" xmlns:atom="http://www.w3.org/2005/Atom">
-    <channel>
-        <title>数据库分库分表：实战落地的坑与解决方案 on SelfTechHub</title>
-        <link>https://blog.irudder.me/tags/%E6%95%B0%E6%8D%AE%E5%BA%93%E5%88%86%E5%BA%93%E5%88%86%E8%A1%A8%E5%AE%9E%E6%88%98%E8%90%BD%E5%9C%B0%E7%9A%84%E5%9D%91%E4%B8%8E%E8%A7%A3%E5%86%B3%E6%96%B9%E6%A1%88.html</link>
-        <description>Recent content in 数据库分库分表：实战落地的坑与解决方案 on SelfTechHub</description>
-        <generator>Hugo -- gohugo.io</generator>
-        <language>zh-cn</language>
-        <lastBuildDate>Thu, 18 Jun 2020 00:00:00 +0000</lastBuildDate><atom:link href="https://blog.irudder.me/tags/%E6%95%B0%E6%8D%AE%E5%BA%93%E5%88%86%E5%BA%93%E5%88%86%E8%A1%A8%E5%AE%9E%E6%88%98%E8%90%BD%E5%9C%B0%E7%9A%84%E5%9D%91%E4%B8%8E%E8%A7%A3%E5%86%B3%E6%96%B9%E6%A1%88/index.xml" rel="self" type="application/rss+xml" /><item>
-        <title>分库分表是解药还是毒药？复盘那次深夜3点的扩容惨案</title>
-        <link>https://blog.irudder.me/tech/jiagouyouhuashizhananlijiexi/shujukufenkufenbiao_shizhanluodidekengyujiejuefangan.html</link>
-        <pubDate>Thu, 18 Jun 2020 00:00:00 +0000</pubDate>
-        
-        <guid>https://blog.irudder.me/tech/jiagouyouhuashizhananlijiexi/shujukufenkufenbiao_shizhanluodidekengyujiejuefangan.html</guid>
-        <description>&lt;p&gt;几年前的一个深夜，大概凌晨3点，我和团队围坐在会议室，盯着监控大屏上飙红的CPU报警，手里的冰美式早已温热。&lt;/p&gt;
+<?xml version="1.0" encoding="utf-8" standalone="yes"?><rss version="2.0" xmlns:atom="http://www.w3.org/2005/Atom"><channel><title>数据库分库分表：实战落地的坑与解决方案 on SelfTechHub</title><link>https://blog.irudder.me/tags/%E6%95%B0%E6%8D%AE%E5%BA%93%E5%88%86%E5%BA%93%E5%88%86%E8%A1%A8%E5%AE%9E%E6%88%98%E8%90%BD%E5%9C%B0%E7%9A%84%E5%9D%91%E4%B8%8E%E8%A7%A3%E5%86%B3%E6%96%B9%E6%A1%88.html</link><description>Recent content in 数据库分库分表：实战落地的坑与解决方案 on SelfTechHub</description><generator>Hugo -- gohugo.io</generator><language>zh-cn</language><lastBuildDate>Thu, 18 Jun 2020 00:00:00 +0800</lastBuildDate><atom:link href="https://blog.irudder.me/tags/%E6%95%B0%E6%8D%AE%E5%BA%93%E5%88%86%E5%BA%93%E5%88%86%E8%A1%A8%E5%AE%9E%E6%88%98%E8%90%BD%E5%9C%B0%E7%9A%84%E5%9D%91%E4%B8%8E%E8%A7%A3%E5%86%B3%E6%96%B9%E6%A1%88/index.xml" rel="self" type="application/rss+xml"/><item><title>分库分表是解药还是毒药？复盘那次深夜3点的扩容惨案</title><link>https://blog.irudder.me/tech/jiagouyouhuashizhananlijiexi/shujukufenkufenbiao_shizhanluodidekengyujiejuefangan.html</link><pubDate>Thu, 18 Jun 2020 00:00:00 +0800</pubDate><guid>https://blog.irudder.me/tech/jiagouyouhuashizhananlijiexi/shujukufenkufenbiao_shizhanluodidekengyujiejuefangan.html</guid><description>&lt;p&gt;几年前的一个深夜，大概凌晨3点，我和团队围坐在会议室，盯着监控大屏上飙红的CPU报警，手里的冰美式早已温热。&lt;/p&gt;
 &lt;p&gt;那时我们刚把核心订单系统完成了分库分表（Sharding）改造，本以为从此以后可以高枕无忧，支撑十倍业务增长。现实却狠狠给了我们一巴掌：一次大促活动，数据库主从延迟飙升到30秒，部分用户支付后查不到订单，客服电话被打爆。&lt;/p&gt;
-&lt;p&gt;&lt;img src=&#34;https://picsum.photos/800/450?random=1768457639410&#34;
-	
-	
-	
-	loading=&#34;lazy&#34;
-	
-		alt=&#34;配图&#34;
-	
-	
+&lt;p&gt;&lt;img src="https://picsum.photos/800/450?random=1768457639410"
+loading="lazy"
+alt="配图"
 &gt;&lt;/p&gt;
 &lt;p&gt;&lt;strong&gt;我曾以为分库分表是解决性能瓶颈的&amp;quot;万能银弹&amp;quot;，直到踩进这三个深坑，才明白它更像是一笔高昂的技术贷款。&lt;/strong&gt; 如果你的系统数据量正在逼近单表2000万行，或者单库500GB的红线，这篇复盘或许能帮你省下几周的通宵排障时间。&lt;/p&gt;
 &lt;hr&gt;
-&lt;h2 id=&#34;一-过度设计的陷阱当1024张表成为运维噩梦&#34;&gt;一、 过度设计的陷阱：当1024张表成为运维噩梦
+&lt;h2 id="一-过度设计的陷阱当1024张表成为运维噩梦"&gt;一、 过度设计的陷阱：当1024张表成为运维噩梦
 &lt;/h2&gt;&lt;p&gt;在2020年负责一个用户中心项目时，为了彰显架构的前瞻性，我们团队做了一个看似完美的决定：按照&lt;code&gt;user_id&lt;/code&gt;取模，拆分了32个库，每个库32张表，总计1024张表。&lt;/p&gt;
 &lt;p&gt;当时的逻辑无懈可击：&amp;ldquo;按现有增长速度，这个架构至少能撑10年，不用再动。&amp;rdquo;&lt;/p&gt;
 &lt;p&gt;&lt;strong&gt;然而，现实的打击来得比预期更快。&lt;/strong&gt;&lt;/p&gt;
 &lt;p&gt;仅仅过了半年，业务侧提出一个简单的需求：给&lt;code&gt;user&lt;/code&gt;表加一个&lt;code&gt;is_vip&lt;/code&gt;字段。在单表时代，这只是一个简单的&lt;code&gt;ALTER TABLE&lt;/code&gt;操作，耗时不过几分钟。但在分库分表后，这意味着我们要对1024张表逐一执行变更。&lt;/p&gt;
-&lt;p&gt;&lt;img src=&#34;https://picsum.photos/800/450?random=1768457645344&#34;
-	
-	
-	
-	loading=&#34;lazy&#34;
-	
-		alt=&#34;配图&#34;
-	
-	
+&lt;p&gt;&lt;img src="https://picsum.photos/800/450?random=1768457645344"
+loading="lazy"
+alt="配图"
 &gt;&lt;/p&gt;
 &lt;p&gt;&lt;strong&gt;惨痛的现场：&lt;/strong&gt;
 由于运维脚本的一个并发控制参数没调好，DDL操作瞬间占满了所有数据库实例的IO连接。原本轻量的变更演变成了长达4小时的维护窗口，期间部分分片因锁表导致注册接口超时。&lt;/p&gt;
@@ -47,11 +21,10 @@
 &lt;p&gt;&lt;strong&gt;避坑方法论：遵循&amp;quot;3年原则&amp;quot;&lt;/strong&gt;&lt;/p&gt;
 &lt;p&gt;不要为了并不存在的&amp;quot;海量数据&amp;quot;去设计架构。我总结了一个简单的评估公式：&lt;/p&gt;
 &lt;blockquote&gt;
-&lt;p&gt;&lt;strong&gt;预估分片数 = (当前数据量 + 3年增量) / 单表最佳容量(建议1000万-2000万)&lt;/strong&gt;&lt;/p&gt;
-&lt;/blockquote&gt;
+&lt;p&gt;&lt;strong&gt;预估分片数 = (当前数据量 + 3年增量) / 单表最佳容量(建议1000万-2000万)&lt;/strong&gt;&lt;/p&gt;&lt;/blockquote&gt;
 &lt;p&gt;如果是2的指数级拆分，建议步子迈小一点。&lt;strong&gt;优先考虑垂直分库（按业务拆分），再考虑水平分表。&lt;/strong&gt; 现在的硬件性能（NVMe SSD）远超五年前，单表抗住5000万数据对于很多优化得当的MySQL实例并非难事。能不分，就不分。&lt;/p&gt;
 &lt;hr&gt;
-&lt;h2 id=&#34;二-倾斜的流量saas场景下的大户击穿效应&#34;&gt;二、 倾斜的流量：SaaS场景下的&amp;quot;大户&amp;quot;击穿效应
+&lt;h2 id="二-倾斜的流量saas场景下的大户击穿效应"&gt;二、 倾斜的流量：SaaS场景下的&amp;quot;大户&amp;quot;击穿效应
 &lt;/h2&gt;&lt;p&gt;分库分表最核心的技术选型就是&lt;strong&gt;分片键（Sharding Key）&lt;/strong&gt;。&lt;/p&gt;
 &lt;p&gt;在一个SaaS CRM系统的重构中，我们理所当然地选择了&lt;code&gt;tenant_id&lt;/code&gt;（租户ID）作为分片键。逻辑很顺：不同租户的数据天然隔离，按租户ID哈希取模，数据分布看起来很均匀。&lt;/p&gt;
 &lt;p&gt;直到那个&amp;quot;超级大客户&amp;quot;出现。&lt;/p&gt;
@@ -66,15 +39,27 @@
 &lt;li&gt;对于普通租户，正常分配；&lt;/li&gt;
 &lt;li&gt;&lt;strong&gt;对于大客户，手动将其独占的数据槽迁移到独立的物理实例上。&lt;/strong&gt;&lt;/li&gt;
 &lt;/ol&gt;
-&lt;div class=&#34;highlight&#34;&gt;&lt;pre tabindex=&#34;0&#34; style=&#34;color:#f8f8f2;background-color:#272822;-moz-tab-size:4;-o-tab-size:4;tab-size:4;&#34;&gt;&lt;code class=&#34;language-java&#34; data-lang=&#34;java&#34;&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;&lt;span style=&#34;color:#75715e&#34;&gt;// 伪代码示例：路由逻辑&lt;/span&gt;
-&lt;/span&gt;&lt;/span&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;&lt;span style=&#34;color:#66d9ef&#34;&gt;int&lt;/span&gt; slot &lt;span style=&#34;color:#f92672&#34;&gt;=&lt;/span&gt; hash(tenantId) &lt;span style=&#34;color:#f92672&#34;&gt;%&lt;/span&gt; 65536;
-&lt;/span&gt;&lt;/span&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;String physicalDb &lt;span style=&#34;color:#f92672&#34;&gt;=&lt;/span&gt; configService.&lt;span style=&#34;color:#a6e22e&#34;&gt;getDbBySlot&lt;/span&gt;(slot);
-&lt;/span&gt;&lt;/span&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;
-&lt;/span&gt;&lt;/span&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;&lt;span style=&#34;color:#75715e&#34;&gt;// 关键点：当监控发现某租户数据量超过阈值时&lt;/span&gt;
-&lt;/span&gt;&lt;/span&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;&lt;span style=&#34;color:#75715e&#34;&gt;// 运维操作：单独将该租户对应的slot映射修改为专属的高配DB实例&lt;/span&gt;
-&lt;/span&gt;&lt;/span&gt;&lt;/code&gt;&lt;/pre&gt;&lt;/div&gt;&lt;p&gt;这种方案虽然增加了一次配置查阅（通常缓存到本地内存），但它给了架构师最宝贵的东西：&lt;strong&gt;手动干预生产环境流量分布的能力&lt;/strong&gt;。&lt;/p&gt;
+&lt;div class="highlight"&gt;&lt;div class="chroma"&gt;
+&lt;table class="lntable"&gt;&lt;tr&gt;&lt;td class="lntd"&gt;
+&lt;pre tabindex="0" class="chroma"&gt;&lt;code&gt;&lt;span class="lnt"&gt;1
+&lt;/span&gt;&lt;span class="lnt"&gt;2
+&lt;/span&gt;&lt;span class="lnt"&gt;3
+&lt;/span&gt;&lt;span class="lnt"&gt;4
+&lt;/span&gt;&lt;span class="lnt"&gt;5
+&lt;/span&gt;&lt;span class="lnt"&gt;6
+&lt;/span&gt;&lt;/code&gt;&lt;/pre&gt;&lt;/td&gt;
+&lt;td class="lntd"&gt;
+&lt;pre tabindex="0" class="chroma"&gt;&lt;code class="language-java" data-lang="java"&gt;&lt;span class="line"&gt;&lt;span class="cl"&gt;&lt;span class="c1"&gt;// 伪代码示例：路由逻辑&lt;/span&gt;&lt;span class="w"&gt;
+&lt;/span&gt;&lt;/span&gt;&lt;/span&gt;&lt;span class="line"&gt;&lt;span class="cl"&gt;&lt;span class="w"&gt;&lt;/span&gt;&lt;span class="kt"&gt;int&lt;/span&gt;&lt;span class="w"&gt; &lt;/span&gt;&lt;span class="n"&gt;slot&lt;/span&gt;&lt;span class="w"&gt; &lt;/span&gt;&lt;span class="o"&gt;=&lt;/span&gt;&lt;span class="w"&gt; &lt;/span&gt;&lt;span class="n"&gt;hash&lt;/span&gt;&lt;span class="p"&gt;(&lt;/span&gt;&lt;span class="n"&gt;tenantId&lt;/span&gt;&lt;span class="p"&gt;)&lt;/span&gt;&lt;span class="w"&gt; &lt;/span&gt;&lt;span class="o"&gt;%&lt;/span&gt;&lt;span class="w"&gt; &lt;/span&gt;&lt;span class="n"&gt;65536&lt;/span&gt;&lt;span class="p"&gt;;&lt;/span&gt;&lt;span class="w"&gt;
+&lt;/span&gt;&lt;/span&gt;&lt;/span&gt;&lt;span class="line"&gt;&lt;span class="cl"&gt;&lt;span class="w"&gt;&lt;/span&gt;&lt;span class="n"&gt;String&lt;/span&gt;&lt;span class="w"&gt; &lt;/span&gt;&lt;span class="n"&gt;physicalDb&lt;/span&gt;&lt;span class="w"&gt; &lt;/span&gt;&lt;span class="o"&gt;=&lt;/span&gt;&lt;span class="w"&gt; &lt;/span&gt;&lt;span class="n"&gt;configService&lt;/span&gt;&lt;span class="p"&gt;.&lt;/span&gt;&lt;span class="na"&gt;getDbBySlot&lt;/span&gt;&lt;span class="p"&gt;(&lt;/span&gt;&lt;span class="n"&gt;slot&lt;/span&gt;&lt;span class="p"&gt;);&lt;/span&gt;&lt;span class="w"&gt;
+&lt;/span&gt;&lt;/span&gt;&lt;/span&gt;&lt;span class="line"&gt;&lt;span class="cl"&gt;&lt;span class="w"&gt;
+&lt;/span&gt;&lt;/span&gt;&lt;/span&gt;&lt;span class="line"&gt;&lt;span class="cl"&gt;&lt;span class="w"&gt;&lt;/span&gt;&lt;span class="c1"&gt;// 关键点：当监控发现某租户数据量超过阈值时&lt;/span&gt;&lt;span class="w"&gt;
+&lt;/span&gt;&lt;/span&gt;&lt;/span&gt;&lt;span class="line"&gt;&lt;span class="cl"&gt;&lt;span class="w"&gt;&lt;/span&gt;&lt;span class="c1"&gt;// 运维操作：单独将该租户对应的slot映射修改为专属的高配DB实例&lt;/span&gt;&lt;span class="w"&gt;
+&lt;/span&gt;&lt;/span&gt;&lt;/span&gt;&lt;/code&gt;&lt;/pre&gt;&lt;/td&gt;&lt;/tr&gt;&lt;/table&gt;
+&lt;/div&gt;
+&lt;/div&gt;&lt;p&gt;这种方案虽然增加了一次配置查阅（通常缓存到本地内存），但它给了架构师最宝贵的东西：&lt;strong&gt;手动干预生产环境流量分布的能力&lt;/strong&gt;。&lt;/p&gt;
 &lt;hr&gt;
-&lt;h2 id=&#34;三-跨维度的深渊多维度查询的基因法救赎&#34;&gt;三、 跨维度的深渊：多维度查询的&amp;quot;基因法&amp;quot;救赎
+&lt;h2 id="三-跨维度的深渊多维度查询的基因法救赎"&gt;三、 跨维度的深渊：多维度查询的&amp;quot;基因法&amp;quot;救赎
 &lt;/h2&gt;&lt;p&gt;分库分表后，最痛苦的莫过于：&lt;strong&gt;只能按分片键查询&lt;/strong&gt;。&lt;/p&gt;
 &lt;p&gt;在订单系统中，我们按&lt;code&gt;user_id&lt;/code&gt;分片，这完美解决了C端用户&amp;quot;查我的订单&amp;quot;的需求。但是，B端商家要查&amp;quot;我卖出的订单&amp;quot;怎么办？客服后台要根据&amp;quot;订单号&amp;quot;精准查询怎么办？&lt;/p&gt;
 &lt;p&gt;起初，我们尝试了最笨的办法：&lt;strong&gt;异构索引表&lt;/strong&gt;。
@@ -96,7 +81,7 @@
 &lt;/ol&gt;
 &lt;p&gt;这个方法我用了两年，它以极低的侵入性解决了80%的点查难题，且&lt;strong&gt;完全没有任何数据延迟&lt;/strong&gt;。&lt;/p&gt;
 &lt;hr&gt;
-&lt;h2 id=&#34;思考与落地&#34;&gt;思考与落地
+&lt;h2 id="思考与落地"&gt;思考与落地
 &lt;/h2&gt;&lt;p&gt;读到这里，你有没有发现一个误区：我们往往为了追求&amp;quot;高性能&amp;quot;，而牺牲了&amp;quot;可维护性&amp;quot;和&amp;quot;数据一致性&amp;quot;，最后不得不引入更复杂的组件（如Zookeeper、Canal）来填补窟窿？&lt;/p&gt;
 &lt;p&gt;分库分表是架构演进的必然，但绝不是越早越好。&lt;/p&gt;
 &lt;p&gt;&lt;strong&gt;给正在做架构决策的你，三个可落地的行动步骤：&lt;/strong&gt;&lt;/p&gt;
@@ -105,9 +90,4 @@
 &lt;li&gt;&lt;strong&gt;模拟&amp;quot;数据倾斜&amp;quot;场景&lt;/strong&gt;：如果你必须分表，请统计一下Top 1%的数据主体（用户/租户/商户）占据了多少数据量。如果超过20%，请放弃简单的取模哈希，直接上&amp;quot;虚拟桶&amp;quot;或&amp;quot;查表法&amp;quot;策略。&lt;/li&gt;
 &lt;li&gt;&lt;strong&gt;准备好&amp;quot;核对脚本&amp;quot;&lt;/strong&gt;：在上线分库分表代码之前，先写好数据一致性核对工具。相信我，在数据迁移的那一夜，它会是你手里唯一的救命稻草。&lt;/li&gt;
 &lt;/ol&gt;
-&lt;p&gt;架构的本质是权衡，希望你的下一次扩容，是为了业务的腾飞，而不是为了修补深夜的Bug。&lt;/p&gt;
-</description>
-        </item>
-        
-    </channel>
-</rss>
+&lt;p&gt;架构的本质是权衡，希望你的下一次扩容，是为了业务的腾飞，而不是为了修补深夜的Bug。&lt;/p&gt;</description></item></channel></rss>

@@ -1,93 +1,113 @@
-<?xml version="1.0" encoding="utf-8" standalone="yes"?>
-<rss version="2.0" xmlns:atom="http://www.w3.org/2005/Atom">
-    <channel>
-        <title>Git常用操作：解决冲突的实战技巧 on SelfTechHub</title>
-        <link>https://blog.irudder.me/tags/Git%E5%B8%B8%E7%94%A8%E6%93%8D%E4%BD%9C%E8%A7%A3%E5%86%B3%E5%86%B2%E7%AA%81%E7%9A%84%E5%AE%9E%E6%88%98%E6%8A%80%E5%B7%A7.html</link>
-        <description>Recent content in Git常用操作：解决冲突的实战技巧 on SelfTechHub</description>
-        <generator>Hugo -- gohugo.io</generator>
-        <language>zh-cn</language>
-        <lastBuildDate>Tue, 11 May 2021 00:00:00 +0000</lastBuildDate><atom:link href="https://blog.irudder.me/tags/Git%E5%B8%B8%E7%94%A8%E6%93%8D%E4%BD%9C%E8%A7%A3%E5%86%B3%E5%86%B2%E7%AA%81%E7%9A%84%E5%AE%9E%E6%88%98%E6%8A%80%E5%B7%A7/index.xml" rel="self" type="application/rss+xml" /><item>
-        <title>看到Merge Conflict就手抖？3招化解代码冲突焦虑</title>
-        <link>https://blog.irudder.me/tech/devopsjichugongjurumenyushicao/gitchangyongcaozuo_jiejuechongtudeshizhanjiqiao.html</link>
-        <pubDate>Tue, 11 May 2021 00:00:00 +0000</pubDate>
-        
-        <guid>https://blog.irudder.me/tech/devopsjichugongjurumenyushicao/gitchangyongcaozuo_jiejuechongtudeshizhanjiqiao.html</guid>
-        <description>&lt;p&gt;还记得你第一次在终端里看到 &lt;code&gt;CONFLICT (content): Merge conflict in...&lt;/code&gt; 这行字时的心情吗？&lt;/p&gt;
+<?xml version="1.0" encoding="utf-8" standalone="yes"?><rss version="2.0" xmlns:atom="http://www.w3.org/2005/Atom"><channel><title>Git常用操作：解决冲突的实战技巧 on SelfTechHub</title><link>https://blog.irudder.me/tags/Git%E5%B8%B8%E7%94%A8%E6%93%8D%E4%BD%9C%E8%A7%A3%E5%86%B3%E5%86%B2%E7%AA%81%E7%9A%84%E5%AE%9E%E6%88%98%E6%8A%80%E5%B7%A7.html</link><description>Recent content in Git常用操作：解决冲突的实战技巧 on SelfTechHub</description><generator>Hugo -- gohugo.io</generator><language>zh-cn</language><lastBuildDate>Tue, 11 May 2021 00:00:00 +0800</lastBuildDate><atom:link href="https://blog.irudder.me/tags/Git%E5%B8%B8%E7%94%A8%E6%93%8D%E4%BD%9C%E8%A7%A3%E5%86%B3%E5%86%B2%E7%AA%81%E7%9A%84%E5%AE%9E%E6%88%98%E6%8A%80%E5%B7%A7/index.xml" rel="self" type="application/rss+xml"/><item><title>看到Merge Conflict就手抖？3招化解代码冲突焦虑</title><link>https://blog.irudder.me/tech/devopsjichugongjurumenyushicao/gitchangyongcaozuo_jiejuechongtudeshizhanjiqiao.html</link><pubDate>Tue, 11 May 2021 00:00:00 +0800</pubDate><guid>https://blog.irudder.me/tech/devopsjichugongjurumenyushicao/gitchangyongcaozuo_jiejuechongtudeshizhanjiqiao.html</guid><description>&lt;p&gt;还记得你第一次在终端里看到 &lt;code&gt;CONFLICT (content): Merge conflict in...&lt;/code&gt; 这行字时的心情吗？&lt;/p&gt;
 &lt;p&gt;我印象很深。那是刚入行不久的一个周五下午，离下班还有半小时，我满心欢喜地敲下 &lt;code&gt;git merge&lt;/code&gt;，准备合并完代码去过周末。结果，屏幕上弹出的一大片红色报错和代码里莫名其妙出现的 &lt;code&gt;&amp;lt;&amp;lt;&amp;lt;&amp;lt;&amp;lt;&amp;lt;&amp;lt; HEAD&lt;/code&gt;，瞬间让我手心冒汗。&lt;/p&gt;
 &lt;p&gt;那一刻，我感觉自己像是闯了大祸，甚至不敢告诉坐在旁边的导师，生怕被认为是技术太菜。&lt;/p&gt;
-&lt;p&gt;&lt;img src=&#34;https://picsum.photos/800/450?random=1768388055338&#34;
-	
-	
-	
-	loading=&#34;lazy&#34;
-	
-		alt=&#34;配图&#34;
-	
-	
+&lt;p&gt;&lt;img src="https://picsum.photos/800/450?random=1768388055338"
+loading="lazy"
+alt="配图"
 &gt;&lt;/p&gt;
 &lt;p&gt;后来我才明白，&lt;strong&gt;代码冲突不是你的错，它只是团队协作的“副作用”&lt;/strong&gt;。甚至可以说，有冲突说明团队是活跃的，大家都在努力产出。&lt;/p&gt;
 &lt;p&gt;今天，我想和你聊聊如何在面对冲突时，从慌乱的“救火队员”变成从容的“指挥官”。我们不谈枯燥的指令列表，只谈我在实战中踩过坑后总结出的心法。&lt;/p&gt;
-&lt;h2 id=&#34;拒绝暴力解决学会给冲突按暂停键&#34;&gt;拒绝“暴力解决”，学会给冲突按暂停键
+&lt;h2 id="拒绝暴力解决学会给冲突按暂停键"&gt;拒绝“暴力解决”，学会给冲突按暂停键
 &lt;/h2&gt;&lt;p&gt;很多新人在遇到冲突时，第一反应是恐慌，然后试图凭直觉快速删除那些“乱码”，结果往往是误删了同事刚写的关键逻辑，导致生产环境故障。&lt;/p&gt;
 &lt;p&gt;我也曾犯过这样的错。几年前在一个电商项目里，因为着急上线，我在解决 &lt;code&gt;config.yaml&lt;/code&gt; 冲突时，不小心删掉了同事配置的缓存开关。结果上线后数据库压力激增，不得不紧急回滚。&lt;/p&gt;
 &lt;p&gt;那天复盘时，技术总监并没有骂我，而是告诉我一个让我受用至今的原则：&lt;strong&gt;看不懂的冲突，先别动；解决不了的冲突，先撤退。&lt;/strong&gt;&lt;/p&gt;
 &lt;p&gt;当你面对复杂的冲突感到大脑一片空白时，请记住这个“后悔药”指令：&lt;/p&gt;
-&lt;div class=&#34;highlight&#34;&gt;&lt;pre tabindex=&#34;0&#34; style=&#34;color:#f8f8f2;background-color:#272822;-moz-tab-size:4;-o-tab-size:4;tab-size:4;&#34;&gt;&lt;code class=&#34;language-bash&#34; data-lang=&#34;bash&#34;&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;git merge --abort
-&lt;/span&gt;&lt;/span&gt;&lt;/code&gt;&lt;/pre&gt;&lt;/div&gt;&lt;p&gt;这行命令会让一切回到合并前的状态，就像什么都没发生过一样。&lt;/p&gt;
+&lt;div class="highlight"&gt;&lt;div class="chroma"&gt;
+&lt;table class="lntable"&gt;&lt;tr&gt;&lt;td class="lntd"&gt;
+&lt;pre tabindex="0" class="chroma"&gt;&lt;code&gt;&lt;span class="lnt"&gt;1
+&lt;/span&gt;&lt;/code&gt;&lt;/pre&gt;&lt;/td&gt;
+&lt;td class="lntd"&gt;
+&lt;pre tabindex="0" class="chroma"&gt;&lt;code class="language-bash" data-lang="bash"&gt;&lt;span class="line"&gt;&lt;span class="cl"&gt;git merge --abort
+&lt;/span&gt;&lt;/span&gt;&lt;/code&gt;&lt;/pre&gt;&lt;/td&gt;&lt;/tr&gt;&lt;/table&gt;
+&lt;/div&gt;
+&lt;/div&gt;&lt;p&gt;这行命令会让一切回到合并前的状态，就像什么都没发生过一样。&lt;/p&gt;
 &lt;p&gt;&lt;strong&gt;深呼吸，喝口水，然后重新开始。&lt;/strong&gt; 这次，不要试图一次性解决所有文件的冲突。我们可以用 &lt;code&gt;git status&lt;/code&gt; 查看冲突列表，一个文件一个文件地攻克。&lt;/p&gt;
 &lt;p&gt;当你意识到自己随时可以按下“撤销键”，那种焦虑感就会消失大半。心态稳了，解决问题的思路自然就清晰了。&lt;/p&gt;
-&lt;h2 id=&#34;读懂外星语像外科手术一样精准修复&#34;&gt;读懂“外星语”，像外科手术一样精准修复
+&lt;h2 id="读懂外星语像外科手术一样精准修复"&gt;读懂“外星语”，像外科手术一样精准修复
 &lt;/h2&gt;&lt;p&gt;很多人看到冲突标记就头晕，觉得那是某种只有资深架构师才能看懂的“外星语”。其实，它只是Git在向你提问：“嘿，这两个版本都改了这里，我该听谁的？”&lt;/p&gt;
 &lt;p&gt;让我们拆解一个真实的场景。假设你和同事小王都在修改 &lt;code&gt;user_service.py&lt;/code&gt;。&lt;/p&gt;
 &lt;p&gt;代码里出现了这样的标记：&lt;/p&gt;
-&lt;div class=&#34;highlight&#34;&gt;&lt;pre tabindex=&#34;0&#34; style=&#34;color:#f8f8f2;background-color:#272822;-moz-tab-size:4;-o-tab-size:4;tab-size:4;&#34;&gt;&lt;code class=&#34;language-python&#34; data-lang=&#34;python&#34;&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;&lt;span style=&#34;color:#f92672&#34;&gt;&amp;lt;&amp;lt;&amp;lt;&amp;lt;&amp;lt;&amp;lt;&amp;lt;&lt;/span&gt; HEAD
-&lt;/span&gt;&lt;/span&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;&lt;span style=&#34;color:#66d9ef&#34;&gt;def&lt;/span&gt; &lt;span style=&#34;color:#a6e22e&#34;&gt;calculate_discount&lt;/span&gt;(price):
-&lt;/span&gt;&lt;/span&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;    &lt;span style=&#34;color:#66d9ef&#34;&gt;return&lt;/span&gt; price &lt;span style=&#34;color:#f92672&#34;&gt;*&lt;/span&gt; &lt;span style=&#34;color:#ae81ff&#34;&gt;0.9&lt;/span&gt;  &lt;span style=&#34;color:#75715e&#34;&gt;# 我修改的：全场9折&lt;/span&gt;
-&lt;/span&gt;&lt;/span&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;&lt;span style=&#34;color:#f92672&#34;&gt;=======&lt;/span&gt;
-&lt;/span&gt;&lt;/span&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;&lt;span style=&#34;color:#66d9ef&#34;&gt;def&lt;/span&gt; &lt;span style=&#34;color:#a6e22e&#34;&gt;calculate_discount&lt;/span&gt;(price):
-&lt;/span&gt;&lt;/span&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;    &lt;span style=&#34;color:#66d9ef&#34;&gt;if&lt;/span&gt; price &lt;span style=&#34;color:#f92672&#34;&gt;&amp;gt;&lt;/span&gt; &lt;span style=&#34;color:#ae81ff&#34;&gt;100&lt;/span&gt;:
-&lt;/span&gt;&lt;/span&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;        &lt;span style=&#34;color:#66d9ef&#34;&gt;return&lt;/span&gt; price &lt;span style=&#34;color:#f92672&#34;&gt;-&lt;/span&gt; &lt;span style=&#34;color:#ae81ff&#34;&gt;20&lt;/span&gt;  &lt;span style=&#34;color:#75715e&#34;&gt;# 小王修改的：满100减20&lt;/span&gt;
-&lt;/span&gt;&lt;/span&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;&lt;span style=&#34;color:#f92672&#34;&gt;&amp;gt;&amp;gt;&amp;gt;&amp;gt;&amp;gt;&amp;gt;&amp;gt;&lt;/span&gt; feature&lt;span style=&#34;color:#f92672&#34;&gt;/&lt;/span&gt;new&lt;span style=&#34;color:#f92672&#34;&gt;-&lt;/span&gt;discount&lt;span style=&#34;color:#f92672&#34;&gt;-&lt;/span&gt;policy
-&lt;/span&gt;&lt;/span&gt;&lt;/code&gt;&lt;/pre&gt;&lt;/div&gt;&lt;ul&gt;
+&lt;div class="highlight"&gt;&lt;div class="chroma"&gt;
+&lt;table class="lntable"&gt;&lt;tr&gt;&lt;td class="lntd"&gt;
+&lt;pre tabindex="0" class="chroma"&gt;&lt;code&gt;&lt;span class="lnt"&gt;1
+&lt;/span&gt;&lt;span class="lnt"&gt;2
+&lt;/span&gt;&lt;span class="lnt"&gt;3
+&lt;/span&gt;&lt;span class="lnt"&gt;4
+&lt;/span&gt;&lt;span class="lnt"&gt;5
+&lt;/span&gt;&lt;span class="lnt"&gt;6
+&lt;/span&gt;&lt;span class="lnt"&gt;7
+&lt;/span&gt;&lt;span class="lnt"&gt;8
+&lt;/span&gt;&lt;/code&gt;&lt;/pre&gt;&lt;/td&gt;
+&lt;td class="lntd"&gt;
+&lt;pre tabindex="0" class="chroma"&gt;&lt;code class="language-python" data-lang="python"&gt;&lt;span class="line"&gt;&lt;span class="cl"&gt;&lt;span class="o"&gt;&amp;lt;&amp;lt;&amp;lt;&amp;lt;&amp;lt;&amp;lt;&amp;lt;&lt;/span&gt; &lt;span class="n"&gt;HEAD&lt;/span&gt;
+&lt;/span&gt;&lt;/span&gt;&lt;span class="line"&gt;&lt;span class="cl"&gt;&lt;span class="k"&gt;def&lt;/span&gt; &lt;span class="nf"&gt;calculate_discount&lt;/span&gt;&lt;span class="p"&gt;(&lt;/span&gt;&lt;span class="n"&gt;price&lt;/span&gt;&lt;span class="p"&gt;):&lt;/span&gt;
+&lt;/span&gt;&lt;/span&gt;&lt;span class="line"&gt;&lt;span class="cl"&gt; &lt;span class="k"&gt;return&lt;/span&gt; &lt;span class="n"&gt;price&lt;/span&gt; &lt;span class="o"&gt;*&lt;/span&gt; &lt;span class="mf"&gt;0.9&lt;/span&gt; &lt;span class="c1"&gt;# 我修改的：全场9折&lt;/span&gt;
+&lt;/span&gt;&lt;/span&gt;&lt;span class="line"&gt;&lt;span class="cl"&gt;&lt;span class="o"&gt;=======&lt;/span&gt;
+&lt;/span&gt;&lt;/span&gt;&lt;span class="line"&gt;&lt;span class="cl"&gt;&lt;span class="k"&gt;def&lt;/span&gt; &lt;span class="nf"&gt;calculate_discount&lt;/span&gt;&lt;span class="p"&gt;(&lt;/span&gt;&lt;span class="n"&gt;price&lt;/span&gt;&lt;span class="p"&gt;):&lt;/span&gt;
+&lt;/span&gt;&lt;/span&gt;&lt;span class="line"&gt;&lt;span class="cl"&gt; &lt;span class="k"&gt;if&lt;/span&gt; &lt;span class="n"&gt;price&lt;/span&gt; &lt;span class="o"&gt;&amp;gt;&lt;/span&gt; &lt;span class="mi"&gt;100&lt;/span&gt;&lt;span class="p"&gt;:&lt;/span&gt;
+&lt;/span&gt;&lt;/span&gt;&lt;span class="line"&gt;&lt;span class="cl"&gt; &lt;span class="k"&gt;return&lt;/span&gt; &lt;span class="n"&gt;price&lt;/span&gt; &lt;span class="o"&gt;-&lt;/span&gt; &lt;span class="mi"&gt;20&lt;/span&gt; &lt;span class="c1"&gt;# 小王修改的：满100减20&lt;/span&gt;
+&lt;/span&gt;&lt;/span&gt;&lt;span class="line"&gt;&lt;span class="cl"&gt;&lt;span class="o"&gt;&amp;gt;&amp;gt;&amp;gt;&amp;gt;&amp;gt;&amp;gt;&amp;gt;&lt;/span&gt; &lt;span class="n"&gt;feature&lt;/span&gt;&lt;span class="o"&gt;/&lt;/span&gt;&lt;span class="n"&gt;new&lt;/span&gt;&lt;span class="o"&gt;-&lt;/span&gt;&lt;span class="n"&gt;discount&lt;/span&gt;&lt;span class="o"&gt;-&lt;/span&gt;&lt;span class="n"&gt;policy&lt;/span&gt;
+&lt;/span&gt;&lt;/span&gt;&lt;/code&gt;&lt;/pre&gt;&lt;/td&gt;&lt;/tr&gt;&lt;/table&gt;
+&lt;/div&gt;
+&lt;/div&gt;&lt;ul&gt;
 &lt;li&gt;&lt;code&gt;&amp;lt;&amp;lt;&amp;lt;&amp;lt;&amp;lt;&amp;lt;&amp;lt; HEAD&lt;/code&gt; 到 &lt;code&gt;=======&lt;/code&gt; 中间的内容，是你当前分支（你的代码）。&lt;/li&gt;
 &lt;li&gt;&lt;code&gt;=======&lt;/code&gt; 到 &lt;code&gt;&amp;gt;&amp;gt;&amp;gt;&amp;gt;&amp;gt;&amp;gt;&amp;gt;&lt;/code&gt; 中间的内容，是你要合并进来的分支（同事的代码）。&lt;/li&gt;
 &lt;/ul&gt;
-&lt;p&gt;&lt;img src=&#34;https://picsum.photos/800/450?random=1768388057442&#34;
-	
-	
-	
-	loading=&#34;lazy&#34;
-	
-		alt=&#34;配图&#34;
-	
-	
+&lt;p&gt;&lt;img src="https://picsum.photos/800/450?random=1768388057442"
+loading="lazy"
+alt="配图"
 &gt;&lt;/p&gt;
 &lt;p&gt;很多新手会陷入“二选一”的误区：要么保留我的，要么保留他的。&lt;/p&gt;
 &lt;p&gt;但在真实业务中，&lt;strong&gt;往往需要“第三种选择”&lt;/strong&gt;。比如在这个案例中，直接选谁的都会出问题。正确的做法可能并不是删除某一段，而是将两者的逻辑结合：&lt;/p&gt;
-&lt;div class=&#34;highlight&#34;&gt;&lt;pre tabindex=&#34;0&#34; style=&#34;color:#f8f8f2;background-color:#272822;-moz-tab-size:4;-o-tab-size:4;tab-size:4;&#34;&gt;&lt;code class=&#34;language-python&#34; data-lang=&#34;python&#34;&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;&lt;span style=&#34;color:#66d9ef&#34;&gt;def&lt;/span&gt; &lt;span style=&#34;color:#a6e22e&#34;&gt;calculate_discount&lt;/span&gt;(price):
-&lt;/span&gt;&lt;/span&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;    &lt;span style=&#34;color:#75715e&#34;&gt;# 结合两人的逻辑：满100减20，然后再打9折？或者互斥？&lt;/span&gt;
-&lt;/span&gt;&lt;/span&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;    &lt;span style=&#34;color:#75715e&#34;&gt;# 这里需要找小王沟通业务逻辑，而不是闷头改代码&lt;/span&gt;
-&lt;/span&gt;&lt;/span&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;    &lt;span style=&#34;color:#66d9ef&#34;&gt;if&lt;/span&gt; price &lt;span style=&#34;color:#f92672&#34;&gt;&amp;gt;&lt;/span&gt; &lt;span style=&#34;color:#ae81ff&#34;&gt;100&lt;/span&gt;:
-&lt;/span&gt;&lt;/span&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;        &lt;span style=&#34;color:#66d9ef&#34;&gt;return&lt;/span&gt; (price &lt;span style=&#34;color:#f92672&#34;&gt;-&lt;/span&gt; &lt;span style=&#34;color:#ae81ff&#34;&gt;20&lt;/span&gt;) &lt;span style=&#34;color:#f92672&#34;&gt;*&lt;/span&gt; &lt;span style=&#34;color:#ae81ff&#34;&gt;0.9&lt;/span&gt;
-&lt;/span&gt;&lt;/span&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;    &lt;span style=&#34;color:#66d9ef&#34;&gt;return&lt;/span&gt; price &lt;span style=&#34;color:#f92672&#34;&gt;*&lt;/span&gt; &lt;span style=&#34;color:#ae81ff&#34;&gt;0.9&lt;/span&gt;
-&lt;/span&gt;&lt;/span&gt;&lt;/code&gt;&lt;/pre&gt;&lt;/div&gt;&lt;p&gt;&lt;strong&gt;实战建议：&lt;/strong&gt;
+&lt;div class="highlight"&gt;&lt;div class="chroma"&gt;
+&lt;table class="lntable"&gt;&lt;tr&gt;&lt;td class="lntd"&gt;
+&lt;pre tabindex="0" class="chroma"&gt;&lt;code&gt;&lt;span class="lnt"&gt;1
+&lt;/span&gt;&lt;span class="lnt"&gt;2
+&lt;/span&gt;&lt;span class="lnt"&gt;3
+&lt;/span&gt;&lt;span class="lnt"&gt;4
+&lt;/span&gt;&lt;span class="lnt"&gt;5
+&lt;/span&gt;&lt;span class="lnt"&gt;6
+&lt;/span&gt;&lt;/code&gt;&lt;/pre&gt;&lt;/td&gt;
+&lt;td class="lntd"&gt;
+&lt;pre tabindex="0" class="chroma"&gt;&lt;code class="language-python" data-lang="python"&gt;&lt;span class="line"&gt;&lt;span class="cl"&gt;&lt;span class="k"&gt;def&lt;/span&gt; &lt;span class="nf"&gt;calculate_discount&lt;/span&gt;&lt;span class="p"&gt;(&lt;/span&gt;&lt;span class="n"&gt;price&lt;/span&gt;&lt;span class="p"&gt;):&lt;/span&gt;
+&lt;/span&gt;&lt;/span&gt;&lt;span class="line"&gt;&lt;span class="cl"&gt; &lt;span class="c1"&gt;# 结合两人的逻辑：满100减20，然后再打9折？或者互斥？&lt;/span&gt;
+&lt;/span&gt;&lt;/span&gt;&lt;span class="line"&gt;&lt;span class="cl"&gt; &lt;span class="c1"&gt;# 这里需要找小王沟通业务逻辑，而不是闷头改代码&lt;/span&gt;
+&lt;/span&gt;&lt;/span&gt;&lt;span class="line"&gt;&lt;span class="cl"&gt; &lt;span class="k"&gt;if&lt;/span&gt; &lt;span class="n"&gt;price&lt;/span&gt; &lt;span class="o"&gt;&amp;gt;&lt;/span&gt; &lt;span class="mi"&gt;100&lt;/span&gt;&lt;span class="p"&gt;:&lt;/span&gt;
+&lt;/span&gt;&lt;/span&gt;&lt;span class="line"&gt;&lt;span class="cl"&gt; &lt;span class="k"&gt;return&lt;/span&gt; &lt;span class="p"&gt;(&lt;/span&gt;&lt;span class="n"&gt;price&lt;/span&gt; &lt;span class="o"&gt;-&lt;/span&gt; &lt;span class="mi"&gt;20&lt;/span&gt;&lt;span class="p"&gt;)&lt;/span&gt; &lt;span class="o"&gt;*&lt;/span&gt; &lt;span class="mf"&gt;0.9&lt;/span&gt;
+&lt;/span&gt;&lt;/span&gt;&lt;span class="line"&gt;&lt;span class="cl"&gt; &lt;span class="k"&gt;return&lt;/span&gt; &lt;span class="n"&gt;price&lt;/span&gt; &lt;span class="o"&gt;*&lt;/span&gt; &lt;span class="mf"&gt;0.9&lt;/span&gt;
+&lt;/span&gt;&lt;/span&gt;&lt;/code&gt;&lt;/pre&gt;&lt;/td&gt;&lt;/tr&gt;&lt;/table&gt;
+&lt;/div&gt;
+&lt;/div&gt;&lt;p&gt;&lt;strong&gt;实战建议：&lt;/strong&gt;
 我强烈建议你不要只用记事本或纯命令行修冲突。去配置一个可视化的 Diff 工具（比如 VS Code 自带的合并编辑器，或者 Beyond Compare）。&lt;/p&gt;
 &lt;p&gt;我个人习惯在 VS Code 里，点击那个小小的“Accept Both Changes”（保留双方更改），然后再在这个基础上进行重构。这能最大限度地避免遗漏逻辑。&lt;/p&gt;
-&lt;h2 id=&#34;哪怕很麻烦也请爱上-rebase变基&#34;&gt;哪怕很麻烦，也请爱上 Rebase（变基）
+&lt;h2 id="哪怕很麻烦也请爱上-rebase变基"&gt;哪怕很麻烦，也请爱上 Rebase（变基）
 &lt;/h2&gt;&lt;p&gt;这大概是很多初中级开发者的噩梦。&lt;code&gt;git merge&lt;/code&gt; 产生的分支线像乱麻一样的地铁图，而 &lt;code&gt;git rebase&lt;/code&gt; 能让提交记录像一条笔直的高速公路。&lt;/p&gt;
 &lt;p&gt;如果你不想在最后上线前被几十个冲突文件“教做人”，那么&lt;strong&gt;勤快地同步代码&lt;/strong&gt;就是唯一的解药。&lt;/p&gt;
 &lt;p&gt;我曾经带过一个项目，有个小伙伴习惯憋大招，两周才拉取一次主干代码。结果合并那天，他对着几百个冲突发呆了一整天。从那以后，我强制团队推行**“早晨咖啡原则”**：&lt;/p&gt;
 &lt;p&gt;每天早上到了工位，泡好咖啡后的第一件事，不是写代码，而是执行：&lt;/p&gt;
-&lt;div class=&#34;highlight&#34;&gt;&lt;pre tabindex=&#34;0&#34; style=&#34;color:#f8f8f2;background-color:#272822;-moz-tab-size:4;-o-tab-size:4;tab-size:4;&#34;&gt;&lt;code class=&#34;language-bash&#34; data-lang=&#34;bash&#34;&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;&lt;span style=&#34;color:#75715e&#34;&gt;# 切换到主分支更新&lt;/span&gt;
-&lt;/span&gt;&lt;/span&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;git checkout main
-&lt;/span&gt;&lt;/span&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;git pull
-&lt;/span&gt;&lt;/span&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;
-&lt;/span&gt;&lt;/span&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;&lt;span style=&#34;color:#75715e&#34;&gt;# 切回开发分支，把主分支的最新改动&amp;#34;垫&amp;#34;在你的修改之下&lt;/span&gt;
-&lt;/span&gt;&lt;/span&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;git checkout feature/my-feature
-&lt;/span&gt;&lt;/span&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;git rebase main
-&lt;/span&gt;&lt;/span&gt;&lt;/code&gt;&lt;/pre&gt;&lt;/div&gt;&lt;p&gt;这样做的好处是，每天处理一两个小冲突，就像打扫房间一样轻松；而不是累积一个月后，面对一个无法收拾的垃圾场。&lt;/p&gt;
+&lt;div class="highlight"&gt;&lt;div class="chroma"&gt;
+&lt;table class="lntable"&gt;&lt;tr&gt;&lt;td class="lntd"&gt;
+&lt;pre tabindex="0" class="chroma"&gt;&lt;code&gt;&lt;span class="lnt"&gt;1
+&lt;/span&gt;&lt;span class="lnt"&gt;2
+&lt;/span&gt;&lt;span class="lnt"&gt;3
+&lt;/span&gt;&lt;span class="lnt"&gt;4
+&lt;/span&gt;&lt;span class="lnt"&gt;5
+&lt;/span&gt;&lt;span class="lnt"&gt;6
+&lt;/span&gt;&lt;span class="lnt"&gt;7
+&lt;/span&gt;&lt;/code&gt;&lt;/pre&gt;&lt;/td&gt;
+&lt;td class="lntd"&gt;
+&lt;pre tabindex="0" class="chroma"&gt;&lt;code class="language-bash" data-lang="bash"&gt;&lt;span class="line"&gt;&lt;span class="cl"&gt;&lt;span class="c1"&gt;# 切换到主分支更新&lt;/span&gt;
+&lt;/span&gt;&lt;/span&gt;&lt;span class="line"&gt;&lt;span class="cl"&gt;git checkout main
+&lt;/span&gt;&lt;/span&gt;&lt;span class="line"&gt;&lt;span class="cl"&gt;git pull
+&lt;/span&gt;&lt;/span&gt;&lt;span class="line"&gt;&lt;span class="cl"&gt;
+&lt;/span&gt;&lt;/span&gt;&lt;span class="line"&gt;&lt;span class="cl"&gt;&lt;span class="c1"&gt;# 切回开发分支，把主分支的最新改动&amp;#34;垫&amp;#34;在你的修改之下&lt;/span&gt;
+&lt;/span&gt;&lt;/span&gt;&lt;span class="line"&gt;&lt;span class="cl"&gt;git checkout feature/my-feature
+&lt;/span&gt;&lt;/span&gt;&lt;span class="line"&gt;&lt;span class="cl"&gt;git rebase main
+&lt;/span&gt;&lt;/span&gt;&lt;/code&gt;&lt;/pre&gt;&lt;/td&gt;&lt;/tr&gt;&lt;/table&gt;
+&lt;/div&gt;
+&lt;/div&gt;&lt;p&gt;这样做的好处是，每天处理一两个小冲突，就像打扫房间一样轻松；而不是累积一个月后，面对一个无法收拾的垃圾场。&lt;/p&gt;
 &lt;p&gt;&lt;strong&gt;注意：&lt;/strong&gt; 如果你的分支已经推送到远程并且只有你一个人在用，rebase 后需要 &lt;code&gt;git push --force&lt;/code&gt;。虽然带个 &lt;code&gt;force&lt;/code&gt; 看起来很吓人，但只要你确认这是你的私有分支，它就是安全的。&lt;/p&gt;
-&lt;h2 id=&#34;所有的技术问题归根结底是沟通问题&#34;&gt;所有的技术问题，归根结底是沟通问题
+&lt;h2 id="所有的技术问题归根结底是沟通问题"&gt;所有的技术问题，归根结底是沟通问题
 &lt;/h2&gt;&lt;p&gt;写了这么多年代码，我发现最难解决的冲突从来不在代码行里，而在人的脑子里。&lt;/p&gt;
 &lt;p&gt;当你盯着屏幕上的冲突发愁，不知道该留哪行代码时，&lt;strong&gt;站起来，走到同事旁边（或者打个语音电话），直接问他：“嘿，这里我们好像撞车了，你的逻辑是什么？”&lt;/strong&gt;&lt;/p&gt;
 &lt;p&gt;这一句简单的询问，比你独自钻研两小时都有用。&lt;/p&gt;
@@ -100,9 +120,4 @@
 &lt;li&gt;&lt;strong&gt;小步快跑&lt;/strong&gt;：不要等功能完全做完再提交，把大功能拆成小 Commit，每次 Rebase 的痛苦会呈指数级下降。&lt;/li&gt;
 &lt;li&gt;&lt;strong&gt;开启辅助&lt;/strong&gt;：在 IDE（如 IntelliJ 或 VS Code）中安装 GitLens 或类似插件，能让你看清每一行代码是谁在什么时候写的，这在解冲突时是神技。&lt;/li&gt;
 &lt;/ol&gt;
-&lt;p&gt;你在解决代码冲突时遇到过什么“奇葩”经历？或者有什么独门的解冲突神器？欢迎在评论区和我聊聊。&lt;/p&gt;
-</description>
-        </item>
-        
-    </channel>
-</rss>
+&lt;p&gt;你在解决代码冲突时遇到过什么“奇葩”经历？或者有什么独门的解冲突神器？欢迎在评论区和我聊聊。&lt;/p&gt;</description></item></channel></rss>

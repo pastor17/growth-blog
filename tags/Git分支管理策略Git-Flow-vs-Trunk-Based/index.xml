@@ -1,32 +1,12 @@
-<?xml version="1.0" encoding="utf-8" standalone="yes"?>
-<rss version="2.0" xmlns:atom="http://www.w3.org/2005/Atom">
-    <channel>
-        <title>Git分支管理策略：Git Flow vs Trunk Based on SelfTechHub</title>
-        <link>https://blog.irudder.me/tags/Git%E5%88%86%E6%94%AF%E7%AE%A1%E7%90%86%E7%AD%96%E7%95%A5Git-Flow-vs-Trunk-Based.html</link>
-        <description>Recent content in Git分支管理策略：Git Flow vs Trunk Based on SelfTechHub</description>
-        <generator>Hugo -- gohugo.io</generator>
-        <language>zh-cn</language>
-        <lastBuildDate>Mon, 02 Jun 2025 00:00:00 +0000</lastBuildDate><atom:link href="https://blog.irudder.me/tags/Git%E5%88%86%E6%94%AF%E7%AE%A1%E7%90%86%E7%AD%96%E7%95%A5Git-Flow-vs-Trunk-Based/index.xml" rel="self" type="application/rss+xml" /><item>
-        <title>被Git Flow折磨两年，换主干开发后真香</title>
-        <link>https://blog.irudder.me/tech/devopsjichugongjurumenyushicao/gitfenzhiguanlicelve_git-flow-vs-trunk-based.html</link>
-        <pubDate>Mon, 02 Jun 2025 00:00:00 +0000</pubDate>
-        
-        <guid>https://blog.irudder.me/tech/devopsjichugongjurumenyushicao/gitfenzhiguanlicelve_git-flow-vs-trunk-based.html</guid>
-        <description>&lt;p&gt;还记得两年前那个黑色的周五下午，离下班还有半小时。&lt;/p&gt;
+<?xml version="1.0" encoding="utf-8" standalone="yes"?><rss version="2.0" xmlns:atom="http://www.w3.org/2005/Atom"><channel><title>Git分支管理策略：Git Flow vs Trunk Based on SelfTechHub</title><link>https://blog.irudder.me/tags/Git%E5%88%86%E6%94%AF%E7%AE%A1%E7%90%86%E7%AD%96%E7%95%A5Git-Flow-vs-Trunk-Based.html</link><description>Recent content in Git分支管理策略：Git Flow vs Trunk Based on SelfTechHub</description><generator>Hugo -- gohugo.io</generator><language>zh-cn</language><lastBuildDate>Mon, 02 Jun 2025 00:00:00 +0800</lastBuildDate><atom:link href="https://blog.irudder.me/tags/Git%E5%88%86%E6%94%AF%E7%AE%A1%E7%90%86%E7%AD%96%E7%95%A5Git-Flow-vs-Trunk-Based/index.xml" rel="self" type="application/rss+xml"/><item><title>被Git Flow折磨两年，换主干开发后真香</title><link>https://blog.irudder.me/tech/devopsjichugongjurumenyushicao/gitfenzhiguanlicelve_git-flow-vs-trunk-based.html</link><pubDate>Mon, 02 Jun 2025 00:00:00 +0800</pubDate><guid>https://blog.irudder.me/tech/devopsjichugongjurumenyushicao/gitfenzhiguanlicelve_git-flow-vs-trunk-based.html</guid><description>&lt;p&gt;还记得两年前那个黑色的周五下午，离下班还有半小时。&lt;/p&gt;
 &lt;p&gt;当时我们的后端兄弟“大刘”正准备把开发了两周的“双十一促销功能”分支合并回 &lt;code&gt;develop&lt;/code&gt; 分支。由于这两周内其他同事已经合入了四十多次代码，大刘对着满屏红色的 &lt;strong&gt;Merge Conflicts&lt;/strong&gt; 绝望地抓头。那天我们整个小组为了解冲突、修因合并产生的回归Bug，硬是加班到了凌晨两点。&lt;/p&gt;
 &lt;p&gt;那时我一直以为，严格遵守 Vincent Driessen 提出的 &lt;strong&gt;Git Flow&lt;/strong&gt;（也就是那张经典的、像地铁线路图一样的分支模型），是团队走向正规化的必经之路。&lt;/p&gt;
 &lt;p&gt;直到后来我带着团队转型 &lt;strong&gt;主干开发（Trunk Based Development）&lt;/strong&gt;，我才发现：&lt;strong&gt;对于大多数中小团队来说，过度的流程不是保护，而是累赘。&lt;/strong&gt;&lt;/p&gt;
 &lt;p&gt;今天就和大家聊聊，我们是如何从Git Flow的泥潭里爬出来，通过主干开发让上线效率翻倍的实战经历。&lt;/p&gt;
-&lt;h2 id=&#34;以为是规范其实是枷锁git-flow-的过度设计&#34;&gt;以为是规范，其实是枷锁：Git Flow 的“过度设计”
-&lt;/h2&gt;&lt;p&gt;&lt;img src=&#34;https://picsum.photos/800/450?random=1768387328973&#34;
-	
-	
-	
-	loading=&#34;lazy&#34;
-	
-		alt=&#34;配图&#34;
-	
-	
+&lt;h2 id="以为是规范其实是枷锁git-flow-的过度设计"&gt;以为是规范，其实是枷锁：Git Flow 的“过度设计”
+&lt;/h2&gt;&lt;p&gt;&lt;img src="https://picsum.photos/800/450?random=1768387328973"
+loading="lazy"
+alt="配图"
 &gt;&lt;/p&gt;
 &lt;p&gt;刚开始带团队时，为了显得“专业”，我强制要求大家严格执行 Git Flow。我们在 GitLab 里锁定了 &lt;code&gt;master&lt;/code&gt; 和 &lt;code&gt;develop&lt;/code&gt;，每个人开发新功能必须切 &lt;code&gt;feature&lt;/code&gt; 分支，测试切 &lt;code&gt;release&lt;/code&gt; 分支，修线上Bug切 &lt;code&gt;hotfix&lt;/code&gt; 分支。&lt;/p&gt;
 &lt;p&gt;看起来井井有条，但跑了半年，&lt;strong&gt;痛点&lt;/strong&gt;全暴露了：&lt;/p&gt;
@@ -37,45 +17,46 @@
 &lt;/ol&gt;
 &lt;p&gt;当时我们复盘了一下数据：&lt;strong&gt;平均每个Feature分支的生命周期长达 5.5 天，而每次发布前的代码冻结和修复时间平均需要 1 天。&lt;/strong&gt;&lt;/p&gt;
 &lt;p&gt;对于一个只有 8 个开发人员、需要快速迭代的 SaaS 产品来说，这简直是灾难。&lt;/p&gt;
-&lt;p&gt;&lt;img src=&#34;https://picsum.photos/800/450?random=1768387335644&#34;
-	
-	
-	
-	loading=&#34;lazy&#34;
-	
-		alt=&#34;配图&#34;
-	
-	
+&lt;p&gt;&lt;img src="https://picsum.photos/800/450?random=1768387335644"
+loading="lazy"
+alt="配图"
 &gt;&lt;/p&gt;
-&lt;h2 id=&#34;拥抱主干开发每天上线5次的快乐&#34;&gt;拥抱主干开发：每天上线5次的快乐
+&lt;h2 id="拥抱主干开发每天上线5次的快乐"&gt;拥抱主干开发：每天上线5次的快乐
 &lt;/h2&gt;&lt;p&gt;痛定思痛，我决定在核心业务线尝试 &lt;strong&gt;主干开发（Trunk Based Development，TBD）&lt;/strong&gt;。&lt;/p&gt;
 &lt;p&gt;简单说，就是团队只维护一条主干分支（通常是 &lt;code&gt;main&lt;/code&gt; 或 &lt;code&gt;master&lt;/code&gt;）。开发人员的所有代码，要么直接提交到主干，要么在极短命的 Feature 分支（存活不超过24小时）上开发完迅速合入主干。&lt;/p&gt;
 &lt;p&gt;刚提出这个方案时，团队炸锅了。&lt;/p&gt;
-&lt;p&gt;&lt;img src=&#34;https://picsum.photos/800/450?random=1768387333564&#34;
-	
-	
-	
-	loading=&#34;lazy&#34;
-	
-		alt=&#34;配图&#34;
-	
-	
+&lt;p&gt;&lt;img src="https://picsum.photos/800/450?random=1768387333564"
+loading="lazy"
+alt="配图"
 &gt;&lt;/p&gt;
 &lt;blockquote&gt;
-&lt;p&gt;“直接往主干合？万一代码没写完，把线上搞挂了怎么办？”&lt;/p&gt;
-&lt;/blockquote&gt;
+&lt;p&gt;“直接往主干合？万一代码没写完，把线上搞挂了怎么办？”&lt;/p&gt;&lt;/blockquote&gt;
 &lt;p&gt;这是最真实的担忧。为了解决这个问题，我们引入了一个关键技术手段：&lt;strong&gt;特性开关（Feature Toggles）&lt;/strong&gt;。&lt;/p&gt;
 &lt;p&gt;这招真的太好用了。我们不再依赖“物理分支”来隔离未完成的功能，而是用“逻辑开关”来隔离。&lt;/p&gt;
 &lt;p&gt;举个实际代码的例子，比如我们在做新的“用户积分中心”：&lt;/p&gt;
-&lt;div class=&#34;highlight&#34;&gt;&lt;pre tabindex=&#34;0&#34; style=&#34;color:#f8f8f2;background-color:#272822;-moz-tab-size:4;-o-tab-size:4;tab-size:4;&#34;&gt;&lt;code class=&#34;language-python&#34; data-lang=&#34;python&#34;&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;&lt;span style=&#34;color:#75715e&#34;&gt;# 伪代码示例：利用配置文件或数据库里的开关状态&lt;/span&gt;
-&lt;/span&gt;&lt;/span&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;&lt;span style=&#34;color:#66d9ef&#34;&gt;def&lt;/span&gt; &lt;span style=&#34;color:#a6e22e&#34;&gt;get_user_dashboard&lt;/span&gt;(user_id):
-&lt;/span&gt;&lt;/span&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;    &lt;span style=&#34;color:#75715e&#34;&gt;# 检查开关是否对当前用户开启&lt;/span&gt;
-&lt;/span&gt;&lt;/span&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;    &lt;span style=&#34;color:#66d9ef&#34;&gt;if&lt;/span&gt; feature_flags&lt;span style=&#34;color:#f92672&#34;&gt;.&lt;/span&gt;is_on(&lt;span style=&#34;color:#e6db74&#34;&gt;&amp;#39;new_point_system&amp;#39;&lt;/span&gt;, user_id):
-&lt;/span&gt;&lt;/span&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;        &lt;span style=&#34;color:#66d9ef&#34;&gt;return&lt;/span&gt; render_new_dashboard(user_id)
-&lt;/span&gt;&lt;/span&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;    &lt;span style=&#34;color:#66d9ef&#34;&gt;else&lt;/span&gt;:
-&lt;/span&gt;&lt;/span&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;        &lt;span style=&#34;color:#75715e&#34;&gt;# 开关没开，或者是旧版本，跑老逻辑&lt;/span&gt;
-&lt;/span&gt;&lt;/span&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;        &lt;span style=&#34;color:#66d9ef&#34;&gt;return&lt;/span&gt; render_legacy_dashboard(user_id)
-&lt;/span&gt;&lt;/span&gt;&lt;/code&gt;&lt;/pre&gt;&lt;/div&gt;&lt;p&gt;即便这段代码有了Bug，只要开关是关的，线上用户就完全无感知。&lt;/p&gt;
+&lt;div class="highlight"&gt;&lt;div class="chroma"&gt;
+&lt;table class="lntable"&gt;&lt;tr&gt;&lt;td class="lntd"&gt;
+&lt;pre tabindex="0" class="chroma"&gt;&lt;code&gt;&lt;span class="lnt"&gt;1
+&lt;/span&gt;&lt;span class="lnt"&gt;2
+&lt;/span&gt;&lt;span class="lnt"&gt;3
+&lt;/span&gt;&lt;span class="lnt"&gt;4
+&lt;/span&gt;&lt;span class="lnt"&gt;5
+&lt;/span&gt;&lt;span class="lnt"&gt;6
+&lt;/span&gt;&lt;span class="lnt"&gt;7
+&lt;/span&gt;&lt;span class="lnt"&gt;8
+&lt;/span&gt;&lt;/code&gt;&lt;/pre&gt;&lt;/td&gt;
+&lt;td class="lntd"&gt;
+&lt;pre tabindex="0" class="chroma"&gt;&lt;code class="language-python" data-lang="python"&gt;&lt;span class="line"&gt;&lt;span class="cl"&gt;&lt;span class="c1"&gt;# 伪代码示例：利用配置文件或数据库里的开关状态&lt;/span&gt;
+&lt;/span&gt;&lt;/span&gt;&lt;span class="line"&gt;&lt;span class="cl"&gt;&lt;span class="k"&gt;def&lt;/span&gt; &lt;span class="nf"&gt;get_user_dashboard&lt;/span&gt;&lt;span class="p"&gt;(&lt;/span&gt;&lt;span class="n"&gt;user_id&lt;/span&gt;&lt;span class="p"&gt;):&lt;/span&gt;
+&lt;/span&gt;&lt;/span&gt;&lt;span class="line"&gt;&lt;span class="cl"&gt; &lt;span class="c1"&gt;# 检查开关是否对当前用户开启&lt;/span&gt;
+&lt;/span&gt;&lt;/span&gt;&lt;span class="line"&gt;&lt;span class="cl"&gt; &lt;span class="k"&gt;if&lt;/span&gt; &lt;span class="n"&gt;feature_flags&lt;/span&gt;&lt;span class="o"&gt;.&lt;/span&gt;&lt;span class="n"&gt;is_on&lt;/span&gt;&lt;span class="p"&gt;(&lt;/span&gt;&lt;span class="s1"&gt;&amp;#39;new_point_system&amp;#39;&lt;/span&gt;&lt;span class="p"&gt;,&lt;/span&gt; &lt;span class="n"&gt;user_id&lt;/span&gt;&lt;span class="p"&gt;):&lt;/span&gt;
+&lt;/span&gt;&lt;/span&gt;&lt;span class="line"&gt;&lt;span class="cl"&gt; &lt;span class="k"&gt;return&lt;/span&gt; &lt;span class="n"&gt;render_new_dashboard&lt;/span&gt;&lt;span class="p"&gt;(&lt;/span&gt;&lt;span class="n"&gt;user_id&lt;/span&gt;&lt;span class="p"&gt;)&lt;/span&gt;
+&lt;/span&gt;&lt;/span&gt;&lt;span class="line"&gt;&lt;span class="cl"&gt; &lt;span class="k"&gt;else&lt;/span&gt;&lt;span class="p"&gt;:&lt;/span&gt;
+&lt;/span&gt;&lt;/span&gt;&lt;span class="line"&gt;&lt;span class="cl"&gt; &lt;span class="c1"&gt;# 开关没开，或者是旧版本，跑老逻辑&lt;/span&gt;
+&lt;/span&gt;&lt;/span&gt;&lt;span class="line"&gt;&lt;span class="cl"&gt; &lt;span class="k"&gt;return&lt;/span&gt; &lt;span class="n"&gt;render_legacy_dashboard&lt;/span&gt;&lt;span class="p"&gt;(&lt;/span&gt;&lt;span class="n"&gt;user_id&lt;/span&gt;&lt;span class="p"&gt;)&lt;/span&gt;
+&lt;/span&gt;&lt;/span&gt;&lt;/code&gt;&lt;/pre&gt;&lt;/td&gt;&lt;/tr&gt;&lt;/table&gt;
+&lt;/div&gt;
+&lt;/div&gt;&lt;p&gt;即便这段代码有了Bug，只要开关是关的，线上用户就完全无感知。&lt;/p&gt;
 &lt;p&gt;&lt;strong&gt;转型后的真实变化：&lt;/strong&gt;&lt;/p&gt;
 &lt;ul&gt;
 &lt;li&gt;&lt;strong&gt;小步快跑&lt;/strong&gt;：大刘不再憋两周的大招了。他把“促销功能”拆成了后端接口、数据库变更、前端页面的骨架等 8 个小任务。每天合并 2-3 次代码进主干，每次只改动几十行。&lt;/li&gt;
@@ -83,7 +64,7 @@
 &lt;li&gt;&lt;strong&gt;随时可发布&lt;/strong&gt;：主干随时处于可发布状态（Deployable）。周五下午 5 点上线？没问题，因为今天的改动非常小且经过了自动化测试。&lt;/li&gt;
 &lt;/ul&gt;
 &lt;p&gt;实行主干开发三个月后，我们的&lt;strong&gt;平均上线频率从“每周1次”变成了“每天4-5次”，而线上故障率反而下降了 40%。&lt;/strong&gt;&lt;/p&gt;
-&lt;h2 id=&#34;别盲目跟风适合才是最好的&#34;&gt;别盲目跟风，适合才是最好的
+&lt;h2 id="别盲目跟风适合才是最好的"&gt;别盲目跟风，适合才是最好的
 &lt;/h2&gt;&lt;p&gt;看到这里，你可能想马上回去推翻现在的流程。&lt;strong&gt;但在动手前，请先冷静一下。&lt;/strong&gt; 这两年踩过的坑告诉我，没有绝对正确的策略，只有适合场景的策略。&lt;/p&gt;
 &lt;p&gt;我也见过有的团队盲目切主干开发，结果因为没有自动化测试，主干天天挂，甚至被称为“主干崩溃开发”。&lt;/p&gt;
 &lt;p&gt;怎么选？我总结了一套简单的判断逻辑：&lt;/p&gt;
@@ -100,7 +81,7 @@
 &lt;li&gt;&lt;strong&gt;DevOps 能力较强&lt;/strong&gt;：有完善的 CI/CD 流水线，代码提交后能自动跑测试。&lt;/li&gt;
 &lt;/ul&gt;
 &lt;p&gt;我个人的习惯是：&lt;strong&gt;凡是能通过自动化解决的，绝不依赖人工流程。&lt;/strong&gt; Git Flow 很多时候是在用繁琐的人工流程来弥补技术自信的不足。&lt;/p&gt;
-&lt;h2 id=&#34;总结与行动&#34;&gt;总结与行动
+&lt;h2 id="总结与行动"&gt;总结与行动
 &lt;/h2&gt;&lt;p&gt;回看这两年，从 Git Flow 到主干开发的转变，本质上是一场&lt;strong&gt;信任机制&lt;/strong&gt;的转变：从“我不信任你的代码，所以要隔离你”，变成了“我信任我们的测试体系，所以允许你快速合并”。&lt;/p&gt;
 &lt;p&gt;如果你也想尝试改进分支策略，建议从以下 3 个具体的行动开始，别贪多：&lt;/p&gt;
 &lt;ol&gt;
@@ -109,9 +90,4 @@
 &lt;li&gt;&lt;strong&gt;定期大扫除&lt;/strong&gt;：我每周五下午会花 15 分钟清理远程仓库里那些超过 1 个月没动静的僵尸分支。干干净净的仓库，看着心情都好。&lt;/li&gt;
 &lt;/ol&gt;
 &lt;p&gt;&lt;strong&gt;你在团队中遇到过最惨烈的“代码合并事故”是什么样的？现在的你们是在用 Git Flow 还是其他路子？&lt;/strong&gt;&lt;/p&gt;
-&lt;p&gt;欢迎在评论区和我聊聊，说不定你的方案能给更多人启发。&lt;/p&gt;
-</description>
-        </item>
-        
-    </channel>
-</rss>
+&lt;p&gt;欢迎在评论区和我聊聊，说不定你的方案能给更多人启发。&lt;/p&gt;</description></item></channel></rss>

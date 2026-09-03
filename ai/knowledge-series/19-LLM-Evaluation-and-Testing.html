@@ -1,581 +1,67 @@
-<!DOCTYPE html>
-<html lang="zh-cn" dir="ltr">
-    <head><meta charset='utf-8'>
-<meta name='viewport' content='width=device-width, initial-scale=1'><meta name='description' content="第19章：大模型评估与测试——怎么知道你的 AI 系统好还是不好？\r系列导读：&ldquo;感觉不错&quot;不是一个好的评估标准。本章教你建立一套可复现、可量化、可迭代的评估体系。\n一、为什么评估很重要？\r你改了一个 Prompt、换了一个模型、加了一个工具——效果到底变好了还是变差了？\n没有评估体系，你就只能凭感觉。而&quot;感觉&quot;在实际工程中往往是错的，因为：\n幻觉的答案听起来可能很有道理 模型在某些问题上碰巧答对了，不代表整体变好了 不同批次、不同负载下的表现波动很大 二、评估的三个维度\r把 LLM 系统的评估拆成三个层面：\n维度1：输出质量\r回答的内容是否正确、有用、完整？\n指标 说明 怎么测 准确率 事实性问题答对的占比 标注事实问答对，跑批量测试 相关性 回答是否针对用户问题 人工打分 / LLM-as-Judge 完整性 是否覆盖了问题的所有方面 检查清单覆盖度 幻觉率 编造信息的出现频率 人工抽查 / 和知识库交叉验证 一致性 同问法不同表述，输出是否一致 改写问句重复测试 维度2：推理质量\rAgent 的推理过程是否正确？\n指标 说明 怎么测 工具选择准确率 选的工具对不对 标注每个场景应调用的工具 参数准确率 传的参数对不对 参数值和期望值的匹配度 终止条件达成率 任务是否结束在正确状态 检查最终输出是否回答完问题 循环检测 是否陷入死循环（反复调用同一工具） 监控调用次数和去重 维度3：系统性能\r速度、成本、稳定性\n指标 说明 目标值 首 token 延迟 从提问到第一个输出生成的时间 &lt;1s 吞吐率 每分钟处理请求数 按业务需求 Token 消耗 每次调用的平均 token 数 越低越好 错误率 API 调用失败 / 超时 / 异常的占比 &lt;0.1% 并发能力 同时处理的最大请求数 按 SLA 三、LLM-as-Judge：用模型来评估模型\r让 GPT-4 来评分你的 GPT-3.5 输出——这是目前最火的自动化评估手段。\n">
-<title>第19章：大模型评估与测试——怎么知道你的 AI 系统好还是不好？</title>
-
-<link rel='canonical' href='https://blog.irudder.me/ai/knowledge-series/19-LLM-Evaluation-and-Testing.html'>
-
-<link rel="stylesheet" href="/scss/style.min.b9e9128fec450ebccecc4ec9900157f32b85d0609bcd5ee3293968bcaa1235f2.css"><meta property='og:title' content="第19章：大模型评估与测试——怎么知道你的 AI 系统好还是不好？">
-<meta property='og:description' content="第19章：大模型评估与测试——怎么知道你的 AI 系统好还是不好？\r系列导读：&ldquo;感觉不错&quot;不是一个好的评估标准。本章教你建立一套可复现、可量化、可迭代的评估体系。\n一、为什么评估很重要？\r你改了一个 Prompt、换了一个模型、加了一个工具——效果到底变好了还是变差了？\n没有评估体系，你就只能凭感觉。而&quot;感觉&quot;在实际工程中往往是错的，因为：\n幻觉的答案听起来可能很有道理 模型在某些问题上碰巧答对了，不代表整体变好了 不同批次、不同负载下的表现波动很大 二、评估的三个维度\r把 LLM 系统的评估拆成三个层面：\n维度1：输出质量\r回答的内容是否正确、有用、完整？\n指标 说明 怎么测 准确率 事实性问题答对的占比 标注事实问答对，跑批量测试 相关性 回答是否针对用户问题 人工打分 / LLM-as-Judge 完整性 是否覆盖了问题的所有方面 检查清单覆盖度 幻觉率 编造信息的出现频率 人工抽查 / 和知识库交叉验证 一致性 同问法不同表述，输出是否一致 改写问句重复测试 维度2：推理质量\rAgent 的推理过程是否正确？\n指标 说明 怎么测 工具选择准确率 选的工具对不对 标注每个场景应调用的工具 参数准确率 传的参数对不对 参数值和期望值的匹配度 终止条件达成率 任务是否结束在正确状态 检查最终输出是否回答完问题 循环检测 是否陷入死循环（反复调用同一工具） 监控调用次数和去重 维度3：系统性能\r速度、成本、稳定性\n指标 说明 目标值 首 token 延迟 从提问到第一个输出生成的时间 &lt;1s 吞吐率 每分钟处理请求数 按业务需求 Token 消耗 每次调用的平均 token 数 越低越好 错误率 API 调用失败 / 超时 / 异常的占比 &lt;0.1% 并发能力 同时处理的最大请求数 按 SLA 三、LLM-as-Judge：用模型来评估模型\r让 GPT-4 来评分你的 GPT-3.5 输出——这是目前最火的自动化评估手段。\n">
-<meta property='og:url' content='https://blog.irudder.me/ai/knowledge-series/19-LLM-Evaluation-and-Testing.html'>
-<meta property='og:site_name' content='SelfTechHub'>
-<meta property='og:type' content='article'><meta property='article:section' content='Ai' /><meta property='article:tag' content='LLM Evaluation' /><meta property='article:tag' content='Testing' /><meta property='article:tag' content='Metrics' /><meta property='article:tag' content='AI Quality' /><meta property='article:published_time' content='2026-07-22T00:00:00&#43;00:00'/><meta property='article:modified_time' content='2026-07-22T00:00:00&#43;00:00'/>
-<meta name="twitter:title" content="第19章：大模型评估与测试——怎么知道你的 AI 系统好还是不好？">
-<meta name="twitter:description" content="第19章：大模型评估与测试——怎么知道你的 AI 系统好还是不好？\r系列导读：&ldquo;感觉不错&quot;不是一个好的评估标准。本章教你建立一套可复现、可量化、可迭代的评估体系。\n一、为什么评估很重要？\r你改了一个 Prompt、换了一个模型、加了一个工具——效果到底变好了还是变差了？\n没有评估体系，你就只能凭感觉。而&quot;感觉&quot;在实际工程中往往是错的，因为：\n幻觉的答案听起来可能很有道理 模型在某些问题上碰巧答对了，不代表整体变好了 不同批次、不同负载下的表现波动很大 二、评估的三个维度\r把 LLM 系统的评估拆成三个层面：\n维度1：输出质量\r回答的内容是否正确、有用、完整？\n指标 说明 怎么测 准确率 事实性问题答对的占比 标注事实问答对，跑批量测试 相关性 回答是否针对用户问题 人工打分 / LLM-as-Judge 完整性 是否覆盖了问题的所有方面 检查清单覆盖度 幻觉率 编造信息的出现频率 人工抽查 / 和知识库交叉验证 一致性 同问法不同表述，输出是否一致 改写问句重复测试 维度2：推理质量\rAgent 的推理过程是否正确？\n指标 说明 怎么测 工具选择准确率 选的工具对不对 标注每个场景应调用的工具 参数准确率 传的参数对不对 参数值和期望值的匹配度 终止条件达成率 任务是否结束在正确状态 检查最终输出是否回答完问题 循环检测 是否陷入死循环（反复调用同一工具） 监控调用次数和去重 维度3：系统性能\r速度、成本、稳定性\n指标 说明 目标值 首 token 延迟 从提问到第一个输出生成的时间 &lt;1s 吞吐率 每分钟处理请求数 按业务需求 Token 消耗 每次调用的平均 token 数 越低越好 错误率 API 调用失败 / 超时 / 异常的占比 &lt;0.1% 并发能力 同时处理的最大请求数 按 SLA 三、LLM-as-Judge：用模型来评估模型\r让 GPT-4 来评分你的 GPT-3.5 输出——这是目前最火的自动化评估手段。\n">
-    </head>
-    <body class="
-    article-page
-    ">
-    <script>
-        (function() {
-            const colorSchemeKey = 'StackColorScheme';
-            if(!localStorage.getItem(colorSchemeKey)){
-                localStorage.setItem(colorSchemeKey, "auto");
-            }
-        })();
-    </script><script>
-    (function() {
-        const colorSchemeKey = 'StackColorScheme';
-        const colorSchemeItem = localStorage.getItem(colorSchemeKey);
-        const supportDarkMode = window.matchMedia('(prefers-color-scheme: dark)').matches === true;
-
-        if (colorSchemeItem == 'dark' || colorSchemeItem === 'auto' && supportDarkMode) {
-            
-
-            document.documentElement.dataset.scheme = 'dark';
-        } else {
-            document.documentElement.dataset.scheme = 'light';
-        }
-    })();
-</script>
-<div class="container main-container flex on-phone--column compact"><aside class="sidebar left-sidebar sticky ">
-    <button class="hamburger hamburger--spin" type="button" id="toggle-menu" aria-label="切换菜单">
-        <span class="hamburger-box">
-            <span class="hamburger-inner"></span>
-        </span>
-    </button>
-
-    <header>
-        
-            
-            <figure class="site-avatar">
-                <a href="/">
-                
-                    
-                    
-                    
-                        
-                        <img src="/img/avatar_hu_8588ce14af1147e2.png" width="300"
-                            height="286" class="site-logo" loading="lazy" alt="Avatar">
-                    
-                
-                </a>
-                
-            </figure>
-            
-        
-        
-        <div class="site-meta">
-            <h1 class="site-name"><a href="/">SelfTechHub</a></h1>
-            <h2 class="site-description"></h2>
-        </div>
-    </header><ol class="menu" id="main-menu">
-        
-        
-        <li class="menu-bottom-section">
-            <ol class="menu">
-
-                
-                    <li id="dark-mode-toggle">
-                        <svg xmlns="http://www.w3.org/2000/svg" class="icon icon-tabler icon-tabler-toggle-left" width="24" height="24" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor" fill="none" stroke-linecap="round" stroke-linejoin="round">
-  <path stroke="none" d="M0 0h24v24H0z"/>
-  <circle cx="8" cy="12" r="2" />
-  <rect x="2" y="6" width="20" height="12" rx="6" />
-</svg>
-
-
-
-                        <svg xmlns="http://www.w3.org/2000/svg" class="icon icon-tabler icon-tabler-toggle-right" width="24" height="24" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor" fill="none" stroke-linecap="round" stroke-linejoin="round">
-  <path stroke="none" d="M0 0h24v24H0z"/>
-  <circle cx="16" cy="12" r="2" />
-  <rect x="2" y="6" width="20" height="12" rx="6" />
-</svg>
-
-
-
-                        <span>暗色模式</span>
-                    </li>
-                
-            </ol>
-        </li>
-    </ol>
-</aside>
-
-    
-
-            <main class="main full-width">
-    <article class="main-article">
-    <header class="article-header">
-
-    <div class="article-details">
-    
-    <header class="article-category">
-        
-            <a href="/categories/ai.html" >
-                AI探索
-            </a>
-        
-    </header>
-    
-
-    <div class="article-title-wrapper">
-        <h2 class="article-title">
-            <a href="/ai/knowledge-series/19-LLM-Evaluation-and-Testing.html">第19章：大模型评估与测试——怎么知道你的 AI 系统好还是不好？</a>
-        </h2>
-    
-        
-    </div>
-
-    
-    
-    
-    
-    <footer class="article-time">
-        
-            <div>
-                <svg xmlns="http://www.w3.org/2000/svg" class="icon icon-tabler icon-tabler-calendar-time" width="56" height="56" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor" fill="none" stroke-linecap="round" stroke-linejoin="round">
-  <path stroke="none" d="M0 0h24v24H0z"/>
-  <path d="M11.795 21h-6.795a2 2 0 0 1 -2 -2v-12a2 2 0 0 1 2 -2h12a2 2 0 0 1 2 2v4" />
-  <circle cx="18" cy="18" r="4" />
-  <path d="M15 3v4" />
-  <path d="M7 3v4" />
-  <path d="M3 11h16" />
-  <path d="M18 16.496v1.504l1 1" />
-</svg>
-                <time class="article-time--published" datetime='2026-07-22T00:00:00Z'>Jul 22, 2026</time>
-            </div>
-        
-
-        
-            <div>
-                <svg xmlns="http://www.w3.org/2000/svg" class="icon icon-tabler icon-tabler-clock" width="24" height="24" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor" fill="none" stroke-linecap="round" stroke-linejoin="round">
-  <path stroke="none" d="M0 0h24v24H0z"/>
-  <circle cx="12" cy="12" r="9" />
-  <polyline points="12 7 12 12 15 15" />
-</svg>
-
-
-
-                <time class="article-time--reading">
-                    阅读时长: 2 分钟
-                </time>
-            </div>
-        
-    </footer>
-    
-
-    
-</div>
-
-</header>
-
-    <section class="article-content">
-    
-    
-    <h1 id="第19章大模型评估与测试怎么知道你的-ai-系统好还是不好">第19章：大模型评估与测试——怎么知道你的 AI 系统好还是不好？
-</h1><blockquote>
-<p>系列导读：&ldquo;感觉不错&quot;不是一个好的评估标准。本章教你建立一套可复现、可量化、可迭代的评估体系。</p>
-</blockquote>
-<hr>
-<h2 id="一为什么评估很重要">一、为什么评估很重要？
-</h2><p>你改了一个 Prompt、换了一个模型、加了一个工具——<strong>效果到底变好了还是变差了？</strong></p>
-<p>没有评估体系，你就只能凭感觉。而&quot;感觉&quot;在实际工程中往往是错的，因为：</p>
-<ul>
-<li><strong>幻觉的答案听起来可能很有道理</strong></li>
-<li><strong>模型在某些问题上碰巧答对了，不代表整体变好了</strong></li>
-<li><strong>不同批次、不同负载下的表现波动很大</strong></li>
-</ul>
-<h2 id="二评估的三个维度">二、评估的三个维度
-</h2><p>把 LLM 系统的评估拆成三个层面：</p>
-<h3 id="维度1输出质量">维度1：输出质量
-</h3><p>回答的内容是否正确、有用、完整？</p>
-<div class="table-wrapper"><table>
-  <thead>
-      <tr>
-          <th>指标</th>
-          <th>说明</th>
-          <th>怎么测</th>
-      </tr>
-  </thead>
-  <tbody>
-      <tr>
-          <td>准确率</td>
-          <td>事实性问题答对的占比</td>
-          <td>标注事实问答对，跑批量测试</td>
-      </tr>
-      <tr>
-          <td>相关性</td>
-          <td>回答是否针对用户问题</td>
-          <td>人工打分 / LLM-as-Judge</td>
-      </tr>
-      <tr>
-          <td>完整性</td>
-          <td>是否覆盖了问题的所有方面</td>
-          <td>检查清单覆盖度</td>
-      </tr>
-      <tr>
-          <td>幻觉率</td>
-          <td>编造信息的出现频率</td>
-          <td>人工抽查 / 和知识库交叉验证</td>
-      </tr>
-      <tr>
-          <td>一致性</td>
-          <td>同问法不同表述，输出是否一致</td>
-          <td>改写问句重复测试</td>
-      </tr>
-  </tbody>
-</table></div>
-<h3 id="维度2推理质量">维度2：推理质量
-</h3><p>Agent 的推理过程是否正确？</p>
-<div class="table-wrapper"><table>
-  <thead>
-      <tr>
-          <th>指标</th>
-          <th>说明</th>
-          <th>怎么测</th>
-      </tr>
-  </thead>
-  <tbody>
-      <tr>
-          <td>工具选择准确率</td>
-          <td>选的工具对不对</td>
-          <td>标注每个场景应调用的工具</td>
-      </tr>
-      <tr>
-          <td>参数准确率</td>
-          <td>传的参数对不对</td>
-          <td>参数值和期望值的匹配度</td>
-      </tr>
-      <tr>
-          <td>终止条件达成率</td>
-          <td>任务是否结束在正确状态</td>
-          <td>检查最终输出是否回答完问题</td>
-      </tr>
-      <tr>
-          <td>循环检测</td>
-          <td>是否陷入死循环（反复调用同一工具）</td>
-          <td>监控调用次数和去重</td>
-      </tr>
-  </tbody>
-</table></div>
-<h3 id="维度3系统性能">维度3：系统性能
-</h3><p>速度、成本、稳定性</p>
-<div class="table-wrapper"><table>
-  <thead>
-      <tr>
-          <th>指标</th>
-          <th>说明</th>
-          <th>目标值</th>
-      </tr>
-  </thead>
-  <tbody>
-      <tr>
-          <td>首 token 延迟</td>
-          <td>从提问到第一个输出生成的时间</td>
-          <td>&lt;1s</td>
-      </tr>
-      <tr>
-          <td>吞吐率</td>
-          <td>每分钟处理请求数</td>
-          <td>按业务需求</td>
-      </tr>
-      <tr>
-          <td>Token 消耗</td>
-          <td>每次调用的平均 token 数</td>
-          <td>越低越好</td>
-      </tr>
-      <tr>
-          <td>错误率</td>
-          <td>API 调用失败 / 超时 / 异常的占比</td>
-          <td>&lt;0.1%</td>
-      </tr>
-      <tr>
-          <td>并发能力</td>
-          <td>同时处理的最大请求数</td>
-          <td>按 SLA</td>
-      </tr>
-  </tbody>
-</table></div>
-<h2 id="三llm-as-judge用模型来评估模型">三、LLM-as-Judge：用模型来评估模型
-</h2><p>让 GPT-4 来评分你的 GPT-3.5 输出——这是目前最火的自动化评估手段。</p>
-<h3 id="思路">思路
-</h3><pre tabindex="0"><code>评估 Prompt：
-&#34;以下是用户的问题和模型生成的答案。请从以下几个方面打分（1-5分）：
-
-1. 准确性：答案中的事实是否正确？
-2. 完整性：答案是否覆盖了用户的所有问题？
-3. 有用性：答案对用户是否有实际帮助？
-4. 安全性：答案是否有有害内容？
-
-用户问题：{question}
-模型答案：{answer}
-参考答案：{golden_answer}
-
-请输出 JSON 格式的评分。&#34;
-</code></pre><h3 id="局限性">局限性
-</h3><ol>
-<li><strong>评分者偏见</strong>：GPT-4 可能偏好某些风格（比如长回答）</li>
-<li><strong>对事实问题判断不准</strong>：LLM 自己也会幻觉，用它评估事实准确性有风险</li>
-<li><strong>对复杂推理评价弱</strong>：LLM 不一定能判断复杂推理链的正确性</li>
-</ol>
-<p><strong>黄金法则</strong>：LLM-as-Judge 适合做筛选和初步分级，最终重要决策仍需人工审核。</p>
-<h2 id="四建立-golden-set黄金评估集">四、建立 Golden Set（黄金评估集）
-</h2><p><strong>Golden Set 是一组人工标注的高质量&quot;问题-期望答案&quot;对</strong>，是评估的基石。</p>
-<h3 id="golden-set-建集原则">Golden Set 建集原则
-</h3><ol>
-<li><strong>覆盖核心场景</strong>：涵盖你的 Agent 最常见的 10-20 类问题</li>
-<li><strong>标注&quot;完整期望&rdquo;</strong>：不仅标对/错，还要标&quot;好的回答长什么样&quot;</li>
-<li><strong>包含边界案例</strong>：边缘输入、模糊问题、歧义问题</li>
-<li><strong>定期更新</strong>：Agent 迭代、业务变化后，golden set 也要跟进</li>
-</ol>
-<h3 id="规模建议">规模建议
-</h3><div class="table-wrapper"><table>
-  <thead>
-      <tr>
-          <th>Agent 复杂度</th>
-          <th>Golden Set 大小</th>
-          <th>覆盖度</th>
-      </tr>
-  </thead>
-  <tbody>
-      <tr>
-          <td>简单问答 Agent</td>
-          <td>20-50 条</td>
-          <td>主要场景</td>
-      </tr>
-      <tr>
-          <td>多工具 Agent</td>
-          <td>50-200 条</td>
-          <td>核心路径 + 分支</td>
-      </tr>
-      <tr>
-          <td>Multi-Agent 系统</td>
-          <td>100-500 条</td>
-          <td>全链路场景</td>
-      </tr>
-  </tbody>
-</table></div>
-<h2 id="五评估系统的自动化跑通">五、评估系统的自动化跑通
-</h2><pre tabindex="0"><code>每次迭代（改 Prompt / 换模型 / 加工具）：
-  ↓
-1. 在 Golden Set 上跑完整评测
-  ↓
-2. 生成评估报告（准确度、幻觉率、延迟）
-  ↓
-3. 对比上个版本的 diff
-  ↓
-4. regression 检测：有没有之前对的问题现在错了？
-  ↓
-5. 决定是否合并到主分支
-</code></pre><h2 id="六本章小结">六、本章小结
-</h2><ul>
-<li>评估分三层：输出质量 + 推理质量 + 系统性能</li>
-<li>LLM-as-Judge 是自动化评估的有效工具，但不能取代人工审核</li>
-<li>Golden Set 是评估根基，要覆盖主要场景和边界案例</li>
-<li>每次修改都跑回归测试，防止&quot;修好一个问题，坏掉另一个&quot;</li>
-</ul>
-<h2 id="思考题">思考题
-</h2><ol>
-<li>LLM-as-Judge 的打分结果和标准评分的 Correlation（相关性）一般有多少？怎么验证你的 LLM-as-Judge 是靠谱的？</li>
-<li>如果你发现每次改了某处后，Golden Set 里有 3 条本来对的问题现在错了，但同时有 5 条之前有问题的现在好了——你怎么决定要不要合并这个改动？</li>
-</ol>
-
-</section>
-
-
-    <footer class="article-footer">
-    
-    <section class="article-tags">
-        
-            <a href="/tags/LLM-Evaluation.html">LLM Evaluation</a>
-        
-            <a href="/tags/Testing.html">Testing</a>
-        
-            <a href="/tags/Metrics.html">Metrics</a>
-        
-            <a href="/tags/AI-Quality.html">AI Quality</a>
-        
-    </section>
-
-
-    </footer>
-
-
-    
-</article>
-
-    
-
-    
-
-     
-    
-        
-    <script
-    src="https://giscus.app/client.js"
-    data-repo="pastor17/bloggiscus"
-    data-repo-id="R_kgDOQ6H9qQ"
-    data-category=""
-    data-category-id="DIC_kwDOQ6H9qc4C0-T8"
-    data-mapping="pathname"
-    data-strict="0"
-    data-reactions-enabled="1"
-    data-emit-metadata="0"
-    data-input-position="bottom"
-    data-theme="light"
-    data-lang="zh-CN"
-    data-loading="lazy"
-    crossorigin="anonymous"
-    async
-></script>
-<script>
-    function setGiscusTheme(theme) {
-        let giscus = document.querySelector("iframe.giscus-frame");
-        if (giscus) {
-            giscus.contentWindow.postMessage(
-                {
-                    giscus: {
-                        setConfig: {
-                            theme: theme,
-                        },
-                    },
-                },
-                "https://giscus.app"
-            );
-        }
-    }
-
-    (function () {
-        addEventListener("message", (e) => {
-            if (event.origin !== "https://giscus.app") return;
-            handler();
-        });
-        window.addEventListener("onColorSchemeChange", handler);
-
-        function handler() {
-            if (document.documentElement.dataset.scheme === "light") {
-                setGiscusTheme('light');
-            } else {
-                setGiscusTheme('dark_dimmed');
-            }
-        }
-    })();
-</script>
-
-    
-
-    <footer class="site-footer">
-    <section class="copyright">
-        &copy; 
-        
-        2026 SelfTechHub
-    </section>
-    
-    <section class="powerby">
-        
-
-    </section>
-</footer>
-
-
-    
-<div class="pswp" tabindex="-1" role="dialog" aria-hidden="true">
-
-    
-    <div class="pswp__bg"></div>
-
-    
-    <div class="pswp__scroll-wrap">
-
-        
-        <div class="pswp__container">
-            <div class="pswp__item"></div>
-            <div class="pswp__item"></div>
-            <div class="pswp__item"></div>
-        </div>
-
-        
-        <div class="pswp__ui pswp__ui--hidden">
-
-            <div class="pswp__top-bar">
-
-                
-
-                <div class="pswp__counter"></div>
-
-                <button class="pswp__button pswp__button--close" title="Close (Esc)"></button>
-
-                <button class="pswp__button pswp__button--share" title="Share"></button>
-
-                <button class="pswp__button pswp__button--fs" title="Toggle fullscreen"></button>
-
-                <button class="pswp__button pswp__button--zoom" title="Zoom in/out"></button>
-
-                
-                
-                <div class="pswp__preloader">
-                    <div class="pswp__preloader__icn">
-                        <div class="pswp__preloader__cut">
-                            <div class="pswp__preloader__donut"></div>
-                        </div>
-                    </div>
-                </div>
-            </div>
-
-            <div class="pswp__share-modal pswp__share-modal--hidden pswp__single-tap">
-                <div class="pswp__share-tooltip"></div>
-            </div>
-
-            <button class="pswp__button pswp__button--arrow--left" title="Previous (arrow left)">
-            </button>
-
-            <button class="pswp__button pswp__button--arrow--right" title="Next (arrow right)">
-            </button>
-
-            <div class="pswp__caption">
-                <div class="pswp__caption__center"></div>
-            </div>
-
-        </div>
-
-    </div>
-
-</div><script 
-                src="https://cdn.jsdelivr.net/npm/photoswipe@4.1.3/dist/photoswipe.min.js"integrity="sha256-ePwmChbbvXbsO02lbM3HoHbSHTHFAeChekF1xKJdleo="crossorigin="anonymous"
-                defer
-                >
-            </script><script 
-                src="https://cdn.jsdelivr.net/npm/photoswipe@4.1.3/dist/photoswipe-ui-default.min.js"integrity="sha256-UKkzOn/w1mBxRmLLGrSeyB4e1xbrp4xylgAWb3M42pU="crossorigin="anonymous"
-                defer
-                >
-            </script><link 
-                rel="stylesheet" 
-                href="https://cdn.jsdelivr.net/npm/photoswipe@4.1.3/dist/default-skin/default-skin.min.css"crossorigin="anonymous"
-            ><link 
-                rel="stylesheet" 
-                href="https://cdn.jsdelivr.net/npm/photoswipe@4.1.3/dist/photoswipe.min.css"crossorigin="anonymous"
-            >
-    
-
-            </main>
-        </div>
-        <script 
-                src="https://cdn.jsdelivr.net/npm/node-vibrant@3.1.6/dist/vibrant.min.js"integrity="sha256-awcR2jno4kI5X0zL8ex0vi2z&#43;KMkF24hUW8WePSA9HM="crossorigin="anonymous"
-                
-                >
-            </script><script type="text/javascript" src="/ts/main.c922af694cc257bf1ecc41c0dd7b0430f9114ec280ccf67cd2c6ad55f5316c4e.js" defer></script>
-<script>
-    (function () {
-        const customFont = document.createElement('link');
-        customFont.href = "https://fonts.googleapis.com/css2?family=Lato:wght@300;400;700&display=swap";
-
-        customFont.type = "text/css";
-        customFont.rel = "stylesheet";
-
-        document.head.appendChild(customFont);
-    }());
-</script>
-
-    </body>
-</html>
+<!doctype html><html lang=zh-cn dir=ltr><head><meta charset=utf-8><meta name=viewport content='width=device-width,initial-scale=1'><meta name=description content="系列导读：\" 感觉不错\"不是一个好的评估标准。本章教你建立一套可复现、可量化、可迭代的评估体系。你改了一个 prompt、换了一个模型、加了一个工具——效果到底变好了还是变差了？"><title>第19章：大模型评估与测试——怎么知道你的 AI 系统好还是不好？</title><link rel=canonical href=https://blog.irudder.me/ai/knowledge-series/19-LLM-Evaluation-and-Testing.html><link rel=stylesheet href=/scss/style.min.c77ce1b874b29b2ee9e54a89066c79ebf35cbe9cf399b31ab5d79167f9a965c9.css><meta property='og:title' content="第19章：大模型评估与测试——怎么知道你的 AI 系统好还是不好？"><meta property='og:description' content="系列导读：\" 感觉不错\"不是一个好的评估标准。本章教你建立一套可复现、可量化、可迭代的评估体系。你改了一个 prompt、换了一个模型、加了一个工具——效果到底变好了还是变差了？"><meta property='og:url' content='https://blog.irudder.me/ai/knowledge-series/19-LLM-Evaluation-and-Testing.html'><meta property='og:site_name' content='SelfTechHub'><meta property='og:type' content='article'><meta property='article:section' content='Ai'><meta property='article:tag' content='LLM Evaluation'><meta property='article:tag' content='Testing'><meta property='article:tag' content='Metrics'><meta property='article:tag' content='AI Quality'><meta property='article:published_time' content='2026-07-22T00:00:00+08:00'><meta property='article:modified_time' content='2026-07-22T00:00:00+08:00'><meta name=twitter:title content="第19章：大模型评估与测试——怎么知道你的 AI 系统好还是不好？"><meta name=twitter:description content="系列导读：\" 感觉不错\"不是一个好的评估标准。本章教你建立一套可复现、可量化、可迭代的评估体系。你改了一个 prompt、换了一个模型、加了一个工具——效果到底变好了还是变差了？"><link rel="shortcut icon" href=/images/logo.png></head><body class=article-page><script>(function(){const e="StackColorScheme";localStorage.getItem(e)||localStorage.setItem(e,"auto")})()</script><script>(function(){const t="StackColorScheme",e=localStorage.getItem(t),n=window.matchMedia("(prefers-color-scheme: dark)").matches===!0;e=="dark"||e==="auto"&&n?document.documentElement.dataset.scheme="dark":document.documentElement.dataset.scheme="light"})()</script><div class="container main-container flex on-phone--column extended"><aside class="sidebar left-sidebar sticky"><button class="hamburger hamburger--spin" type=button id=toggle-menu aria-label=切换菜单>
+<span class=hamburger-box><span class=hamburger-inner></span></span></button><header><figure class=site-avatar><a href=/><img src=/img/avatar_hu_8588ce14af1147e2.png width=300 height=286 class=site-logo loading=lazy alt=Avatar>
+</a><span class=emoji>🧠</span></figure><div class=site-meta><h1 class=site-name><a href=/>SelfTechHub</a></h1><h2 class=site-description>成长 · 技术 · 商业 · AI —— 把碎片知识沉淀为可复用的记忆体系</h2></div></header><ol class=menu-social><li><a href=https://github.com/pastor17 target=_blank title=GitHub rel=me><svg class="icon icon-tabler icon-tabler-brand-github" width="24" height="24" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor" fill="none" stroke-linecap="round" stroke-linejoin="round"><path stroke="none" d="M0 0h24v24H0z" fill="none"/><path d="M9 19c-4.3 1.4-4.3-2.5-6-3m12 5v-3.5c0-1 .1-1.4-.5-2 2.8-.3 5.5-1.4 5.5-6a4.6 4.6.0 00-1.3-3.2 4.2 4.2.0 00-.1-3.2s-1.1-.3-3.5 1.3a12.3 12.3.0 00-6.2.0C6.5 2.8 5.4 3.1 5.4 3.1a4.2 4.2.0 00-.1 3.2A4.6 4.6.0 004 9.5c0 4.6 2.7 5.7 5.5 6-.6.6-.6 1.2-.5 2V21"/></svg></a></li></ol><ol class=menu id=main-menu><li><a href=/><svg class="icon icon-tabler icon-tabler-home" width="24" height="24" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor" fill="none" stroke-linecap="round" stroke-linejoin="round"><path stroke="none" d="M0 0h24v24H0z"/><polyline points="5 12 3 12 12 3 21 12 19 12"/><path d="M5 12v7a2 2 0 002 2h10a2 2 0 002-2v-7"/><path d="M9 21v-6a2 2 0 012-2h2a2 2 0 012 2v6"/></svg>
+<span>首页</span></a></li><li><a href=/categories/%E6%88%90%E9%95%BF.html><span>成长认知</span></a></li><li><a href=/categories/%E6%8A%80%E6%9C%AF.html><span>技术精进</span></a></li><li><a href=/categories/%E5%95%86%E4%B8%9A.html><span>商业·财富</span></a></li><li><a href=/categories/ai.html><span>探索AI</span></a></li><li><a href=/about/><svg class="icon icon-tabler icon-tabler-user" width="24" height="24" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor" fill="none" stroke-linecap="round" stroke-linejoin="round"><path stroke="none" d="M0 0h24v24H0z"/><circle cx="12" cy="7" r="4"/><path d="M6 21v-2a4 4 0 014-4h4a4 4 0 014 4v2"/></svg>
+<span>关于</span></a></li><li class=menu-bottom-section><ol class=menu><li id=dark-mode-toggle><svg class="icon icon-tabler icon-tabler-toggle-left" width="24" height="24" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor" fill="none" stroke-linecap="round" stroke-linejoin="round"><path stroke="none" d="M0 0h24v24H0z"/><circle cx="8" cy="12" r="2"/><rect x="2" y="6" width="20" height="12" rx="6"/></svg>
+<svg class="icon icon-tabler icon-tabler-toggle-right" width="24" height="24" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor" fill="none" stroke-linecap="round" stroke-linejoin="round"><path stroke="none" d="M0 0h24v24H0z"/><circle cx="16" cy="12" r="2"/><rect x="2" y="6" width="20" height="12" rx="6"/></svg>
+<span>暗色模式</span></li></ol></li></ol></aside><aside class="sidebar right-sidebar sticky"><section class="widget archives"><div class=widget-icon><svg class="icon icon-tabler icon-tabler-hash" width="24" height="24" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor" fill="none" stroke-linecap="round" stroke-linejoin="round"><path stroke="none" d="M0 0h24v24H0z"/><line x1="5" y1="9" x2="19" y2="9"/><line x1="5" y1="15" x2="19" y2="15"/><line x1="11" y1="4" x2="7" y2="20"/><line x1="17" y1="4" x2="13" y2="20"/></svg></div><h2 class="widget-title section-title">目录</h2><div class=widget--toc><nav id=TableOfContents><ul><li><a href=#一为什么评估很重要>一、为什么评估很重要？</a></li><li><a href=#二评估的三个维度>二、评估的三个维度</a><ul><li><a href=#维度1输出质量>维度1：输出质量</a></li><li><a href=#维度2推理质量>维度2：推理质量</a></li><li><a href=#维度3系统性能>维度3：系统性能</a></li></ul></li><li><a href=#三llm-as-judge用模型来评估模型>三、LLM-as-Judge：用模型来评估模型</a><ul><li><a href=#思路>思路</a></li><li><a href=#局限性>局限性</a></li></ul></li><li><a href=#四建立-golden-set黄金评估集>四、建立 Golden Set（黄金评估集）</a><ul><li><a href=#golden-set-建集原则>Golden Set 建集原则</a></li><li><a href=#规模建议>规模建议</a></li></ul></li><li><a href=#五评估系统的自动化跑通>五、评估系统的自动化跑通</a></li><li><a href=#六本章小结>六、本章小结</a></li><li><a href=#思考题>思考题</a></li></ul></nav></div></section></aside><main class="main full-width"><article class=main-article><header class=article-header><div class=article-details><header class=article-category><a href=/categories/ai.html>AI探索</a></header><div class=article-title-wrapper><h2 class=article-title><a href=/ai/knowledge-series/19-LLM-Evaluation-and-Testing.html>第19章：大模型评估与测试——怎么知道你的 AI 系统好还是不好？</a></h2><h3 class=article-subtitle>系列导读："感觉不错"不是一个好的评估标准。本章教你建立一套可复现、可量化、可迭代的评估体系。你改了一个 Prompt、换了一个模型、加了一个工具——效果到底变好了还是变差了？</h3></div><footer class=article-time><div><svg class="icon icon-tabler icon-tabler-calendar-time" width="56" height="56" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor" fill="none" stroke-linecap="round" stroke-linejoin="round"><path stroke="none" d="M0 0h24v24H0z"/><path d="M11.795 21H5a2 2 0 01-2-2V7a2 2 0 012-2h12a2 2 0 012 2v4"/><circle cx="18" cy="18" r="4"/><path d="M15 3v4"/><path d="M7 3v4"/><path d="M3 11h16"/><path d="M18 16.496V18l1 1"/></svg>
+<time class=article-time--published datetime=2026-07-22T00:00:00+08:00>2026-07-22</time></div><div><svg class="icon icon-tabler icon-tabler-clock" width="24" height="24" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor" fill="none" stroke-linecap="round" stroke-linejoin="round"><path stroke="none" d="M0 0h24v24H0z"/><circle cx="12" cy="12" r="9"/><polyline points="12 7 12 12 15 15"/></svg>
+<time class=article-time--reading>阅读时长: 4 分钟</time></div></footer></div></header><section class=article-content><h1 id=第19章大模型评估与测试怎么知道你的-ai-系统好还是不好>第19章：大模型评估与测试——怎么知道你的 AI 系统好还是不好？</h1><blockquote><p>系列导读：&ldquo;感觉不错"不是一个好的评估标准。本章教你建立一套可复现、可量化、可迭代的评估体系。</p></blockquote><hr><h2 id=一为什么评估很重要>一、为什么评估很重要？</h2><p>你改了一个 Prompt、换了一个模型、加了一个工具——<strong>效果到底变好了还是变差了？</strong></p><p>没有评估体系，你就只能凭感觉。而"感觉"在实际工程中往往是错的，因为：</p><ul><li><strong>幻觉的答案听起来可能很有道理</strong></li><li><strong>模型在某些问题上碰巧答对了，不代表整体变好了</strong></li><li><strong>不同批次、不同负载下的表现波动很大</strong></li></ul><h2 id=二评估的三个维度>二、评估的三个维度</h2><p>把 LLM 系统的评估拆成三个层面：</p><h3 id=维度1输出质量>维度1：输出质量</h3><p>回答的内容是否正确、有用、完整？</p><div class=table-wrapper><table><thead><tr><th>指标</th><th>说明</th><th>怎么测</th></tr></thead><tbody><tr><td>准确率</td><td>事实性问题答对的占比</td><td>标注事实问答对，跑批量测试</td></tr><tr><td>相关性</td><td>回答是否针对用户问题</td><td>人工打分 / LLM-as-Judge</td></tr><tr><td>完整性</td><td>是否覆盖了问题的所有方面</td><td>检查清单覆盖度</td></tr><tr><td>幻觉率</td><td>编造信息的出现频率</td><td>人工抽查 / 和知识库交叉验证</td></tr><tr><td>一致性</td><td>同问法不同表述，输出是否一致</td><td>改写问句重复测试</td></tr></tbody></table></div><h3 id=维度2推理质量>维度2：推理质量</h3><p>Agent 的推理过程是否正确？</p><div class=table-wrapper><table><thead><tr><th>指标</th><th>说明</th><th>怎么测</th></tr></thead><tbody><tr><td>工具选择准确率</td><td>选的工具对不对</td><td>标注每个场景应调用的工具</td></tr><tr><td>参数准确率</td><td>传的参数对不对</td><td>参数值和期望值的匹配度</td></tr><tr><td>终止条件达成率</td><td>任务是否结束在正确状态</td><td>检查最终输出是否回答完问题</td></tr><tr><td>循环检测</td><td>是否陷入死循环（反复调用同一工具）</td><td>监控调用次数和去重</td></tr></tbody></table></div><h3 id=维度3系统性能>维度3：系统性能</h3><p>速度、成本、稳定性</p><div class=table-wrapper><table><thead><tr><th>指标</th><th>说明</th><th>目标值</th></tr></thead><tbody><tr><td>首 token 延迟</td><td>从提问到第一个输出生成的时间</td><td>&lt;1s</td></tr><tr><td>吞吐率</td><td>每分钟处理请求数</td><td>按业务需求</td></tr><tr><td>Token 消耗</td><td>每次调用的平均 token 数</td><td>越低越好</td></tr><tr><td>错误率</td><td>API 调用失败 / 超时 / 异常的占比</td><td>&lt;0.1%</td></tr><tr><td>并发能力</td><td>同时处理的最大请求数</td><td>按 SLA</td></tr></tbody></table></div><h2 id=三llm-as-judge用模型来评估模型>三、LLM-as-Judge：用模型来评估模型</h2><p>让 GPT-4 来评分你的 GPT-3.5 输出——这是目前最火的自动化评估手段。</p><h3 id=思路>思路</h3><div class=highlight><div class=chroma><table class=lntable><tr><td class=lntd><pre tabindex=0 class=chroma><code><span class=lnt> 1
+</span><span class=lnt> 2
+</span><span class=lnt> 3
+</span><span class=lnt> 4
+</span><span class=lnt> 5
+</span><span class=lnt> 6
+</span><span class=lnt> 7
+</span><span class=lnt> 8
+</span><span class=lnt> 9
+</span><span class=lnt>10
+</span><span class=lnt>11
+</span><span class=lnt>12
+</span><span class=lnt>13
+</span></code></pre></td><td class=lntd><pre tabindex=0 class=chroma><code class=language-fallback data-lang=fallback><span class=line><span class=cl>评估 Prompt：
+</span></span><span class=line><span class=cl>&#34;以下是用户的问题和模型生成的答案。请从以下几个方面打分（1-5分）：
+</span></span><span class=line><span class=cl>
+</span></span><span class=line><span class=cl>1. 准确性：答案中的事实是否正确？
+</span></span><span class=line><span class=cl>2. 完整性：答案是否覆盖了用户的所有问题？
+</span></span><span class=line><span class=cl>3. 有用性：答案对用户是否有实际帮助？
+</span></span><span class=line><span class=cl>4. 安全性：答案是否有有害内容？
+</span></span><span class=line><span class=cl>
+</span></span><span class=line><span class=cl>用户问题：{question}
+</span></span><span class=line><span class=cl>模型答案：{answer}
+</span></span><span class=line><span class=cl>参考答案：{golden_answer}
+</span></span><span class=line><span class=cl>
+</span></span><span class=line><span class=cl>请输出 JSON 格式的评分。&#34;
+</span></span></code></pre></td></tr></table></div></div><h3 id=局限性>局限性</h3><ol><li><strong>评分者偏见</strong>：GPT-4 可能偏好某些风格（比如长回答）</li><li><strong>对事实问题判断不准</strong>：LLM 自己也会幻觉，用它评估事实准确性有风险</li><li><strong>对复杂推理评价弱</strong>：LLM 不一定能判断复杂推理链的正确性</li></ol><p><strong>黄金法则</strong>：LLM-as-Judge 适合做筛选和初步分级，最终重要决策仍需人工审核。</p><h2 id=四建立-golden-set黄金评估集>四、建立 Golden Set（黄金评估集）</h2><p><strong>Golden Set 是一组人工标注的高质量"问题-期望答案"对</strong>，是评估的基石。</p><h3 id=golden-set-建集原则>Golden Set 建集原则</h3><ol><li><strong>覆盖核心场景</strong>：涵盖你的 Agent 最常见的 10-20 类问题</li><li><strong>标注"完整期望&rdquo;</strong>：不仅标对/错，还要标"好的回答长什么样"</li><li><strong>包含边界案例</strong>：边缘输入、模糊问题、歧义问题</li><li><strong>定期更新</strong>：Agent 迭代、业务变化后，golden set 也要跟进</li></ol><h3 id=规模建议>规模建议</h3><div class=table-wrapper><table><thead><tr><th>Agent 复杂度</th><th>Golden Set 大小</th><th>覆盖度</th></tr></thead><tbody><tr><td>简单问答 Agent</td><td>20-50 条</td><td>主要场景</td></tr><tr><td>多工具 Agent</td><td>50-200 条</td><td>核心路径 + 分支</td></tr><tr><td>Multi-Agent 系统</td><td>100-500 条</td><td>全链路场景</td></tr></tbody></table></div><h2 id=五评估系统的自动化跑通>五、评估系统的自动化跑通</h2><div class=highlight><div class=chroma><table class=lntable><tr><td class=lntd><pre tabindex=0 class=chroma><code><span class=lnt> 1
+</span><span class=lnt> 2
+</span><span class=lnt> 3
+</span><span class=lnt> 4
+</span><span class=lnt> 5
+</span><span class=lnt> 6
+</span><span class=lnt> 7
+</span><span class=lnt> 8
+</span><span class=lnt> 9
+</span><span class=lnt>10
+</span><span class=lnt>11
+</span></code></pre></td><td class=lntd><pre tabindex=0 class=chroma><code class=language-fallback data-lang=fallback><span class=line><span class=cl>每次迭代（改 Prompt / 换模型 / 加工具）：
+</span></span><span class=line><span class=cl>  ↓
+</span></span><span class=line><span class=cl>1. 在 Golden Set 上跑完整评测
+</span></span><span class=line><span class=cl>  ↓
+</span></span><span class=line><span class=cl>2. 生成评估报告（准确度、幻觉率、延迟）
+</span></span><span class=line><span class=cl>  ↓
+</span></span><span class=line><span class=cl>3. 对比上个版本的 diff
+</span></span><span class=line><span class=cl>  ↓
+</span></span><span class=line><span class=cl>4. regression 检测：有没有之前对的问题现在错了？
+</span></span><span class=line><span class=cl>  ↓
+</span></span><span class=line><span class=cl>5. 决定是否合并到主分支
+</span></span></code></pre></td></tr></table></div></div><h2 id=六本章小结>六、本章小结</h2><ul><li>评估分三层：输出质量 + 推理质量 + 系统性能</li><li>LLM-as-Judge 是自动化评估的有效工具，但不能取代人工审核</li><li>Golden Set 是评估根基，要覆盖主要场景和边界案例</li><li>每次修改都跑回归测试，防止"修好一个问题，坏掉另一个"</li></ul><h2 id=思考题>思考题</h2><ol><li>LLM-as-Judge 的打分结果和标准评分的 Correlation（相关性）一般有多少？怎么验证你的 LLM-as-Judge 是靠谱的？</li><li>如果你发现每次改了某处后，Golden Set 里有 3 条本来对的问题现在错了，但同时有 5 条之前有问题的现在好了——你怎么决定要不要合并这个改动？</li></ol></section><footer class=article-footer><section class=article-tags><a href=/tags/LLM-Evaluation.html>LLM Evaluation</a>
+<a href=/tags/Testing.html>Testing</a>
+<a href=/tags/Metrics.html>Metrics</a>
+<a href=/tags/AI-Quality.html>AI Quality</a></section></footer></article><script src=https://giscus.app/client.js data-repo=pastor17/bloggiscus data-repo-id=R_kgDOQ6H9qQ data-category data-category-id=DIC_kwDOQ6H9qc4C0-T8 data-mapping=pathname data-strict=0 data-reactions-enabled=1 data-emit-metadata=0 data-input-position=bottom data-theme=light data-lang=zh-CN data-loading=lazy crossorigin=anonymous async></script><script>function setGiscusTheme(e){let t=document.querySelector("iframe.giscus-frame");t&&t.contentWindow.postMessage({giscus:{setConfig:{theme:e}}},"https://giscus.app")}(function(){addEventListener("message",t=>{if(event.origin!=="https://giscus.app")return;e()}),window.addEventListener("onColorSchemeChange",e);function e(){setGiscusTheme(document.documentElement.dataset.scheme==="light"?"light":"dark_dimmed")}})()</script><footer class=site-footer><section class=copyright>&copy;
+2021 -
+2026 SelfTechHub</section><section class=powerby>拒绝一次性认知，把碎片知识沉淀为可复用的记忆体系<br></section></footer><div class=pswp tabindex=-1 role=dialog aria-hidden=true><div class=pswp__bg></div><div class=pswp__scroll-wrap><div class=pswp__container><div class=pswp__item></div><div class=pswp__item></div><div class=pswp__item></div></div><div class="pswp__ui pswp__ui--hidden"><div class=pswp__top-bar><div class=pswp__counter></div><button class="pswp__button pswp__button--close" title="Close (Esc)"></button>
+<button class="pswp__button pswp__button--share" title=Share></button>
+<button class="pswp__button pswp__button--fs" title="Toggle fullscreen"></button>
+<button class="pswp__button pswp__button--zoom" title="Zoom in/out"></button><div class=pswp__preloader><div class=pswp__preloader__icn><div class=pswp__preloader__cut><div class=pswp__preloader__donut></div></div></div></div></div><div class="pswp__share-modal pswp__share-modal--hidden pswp__single-tap"><div class=pswp__share-tooltip></div></div><button class="pswp__button pswp__button--arrow--left" title="Previous (arrow left)">
+</button>
+<button class="pswp__button pswp__button--arrow--right" title="Next (arrow right)"></button><div class=pswp__caption><div class=pswp__caption__center></div></div></div></div></div><script src=https://cdn.jsdelivr.net/npm/photoswipe@4.1.3/dist/photoswipe.min.js integrity="sha256-ePwmChbbvXbsO02lbM3HoHbSHTHFAeChekF1xKJdleo=" crossorigin=anonymous defer></script><script src=https://cdn.jsdelivr.net/npm/photoswipe@4.1.3/dist/photoswipe-ui-default.min.js integrity="sha256-UKkzOn/w1mBxRmLLGrSeyB4e1xbrp4xylgAWb3M42pU=" crossorigin=anonymous defer></script><link rel=stylesheet href=https://cdn.jsdelivr.net/npm/photoswipe@4.1.3/dist/default-skin/default-skin.min.css crossorigin=anonymous><link rel=stylesheet href=https://cdn.jsdelivr.net/npm/photoswipe@4.1.3/dist/photoswipe.min.css crossorigin=anonymous></main></div><script src=https://cdn.jsdelivr.net/npm/node-vibrant@3.1.6/dist/vibrant.min.js integrity="sha256-awcR2jno4kI5X0zL8ex0vi2z+KMkF24hUW8WePSA9HM=" crossorigin=anonymous></script><script type=text/javascript src=/ts/main.c922af694cc257bf1ecc41c0dd7b0430f9114ec280ccf67cd2c6ad55f5316c4e.js defer></script><script>(function(){const e=document.createElement("link");e.href="https://fonts.googleapis.com/css2?family=Lato:wght@300;400;700&display=swap",e.type="text/css",e.rel="stylesheet",document.head.appendChild(e)})()</script></body></html>

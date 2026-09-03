@@ -1,23 +1,9 @@
-<?xml version="1.0" encoding="utf-8" standalone="yes"?>
-<rss version="2.0" xmlns:atom="http://www.w3.org/2005/Atom">
-    <channel>
-        <title>消息队列（RabbitMQ/Kafka）解耦实战 on SelfTechHub</title>
-        <link>https://blog.irudder.me/tags/%E6%B6%88%E6%81%AF%E9%98%9F%E5%88%97RabbitMQ/Kafka%E8%A7%A3%E8%80%A6%E5%AE%9E%E6%88%98.html</link>
-        <description>Recent content in 消息队列（RabbitMQ/Kafka）解耦实战 on SelfTechHub</description>
-        <generator>Hugo -- gohugo.io</generator>
-        <language>zh-cn</language>
-        <lastBuildDate>Mon, 04 Dec 2023 00:00:00 +0000</lastBuildDate><atom:link href="https://blog.irudder.me/tags/%E6%B6%88%E6%81%AF%E9%98%9F%E5%88%97RabbitMQ/Kafka%E8%A7%A3%E8%80%A6%E5%AE%9E%E6%88%98/index.xml" rel="self" type="application/rss+xml" /><item>
-        <title>深夜3点被报警惊醒？RabbitMQ解耦实战指南</title>
-        <link>https://blog.irudder.me/tech/zhongxiaoxingxiangmujiagoushejizhinan/xiaoxiduilierabbitmq_kafkajieoushizhan.html</link>
-        <pubDate>Mon, 04 Dec 2023 00:00:00 +0000</pubDate>
-        
-        <guid>https://blog.irudder.me/tech/zhongxiaoxingxiangmujiagoushejizhinan/xiaoxiduilierabbitmq_kafkajieoushizhan.html</guid>
-        <description>&lt;p&gt;还记得三年前那个周五的深夜，我正睡得迷迷糊糊，手机突然像疯了一样震动起来。运维群里的报警信息一条接一条：数据库连接池爆满，CPU飙升到99%，用户投诉无法下单。&lt;/p&gt;
+<?xml version="1.0" encoding="utf-8" standalone="yes"?><rss version="2.0" xmlns:atom="http://www.w3.org/2005/Atom"><channel><title>消息队列（RabbitMQ/Kafka）解耦实战 on SelfTechHub</title><link>https://blog.irudder.me/tags/%E6%B6%88%E6%81%AF%E9%98%9F%E5%88%97RabbitMQ/Kafka%E8%A7%A3%E8%80%A6%E5%AE%9E%E6%88%98.html</link><description>Recent content in 消息队列（RabbitMQ/Kafka）解耦实战 on SelfTechHub</description><generator>Hugo -- gohugo.io</generator><language>zh-cn</language><lastBuildDate>Mon, 04 Dec 2023 00:00:00 +0800</lastBuildDate><atom:link href="https://blog.irudder.me/tags/%E6%B6%88%E6%81%AF%E9%98%9F%E5%88%97RabbitMQ/Kafka%E8%A7%A3%E8%80%A6%E5%AE%9E%E6%88%98/index.xml" rel="self" type="application/rss+xml"/><item><title>深夜3点被报警惊醒？RabbitMQ解耦实战指南</title><link>https://blog.irudder.me/tech/zhongxiaoxingxiangmujiagoushejizhinan/xiaoxiduilierabbitmq_kafkajieoushizhan.html</link><pubDate>Mon, 04 Dec 2023 00:00:00 +0800</pubDate><guid>https://blog.irudder.me/tech/zhongxiaoxingxiangmujiagoushejizhinan/xiaoxiduilierabbitmq_kafkajieoushizhan.html</guid><description>&lt;p&gt;还记得三年前那个周五的深夜，我正睡得迷迷糊糊，手机突然像疯了一样震动起来。运维群里的报警信息一条接一条：数据库连接池爆满，CPU飙升到99%，用户投诉无法下单。&lt;/p&gt;
 &lt;p&gt;那时候我负责的一个电商SaaS项目正处于快速增长期。排查了一圈才发现，罪魁祸首竟然是一个毫不起眼的“发送营销短信”功能。因为短信服务商的接口超时，导致主业务流程阻塞，成千上万的下单请求卡在线程池里，最终拖垮了整个系统。&lt;/p&gt;
 &lt;p&gt;那一刻我才深刻意识到：&lt;strong&gt;所谓的“架构设计”，不是为了炫技，而是为了让我们能睡个安稳觉。&lt;/strong&gt;&lt;/p&gt;
 &lt;p&gt;很多中小团队的兄弟跟我抱怨，系统像一团乱麻，改在一个地方，崩在另一个地方。其实，这多半是因为业务逻辑“缠绕”得太紧了。今天我想和大家聊聊，如何用消息队列（特别是对中小团队更友好的RabbitMQ）来做解耦。不讲晦涩的大道理，只聊怎么落地，怎么避坑。&lt;/p&gt;
 &lt;hr&gt;
-&lt;h3 id=&#34;-为什么你的系统总是牵一发而动全身&#34;&gt;## 为什么你的系统总是“牵一发而动全身”？
+&lt;h3 id="-为什么你的系统总是牵一发而动全身"&gt;## 为什么你的系统总是“牵一发而动全身”？
 &lt;/h3&gt;&lt;p&gt;在很多创业初期或中小型项目中，我们习惯写“流水账”式的代码。这很正常，因为要快。&lt;/p&gt;
 &lt;p&gt;但我曾见过一个典型的注册接口是这么写的：&lt;/p&gt;
 &lt;ol&gt;
@@ -35,7 +21,7 @@
 &lt;p&gt;&lt;strong&gt;解决思路：&lt;/strong&gt;
 我们要学会做“减法”。注册接口的核心只是“把人存进数据库”，至于送鸡蛋还是送积分，那都是后话。&lt;/p&gt;
 &lt;hr&gt;
-&lt;h3 id=&#34;-第一步把同步变成异步&#34;&gt;## 第一步：把“同步”变成“异步”
+&lt;h3 id="-第一步把同步变成异步"&gt;## 第一步：把“同步”变成“异步”
 &lt;/h3&gt;&lt;p&gt;很多刚接触消息队列的朋友会觉得这东西很高深，其实你把它想象成一个**“待办事项收纳盒”**就好。&lt;/p&gt;
 &lt;p&gt;还是上面的例子，引入RabbitMQ后，流程变成了这样：&lt;/p&gt;
 &lt;ol&gt;
@@ -47,55 +33,72 @@
 &lt;p&gt;这就好比你去餐厅吃饭。前台点完餐（发消息），给你个号牌（返回成功），你就可以找座了。厨房（消费者）看到订单慢慢做，做好了一个个叫号。前台不需要一直站在厨房门口等着菜炒熟。&lt;/p&gt;
 &lt;p&gt;&lt;strong&gt;代码实战（Python示例）：&lt;/strong&gt;&lt;/p&gt;
 &lt;p&gt;这一步不用把架构想得太复杂，简单实用为主。&lt;/p&gt;
-&lt;p&gt;&lt;img src=&#34;https://picsum.photos/800/450?random=1768451799047&#34;
-	
-	
-	
-	loading=&#34;lazy&#34;
-	
-		alt=&#34;配图&#34;
-	
-	
+&lt;p&gt;&lt;img src="https://picsum.photos/800/450?random=1768451799047"
+loading="lazy"
+alt="配图"
 &gt;&lt;/p&gt;
-&lt;div class=&#34;highlight&#34;&gt;&lt;pre tabindex=&#34;0&#34; style=&#34;color:#f8f8f2;background-color:#272822;-moz-tab-size:4;-o-tab-size:4;tab-size:4;&#34;&gt;&lt;code class=&#34;language-python&#34; data-lang=&#34;python&#34;&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;&lt;span style=&#34;color:#75715e&#34;&gt;# 生产者（注册接口）&lt;/span&gt;
-&lt;/span&gt;&lt;/span&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;&lt;span style=&#34;color:#f92672&#34;&gt;import&lt;/span&gt; pika
-&lt;/span&gt;&lt;/span&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;&lt;span style=&#34;color:#f92672&#34;&gt;import&lt;/span&gt; json
-&lt;/span&gt;&lt;/span&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;
-&lt;/span&gt;&lt;/span&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;&lt;span style=&#34;color:#66d9ef&#34;&gt;def&lt;/span&gt; &lt;span style=&#34;color:#a6e22e&#34;&gt;register_user&lt;/span&gt;(user_data):
-&lt;/span&gt;&lt;/span&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;    &lt;span style=&#34;color:#75715e&#34;&gt;# 1. 核心逻辑：存库&lt;/span&gt;
-&lt;/span&gt;&lt;/span&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;    db&lt;span style=&#34;color:#f92672&#34;&gt;.&lt;/span&gt;save(user_data)
-&lt;/span&gt;&lt;/span&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;    
-&lt;/span&gt;&lt;/span&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;    &lt;span style=&#34;color:#75715e&#34;&gt;# 2. 发送消息到队列&lt;/span&gt;
-&lt;/span&gt;&lt;/span&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;    connection &lt;span style=&#34;color:#f92672&#34;&gt;=&lt;/span&gt; pika&lt;span style=&#34;color:#f92672&#34;&gt;.&lt;/span&gt;BlockingConnection(pika&lt;span style=&#34;color:#f92672&#34;&gt;.&lt;/span&gt;ConnectionParameters(&lt;span style=&#34;color:#e6db74&#34;&gt;&amp;#39;localhost&amp;#39;&lt;/span&gt;))
-&lt;/span&gt;&lt;/span&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;    channel &lt;span style=&#34;color:#f92672&#34;&gt;=&lt;/span&gt; connection&lt;span style=&#34;color:#f92672&#34;&gt;.&lt;/span&gt;channel()
-&lt;/span&gt;&lt;/span&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;    channel&lt;span style=&#34;color:#f92672&#34;&gt;.&lt;/span&gt;queue_declare(queue&lt;span style=&#34;color:#f92672&#34;&gt;=&lt;/span&gt;&lt;span style=&#34;color:#e6db74&#34;&gt;&amp;#39;new_user_tasks&amp;#39;&lt;/span&gt;, durable&lt;span style=&#34;color:#f92672&#34;&gt;=&lt;/span&gt;&lt;span style=&#34;color:#66d9ef&#34;&gt;True&lt;/span&gt;) &lt;span style=&#34;color:#75715e&#34;&gt;# 队列持久化，防止MQ挂了消息丢失&lt;/span&gt;
-&lt;/span&gt;&lt;/span&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;    
-&lt;/span&gt;&lt;/span&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;    message &lt;span style=&#34;color:#f92672&#34;&gt;=&lt;/span&gt; json&lt;span style=&#34;color:#f92672&#34;&gt;.&lt;/span&gt;dumps({&lt;span style=&#34;color:#e6db74&#34;&gt;&amp;#39;user_id&amp;#39;&lt;/span&gt;: user_data[&lt;span style=&#34;color:#e6db74&#34;&gt;&amp;#39;id&amp;#39;&lt;/span&gt;]})
-&lt;/span&gt;&lt;/span&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;    channel&lt;span style=&#34;color:#f92672&#34;&gt;.&lt;/span&gt;basic_publish(
-&lt;/span&gt;&lt;/span&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;        exchange&lt;span style=&#34;color:#f92672&#34;&gt;=&lt;/span&gt;&lt;span style=&#34;color:#e6db74&#34;&gt;&amp;#39;&amp;#39;&lt;/span&gt;,
-&lt;/span&gt;&lt;/span&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;        routing_key&lt;span style=&#34;color:#f92672&#34;&gt;=&lt;/span&gt;&lt;span style=&#34;color:#e6db74&#34;&gt;&amp;#39;new_user_tasks&amp;#39;&lt;/span&gt;,
-&lt;/span&gt;&lt;/span&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;        body&lt;span style=&#34;color:#f92672&#34;&gt;=&lt;/span&gt;message,
-&lt;/span&gt;&lt;/span&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;        properties&lt;span style=&#34;color:#f92672&#34;&gt;=&lt;/span&gt;pika&lt;span style=&#34;color:#f92672&#34;&gt;.&lt;/span&gt;BasicProperties(
-&lt;/span&gt;&lt;/span&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;            delivery_mode&lt;span style=&#34;color:#f92672&#34;&gt;=&lt;/span&gt;&lt;span style=&#34;color:#ae81ff&#34;&gt;2&lt;/span&gt;,  &lt;span style=&#34;color:#75715e&#34;&gt;# 消息持久化&lt;/span&gt;
-&lt;/span&gt;&lt;/span&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;        ))
-&lt;/span&gt;&lt;/span&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;    connection&lt;span style=&#34;color:#f92672&#34;&gt;.&lt;/span&gt;close()
-&lt;/span&gt;&lt;/span&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;    &lt;span style=&#34;color:#66d9ef&#34;&gt;return&lt;/span&gt; &lt;span style=&#34;color:#e6db74&#34;&gt;&amp;#34;注册成功&amp;#34;&lt;/span&gt;
-&lt;/span&gt;&lt;/span&gt;&lt;/code&gt;&lt;/pre&gt;&lt;/div&gt;&lt;p&gt;你看，代码里没有任何发邮件、发券的逻辑。不管邮件服务是挂了还是慢了，都不影响用户注册。&lt;/p&gt;
+&lt;div class="highlight"&gt;&lt;div class="chroma"&gt;
+&lt;table class="lntable"&gt;&lt;tr&gt;&lt;td class="lntd"&gt;
+&lt;pre tabindex="0" class="chroma"&gt;&lt;code&gt;&lt;span class="lnt"&gt; 1
+&lt;/span&gt;&lt;span class="lnt"&gt; 2
+&lt;/span&gt;&lt;span class="lnt"&gt; 3
+&lt;/span&gt;&lt;span class="lnt"&gt; 4
+&lt;/span&gt;&lt;span class="lnt"&gt; 5
+&lt;/span&gt;&lt;span class="lnt"&gt; 6
+&lt;/span&gt;&lt;span class="lnt"&gt; 7
+&lt;/span&gt;&lt;span class="lnt"&gt; 8
+&lt;/span&gt;&lt;span class="lnt"&gt; 9
+&lt;/span&gt;&lt;span class="lnt"&gt;10
+&lt;/span&gt;&lt;span class="lnt"&gt;11
+&lt;/span&gt;&lt;span class="lnt"&gt;12
+&lt;/span&gt;&lt;span class="lnt"&gt;13
+&lt;/span&gt;&lt;span class="lnt"&gt;14
+&lt;/span&gt;&lt;span class="lnt"&gt;15
+&lt;/span&gt;&lt;span class="lnt"&gt;16
+&lt;/span&gt;&lt;span class="lnt"&gt;17
+&lt;/span&gt;&lt;span class="lnt"&gt;18
+&lt;/span&gt;&lt;span class="lnt"&gt;19
+&lt;/span&gt;&lt;span class="lnt"&gt;20
+&lt;/span&gt;&lt;span class="lnt"&gt;21
+&lt;/span&gt;&lt;span class="lnt"&gt;22
+&lt;/span&gt;&lt;span class="lnt"&gt;23
+&lt;/span&gt;&lt;/code&gt;&lt;/pre&gt;&lt;/td&gt;
+&lt;td class="lntd"&gt;
+&lt;pre tabindex="0" class="chroma"&gt;&lt;code class="language-python" data-lang="python"&gt;&lt;span class="line"&gt;&lt;span class="cl"&gt;&lt;span class="c1"&gt;# 生产者（注册接口）&lt;/span&gt;
+&lt;/span&gt;&lt;/span&gt;&lt;span class="line"&gt;&lt;span class="cl"&gt;&lt;span class="kn"&gt;import&lt;/span&gt; &lt;span class="nn"&gt;pika&lt;/span&gt;
+&lt;/span&gt;&lt;/span&gt;&lt;span class="line"&gt;&lt;span class="cl"&gt;&lt;span class="kn"&gt;import&lt;/span&gt; &lt;span class="nn"&gt;json&lt;/span&gt;
+&lt;/span&gt;&lt;/span&gt;&lt;span class="line"&gt;&lt;span class="cl"&gt;
+&lt;/span&gt;&lt;/span&gt;&lt;span class="line"&gt;&lt;span class="cl"&gt;&lt;span class="k"&gt;def&lt;/span&gt; &lt;span class="nf"&gt;register_user&lt;/span&gt;&lt;span class="p"&gt;(&lt;/span&gt;&lt;span class="n"&gt;user_data&lt;/span&gt;&lt;span class="p"&gt;):&lt;/span&gt;
+&lt;/span&gt;&lt;/span&gt;&lt;span class="line"&gt;&lt;span class="cl"&gt; &lt;span class="c1"&gt;# 1. 核心逻辑：存库&lt;/span&gt;
+&lt;/span&gt;&lt;/span&gt;&lt;span class="line"&gt;&lt;span class="cl"&gt; &lt;span class="n"&gt;db&lt;/span&gt;&lt;span class="o"&gt;.&lt;/span&gt;&lt;span class="n"&gt;save&lt;/span&gt;&lt;span class="p"&gt;(&lt;/span&gt;&lt;span class="n"&gt;user_data&lt;/span&gt;&lt;span class="p"&gt;)&lt;/span&gt;
+&lt;/span&gt;&lt;/span&gt;&lt;span class="line"&gt;&lt;span class="cl"&gt;
+&lt;/span&gt;&lt;/span&gt;&lt;span class="line"&gt;&lt;span class="cl"&gt; &lt;span class="c1"&gt;# 2. 发送消息到队列&lt;/span&gt;
+&lt;/span&gt;&lt;/span&gt;&lt;span class="line"&gt;&lt;span class="cl"&gt; &lt;span class="n"&gt;connection&lt;/span&gt; &lt;span class="o"&gt;=&lt;/span&gt; &lt;span class="n"&gt;pika&lt;/span&gt;&lt;span class="o"&gt;.&lt;/span&gt;&lt;span class="n"&gt;BlockingConnection&lt;/span&gt;&lt;span class="p"&gt;(&lt;/span&gt;&lt;span class="n"&gt;pika&lt;/span&gt;&lt;span class="o"&gt;.&lt;/span&gt;&lt;span class="n"&gt;ConnectionParameters&lt;/span&gt;&lt;span class="p"&gt;(&lt;/span&gt;&lt;span class="s1"&gt;&amp;#39;localhost&amp;#39;&lt;/span&gt;&lt;span class="p"&gt;))&lt;/span&gt;
+&lt;/span&gt;&lt;/span&gt;&lt;span class="line"&gt;&lt;span class="cl"&gt; &lt;span class="n"&gt;channel&lt;/span&gt; &lt;span class="o"&gt;=&lt;/span&gt; &lt;span class="n"&gt;connection&lt;/span&gt;&lt;span class="o"&gt;.&lt;/span&gt;&lt;span class="n"&gt;channel&lt;/span&gt;&lt;span class="p"&gt;()&lt;/span&gt;
+&lt;/span&gt;&lt;/span&gt;&lt;span class="line"&gt;&lt;span class="cl"&gt; &lt;span class="n"&gt;channel&lt;/span&gt;&lt;span class="o"&gt;.&lt;/span&gt;&lt;span class="n"&gt;queue_declare&lt;/span&gt;&lt;span class="p"&gt;(&lt;/span&gt;&lt;span class="n"&gt;queue&lt;/span&gt;&lt;span class="o"&gt;=&lt;/span&gt;&lt;span class="s1"&gt;&amp;#39;new_user_tasks&amp;#39;&lt;/span&gt;&lt;span class="p"&gt;,&lt;/span&gt; &lt;span class="n"&gt;durable&lt;/span&gt;&lt;span class="o"&gt;=&lt;/span&gt;&lt;span class="kc"&gt;True&lt;/span&gt;&lt;span class="p"&gt;)&lt;/span&gt; &lt;span class="c1"&gt;# 队列持久化，防止MQ挂了消息丢失&lt;/span&gt;
+&lt;/span&gt;&lt;/span&gt;&lt;span class="line"&gt;&lt;span class="cl"&gt;
+&lt;/span&gt;&lt;/span&gt;&lt;span class="line"&gt;&lt;span class="cl"&gt; &lt;span class="n"&gt;message&lt;/span&gt; &lt;span class="o"&gt;=&lt;/span&gt; &lt;span class="n"&gt;json&lt;/span&gt;&lt;span class="o"&gt;.&lt;/span&gt;&lt;span class="n"&gt;dumps&lt;/span&gt;&lt;span class="p"&gt;({&lt;/span&gt;&lt;span class="s1"&gt;&amp;#39;user_id&amp;#39;&lt;/span&gt;&lt;span class="p"&gt;:&lt;/span&gt; &lt;span class="n"&gt;user_data&lt;/span&gt;&lt;span class="p"&gt;[&lt;/span&gt;&lt;span class="s1"&gt;&amp;#39;id&amp;#39;&lt;/span&gt;&lt;span class="p"&gt;]})&lt;/span&gt;
+&lt;/span&gt;&lt;/span&gt;&lt;span class="line"&gt;&lt;span class="cl"&gt; &lt;span class="n"&gt;channel&lt;/span&gt;&lt;span class="o"&gt;.&lt;/span&gt;&lt;span class="n"&gt;basic_publish&lt;/span&gt;&lt;span class="p"&gt;(&lt;/span&gt;
+&lt;/span&gt;&lt;/span&gt;&lt;span class="line"&gt;&lt;span class="cl"&gt; &lt;span class="n"&gt;exchange&lt;/span&gt;&lt;span class="o"&gt;=&lt;/span&gt;&lt;span class="s1"&gt;&amp;#39;&amp;#39;&lt;/span&gt;&lt;span class="p"&gt;,&lt;/span&gt;
+&lt;/span&gt;&lt;/span&gt;&lt;span class="line"&gt;&lt;span class="cl"&gt; &lt;span class="n"&gt;routing_key&lt;/span&gt;&lt;span class="o"&gt;=&lt;/span&gt;&lt;span class="s1"&gt;&amp;#39;new_user_tasks&amp;#39;&lt;/span&gt;&lt;span class="p"&gt;,&lt;/span&gt;
+&lt;/span&gt;&lt;/span&gt;&lt;span class="line"&gt;&lt;span class="cl"&gt; &lt;span class="n"&gt;body&lt;/span&gt;&lt;span class="o"&gt;=&lt;/span&gt;&lt;span class="n"&gt;message&lt;/span&gt;&lt;span class="p"&gt;,&lt;/span&gt;
+&lt;/span&gt;&lt;/span&gt;&lt;span class="line"&gt;&lt;span class="cl"&gt; &lt;span class="n"&gt;properties&lt;/span&gt;&lt;span class="o"&gt;=&lt;/span&gt;&lt;span class="n"&gt;pika&lt;/span&gt;&lt;span class="o"&gt;.&lt;/span&gt;&lt;span class="n"&gt;BasicProperties&lt;/span&gt;&lt;span class="p"&gt;(&lt;/span&gt;
+&lt;/span&gt;&lt;/span&gt;&lt;span class="line"&gt;&lt;span class="cl"&gt; &lt;span class="n"&gt;delivery_mode&lt;/span&gt;&lt;span class="o"&gt;=&lt;/span&gt;&lt;span class="mi"&gt;2&lt;/span&gt;&lt;span class="p"&gt;,&lt;/span&gt; &lt;span class="c1"&gt;# 消息持久化&lt;/span&gt;
+&lt;/span&gt;&lt;/span&gt;&lt;span class="line"&gt;&lt;span class="cl"&gt; &lt;span class="p"&gt;))&lt;/span&gt;
+&lt;/span&gt;&lt;/span&gt;&lt;span class="line"&gt;&lt;span class="cl"&gt; &lt;span class="n"&gt;connection&lt;/span&gt;&lt;span class="o"&gt;.&lt;/span&gt;&lt;span class="n"&gt;close&lt;/span&gt;&lt;span class="p"&gt;()&lt;/span&gt;
+&lt;/span&gt;&lt;/span&gt;&lt;span class="line"&gt;&lt;span class="cl"&gt; &lt;span class="k"&gt;return&lt;/span&gt; &lt;span class="s2"&gt;&amp;#34;注册成功&amp;#34;&lt;/span&gt;
+&lt;/span&gt;&lt;/span&gt;&lt;/code&gt;&lt;/pre&gt;&lt;/td&gt;&lt;/tr&gt;&lt;/table&gt;
+&lt;/div&gt;
+&lt;/div&gt;&lt;p&gt;你看，代码里没有任何发邮件、发券的逻辑。不管邮件服务是挂了还是慢了，都不影响用户注册。&lt;/p&gt;
 &lt;hr&gt;
-&lt;h3 id=&#34;-避坑指南消息丢了怎么办&#34;&gt;## 避坑指南：消息丢了怎么办？
+&lt;h3 id="-避坑指南消息丢了怎么办"&gt;## 避坑指南：消息丢了怎么办？
 &lt;/h3&gt;&lt;p&gt;解耦一时爽，丢消息火葬场。这是很多新手架构师最容易踩的坑。&lt;/p&gt;
 &lt;p&gt;我有个做金融的朋友，在做“支付成功后解冻保证金”的功能时，为了追求高性能用了消息队列。结果有一天，MQ服务重启，几笔退款消息丢了。用户钱扣了，保证金没退，客服电话被打爆，老板差点让他当场走人。&lt;/p&gt;
 &lt;p&gt;&lt;strong&gt;如果你决定引入MQ，请务必把“可靠性”刻在脑子里。&lt;/strong&gt;&lt;/p&gt;
 &lt;p&gt;这里有我亲测有效的两个“安全锁”：&lt;/p&gt;
-&lt;p&gt;&lt;img src=&#34;https://picsum.photos/800/450?random=1768451796210&#34;
-	
-	
-	
-	loading=&#34;lazy&#34;
-	
-		alt=&#34;配图&#34;
-	
-	
+&lt;p&gt;&lt;img src="https://picsum.photos/800/450?random=1768451796210"
+loading="lazy"
+alt="配图"
 &gt;&lt;/p&gt;
 &lt;p&gt;&lt;strong&gt;1. 消息持久化（存盘）：&lt;/strong&gt;
 就像上面的代码里写的 &lt;code&gt;durable=True&lt;/code&gt; 和 &lt;code&gt;delivery_mode=2&lt;/code&gt;。这保证了即使RabbitMQ服务器断电重启，队列和消息也不会消失。&lt;/p&gt;
@@ -104,23 +107,42 @@
 默认情况下，MQ把消息扔给消费者，就默认任务完成了。万一消费者拿到消息，逻辑还没跑完就崩了呢？这消息就永远消失了。&lt;/p&gt;
 &lt;p&gt;&lt;strong&gt;正确的做法是：&lt;/strong&gt;
 消费者处理完业务逻辑（比如邮件真正发成功了），再告诉MQ：“我办完了，你可以删掉这条消息了。”&lt;/p&gt;
-&lt;div class=&#34;highlight&#34;&gt;&lt;pre tabindex=&#34;0&#34; style=&#34;color:#f8f8f2;background-color:#272822;-moz-tab-size:4;-o-tab-size:4;tab-size:4;&#34;&gt;&lt;code class=&#34;language-python&#34; data-lang=&#34;python&#34;&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;&lt;span style=&#34;color:#75715e&#34;&gt;# 消费者（处理后台任务）&lt;/span&gt;
-&lt;/span&gt;&lt;/span&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;&lt;span style=&#34;color:#66d9ef&#34;&gt;def&lt;/span&gt; &lt;span style=&#34;color:#a6e22e&#34;&gt;callback&lt;/span&gt;(ch, method, properties, body):
-&lt;/span&gt;&lt;/span&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;    &lt;span style=&#34;color:#66d9ef&#34;&gt;try&lt;/span&gt;:
-&lt;/span&gt;&lt;/span&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;        data &lt;span style=&#34;color:#f92672&#34;&gt;=&lt;/span&gt; json&lt;span style=&#34;color:#f92672&#34;&gt;.&lt;/span&gt;loads(body)
-&lt;/span&gt;&lt;/span&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;        send_email(data[&lt;span style=&#34;color:#e6db74&#34;&gt;&amp;#39;user_id&amp;#39;&lt;/span&gt;]) &lt;span style=&#34;color:#75715e&#34;&gt;# 模拟业务逻辑&lt;/span&gt;
-&lt;/span&gt;&lt;/span&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;        &lt;span style=&#34;color:#75715e&#34;&gt;# 只有业务成功，才发送确认回执&lt;/span&gt;
-&lt;/span&gt;&lt;/span&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;        ch&lt;span style=&#34;color:#f92672&#34;&gt;.&lt;/span&gt;basic_ack(delivery_tag&lt;span style=&#34;color:#f92672&#34;&gt;=&lt;/span&gt;method&lt;span style=&#34;color:#f92672&#34;&gt;.&lt;/span&gt;delivery_tag)
-&lt;/span&gt;&lt;/span&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;    &lt;span style=&#34;color:#66d9ef&#34;&gt;except&lt;/span&gt; &lt;span style=&#34;color:#a6e22e&#34;&gt;Exception&lt;/span&gt; &lt;span style=&#34;color:#66d9ef&#34;&gt;as&lt;/span&gt; e:
-&lt;/span&gt;&lt;/span&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;        &lt;span style=&#34;color:#75715e&#34;&gt;# 如果处理失败，可以选择重试或记录日志&lt;/span&gt;
-&lt;/span&gt;&lt;/span&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;        &lt;span style=&#34;color:#75715e&#34;&gt;# ch.basic_nack(delivery_tag=method.delivery_tag) &lt;/span&gt;
-&lt;/span&gt;&lt;/span&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;        print(&lt;span style=&#34;color:#e6db74&#34;&gt;f&lt;/span&gt;&lt;span style=&#34;color:#e6db74&#34;&gt;&amp;#34;处理失败: &lt;/span&gt;&lt;span style=&#34;color:#e6db74&#34;&gt;{&lt;/span&gt;e&lt;span style=&#34;color:#e6db74&#34;&gt;}&lt;/span&gt;&lt;span style=&#34;color:#e6db74&#34;&gt;&amp;#34;&lt;/span&gt;)
-&lt;/span&gt;&lt;/span&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;
-&lt;/span&gt;&lt;/span&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;channel&lt;span style=&#34;color:#f92672&#34;&gt;.&lt;/span&gt;basic_consume(queue&lt;span style=&#34;color:#f92672&#34;&gt;=&lt;/span&gt;&lt;span style=&#34;color:#e6db74&#34;&gt;&amp;#39;new_user_tasks&amp;#39;&lt;/span&gt;, on_message_callback&lt;span style=&#34;color:#f92672&#34;&gt;=&lt;/span&gt;callback)
-&lt;/span&gt;&lt;/span&gt;&lt;/code&gt;&lt;/pre&gt;&lt;/div&gt;&lt;p&gt;&lt;strong&gt;我的个人建议：&lt;/strong&gt;
+&lt;div class="highlight"&gt;&lt;div class="chroma"&gt;
+&lt;table class="lntable"&gt;&lt;tr&gt;&lt;td class="lntd"&gt;
+&lt;pre tabindex="0" class="chroma"&gt;&lt;code&gt;&lt;span class="lnt"&gt; 1
+&lt;/span&gt;&lt;span class="lnt"&gt; 2
+&lt;/span&gt;&lt;span class="lnt"&gt; 3
+&lt;/span&gt;&lt;span class="lnt"&gt; 4
+&lt;/span&gt;&lt;span class="lnt"&gt; 5
+&lt;/span&gt;&lt;span class="lnt"&gt; 6
+&lt;/span&gt;&lt;span class="lnt"&gt; 7
+&lt;/span&gt;&lt;span class="lnt"&gt; 8
+&lt;/span&gt;&lt;span class="lnt"&gt; 9
+&lt;/span&gt;&lt;span class="lnt"&gt;10
+&lt;/span&gt;&lt;span class="lnt"&gt;11
+&lt;/span&gt;&lt;span class="lnt"&gt;12
+&lt;/span&gt;&lt;span class="lnt"&gt;13
+&lt;/span&gt;&lt;/code&gt;&lt;/pre&gt;&lt;/td&gt;
+&lt;td class="lntd"&gt;
+&lt;pre tabindex="0" class="chroma"&gt;&lt;code class="language-python" data-lang="python"&gt;&lt;span class="line"&gt;&lt;span class="cl"&gt;&lt;span class="c1"&gt;# 消费者（处理后台任务）&lt;/span&gt;
+&lt;/span&gt;&lt;/span&gt;&lt;span class="line"&gt;&lt;span class="cl"&gt;&lt;span class="k"&gt;def&lt;/span&gt; &lt;span class="nf"&gt;callback&lt;/span&gt;&lt;span class="p"&gt;(&lt;/span&gt;&lt;span class="n"&gt;ch&lt;/span&gt;&lt;span class="p"&gt;,&lt;/span&gt; &lt;span class="n"&gt;method&lt;/span&gt;&lt;span class="p"&gt;,&lt;/span&gt; &lt;span class="n"&gt;properties&lt;/span&gt;&lt;span class="p"&gt;,&lt;/span&gt; &lt;span class="n"&gt;body&lt;/span&gt;&lt;span class="p"&gt;):&lt;/span&gt;
+&lt;/span&gt;&lt;/span&gt;&lt;span class="line"&gt;&lt;span class="cl"&gt; &lt;span class="k"&gt;try&lt;/span&gt;&lt;span class="p"&gt;:&lt;/span&gt;
+&lt;/span&gt;&lt;/span&gt;&lt;span class="line"&gt;&lt;span class="cl"&gt; &lt;span class="n"&gt;data&lt;/span&gt; &lt;span class="o"&gt;=&lt;/span&gt; &lt;span class="n"&gt;json&lt;/span&gt;&lt;span class="o"&gt;.&lt;/span&gt;&lt;span class="n"&gt;loads&lt;/span&gt;&lt;span class="p"&gt;(&lt;/span&gt;&lt;span class="n"&gt;body&lt;/span&gt;&lt;span class="p"&gt;)&lt;/span&gt;
+&lt;/span&gt;&lt;/span&gt;&lt;span class="line"&gt;&lt;span class="cl"&gt; &lt;span class="n"&gt;send_email&lt;/span&gt;&lt;span class="p"&gt;(&lt;/span&gt;&lt;span class="n"&gt;data&lt;/span&gt;&lt;span class="p"&gt;[&lt;/span&gt;&lt;span class="s1"&gt;&amp;#39;user_id&amp;#39;&lt;/span&gt;&lt;span class="p"&gt;])&lt;/span&gt; &lt;span class="c1"&gt;# 模拟业务逻辑&lt;/span&gt;
+&lt;/span&gt;&lt;/span&gt;&lt;span class="line"&gt;&lt;span class="cl"&gt; &lt;span class="c1"&gt;# 只有业务成功，才发送确认回执&lt;/span&gt;
+&lt;/span&gt;&lt;/span&gt;&lt;span class="line"&gt;&lt;span class="cl"&gt; &lt;span class="n"&gt;ch&lt;/span&gt;&lt;span class="o"&gt;.&lt;/span&gt;&lt;span class="n"&gt;basic_ack&lt;/span&gt;&lt;span class="p"&gt;(&lt;/span&gt;&lt;span class="n"&gt;delivery_tag&lt;/span&gt;&lt;span class="o"&gt;=&lt;/span&gt;&lt;span class="n"&gt;method&lt;/span&gt;&lt;span class="o"&gt;.&lt;/span&gt;&lt;span class="n"&gt;delivery_tag&lt;/span&gt;&lt;span class="p"&gt;)&lt;/span&gt;
+&lt;/span&gt;&lt;/span&gt;&lt;span class="line"&gt;&lt;span class="cl"&gt; &lt;span class="k"&gt;except&lt;/span&gt; &lt;span class="ne"&gt;Exception&lt;/span&gt; &lt;span class="k"&gt;as&lt;/span&gt; &lt;span class="n"&gt;e&lt;/span&gt;&lt;span class="p"&gt;:&lt;/span&gt;
+&lt;/span&gt;&lt;/span&gt;&lt;span class="line"&gt;&lt;span class="cl"&gt; &lt;span class="c1"&gt;# 如果处理失败，可以选择重试或记录日志&lt;/span&gt;
+&lt;/span&gt;&lt;/span&gt;&lt;span class="line"&gt;&lt;span class="cl"&gt; &lt;span class="c1"&gt;# ch.basic_nack(delivery_tag=method.delivery_tag) &lt;/span&gt;
+&lt;/span&gt;&lt;/span&gt;&lt;span class="line"&gt;&lt;span class="cl"&gt; &lt;span class="nb"&gt;print&lt;/span&gt;&lt;span class="p"&gt;(&lt;/span&gt;&lt;span class="sa"&gt;f&lt;/span&gt;&lt;span class="s2"&gt;&amp;#34;处理失败: &lt;/span&gt;&lt;span class="si"&gt;{&lt;/span&gt;&lt;span class="n"&gt;e&lt;/span&gt;&lt;span class="si"&gt;}&lt;/span&gt;&lt;span class="s2"&gt;&amp;#34;&lt;/span&gt;&lt;span class="p"&gt;)&lt;/span&gt;
+&lt;/span&gt;&lt;/span&gt;&lt;span class="line"&gt;&lt;span class="cl"&gt;
+&lt;/span&gt;&lt;/span&gt;&lt;span class="line"&gt;&lt;span class="cl"&gt;&lt;span class="n"&gt;channel&lt;/span&gt;&lt;span class="o"&gt;.&lt;/span&gt;&lt;span class="n"&gt;basic_consume&lt;/span&gt;&lt;span class="p"&gt;(&lt;/span&gt;&lt;span class="n"&gt;queue&lt;/span&gt;&lt;span class="o"&gt;=&lt;/span&gt;&lt;span class="s1"&gt;&amp;#39;new_user_tasks&amp;#39;&lt;/span&gt;&lt;span class="p"&gt;,&lt;/span&gt; &lt;span class="n"&gt;on_message_callback&lt;/span&gt;&lt;span class="o"&gt;=&lt;/span&gt;&lt;span class="n"&gt;callback&lt;/span&gt;&lt;span class="p"&gt;)&lt;/span&gt;
+&lt;/span&gt;&lt;/span&gt;&lt;/code&gt;&lt;/pre&gt;&lt;/td&gt;&lt;/tr&gt;&lt;/table&gt;
+&lt;/div&gt;
+&lt;/div&gt;&lt;p&gt;&lt;strong&gt;我的个人建议：&lt;/strong&gt;
 如果你在做跟钱相关的业务，或者极度重要的数据，一定要加上**“死信队列”（Dead Letter Queue）**。简单说就是，如果一条消息处理了3次都失败，别把它丢掉，而是转移到一个专门的“死信收容所”队列里，让人工去排查。这虽然麻烦点，但能救命。&lt;/p&gt;
 &lt;hr&gt;
-&lt;h3 id=&#34;-选型困惑rabbitmq-还是-kafka&#34;&gt;## 选型困惑：RabbitMQ 还是 Kafka？
+&lt;h3 id="-选型困惑rabbitmq-还是-kafka"&gt;## 选型困惑：RabbitMQ 还是 Kafka？
 &lt;/h3&gt;&lt;p&gt;这是一个被问了无数次的问题。很多技术博客会告诉你 Kafka 吞吐量多么无敌，那是给 阿里、字节 这种体量准备的。&lt;/p&gt;
 &lt;p&gt;对于90%的中小团队，我的建议很直接：&lt;strong&gt;首选 RabbitMQ。&lt;/strong&gt;&lt;/p&gt;
 &lt;p&gt;&lt;strong&gt;为什么？&lt;/strong&gt;&lt;/p&gt;
@@ -132,7 +154,7 @@
 &lt;p&gt;&lt;strong&gt;真实场景：&lt;/strong&gt;
 我曾接手过一个只有5个人的初创团队项目，前任架构师为了“追赶潮流”上了 Kafka。结果因为配置不当，分区乱飞，消息顺序错乱，每次排查问题都要去服务器敲命令行。后来我花了一个周末迁移到 RabbitMQ，整个世界都清静了。&lt;/p&gt;
 &lt;hr&gt;
-&lt;h3 id=&#34;-写在最后&#34;&gt;## 写在最后
+&lt;h3 id="-写在最后"&gt;## 写在最后
 &lt;/h3&gt;&lt;p&gt;技术是为了解决问题的，不是为了制造麻烦。&lt;/p&gt;
 &lt;p&gt;引入消息队列确实会增加系统的复杂度（你需要维护多一个中间件），但它带来的收益——&lt;strong&gt;系统的韧性、各模块的独立性、以及你深夜的睡眠质量&lt;/strong&gt;——是完全值得的。&lt;/p&gt;
 &lt;p&gt;如果你正在被“牵一发而动全身”的代码折磨，不妨试着迈出这一步：&lt;/p&gt;
@@ -142,9 +164,4 @@
 &lt;li&gt;&lt;strong&gt;落地：&lt;/strong&gt; 就拿那一个“缓一缓”的步骤开刀，接入MQ。&lt;/li&gt;
 &lt;/ol&gt;
 &lt;p&gt;&lt;strong&gt;不要试图在这个周末重构整个系统，从小处着手，你会发现改变正在发生。&lt;/strong&gt;&lt;/p&gt;
-&lt;p&gt;你在项目中遇到过因为耦合太紧导致的“惨案”吗？或者在使用MQ时踩过什么坑？欢迎在评论区分享你的故事，我们一起避雷。&lt;/p&gt;
-</description>
-        </item>
-        
-    </channel>
-</rss>
+&lt;p&gt;你在项目中遇到过因为耦合太紧导致的“惨案”吗？或者在使用MQ时踩过什么坑？欢迎在评论区分享你的故事，我们一起避雷。&lt;/p&gt;</description></item></channel></rss>

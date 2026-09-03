@@ -1,25 +1,11 @@
-<?xml version="1.0" encoding="utf-8" standalone="yes"?>
-<rss version="2.0" xmlns:atom="http://www.w3.org/2005/Atom">
-    <channel>
-        <title>后端服务分层架构落地 on SelfTechHub</title>
-        <link>https://blog.irudder.me/tags/%E5%90%8E%E7%AB%AF%E6%9C%8D%E5%8A%A1%E5%88%86%E5%B1%82%E6%9E%B6%E6%9E%84%E8%90%BD%E5%9C%B0.html</link>
-        <description>Recent content in 后端服务分层架构落地 on SelfTechHub</description>
-        <generator>Hugo -- gohugo.io</generator>
-        <language>zh-cn</language>
-        <lastBuildDate>Thu, 13 Jul 2023 00:00:00 +0000</lastBuildDate><atom:link href="https://blog.irudder.me/tags/%E5%90%8E%E7%AB%AF%E6%9C%8D%E5%8A%A1%E5%88%86%E5%B1%82%E6%9E%B6%E6%9E%84%E8%90%BD%E5%9C%B0/index.xml" rel="self" type="application/rss+xml" /><item>
-        <title>拒绝“面条代码”！中小团队后端分层架构的3次重构实战</title>
-        <link>https://blog.irudder.me/tech/danxiangmuquanliuchengchaijie10fenzhongkedu/houduanfuwufencengjiagouluodi.html</link>
-        <pubDate>Thu, 13 Jul 2023 00:00:00 +0000</pubDate>
-        
-        <guid>https://blog.irudder.me/tech/danxiangmuquanliuchengchaijie10fenzhongkedu/houduanfuwufencengjiagouluodi.html</guid>
-        <description>&lt;p&gt;说实话，你有没有经历过这样的场景：&lt;/p&gt;
+<?xml version="1.0" encoding="utf-8" standalone="yes"?><rss version="2.0" xmlns:atom="http://www.w3.org/2005/Atom"><channel><title>后端服务分层架构落地 on SelfTechHub</title><link>https://blog.irudder.me/tags/%E5%90%8E%E7%AB%AF%E6%9C%8D%E5%8A%A1%E5%88%86%E5%B1%82%E6%9E%B6%E6%9E%84%E8%90%BD%E5%9C%B0.html</link><description>Recent content in 后端服务分层架构落地 on SelfTechHub</description><generator>Hugo -- gohugo.io</generator><language>zh-cn</language><lastBuildDate>Thu, 13 Jul 2023 00:00:00 +0800</lastBuildDate><atom:link href="https://blog.irudder.me/tags/%E5%90%8E%E7%AB%AF%E6%9C%8D%E5%8A%A1%E5%88%86%E5%B1%82%E6%9E%B6%E6%9E%84%E8%90%BD%E5%9C%B0/index.xml" rel="self" type="application/rss+xml"/><item><title>拒绝“面条代码”！中小团队后端分层架构的3次重构实战</title><link>https://blog.irudder.me/tech/danxiangmuquanliuchengchaijie10fenzhongkedu/houduanfuwufencengjiagouluodi.html</link><pubDate>Thu, 13 Jul 2023 00:00:00 +0800</pubDate><guid>https://blog.irudder.me/tech/danxiangmuquanliuchengchaijie10fenzhongkedu/houduanfuwufencengjiagouluodi.html</guid><description>&lt;p&gt;说实话，你有没有经历过这样的场景：&lt;/p&gt;
 &lt;p&gt;凌晨两点，线上报了个紧急Bug，你打开那个传说中的 &lt;code&gt;OrderService.java&lt;/code&gt;，看着里面洋洋洒洒 &lt;strong&gt;5000多行&lt;/strong&gt; 的代码，甚至一个 &lt;code&gt;createOrder&lt;/code&gt; 方法就占了800行。你一边骂骂咧咧一边小心翼翼地改了一个 &lt;code&gt;if&lt;/code&gt; 判断，结果第二天上线，购物车功能崩了。&lt;/p&gt;
 &lt;p&gt;这事儿我真干过。&lt;/p&gt;
 &lt;p&gt;三年前，我接手了一个电商中台项目，当时的架构名义上是标准的 MVC，实际上是“一锅乱炖”。Controller 里写数据库查询，Service 里拼凑 HTML，DAO 层竟然还有业务逻辑。&lt;/p&gt;
 &lt;p&gt;当时项目经理问我：“为什么加个‘修改收货地址’的功能要三天？”我只能苦笑。&lt;/p&gt;
 &lt;p&gt;&lt;strong&gt;代码分层不是为了炫技，而是为了在需求变更时，别让整个系统像多米诺骨牌一样倒下。&lt;/strong&gt;&lt;/p&gt;
 &lt;p&gt;在这三年的“填坑”之路上，我们团队经历了三次典型的架构重构，我也总结了一套适合中小团队落地的分层逻辑。今天就把这些血泪经验拆解开来，希望能帮你少加几天班。&lt;/p&gt;
-&lt;h2 id=&#34;第一次重构把-controller-当成点菜员而不是大厨&#34;&gt;第一次重构：把 Controller 当成“点菜员”，而不是“大厨”
+&lt;h2 id="第一次重构把-controller-当成点菜员而不是大厨"&gt;第一次重构：把 Controller 当成“点菜员”，而不是“大厨”
 &lt;/h2&gt;&lt;p&gt;刚开始最典型的问题是 &lt;strong&gt;Controller 层太肥&lt;/strong&gt;。&lt;/p&gt;
 &lt;p&gt;当时我们的 &lt;code&gt;OrderController&lt;/code&gt; 是这么写的：接收 HTTP 请求，解析 JSON，校验参数（比如金额是否小于0），去数据库查库存，算优惠，最后落库，甚至还顺手发了个 Kafka 消息。&lt;/p&gt;
 &lt;p&gt;这带来的直接后果是：&lt;strong&gt;复用性几乎为零&lt;/strong&gt;。&lt;/p&gt;
@@ -32,29 +18,37 @@
 &lt;li&gt;入参必须使用 &lt;strong&gt;DTO（数据传输对象）&lt;/strong&gt;，禁止把数据库实体（Entity/PO）直接作为接口入参。&lt;/li&gt;
 &lt;/ol&gt;
 &lt;blockquote&gt;
-&lt;p&gt;&lt;strong&gt;思考题&lt;/strong&gt;：你现在的项目里，有没有在 Controller 层直接操作数据库的代码？&lt;/p&gt;
-&lt;/blockquote&gt;
+&lt;p&gt;&lt;strong&gt;思考题&lt;/strong&gt;：你现在的项目里，有没有在 Controller 层直接操作数据库的代码？&lt;/p&gt;&lt;/blockquote&gt;
 &lt;p&gt;重构后，原本 800 行的 Controller 方法变成了这样：&lt;/p&gt;
-&lt;div class=&#34;highlight&#34;&gt;&lt;pre tabindex=&#34;0&#34; style=&#34;color:#f8f8f2;background-color:#272822;-moz-tab-size:4;-o-tab-size:4;tab-size:4;&#34;&gt;&lt;code class=&#34;language-java&#34; data-lang=&#34;java&#34;&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;&lt;span style=&#34;color:#75715e&#34;&gt;// 重构后的 Controller&lt;/span&gt;
-&lt;/span&gt;&lt;/span&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;&lt;span style=&#34;color:#a6e22e&#34;&gt;@PostMapping&lt;/span&gt;(&lt;span style=&#34;color:#e6db74&#34;&gt;&amp;#34;/create&amp;#34;&lt;/span&gt;)
-&lt;/span&gt;&lt;/span&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;&lt;span style=&#34;color:#66d9ef&#34;&gt;public&lt;/span&gt; Result&lt;span style=&#34;color:#f92672&#34;&gt;&amp;lt;&lt;/span&gt;String&lt;span style=&#34;color:#f92672&#34;&gt;&amp;gt;&lt;/span&gt; &lt;span style=&#34;color:#a6e22e&#34;&gt;createOrder&lt;/span&gt;(&lt;span style=&#34;color:#a6e22e&#34;&gt;@RequestBody&lt;/span&gt; OrderCreateDTO request) {
-&lt;/span&gt;&lt;/span&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;    &lt;span style=&#34;color:#75715e&#34;&gt;// 1. 参数基础校验交给了 JSR-303 注解&lt;/span&gt;
-&lt;/span&gt;&lt;/span&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;    &lt;span style=&#34;color:#75715e&#34;&gt;// 2. 核心逻辑下沉&lt;/span&gt;
-&lt;/span&gt;&lt;/span&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;    String orderId &lt;span style=&#34;color:#f92672&#34;&gt;=&lt;/span&gt; orderService.&lt;span style=&#34;color:#a6e22e&#34;&gt;createOrder&lt;/span&gt;(request);
-&lt;/span&gt;&lt;/span&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;    &lt;span style=&#34;color:#75715e&#34;&gt;// 3. 统一返回格式&lt;/span&gt;
-&lt;/span&gt;&lt;/span&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;    &lt;span style=&#34;color:#66d9ef&#34;&gt;return&lt;/span&gt; Result.&lt;span style=&#34;color:#a6e22e&#34;&gt;success&lt;/span&gt;(orderId);
-&lt;/span&gt;&lt;/span&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;}
-&lt;/span&gt;&lt;/span&gt;&lt;/code&gt;&lt;/pre&gt;&lt;/div&gt;&lt;p&gt;这波操作下来，我们的代码复用率提升了至少 &lt;strong&gt;40%&lt;/strong&gt;，再接新渠道时，Controller 只是个薄薄的壳。&lt;/p&gt;
-&lt;h2 id=&#34;第二次重构引入-manager-层解决剪不断理还乱的循环依赖&#34;&gt;第二次重构：引入 Manager 层，解决“剪不断理还乱”的循环依赖
-&lt;/h2&gt;&lt;p&gt;&lt;img src=&#34;https://picsum.photos/800/450?random=1768449046159&#34;
-	
-	
-	
-	loading=&#34;lazy&#34;
-	
-		alt=&#34;配图&#34;
-	
-	
+&lt;div class="highlight"&gt;&lt;div class="chroma"&gt;
+&lt;table class="lntable"&gt;&lt;tr&gt;&lt;td class="lntd"&gt;
+&lt;pre tabindex="0" class="chroma"&gt;&lt;code&gt;&lt;span class="lnt"&gt;1
+&lt;/span&gt;&lt;span class="lnt"&gt;2
+&lt;/span&gt;&lt;span class="lnt"&gt;3
+&lt;/span&gt;&lt;span class="lnt"&gt;4
+&lt;/span&gt;&lt;span class="lnt"&gt;5
+&lt;/span&gt;&lt;span class="lnt"&gt;6
+&lt;/span&gt;&lt;span class="lnt"&gt;7
+&lt;/span&gt;&lt;span class="lnt"&gt;8
+&lt;/span&gt;&lt;span class="lnt"&gt;9
+&lt;/span&gt;&lt;/code&gt;&lt;/pre&gt;&lt;/td&gt;
+&lt;td class="lntd"&gt;
+&lt;pre tabindex="0" class="chroma"&gt;&lt;code class="language-java" data-lang="java"&gt;&lt;span class="line"&gt;&lt;span class="cl"&gt;&lt;span class="c1"&gt;// 重构后的 Controller&lt;/span&gt;&lt;span class="w"&gt;
+&lt;/span&gt;&lt;/span&gt;&lt;/span&gt;&lt;span class="line"&gt;&lt;span class="cl"&gt;&lt;span class="w"&gt;&lt;/span&gt;&lt;span class="nd"&gt;@PostMapping&lt;/span&gt;&lt;span class="p"&gt;(&lt;/span&gt;&lt;span class="s"&gt;&amp;#34;/create&amp;#34;&lt;/span&gt;&lt;span class="p"&gt;)&lt;/span&gt;&lt;span class="w"&gt;
+&lt;/span&gt;&lt;/span&gt;&lt;/span&gt;&lt;span class="line"&gt;&lt;span class="cl"&gt;&lt;span class="w"&gt;&lt;/span&gt;&lt;span class="kd"&gt;public&lt;/span&gt;&lt;span class="w"&gt; &lt;/span&gt;&lt;span class="n"&gt;Result&lt;/span&gt;&lt;span class="o"&gt;&amp;lt;&lt;/span&gt;&lt;span class="n"&gt;String&lt;/span&gt;&lt;span class="o"&gt;&amp;gt;&lt;/span&gt;&lt;span class="w"&gt; &lt;/span&gt;&lt;span class="nf"&gt;createOrder&lt;/span&gt;&lt;span class="p"&gt;(&lt;/span&gt;&lt;span class="nd"&gt;@RequestBody&lt;/span&gt;&lt;span class="w"&gt; &lt;/span&gt;&lt;span class="n"&gt;OrderCreateDTO&lt;/span&gt;&lt;span class="w"&gt; &lt;/span&gt;&lt;span class="n"&gt;request&lt;/span&gt;&lt;span class="p"&gt;)&lt;/span&gt;&lt;span class="w"&gt; &lt;/span&gt;&lt;span class="p"&gt;{&lt;/span&gt;&lt;span class="w"&gt;
+&lt;/span&gt;&lt;/span&gt;&lt;/span&gt;&lt;span class="line"&gt;&lt;span class="cl"&gt;&lt;span class="w"&gt; &lt;/span&gt;&lt;span class="c1"&gt;// 1. 参数基础校验交给了 JSR-303 注解&lt;/span&gt;&lt;span class="w"&gt;
+&lt;/span&gt;&lt;/span&gt;&lt;/span&gt;&lt;span class="line"&gt;&lt;span class="cl"&gt;&lt;span class="w"&gt; &lt;/span&gt;&lt;span class="c1"&gt;// 2. 核心逻辑下沉&lt;/span&gt;&lt;span class="w"&gt;
+&lt;/span&gt;&lt;/span&gt;&lt;/span&gt;&lt;span class="line"&gt;&lt;span class="cl"&gt;&lt;span class="w"&gt; &lt;/span&gt;&lt;span class="n"&gt;String&lt;/span&gt;&lt;span class="w"&gt; &lt;/span&gt;&lt;span class="n"&gt;orderId&lt;/span&gt;&lt;span class="w"&gt; &lt;/span&gt;&lt;span class="o"&gt;=&lt;/span&gt;&lt;span class="w"&gt; &lt;/span&gt;&lt;span class="n"&gt;orderService&lt;/span&gt;&lt;span class="p"&gt;.&lt;/span&gt;&lt;span class="na"&gt;createOrder&lt;/span&gt;&lt;span class="p"&gt;(&lt;/span&gt;&lt;span class="n"&gt;request&lt;/span&gt;&lt;span class="p"&gt;);&lt;/span&gt;&lt;span class="w"&gt;
+&lt;/span&gt;&lt;/span&gt;&lt;/span&gt;&lt;span class="line"&gt;&lt;span class="cl"&gt;&lt;span class="w"&gt; &lt;/span&gt;&lt;span class="c1"&gt;// 3. 统一返回格式&lt;/span&gt;&lt;span class="w"&gt;
+&lt;/span&gt;&lt;/span&gt;&lt;/span&gt;&lt;span class="line"&gt;&lt;span class="cl"&gt;&lt;span class="w"&gt; &lt;/span&gt;&lt;span class="k"&gt;return&lt;/span&gt;&lt;span class="w"&gt; &lt;/span&gt;&lt;span class="n"&gt;Result&lt;/span&gt;&lt;span class="p"&gt;.&lt;/span&gt;&lt;span class="na"&gt;success&lt;/span&gt;&lt;span class="p"&gt;(&lt;/span&gt;&lt;span class="n"&gt;orderId&lt;/span&gt;&lt;span class="p"&gt;);&lt;/span&gt;&lt;span class="w"&gt;
+&lt;/span&gt;&lt;/span&gt;&lt;/span&gt;&lt;span class="line"&gt;&lt;span class="cl"&gt;&lt;span class="w"&gt;&lt;/span&gt;&lt;span class="p"&gt;}&lt;/span&gt;&lt;span class="w"&gt;
+&lt;/span&gt;&lt;/span&gt;&lt;/span&gt;&lt;/code&gt;&lt;/pre&gt;&lt;/td&gt;&lt;/tr&gt;&lt;/table&gt;
+&lt;/div&gt;
+&lt;/div&gt;&lt;p&gt;这波操作下来，我们的代码复用率提升了至少 &lt;strong&gt;40%&lt;/strong&gt;，再接新渠道时，Controller 只是个薄薄的壳。&lt;/p&gt;
+&lt;h2 id="第二次重构引入-manager-层解决剪不断理还乱的循环依赖"&gt;第二次重构：引入 Manager 层，解决“剪不断理还乱”的循环依赖
+&lt;/h2&gt;&lt;p&gt;&lt;img src="https://picsum.photos/800/450?random=1768449046159"
+loading="lazy"
+alt="配图"
 &gt;&lt;/p&gt;
 &lt;p&gt;Controller 瘦身成功了，压力全到了 Service 层。很快我们就撞上了第二个墙：&lt;strong&gt;Service 之间的循环依赖&lt;/strong&gt;。&lt;/p&gt;
 &lt;p&gt;场景是这样的：&lt;code&gt;OrderService&lt;/code&gt; 创建订单时需要查用户信息，于是注入了 &lt;code&gt;UserService&lt;/code&gt;；而 &lt;code&gt;UserService&lt;/code&gt; 在注销用户时，需要检查是否有未完成订单，于是又注入了 &lt;code&gt;OrderService&lt;/code&gt;。&lt;/p&gt;
@@ -69,30 +63,33 @@
 &lt;/ul&gt;
 &lt;p&gt;比如上面的例子，我们把“检查是否有未完成订单”这个动作下沉到了 &lt;code&gt;OrderManager&lt;/code&gt;。&lt;code&gt;UserService&lt;/code&gt; 只调用 &lt;code&gt;OrderManager&lt;/code&gt;，不再直接依赖 &lt;code&gt;OrderService&lt;/code&gt;。&lt;/p&gt;
 &lt;p&gt;这次调整后，Service 层变得清爽多了，它更像是一个&lt;strong&gt;业务编排者&lt;/strong&gt;，负责把各个 Manager 提供的积木搭成房子。&lt;/p&gt;
-&lt;h2 id=&#34;第三次重构防腐层acl别让外部变化搞崩你的系统&#34;&gt;第三次重构：防腐层（ACL），别让外部变化搞崩你的系统
+&lt;h2 id="第三次重构防腐层acl别让外部变化搞崩你的系统"&gt;第三次重构：防腐层（ACL），别让外部变化搞崩你的系统
 &lt;/h2&gt;&lt;p&gt;这是我踩过最痛的一个坑。&lt;/p&gt;
 &lt;p&gt;去年双十一前夕，我们的短信服务商突然升级了 SDK，接口参数变了。本来这只是个小改动，结果我一搜代码，发现全工程有 &lt;strong&gt;20多个地方&lt;/strong&gt; 直接引用了那个服务商的 SDK 类。&lt;/p&gt;
-&lt;p&gt;&lt;img src=&#34;https://picsum.photos/800/450?random=1768449046430&#34;
-	
-	
-	
-	loading=&#34;lazy&#34;
-	
-		alt=&#34;配图&#34;
-	
-	
+&lt;p&gt;&lt;img src="https://picsum.photos/800/450?random=1768449046430"
+loading="lazy"
+alt="配图"
 &gt;&lt;/p&gt;
 &lt;p&gt;那天下午，我们三个开发改了整整4个小时，因为很多业务逻辑里直接把 SDK 的对象透传到了最核心的 Service 层。&lt;/p&gt;
 &lt;p&gt;&lt;strong&gt;落地方法：接口隔离与防腐层&lt;/strong&gt;&lt;/p&gt;
 &lt;p&gt;这次教训让我明白：&lt;strong&gt;永远不要信任外部系统&lt;/strong&gt;。&lt;/p&gt;
 &lt;p&gt;我们立刻实施了“防腐层”策略。简单来说，就是定义属于自己的接口，不管外部怎么变，我们内部只认自己的接口。&lt;/p&gt;
 &lt;p&gt;比如发短信，我们定义了一个 &lt;code&gt;SmsService&lt;/code&gt; 接口：&lt;/p&gt;
-&lt;div class=&#34;highlight&#34;&gt;&lt;pre tabindex=&#34;0&#34; style=&#34;color:#f8f8f2;background-color:#272822;-moz-tab-size:4;-o-tab-size:4;tab-size:4;&#34;&gt;&lt;code class=&#34;language-java&#34; data-lang=&#34;java&#34;&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;&lt;span style=&#34;color:#66d9ef&#34;&gt;public&lt;/span&gt; &lt;span style=&#34;color:#66d9ef&#34;&gt;interface&lt;/span&gt; &lt;span style=&#34;color:#a6e22e&#34;&gt;SmsService&lt;/span&gt; {
-&lt;/span&gt;&lt;/span&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;    &lt;span style=&#34;color:#66d9ef&#34;&gt;void&lt;/span&gt; &lt;span style=&#34;color:#a6e22e&#34;&gt;send&lt;/span&gt;(String phone, String content);
-&lt;/span&gt;&lt;/span&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;}
-&lt;/span&gt;&lt;/span&gt;&lt;/code&gt;&lt;/pre&gt;&lt;/div&gt;&lt;p&gt;具体的实现类 &lt;code&gt;AliyunSmsImpl&lt;/code&gt; 去引用阿里云的 SDK。如果明天换成腾讯云，我只需要重写一个实现类，业务层代码一行都不用动。&lt;/p&gt;
+&lt;div class="highlight"&gt;&lt;div class="chroma"&gt;
+&lt;table class="lntable"&gt;&lt;tr&gt;&lt;td class="lntd"&gt;
+&lt;pre tabindex="0" class="chroma"&gt;&lt;code&gt;&lt;span class="lnt"&gt;1
+&lt;/span&gt;&lt;span class="lnt"&gt;2
+&lt;/span&gt;&lt;span class="lnt"&gt;3
+&lt;/span&gt;&lt;/code&gt;&lt;/pre&gt;&lt;/td&gt;
+&lt;td class="lntd"&gt;
+&lt;pre tabindex="0" class="chroma"&gt;&lt;code class="language-java" data-lang="java"&gt;&lt;span class="line"&gt;&lt;span class="cl"&gt;&lt;span class="kd"&gt;public&lt;/span&gt;&lt;span class="w"&gt; &lt;/span&gt;&lt;span class="kd"&gt;interface&lt;/span&gt; &lt;span class="nc"&gt;SmsService&lt;/span&gt;&lt;span class="w"&gt; &lt;/span&gt;&lt;span class="p"&gt;{&lt;/span&gt;&lt;span class="w"&gt;
+&lt;/span&gt;&lt;/span&gt;&lt;/span&gt;&lt;span class="line"&gt;&lt;span class="cl"&gt;&lt;span class="w"&gt; &lt;/span&gt;&lt;span class="kt"&gt;void&lt;/span&gt;&lt;span class="w"&gt; &lt;/span&gt;&lt;span class="nf"&gt;send&lt;/span&gt;&lt;span class="p"&gt;(&lt;/span&gt;&lt;span class="n"&gt;String&lt;/span&gt;&lt;span class="w"&gt; &lt;/span&gt;&lt;span class="n"&gt;phone&lt;/span&gt;&lt;span class="p"&gt;,&lt;/span&gt;&lt;span class="w"&gt; &lt;/span&gt;&lt;span class="n"&gt;String&lt;/span&gt;&lt;span class="w"&gt; &lt;/span&gt;&lt;span class="n"&gt;content&lt;/span&gt;&lt;span class="p"&gt;);&lt;/span&gt;&lt;span class="w"&gt;
+&lt;/span&gt;&lt;/span&gt;&lt;/span&gt;&lt;span class="line"&gt;&lt;span class="cl"&gt;&lt;span class="w"&gt;&lt;/span&gt;&lt;span class="p"&gt;}&lt;/span&gt;&lt;span class="w"&gt;
+&lt;/span&gt;&lt;/span&gt;&lt;/span&gt;&lt;/code&gt;&lt;/pre&gt;&lt;/td&gt;&lt;/tr&gt;&lt;/table&gt;
+&lt;/div&gt;
+&lt;/div&gt;&lt;p&gt;具体的实现类 &lt;code&gt;AliyunSmsImpl&lt;/code&gt; 去引用阿里云的 SDK。如果明天换成腾讯云，我只需要重写一个实现类，业务层代码一行都不用动。&lt;/p&gt;
 &lt;p&gt;这层“防腐层”就像一道防火墙，把外部的不确定性挡在了核心业务之外。后来我们换过一次支付渠道，只用半天就完成了切换和测试。&lt;/p&gt;
-&lt;h2 id=&#34;总结与行动&#34;&gt;总结与行动
+&lt;h2 id="总结与行动"&gt;总结与行动
 &lt;/h2&gt;&lt;p&gt;经过这三次折腾，我们小团队现在的架构基本稳定在：
 &lt;strong&gt;Controller (路由与转换) -&amp;gt; Service (业务编排) -&amp;gt; Manager (通用能力/三方封装) -&amp;gt; DAO (数据读写)&lt;/strong&gt;&lt;/p&gt;
 &lt;p&gt;这套架构可能不是最高大上的，但对于 5-20 人的中小团队来说，它是性价比最高的：既解决了混乱，又没有过度设计。&lt;/p&gt;
@@ -103,9 +100,4 @@
 &lt;li&gt;&lt;strong&gt;封装一个第三方调用&lt;/strong&gt;：找一个项目里用得最多的外部接口（比如对象存储或支付），给它套上一层自己的 Interface。&lt;/li&gt;
 &lt;/ol&gt;
 &lt;p&gt;&lt;strong&gt;架构不是画在 PPT 上的图，而是每一行代码里的克制与权衡。&lt;/strong&gt;&lt;/p&gt;
-&lt;p&gt;我想问问大家，在你们现在的项目里，遇到过最让你头疼的“面条代码”是在哪一层？欢迎在评论区聊聊，咱们一起避坑。&lt;/p&gt;
-</description>
-        </item>
-        
-    </channel>
-</rss>
+&lt;p&gt;我想问问大家，在你们现在的项目里，遇到过最让你头疼的“面条代码”是在哪一层？欢迎在评论区聊聊，咱们一起避坑。&lt;/p&gt;</description></item></channel></rss>

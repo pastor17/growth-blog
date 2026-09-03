@@ -1,212 +1,13 @@
-<!DOCTYPE html>
-<html lang="zh-cn" dir="ltr">
-    <head><meta charset='utf-8'>
-<meta name='viewport' content='width=device-width, initial-scale=1'><meta name='description' content="我也曾是一个&quot;文档通过率&quot;的信徒。\n2018年，我负责一个电商中台的重构项目。为了彰显&quot;架构师的专业性&quot;，我憋了一周，写出了一份长达60多页的《详细架构设计说明书》。里面从类图到部署图，从数据库范式到非功能性需求，应有尽有。\n结果呢？\n开发阶段，前端来问接口字段，后端来问Redis缓存策略。我恼火地吼道：&ldquo;文档第42页不是写了吗？&ldquo;对方一脸茫然：&ldquo;太长了，实在找不到，也没时间看。&rdquo;\n项目上线三个月后，系统因为一个配置错误瘫痪了。运维排查时发现，真实的部署架构和我的文档早已大相径庭——那份文档，成了典型的&quot;Write Only Memory&rdquo;（只写存储器），除了感动我自己，没有任何价值。\n这次惨痛教训让我明白一个反常识的道理：在中小团队，越&quot;标准&quot;的文档，死得越快。\n对于几十人的研发团队，我们要的不是大厂那种面面俱到的&quot;八股文&rdquo;，而是能保命、能落地、能沟通的&quot;作战地图&quot;。今天，我把这两年一直在用的&quot;极简文档三件套&quot;分享给你。\n一、 扔掉类图，先画一张&quot;系统全景图&quot;\r很多新手架构师一上来就喜欢钻进代码细节，画复杂的UML类图。相信我，代码变动比你画图快多了，这种图画完即作废。\n你的第一页文档，必须是Context Map（系统上下文图）。\n我们要解决的第一个痛点是：新来的兄弟，哪怕不看代码，能不能在5分钟内知道我们在做什么？\n真实案例\r去年有个外包项目交接，接手的负责人小张在那骂娘。前任留下了几百个Java文件，却没告诉他这个系统依赖了哪些外部服务。结果上线第一天，因为防火墙没开通某第三方支付的IP白名单，支付全挂，老板差点掀桌子。\n解决方案：C4模型的Level 1\r不要被C4模型这个术语吓到，其实就是一张&quot;关系图&quot;。你只需要画出三个东西：\n用户：谁在用系统？（运营？C端用户？管理员？） 核心系统：我们的黑盒子。 外部依赖：我们连了谁？（微信API、阿里云OSS、友商的数据接口）。 这就够了。不需要涉及任何技术选型。\n实操建议： 我习惯用 PlantUML 或 Mermaid 来画，因为它们是代码，可以直接存在Git里。\ngraph TD\rUser[C端用户] --&gt;|下单/查询| OrderSystem[核心订单系统]\rAdmin[运营人员] --&gt;|管理商品| OrderSystem\rOrderSystem --&gt;|发送通知| EmailService[第三方邮件服务]\rOrderSystem --&gt;|支付请求| PaymentGateway[微信/支付宝]\rOrderSystem --&gt;|读写数据| DB[(主数据库)]\r这张图贴在README的第一页，价值超过1万行代码注释。\n二、 核心链路，只画&quot;时序图&quot;\r有了全景图，接下来要解决最复杂的业务逻辑问题。\n很多项目烂尾，不是因为技术难，而是因为状态流转不清。比如一个订单，从&quot;创建&quot;到&quot;支付&quot;再到&quot;发货&quot;，中间涉及库存扣减、优惠券核销、积分累加。\n如果只靠口头沟通，后端说&quot;我以为你扣了库存&quot;，前端说&quot;我以为你回滚了&quot;，最后数据对不上，产生&quot;幽灵库存&quot;。\n真实案例\r如果你经历过&quot;双十一&quot;或者大促，就知道我在说什么。我曾见过一个拼团项目，因为没有梳理清楚&quot;拼团失败&quot;后的退款时序，导致用户钱退了，库存却没释放，最后不得不人工跑脚本修数据，整个组通宵了两天。\n解决方案：关键业务时序图\r别把所有接口都画时序图，那是浪费生命。只画核心链路（Core Path）。\n这一页文档，是为了救命的。当出现Bug时，拿着这张图去对日志，一抓一个准。\n我在团队里有个硬性规定：涉及到资金流转、状态变更超过3步的业务，不画时序图不许写代码。\n你可以不用标准的UML规范，但必须体现出：\n参与者（前端、后端、数据库、第三方）。 方向（请求还是响应）。 关键动作（特别是写操作）。 避坑提示：千万别想着用自动生成工具从代码反向生成时序图，生成的图往往乱得像盘丝洞，根本没法看。必须人脑梳理，这本身就是设计的过程。\n三、 拒绝&quot;口头约定&quot;，用ADR记录决策\r这是中小团队最容易忽视，但也是导致&quot;技术债&quot;堆积如山的罪魁祸首。\n">
-<title>别写百页天书！中小项目架构文档，这3页就够了</title>
-
-<link rel='canonical' href='https://blog.irudder.me/tech/zhongxiaoxingxiangmujiagoushejizhinan/jiagouwendang_zhongxiaoxiangmudijijianwendangguifan.html'>
-
-<link rel="stylesheet" href="/scss/style.min.b9e9128fec450ebccecc4ec9900157f32b85d0609bcd5ee3293968bcaa1235f2.css"><meta property='og:title' content="别写百页天书！中小项目架构文档，这3页就够了">
-<meta property='og:description' content="我也曾是一个&quot;文档通过率&quot;的信徒。\n2018年，我负责一个电商中台的重构项目。为了彰显&quot;架构师的专业性&quot;，我憋了一周，写出了一份长达60多页的《详细架构设计说明书》。里面从类图到部署图，从数据库范式到非功能性需求，应有尽有。\n结果呢？\n开发阶段，前端来问接口字段，后端来问Redis缓存策略。我恼火地吼道：&ldquo;文档第42页不是写了吗？&ldquo;对方一脸茫然：&ldquo;太长了，实在找不到，也没时间看。&rdquo;\n项目上线三个月后，系统因为一个配置错误瘫痪了。运维排查时发现，真实的部署架构和我的文档早已大相径庭——那份文档，成了典型的&quot;Write Only Memory&rdquo;（只写存储器），除了感动我自己，没有任何价值。\n这次惨痛教训让我明白一个反常识的道理：在中小团队，越&quot;标准&quot;的文档，死得越快。\n对于几十人的研发团队，我们要的不是大厂那种面面俱到的&quot;八股文&rdquo;，而是能保命、能落地、能沟通的&quot;作战地图&quot;。今天，我把这两年一直在用的&quot;极简文档三件套&quot;分享给你。\n一、 扔掉类图，先画一张&quot;系统全景图&quot;\r很多新手架构师一上来就喜欢钻进代码细节，画复杂的UML类图。相信我，代码变动比你画图快多了，这种图画完即作废。\n你的第一页文档，必须是Context Map（系统上下文图）。\n我们要解决的第一个痛点是：新来的兄弟，哪怕不看代码，能不能在5分钟内知道我们在做什么？\n真实案例\r去年有个外包项目交接，接手的负责人小张在那骂娘。前任留下了几百个Java文件，却没告诉他这个系统依赖了哪些外部服务。结果上线第一天，因为防火墙没开通某第三方支付的IP白名单，支付全挂，老板差点掀桌子。\n解决方案：C4模型的Level 1\r不要被C4模型这个术语吓到，其实就是一张&quot;关系图&quot;。你只需要画出三个东西：\n用户：谁在用系统？（运营？C端用户？管理员？） 核心系统：我们的黑盒子。 外部依赖：我们连了谁？（微信API、阿里云OSS、友商的数据接口）。 这就够了。不需要涉及任何技术选型。\n实操建议： 我习惯用 PlantUML 或 Mermaid 来画，因为它们是代码，可以直接存在Git里。\ngraph TD\rUser[C端用户] --&gt;|下单/查询| OrderSystem[核心订单系统]\rAdmin[运营人员] --&gt;|管理商品| OrderSystem\rOrderSystem --&gt;|发送通知| EmailService[第三方邮件服务]\rOrderSystem --&gt;|支付请求| PaymentGateway[微信/支付宝]\rOrderSystem --&gt;|读写数据| DB[(主数据库)]\r这张图贴在README的第一页，价值超过1万行代码注释。\n二、 核心链路，只画&quot;时序图&quot;\r有了全景图，接下来要解决最复杂的业务逻辑问题。\n很多项目烂尾，不是因为技术难，而是因为状态流转不清。比如一个订单，从&quot;创建&quot;到&quot;支付&quot;再到&quot;发货&quot;，中间涉及库存扣减、优惠券核销、积分累加。\n如果只靠口头沟通，后端说&quot;我以为你扣了库存&quot;，前端说&quot;我以为你回滚了&quot;，最后数据对不上，产生&quot;幽灵库存&quot;。\n真实案例\r如果你经历过&quot;双十一&quot;或者大促，就知道我在说什么。我曾见过一个拼团项目，因为没有梳理清楚&quot;拼团失败&quot;后的退款时序，导致用户钱退了，库存却没释放，最后不得不人工跑脚本修数据，整个组通宵了两天。\n解决方案：关键业务时序图\r别把所有接口都画时序图，那是浪费生命。只画核心链路（Core Path）。\n这一页文档，是为了救命的。当出现Bug时，拿着这张图去对日志，一抓一个准。\n我在团队里有个硬性规定：涉及到资金流转、状态变更超过3步的业务，不画时序图不许写代码。\n你可以不用标准的UML规范，但必须体现出：\n参与者（前端、后端、数据库、第三方）。 方向（请求还是响应）。 关键动作（特别是写操作）。 避坑提示：千万别想着用自动生成工具从代码反向生成时序图，生成的图往往乱得像盘丝洞，根本没法看。必须人脑梳理，这本身就是设计的过程。\n三、 拒绝&quot;口头约定&quot;，用ADR记录决策\r这是中小团队最容易忽视，但也是导致&quot;技术债&quot;堆积如山的罪魁祸首。\n">
-<meta property='og:url' content='https://blog.irudder.me/tech/zhongxiaoxingxiangmujiagoushejizhinan/jiagouwendang_zhongxiaoxiangmudijijianwendangguifan.html'>
-<meta property='og:site_name' content='SelfTechHub'>
-<meta property='og:type' content='article'><meta property='article:section' content='Tech' /><meta property='article:tag' content='架构文档：中小项目的极简文档规范' /><meta property='article:published_time' content='2022-01-09T00:00:00&#43;00:00'/><meta property='article:modified_time' content='2022-01-09T00:00:00&#43;00:00'/>
-<meta name="twitter:title" content="别写百页天书！中小项目架构文档，这3页就够了">
-<meta name="twitter:description" content="我也曾是一个&quot;文档通过率&quot;的信徒。\n2018年，我负责一个电商中台的重构项目。为了彰显&quot;架构师的专业性&quot;，我憋了一周，写出了一份长达60多页的《详细架构设计说明书》。里面从类图到部署图，从数据库范式到非功能性需求，应有尽有。\n结果呢？\n开发阶段，前端来问接口字段，后端来问Redis缓存策略。我恼火地吼道：&ldquo;文档第42页不是写了吗？&ldquo;对方一脸茫然：&ldquo;太长了，实在找不到，也没时间看。&rdquo;\n项目上线三个月后，系统因为一个配置错误瘫痪了。运维排查时发现，真实的部署架构和我的文档早已大相径庭——那份文档，成了典型的&quot;Write Only Memory&rdquo;（只写存储器），除了感动我自己，没有任何价值。\n这次惨痛教训让我明白一个反常识的道理：在中小团队，越&quot;标准&quot;的文档，死得越快。\n对于几十人的研发团队，我们要的不是大厂那种面面俱到的&quot;八股文&rdquo;，而是能保命、能落地、能沟通的&quot;作战地图&quot;。今天，我把这两年一直在用的&quot;极简文档三件套&quot;分享给你。\n一、 扔掉类图，先画一张&quot;系统全景图&quot;\r很多新手架构师一上来就喜欢钻进代码细节，画复杂的UML类图。相信我，代码变动比你画图快多了，这种图画完即作废。\n你的第一页文档，必须是Context Map（系统上下文图）。\n我们要解决的第一个痛点是：新来的兄弟，哪怕不看代码，能不能在5分钟内知道我们在做什么？\n真实案例\r去年有个外包项目交接，接手的负责人小张在那骂娘。前任留下了几百个Java文件，却没告诉他这个系统依赖了哪些外部服务。结果上线第一天，因为防火墙没开通某第三方支付的IP白名单，支付全挂，老板差点掀桌子。\n解决方案：C4模型的Level 1\r不要被C4模型这个术语吓到，其实就是一张&quot;关系图&quot;。你只需要画出三个东西：\n用户：谁在用系统？（运营？C端用户？管理员？） 核心系统：我们的黑盒子。 外部依赖：我们连了谁？（微信API、阿里云OSS、友商的数据接口）。 这就够了。不需要涉及任何技术选型。\n实操建议： 我习惯用 PlantUML 或 Mermaid 来画，因为它们是代码，可以直接存在Git里。\ngraph TD\rUser[C端用户] --&gt;|下单/查询| OrderSystem[核心订单系统]\rAdmin[运营人员] --&gt;|管理商品| OrderSystem\rOrderSystem --&gt;|发送通知| EmailService[第三方邮件服务]\rOrderSystem --&gt;|支付请求| PaymentGateway[微信/支付宝]\rOrderSystem --&gt;|读写数据| DB[(主数据库)]\r这张图贴在README的第一页，价值超过1万行代码注释。\n二、 核心链路，只画&quot;时序图&quot;\r有了全景图，接下来要解决最复杂的业务逻辑问题。\n很多项目烂尾，不是因为技术难，而是因为状态流转不清。比如一个订单，从&quot;创建&quot;到&quot;支付&quot;再到&quot;发货&quot;，中间涉及库存扣减、优惠券核销、积分累加。\n如果只靠口头沟通，后端说&quot;我以为你扣了库存&quot;，前端说&quot;我以为你回滚了&quot;，最后数据对不上，产生&quot;幽灵库存&quot;。\n真实案例\r如果你经历过&quot;双十一&quot;或者大促，就知道我在说什么。我曾见过一个拼团项目，因为没有梳理清楚&quot;拼团失败&quot;后的退款时序，导致用户钱退了，库存却没释放，最后不得不人工跑脚本修数据，整个组通宵了两天。\n解决方案：关键业务时序图\r别把所有接口都画时序图，那是浪费生命。只画核心链路（Core Path）。\n这一页文档，是为了救命的。当出现Bug时，拿着这张图去对日志，一抓一个准。\n我在团队里有个硬性规定：涉及到资金流转、状态变更超过3步的业务，不画时序图不许写代码。\n你可以不用标准的UML规范，但必须体现出：\n参与者（前端、后端、数据库、第三方）。 方向（请求还是响应）。 关键动作（特别是写操作）。 避坑提示：千万别想着用自动生成工具从代码反向生成时序图，生成的图往往乱得像盘丝洞，根本没法看。必须人脑梳理，这本身就是设计的过程。\n三、 拒绝&quot;口头约定&quot;，用ADR记录决策\r这是中小团队最容易忽视，但也是导致&quot;技术债&quot;堆积如山的罪魁祸首。\n">
-    </head>
-    <body class="
-    article-page
-    ">
-    <script>
-        (function() {
-            const colorSchemeKey = 'StackColorScheme';
-            if(!localStorage.getItem(colorSchemeKey)){
-                localStorage.setItem(colorSchemeKey, "auto");
-            }
-        })();
-    </script><script>
-    (function() {
-        const colorSchemeKey = 'StackColorScheme';
-        const colorSchemeItem = localStorage.getItem(colorSchemeKey);
-        const supportDarkMode = window.matchMedia('(prefers-color-scheme: dark)').matches === true;
-
-        if (colorSchemeItem == 'dark' || colorSchemeItem === 'auto' && supportDarkMode) {
-            
-
-            document.documentElement.dataset.scheme = 'dark';
-        } else {
-            document.documentElement.dataset.scheme = 'light';
-        }
-    })();
-</script>
-<div class="container main-container flex on-phone--column compact"><aside class="sidebar left-sidebar sticky ">
-    <button class="hamburger hamburger--spin" type="button" id="toggle-menu" aria-label="切换菜单">
-        <span class="hamburger-box">
-            <span class="hamburger-inner"></span>
-        </span>
-    </button>
-
-    <header>
-        
-            
-            <figure class="site-avatar">
-                <a href="/">
-                
-                    
-                    
-                    
-                        
-                        <img src="/img/avatar_hu_8588ce14af1147e2.png" width="300"
-                            height="286" class="site-logo" loading="lazy" alt="Avatar">
-                    
-                
-                </a>
-                
-            </figure>
-            
-        
-        
-        <div class="site-meta">
-            <h1 class="site-name"><a href="/">SelfTechHub</a></h1>
-            <h2 class="site-description"></h2>
-        </div>
-    </header><ol class="menu" id="main-menu">
-        
-        
-        <li class="menu-bottom-section">
-            <ol class="menu">
-
-                
-                    <li id="dark-mode-toggle">
-                        <svg xmlns="http://www.w3.org/2000/svg" class="icon icon-tabler icon-tabler-toggle-left" width="24" height="24" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor" fill="none" stroke-linecap="round" stroke-linejoin="round">
-  <path stroke="none" d="M0 0h24v24H0z"/>
-  <circle cx="8" cy="12" r="2" />
-  <rect x="2" y="6" width="20" height="12" rx="6" />
-</svg>
-
-
-
-                        <svg xmlns="http://www.w3.org/2000/svg" class="icon icon-tabler icon-tabler-toggle-right" width="24" height="24" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor" fill="none" stroke-linecap="round" stroke-linejoin="round">
-  <path stroke="none" d="M0 0h24v24H0z"/>
-  <circle cx="16" cy="12" r="2" />
-  <rect x="2" y="6" width="20" height="12" rx="6" />
-</svg>
-
-
-
-                        <span>暗色模式</span>
-                    </li>
-                
-            </ol>
-        </li>
-    </ol>
-</aside>
-
-    
-
-            <main class="main full-width">
-    <article class="main-article">
-    <header class="article-header">
-
-    <div class="article-details">
-    
-    <header class="article-category">
-        
-            <a href="/categories/%E6%8A%80%E6%9C%AF.html" >
-                技术精进
-            </a>
-        
-    </header>
-    
-
-    <div class="article-title-wrapper">
-        <h2 class="article-title">
-            <a href="/tech/zhongxiaoxingxiangmujiagoushejizhinan/jiagouwendang_zhongxiaoxiangmudijijianwendangguifan.html">别写百页天书！中小项目架构文档，这3页就够了</a>
-        </h2>
-    
-        
-    </div>
-
-    
-    
-    
-    
-    <footer class="article-time">
-        
-            <div>
-                <svg xmlns="http://www.w3.org/2000/svg" class="icon icon-tabler icon-tabler-calendar-time" width="56" height="56" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor" fill="none" stroke-linecap="round" stroke-linejoin="round">
-  <path stroke="none" d="M0 0h24v24H0z"/>
-  <path d="M11.795 21h-6.795a2 2 0 0 1 -2 -2v-12a2 2 0 0 1 2 -2h12a2 2 0 0 1 2 2v4" />
-  <circle cx="18" cy="18" r="4" />
-  <path d="M15 3v4" />
-  <path d="M7 3v4" />
-  <path d="M3 11h16" />
-  <path d="M18 16.496v1.504l1 1" />
-</svg>
-                <time class="article-time--published" datetime='2022-01-09T00:00:00Z'>Jan 09, 2022</time>
-            </div>
-        
-
-        
-            <div>
-                <svg xmlns="http://www.w3.org/2000/svg" class="icon icon-tabler icon-tabler-clock" width="24" height="24" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor" fill="none" stroke-linecap="round" stroke-linejoin="round">
-  <path stroke="none" d="M0 0h24v24H0z"/>
-  <circle cx="12" cy="12" r="9" />
-  <polyline points="12 7 12 12 15 15" />
-</svg>
-
-
-
-                <time class="article-time--reading">
-                    阅读时长: 1 分钟
-                </time>
-            </div>
-        
-    </footer>
-    
-
-    
-</div>
-
-</header>
-
-    <section class="article-content">
-    
-    
-    <p>我也曾是一个&quot;文档通过率&quot;的信徒。</p>
-<p>2018年，我负责一个电商中台的重构项目。为了彰显&quot;架构师的专业性&quot;，我憋了一周，写出了一份长达60多页的《详细架构设计说明书》。里面从类图到部署图，从数据库范式到非功能性需求，应有尽有。</p>
-<p>结果呢？</p>
-<p>开发阶段，前端来问接口字段，后端来问Redis缓存策略。我恼火地吼道：&ldquo;文档第42页不是写了吗？&ldquo;对方一脸茫然：&ldquo;太长了，实在找不到，也没时间看。&rdquo;</p>
-<p>项目上线三个月后，系统因为一个配置错误瘫痪了。运维排查时发现，真实的部署架构和我的文档早已大相径庭——那份文档，成了典型的&quot;Write Only Memory&rdquo;（只写存储器），除了感动我自己，没有任何价值。</p>
-<p>这次惨痛教训让我明白一个反常识的道理：<strong>在中小团队，越&quot;标准&quot;的文档，死得越快。</strong></p>
-<p>对于几十人的研发团队，我们要的不是大厂那种面面俱到的&quot;八股文&rdquo;，而是能保命、能落地、能沟通的&quot;作战地图&quot;。今天，我把这两年一直在用的&quot;极简文档三件套&quot;分享给你。</p>
-<p><img src="https://picsum.photos/800/450?random=1768456382628"
-	
-	
-	
-	loading="lazy"
-	
-		alt="配图"
-	
-	
-></p>
-<h2 id="一-扔掉类图先画一张系统全景图">一、 扔掉类图，先画一张&quot;系统全景图&quot;
-</h2><p>很多新手架构师一上来就喜欢钻进代码细节，画复杂的UML类图。相信我，代码变动比你画图快多了，这种图画完即作废。</p>
-<p><strong>你的第一页文档，必须是Context Map（系统上下文图）。</strong></p>
-<p>我们要解决的第一个痛点是：<strong>新来的兄弟，哪怕不看代码，能不能在5分钟内知道我们在做什么？</strong></p>
-<h3 id="真实案例">真实案例
-</h3><p>去年有个外包项目交接，接手的负责人小张在那骂娘。前任留下了几百个Java文件，却没告诉他这个系统依赖了哪些外部服务。结果上线第一天，因为防火墙没开通某第三方支付的IP白名单，支付全挂，老板差点掀桌子。</p>
-<h3 id="解决方案c4模型的level-1">解决方案：C4模型的Level 1
-</h3><p>不要被C4模型这个术语吓到，其实就是一张&quot;关系图&quot;。你只需要画出三个东西：</p>
-<ol>
-<li><strong>用户</strong>：谁在用系统？（运营？C端用户？管理员？）</li>
-<li><strong>核心系统</strong>：我们的黑盒子。</li>
-<li><strong>外部依赖</strong>：我们连了谁？（微信API、阿里云OSS、友商的数据接口）。</li>
-</ol>
-<p>这就够了。不需要涉及任何技术选型。</p>
-<p><strong>实操建议：</strong>
-我习惯用 <code>PlantUML</code> 或 <code>Mermaid</code> 来画，因为它们是代码，可以直接存在Git里。</p>
-<pre class="mermaid">
+<!doctype html><html lang=zh-cn dir=ltr><head><meta charset=utf-8><meta name=viewport content='width=device-width,initial-scale=1'><meta name=description content="我也曾是一个\" 文档通过率\"的信徒。年，我负责一个电商中台的重构项目。为了彰显\"架构师的专业性\"，我憋了一周，写出了一份长达60多页的《详细架构设计说明书》。"><title>别写百页天书！中小项目架构文档，这3页就够了</title><link rel=canonical href=https://blog.irudder.me/tech/zhongxiaoxingxiangmujiagoushejizhinan/jiagouwendang_zhongxiaoxiangmudijijianwendangguifan.html><link rel=stylesheet href=/scss/style.min.c77ce1b874b29b2ee9e54a89066c79ebf35cbe9cf399b31ab5d79167f9a965c9.css><meta property='og:title' content="别写百页天书！中小项目架构文档，这3页就够了"><meta property='og:description' content="我也曾是一个\" 文档通过率\"的信徒。年，我负责一个电商中台的重构项目。为了彰显\"架构师的专业性\"，我憋了一周，写出了一份长达60多页的《详细架构设计说明书》。"><meta property='og:url' content='https://blog.irudder.me/tech/zhongxiaoxingxiangmujiagoushejizhinan/jiagouwendang_zhongxiaoxiangmudijijianwendangguifan.html'><meta property='og:site_name' content='SelfTechHub'><meta property='og:type' content='article'><meta property='article:section' content='Tech'><meta property='article:tag' content='架构文档：中小项目的极简文档规范'><meta property='article:published_time' content='2022-01-09T00:00:00+08:00'><meta property='article:modified_time' content='2022-01-09T00:00:00+08:00'><meta name=twitter:title content="别写百页天书！中小项目架构文档，这3页就够了"><meta name=twitter:description content="我也曾是一个\" 文档通过率\"的信徒。年，我负责一个电商中台的重构项目。为了彰显\"架构师的专业性\"，我憋了一周，写出了一份长达60多页的《详细架构设计说明书》。"><link rel="shortcut icon" href=/images/logo.png></head><body class=article-page><script>(function(){const e="StackColorScheme";localStorage.getItem(e)||localStorage.setItem(e,"auto")})()</script><script>(function(){const t="StackColorScheme",e=localStorage.getItem(t),n=window.matchMedia("(prefers-color-scheme: dark)").matches===!0;e=="dark"||e==="auto"&&n?document.documentElement.dataset.scheme="dark":document.documentElement.dataset.scheme="light"})()</script><div class="container main-container flex on-phone--column extended"><aside class="sidebar left-sidebar sticky"><button class="hamburger hamburger--spin" type=button id=toggle-menu aria-label=切换菜单>
+<span class=hamburger-box><span class=hamburger-inner></span></span></button><header><figure class=site-avatar><a href=/><img src=/img/avatar_hu_8588ce14af1147e2.png width=300 height=286 class=site-logo loading=lazy alt=Avatar>
+</a><span class=emoji>🧠</span></figure><div class=site-meta><h1 class=site-name><a href=/>SelfTechHub</a></h1><h2 class=site-description>成长 · 技术 · 商业 · AI —— 把碎片知识沉淀为可复用的记忆体系</h2></div></header><ol class=menu-social><li><a href=https://github.com/pastor17 target=_blank title=GitHub rel=me><svg class="icon icon-tabler icon-tabler-brand-github" width="24" height="24" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor" fill="none" stroke-linecap="round" stroke-linejoin="round"><path stroke="none" d="M0 0h24v24H0z" fill="none"/><path d="M9 19c-4.3 1.4-4.3-2.5-6-3m12 5v-3.5c0-1 .1-1.4-.5-2 2.8-.3 5.5-1.4 5.5-6a4.6 4.6.0 00-1.3-3.2 4.2 4.2.0 00-.1-3.2s-1.1-.3-3.5 1.3a12.3 12.3.0 00-6.2.0C6.5 2.8 5.4 3.1 5.4 3.1a4.2 4.2.0 00-.1 3.2A4.6 4.6.0 004 9.5c0 4.6 2.7 5.7 5.5 6-.6.6-.6 1.2-.5 2V21"/></svg></a></li></ol><ol class=menu id=main-menu><li><a href=/><svg class="icon icon-tabler icon-tabler-home" width="24" height="24" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor" fill="none" stroke-linecap="round" stroke-linejoin="round"><path stroke="none" d="M0 0h24v24H0z"/><polyline points="5 12 3 12 12 3 21 12 19 12"/><path d="M5 12v7a2 2 0 002 2h10a2 2 0 002-2v-7"/><path d="M9 21v-6a2 2 0 012-2h2a2 2 0 012 2v6"/></svg>
+<span>首页</span></a></li><li><a href=/categories/%E6%88%90%E9%95%BF.html><span>成长认知</span></a></li><li><a href=/categories/%E6%8A%80%E6%9C%AF.html><span>技术精进</span></a></li><li><a href=/categories/%E5%95%86%E4%B8%9A.html><span>商业·财富</span></a></li><li><a href=/categories/ai.html><span>探索AI</span></a></li><li><a href=/about/><svg class="icon icon-tabler icon-tabler-user" width="24" height="24" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor" fill="none" stroke-linecap="round" stroke-linejoin="round"><path stroke="none" d="M0 0h24v24H0z"/><circle cx="12" cy="7" r="4"/><path d="M6 21v-2a4 4 0 014-4h4a4 4 0 014 4v2"/></svg>
+<span>关于</span></a></li><li class=menu-bottom-section><ol class=menu><li id=dark-mode-toggle><svg class="icon icon-tabler icon-tabler-toggle-left" width="24" height="24" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor" fill="none" stroke-linecap="round" stroke-linejoin="round"><path stroke="none" d="M0 0h24v24H0z"/><circle cx="8" cy="12" r="2"/><rect x="2" y="6" width="20" height="12" rx="6"/></svg>
+<svg class="icon icon-tabler icon-tabler-toggle-right" width="24" height="24" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor" fill="none" stroke-linecap="round" stroke-linejoin="round"><path stroke="none" d="M0 0h24v24H0z"/><circle cx="16" cy="12" r="2"/><rect x="2" y="6" width="20" height="12" rx="6"/></svg>
+<span>暗色模式</span></li></ol></li></ol></aside><aside class="sidebar right-sidebar sticky"><section class="widget archives"><div class=widget-icon><svg class="icon icon-tabler icon-tabler-hash" width="24" height="24" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor" fill="none" stroke-linecap="round" stroke-linejoin="round"><path stroke="none" d="M0 0h24v24H0z"/><line x1="5" y1="9" x2="19" y2="9"/><line x1="5" y1="15" x2="19" y2="15"/><line x1="11" y1="4" x2="7" y2="20"/><line x1="17" y1="4" x2="13" y2="20"/></svg></div><h2 class="widget-title section-title">目录</h2><div class=widget--toc><nav id=TableOfContents><ul><li><a href=#一-扔掉类图先画一张系统全景图>一、 扔掉类图，先画一张"系统全景图"</a><ul><li><a href=#真实案例>真实案例</a></li><li><a href=#解决方案c4模型的level-1>解决方案：C4模型的Level 1</a></li></ul></li><li><a href=#二-核心链路只画时序图>二、 核心链路，只画"时序图"</a><ul><li><a href=#真实案例-1>真实案例</a></li><li><a href=#解决方案关键业务时序图>解决方案：关键业务时序图</a></li></ul></li><li><a href=#三-拒绝口头约定用adr记录决策>三、 拒绝"口头约定"，用ADR记录决策</a><ul><li><a href=#解决方案轻量级adr架构决策记录>解决方案：轻量级ADR（架构决策记录）</a></li></ul></li><li><a href=#结语>结语</a></li></ul></nav></div></section></aside><main class="main full-width"><article class=main-article><header class=article-header><div class=article-details><header class=article-category><a href=/categories/%E6%8A%80%E6%9C%AF.html>技术精进</a></header><div class=article-title-wrapper><h2 class=article-title><a href=/tech/zhongxiaoxingxiangmujiagoushejizhinan/jiagouwendang_zhongxiaoxiangmudijijianwendangguifan.html>别写百页天书！中小项目架构文档，这3页就够了</a></h2><h3 class=article-subtitle>我也曾是一个"文档通过率"的信徒。年，我负责一个电商中台的重构项目。为了彰显"架构师的专业性"，我憋了一周，写出了一份长达60多页的《详细架构设计说明书》。</h3></div><footer class=article-time><div><svg class="icon icon-tabler icon-tabler-calendar-time" width="56" height="56" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor" fill="none" stroke-linecap="round" stroke-linejoin="round"><path stroke="none" d="M0 0h24v24H0z"/><path d="M11.795 21H5a2 2 0 01-2-2V7a2 2 0 012-2h12a2 2 0 012 2v4"/><circle cx="18" cy="18" r="4"/><path d="M15 3v4"/><path d="M7 3v4"/><path d="M3 11h16"/><path d="M18 16.496V18l1 1"/></svg>
+<time class=article-time--published datetime=2022-01-09T00:00:00+08:00>2022-01-09</time></div><div><svg class="icon icon-tabler icon-tabler-clock" width="24" height="24" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor" fill="none" stroke-linecap="round" stroke-linejoin="round"><path stroke="none" d="M0 0h24v24H0z"/><circle cx="12" cy="12" r="9"/><polyline points="12 7 12 12 15 15"/></svg>
+<time class=article-time--reading>阅读时长: 6 分钟</time></div></footer></div></header><section class=article-content><p>我也曾是一个"文档通过率"的信徒。</p><p>2018年，我负责一个电商中台的重构项目。为了彰显"架构师的专业性"，我憋了一周，写出了一份长达60多页的《详细架构设计说明书》。里面从类图到部署图，从数据库范式到非功能性需求，应有尽有。</p><p>结果呢？</p><p>开发阶段，前端来问接口字段，后端来问Redis缓存策略。我恼火地吼道：&ldquo;文档第42页不是写了吗？&ldquo;对方一脸茫然：&ldquo;太长了，实在找不到，也没时间看。&rdquo;</p><p>项目上线三个月后，系统因为一个配置错误瘫痪了。运维排查时发现，真实的部署架构和我的文档早已大相径庭——那份文档，成了典型的"Write Only Memory&rdquo;（只写存储器），除了感动我自己，没有任何价值。</p><p>这次惨痛教训让我明白一个反常识的道理：<strong>在中小团队，越"标准"的文档，死得越快。</strong></p><p>对于几十人的研发团队，我们要的不是大厂那种面面俱到的"八股文&rdquo;，而是能保命、能落地、能沟通的"作战地图"。今天，我把这两年一直在用的"极简文档三件套"分享给你。</p><p><img src="https://picsum.photos/800/450?random=1768456382628" loading=lazy alt=配图></p><h2 id=一-扔掉类图先画一张系统全景图>一、 扔掉类图，先画一张"系统全景图"</h2><p>很多新手架构师一上来就喜欢钻进代码细节，画复杂的UML类图。相信我，代码变动比你画图快多了，这种图画完即作废。</p><p><strong>你的第一页文档，必须是Context Map（系统上下文图）。</strong></p><p>我们要解决的第一个痛点是：<strong>新来的兄弟，哪怕不看代码，能不能在5分钟内知道我们在做什么？</strong></p><h3 id=真实案例>真实案例</h3><p>去年有个外包项目交接，接手的负责人小张在那骂娘。前任留下了几百个Java文件，却没告诉他这个系统依赖了哪些外部服务。结果上线第一天，因为防火墙没开通某第三方支付的IP白名单，支付全挂，老板差点掀桌子。</p><h3 id=解决方案c4模型的level-1>解决方案：C4模型的Level 1</h3><p>不要被C4模型这个术语吓到，其实就是一张"关系图"。你只需要画出三个东西：</p><ol><li><strong>用户</strong>：谁在用系统？（运营？C端用户？管理员？）</li><li><strong>核心系统</strong>：我们的黑盒子。</li><li><strong>外部依赖</strong>：我们连了谁？（微信API、阿里云OSS、友商的数据接口）。</li></ol><p>这就够了。不需要涉及任何技术选型。</p><p><strong>实操建议：</strong>
+我习惯用 <code>PlantUML</code> 或 <code>Mermaid</code> 来画，因为它们是代码，可以直接存在Git里。</p><pre class=mermaid>
   graph TD
     User[C端用户] --&gt;|下单/查询| OrderSystem[核心订单系统]
     Admin[运营人员] --&gt;|管理商品| OrderSystem
@@ -214,276 +15,42 @@
     OrderSystem --&gt;|发送通知| EmailService[第三方邮件服务]
     OrderSystem --&gt;|支付请求| PaymentGateway[微信/支付宝]
     OrderSystem --&gt;|读写数据| DB[(主数据库)]
-</pre>
-
-<p>这张图贴在README的第一页，价值超过1万行代码注释。</p>
-<h2 id="二-核心链路只画时序图">二、 核心链路，只画&quot;时序图&quot;
-</h2><p>有了全景图，接下来要解决最复杂的业务逻辑问题。</p>
-<p>很多项目烂尾，不是因为技术难，而是因为<strong>状态流转不清</strong>。比如一个订单，从&quot;创建&quot;到&quot;支付&quot;再到&quot;发货&quot;，中间涉及库存扣减、优惠券核销、积分累加。</p>
-<p>如果只靠口头沟通，后端说&quot;我以为你扣了库存&quot;，前端说&quot;我以为你回滚了&quot;，最后数据对不上，产生&quot;幽灵库存&quot;。</p>
-<h3 id="真实案例-1">真实案例
-</h3><p>如果你经历过&quot;双十一&quot;或者大促，就知道我在说什么。我曾见过一个拼团项目，因为没有梳理清楚&quot;拼团失败&quot;后的退款时序，导致用户钱退了，库存却没释放，最后不得不人工跑脚本修数据，整个组通宵了两天。</p>
-<h3 id="解决方案关键业务时序图">解决方案：关键业务时序图
-</h3><p>别把所有接口都画时序图，那是浪费生命。<strong>只画核心链路</strong>（Core Path）。</p>
-<p>这一页文档，是为了救命的。当出现Bug时，拿着这张图去对日志，一抓一个准。</p>
-<p>我在团队里有个硬性规定：<strong>涉及到资金流转、状态变更超过3步的业务，不画时序图不许写代码。</strong></p>
-<p>你可以不用标准的UML规范，但必须体现出：</p>
-<ul>
-<li><strong>参与者</strong>（前端、后端、数据库、第三方）。</li>
-<li><strong>方向</strong>（请求还是响应）。</li>
-<li><strong>关键动作</strong>（特别是写操作）。</li>
-</ul>
-<blockquote>
-<p><strong>避坑提示</strong>：千万别想着用自动生成工具从代码反向生成时序图，生成的图往往乱得像盘丝洞，根本没法看。必须人脑梳理，这本身就是设计的过程。</p>
-</blockquote>
-<p><img src="https://picsum.photos/800/450?random=1768456380024"
-	
-	
-	
-	loading="lazy"
-	
-		alt="配图"
-	
-	
-></p>
-<h2 id="三-拒绝口头约定用adr记录决策">三、 拒绝&quot;口头约定&quot;，用ADR记录决策
-</h2><p>这是中小团队最容易忽视，但也是导致&quot;技术债&quot;堆积如山的罪魁祸首。</p>
-<p>你有没有遇到过这种情况：
-接手一段老代码，发现里面用了一个极度冷门的框架，或者写了一段匪夷所思的死循环逻辑。你想重构，但不敢动，因为你不知道前人为什么要这么写——也许是为了绕过某个诡异的Bug？</p>
-<p>如果是大厂，可能有繁琐的审批流程留痕。但在中小团队，往往是两个大佬在楼下抽烟时，就把技术选型定了：&ldquo;就用MongoDB吧，那个快。&rdquo;</p>
-<p>两年后，因为数据一致性问题要迁回MySQL，团队为此付出了三个月的重构代价。</p>
-<h3 id="解决方案轻量级adr架构决策记录">解决方案：轻量级ADR（架构决策记录）
-</h3><p>不要写长篇大论的方案对比。在项目根目录下建一个 <code>doc/adr</code> 文件夹，按编号存放Markdown文件。</p>
-<p><strong>一个ADR只需要包含4个要素：</strong></p>
-<ol>
-<li><strong>背景</strong>：遇到了什么问题？（例：高并发下订单ID重复）</li>
-<li><strong>选项</strong>：看了哪些方案？（UUID vs 雪花算法 vs 数据库自增）</li>
-<li><strong>决策</strong>：最后选了哪个？（选了雪花算法）</li>
-<li><strong>后果</strong>：这个选择带来了什么代价？（需要依赖NTP时间同步，服务器时间回拨会报错）</li>
-</ol>
-<p><strong>实操模板：</strong></p>
-<div class="highlight"><pre tabindex="0" style="color:#f8f8f2;background-color:#272822;-moz-tab-size:4;-o-tab-size:4;tab-size:4;"><code class="language-markdown" data-lang="markdown"><span style="display:flex;"><span># ADR-005: 采用雪花算法生成订单ID
-</span></span><span style="display:flex;"><span>
-</span></span><span style="display:flex;"><span><span style="color:#75715e">## 状态
-</span></span></span><span style="display:flex;"><span><span style="color:#75715e"></span>已接受
-</span></span><span style="display:flex;"><span>
-</span></span><span style="display:flex;"><span><span style="color:#75715e">## 背景
-</span></span></span><span style="display:flex;"><span><span style="color:#75715e"></span>原有的数据库自增ID在大促分库分表时产生冲突，且容易暴露业务量。
-</span></span><span style="display:flex;"><span>
-</span></span><span style="display:flex;"><span><span style="color:#75715e">## 决策
-</span></span></span><span style="display:flex;"><span><span style="color:#75715e"></span>使用Twitter的雪花算法（Snowflake）。
-</span></span><span style="display:flex;"><span>
-</span></span><span style="display:flex;"><span><span style="color:#75715e">## 后果
-</span></span></span><span style="display:flex;"><span><span style="color:#75715e"></span>优点：生成速度快，甚至不需要连库，天然按时间排序。
-</span></span><span style="display:flex;"><span>缺点：强依赖机器时钟。
-</span></span><span style="display:flex;"><span>应对：运维需确保服务器开启NTP同步，若时钟回拨超过5ms，服务自动熔断。
-</span></span></code></pre></div><p>这个文档不需要多漂亮，关键是<strong>记录了&quot;为什么&quot;</strong>。这是给后来者留下的&quot;锦囊&quot;，也是给自己的&quot;免责声明&quot;。</p>
-<hr>
-<h2 id="结语">结语
-</h2><p>架构文档的本质，不是为了证明你懂得多，而是为了<strong>降低沟通成本</strong>和<strong>传递设计意图</strong>。</p>
-<p>对于中小团队，<strong>&ldquo;够用&quot;即是正义</strong>。</p>
-<p>这时候你可能会纠结：这些文档放在哪里？</p>
-<ul>
-<li><strong>A方案</strong>：放在Confluence/Wiki等知识库系统里，方便非技术人员看。</li>
-<li><strong>B方案</strong>：直接放在代码仓库的 <code>/docs</code> 目录下，随代码一起版本控制。</li>
-</ul>
-<p><strong>你更倾向于哪种方案？为什么？欢迎在评论区告诉我你的选择。</strong></p>
-<p>最后，如果你想摆脱&quot;文档地狱&rdquo;，建议下周一上班就开始尝试以下三个行动：</p>
-<ol>
-<li><strong>做减法</strong>：打开你现有的架构文档模板，删掉那些你从来不填或者填了也没人看的章节（比如什么&quot;参考资料&quot;、&ldquo;术语定义&rdquo;）。</li>
-<li><strong>补全景</strong>：花30分钟，用纸笔或者Mermaid，画出当前项目的&quot;系统全景图&quot;，贴在项目的README里。</li>
-<li><strong>记决策</strong>：下次因为技术分歧争论不休时，不再只凭嗓门大做决定，试着写下第一篇ADR。</li>
-</ol>
-
-</section>
-
-
-    <footer class="article-footer">
-    
-    <section class="article-tags">
-        
-            <a href="/tags/%E6%9E%B6%E6%9E%84%E6%96%87%E6%A1%A3%E4%B8%AD%E5%B0%8F%E9%A1%B9%E7%9B%AE%E7%9A%84%E6%9E%81%E7%AE%80%E6%96%87%E6%A1%A3%E8%A7%84%E8%8C%83.html">架构文档：中小项目的极简文档规范</a>
-        
-    </section>
-
-
-    </footer>
-
-
-    
-</article>
-
-    
-
-    
-
-     
-    
-        
-    <script
-    src="https://giscus.app/client.js"
-    data-repo="pastor17/bloggiscus"
-    data-repo-id="R_kgDOQ6H9qQ"
-    data-category=""
-    data-category-id="DIC_kwDOQ6H9qc4C0-T8"
-    data-mapping="pathname"
-    data-strict="0"
-    data-reactions-enabled="1"
-    data-emit-metadata="0"
-    data-input-position="bottom"
-    data-theme="light"
-    data-lang="zh-CN"
-    data-loading="lazy"
-    crossorigin="anonymous"
-    async
-></script>
-<script>
-    function setGiscusTheme(theme) {
-        let giscus = document.querySelector("iframe.giscus-frame");
-        if (giscus) {
-            giscus.contentWindow.postMessage(
-                {
-                    giscus: {
-                        setConfig: {
-                            theme: theme,
-                        },
-                    },
-                },
-                "https://giscus.app"
-            );
-        }
-    }
-
-    (function () {
-        addEventListener("message", (e) => {
-            if (event.origin !== "https://giscus.app") return;
-            handler();
-        });
-        window.addEventListener("onColorSchemeChange", handler);
-
-        function handler() {
-            if (document.documentElement.dataset.scheme === "light") {
-                setGiscusTheme('light');
-            } else {
-                setGiscusTheme('dark_dimmed');
-            }
-        }
-    })();
-</script>
-
-    
-
-    <footer class="site-footer">
-    <section class="copyright">
-        &copy; 
-        
-        2026 SelfTechHub
-    </section>
-    
-    <section class="powerby">
-        
-
-    </section>
-</footer>
-
-
-    
-<div class="pswp" tabindex="-1" role="dialog" aria-hidden="true">
-
-    
-    <div class="pswp__bg"></div>
-
-    
-    <div class="pswp__scroll-wrap">
-
-        
-        <div class="pswp__container">
-            <div class="pswp__item"></div>
-            <div class="pswp__item"></div>
-            <div class="pswp__item"></div>
-        </div>
-
-        
-        <div class="pswp__ui pswp__ui--hidden">
-
-            <div class="pswp__top-bar">
-
-                
-
-                <div class="pswp__counter"></div>
-
-                <button class="pswp__button pswp__button--close" title="Close (Esc)"></button>
-
-                <button class="pswp__button pswp__button--share" title="Share"></button>
-
-                <button class="pswp__button pswp__button--fs" title="Toggle fullscreen"></button>
-
-                <button class="pswp__button pswp__button--zoom" title="Zoom in/out"></button>
-
-                
-                
-                <div class="pswp__preloader">
-                    <div class="pswp__preloader__icn">
-                        <div class="pswp__preloader__cut">
-                            <div class="pswp__preloader__donut"></div>
-                        </div>
-                    </div>
-                </div>
-            </div>
-
-            <div class="pswp__share-modal pswp__share-modal--hidden pswp__single-tap">
-                <div class="pswp__share-tooltip"></div>
-            </div>
-
-            <button class="pswp__button pswp__button--arrow--left" title="Previous (arrow left)">
-            </button>
-
-            <button class="pswp__button pswp__button--arrow--right" title="Next (arrow right)">
-            </button>
-
-            <div class="pswp__caption">
-                <div class="pswp__caption__center"></div>
-            </div>
-
-        </div>
-
-    </div>
-
-</div><script 
-                src="https://cdn.jsdelivr.net/npm/photoswipe@4.1.3/dist/photoswipe.min.js"integrity="sha256-ePwmChbbvXbsO02lbM3HoHbSHTHFAeChekF1xKJdleo="crossorigin="anonymous"
-                defer
-                >
-            </script><script 
-                src="https://cdn.jsdelivr.net/npm/photoswipe@4.1.3/dist/photoswipe-ui-default.min.js"integrity="sha256-UKkzOn/w1mBxRmLLGrSeyB4e1xbrp4xylgAWb3M42pU="crossorigin="anonymous"
-                defer
-                >
-            </script><link 
-                rel="stylesheet" 
-                href="https://cdn.jsdelivr.net/npm/photoswipe@4.1.3/dist/default-skin/default-skin.min.css"crossorigin="anonymous"
-            ><link 
-                rel="stylesheet" 
-                href="https://cdn.jsdelivr.net/npm/photoswipe@4.1.3/dist/photoswipe.min.css"crossorigin="anonymous"
-            >
-    
-
-            </main>
-        </div>
-        <script 
-                src="https://cdn.jsdelivr.net/npm/node-vibrant@3.1.6/dist/vibrant.min.js"integrity="sha256-awcR2jno4kI5X0zL8ex0vi2z&#43;KMkF24hUW8WePSA9HM="crossorigin="anonymous"
-                
-                >
-            </script><script type="text/javascript" src="/ts/main.c922af694cc257bf1ecc41c0dd7b0430f9114ec280ccf67cd2c6ad55f5316c4e.js" defer></script>
-<script>
-    (function () {
-        const customFont = document.createElement('link');
-        customFont.href = "https://fonts.googleapis.com/css2?family=Lato:wght@300;400;700&display=swap";
-
-        customFont.type = "text/css";
-        customFont.rel = "stylesheet";
-
-        document.head.appendChild(customFont);
-    }());
-</script>
-
-    </body>
-</html>
+</pre><p>这张图贴在README的第一页，价值超过1万行代码注释。</p><h2 id=二-核心链路只画时序图>二、 核心链路，只画"时序图"</h2><p>有了全景图，接下来要解决最复杂的业务逻辑问题。</p><p>很多项目烂尾，不是因为技术难，而是因为<strong>状态流转不清</strong>。比如一个订单，从"创建"到"支付"再到"发货"，中间涉及库存扣减、优惠券核销、积分累加。</p><p>如果只靠口头沟通，后端说"我以为你扣了库存"，前端说"我以为你回滚了"，最后数据对不上，产生"幽灵库存"。</p><h3 id=真实案例-1>真实案例</h3><p>如果你经历过"双十一"或者大促，就知道我在说什么。我曾见过一个拼团项目，因为没有梳理清楚"拼团失败"后的退款时序，导致用户钱退了，库存却没释放，最后不得不人工跑脚本修数据，整个组通宵了两天。</p><h3 id=解决方案关键业务时序图>解决方案：关键业务时序图</h3><p>别把所有接口都画时序图，那是浪费生命。<strong>只画核心链路</strong>（Core Path）。</p><p>这一页文档，是为了救命的。当出现Bug时，拿着这张图去对日志，一抓一个准。</p><p>我在团队里有个硬性规定：<strong>涉及到资金流转、状态变更超过3步的业务，不画时序图不许写代码。</strong></p><p>你可以不用标准的UML规范，但必须体现出：</p><ul><li><strong>参与者</strong>（前端、后端、数据库、第三方）。</li><li><strong>方向</strong>（请求还是响应）。</li><li><strong>关键动作</strong>（特别是写操作）。</li></ul><blockquote><p><strong>避坑提示</strong>：千万别想着用自动生成工具从代码反向生成时序图，生成的图往往乱得像盘丝洞，根本没法看。必须人脑梳理，这本身就是设计的过程。</p></blockquote><p><img src="https://picsum.photos/800/450?random=1768456380024" loading=lazy alt=配图></p><h2 id=三-拒绝口头约定用adr记录决策>三、 拒绝"口头约定"，用ADR记录决策</h2><p>这是中小团队最容易忽视，但也是导致"技术债"堆积如山的罪魁祸首。</p><p>你有没有遇到过这种情况：
+接手一段老代码，发现里面用了一个极度冷门的框架，或者写了一段匪夷所思的死循环逻辑。你想重构，但不敢动，因为你不知道前人为什么要这么写——也许是为了绕过某个诡异的Bug？</p><p>如果是大厂，可能有繁琐的审批流程留痕。但在中小团队，往往是两个大佬在楼下抽烟时，就把技术选型定了：&ldquo;就用MongoDB吧，那个快。&rdquo;</p><p>两年后，因为数据一致性问题要迁回MySQL，团队为此付出了三个月的重构代价。</p><h3 id=解决方案轻量级adr架构决策记录>解决方案：轻量级ADR（架构决策记录）</h3><p>不要写长篇大论的方案对比。在项目根目录下建一个 <code>doc/adr</code> 文件夹，按编号存放Markdown文件。</p><p><strong>一个ADR只需要包含4个要素：</strong></p><ol><li><strong>背景</strong>：遇到了什么问题？（例：高并发下订单ID重复）</li><li><strong>选项</strong>：看了哪些方案？（UUID vs 雪花算法 vs 数据库自增）</li><li><strong>决策</strong>：最后选了哪个？（选了雪花算法）</li><li><strong>后果</strong>：这个选择带来了什么代价？（需要依赖NTP时间同步，服务器时间回拨会报错）</li></ol><p><strong>实操模板：</strong></p><div class=highlight><div class=chroma><table class=lntable><tr><td class=lntd><pre tabindex=0 class=chroma><code><span class=lnt> 1
+</span><span class=lnt> 2
+</span><span class=lnt> 3
+</span><span class=lnt> 4
+</span><span class=lnt> 5
+</span><span class=lnt> 6
+</span><span class=lnt> 7
+</span><span class=lnt> 8
+</span><span class=lnt> 9
+</span><span class=lnt>10
+</span><span class=lnt>11
+</span><span class=lnt>12
+</span><span class=lnt>13
+</span><span class=lnt>14
+</span><span class=lnt>15
+</span></code></pre></td><td class=lntd><pre tabindex=0 class=chroma><code class=language-markdown data-lang=markdown><span class=line><span class=cl><span class=gh># ADR-005: 采用雪花算法生成订单ID
+</span></span></span><span class=line><span class=cl><span class=gh></span>
+</span></span><span class=line><span class=cl><span class=gu>## 状态
+</span></span></span><span class=line><span class=cl><span class=gu></span>已接受
+</span></span><span class=line><span class=cl>
+</span></span><span class=line><span class=cl><span class=gu>## 背景
+</span></span></span><span class=line><span class=cl><span class=gu></span>原有的数据库自增ID在大促分库分表时产生冲突，且容易暴露业务量。
+</span></span><span class=line><span class=cl>
+</span></span><span class=line><span class=cl><span class=gu>## 决策
+</span></span></span><span class=line><span class=cl><span class=gu></span>使用Twitter的雪花算法（Snowflake）。
+</span></span><span class=line><span class=cl>
+</span></span><span class=line><span class=cl><span class=gu>## 后果
+</span></span></span><span class=line><span class=cl><span class=gu></span>优点：生成速度快，甚至不需要连库，天然按时间排序。
+</span></span><span class=line><span class=cl>缺点：强依赖机器时钟。
+</span></span><span class=line><span class=cl>应对：运维需确保服务器开启NTP同步，若时钟回拨超过5ms，服务自动熔断。
+</span></span></code></pre></td></tr></table></div></div><p>这个文档不需要多漂亮，关键是<strong>记录了"为什么"</strong>。这是给后来者留下的"锦囊"，也是给自己的"免责声明"。</p><hr><h2 id=结语>结语</h2><p>架构文档的本质，不是为了证明你懂得多，而是为了<strong>降低沟通成本</strong>和<strong>传递设计意图</strong>。</p><p>对于中小团队，<strong>&ldquo;够用"即是正义</strong>。</p><p>这时候你可能会纠结：这些文档放在哪里？</p><ul><li><strong>A方案</strong>：放在Confluence/Wiki等知识库系统里，方便非技术人员看。</li><li><strong>B方案</strong>：直接放在代码仓库的 <code>/docs</code> 目录下，随代码一起版本控制。</li></ul><p><strong>你更倾向于哪种方案？为什么？欢迎在评论区告诉我你的选择。</strong></p><p>最后，如果你想摆脱"文档地狱&rdquo;，建议下周一上班就开始尝试以下三个行动：</p><ol><li><strong>做减法</strong>：打开你现有的架构文档模板，删掉那些你从来不填或者填了也没人看的章节（比如什么"参考资料"、&ldquo;术语定义&rdquo;）。</li><li><strong>补全景</strong>：花30分钟，用纸笔或者Mermaid，画出当前项目的"系统全景图"，贴在项目的README里。</li><li><strong>记决策</strong>：下次因为技术分歧争论不休时，不再只凭嗓门大做决定，试着写下第一篇ADR。</li></ol></section><footer class=article-footer><section class=article-tags><a href=/tags/%E6%9E%B6%E6%9E%84%E6%96%87%E6%A1%A3%E4%B8%AD%E5%B0%8F%E9%A1%B9%E7%9B%AE%E7%9A%84%E6%9E%81%E7%AE%80%E6%96%87%E6%A1%A3%E8%A7%84%E8%8C%83.html>架构文档：中小项目的极简文档规范</a></section></footer></article><script src=https://giscus.app/client.js data-repo=pastor17/bloggiscus data-repo-id=R_kgDOQ6H9qQ data-category data-category-id=DIC_kwDOQ6H9qc4C0-T8 data-mapping=pathname data-strict=0 data-reactions-enabled=1 data-emit-metadata=0 data-input-position=bottom data-theme=light data-lang=zh-CN data-loading=lazy crossorigin=anonymous async></script><script>function setGiscusTheme(e){let t=document.querySelector("iframe.giscus-frame");t&&t.contentWindow.postMessage({giscus:{setConfig:{theme:e}}},"https://giscus.app")}(function(){addEventListener("message",t=>{if(event.origin!=="https://giscus.app")return;e()}),window.addEventListener("onColorSchemeChange",e);function e(){setGiscusTheme(document.documentElement.dataset.scheme==="light"?"light":"dark_dimmed")}})()</script><footer class=site-footer><section class=copyright>&copy;
+2021 -
+2026 SelfTechHub</section><section class=powerby>拒绝一次性认知，把碎片知识沉淀为可复用的记忆体系<br></section></footer><div class=pswp tabindex=-1 role=dialog aria-hidden=true><div class=pswp__bg></div><div class=pswp__scroll-wrap><div class=pswp__container><div class=pswp__item></div><div class=pswp__item></div><div class=pswp__item></div></div><div class="pswp__ui pswp__ui--hidden"><div class=pswp__top-bar><div class=pswp__counter></div><button class="pswp__button pswp__button--close" title="Close (Esc)"></button>
+<button class="pswp__button pswp__button--share" title=Share></button>
+<button class="pswp__button pswp__button--fs" title="Toggle fullscreen"></button>
+<button class="pswp__button pswp__button--zoom" title="Zoom in/out"></button><div class=pswp__preloader><div class=pswp__preloader__icn><div class=pswp__preloader__cut><div class=pswp__preloader__donut></div></div></div></div></div><div class="pswp__share-modal pswp__share-modal--hidden pswp__single-tap"><div class=pswp__share-tooltip></div></div><button class="pswp__button pswp__button--arrow--left" title="Previous (arrow left)">
+</button>
+<button class="pswp__button pswp__button--arrow--right" title="Next (arrow right)"></button><div class=pswp__caption><div class=pswp__caption__center></div></div></div></div></div><script src=https://cdn.jsdelivr.net/npm/photoswipe@4.1.3/dist/photoswipe.min.js integrity="sha256-ePwmChbbvXbsO02lbM3HoHbSHTHFAeChekF1xKJdleo=" crossorigin=anonymous defer></script><script src=https://cdn.jsdelivr.net/npm/photoswipe@4.1.3/dist/photoswipe-ui-default.min.js integrity="sha256-UKkzOn/w1mBxRmLLGrSeyB4e1xbrp4xylgAWb3M42pU=" crossorigin=anonymous defer></script><link rel=stylesheet href=https://cdn.jsdelivr.net/npm/photoswipe@4.1.3/dist/default-skin/default-skin.min.css crossorigin=anonymous><link rel=stylesheet href=https://cdn.jsdelivr.net/npm/photoswipe@4.1.3/dist/photoswipe.min.css crossorigin=anonymous></main></div><script src=https://cdn.jsdelivr.net/npm/node-vibrant@3.1.6/dist/vibrant.min.js integrity="sha256-awcR2jno4kI5X0zL8ex0vi2z+KMkF24hUW8WePSA9HM=" crossorigin=anonymous></script><script type=text/javascript src=/ts/main.c922af694cc257bf1ecc41c0dd7b0430f9114ec280ccf67cd2c6ad55f5316c4e.js defer></script><script>(function(){const e=document.createElement("link");e.href="https://fonts.googleapis.com/css2?family=Lato:wght@300;400;700&display=swap",e.type="text/css",e.rel="stylesheet",document.head.appendChild(e)})()</script></body></html>

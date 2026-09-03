@@ -1,519 +1,164 @@
-<!DOCTYPE html>
-<html lang="zh-cn" dir="ltr">
-    <head><meta charset='utf-8'>
-<meta name='viewport' content='width=device-width, initial-scale=1'><meta name='description' content="很多年前，我经历过一次堪称“噩梦”的发布事故。\n那时我们团队还在用“半自动化”脚本发布：本地打包jar包，FTP上传服务器，手动重启脚本。某天凌晨上线，因为我的本地JDK版本和服务器不一致，导致服务启动后隐蔽报错。排查、回滚、重新打包，折腾到凌晨3点，整个人都在发抖。\n那一刻我意识到：依赖人的记性和手速去发布代码，是系统稳定性的最大隐患。\n后来我花了两个周末，把团队的发布流程从“刀耕火种”迁移到了标准化的CI/CD流水线上。结果是惊人的：部署频率从每周1次变成了每天10次，回滚时间从30分钟缩短到了30秒。\n这篇文章不讲那些虚无缥缈的概念，我把这几年在中小团队落地Jenkins和GitLab CI摸索出的“保姆级”框架分享给你。\n告别“人工智障”，拥抱“不可变基础设施”\r很多运维新手搭建流水线时，容易陷入一个误区：把CI工具仅仅当作一个“远程执行脚本”的工具。\n比如，在Jenkins里写一堆Shell脚本，连到服务器上去git pull，然后mvn clean install。这其实是“伪CI”。一旦服务器环境被谁偷偷改了个配置，流水线立马炸锅。\n真实的痛点是环境一致性问题。\n我之前带过一个电商项目，开发环境一切正常，上线就报ClassNotDefFound。查了一整天，发现是运维在生产环境手动装了个老版本的依赖库。\n从那之后，我强制推行基于Docker的流水线构建。\n在此逻辑下，我们的流水线不再依赖物理机的环境，而是“自带环境”。\n核心思路：所有的构建（Build）、测试（Test）都在容器内完成。产出的不再是jar/war包，而是一个Docker镜像。\n采用这种方式后，我们团队的故障率下降了80%。因为只要镜像在测试环境跑通了，推到生产环境就一定能跑通，这就是“不可变基础设施”的魅力。\nJenkins还是GitLab CI？成年人不做选择，看场景\r这大概是读者问我最多的问题。我的建议非常直接：\n如果你是新团队、中小规模、代码托管在GitLab： 无脑选 GitLab CI。 如果你是大型企业、有复杂的权限管理、需要跨多平台构建： 老实选 Jenkins。 我有过惨痛教训。两年前，我为了“显得专业”，在一个5人的初创团队强推Jenkins。结果光是配置Slave节点、维护那堆三天两头更新的插件、处理权限隔离，就占用了我每周五下午的宝贵摸鱼时间。\n后来切到GitLab CI，就一个.gitlab-ci.yml文件随代码库管理，开发人员自己就能看懂改懂。\n这里有一个我亲测好用的判断标准：\n如果你的构建逻辑能写在200行Shell脚本内，用GitLab CI效率最高；如果你的构建需要审批流、需要调用十几个外部系统接口、需要复杂的UI交互，Jenkins才是重型武器。\n保姆级实战：打造一条“防弹”流水线\r不管用什么工具，一条合格的生产级流水线，必须包含这四个阶段：静态检查 -&gt; 构建打包 -&gt; 镜像推送 -&gt; 部署通知。\n缺少任何一环，都是在“裸奔”。\n下面我以GitLab CI为例（Jenkins逻辑同理），拆解一个我用了2年的通用模板。这个模板帮助我们拦截了至少90%的低级语法错误。\n1. 静态检查（Lint）与 单元测试\r不要等到代码上线了才发现少写了一个分号。\n在我们的流程里，如果Lint阶段不通过，代码根本没机会进入构建环节。这倒逼开发人员在提交代码前必须自测。\nstages: - check - build - deploy # 阶段一：代码检查与单元测试 code_analysis: stage: check image: maven:3.8-openjdk-11 script: - echo &#34;正在进行代码静态扫描...&#34; - mvn sonar:sonar # 接入SonarQube，没有可跳过 - mvn test # 跑单元测试 only: - merge_requests - master 2. 构建与镜像推送\r这一步是核心。很多教程教你用docker build，但在CI容器里跑docker（Docker in Docker）不仅慢而且有安全隐患。\n">
-<title>凌晨3点回滚代码后，我重构了这套CI/CD流水线</title>
-
-<link rel='canonical' href='https://blog.irudder.me/tech/devopsjichugongjurumenyushicao/jenkins_gitlab-ciliushuixiandajianbaomujijiaocheng.html'>
-
-<link rel="stylesheet" href="/scss/style.min.b9e9128fec450ebccecc4ec9900157f32b85d0609bcd5ee3293968bcaa1235f2.css"><meta property='og:title' content="凌晨3点回滚代码后，我重构了这套CI/CD流水线">
-<meta property='og:description' content="很多年前，我经历过一次堪称“噩梦”的发布事故。\n那时我们团队还在用“半自动化”脚本发布：本地打包jar包，FTP上传服务器，手动重启脚本。某天凌晨上线，因为我的本地JDK版本和服务器不一致，导致服务启动后隐蔽报错。排查、回滚、重新打包，折腾到凌晨3点，整个人都在发抖。\n那一刻我意识到：依赖人的记性和手速去发布代码，是系统稳定性的最大隐患。\n后来我花了两个周末，把团队的发布流程从“刀耕火种”迁移到了标准化的CI/CD流水线上。结果是惊人的：部署频率从每周1次变成了每天10次，回滚时间从30分钟缩短到了30秒。\n这篇文章不讲那些虚无缥缈的概念，我把这几年在中小团队落地Jenkins和GitLab CI摸索出的“保姆级”框架分享给你。\n告别“人工智障”，拥抱“不可变基础设施”\r很多运维新手搭建流水线时，容易陷入一个误区：把CI工具仅仅当作一个“远程执行脚本”的工具。\n比如，在Jenkins里写一堆Shell脚本，连到服务器上去git pull，然后mvn clean install。这其实是“伪CI”。一旦服务器环境被谁偷偷改了个配置，流水线立马炸锅。\n真实的痛点是环境一致性问题。\n我之前带过一个电商项目，开发环境一切正常，上线就报ClassNotDefFound。查了一整天，发现是运维在生产环境手动装了个老版本的依赖库。\n从那之后，我强制推行基于Docker的流水线构建。\n在此逻辑下，我们的流水线不再依赖物理机的环境，而是“自带环境”。\n核心思路：所有的构建（Build）、测试（Test）都在容器内完成。产出的不再是jar/war包，而是一个Docker镜像。\n采用这种方式后，我们团队的故障率下降了80%。因为只要镜像在测试环境跑通了，推到生产环境就一定能跑通，这就是“不可变基础设施”的魅力。\nJenkins还是GitLab CI？成年人不做选择，看场景\r这大概是读者问我最多的问题。我的建议非常直接：\n如果你是新团队、中小规模、代码托管在GitLab： 无脑选 GitLab CI。 如果你是大型企业、有复杂的权限管理、需要跨多平台构建： 老实选 Jenkins。 我有过惨痛教训。两年前，我为了“显得专业”，在一个5人的初创团队强推Jenkins。结果光是配置Slave节点、维护那堆三天两头更新的插件、处理权限隔离，就占用了我每周五下午的宝贵摸鱼时间。\n后来切到GitLab CI，就一个.gitlab-ci.yml文件随代码库管理，开发人员自己就能看懂改懂。\n这里有一个我亲测好用的判断标准：\n如果你的构建逻辑能写在200行Shell脚本内，用GitLab CI效率最高；如果你的构建需要审批流、需要调用十几个外部系统接口、需要复杂的UI交互，Jenkins才是重型武器。\n保姆级实战：打造一条“防弹”流水线\r不管用什么工具，一条合格的生产级流水线，必须包含这四个阶段：静态检查 -&gt; 构建打包 -&gt; 镜像推送 -&gt; 部署通知。\n缺少任何一环，都是在“裸奔”。\n下面我以GitLab CI为例（Jenkins逻辑同理），拆解一个我用了2年的通用模板。这个模板帮助我们拦截了至少90%的低级语法错误。\n1. 静态检查（Lint）与 单元测试\r不要等到代码上线了才发现少写了一个分号。\n在我们的流程里，如果Lint阶段不通过，代码根本没机会进入构建环节。这倒逼开发人员在提交代码前必须自测。\nstages: - check - build - deploy # 阶段一：代码检查与单元测试 code_analysis: stage: check image: maven:3.8-openjdk-11 script: - echo &#34;正在进行代码静态扫描...&#34; - mvn sonar:sonar # 接入SonarQube，没有可跳过 - mvn test # 跑单元测试 only: - merge_requests - master 2. 构建与镜像推送\r这一步是核心。很多教程教你用docker build，但在CI容器里跑docker（Docker in Docker）不仅慢而且有安全隐患。\n">
-<meta property='og:url' content='https://blog.irudder.me/tech/devopsjichugongjurumenyushicao/jenkins_gitlab-ciliushuixiandajianbaomujijiaocheng.html'>
-<meta property='og:site_name' content='SelfTechHub'>
-<meta property='og:type' content='article'><meta property='article:section' content='Tech' /><meta property='article:tag' content='Jenkins/GitLab CI流水线搭建保姆级教程' /><meta property='article:published_time' content='2020-06-03T00:00:00&#43;00:00'/><meta property='article:modified_time' content='2020-06-03T00:00:00&#43;00:00'/>
-<meta name="twitter:title" content="凌晨3点回滚代码后，我重构了这套CI/CD流水线">
-<meta name="twitter:description" content="很多年前，我经历过一次堪称“噩梦”的发布事故。\n那时我们团队还在用“半自动化”脚本发布：本地打包jar包，FTP上传服务器，手动重启脚本。某天凌晨上线，因为我的本地JDK版本和服务器不一致，导致服务启动后隐蔽报错。排查、回滚、重新打包，折腾到凌晨3点，整个人都在发抖。\n那一刻我意识到：依赖人的记性和手速去发布代码，是系统稳定性的最大隐患。\n后来我花了两个周末，把团队的发布流程从“刀耕火种”迁移到了标准化的CI/CD流水线上。结果是惊人的：部署频率从每周1次变成了每天10次，回滚时间从30分钟缩短到了30秒。\n这篇文章不讲那些虚无缥缈的概念，我把这几年在中小团队落地Jenkins和GitLab CI摸索出的“保姆级”框架分享给你。\n告别“人工智障”，拥抱“不可变基础设施”\r很多运维新手搭建流水线时，容易陷入一个误区：把CI工具仅仅当作一个“远程执行脚本”的工具。\n比如，在Jenkins里写一堆Shell脚本，连到服务器上去git pull，然后mvn clean install。这其实是“伪CI”。一旦服务器环境被谁偷偷改了个配置，流水线立马炸锅。\n真实的痛点是环境一致性问题。\n我之前带过一个电商项目，开发环境一切正常，上线就报ClassNotDefFound。查了一整天，发现是运维在生产环境手动装了个老版本的依赖库。\n从那之后，我强制推行基于Docker的流水线构建。\n在此逻辑下，我们的流水线不再依赖物理机的环境，而是“自带环境”。\n核心思路：所有的构建（Build）、测试（Test）都在容器内完成。产出的不再是jar/war包，而是一个Docker镜像。\n采用这种方式后，我们团队的故障率下降了80%。因为只要镜像在测试环境跑通了，推到生产环境就一定能跑通，这就是“不可变基础设施”的魅力。\nJenkins还是GitLab CI？成年人不做选择，看场景\r这大概是读者问我最多的问题。我的建议非常直接：\n如果你是新团队、中小规模、代码托管在GitLab： 无脑选 GitLab CI。 如果你是大型企业、有复杂的权限管理、需要跨多平台构建： 老实选 Jenkins。 我有过惨痛教训。两年前，我为了“显得专业”，在一个5人的初创团队强推Jenkins。结果光是配置Slave节点、维护那堆三天两头更新的插件、处理权限隔离，就占用了我每周五下午的宝贵摸鱼时间。\n后来切到GitLab CI，就一个.gitlab-ci.yml文件随代码库管理，开发人员自己就能看懂改懂。\n这里有一个我亲测好用的判断标准：\n如果你的构建逻辑能写在200行Shell脚本内，用GitLab CI效率最高；如果你的构建需要审批流、需要调用十几个外部系统接口、需要复杂的UI交互，Jenkins才是重型武器。\n保姆级实战：打造一条“防弹”流水线\r不管用什么工具，一条合格的生产级流水线，必须包含这四个阶段：静态检查 -&gt; 构建打包 -&gt; 镜像推送 -&gt; 部署通知。\n缺少任何一环，都是在“裸奔”。\n下面我以GitLab CI为例（Jenkins逻辑同理），拆解一个我用了2年的通用模板。这个模板帮助我们拦截了至少90%的低级语法错误。\n1. 静态检查（Lint）与 单元测试\r不要等到代码上线了才发现少写了一个分号。\n在我们的流程里，如果Lint阶段不通过，代码根本没机会进入构建环节。这倒逼开发人员在提交代码前必须自测。\nstages: - check - build - deploy # 阶段一：代码检查与单元测试 code_analysis: stage: check image: maven:3.8-openjdk-11 script: - echo &#34;正在进行代码静态扫描...&#34; - mvn sonar:sonar # 接入SonarQube，没有可跳过 - mvn test # 跑单元测试 only: - merge_requests - master 2. 构建与镜像推送\r这一步是核心。很多教程教你用docker build，但在CI容器里跑docker（Docker in Docker）不仅慢而且有安全隐患。\n">
-    </head>
-    <body class="
-    article-page
-    ">
-    <script>
-        (function() {
-            const colorSchemeKey = 'StackColorScheme';
-            if(!localStorage.getItem(colorSchemeKey)){
-                localStorage.setItem(colorSchemeKey, "auto");
-            }
-        })();
-    </script><script>
-    (function() {
-        const colorSchemeKey = 'StackColorScheme';
-        const colorSchemeItem = localStorage.getItem(colorSchemeKey);
-        const supportDarkMode = window.matchMedia('(prefers-color-scheme: dark)').matches === true;
-
-        if (colorSchemeItem == 'dark' || colorSchemeItem === 'auto' && supportDarkMode) {
-            
-
-            document.documentElement.dataset.scheme = 'dark';
-        } else {
-            document.documentElement.dataset.scheme = 'light';
-        }
-    })();
-</script>
-<div class="container main-container flex on-phone--column compact"><aside class="sidebar left-sidebar sticky ">
-    <button class="hamburger hamburger--spin" type="button" id="toggle-menu" aria-label="切换菜单">
-        <span class="hamburger-box">
-            <span class="hamburger-inner"></span>
-        </span>
-    </button>
-
-    <header>
-        
-            
-            <figure class="site-avatar">
-                <a href="/">
-                
-                    
-                    
-                    
-                        
-                        <img src="/img/avatar_hu_8588ce14af1147e2.png" width="300"
-                            height="286" class="site-logo" loading="lazy" alt="Avatar">
-                    
-                
-                </a>
-                
-            </figure>
-            
-        
-        
-        <div class="site-meta">
-            <h1 class="site-name"><a href="/">SelfTechHub</a></h1>
-            <h2 class="site-description"></h2>
-        </div>
-    </header><ol class="menu" id="main-menu">
-        
-        
-        <li class="menu-bottom-section">
-            <ol class="menu">
-
-                
-                    <li id="dark-mode-toggle">
-                        <svg xmlns="http://www.w3.org/2000/svg" class="icon icon-tabler icon-tabler-toggle-left" width="24" height="24" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor" fill="none" stroke-linecap="round" stroke-linejoin="round">
-  <path stroke="none" d="M0 0h24v24H0z"/>
-  <circle cx="8" cy="12" r="2" />
-  <rect x="2" y="6" width="20" height="12" rx="6" />
-</svg>
-
-
-
-                        <svg xmlns="http://www.w3.org/2000/svg" class="icon icon-tabler icon-tabler-toggle-right" width="24" height="24" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor" fill="none" stroke-linecap="round" stroke-linejoin="round">
-  <path stroke="none" d="M0 0h24v24H0z"/>
-  <circle cx="16" cy="12" r="2" />
-  <rect x="2" y="6" width="20" height="12" rx="6" />
-</svg>
-
-
-
-                        <span>暗色模式</span>
-                    </li>
-                
-            </ol>
-        </li>
-    </ol>
-</aside>
-
-    
-
-            <main class="main full-width">
-    <article class="main-article">
-    <header class="article-header">
-
-    <div class="article-details">
-    
-    <header class="article-category">
-        
-            <a href="/categories/%E6%8A%80%E6%9C%AF.html" >
-                技术精进
-            </a>
-        
-    </header>
-    
-
-    <div class="article-title-wrapper">
-        <h2 class="article-title">
-            <a href="/tech/devopsjichugongjurumenyushicao/jenkins_gitlab-ciliushuixiandajianbaomujijiaocheng.html">凌晨3点回滚代码后，我重构了这套CI/CD流水线</a>
-        </h2>
-    
-        
-    </div>
-
-    
-    
-    
-    
-    <footer class="article-time">
-        
-            <div>
-                <svg xmlns="http://www.w3.org/2000/svg" class="icon icon-tabler icon-tabler-calendar-time" width="56" height="56" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor" fill="none" stroke-linecap="round" stroke-linejoin="round">
-  <path stroke="none" d="M0 0h24v24H0z"/>
-  <path d="M11.795 21h-6.795a2 2 0 0 1 -2 -2v-12a2 2 0 0 1 2 -2h12a2 2 0 0 1 2 2v4" />
-  <circle cx="18" cy="18" r="4" />
-  <path d="M15 3v4" />
-  <path d="M7 3v4" />
-  <path d="M3 11h16" />
-  <path d="M18 16.496v1.504l1 1" />
-</svg>
-                <time class="article-time--published" datetime='2020-06-03T00:00:00Z'>Jun 03, 2020</time>
-            </div>
-        
-
-        
-            <div>
-                <svg xmlns="http://www.w3.org/2000/svg" class="icon icon-tabler icon-tabler-clock" width="24" height="24" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor" fill="none" stroke-linecap="round" stroke-linejoin="round">
-  <path stroke="none" d="M0 0h24v24H0z"/>
-  <circle cx="12" cy="12" r="9" />
-  <polyline points="12 7 12 12 15 15" />
-</svg>
-
-
-
-                <time class="article-time--reading">
-                    阅读时长: 2 分钟
-                </time>
-            </div>
-        
-    </footer>
-    
-
-    
-</div>
-
-</header>
-
-    <section class="article-content">
-    
-    
-    <p>很多年前，我经历过一次堪称“噩梦”的发布事故。</p>
-<p>那时我们团队还在用“半自动化”脚本发布：本地打包jar包，FTP上传服务器，手动重启脚本。某天凌晨上线，因为我的本地JDK版本和服务器不一致，导致服务启动后隐蔽报错。排查、回滚、重新打包，折腾到凌晨3点，整个人都在发抖。</p>
-<p>那一刻我意识到：<strong>依赖人的记性和手速去发布代码，是系统稳定性的最大隐患。</strong></p>
-<p>后来我花了两个周末，把团队的发布流程从“刀耕火种”迁移到了标准化的CI/CD流水线上。结果是惊人的：部署频率从每周1次变成了每天10次，回滚时间从30分钟缩短到了30秒。</p>
-<p>这篇文章不讲那些虚无缥缈的概念，我把这几年在中小团队落地Jenkins和GitLab CI摸索出的“保姆级”框架分享给你。</p>
-<h2 id="告别人工智障拥抱不可变基础设施">告别“人工智障”，拥抱“不可变基础设施”
-</h2><p><img src="https://picsum.photos/800/450?random=1768387659579"
-	
-	
-	
-	loading="lazy"
-	
-		alt="配图"
-	
-	
-></p>
-<p>很多运维新手搭建流水线时，容易陷入一个误区：把CI工具仅仅当作一个“远程执行脚本”的工具。</p>
-<p>比如，在Jenkins里写一堆Shell脚本，连到服务器上去<code>git pull</code>，然后<code>mvn clean install</code>。这其实是“伪CI”。一旦服务器环境被谁偷偷改了个配置，流水线立马炸锅。</p>
-<p><strong>真实的痛点是环境一致性问题。</strong></p>
-<p>我之前带过一个电商项目，开发环境一切正常，上线就报<code>ClassNotDefFound</code>。查了一整天，发现是运维在生产环境手动装了个老版本的依赖库。</p>
-<p>从那之后，我强制推行<strong>基于Docker的流水线构建</strong>。</p>
-<p>在此逻辑下，我们的流水线不再依赖物理机的环境，而是“自带环境”。</p>
-<blockquote>
-<p><strong>核心思路</strong>：所有的构建（Build）、测试（Test）都在容器内完成。产出的不再是jar/war包，而是一个Docker镜像。</p>
-</blockquote>
-<p>采用这种方式后，我们团队的故障率下降了80%。因为只要镜像在测试环境跑通了，推到生产环境就一定能跑通，这就是“不可变基础设施”的魅力。</p>
-<h2 id="jenkins还是gitlab-ci成年人不做选择看场景">Jenkins还是GitLab CI？成年人不做选择，看场景
-</h2><p>这大概是读者问我最多的问题。我的建议非常直接：</p>
-<ul>
-<li><strong>如果你是新团队、中小规模、代码托管在GitLab：</strong> 无脑选 <strong>GitLab CI</strong>。</li>
-<li><strong>如果你是大型企业、有复杂的权限管理、需要跨多平台构建：</strong> 老实选 <strong>Jenkins</strong>。</li>
-</ul>
-<p>我有过惨痛教训。两年前，我为了“显得专业”，在一个5人的初创团队强推Jenkins。结果光是配置Slave节点、维护那堆三天两头更新的插件、处理权限隔离，就占用了我每周五下午的宝贵摸鱼时间。</p>
-<p>后来切到GitLab CI，就一个<code>.gitlab-ci.yml</code>文件随代码库管理，开发人员自己就能看懂改懂。</p>
-<p><img src="https://picsum.photos/800/450?random=1768387654494"
-	
-	
-	
-	loading="lazy"
-	
-		alt="配图"
-	
-	
-></p>
-<p><strong>这里有一个我亲测好用的判断标准：</strong></p>
-<p>如果你的构建逻辑能写在200行Shell脚本内，用GitLab CI效率最高；如果你的构建需要审批流、需要调用十几个外部系统接口、需要复杂的UI交互，Jenkins才是重型武器。</p>
-<h2 id="保姆级实战打造一条防弹流水线">保姆级实战：打造一条“防弹”流水线
-</h2><p>不管用什么工具，一条合格的生产级流水线，必须包含这四个阶段：<strong>静态检查 -&gt; 构建打包 -&gt; 镜像推送 -&gt; 部署通知</strong>。</p>
-<p>缺少任何一环，都是在“裸奔”。</p>
-<p>下面我以GitLab CI为例（Jenkins逻辑同理），拆解一个我用了2年的通用模板。这个模板帮助我们拦截了至少90%的低级语法错误。</p>
-<h3 id="1-静态检查lint与-单元测试">1. 静态检查（Lint）与 单元测试
-</h3><p>不要等到代码上线了才发现少写了一个分号。</p>
-<p>在我们的流程里，如果<code>Lint</code>阶段不通过，代码根本没机会进入构建环节。这倒逼开发人员在提交代码前必须自测。</p>
-<div class="highlight"><pre tabindex="0" style="color:#f8f8f2;background-color:#272822;-moz-tab-size:4;-o-tab-size:4;tab-size:4;"><code class="language-yaml" data-lang="yaml"><span style="display:flex;"><span><span style="color:#f92672">stages</span>:
-</span></span><span style="display:flex;"><span>  - <span style="color:#ae81ff">check</span>
-</span></span><span style="display:flex;"><span>  - <span style="color:#ae81ff">build</span>
-</span></span><span style="display:flex;"><span>  - <span style="color:#ae81ff">deploy</span>
-</span></span><span style="display:flex;"><span>
-</span></span><span style="display:flex;"><span><span style="color:#75715e"># 阶段一：代码检查与单元测试</span>
-</span></span><span style="display:flex;"><span><span style="color:#f92672">code_analysis</span>:
-</span></span><span style="display:flex;"><span>  <span style="color:#f92672">stage</span>: <span style="color:#ae81ff">check</span>
-</span></span><span style="display:flex;"><span>  <span style="color:#f92672">image</span>: <span style="color:#ae81ff">maven:3.8-openjdk-11</span>
-</span></span><span style="display:flex;"><span>  <span style="color:#f92672">script</span>:
-</span></span><span style="display:flex;"><span>    - <span style="color:#ae81ff">echo &#34;正在进行代码静态扫描...&#34;</span>
-</span></span><span style="display:flex;"><span>    - <span style="color:#ae81ff">mvn sonar:sonar </span> <span style="color:#75715e"># 接入SonarQube，没有可跳过</span>
-</span></span><span style="display:flex;"><span>    - <span style="color:#ae81ff">mvn test        </span> <span style="color:#75715e"># 跑单元测试</span>
-</span></span><span style="display:flex;"><span>  <span style="color:#f92672">only</span>:
-</span></span><span style="display:flex;"><span>    - <span style="color:#ae81ff">merge_requests</span>
-</span></span><span style="display:flex;"><span>    - <span style="color:#ae81ff">master</span>
-</span></span></code></pre></div><h3 id="2-构建与镜像推送">2. 构建与镜像推送
-</h3><p>这一步是核心。很多教程教你用<code>docker build</code>，但在CI容器里跑docker（Docker in Docker）不仅慢而且有安全隐患。</p>
-<p>我推荐使用 <strong>Kaniko</strong> 或者 <strong>Buildah</strong>，但在简单场景下，通过挂载宿主机Docker socket是最快的方式。</p>
-<p><strong>注意细节：</strong> 一定要给镜像打上具体的Tag（通常是Commit SHA），千万别只用<code>latest</code>，否则回滚时你会哭。</p>
-<div class="highlight"><pre tabindex="0" style="color:#f8f8f2;background-color:#272822;-moz-tab-size:4;-o-tab-size:4;tab-size:4;"><code class="language-yaml" data-lang="yaml"><span style="display:flex;"><span><span style="color:#75715e"># 阶段二：构建镜像</span>
-</span></span><span style="display:flex;"><span><span style="color:#f92672">docker_build</span>:
-</span></span><span style="display:flex;"><span>  <span style="color:#f92672">stage</span>: <span style="color:#ae81ff">build</span>
-</span></span><span style="display:flex;"><span>  <span style="color:#f92672">image</span>: <span style="color:#ae81ff">docker:stable</span>
-</span></span><span style="display:flex;"><span>  <span style="color:#f92672">services</span>:
-</span></span><span style="display:flex;"><span>    - <span style="color:#ae81ff">docker:dind</span>
-</span></span><span style="display:flex;"><span>  <span style="color:#f92672">script</span>:
-</span></span><span style="display:flex;"><span>    - <span style="color:#ae81ff">docker login -u $CI_REGISTRY_USER -p $CI_REGISTRY_PASSWORD $CI_REGISTRY</span>
-</span></span><span style="display:flex;"><span>    <span style="color:#75715e"># 使用Commit SHA作为版本号，确保唯一性</span>
-</span></span><span style="display:flex;"><span>    - <span style="color:#ae81ff">docker build -t $CI_REGISTRY_IMAGE:$CI_COMMIT_SHORT_SHA .</span>
-</span></span><span style="display:flex;"><span>    - <span style="color:#ae81ff">docker push $CI_REGISTRY_IMAGE:$CI_COMMIT_SHORT_SHA</span>
-</span></span><span style="display:flex;"><span>  <span style="color:#f92672">tags</span>:
-</span></span><span style="display:flex;"><span>    - <span style="color:#ae81ff">docker-runner</span>
-</span></span></code></pre></div><h3 id="3-部署与通知">3. 部署与通知
-</h3><p>部署不是目的，让团队知道部署结果才是关键。</p>
-<p>我见过太多次，开发人员提交了代码就以为万事大吉，结果流水线挂了半小时都没人知道。</p>
-<p>我写了一个简单的Python脚本，集成在流水线的最后一步。无论成功还是失败，都会发送一条消息到钉钉或飞书群，包含：<strong>提交人、Commit信息、耗时、状态</strong>。</p>
-<p>这带来了一个意想不到的好处：<strong>“红灯羞耻感”</strong>。因为群里所有人都能看到是谁把流水线搞挂了，大家提交代码时变得格外小心。</p>
-<h2 id="给你一个拿来即用的万能模板">给你一个“拿来即用”的万能模板
-</h2><p>为了让你能立刻上手，我整理了一份可以直接复制的 <code>.gitlab-ci.yml</code> 模板。这套配置适配了大部分Spring Boot/Node.js应用。</p>
-<p>你只需要把其中的镜像地址换成你自己的即可。</p>
-<div class="highlight"><pre tabindex="0" style="color:#f8f8f2;background-color:#272822;-moz-tab-size:4;-o-tab-size:4;tab-size:4;"><code class="language-yaml" data-lang="yaml"><span style="display:flex;"><span><span style="color:#f92672">stages</span>:
-</span></span><span style="display:flex;"><span>  - <span style="color:#ae81ff">build</span>
-</span></span><span style="display:flex;"><span>  - <span style="color:#ae81ff">deploy</span>
-</span></span><span style="display:flex;"><span>  - <span style="color:#ae81ff">notify</span>
-</span></span><span style="display:flex;"><span>
-</span></span><span style="display:flex;"><span><span style="color:#f92672">variables</span>:
-</span></span><span style="display:flex;"><span>  <span style="color:#75715e"># 定义全局变量，方便维护</span>
-</span></span><span style="display:flex;"><span>  <span style="color:#f92672">APP_NAME</span>: <span style="color:#e6db74">&#34;demo-service&#34;</span>
-</span></span><span style="display:flex;"><span>  <span style="color:#f92672">DOCKER_IMAGE</span>: <span style="color:#e6db74">&#34;registry.example.com/group/${APP_NAME}&#34;</span>
-</span></span><span style="display:flex;"><span>
-</span></span><span style="display:flex;"><span><span style="color:#75715e"># 步骤1：构建镜像（带缓存优化）</span>
-</span></span><span style="display:flex;"><span><span style="color:#f92672">build_image</span>:
-</span></span><span style="display:flex;"><span>  <span style="color:#f92672">stage</span>: <span style="color:#ae81ff">build</span>
-</span></span><span style="display:flex;"><span>  <span style="color:#f92672">image</span>: <span style="color:#ae81ff">docker:latest</span>
-</span></span><span style="display:flex;"><span>  <span style="color:#f92672">volumes</span>:
-</span></span><span style="display:flex;"><span>    - <span style="color:#ae81ff">/var/run/docker.sock:/var/run/docker.sock</span>
-</span></span><span style="display:flex;"><span>  <span style="color:#f92672">script</span>:
-</span></span><span style="display:flex;"><span>    - <span style="color:#ae81ff">echo &#34;开始构建 $APP_NAME...&#34;</span>
-</span></span><span style="display:flex;"><span>    - <span style="color:#ae81ff">docker login -u $CI_USER -p $CI_PWD registry.example.com</span>
-</span></span><span style="display:flex;"><span>    <span style="color:#75715e"># 巧妙利用缓存，加速构建</span>
-</span></span><span style="display:flex;"><span>    - <span style="color:#ae81ff">docker pull $DOCKER_IMAGE:latest || true</span>
-</span></span><span style="display:flex;"><span>    - <span style="color:#ae81ff">docker build --cache-from $DOCKER_IMAGE:latest -t $DOCKER_IMAGE:$CI_COMMIT_SHORT_SHA -t $DOCKER_IMAGE:latest .</span>
-</span></span><span style="display:flex;"><span>    - <span style="color:#ae81ff">docker push $DOCKER_IMAGE:$CI_COMMIT_SHORT_SHA</span>
-</span></span><span style="display:flex;"><span>    - <span style="color:#ae81ff">docker push $DOCKER_IMAGE:latest</span>
-</span></span><span style="display:flex;"><span>
-</span></span><span style="display:flex;"><span><span style="color:#75715e"># 步骤2：部署到测试环境</span>
-</span></span><span style="display:flex;"><span><span style="color:#f92672">deploy_dev</span>:
-</span></span><span style="display:flex;"><span>  <span style="color:#f92672">stage</span>: <span style="color:#ae81ff">deploy</span>
-</span></span><span style="display:flex;"><span>  <span style="color:#f92672">image</span>: <span style="color:#ae81ff">roffe/kubectl:latest</span>
-</span></span><span style="display:flex;"><span>  <span style="color:#f92672">script</span>:
-</span></span><span style="display:flex;"><span>    - <span style="color:#ae81ff">echo &#34;正在更新K8s/Docker Compose...&#34;</span>
-</span></span><span style="display:flex;"><span>    <span style="color:#75715e"># 这里替换镜像版本</span>
-</span></span><span style="display:flex;"><span>    - <span style="color:#ae81ff">sed -i &#34;s|IMAGE_TAG|${CI_COMMIT_SHORT_SHA}|g&#34; deployment.yaml</span>
-</span></span><span style="display:flex;"><span>    - <span style="color:#ae81ff">kubectl apply -f deployment.yaml</span>
-</span></span><span style="display:flex;"><span>  <span style="color:#f92672">only</span>:
-</span></span><span style="display:flex;"><span>    - <span style="color:#ae81ff">develop</span>
-</span></span><span style="display:flex;"><span>
-</span></span><span style="display:flex;"><span>![<span style="color:#ae81ff">配图](https://picsum.photos/800/450?random=1768387659882)</span>
-</span></span><span style="display:flex;"><span>
-</span></span><span style="display:flex;"><span><span style="color:#75715e"># 步骤3：失败/成功通知</span>
-</span></span><span style="display:flex;"><span><span style="color:#f92672">job_notify</span>:
-</span></span><span style="display:flex;"><span>  <span style="color:#f92672">stage</span>: <span style="color:#ae81ff">notify</span>
-</span></span><span style="display:flex;"><span>  <span style="color:#f92672">script</span>:
-</span></span><span style="display:flex;"><span>    - <span style="color:#f92672">&#34;curl &#39;https://oapi.dingtalk.com/robot/send?access_token=YOUR_TOKEN&#39; -H &#39;Content-Type: application/json&#39; -d &#39;{\&#34;msgtype\&#34;: \&#34;text\&#34;,\&#34;text\&#34;: {\&#34;content\&#34;: </span><span style="color:#ae81ff">\&#34;构建通知：项目 ${APP_NAME} 构建完成！\&#34;}}&#39;&#34;</span>
-</span></span><span style="display:flex;"><span>  <span style="color:#f92672">when</span>: <span style="color:#ae81ff">always</span>
-</span></span></code></pre></div><h2 id="最后的话工具只是手段信心才是目的">最后的话：工具只是手段，信心才是目的
-</h2><p>搭建CI/CD流水线，技术上真的不难，难的是改变团队的习惯。</p>
-<p>刚开始推行时，你一定会遇到阻力：“本地跑得好好的，为什么要等流水线跑几分钟？”“配置好麻烦，能不能直接传包？”</p>
-<p>这时候，请坚持住。</p>
-<p>当我看到团队成员从“不敢周五发布”变成“随时随地、喝着咖啡点一下Merge就能上线”时，我知道这一切折腾都是值得的。<strong>DevOps的核心价值，不是自动化，而是给整个团队交付代码的信心。</strong></p>
-<p><strong>接下来的行动建议：</strong></p>
-<ol>
-<li><strong>先跑通Hello World</strong>：不要试图一步到位，先在GitLab/Jenkins里建个任务，能打印出<code>echo &quot;Hello&quot;</code>就算成功。</li>
-<li><strong>容器化你的应用</strong>：如果你还没有Dockerfile，现在就去写一个。这是自动化的基石。</li>
-<li><strong>复制上面的模板</strong>：根据你的项目微调，尝试跑一次完整的构建。</li>
-</ol>
-<p>哪怕只省下每天10分钟的重复劳动，一年下来，你也多出了整整一周的“带薪休假”时间。</p>
-
-</section>
-
-
-    <footer class="article-footer">
-    
-    <section class="article-tags">
-        
-            <a href="/tags/Jenkins/GitLab-CI%E6%B5%81%E6%B0%B4%E7%BA%BF%E6%90%AD%E5%BB%BA%E4%BF%9D%E5%A7%86%E7%BA%A7%E6%95%99%E7%A8%8B.html">Jenkins/GitLab CI流水线搭建保姆级教程</a>
-        
-    </section>
-
-
-    </footer>
-
-
-    
-</article>
-
-    
-
-    
-
-     
-    
-        
-    <script
-    src="https://giscus.app/client.js"
-    data-repo="pastor17/bloggiscus"
-    data-repo-id="R_kgDOQ6H9qQ"
-    data-category=""
-    data-category-id="DIC_kwDOQ6H9qc4C0-T8"
-    data-mapping="pathname"
-    data-strict="0"
-    data-reactions-enabled="1"
-    data-emit-metadata="0"
-    data-input-position="bottom"
-    data-theme="light"
-    data-lang="zh-CN"
-    data-loading="lazy"
-    crossorigin="anonymous"
-    async
-></script>
-<script>
-    function setGiscusTheme(theme) {
-        let giscus = document.querySelector("iframe.giscus-frame");
-        if (giscus) {
-            giscus.contentWindow.postMessage(
-                {
-                    giscus: {
-                        setConfig: {
-                            theme: theme,
-                        },
-                    },
-                },
-                "https://giscus.app"
-            );
-        }
-    }
-
-    (function () {
-        addEventListener("message", (e) => {
-            if (event.origin !== "https://giscus.app") return;
-            handler();
-        });
-        window.addEventListener("onColorSchemeChange", handler);
-
-        function handler() {
-            if (document.documentElement.dataset.scheme === "light") {
-                setGiscusTheme('light');
-            } else {
-                setGiscusTheme('dark_dimmed');
-            }
-        }
-    })();
-</script>
-
-    
-
-    <footer class="site-footer">
-    <section class="copyright">
-        &copy; 
-        
-        2026 SelfTechHub
-    </section>
-    
-    <section class="powerby">
-        
-
-    </section>
-</footer>
-
-
-    
-<div class="pswp" tabindex="-1" role="dialog" aria-hidden="true">
-
-    
-    <div class="pswp__bg"></div>
-
-    
-    <div class="pswp__scroll-wrap">
-
-        
-        <div class="pswp__container">
-            <div class="pswp__item"></div>
-            <div class="pswp__item"></div>
-            <div class="pswp__item"></div>
-        </div>
-
-        
-        <div class="pswp__ui pswp__ui--hidden">
-
-            <div class="pswp__top-bar">
-
-                
-
-                <div class="pswp__counter"></div>
-
-                <button class="pswp__button pswp__button--close" title="Close (Esc)"></button>
-
-                <button class="pswp__button pswp__button--share" title="Share"></button>
-
-                <button class="pswp__button pswp__button--fs" title="Toggle fullscreen"></button>
-
-                <button class="pswp__button pswp__button--zoom" title="Zoom in/out"></button>
-
-                
-                
-                <div class="pswp__preloader">
-                    <div class="pswp__preloader__icn">
-                        <div class="pswp__preloader__cut">
-                            <div class="pswp__preloader__donut"></div>
-                        </div>
-                    </div>
-                </div>
-            </div>
-
-            <div class="pswp__share-modal pswp__share-modal--hidden pswp__single-tap">
-                <div class="pswp__share-tooltip"></div>
-            </div>
-
-            <button class="pswp__button pswp__button--arrow--left" title="Previous (arrow left)">
-            </button>
-
-            <button class="pswp__button pswp__button--arrow--right" title="Next (arrow right)">
-            </button>
-
-            <div class="pswp__caption">
-                <div class="pswp__caption__center"></div>
-            </div>
-
-        </div>
-
-    </div>
-
-</div><script 
-                src="https://cdn.jsdelivr.net/npm/photoswipe@4.1.3/dist/photoswipe.min.js"integrity="sha256-ePwmChbbvXbsO02lbM3HoHbSHTHFAeChekF1xKJdleo="crossorigin="anonymous"
-                defer
-                >
-            </script><script 
-                src="https://cdn.jsdelivr.net/npm/photoswipe@4.1.3/dist/photoswipe-ui-default.min.js"integrity="sha256-UKkzOn/w1mBxRmLLGrSeyB4e1xbrp4xylgAWb3M42pU="crossorigin="anonymous"
-                defer
-                >
-            </script><link 
-                rel="stylesheet" 
-                href="https://cdn.jsdelivr.net/npm/photoswipe@4.1.3/dist/default-skin/default-skin.min.css"crossorigin="anonymous"
-            ><link 
-                rel="stylesheet" 
-                href="https://cdn.jsdelivr.net/npm/photoswipe@4.1.3/dist/photoswipe.min.css"crossorigin="anonymous"
-            >
-    
-
-            </main>
-        </div>
-        <script 
-                src="https://cdn.jsdelivr.net/npm/node-vibrant@3.1.6/dist/vibrant.min.js"integrity="sha256-awcR2jno4kI5X0zL8ex0vi2z&#43;KMkF24hUW8WePSA9HM="crossorigin="anonymous"
-                
-                >
-            </script><script type="text/javascript" src="/ts/main.c922af694cc257bf1ecc41c0dd7b0430f9114ec280ccf67cd2c6ad55f5316c4e.js" defer></script>
-<script>
-    (function () {
-        const customFont = document.createElement('link');
-        customFont.href = "https://fonts.googleapis.com/css2?family=Lato:wght@300;400;700&display=swap";
-
-        customFont.type = "text/css";
-        customFont.rel = "stylesheet";
-
-        document.head.appendChild(customFont);
-    }());
-</script>
-
-    </body>
-</html>
+<!doctype html><html lang=zh-cn dir=ltr><head><meta charset=utf-8><meta name=viewport content='width=device-width,initial-scale=1'><meta name=description content="很多年前，我经历过一次堪称“噩梦”的发布事故。那时我们团队还在用“半自动化”脚本发布：本地打包jar包，FTP上传服务器，手动重启脚本。"><title>凌晨3点回滚代码后，我重构了这套CI/CD流水线</title><link rel=canonical href=https://blog.irudder.me/tech/devopsjichugongjurumenyushicao/jenkins_gitlab-ciliushuixiandajianbaomujijiaocheng.html><link rel=stylesheet href=/scss/style.min.c77ce1b874b29b2ee9e54a89066c79ebf35cbe9cf399b31ab5d79167f9a965c9.css><meta property='og:title' content="凌晨3点回滚代码后，我重构了这套CI/CD流水线"><meta property='og:description' content="很多年前，我经历过一次堪称“噩梦”的发布事故。那时我们团队还在用“半自动化”脚本发布：本地打包jar包，FTP上传服务器，手动重启脚本。"><meta property='og:url' content='https://blog.irudder.me/tech/devopsjichugongjurumenyushicao/jenkins_gitlab-ciliushuixiandajianbaomujijiaocheng.html'><meta property='og:site_name' content='SelfTechHub'><meta property='og:type' content='article'><meta property='article:section' content='Tech'><meta property='article:tag' content='Jenkins/GitLab CI流水线搭建保姆级教程'><meta property='article:published_time' content='2020-06-03T00:00:00+08:00'><meta property='article:modified_time' content='2020-06-03T00:00:00+08:00'><meta name=twitter:title content="凌晨3点回滚代码后，我重构了这套CI/CD流水线"><meta name=twitter:description content="很多年前，我经历过一次堪称“噩梦”的发布事故。那时我们团队还在用“半自动化”脚本发布：本地打包jar包，FTP上传服务器，手动重启脚本。"><link rel="shortcut icon" href=/images/logo.png></head><body class=article-page><script>(function(){const e="StackColorScheme";localStorage.getItem(e)||localStorage.setItem(e,"auto")})()</script><script>(function(){const t="StackColorScheme",e=localStorage.getItem(t),n=window.matchMedia("(prefers-color-scheme: dark)").matches===!0;e=="dark"||e==="auto"&&n?document.documentElement.dataset.scheme="dark":document.documentElement.dataset.scheme="light"})()</script><div class="container main-container flex on-phone--column extended"><aside class="sidebar left-sidebar sticky"><button class="hamburger hamburger--spin" type=button id=toggle-menu aria-label=切换菜单>
+<span class=hamburger-box><span class=hamburger-inner></span></span></button><header><figure class=site-avatar><a href=/><img src=/img/avatar_hu_8588ce14af1147e2.png width=300 height=286 class=site-logo loading=lazy alt=Avatar>
+</a><span class=emoji>🧠</span></figure><div class=site-meta><h1 class=site-name><a href=/>SelfTechHub</a></h1><h2 class=site-description>成长 · 技术 · 商业 · AI —— 把碎片知识沉淀为可复用的记忆体系</h2></div></header><ol class=menu-social><li><a href=https://github.com/pastor17 target=_blank title=GitHub rel=me><svg class="icon icon-tabler icon-tabler-brand-github" width="24" height="24" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor" fill="none" stroke-linecap="round" stroke-linejoin="round"><path stroke="none" d="M0 0h24v24H0z" fill="none"/><path d="M9 19c-4.3 1.4-4.3-2.5-6-3m12 5v-3.5c0-1 .1-1.4-.5-2 2.8-.3 5.5-1.4 5.5-6a4.6 4.6.0 00-1.3-3.2 4.2 4.2.0 00-.1-3.2s-1.1-.3-3.5 1.3a12.3 12.3.0 00-6.2.0C6.5 2.8 5.4 3.1 5.4 3.1a4.2 4.2.0 00-.1 3.2A4.6 4.6.0 004 9.5c0 4.6 2.7 5.7 5.5 6-.6.6-.6 1.2-.5 2V21"/></svg></a></li></ol><ol class=menu id=main-menu><li><a href=/><svg class="icon icon-tabler icon-tabler-home" width="24" height="24" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor" fill="none" stroke-linecap="round" stroke-linejoin="round"><path stroke="none" d="M0 0h24v24H0z"/><polyline points="5 12 3 12 12 3 21 12 19 12"/><path d="M5 12v7a2 2 0 002 2h10a2 2 0 002-2v-7"/><path d="M9 21v-6a2 2 0 012-2h2a2 2 0 012 2v6"/></svg>
+<span>首页</span></a></li><li><a href=/categories/%E6%88%90%E9%95%BF.html><span>成长认知</span></a></li><li><a href=/categories/%E6%8A%80%E6%9C%AF.html><span>技术精进</span></a></li><li><a href=/categories/%E5%95%86%E4%B8%9A.html><span>商业·财富</span></a></li><li><a href=/categories/ai.html><span>探索AI</span></a></li><li><a href=/about/><svg class="icon icon-tabler icon-tabler-user" width="24" height="24" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor" fill="none" stroke-linecap="round" stroke-linejoin="round"><path stroke="none" d="M0 0h24v24H0z"/><circle cx="12" cy="7" r="4"/><path d="M6 21v-2a4 4 0 014-4h4a4 4 0 014 4v2"/></svg>
+<span>关于</span></a></li><li class=menu-bottom-section><ol class=menu><li id=dark-mode-toggle><svg class="icon icon-tabler icon-tabler-toggle-left" width="24" height="24" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor" fill="none" stroke-linecap="round" stroke-linejoin="round"><path stroke="none" d="M0 0h24v24H0z"/><circle cx="8" cy="12" r="2"/><rect x="2" y="6" width="20" height="12" rx="6"/></svg>
+<svg class="icon icon-tabler icon-tabler-toggle-right" width="24" height="24" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor" fill="none" stroke-linecap="round" stroke-linejoin="round"><path stroke="none" d="M0 0h24v24H0z"/><circle cx="16" cy="12" r="2"/><rect x="2" y="6" width="20" height="12" rx="6"/></svg>
+<span>暗色模式</span></li></ol></li></ol></aside><aside class="sidebar right-sidebar sticky"><section class="widget archives"><div class=widget-icon><svg class="icon icon-tabler icon-tabler-hash" width="24" height="24" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor" fill="none" stroke-linecap="round" stroke-linejoin="round"><path stroke="none" d="M0 0h24v24H0z"/><line x1="5" y1="9" x2="19" y2="9"/><line x1="5" y1="15" x2="19" y2="15"/><line x1="11" y1="4" x2="7" y2="20"/><line x1="17" y1="4" x2="13" y2="20"/></svg></div><h2 class="widget-title section-title">目录</h2><div class=widget--toc><nav id=TableOfContents><ul><li><a href=#告别人工智障拥抱不可变基础设施>告别“人工智障”，拥抱“不可变基础设施”</a></li><li><a href=#jenkins还是gitlab-ci成年人不做选择看场景>Jenkins还是GitLab CI？成年人不做选择，看场景</a></li><li><a href=#保姆级实战打造一条防弹流水线>保姆级实战：打造一条“防弹”流水线</a><ul><li><a href=#1-静态检查lint与-单元测试>1. 静态检查（Lint）与 单元测试</a></li><li><a href=#2-构建与镜像推送>2. 构建与镜像推送</a></li><li><a href=#3-部署与通知>3. 部署与通知</a></li></ul></li><li><a href=#给你一个拿来即用的万能模板>给你一个“拿来即用”的万能模板</a></li><li><a href=#最后的话工具只是手段信心才是目的>最后的话：工具只是手段，信心才是目的</a></li></ul></nav></div></section></aside><main class="main full-width"><article class=main-article><header class=article-header><div class=article-details><header class=article-category><a href=/categories/%E6%8A%80%E6%9C%AF.html>技术精进</a></header><div class=article-title-wrapper><h2 class=article-title><a href=/tech/devopsjichugongjurumenyushicao/jenkins_gitlab-ciliushuixiandajianbaomujijiaocheng.html>凌晨3点回滚代码后，我重构了这套CI/CD流水线</a></h2><h3 class=article-subtitle>很多年前，我经历过一次堪称“噩梦”的发布事故。那时我们团队还在用“半自动化”脚本发布：本地打包jar包，FTP上传服务器，手动重启脚本。</h3></div><footer class=article-time><div><svg class="icon icon-tabler icon-tabler-calendar-time" width="56" height="56" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor" fill="none" stroke-linecap="round" stroke-linejoin="round"><path stroke="none" d="M0 0h24v24H0z"/><path d="M11.795 21H5a2 2 0 01-2-2V7a2 2 0 012-2h12a2 2 0 012 2v4"/><circle cx="18" cy="18" r="4"/><path d="M15 3v4"/><path d="M7 3v4"/><path d="M3 11h16"/><path d="M18 16.496V18l1 1"/></svg>
+<time class=article-time--published datetime=2020-06-03T00:00:00+08:00>2020-06-03</time></div><div><svg class="icon icon-tabler icon-tabler-clock" width="24" height="24" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor" fill="none" stroke-linecap="round" stroke-linejoin="round"><path stroke="none" d="M0 0h24v24H0z"/><circle cx="12" cy="12" r="9"/><polyline points="12 7 12 12 15 15"/></svg>
+<time class=article-time--reading>阅读时长: 6 分钟</time></div></footer></div></header><section class=article-content><p>很多年前，我经历过一次堪称“噩梦”的发布事故。</p><p>那时我们团队还在用“半自动化”脚本发布：本地打包jar包，FTP上传服务器，手动重启脚本。某天凌晨上线，因为我的本地JDK版本和服务器不一致，导致服务启动后隐蔽报错。排查、回滚、重新打包，折腾到凌晨3点，整个人都在发抖。</p><p>那一刻我意识到：<strong>依赖人的记性和手速去发布代码，是系统稳定性的最大隐患。</strong></p><p>后来我花了两个周末，把团队的发布流程从“刀耕火种”迁移到了标准化的CI/CD流水线上。结果是惊人的：部署频率从每周1次变成了每天10次，回滚时间从30分钟缩短到了30秒。</p><p>这篇文章不讲那些虚无缥缈的概念，我把这几年在中小团队落地Jenkins和GitLab CI摸索出的“保姆级”框架分享给你。</p><h2 id=告别人工智障拥抱不可变基础设施>告别“人工智障”，拥抱“不可变基础设施”</h2><p><img src="https://picsum.photos/800/450?random=1768387659579" loading=lazy alt=配图></p><p>很多运维新手搭建流水线时，容易陷入一个误区：把CI工具仅仅当作一个“远程执行脚本”的工具。</p><p>比如，在Jenkins里写一堆Shell脚本，连到服务器上去<code>git pull</code>，然后<code>mvn clean install</code>。这其实是“伪CI”。一旦服务器环境被谁偷偷改了个配置，流水线立马炸锅。</p><p><strong>真实的痛点是环境一致性问题。</strong></p><p>我之前带过一个电商项目，开发环境一切正常，上线就报<code>ClassNotDefFound</code>。查了一整天，发现是运维在生产环境手动装了个老版本的依赖库。</p><p>从那之后，我强制推行<strong>基于Docker的流水线构建</strong>。</p><p>在此逻辑下，我们的流水线不再依赖物理机的环境，而是“自带环境”。</p><blockquote><p><strong>核心思路</strong>：所有的构建（Build）、测试（Test）都在容器内完成。产出的不再是jar/war包，而是一个Docker镜像。</p></blockquote><p>采用这种方式后，我们团队的故障率下降了80%。因为只要镜像在测试环境跑通了，推到生产环境就一定能跑通，这就是“不可变基础设施”的魅力。</p><h2 id=jenkins还是gitlab-ci成年人不做选择看场景>Jenkins还是GitLab CI？成年人不做选择，看场景</h2><p>这大概是读者问我最多的问题。我的建议非常直接：</p><ul><li><strong>如果你是新团队、中小规模、代码托管在GitLab：</strong> 无脑选 <strong>GitLab CI</strong>。</li><li><strong>如果你是大型企业、有复杂的权限管理、需要跨多平台构建：</strong> 老实选 <strong>Jenkins</strong>。</li></ul><p>我有过惨痛教训。两年前，我为了“显得专业”，在一个5人的初创团队强推Jenkins。结果光是配置Slave节点、维护那堆三天两头更新的插件、处理权限隔离，就占用了我每周五下午的宝贵摸鱼时间。</p><p>后来切到GitLab CI，就一个<code>.gitlab-ci.yml</code>文件随代码库管理，开发人员自己就能看懂改懂。</p><p><img src="https://picsum.photos/800/450?random=1768387654494" loading=lazy alt=配图></p><p><strong>这里有一个我亲测好用的判断标准：</strong></p><p>如果你的构建逻辑能写在200行Shell脚本内，用GitLab CI效率最高；如果你的构建需要审批流、需要调用十几个外部系统接口、需要复杂的UI交互，Jenkins才是重型武器。</p><h2 id=保姆级实战打造一条防弹流水线>保姆级实战：打造一条“防弹”流水线</h2><p>不管用什么工具，一条合格的生产级流水线，必须包含这四个阶段：<strong>静态检查 -> 构建打包 -> 镜像推送 -> 部署通知</strong>。</p><p>缺少任何一环，都是在“裸奔”。</p><p>下面我以GitLab CI为例（Jenkins逻辑同理），拆解一个我用了2年的通用模板。这个模板帮助我们拦截了至少90%的低级语法错误。</p><h3 id=1-静态检查lint与-单元测试>1. 静态检查（Lint）与 单元测试</h3><p>不要等到代码上线了才发现少写了一个分号。</p><p>在我们的流程里，如果<code>Lint</code>阶段不通过，代码根本没机会进入构建环节。这倒逼开发人员在提交代码前必须自测。</p><div class=highlight><div class=chroma><table class=lntable><tr><td class=lntd><pre tabindex=0 class=chroma><code><span class=lnt> 1
+</span><span class=lnt> 2
+</span><span class=lnt> 3
+</span><span class=lnt> 4
+</span><span class=lnt> 5
+</span><span class=lnt> 6
+</span><span class=lnt> 7
+</span><span class=lnt> 8
+</span><span class=lnt> 9
+</span><span class=lnt>10
+</span><span class=lnt>11
+</span><span class=lnt>12
+</span><span class=lnt>13
+</span><span class=lnt>14
+</span><span class=lnt>15
+</span><span class=lnt>16
+</span></code></pre></td><td class=lntd><pre tabindex=0 class=chroma><code class=language-yaml data-lang=yaml><span class=line><span class=cl><span class=nt>stages</span><span class=p>:</span><span class=w>
+</span></span></span><span class=line><span class=cl><span class=w>  </span>- <span class=l>check</span><span class=w>
+</span></span></span><span class=line><span class=cl><span class=w>  </span>- <span class=l>build</span><span class=w>
+</span></span></span><span class=line><span class=cl><span class=w>  </span>- <span class=l>deploy</span><span class=w>
+</span></span></span><span class=line><span class=cl><span class=w>
+</span></span></span><span class=line><span class=cl><span class=w></span><span class=c># 阶段一：代码检查与单元测试</span><span class=w>
+</span></span></span><span class=line><span class=cl><span class=w></span><span class=nt>code_analysis</span><span class=p>:</span><span class=w>
+</span></span></span><span class=line><span class=cl><span class=w>  </span><span class=nt>stage</span><span class=p>:</span><span class=w> </span><span class=l>check</span><span class=w>
+</span></span></span><span class=line><span class=cl><span class=w>  </span><span class=nt>image</span><span class=p>:</span><span class=w> </span><span class=l>maven:3.8-openjdk-11</span><span class=w>
+</span></span></span><span class=line><span class=cl><span class=w>  </span><span class=nt>script</span><span class=p>:</span><span class=w>
+</span></span></span><span class=line><span class=cl><span class=w>    </span>- <span class=l>echo &#34;正在进行代码静态扫描...&#34;</span><span class=w>
+</span></span></span><span class=line><span class=cl><span class=w>    </span>- <span class=l>mvn sonar:sonar </span><span class=w> </span><span class=c># 接入SonarQube，没有可跳过</span><span class=w>
+</span></span></span><span class=line><span class=cl><span class=w>    </span>- <span class=l>mvn test        </span><span class=w> </span><span class=c># 跑单元测试</span><span class=w>
+</span></span></span><span class=line><span class=cl><span class=w>  </span><span class=nt>only</span><span class=p>:</span><span class=w>
+</span></span></span><span class=line><span class=cl><span class=w>    </span>- <span class=l>merge_requests</span><span class=w>
+</span></span></span><span class=line><span class=cl><span class=w>    </span>- <span class=l>master</span><span class=w>
+</span></span></span></code></pre></td></tr></table></div></div><h3 id=2-构建与镜像推送>2. 构建与镜像推送</h3><p>这一步是核心。很多教程教你用<code>docker build</code>，但在CI容器里跑docker（Docker in Docker）不仅慢而且有安全隐患。</p><p>我推荐使用 <strong>Kaniko</strong> 或者 <strong>Buildah</strong>，但在简单场景下，通过挂载宿主机Docker socket是最快的方式。</p><p><strong>注意细节：</strong> 一定要给镜像打上具体的Tag（通常是Commit SHA），千万别只用<code>latest</code>，否则回滚时你会哭。</p><div class=highlight><div class=chroma><table class=lntable><tr><td class=lntd><pre tabindex=0 class=chroma><code><span class=lnt> 1
+</span><span class=lnt> 2
+</span><span class=lnt> 3
+</span><span class=lnt> 4
+</span><span class=lnt> 5
+</span><span class=lnt> 6
+</span><span class=lnt> 7
+</span><span class=lnt> 8
+</span><span class=lnt> 9
+</span><span class=lnt>10
+</span><span class=lnt>11
+</span><span class=lnt>12
+</span><span class=lnt>13
+</span></code></pre></td><td class=lntd><pre tabindex=0 class=chroma><code class=language-yaml data-lang=yaml><span class=line><span class=cl><span class=c># 阶段二：构建镜像</span><span class=w>
+</span></span></span><span class=line><span class=cl><span class=w></span><span class=nt>docker_build</span><span class=p>:</span><span class=w>
+</span></span></span><span class=line><span class=cl><span class=w>  </span><span class=nt>stage</span><span class=p>:</span><span class=w> </span><span class=l>build</span><span class=w>
+</span></span></span><span class=line><span class=cl><span class=w>  </span><span class=nt>image</span><span class=p>:</span><span class=w> </span><span class=l>docker:stable</span><span class=w>
+</span></span></span><span class=line><span class=cl><span class=w>  </span><span class=nt>services</span><span class=p>:</span><span class=w>
+</span></span></span><span class=line><span class=cl><span class=w>    </span>- <span class=l>docker:dind</span><span class=w>
+</span></span></span><span class=line><span class=cl><span class=w>  </span><span class=nt>script</span><span class=p>:</span><span class=w>
+</span></span></span><span class=line><span class=cl><span class=w>    </span>- <span class=l>docker login -u $CI_REGISTRY_USER -p $CI_REGISTRY_PASSWORD $CI_REGISTRY</span><span class=w>
+</span></span></span><span class=line><span class=cl><span class=w>    </span><span class=c># 使用Commit SHA作为版本号，确保唯一性</span><span class=w>
+</span></span></span><span class=line><span class=cl><span class=w>    </span>- <span class=l>docker build -t $CI_REGISTRY_IMAGE:$CI_COMMIT_SHORT_SHA .</span><span class=w>
+</span></span></span><span class=line><span class=cl><span class=w>    </span>- <span class=l>docker push $CI_REGISTRY_IMAGE:$CI_COMMIT_SHORT_SHA</span><span class=w>
+</span></span></span><span class=line><span class=cl><span class=w>  </span><span class=nt>tags</span><span class=p>:</span><span class=w>
+</span></span></span><span class=line><span class=cl><span class=w>    </span>- <span class=l>docker-runner</span><span class=w>
+</span></span></span></code></pre></td></tr></table></div></div><h3 id=3-部署与通知>3. 部署与通知</h3><p>部署不是目的，让团队知道部署结果才是关键。</p><p>我见过太多次，开发人员提交了代码就以为万事大吉，结果流水线挂了半小时都没人知道。</p><p>我写了一个简单的Python脚本，集成在流水线的最后一步。无论成功还是失败，都会发送一条消息到钉钉或飞书群，包含：<strong>提交人、Commit信息、耗时、状态</strong>。</p><p>这带来了一个意想不到的好处：<strong>“红灯羞耻感”</strong>。因为群里所有人都能看到是谁把流水线搞挂了，大家提交代码时变得格外小心。</p><h2 id=给你一个拿来即用的万能模板>给你一个“拿来即用”的万能模板</h2><p>为了让你能立刻上手，我整理了一份可以直接复制的 <code>.gitlab-ci.yml</code> 模板。这套配置适配了大部分Spring Boot/Node.js应用。</p><p>你只需要把其中的镜像地址换成你自己的即可。</p><div class=highlight><div class=chroma><table class=lntable><tr><td class=lntd><pre tabindex=0 class=chroma><code><span class=lnt> 1
+</span><span class=lnt> 2
+</span><span class=lnt> 3
+</span><span class=lnt> 4
+</span><span class=lnt> 5
+</span><span class=lnt> 6
+</span><span class=lnt> 7
+</span><span class=lnt> 8
+</span><span class=lnt> 9
+</span><span class=lnt>10
+</span><span class=lnt>11
+</span><span class=lnt>12
+</span><span class=lnt>13
+</span><span class=lnt>14
+</span><span class=lnt>15
+</span><span class=lnt>16
+</span><span class=lnt>17
+</span><span class=lnt>18
+</span><span class=lnt>19
+</span><span class=lnt>20
+</span><span class=lnt>21
+</span><span class=lnt>22
+</span><span class=lnt>23
+</span><span class=lnt>24
+</span><span class=lnt>25
+</span><span class=lnt>26
+</span><span class=lnt>27
+</span><span class=lnt>28
+</span><span class=lnt>29
+</span><span class=lnt>30
+</span><span class=lnt>31
+</span><span class=lnt>32
+</span><span class=lnt>33
+</span><span class=lnt>34
+</span><span class=lnt>35
+</span><span class=lnt>36
+</span><span class=lnt>37
+</span><span class=lnt>38
+</span><span class=lnt>39
+</span><span class=lnt>40
+</span><span class=lnt>41
+</span><span class=lnt>42
+</span><span class=lnt>43
+</span><span class=lnt>44
+</span><span class=lnt>45
+</span></code></pre></td><td class=lntd><pre tabindex=0 class=chroma><code class=language-yaml data-lang=yaml><span class=line><span class=cl><span class=nt>stages</span><span class=p>:</span><span class=w>
+</span></span></span><span class=line><span class=cl><span class=w>  </span>- <span class=l>build</span><span class=w>
+</span></span></span><span class=line><span class=cl><span class=w>  </span>- <span class=l>deploy</span><span class=w>
+</span></span></span><span class=line><span class=cl><span class=w>  </span>- <span class=l>notify</span><span class=w>
+</span></span></span><span class=line><span class=cl><span class=w>
+</span></span></span><span class=line><span class=cl><span class=w></span><span class=nt>variables</span><span class=p>:</span><span class=w>
+</span></span></span><span class=line><span class=cl><span class=w>  </span><span class=c># 定义全局变量，方便维护</span><span class=w>
+</span></span></span><span class=line><span class=cl><span class=w>  </span><span class=nt>APP_NAME</span><span class=p>:</span><span class=w> </span><span class=s2>&#34;demo-service&#34;</span><span class=w>
+</span></span></span><span class=line><span class=cl><span class=w>  </span><span class=nt>DOCKER_IMAGE</span><span class=p>:</span><span class=w> </span><span class=s2>&#34;registry.example.com/group/${APP_NAME}&#34;</span><span class=w>
+</span></span></span><span class=line><span class=cl><span class=w>
+</span></span></span><span class=line><span class=cl><span class=w></span><span class=c># 步骤1：构建镜像（带缓存优化）</span><span class=w>
+</span></span></span><span class=line><span class=cl><span class=w></span><span class=nt>build_image</span><span class=p>:</span><span class=w>
+</span></span></span><span class=line><span class=cl><span class=w>  </span><span class=nt>stage</span><span class=p>:</span><span class=w> </span><span class=l>build</span><span class=w>
+</span></span></span><span class=line><span class=cl><span class=w>  </span><span class=nt>image</span><span class=p>:</span><span class=w> </span><span class=l>docker:latest</span><span class=w>
+</span></span></span><span class=line><span class=cl><span class=w>  </span><span class=nt>volumes</span><span class=p>:</span><span class=w>
+</span></span></span><span class=line><span class=cl><span class=w>    </span>- <span class=l>/var/run/docker.sock:/var/run/docker.sock</span><span class=w>
+</span></span></span><span class=line><span class=cl><span class=w>  </span><span class=nt>script</span><span class=p>:</span><span class=w>
+</span></span></span><span class=line><span class=cl><span class=w>    </span>- <span class=l>echo &#34;开始构建 $APP_NAME...&#34;</span><span class=w>
+</span></span></span><span class=line><span class=cl><span class=w>    </span>- <span class=l>docker login -u $CI_USER -p $CI_PWD registry.example.com</span><span class=w>
+</span></span></span><span class=line><span class=cl><span class=w>    </span><span class=c># 巧妙利用缓存，加速构建</span><span class=w>
+</span></span></span><span class=line><span class=cl><span class=w>    </span>- <span class=l>docker pull $DOCKER_IMAGE:latest || true</span><span class=w>
+</span></span></span><span class=line><span class=cl><span class=w>    </span>- <span class=l>docker build --cache-from $DOCKER_IMAGE:latest -t $DOCKER_IMAGE:$CI_COMMIT_SHORT_SHA -t $DOCKER_IMAGE:latest .</span><span class=w>
+</span></span></span><span class=line><span class=cl><span class=w>    </span>- <span class=l>docker push $DOCKER_IMAGE:$CI_COMMIT_SHORT_SHA</span><span class=w>
+</span></span></span><span class=line><span class=cl><span class=w>    </span>- <span class=l>docker push $DOCKER_IMAGE:latest</span><span class=w>
+</span></span></span><span class=line><span class=cl><span class=w>
+</span></span></span><span class=line><span class=cl><span class=w></span><span class=c># 步骤2：部署到测试环境</span><span class=w>
+</span></span></span><span class=line><span class=cl><span class=w></span><span class=nt>deploy_dev</span><span class=p>:</span><span class=w>
+</span></span></span><span class=line><span class=cl><span class=w>  </span><span class=nt>stage</span><span class=p>:</span><span class=w> </span><span class=l>deploy</span><span class=w>
+</span></span></span><span class=line><span class=cl><span class=w>  </span><span class=nt>image</span><span class=p>:</span><span class=w> </span><span class=l>roffe/kubectl:latest</span><span class=w>
+</span></span></span><span class=line><span class=cl><span class=w>  </span><span class=nt>script</span><span class=p>:</span><span class=w>
+</span></span></span><span class=line><span class=cl><span class=w>    </span>- <span class=l>echo &#34;正在更新K8s/Docker Compose...&#34;</span><span class=w>
+</span></span></span><span class=line><span class=cl><span class=w>    </span><span class=c># 这里替换镜像版本</span><span class=w>
+</span></span></span><span class=line><span class=cl><span class=w>    </span>- <span class=l>sed -i &#34;s|IMAGE_TAG|${CI_COMMIT_SHORT_SHA}|g&#34; deployment.yaml</span><span class=w>
+</span></span></span><span class=line><span class=cl><span class=w>    </span>- <span class=l>kubectl apply -f deployment.yaml</span><span class=w>
+</span></span></span><span class=line><span class=cl><span class=w>  </span><span class=nt>only</span><span class=p>:</span><span class=w>
+</span></span></span><span class=line><span class=cl><span class=w>    </span>- <span class=l>develop</span><span class=w>
+</span></span></span><span class=line><span class=cl><span class=w>
+</span></span></span><span class=line><span class=cl><span class=w></span>!<span class=p>[</span><span class=l>配图](https://picsum.photos/800/450?random=1768387659882)</span><span class=w>
+</span></span></span><span class=line><span class=cl><span class=w>
+</span></span></span><span class=line><span class=cl><span class=w></span><span class=c># 步骤3：失败/成功通知</span><span class=w>
+</span></span></span><span class=line><span class=cl><span class=w></span><span class=nt>job_notify</span><span class=p>:</span><span class=w>
+</span></span></span><span class=line><span class=cl><span class=w>  </span><span class=nt>stage</span><span class=p>:</span><span class=w> </span><span class=l>notify</span><span class=w>
+</span></span></span><span class=line><span class=cl><span class=w>  </span><span class=nt>script</span><span class=p>:</span><span class=w>
+</span></span></span><span class=line><span class=cl><span class=w>    </span>- <span class=nt>&#34;curl &#39;https://oapi.dingtalk.com/robot/send?access_token=YOUR_TOKEN&#39; -H &#39;Content-Type: application/json&#39; -d &#39;{\&#34;msgtype\&#34;: \&#34;text\&#34;,\&#34;text\&#34;: {\&#34;content\&#34;: </span><span class=l>\&#34;构建通知：项目 ${APP_NAME} 构建完成！\&#34;}}&#39;&#34;</span><span class=w>
+</span></span></span><span class=line><span class=cl><span class=w>  </span><span class=nt>when</span><span class=p>:</span><span class=w> </span><span class=l>always</span><span class=w>
+</span></span></span></code></pre></td></tr></table></div></div><h2 id=最后的话工具只是手段信心才是目的>最后的话：工具只是手段，信心才是目的</h2><p>搭建CI/CD流水线，技术上真的不难，难的是改变团队的习惯。</p><p>刚开始推行时，你一定会遇到阻力：“本地跑得好好的，为什么要等流水线跑几分钟？”“配置好麻烦，能不能直接传包？”</p><p>这时候，请坚持住。</p><p>当我看到团队成员从“不敢周五发布”变成“随时随地、喝着咖啡点一下Merge就能上线”时，我知道这一切折腾都是值得的。<strong>DevOps的核心价值，不是自动化，而是给整个团队交付代码的信心。</strong></p><p><strong>接下来的行动建议：</strong></p><ol><li><strong>先跑通Hello World</strong>：不要试图一步到位，先在GitLab/Jenkins里建个任务，能打印出<code>echo "Hello"</code>就算成功。</li><li><strong>容器化你的应用</strong>：如果你还没有Dockerfile，现在就去写一个。这是自动化的基石。</li><li><strong>复制上面的模板</strong>：根据你的项目微调，尝试跑一次完整的构建。</li></ol><p>哪怕只省下每天10分钟的重复劳动，一年下来，你也多出了整整一周的“带薪休假”时间。</p></section><footer class=article-footer><section class=article-tags><a href=/tags/Jenkins/GitLab-CI%E6%B5%81%E6%B0%B4%E7%BA%BF%E6%90%AD%E5%BB%BA%E4%BF%9D%E5%A7%86%E7%BA%A7%E6%95%99%E7%A8%8B.html>Jenkins/GitLab CI流水线搭建保姆级教程</a></section></footer></article><script src=https://giscus.app/client.js data-repo=pastor17/bloggiscus data-repo-id=R_kgDOQ6H9qQ data-category data-category-id=DIC_kwDOQ6H9qc4C0-T8 data-mapping=pathname data-strict=0 data-reactions-enabled=1 data-emit-metadata=0 data-input-position=bottom data-theme=light data-lang=zh-CN data-loading=lazy crossorigin=anonymous async></script><script>function setGiscusTheme(e){let t=document.querySelector("iframe.giscus-frame");t&&t.contentWindow.postMessage({giscus:{setConfig:{theme:e}}},"https://giscus.app")}(function(){addEventListener("message",t=>{if(event.origin!=="https://giscus.app")return;e()}),window.addEventListener("onColorSchemeChange",e);function e(){setGiscusTheme(document.documentElement.dataset.scheme==="light"?"light":"dark_dimmed")}})()</script><footer class=site-footer><section class=copyright>&copy;
+2021 -
+2026 SelfTechHub</section><section class=powerby>拒绝一次性认知，把碎片知识沉淀为可复用的记忆体系<br></section></footer><div class=pswp tabindex=-1 role=dialog aria-hidden=true><div class=pswp__bg></div><div class=pswp__scroll-wrap><div class=pswp__container><div class=pswp__item></div><div class=pswp__item></div><div class=pswp__item></div></div><div class="pswp__ui pswp__ui--hidden"><div class=pswp__top-bar><div class=pswp__counter></div><button class="pswp__button pswp__button--close" title="Close (Esc)"></button>
+<button class="pswp__button pswp__button--share" title=Share></button>
+<button class="pswp__button pswp__button--fs" title="Toggle fullscreen"></button>
+<button class="pswp__button pswp__button--zoom" title="Zoom in/out"></button><div class=pswp__preloader><div class=pswp__preloader__icn><div class=pswp__preloader__cut><div class=pswp__preloader__donut></div></div></div></div></div><div class="pswp__share-modal pswp__share-modal--hidden pswp__single-tap"><div class=pswp__share-tooltip></div></div><button class="pswp__button pswp__button--arrow--left" title="Previous (arrow left)">
+</button>
+<button class="pswp__button pswp__button--arrow--right" title="Next (arrow right)"></button><div class=pswp__caption><div class=pswp__caption__center></div></div></div></div></div><script src=https://cdn.jsdelivr.net/npm/photoswipe@4.1.3/dist/photoswipe.min.js integrity="sha256-ePwmChbbvXbsO02lbM3HoHbSHTHFAeChekF1xKJdleo=" crossorigin=anonymous defer></script><script src=https://cdn.jsdelivr.net/npm/photoswipe@4.1.3/dist/photoswipe-ui-default.min.js integrity="sha256-UKkzOn/w1mBxRmLLGrSeyB4e1xbrp4xylgAWb3M42pU=" crossorigin=anonymous defer></script><link rel=stylesheet href=https://cdn.jsdelivr.net/npm/photoswipe@4.1.3/dist/default-skin/default-skin.min.css crossorigin=anonymous><link rel=stylesheet href=https://cdn.jsdelivr.net/npm/photoswipe@4.1.3/dist/photoswipe.min.css crossorigin=anonymous></main></div><script src=https://cdn.jsdelivr.net/npm/node-vibrant@3.1.6/dist/vibrant.min.js integrity="sha256-awcR2jno4kI5X0zL8ex0vi2z+KMkF24hUW8WePSA9HM=" crossorigin=anonymous></script><script type=text/javascript src=/ts/main.c922af694cc257bf1ecc41c0dd7b0430f9114ec280ccf67cd2c6ad55f5316c4e.js defer></script><script>(function(){const e=document.createElement("link");e.href="https://fonts.googleapis.com/css2?family=Lato:wght@300;400;700&display=swap",e.type="text/css",e.rel="stylesheet",document.head.appendChild(e)})()</script></body></html>

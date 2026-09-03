@@ -1,482 +1,67 @@
-<!DOCTYPE html>
-<html lang="zh-cn" dir="ltr">
-    <head><meta charset='utf-8'>
-<meta name='viewport' content='width=device-width, initial-scale=1'><meta name='description' content="如果你是一个开发者或者刚刚接手运维工作的“背锅侠”，你大概率经历过这样的惊魂时刻：\n或者是某位同事不小心把包含 AWS_SECRET_KEY 的配置文件推到了公开的 GitHub 仓库；或者是数据库密码改了，但只有你的服务挂了，因为你把密码硬编码在了代码的第 302 行；又或者是离职三个月的前端外包小哥，居然还能连上你们的测试服数据库。\n我曾以为把密码写在环境变量里、或者用 Kubernetes 的 Secret 就万事大吉了。直到两年前的一个凌晨三点，我被报警电话叫醒，因为一个泄露的密钥，我们的云服务账单在两小时内被刷爆了五千美金。\n那一刻的无力感让我明白：管理敏感信息（Secrets），不是一个技术问题，而是一个关于“睡个好觉”的生存问题。\n今天不讲大道理，我们聊聊怎么用 HashiCorp Vault 这个工具，把悬在头顶的这把达摩克利斯之剑摘下来。\n告别“裸奔”：为什么 Base64 不是加密\r很多中小团队的技术负责人，在初期都会为了“快”而选择妥协。\n最典型的场景是：大家把数据库连接串写在 config.yaml 里，或者在 Kubernetes 里创建一个 Secret。但这里有个巨大的误区——Kubernetes 的 Secret 默认只是 Base64 编码，那不是加密，那是“裸奔”。 任何人只要能拿到那个 yaml 文件，用一行命令就能还原出密码。\n真实案例： 2021年，我曾协助一家电商初创团队做安全审计。他们的运维负责人“阿强”非常自信，说所有密码都走了 K8s Secret。结果我只用了 5 分钟，通过一个拥有“读取所有命名空间”权限的 CI/CD 机器人账号，把他们生产环境的 MySQL 根密码拿了出来。\n阿强当时的脸色，比我在半夜看到的服务器报错日志还白。\n我们需要的不是一个“存放”密码的地方，而是一个能“管理”密码生命周期的保险箱。\n这就引入了 Vault 的核心逻辑：集中存储、严格鉴权、甚至“用完即焚”。\n如果你还在纠结要不要上 Vault，请自查一下：\n如果有员工离职，你需要手动修改几个系统的密码？ 如果不看代码，你能确切知道哪些服务用了同一个数据库账号吗？ 如果答案让你心里没底，那就往下看。\n治愈焦虑：从“静态密码”到“动态凭据”\rVault 最让我感到“治愈”的功能，不是它加密有多强（虽然确实很强），而是Dynamic Secrets（动态凭据）。\n这是什么概念？\n传统的做法是：我（运维）创建一个数据库账号 root/123456，然后把这个账号分发给 10 个微服务。这个密码万年不变，一旦泄露，全得重来。\nVault 的做法是：服务 A 启动时，找 Vault 说：“我是服务 A，我要连数据库。” Vault 确认身份后，临时在数据库里创建一个账号 user_temp_8s7d，给它 1 小时的有效期，然后把密码给服务 A。\n">
-<title>还在代码里硬编码密码？深夜炸雷的教训与Vault自救指南</title>
-
-<link rel='canonical' href='https://blog.irudder.me/tech/devopsjichugongjurumenyushicao/peizhiguanli_vaultguanliminganxinxi.html'>
-
-<link rel="stylesheet" href="/scss/style.min.b9e9128fec450ebccecc4ec9900157f32b85d0609bcd5ee3293968bcaa1235f2.css"><meta property='og:title' content="还在代码里硬编码密码？深夜炸雷的教训与Vault自救指南">
-<meta property='og:description' content="如果你是一个开发者或者刚刚接手运维工作的“背锅侠”，你大概率经历过这样的惊魂时刻：\n或者是某位同事不小心把包含 AWS_SECRET_KEY 的配置文件推到了公开的 GitHub 仓库；或者是数据库密码改了，但只有你的服务挂了，因为你把密码硬编码在了代码的第 302 行；又或者是离职三个月的前端外包小哥，居然还能连上你们的测试服数据库。\n我曾以为把密码写在环境变量里、或者用 Kubernetes 的 Secret 就万事大吉了。直到两年前的一个凌晨三点，我被报警电话叫醒，因为一个泄露的密钥，我们的云服务账单在两小时内被刷爆了五千美金。\n那一刻的无力感让我明白：管理敏感信息（Secrets），不是一个技术问题，而是一个关于“睡个好觉”的生存问题。\n今天不讲大道理，我们聊聊怎么用 HashiCorp Vault 这个工具，把悬在头顶的这把达摩克利斯之剑摘下来。\n告别“裸奔”：为什么 Base64 不是加密\r很多中小团队的技术负责人，在初期都会为了“快”而选择妥协。\n最典型的场景是：大家把数据库连接串写在 config.yaml 里，或者在 Kubernetes 里创建一个 Secret。但这里有个巨大的误区——Kubernetes 的 Secret 默认只是 Base64 编码，那不是加密，那是“裸奔”。 任何人只要能拿到那个 yaml 文件，用一行命令就能还原出密码。\n真实案例： 2021年，我曾协助一家电商初创团队做安全审计。他们的运维负责人“阿强”非常自信，说所有密码都走了 K8s Secret。结果我只用了 5 分钟，通过一个拥有“读取所有命名空间”权限的 CI/CD 机器人账号，把他们生产环境的 MySQL 根密码拿了出来。\n阿强当时的脸色，比我在半夜看到的服务器报错日志还白。\n我们需要的不是一个“存放”密码的地方，而是一个能“管理”密码生命周期的保险箱。\n这就引入了 Vault 的核心逻辑：集中存储、严格鉴权、甚至“用完即焚”。\n如果你还在纠结要不要上 Vault，请自查一下：\n如果有员工离职，你需要手动修改几个系统的密码？ 如果不看代码，你能确切知道哪些服务用了同一个数据库账号吗？ 如果答案让你心里没底，那就往下看。\n治愈焦虑：从“静态密码”到“动态凭据”\rVault 最让我感到“治愈”的功能，不是它加密有多强（虽然确实很强），而是Dynamic Secrets（动态凭据）。\n这是什么概念？\n传统的做法是：我（运维）创建一个数据库账号 root/123456，然后把这个账号分发给 10 个微服务。这个密码万年不变，一旦泄露，全得重来。\nVault 的做法是：服务 A 启动时，找 Vault 说：“我是服务 A，我要连数据库。” Vault 确认身份后，临时在数据库里创建一个账号 user_temp_8s7d，给它 1 小时的有效期，然后把密码给服务 A。\n">
-<meta property='og:url' content='https://blog.irudder.me/tech/devopsjichugongjurumenyushicao/peizhiguanli_vaultguanliminganxinxi.html'>
-<meta property='og:site_name' content='SelfTechHub'>
-<meta property='og:type' content='article'><meta property='article:section' content='Tech' /><meta property='article:tag' content='配置管理：Vault管理敏感信息' /><meta property='article:published_time' content='2022-01-12T00:00:00&#43;00:00'/><meta property='article:modified_time' content='2022-01-12T00:00:00&#43;00:00'/>
-<meta name="twitter:title" content="还在代码里硬编码密码？深夜炸雷的教训与Vault自救指南">
-<meta name="twitter:description" content="如果你是一个开发者或者刚刚接手运维工作的“背锅侠”，你大概率经历过这样的惊魂时刻：\n或者是某位同事不小心把包含 AWS_SECRET_KEY 的配置文件推到了公开的 GitHub 仓库；或者是数据库密码改了，但只有你的服务挂了，因为你把密码硬编码在了代码的第 302 行；又或者是离职三个月的前端外包小哥，居然还能连上你们的测试服数据库。\n我曾以为把密码写在环境变量里、或者用 Kubernetes 的 Secret 就万事大吉了。直到两年前的一个凌晨三点，我被报警电话叫醒，因为一个泄露的密钥，我们的云服务账单在两小时内被刷爆了五千美金。\n那一刻的无力感让我明白：管理敏感信息（Secrets），不是一个技术问题，而是一个关于“睡个好觉”的生存问题。\n今天不讲大道理，我们聊聊怎么用 HashiCorp Vault 这个工具，把悬在头顶的这把达摩克利斯之剑摘下来。\n告别“裸奔”：为什么 Base64 不是加密\r很多中小团队的技术负责人，在初期都会为了“快”而选择妥协。\n最典型的场景是：大家把数据库连接串写在 config.yaml 里，或者在 Kubernetes 里创建一个 Secret。但这里有个巨大的误区——Kubernetes 的 Secret 默认只是 Base64 编码，那不是加密，那是“裸奔”。 任何人只要能拿到那个 yaml 文件，用一行命令就能还原出密码。\n真实案例： 2021年，我曾协助一家电商初创团队做安全审计。他们的运维负责人“阿强”非常自信，说所有密码都走了 K8s Secret。结果我只用了 5 分钟，通过一个拥有“读取所有命名空间”权限的 CI/CD 机器人账号，把他们生产环境的 MySQL 根密码拿了出来。\n阿强当时的脸色，比我在半夜看到的服务器报错日志还白。\n我们需要的不是一个“存放”密码的地方，而是一个能“管理”密码生命周期的保险箱。\n这就引入了 Vault 的核心逻辑：集中存储、严格鉴权、甚至“用完即焚”。\n如果你还在纠结要不要上 Vault，请自查一下：\n如果有员工离职，你需要手动修改几个系统的密码？ 如果不看代码，你能确切知道哪些服务用了同一个数据库账号吗？ 如果答案让你心里没底，那就往下看。\n治愈焦虑：从“静态密码”到“动态凭据”\rVault 最让我感到“治愈”的功能，不是它加密有多强（虽然确实很强），而是Dynamic Secrets（动态凭据）。\n这是什么概念？\n传统的做法是：我（运维）创建一个数据库账号 root/123456，然后把这个账号分发给 10 个微服务。这个密码万年不变，一旦泄露，全得重来。\nVault 的做法是：服务 A 启动时，找 Vault 说：“我是服务 A，我要连数据库。” Vault 确认身份后，临时在数据库里创建一个账号 user_temp_8s7d，给它 1 小时的有效期，然后把密码给服务 A。\n">
-    </head>
-    <body class="
-    article-page
-    ">
-    <script>
-        (function() {
-            const colorSchemeKey = 'StackColorScheme';
-            if(!localStorage.getItem(colorSchemeKey)){
-                localStorage.setItem(colorSchemeKey, "auto");
-            }
-        })();
-    </script><script>
-    (function() {
-        const colorSchemeKey = 'StackColorScheme';
-        const colorSchemeItem = localStorage.getItem(colorSchemeKey);
-        const supportDarkMode = window.matchMedia('(prefers-color-scheme: dark)').matches === true;
-
-        if (colorSchemeItem == 'dark' || colorSchemeItem === 'auto' && supportDarkMode) {
-            
-
-            document.documentElement.dataset.scheme = 'dark';
-        } else {
-            document.documentElement.dataset.scheme = 'light';
-        }
-    })();
-</script>
-<div class="container main-container flex on-phone--column compact"><aside class="sidebar left-sidebar sticky ">
-    <button class="hamburger hamburger--spin" type="button" id="toggle-menu" aria-label="切换菜单">
-        <span class="hamburger-box">
-            <span class="hamburger-inner"></span>
-        </span>
-    </button>
-
-    <header>
-        
-            
-            <figure class="site-avatar">
-                <a href="/">
-                
-                    
-                    
-                    
-                        
-                        <img src="/img/avatar_hu_8588ce14af1147e2.png" width="300"
-                            height="286" class="site-logo" loading="lazy" alt="Avatar">
-                    
-                
-                </a>
-                
-            </figure>
-            
-        
-        
-        <div class="site-meta">
-            <h1 class="site-name"><a href="/">SelfTechHub</a></h1>
-            <h2 class="site-description"></h2>
-        </div>
-    </header><ol class="menu" id="main-menu">
-        
-        
-        <li class="menu-bottom-section">
-            <ol class="menu">
-
-                
-                    <li id="dark-mode-toggle">
-                        <svg xmlns="http://www.w3.org/2000/svg" class="icon icon-tabler icon-tabler-toggle-left" width="24" height="24" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor" fill="none" stroke-linecap="round" stroke-linejoin="round">
-  <path stroke="none" d="M0 0h24v24H0z"/>
-  <circle cx="8" cy="12" r="2" />
-  <rect x="2" y="6" width="20" height="12" rx="6" />
-</svg>
-
-
-
-                        <svg xmlns="http://www.w3.org/2000/svg" class="icon icon-tabler icon-tabler-toggle-right" width="24" height="24" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor" fill="none" stroke-linecap="round" stroke-linejoin="round">
-  <path stroke="none" d="M0 0h24v24H0z"/>
-  <circle cx="16" cy="12" r="2" />
-  <rect x="2" y="6" width="20" height="12" rx="6" />
-</svg>
-
-
-
-                        <span>暗色模式</span>
-                    </li>
-                
-            </ol>
-        </li>
-    </ol>
-</aside>
-
-    
-
-            <main class="main full-width">
-    <article class="main-article">
-    <header class="article-header">
-
-    <div class="article-details">
-    
-    <header class="article-category">
-        
-            <a href="/categories/%E6%8A%80%E6%9C%AF.html" >
-                技术精进
-            </a>
-        
-    </header>
-    
-
-    <div class="article-title-wrapper">
-        <h2 class="article-title">
-            <a href="/tech/devopsjichugongjurumenyushicao/peizhiguanli_vaultguanliminganxinxi.html">还在代码里硬编码密码？深夜炸雷的教训与Vault自救指南</a>
-        </h2>
-    
-        
-    </div>
-
-    
-    
-    
-    
-    <footer class="article-time">
-        
-            <div>
-                <svg xmlns="http://www.w3.org/2000/svg" class="icon icon-tabler icon-tabler-calendar-time" width="56" height="56" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor" fill="none" stroke-linecap="round" stroke-linejoin="round">
-  <path stroke="none" d="M0 0h24v24H0z"/>
-  <path d="M11.795 21h-6.795a2 2 0 0 1 -2 -2v-12a2 2 0 0 1 2 -2h12a2 2 0 0 1 2 2v4" />
-  <circle cx="18" cy="18" r="4" />
-  <path d="M15 3v4" />
-  <path d="M7 3v4" />
-  <path d="M3 11h16" />
-  <path d="M18 16.496v1.504l1 1" />
-</svg>
-                <time class="article-time--published" datetime='2022-01-12T00:00:00Z'>Jan 12, 2022</time>
-            </div>
-        
-
-        
-            <div>
-                <svg xmlns="http://www.w3.org/2000/svg" class="icon icon-tabler icon-tabler-clock" width="24" height="24" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor" fill="none" stroke-linecap="round" stroke-linejoin="round">
-  <path stroke="none" d="M0 0h24v24H0z"/>
-  <circle cx="12" cy="12" r="9" />
-  <polyline points="12 7 12 12 15 15" />
-</svg>
-
-
-
-                <time class="article-time--reading">
-                    阅读时长: 2 分钟
-                </time>
-            </div>
-        
-    </footer>
-    
-
-    
-</div>
-
-</header>
-
-    <section class="article-content">
-    
-    
-    <p>如果你是一个开发者或者刚刚接手运维工作的“背锅侠”，你大概率经历过这样的惊魂时刻：</p>
-<p><img src="https://picsum.photos/800/450?random=1768388501970"
-	
-	
-	
-	loading="lazy"
-	
-		alt="配图"
-	
-	
-></p>
-<p>或者是某位同事不小心把包含 <code>AWS_SECRET_KEY</code> 的配置文件推到了公开的 GitHub 仓库；或者是数据库密码改了，但只有你的服务挂了，因为你把密码硬编码在了代码的第 302 行；又或者是离职三个月的前端外包小哥，居然还能连上你们的测试服数据库。</p>
-<p>我曾以为把密码写在环境变量里、或者用 Kubernetes 的 Secret 就万事大吉了。直到两年前的一个凌晨三点，我被报警电话叫醒，因为一个泄露的密钥，我们的云服务账单在两小时内被刷爆了五千美金。</p>
-<p>那一刻的无力感让我明白：<strong>管理敏感信息（Secrets），不是一个技术问题，而是一个关于“睡个好觉”的生存问题。</strong></p>
-<p>今天不讲大道理，我们聊聊怎么用 HashiCorp Vault 这个工具，把悬在头顶的这把达摩克利斯之剑摘下来。</p>
-<h2 id="告别裸奔为什么-base64-不是加密">告别“裸奔”：为什么 Base64 不是加密
-</h2><p>很多中小团队的技术负责人，在初期都会为了“快”而选择妥协。</p>
-<p>最典型的场景是：大家把数据库连接串写在 <code>config.yaml</code> 里，或者在 Kubernetes 里创建一个 Secret。但这里有个巨大的误区——<strong>Kubernetes 的 Secret 默认只是 Base64 编码，那不是加密，那是“裸奔”。</strong> 任何人只要能拿到那个 yaml 文件，用一行命令就能还原出密码。</p>
-<p><strong>真实案例：</strong>
-2021年，我曾协助一家电商初创团队做安全审计。他们的运维负责人“阿强”非常自信，说所有密码都走了 K8s Secret。结果我只用了 5 分钟，通过一个拥有“读取所有命名空间”权限的 CI/CD 机器人账号，把他们生产环境的 MySQL 根密码拿了出来。</p>
-<p>阿强当时的脸色，比我在半夜看到的服务器报错日志还白。</p>
-<p><strong>我们需要的不是一个“存放”密码的地方，而是一个能“管理”密码生命周期的保险箱。</strong></p>
-<p>这就引入了 Vault 的核心逻辑：<strong>集中存储、严格鉴权、甚至“用完即焚”。</strong></p>
-<p>如果你还在纠结要不要上 Vault，请自查一下：</p>
-<ol>
-<li>如果有员工离职，你需要手动修改几个系统的密码？</li>
-<li>如果不看代码，你能确切知道哪些服务用了同一个数据库账号吗？</li>
-</ol>
-<p>如果答案让你心里没底，那就往下看。</p>
-<h2 id="治愈焦虑从静态密码到动态凭据">治愈焦虑：从“静态密码”到“动态凭据”
-</h2><p>Vault 最让我感到“治愈”的功能，不是它加密有多强（虽然确实很强），而是<strong>Dynamic Secrets（动态凭据）</strong>。</p>
-<p>这是什么概念？</p>
-<p><img src="https://picsum.photos/800/450?random=1768388501794"
-	
-	
-	
-	loading="lazy"
-	
-		alt="配图"
-	
-	
-></p>
-<p>传统的做法是：我（运维）创建一个数据库账号 <code>root/123456</code>，然后把这个账号分发给 10 个微服务。这个密码万年不变，一旦泄露，全得重来。</p>
-<p>Vault 的做法是：服务 A 启动时，找 Vault 说：“我是服务 A，我要连数据库。” Vault 确认身份后，<strong>临时</strong>在数据库里创建一个账号 <code>user_temp_8s7d</code>，给它 1 小时的有效期，然后把密码给服务 A。</p>
-<p><strong>一小时后，这个账号自动销毁。</strong></p>
-<p><strong>实操复盘：</strong>
-去年，我们团队的一个老项目需要重构。以前这个项目的数据库密码是写死在 Docker 镜像里的，每次改密码都要重新打镜像、发版，极其痛苦。</p>
-<p>后来我们接入了 Vault。那天下午，我坐在工位上看着监控日志：</p>
-<ul>
-<li>14:00，服务启动，从 Vault 申请到了一个有效期 30 分钟的临时凭据。</li>
-<li>14:30，旧凭据失效，服务无感刷新，获取了新凭据。</li>
-</ul>
-<p>整个过程，没有任何人工干预。即使黑客截获了那个密码，等他准备动手时，密码已经失效了。那种“即使门没锁，小偷进来发现桌子上全是废纸”的安全感，真的太棒了。</p>
-<p>为了实现这个，你其实只需要简单的配置（以 Postgres 为例）：</p>
-<div class="highlight"><pre tabindex="0" style="color:#f8f8f2;background-color:#272822;-moz-tab-size:4;-o-tab-size:4;tab-size:4;"><code class="language-hcl" data-lang="hcl"><span style="display:flex;"><span><span style="color:#75715e"># 在 Vault 中配置数据库角色
-</span></span></span><span style="display:flex;"><span><span style="color:#75715e"></span><span style="color:#66d9ef">resource</span> <span style="color:#e6db74">&#34;vault_database_secret_backend_role&#34; &#34;role&#34;</span> {
-</span></span><span style="display:flex;"><span>  backend             <span style="color:#f92672">=</span> <span style="color:#66d9ef">vault_database_secret_backend_connection</span>.<span style="color:#66d9ef">postgres</span>.<span style="color:#66d9ef">backend</span>
-</span></span><span style="display:flex;"><span>  name                <span style="color:#f92672">=</span> <span style="color:#e6db74">&#34;my-role&#34;</span>
-</span></span><span style="display:flex;"><span>  db_name             <span style="color:#f92672">=</span> <span style="color:#66d9ef">vault_database_secret_backend_connection</span>.<span style="color:#66d9ef">postgres</span>.<span style="color:#66d9ef">name</span><span style="color:#75715e">
-</span></span></span><span style="display:flex;"><span><span style="color:#75715e">  # 关键点：动态创建用户的 SQL 模板
-</span></span></span><span style="display:flex;"><span><span style="color:#75715e"></span>  creation_statements <span style="color:#f92672">=</span> [ <span style="color:#e6db74">&#34;CREATE ROLE \&#34;\&#34; WITH LOGIN PASSWORD &#39;&#39; VALID UNTIL &#39;&#39;;&#34;, &#34;GRANT SELECT ON ALL TABLES IN SCHEMA public TO \&#34;\&#34;;&#34;</span> ]
-</span></span><span style="display:flex;"><span>  default_ttl         <span style="color:#f92672">=</span> <span style="color:#ae81ff">3600</span>
-</span></span><span style="display:flex;"><span>  max_ttl             <span style="color:#f92672">=</span> <span style="color:#ae81ff">86400</span>
-</span></span><span style="display:flex;"><span>}
-</span></span></code></pre></div><h2 id="落地指南别被架构图吓跑从小处入手">落地指南：别被架构图吓跑，从小处入手
-</h2><p>很多新手被 Vault 劝退，是因为看到那复杂的 HA（高可用）架构图。但我亲测，对于中小团队，<strong>不要一上来就搞集群模式</strong>。</p>
-<p><strong>我的建议是：先跑通流程，再考虑高可用。</strong></p>
-<p>我在自己做 Side Project 的时候，通常采用 <strong>Vault Agent Sidecar</strong> 模式注入到 Kubernetes 中。这种方式对开发人员最友好——他们甚至不需要改一行代码，不需要引入 Vault 的 SDK。</p>
-<p><strong>它是怎么工作的？</strong></p>
-<ol>
-<li>在你的 Deployment yaml 里加个注解（Annotation）。</li>
-<li>Pod 启动时，Vault 会塞一个“小帮手”容器进去。</li>
-<li>这个“小帮手”负责把从 Vault 取到的密码，写成一个本地文件，比如 <code>/vault/secrets/config.json</code>。</li>
-<li>你的应用程序就像读取普通文件一样读取它。</li>
-</ol>
-<p><strong>真实场景：</strong>
-我有位做后端开发的朋友小李，特别抗拒改代码接 SDK。我让他试了这个 Sidecar 模式。</p>
-<p>那天中午吃饭，他跟我说：“这东西有点意思，我代码里原本读的是 <code>.env</code> 文件，现在我只要把 Vault 生成的文件路径指过去，代码一行没动，密码管理却变成了企业级标准。”</p>
-<p>这种“非侵入式”的改造，是推行新技术的最佳姿势。</p>
-<h2 id="写在最后给自己的安全感充值">写在最后：给自己的安全感充值
-</h2><p>技术工具的本质，是减少我们的认知负担。</p>
-<p>配置管理不应该成为你加班的理由，也不应该成为深夜惊醒的噩梦。Vault 看起来门槛略高，但它解决的是根本性的信任问题。</p>
-<p><strong>分享一个我常用的 Vault Policy 模板</strong>，这是权限控制的基础，复制保存，起步时一定用得上：</p>
-<div class="highlight"><pre tabindex="0" style="color:#f8f8f2;background-color:#272822;-moz-tab-size:4;-o-tab-size:4;tab-size:4;"><code class="language-hcl" data-lang="hcl"><span style="display:flex;"><span><span style="color:#75715e"># 允许应用读取特定的密钥路径
-</span></span></span><span style="display:flex;"><span><span style="color:#75715e"></span><span style="color:#66d9ef">path</span> <span style="color:#e6db74">&#34;secret/data/my-app/*&#34;</span> {
-</span></span><span style="display:flex;"><span>  capabilities <span style="color:#f92672">=</span> [<span style="color:#e6db74">&#34;read&#34;</span>]
-</span></span><span style="display:flex;"><span>}<span style="color:#75715e">
-</span></span></span><span style="display:flex;"><span><span style="color:#75715e">
-</span></span></span><span style="display:flex;"><span><span style="color:#75715e"># 严禁应用删除或列出所有密钥（最小权限原则）
-</span></span></span><span style="display:flex;"><span><span style="color:#75715e"></span><span style="color:#66d9ef">path</span> <span style="color:#e6db74">&#34;secret/metadata/*&#34;</span> {
-</span></span><span style="display:flex;"><span>  capabilities <span style="color:#f92672">=</span> [<span style="color:#e6db74">&#34;list&#34;</span>]
-</span></span><span style="display:flex;"><span>}<span style="color:#75715e">
-</span></span></span><span style="display:flex;"><span><span style="color:#75715e">
-</span></span></span><span style="display:flex;"><span><span style="color:#75715e"># 允许应用续期自己的 Token
-</span></span></span><span style="display:flex;"><span><span style="color:#75715e"></span><span style="color:#66d9ef">path</span> <span style="color:#e6db74">&#34;auth/token/renew-self&#34;</span> {
-</span></span><span style="display:flex;"><span>  capabilities <span style="color:#f92672">=</span> [<span style="color:#e6db74">&#34;update&#34;</span>]
-</span></span><span style="display:flex;"><span>}
-</span></span></code></pre></div><p><strong>如果你想在明天就开始改变，不妨尝试这 3 个具体行动：</strong></p>
-<p><img src="https://picsum.photos/800/450?random=1768388493561"
-	
-	
-	
-	loading="lazy"
-	
-		alt="配图"
-	
-	
-></p>
-<ol>
-<li><strong>全局搜索</strong>：立刻在你的代码仓库里搜索 <code>password</code>、<code>secret</code>、<code>key</code> 等关键词，把搜出来的硬编码全部记录下来（相信我，结果会吓你一跳）。</li>
-<li><strong>本地体验</strong>：不要急着上生产，在本地 Docker 跑一个 <code>vault server -dev</code>，体验一下 <code>vault kv put</code> 和 <code>vault kv get</code> 的手感。</li>
-<li><strong>单点突破</strong>：挑选一个<strong>非核心、低风险</strong>的内部服务（比如每天跑一次的报表任务），尝试把它的数据库连接改成通过 Vault 获取。</li>
-</ol>
-<p>安全感不是别人给的，是自己配置出来的。希望今晚，大家都能睡个安稳觉。</p>
-
-</section>
-
-
-    <footer class="article-footer">
-    
-    <section class="article-tags">
-        
-            <a href="/tags/%E9%85%8D%E7%BD%AE%E7%AE%A1%E7%90%86Vault%E7%AE%A1%E7%90%86%E6%95%8F%E6%84%9F%E4%BF%A1%E6%81%AF.html">配置管理：Vault管理敏感信息</a>
-        
-    </section>
-
-
-    </footer>
-
-
-    
-</article>
-
-    
-
-    
-
-     
-    
-        
-    <script
-    src="https://giscus.app/client.js"
-    data-repo="pastor17/bloggiscus"
-    data-repo-id="R_kgDOQ6H9qQ"
-    data-category=""
-    data-category-id="DIC_kwDOQ6H9qc4C0-T8"
-    data-mapping="pathname"
-    data-strict="0"
-    data-reactions-enabled="1"
-    data-emit-metadata="0"
-    data-input-position="bottom"
-    data-theme="light"
-    data-lang="zh-CN"
-    data-loading="lazy"
-    crossorigin="anonymous"
-    async
-></script>
-<script>
-    function setGiscusTheme(theme) {
-        let giscus = document.querySelector("iframe.giscus-frame");
-        if (giscus) {
-            giscus.contentWindow.postMessage(
-                {
-                    giscus: {
-                        setConfig: {
-                            theme: theme,
-                        },
-                    },
-                },
-                "https://giscus.app"
-            );
-        }
-    }
-
-    (function () {
-        addEventListener("message", (e) => {
-            if (event.origin !== "https://giscus.app") return;
-            handler();
-        });
-        window.addEventListener("onColorSchemeChange", handler);
-
-        function handler() {
-            if (document.documentElement.dataset.scheme === "light") {
-                setGiscusTheme('light');
-            } else {
-                setGiscusTheme('dark_dimmed');
-            }
-        }
-    })();
-</script>
-
-    
-
-    <footer class="site-footer">
-    <section class="copyright">
-        &copy; 
-        
-        2026 SelfTechHub
-    </section>
-    
-    <section class="powerby">
-        
-
-    </section>
-</footer>
-
-
-    
-<div class="pswp" tabindex="-1" role="dialog" aria-hidden="true">
-
-    
-    <div class="pswp__bg"></div>
-
-    
-    <div class="pswp__scroll-wrap">
-
-        
-        <div class="pswp__container">
-            <div class="pswp__item"></div>
-            <div class="pswp__item"></div>
-            <div class="pswp__item"></div>
-        </div>
-
-        
-        <div class="pswp__ui pswp__ui--hidden">
-
-            <div class="pswp__top-bar">
-
-                
-
-                <div class="pswp__counter"></div>
-
-                <button class="pswp__button pswp__button--close" title="Close (Esc)"></button>
-
-                <button class="pswp__button pswp__button--share" title="Share"></button>
-
-                <button class="pswp__button pswp__button--fs" title="Toggle fullscreen"></button>
-
-                <button class="pswp__button pswp__button--zoom" title="Zoom in/out"></button>
-
-                
-                
-                <div class="pswp__preloader">
-                    <div class="pswp__preloader__icn">
-                        <div class="pswp__preloader__cut">
-                            <div class="pswp__preloader__donut"></div>
-                        </div>
-                    </div>
-                </div>
-            </div>
-
-            <div class="pswp__share-modal pswp__share-modal--hidden pswp__single-tap">
-                <div class="pswp__share-tooltip"></div>
-            </div>
-
-            <button class="pswp__button pswp__button--arrow--left" title="Previous (arrow left)">
-            </button>
-
-            <button class="pswp__button pswp__button--arrow--right" title="Next (arrow right)">
-            </button>
-
-            <div class="pswp__caption">
-                <div class="pswp__caption__center"></div>
-            </div>
-
-        </div>
-
-    </div>
-
-</div><script 
-                src="https://cdn.jsdelivr.net/npm/photoswipe@4.1.3/dist/photoswipe.min.js"integrity="sha256-ePwmChbbvXbsO02lbM3HoHbSHTHFAeChekF1xKJdleo="crossorigin="anonymous"
-                defer
-                >
-            </script><script 
-                src="https://cdn.jsdelivr.net/npm/photoswipe@4.1.3/dist/photoswipe-ui-default.min.js"integrity="sha256-UKkzOn/w1mBxRmLLGrSeyB4e1xbrp4xylgAWb3M42pU="crossorigin="anonymous"
-                defer
-                >
-            </script><link 
-                rel="stylesheet" 
-                href="https://cdn.jsdelivr.net/npm/photoswipe@4.1.3/dist/default-skin/default-skin.min.css"crossorigin="anonymous"
-            ><link 
-                rel="stylesheet" 
-                href="https://cdn.jsdelivr.net/npm/photoswipe@4.1.3/dist/photoswipe.min.css"crossorigin="anonymous"
-            >
-    
-
-            </main>
-        </div>
-        <script 
-                src="https://cdn.jsdelivr.net/npm/node-vibrant@3.1.6/dist/vibrant.min.js"integrity="sha256-awcR2jno4kI5X0zL8ex0vi2z&#43;KMkF24hUW8WePSA9HM="crossorigin="anonymous"
-                
-                >
-            </script><script type="text/javascript" src="/ts/main.c922af694cc257bf1ecc41c0dd7b0430f9114ec280ccf67cd2c6ad55f5316c4e.js" defer></script>
-<script>
-    (function () {
-        const customFont = document.createElement('link');
-        customFont.href = "https://fonts.googleapis.com/css2?family=Lato:wght@300;400;700&display=swap";
-
-        customFont.type = "text/css";
-        customFont.rel = "stylesheet";
-
-        document.head.appendChild(customFont);
-    }());
-</script>
-
-    </body>
-</html>
+<!doctype html><html lang=zh-cn dir=ltr><head><meta charset=utf-8><meta name=viewport content='width=device-width,initial-scale=1'><meta name=description content="如果你是一个开发者或者刚刚接手运维工作的“背锅侠”，你大概率经历过这样的惊魂时刻：或者是某位同事不小心把包含 AWS_SECRET_KEY 的配置文件推到了公开的 GitHub 仓库；"><title>还在代码里硬编码密码？深夜炸雷的教训与Vault自救指南</title><link rel=canonical href=https://blog.irudder.me/tech/devopsjichugongjurumenyushicao/peizhiguanli_vaultguanliminganxinxi.html><link rel=stylesheet href=/scss/style.min.c77ce1b874b29b2ee9e54a89066c79ebf35cbe9cf399b31ab5d79167f9a965c9.css><meta property='og:title' content="还在代码里硬编码密码？深夜炸雷的教训与Vault自救指南"><meta property='og:description' content="如果你是一个开发者或者刚刚接手运维工作的“背锅侠”，你大概率经历过这样的惊魂时刻：或者是某位同事不小心把包含 AWS_SECRET_KEY 的配置文件推到了公开的 GitHub 仓库；"><meta property='og:url' content='https://blog.irudder.me/tech/devopsjichugongjurumenyushicao/peizhiguanli_vaultguanliminganxinxi.html'><meta property='og:site_name' content='SelfTechHub'><meta property='og:type' content='article'><meta property='article:section' content='Tech'><meta property='article:tag' content='配置管理：Vault管理敏感信息'><meta property='article:published_time' content='2022-01-12T00:00:00+08:00'><meta property='article:modified_time' content='2022-01-12T00:00:00+08:00'><meta name=twitter:title content="还在代码里硬编码密码？深夜炸雷的教训与Vault自救指南"><meta name=twitter:description content="如果你是一个开发者或者刚刚接手运维工作的“背锅侠”，你大概率经历过这样的惊魂时刻：或者是某位同事不小心把包含 AWS_SECRET_KEY 的配置文件推到了公开的 GitHub 仓库；"><link rel="shortcut icon" href=/images/logo.png></head><body class=article-page><script>(function(){const e="StackColorScheme";localStorage.getItem(e)||localStorage.setItem(e,"auto")})()</script><script>(function(){const t="StackColorScheme",e=localStorage.getItem(t),n=window.matchMedia("(prefers-color-scheme: dark)").matches===!0;e=="dark"||e==="auto"&&n?document.documentElement.dataset.scheme="dark":document.documentElement.dataset.scheme="light"})()</script><div class="container main-container flex on-phone--column extended"><aside class="sidebar left-sidebar sticky"><button class="hamburger hamburger--spin" type=button id=toggle-menu aria-label=切换菜单>
+<span class=hamburger-box><span class=hamburger-inner></span></span></button><header><figure class=site-avatar><a href=/><img src=/img/avatar_hu_8588ce14af1147e2.png width=300 height=286 class=site-logo loading=lazy alt=Avatar>
+</a><span class=emoji>🧠</span></figure><div class=site-meta><h1 class=site-name><a href=/>SelfTechHub</a></h1><h2 class=site-description>成长 · 技术 · 商业 · AI —— 把碎片知识沉淀为可复用的记忆体系</h2></div></header><ol class=menu-social><li><a href=https://github.com/pastor17 target=_blank title=GitHub rel=me><svg class="icon icon-tabler icon-tabler-brand-github" width="24" height="24" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor" fill="none" stroke-linecap="round" stroke-linejoin="round"><path stroke="none" d="M0 0h24v24H0z" fill="none"/><path d="M9 19c-4.3 1.4-4.3-2.5-6-3m12 5v-3.5c0-1 .1-1.4-.5-2 2.8-.3 5.5-1.4 5.5-6a4.6 4.6.0 00-1.3-3.2 4.2 4.2.0 00-.1-3.2s-1.1-.3-3.5 1.3a12.3 12.3.0 00-6.2.0C6.5 2.8 5.4 3.1 5.4 3.1a4.2 4.2.0 00-.1 3.2A4.6 4.6.0 004 9.5c0 4.6 2.7 5.7 5.5 6-.6.6-.6 1.2-.5 2V21"/></svg></a></li></ol><ol class=menu id=main-menu><li><a href=/><svg class="icon icon-tabler icon-tabler-home" width="24" height="24" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor" fill="none" stroke-linecap="round" stroke-linejoin="round"><path stroke="none" d="M0 0h24v24H0z"/><polyline points="5 12 3 12 12 3 21 12 19 12"/><path d="M5 12v7a2 2 0 002 2h10a2 2 0 002-2v-7"/><path d="M9 21v-6a2 2 0 012-2h2a2 2 0 012 2v6"/></svg>
+<span>首页</span></a></li><li><a href=/categories/%E6%88%90%E9%95%BF.html><span>成长认知</span></a></li><li><a href=/categories/%E6%8A%80%E6%9C%AF.html><span>技术精进</span></a></li><li><a href=/categories/%E5%95%86%E4%B8%9A.html><span>商业·财富</span></a></li><li><a href=/categories/ai.html><span>探索AI</span></a></li><li><a href=/about/><svg class="icon icon-tabler icon-tabler-user" width="24" height="24" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor" fill="none" stroke-linecap="round" stroke-linejoin="round"><path stroke="none" d="M0 0h24v24H0z"/><circle cx="12" cy="7" r="4"/><path d="M6 21v-2a4 4 0 014-4h4a4 4 0 014 4v2"/></svg>
+<span>关于</span></a></li><li class=menu-bottom-section><ol class=menu><li id=dark-mode-toggle><svg class="icon icon-tabler icon-tabler-toggle-left" width="24" height="24" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor" fill="none" stroke-linecap="round" stroke-linejoin="round"><path stroke="none" d="M0 0h24v24H0z"/><circle cx="8" cy="12" r="2"/><rect x="2" y="6" width="20" height="12" rx="6"/></svg>
+<svg class="icon icon-tabler icon-tabler-toggle-right" width="24" height="24" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor" fill="none" stroke-linecap="round" stroke-linejoin="round"><path stroke="none" d="M0 0h24v24H0z"/><circle cx="16" cy="12" r="2"/><rect x="2" y="6" width="20" height="12" rx="6"/></svg>
+<span>暗色模式</span></li></ol></li></ol></aside><aside class="sidebar right-sidebar sticky"><section class="widget archives"><div class=widget-icon><svg class="icon icon-tabler icon-tabler-hash" width="24" height="24" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor" fill="none" stroke-linecap="round" stroke-linejoin="round"><path stroke="none" d="M0 0h24v24H0z"/><line x1="5" y1="9" x2="19" y2="9"/><line x1="5" y1="15" x2="19" y2="15"/><line x1="11" y1="4" x2="7" y2="20"/><line x1="17" y1="4" x2="13" y2="20"/></svg></div><h2 class="widget-title section-title">目录</h2><div class=widget--toc><nav id=TableOfContents><ul><li><a href=#告别裸奔为什么-base64-不是加密>告别“裸奔”：为什么 Base64 不是加密</a></li><li><a href=#治愈焦虑从静态密码到动态凭据>治愈焦虑：从“静态密码”到“动态凭据”</a></li><li><a href=#落地指南别被架构图吓跑从小处入手>落地指南：别被架构图吓跑，从小处入手</a></li><li><a href=#写在最后给自己的安全感充值>写在最后：给自己的安全感充值</a></li></ul></nav></div></section></aside><main class="main full-width"><article class=main-article><header class=article-header><div class=article-details><header class=article-category><a href=/categories/%E6%8A%80%E6%9C%AF.html>技术精进</a></header><div class=article-title-wrapper><h2 class=article-title><a href=/tech/devopsjichugongjurumenyushicao/peizhiguanli_vaultguanliminganxinxi.html>还在代码里硬编码密码？深夜炸雷的教训与Vault自救指南</a></h2><h3 class=article-subtitle>如果你是一个开发者或者刚刚接手运维工作的“背锅侠”，你大概率经历过这样的惊魂时刻：或者是某位同事不小心把包含 AWS_SECRET_KEY 的配置文件推到了公开的 GitHub 仓库；</h3></div><footer class=article-time><div><svg class="icon icon-tabler icon-tabler-calendar-time" width="56" height="56" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor" fill="none" stroke-linecap="round" stroke-linejoin="round"><path stroke="none" d="M0 0h24v24H0z"/><path d="M11.795 21H5a2 2 0 01-2-2V7a2 2 0 012-2h12a2 2 0 012 2v4"/><circle cx="18" cy="18" r="4"/><path d="M15 3v4"/><path d="M7 3v4"/><path d="M3 11h16"/><path d="M18 16.496V18l1 1"/></svg>
+<time class=article-time--published datetime=2022-01-12T00:00:00+08:00>2022-01-12</time></div><div><svg class="icon icon-tabler icon-tabler-clock" width="24" height="24" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor" fill="none" stroke-linecap="round" stroke-linejoin="round"><path stroke="none" d="M0 0h24v24H0z"/><circle cx="12" cy="12" r="9"/><polyline points="12 7 12 12 15 15"/></svg>
+<time class=article-time--reading>阅读时长: 5 分钟</time></div></footer></div></header><section class=article-content><p>如果你是一个开发者或者刚刚接手运维工作的“背锅侠”，你大概率经历过这样的惊魂时刻：</p><p><img src="https://picsum.photos/800/450?random=1768388501970" loading=lazy alt=配图></p><p>或者是某位同事不小心把包含 <code>AWS_SECRET_KEY</code> 的配置文件推到了公开的 GitHub 仓库；或者是数据库密码改了，但只有你的服务挂了，因为你把密码硬编码在了代码的第 302 行；又或者是离职三个月的前端外包小哥，居然还能连上你们的测试服数据库。</p><p>我曾以为把密码写在环境变量里、或者用 Kubernetes 的 Secret 就万事大吉了。直到两年前的一个凌晨三点，我被报警电话叫醒，因为一个泄露的密钥，我们的云服务账单在两小时内被刷爆了五千美金。</p><p>那一刻的无力感让我明白：<strong>管理敏感信息（Secrets），不是一个技术问题，而是一个关于“睡个好觉”的生存问题。</strong></p><p>今天不讲大道理，我们聊聊怎么用 HashiCorp Vault 这个工具，把悬在头顶的这把达摩克利斯之剑摘下来。</p><h2 id=告别裸奔为什么-base64-不是加密>告别“裸奔”：为什么 Base64 不是加密</h2><p>很多中小团队的技术负责人，在初期都会为了“快”而选择妥协。</p><p>最典型的场景是：大家把数据库连接串写在 <code>config.yaml</code> 里，或者在 Kubernetes 里创建一个 Secret。但这里有个巨大的误区——<strong>Kubernetes 的 Secret 默认只是 Base64 编码，那不是加密，那是“裸奔”。</strong> 任何人只要能拿到那个 yaml 文件，用一行命令就能还原出密码。</p><p><strong>真实案例：</strong>
+2021年，我曾协助一家电商初创团队做安全审计。他们的运维负责人“阿强”非常自信，说所有密码都走了 K8s Secret。结果我只用了 5 分钟，通过一个拥有“读取所有命名空间”权限的 CI/CD 机器人账号，把他们生产环境的 MySQL 根密码拿了出来。</p><p>阿强当时的脸色，比我在半夜看到的服务器报错日志还白。</p><p><strong>我们需要的不是一个“存放”密码的地方，而是一个能“管理”密码生命周期的保险箱。</strong></p><p>这就引入了 Vault 的核心逻辑：<strong>集中存储、严格鉴权、甚至“用完即焚”。</strong></p><p>如果你还在纠结要不要上 Vault，请自查一下：</p><ol><li>如果有员工离职，你需要手动修改几个系统的密码？</li><li>如果不看代码，你能确切知道哪些服务用了同一个数据库账号吗？</li></ol><p>如果答案让你心里没底，那就往下看。</p><h2 id=治愈焦虑从静态密码到动态凭据>治愈焦虑：从“静态密码”到“动态凭据”</h2><p>Vault 最让我感到“治愈”的功能，不是它加密有多强（虽然确实很强），而是<strong>Dynamic Secrets（动态凭据）</strong>。</p><p>这是什么概念？</p><p><img src="https://picsum.photos/800/450?random=1768388501794" loading=lazy alt=配图></p><p>传统的做法是：我（运维）创建一个数据库账号 <code>root/123456</code>，然后把这个账号分发给 10 个微服务。这个密码万年不变，一旦泄露，全得重来。</p><p>Vault 的做法是：服务 A 启动时，找 Vault 说：“我是服务 A，我要连数据库。” Vault 确认身份后，<strong>临时</strong>在数据库里创建一个账号 <code>user_temp_8s7d</code>，给它 1 小时的有效期，然后把密码给服务 A。</p><p><strong>一小时后，这个账号自动销毁。</strong></p><p><strong>实操复盘：</strong>
+去年，我们团队的一个老项目需要重构。以前这个项目的数据库密码是写死在 Docker 镜像里的，每次改密码都要重新打镜像、发版，极其痛苦。</p><p>后来我们接入了 Vault。那天下午，我坐在工位上看着监控日志：</p><ul><li>14:00，服务启动，从 Vault 申请到了一个有效期 30 分钟的临时凭据。</li><li>14:30，旧凭据失效，服务无感刷新，获取了新凭据。</li></ul><p>整个过程，没有任何人工干预。即使黑客截获了那个密码，等他准备动手时，密码已经失效了。那种“即使门没锁，小偷进来发现桌子上全是废纸”的安全感，真的太棒了。</p><p>为了实现这个，你其实只需要简单的配置（以 Postgres 为例）：</p><div class=highlight><div class=chroma><table class=lntable><tr><td class=lntd><pre tabindex=0 class=chroma><code><span class=lnt> 1
+</span><span class=lnt> 2
+</span><span class=lnt> 3
+</span><span class=lnt> 4
+</span><span class=lnt> 5
+</span><span class=lnt> 6
+</span><span class=lnt> 7
+</span><span class=lnt> 8
+</span><span class=lnt> 9
+</span><span class=lnt>10
+</span></code></pre></td><td class=lntd><pre tabindex=0 class=chroma><code class=language-hcl data-lang=hcl><span class=line><span class=cl><span class=c1># 在 Vault 中配置数据库角色
+</span></span></span><span class=line><span class=cl><span class=c1></span><span class=k>resource</span> <span class=s2>&#34;vault_database_secret_backend_role&#34; &#34;role&#34;</span> {
+</span></span><span class=line><span class=cl><span class=n>  backend</span>             <span class=o>=</span> <span class=k>vault_database_secret_backend_connection</span><span class=p>.</span><span class=k>postgres</span><span class=p>.</span><span class=k>backend</span>
+</span></span><span class=line><span class=cl><span class=n>  name</span>                <span class=o>=</span> <span class=s2>&#34;my-role&#34;</span>
+</span></span><span class=line><span class=cl><span class=n>  db_name</span>             <span class=o>=</span> <span class=k>vault_database_secret_backend_connection</span><span class=p>.</span><span class=k>postgres</span><span class=p>.</span><span class=k>name</span><span class=c1>
+</span></span></span><span class=line><span class=cl><span class=c1>  # 关键点：动态创建用户的 SQL 模板
+</span></span></span><span class=line><span class=cl><span class=c1></span><span class=n>  creation_statements</span> <span class=o>=</span> <span class=p>[</span> <span class=s2>&#34;CREATE ROLE \&#34;\&#34; WITH LOGIN PASSWORD &#39;&#39; VALID UNTIL &#39;&#39;;&#34;, &#34;GRANT SELECT ON ALL TABLES IN SCHEMA public TO \&#34;\&#34;;&#34;</span> <span class=p>]</span>
+</span></span><span class=line><span class=cl><span class=n>  default_ttl</span>         <span class=o>=</span> <span class=m>3600</span>
+</span></span><span class=line><span class=cl><span class=n>  max_ttl</span>             <span class=o>=</span> <span class=m>86400</span>
+</span></span><span class=line><span class=cl>}
+</span></span></code></pre></td></tr></table></div></div><h2 id=落地指南别被架构图吓跑从小处入手>落地指南：别被架构图吓跑，从小处入手</h2><p>很多新手被 Vault 劝退，是因为看到那复杂的 HA（高可用）架构图。但我亲测，对于中小团队，<strong>不要一上来就搞集群模式</strong>。</p><p><strong>我的建议是：先跑通流程，再考虑高可用。</strong></p><p>我在自己做 Side Project 的时候，通常采用 <strong>Vault Agent Sidecar</strong> 模式注入到 Kubernetes 中。这种方式对开发人员最友好——他们甚至不需要改一行代码，不需要引入 Vault 的 SDK。</p><p><strong>它是怎么工作的？</strong></p><ol><li>在你的 Deployment yaml 里加个注解（Annotation）。</li><li>Pod 启动时，Vault 会塞一个“小帮手”容器进去。</li><li>这个“小帮手”负责把从 Vault 取到的密码，写成一个本地文件，比如 <code>/vault/secrets/config.json</code>。</li><li>你的应用程序就像读取普通文件一样读取它。</li></ol><p><strong>真实场景：</strong>
+我有位做后端开发的朋友小李，特别抗拒改代码接 SDK。我让他试了这个 Sidecar 模式。</p><p>那天中午吃饭，他跟我说：“这东西有点意思，我代码里原本读的是 <code>.env</code> 文件，现在我只要把 Vault 生成的文件路径指过去，代码一行没动，密码管理却变成了企业级标准。”</p><p>这种“非侵入式”的改造，是推行新技术的最佳姿势。</p><h2 id=写在最后给自己的安全感充值>写在最后：给自己的安全感充值</h2><p>技术工具的本质，是减少我们的认知负担。</p><p>配置管理不应该成为你加班的理由，也不应该成为深夜惊醒的噩梦。Vault 看起来门槛略高，但它解决的是根本性的信任问题。</p><p><strong>分享一个我常用的 Vault Policy 模板</strong>，这是权限控制的基础，复制保存，起步时一定用得上：</p><div class=highlight><div class=chroma><table class=lntable><tr><td class=lntd><pre tabindex=0 class=chroma><code><span class=lnt> 1
+</span><span class=lnt> 2
+</span><span class=lnt> 3
+</span><span class=lnt> 4
+</span><span class=lnt> 5
+</span><span class=lnt> 6
+</span><span class=lnt> 7
+</span><span class=lnt> 8
+</span><span class=lnt> 9
+</span><span class=lnt>10
+</span><span class=lnt>11
+</span><span class=lnt>12
+</span><span class=lnt>13
+</span><span class=lnt>14
+</span></code></pre></td><td class=lntd><pre tabindex=0 class=chroma><code class=language-hcl data-lang=hcl><span class=line><span class=cl><span class=c1># 允许应用读取特定的密钥路径
+</span></span></span><span class=line><span class=cl><span class=c1></span><span class=k>path</span> <span class=s2>&#34;secret/data/my-app/*&#34;</span> {
+</span></span><span class=line><span class=cl><span class=n>  capabilities</span> <span class=o>=</span> <span class=p>[</span><span class=s2>&#34;read&#34;</span><span class=p>]</span>
+</span></span><span class=line><span class=cl>}<span class=c1>
+</span></span></span><span class=line><span class=cl><span class=c1>
+</span></span></span><span class=line><span class=cl><span class=c1># 严禁应用删除或列出所有密钥（最小权限原则）
+</span></span></span><span class=line><span class=cl><span class=c1></span><span class=k>path</span> <span class=s2>&#34;secret/metadata/*&#34;</span> {
+</span></span><span class=line><span class=cl><span class=n>  capabilities</span> <span class=o>=</span> <span class=p>[</span><span class=s2>&#34;list&#34;</span><span class=p>]</span>
+</span></span><span class=line><span class=cl>}<span class=c1>
+</span></span></span><span class=line><span class=cl><span class=c1>
+</span></span></span><span class=line><span class=cl><span class=c1># 允许应用续期自己的 Token
+</span></span></span><span class=line><span class=cl><span class=c1></span><span class=k>path</span> <span class=s2>&#34;auth/token/renew-self&#34;</span> {
+</span></span><span class=line><span class=cl><span class=n>  capabilities</span> <span class=o>=</span> <span class=p>[</span><span class=s2>&#34;update&#34;</span><span class=p>]</span>
+</span></span><span class=line><span class=cl>}
+</span></span></code></pre></td></tr></table></div></div><p><strong>如果你想在明天就开始改变，不妨尝试这 3 个具体行动：</strong></p><p><img src="https://picsum.photos/800/450?random=1768388493561" loading=lazy alt=配图></p><ol><li><strong>全局搜索</strong>：立刻在你的代码仓库里搜索 <code>password</code>、<code>secret</code>、<code>key</code> 等关键词，把搜出来的硬编码全部记录下来（相信我，结果会吓你一跳）。</li><li><strong>本地体验</strong>：不要急着上生产，在本地 Docker 跑一个 <code>vault server -dev</code>，体验一下 <code>vault kv put</code> 和 <code>vault kv get</code> 的手感。</li><li><strong>单点突破</strong>：挑选一个<strong>非核心、低风险</strong>的内部服务（比如每天跑一次的报表任务），尝试把它的数据库连接改成通过 Vault 获取。</li></ol><p>安全感不是别人给的，是自己配置出来的。希望今晚，大家都能睡个安稳觉。</p></section><footer class=article-footer><section class=article-tags><a href=/tags/%E9%85%8D%E7%BD%AE%E7%AE%A1%E7%90%86Vault%E7%AE%A1%E7%90%86%E6%95%8F%E6%84%9F%E4%BF%A1%E6%81%AF.html>配置管理：Vault管理敏感信息</a></section></footer></article><script src=https://giscus.app/client.js data-repo=pastor17/bloggiscus data-repo-id=R_kgDOQ6H9qQ data-category data-category-id=DIC_kwDOQ6H9qc4C0-T8 data-mapping=pathname data-strict=0 data-reactions-enabled=1 data-emit-metadata=0 data-input-position=bottom data-theme=light data-lang=zh-CN data-loading=lazy crossorigin=anonymous async></script><script>function setGiscusTheme(e){let t=document.querySelector("iframe.giscus-frame");t&&t.contentWindow.postMessage({giscus:{setConfig:{theme:e}}},"https://giscus.app")}(function(){addEventListener("message",t=>{if(event.origin!=="https://giscus.app")return;e()}),window.addEventListener("onColorSchemeChange",e);function e(){setGiscusTheme(document.documentElement.dataset.scheme==="light"?"light":"dark_dimmed")}})()</script><footer class=site-footer><section class=copyright>&copy;
+2021 -
+2026 SelfTechHub</section><section class=powerby>拒绝一次性认知，把碎片知识沉淀为可复用的记忆体系<br></section></footer><div class=pswp tabindex=-1 role=dialog aria-hidden=true><div class=pswp__bg></div><div class=pswp__scroll-wrap><div class=pswp__container><div class=pswp__item></div><div class=pswp__item></div><div class=pswp__item></div></div><div class="pswp__ui pswp__ui--hidden"><div class=pswp__top-bar><div class=pswp__counter></div><button class="pswp__button pswp__button--close" title="Close (Esc)"></button>
+<button class="pswp__button pswp__button--share" title=Share></button>
+<button class="pswp__button pswp__button--fs" title="Toggle fullscreen"></button>
+<button class="pswp__button pswp__button--zoom" title="Zoom in/out"></button><div class=pswp__preloader><div class=pswp__preloader__icn><div class=pswp__preloader__cut><div class=pswp__preloader__donut></div></div></div></div></div><div class="pswp__share-modal pswp__share-modal--hidden pswp__single-tap"><div class=pswp__share-tooltip></div></div><button class="pswp__button pswp__button--arrow--left" title="Previous (arrow left)">
+</button>
+<button class="pswp__button pswp__button--arrow--right" title="Next (arrow right)"></button><div class=pswp__caption><div class=pswp__caption__center></div></div></div></div></div><script src=https://cdn.jsdelivr.net/npm/photoswipe@4.1.3/dist/photoswipe.min.js integrity="sha256-ePwmChbbvXbsO02lbM3HoHbSHTHFAeChekF1xKJdleo=" crossorigin=anonymous defer></script><script src=https://cdn.jsdelivr.net/npm/photoswipe@4.1.3/dist/photoswipe-ui-default.min.js integrity="sha256-UKkzOn/w1mBxRmLLGrSeyB4e1xbrp4xylgAWb3M42pU=" crossorigin=anonymous defer></script><link rel=stylesheet href=https://cdn.jsdelivr.net/npm/photoswipe@4.1.3/dist/default-skin/default-skin.min.css crossorigin=anonymous><link rel=stylesheet href=https://cdn.jsdelivr.net/npm/photoswipe@4.1.3/dist/photoswipe.min.css crossorigin=anonymous></main></div><script src=https://cdn.jsdelivr.net/npm/node-vibrant@3.1.6/dist/vibrant.min.js integrity="sha256-awcR2jno4kI5X0zL8ex0vi2z+KMkF24hUW8WePSA9HM=" crossorigin=anonymous></script><script type=text/javascript src=/ts/main.c922af694cc257bf1ecc41c0dd7b0430f9114ec280ccf67cd2c6ad55f5316c4e.js defer></script><script>(function(){const e=document.createElement("link");e.href="https://fonts.googleapis.com/css2?family=Lato:wght@300;400;700&display=swap",e.type="text/css",e.rel="stylesheet",document.head.appendChild(e)})()</script></body></html>

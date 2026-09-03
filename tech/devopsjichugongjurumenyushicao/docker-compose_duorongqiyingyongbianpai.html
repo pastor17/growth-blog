@@ -1,476 +1,86 @@
-<!DOCTYPE html>
-<html lang="zh-cn" dir="ltr">
-    <head><meta charset='utf-8'>
-<meta name='viewport' content='width=device-width, initial-scale=1'><meta name='description' content="还记得刚入行那会儿，每次接手新项目，最让我头疼的不是代码逻辑，而是那个写得乱七八糟的 README.md。\n“先装个 MySQL 5.7（不能是 8.0 哦），再起个 Redis，然后由左向右分别打开三个终端窗口，依次运行这几行命令……”\n我曾经天真地以为，只要我把这些步骤写成一个 start.sh 脚本，就能一劳永逸。直到三年前在一个中型电商项目的重构中，我踩了一个巨大的坑：因为团队里有人的 Python 版本不一致，我的“完美脚本”在他电脑上直接报错，最后还得手把手去调环境。\n那天我就在想：要是能像点菜一样，一张单子列清楚，厨房照着做，做完直接端上来，该多好？\n这就是我后来死磕 Docker Compose 的起点。今天想站在“过来人”的角度，和大家复盘一下我是怎么用它把团队的开发效率拉回正轨的。\n一、 别再用 Shell 脚本“假装”编排了\r很多中小团队（包括当年的我们）都有个误区：觉得 Docker Compose 是用来部署生产环境集群的，本地开发用 Shell 脚本或者直接敲命令就够了。\n大错特错。\n那时候我们维护着一个包含 Web 端、API 服务和数据库的系统。每次启动，我要先确认数据库活了没有，再启动 API，最后起前端。为了解决“依赖顺序”问题，我在脚本里简单粗暴地加了 sleep 10。\n结果显而易见：电脑慢的人 10秒不够，服务崩了；电脑快的人白等 10秒，浪费生命。\n后来引入 Docker Compose，最大的改变不是技术上的，而是思维模式从“命令式”变成了“声明式”。\n看看这个对比，你就懂我的意思了：\n以前的笨办法：\n# 这种脚本我看一眼就头大 docker run -d --name db postgres:13 sleep 5 # 听天由命的等待 docker run -d -p 8080:8080 --link db:db my-backend Docker Compose 的优雅（docker-compose.yml）：\nversion: &#39;3.8&#39; services: db: image: postgres:13 environment: POSTGRES_PASSWORD: secret backend: build: ./backend ports: - &#34;8080:8080&#34; depends_on: # 重点在这：显式声明依赖 - db 自从用了 depends_on，我再也不用在那儿猜数据库到底起没起来。更重要的是，这份 YAML 文件成了项目文档的一部分。新来的实习生，只要装好 Docker，一句 docker compose up，三分钟内就能在本地把整个复杂的微服务跑起来。\n">
-<title>手写启动脚本的痛：Docker Compose 3年实战复盘</title>
-
-<link rel='canonical' href='https://blog.irudder.me/tech/devopsjichugongjurumenyushicao/docker-compose_duorongqiyingyongbianpai.html'>
-
-<link rel="stylesheet" href="/scss/style.min.b9e9128fec450ebccecc4ec9900157f32b85d0609bcd5ee3293968bcaa1235f2.css"><meta property='og:title' content="手写启动脚本的痛：Docker Compose 3年实战复盘">
-<meta property='og:description' content="还记得刚入行那会儿，每次接手新项目，最让我头疼的不是代码逻辑，而是那个写得乱七八糟的 README.md。\n“先装个 MySQL 5.7（不能是 8.0 哦），再起个 Redis，然后由左向右分别打开三个终端窗口，依次运行这几行命令……”\n我曾经天真地以为，只要我把这些步骤写成一个 start.sh 脚本，就能一劳永逸。直到三年前在一个中型电商项目的重构中，我踩了一个巨大的坑：因为团队里有人的 Python 版本不一致，我的“完美脚本”在他电脑上直接报错，最后还得手把手去调环境。\n那天我就在想：要是能像点菜一样，一张单子列清楚，厨房照着做，做完直接端上来，该多好？\n这就是我后来死磕 Docker Compose 的起点。今天想站在“过来人”的角度，和大家复盘一下我是怎么用它把团队的开发效率拉回正轨的。\n一、 别再用 Shell 脚本“假装”编排了\r很多中小团队（包括当年的我们）都有个误区：觉得 Docker Compose 是用来部署生产环境集群的，本地开发用 Shell 脚本或者直接敲命令就够了。\n大错特错。\n那时候我们维护着一个包含 Web 端、API 服务和数据库的系统。每次启动，我要先确认数据库活了没有，再启动 API，最后起前端。为了解决“依赖顺序”问题，我在脚本里简单粗暴地加了 sleep 10。\n结果显而易见：电脑慢的人 10秒不够，服务崩了；电脑快的人白等 10秒，浪费生命。\n后来引入 Docker Compose，最大的改变不是技术上的，而是思维模式从“命令式”变成了“声明式”。\n看看这个对比，你就懂我的意思了：\n以前的笨办法：\n# 这种脚本我看一眼就头大 docker run -d --name db postgres:13 sleep 5 # 听天由命的等待 docker run -d -p 8080:8080 --link db:db my-backend Docker Compose 的优雅（docker-compose.yml）：\nversion: &#39;3.8&#39; services: db: image: postgres:13 environment: POSTGRES_PASSWORD: secret backend: build: ./backend ports: - &#34;8080:8080&#34; depends_on: # 重点在这：显式声明依赖 - db 自从用了 depends_on，我再也不用在那儿猜数据库到底起没起来。更重要的是，这份 YAML 文件成了项目文档的一部分。新来的实习生，只要装好 Docker，一句 docker compose up，三分钟内就能在本地把整个复杂的微服务跑起来。\n">
-<meta property='og:url' content='https://blog.irudder.me/tech/devopsjichugongjurumenyushicao/docker-compose_duorongqiyingyongbianpai.html'>
-<meta property='og:site_name' content='SelfTechHub'>
-<meta property='og:type' content='article'><meta property='article:section' content='Tech' /><meta property='article:tag' content='Docker Compose：多容器应用编排' /><meta property='article:published_time' content='2021-09-03T00:00:00&#43;00:00'/><meta property='article:modified_time' content='2021-09-03T00:00:00&#43;00:00'/>
-<meta name="twitter:title" content="手写启动脚本的痛：Docker Compose 3年实战复盘">
-<meta name="twitter:description" content="还记得刚入行那会儿，每次接手新项目，最让我头疼的不是代码逻辑，而是那个写得乱七八糟的 README.md。\n“先装个 MySQL 5.7（不能是 8.0 哦），再起个 Redis，然后由左向右分别打开三个终端窗口，依次运行这几行命令……”\n我曾经天真地以为，只要我把这些步骤写成一个 start.sh 脚本，就能一劳永逸。直到三年前在一个中型电商项目的重构中，我踩了一个巨大的坑：因为团队里有人的 Python 版本不一致，我的“完美脚本”在他电脑上直接报错，最后还得手把手去调环境。\n那天我就在想：要是能像点菜一样，一张单子列清楚，厨房照着做，做完直接端上来，该多好？\n这就是我后来死磕 Docker Compose 的起点。今天想站在“过来人”的角度，和大家复盘一下我是怎么用它把团队的开发效率拉回正轨的。\n一、 别再用 Shell 脚本“假装”编排了\r很多中小团队（包括当年的我们）都有个误区：觉得 Docker Compose 是用来部署生产环境集群的，本地开发用 Shell 脚本或者直接敲命令就够了。\n大错特错。\n那时候我们维护着一个包含 Web 端、API 服务和数据库的系统。每次启动，我要先确认数据库活了没有，再启动 API，最后起前端。为了解决“依赖顺序”问题，我在脚本里简单粗暴地加了 sleep 10。\n结果显而易见：电脑慢的人 10秒不够，服务崩了；电脑快的人白等 10秒，浪费生命。\n后来引入 Docker Compose，最大的改变不是技术上的，而是思维模式从“命令式”变成了“声明式”。\n看看这个对比，你就懂我的意思了：\n以前的笨办法：\n# 这种脚本我看一眼就头大 docker run -d --name db postgres:13 sleep 5 # 听天由命的等待 docker run -d -p 8080:8080 --link db:db my-backend Docker Compose 的优雅（docker-compose.yml）：\nversion: &#39;3.8&#39; services: db: image: postgres:13 environment: POSTGRES_PASSWORD: secret backend: build: ./backend ports: - &#34;8080:8080&#34; depends_on: # 重点在这：显式声明依赖 - db 自从用了 depends_on，我再也不用在那儿猜数据库到底起没起来。更重要的是，这份 YAML 文件成了项目文档的一部分。新来的实习生，只要装好 Docker，一句 docker compose up，三分钟内就能在本地把整个复杂的微服务跑起来。\n">
-    </head>
-    <body class="
-    article-page
-    ">
-    <script>
-        (function() {
-            const colorSchemeKey = 'StackColorScheme';
-            if(!localStorage.getItem(colorSchemeKey)){
-                localStorage.setItem(colorSchemeKey, "auto");
-            }
-        })();
-    </script><script>
-    (function() {
-        const colorSchemeKey = 'StackColorScheme';
-        const colorSchemeItem = localStorage.getItem(colorSchemeKey);
-        const supportDarkMode = window.matchMedia('(prefers-color-scheme: dark)').matches === true;
-
-        if (colorSchemeItem == 'dark' || colorSchemeItem === 'auto' && supportDarkMode) {
-            
-
-            document.documentElement.dataset.scheme = 'dark';
-        } else {
-            document.documentElement.dataset.scheme = 'light';
-        }
-    })();
-</script>
-<div class="container main-container flex on-phone--column compact"><aside class="sidebar left-sidebar sticky ">
-    <button class="hamburger hamburger--spin" type="button" id="toggle-menu" aria-label="切换菜单">
-        <span class="hamburger-box">
-            <span class="hamburger-inner"></span>
-        </span>
-    </button>
-
-    <header>
-        
-            
-            <figure class="site-avatar">
-                <a href="/">
-                
-                    
-                    
-                    
-                        
-                        <img src="/img/avatar_hu_8588ce14af1147e2.png" width="300"
-                            height="286" class="site-logo" loading="lazy" alt="Avatar">
-                    
-                
-                </a>
-                
-            </figure>
-            
-        
-        
-        <div class="site-meta">
-            <h1 class="site-name"><a href="/">SelfTechHub</a></h1>
-            <h2 class="site-description"></h2>
-        </div>
-    </header><ol class="menu" id="main-menu">
-        
-        
-        <li class="menu-bottom-section">
-            <ol class="menu">
-
-                
-                    <li id="dark-mode-toggle">
-                        <svg xmlns="http://www.w3.org/2000/svg" class="icon icon-tabler icon-tabler-toggle-left" width="24" height="24" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor" fill="none" stroke-linecap="round" stroke-linejoin="round">
-  <path stroke="none" d="M0 0h24v24H0z"/>
-  <circle cx="8" cy="12" r="2" />
-  <rect x="2" y="6" width="20" height="12" rx="6" />
-</svg>
-
-
-
-                        <svg xmlns="http://www.w3.org/2000/svg" class="icon icon-tabler icon-tabler-toggle-right" width="24" height="24" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor" fill="none" stroke-linecap="round" stroke-linejoin="round">
-  <path stroke="none" d="M0 0h24v24H0z"/>
-  <circle cx="16" cy="12" r="2" />
-  <rect x="2" y="6" width="20" height="12" rx="6" />
-</svg>
-
-
-
-                        <span>暗色模式</span>
-                    </li>
-                
-            </ol>
-        </li>
-    </ol>
-</aside>
-
-    
-
-            <main class="main full-width">
-    <article class="main-article">
-    <header class="article-header">
-
-    <div class="article-details">
-    
-    <header class="article-category">
-        
-            <a href="/categories/%E6%8A%80%E6%9C%AF.html" >
-                技术精进
-            </a>
-        
-    </header>
-    
-
-    <div class="article-title-wrapper">
-        <h2 class="article-title">
-            <a href="/tech/devopsjichugongjurumenyushicao/docker-compose_duorongqiyingyongbianpai.html">手写启动脚本的痛：Docker Compose 3年实战复盘</a>
-        </h2>
-    
-        
-    </div>
-
-    
-    
-    
-    
-    <footer class="article-time">
-        
-            <div>
-                <svg xmlns="http://www.w3.org/2000/svg" class="icon icon-tabler icon-tabler-calendar-time" width="56" height="56" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor" fill="none" stroke-linecap="round" stroke-linejoin="round">
-  <path stroke="none" d="M0 0h24v24H0z"/>
-  <path d="M11.795 21h-6.795a2 2 0 0 1 -2 -2v-12a2 2 0 0 1 2 -2h12a2 2 0 0 1 2 2v4" />
-  <circle cx="18" cy="18" r="4" />
-  <path d="M15 3v4" />
-  <path d="M7 3v4" />
-  <path d="M3 11h16" />
-  <path d="M18 16.496v1.504l1 1" />
-</svg>
-                <time class="article-time--published" datetime='2021-09-03T00:00:00Z'>Sep 03, 2021</time>
-            </div>
-        
-
-        
-            <div>
-                <svg xmlns="http://www.w3.org/2000/svg" class="icon icon-tabler icon-tabler-clock" width="24" height="24" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor" fill="none" stroke-linecap="round" stroke-linejoin="round">
-  <path stroke="none" d="M0 0h24v24H0z"/>
-  <circle cx="12" cy="12" r="9" />
-  <polyline points="12 7 12 12 15 15" />
-</svg>
-
-
-
-                <time class="article-time--reading">
-                    阅读时长: 2 分钟
-                </time>
-            </div>
-        
-    </footer>
-    
-
-    
-</div>
-
-</header>
-
-    <section class="article-content">
-    
-    
-    <p>还记得刚入行那会儿，每次接手新项目，最让我头疼的不是代码逻辑，而是那个写得乱七八糟的 <code>README.md</code>。</p>
-<p>“先装个 MySQL 5.7（不能是 8.0 哦），再起个 Redis，然后由左向右分别打开三个终端窗口，依次运行这几行命令……”</p>
-<p>我曾经天真地以为，只要我把这些步骤写成一个 <code>start.sh</code> 脚本，就能一劳永逸。直到三年前在一个中型电商项目的重构中，我踩了一个巨大的坑：因为团队里有人的 Python 版本不一致，我的“完美脚本”在他电脑上直接报错，最后还得手把手去调环境。</p>
-<p>那天我就在想：<strong>要是能像点菜一样，一张单子列清楚，厨房照着做，做完直接端上来，该多好？</strong></p>
-<p>这就是我后来死磕 Docker Compose 的起点。今天想站在“过来人”的角度，和大家复盘一下我是怎么用它把团队的开发效率拉回正轨的。</p>
-<h2 id="一-别再用-shell-脚本假装编排了">一、 别再用 Shell 脚本“假装”编排了
-</h2><p>很多中小团队（包括当年的我们）都有个误区：觉得 Docker Compose 是用来部署生产环境集群的，本地开发用 Shell 脚本或者直接敲命令就够了。</p>
-<p><strong>大错特错。</strong></p>
-<p>那时候我们维护着一个包含 Web 端、API 服务和数据库的系统。每次启动，我要先确认数据库活了没有，再启动 API，最后起前端。为了解决“依赖顺序”问题，我在脚本里简单粗暴地加了 <code>sleep 10</code>。</p>
-<p>结果显而易见：电脑慢的人 10秒不够，服务崩了；电脑快的人白等 10秒，浪费生命。</p>
-<p>后来引入 Docker Compose，最大的改变不是技术上的，而是<strong>思维模式从“命令式”变成了“声明式”</strong>。</p>
-<p>看看这个对比，你就懂我的意思了：</p>
-<p><strong>以前的笨办法：</strong></p>
-<div class="highlight"><pre tabindex="0" style="color:#f8f8f2;background-color:#272822;-moz-tab-size:4;-o-tab-size:4;tab-size:4;"><code class="language-bash" data-lang="bash"><span style="display:flex;"><span><span style="color:#75715e"># 这种脚本我看一眼就头大</span>
-</span></span><span style="display:flex;"><span>docker run -d --name db postgres:13
-</span></span><span style="display:flex;"><span>sleep <span style="color:#ae81ff">5</span> <span style="color:#75715e"># 听天由命的等待</span>
-</span></span><span style="display:flex;"><span>docker run -d -p 8080:8080 --link db:db my-backend
-</span></span></code></pre></div><p><strong>Docker Compose 的优雅（docker-compose.yml）：</strong></p>
-<div class="highlight"><pre tabindex="0" style="color:#f8f8f2;background-color:#272822;-moz-tab-size:4;-o-tab-size:4;tab-size:4;"><code class="language-yaml" data-lang="yaml"><span style="display:flex;"><span><span style="color:#f92672">version</span>: <span style="color:#e6db74">&#39;3.8&#39;</span>
-</span></span><span style="display:flex;"><span><span style="color:#f92672">services</span>:
-</span></span><span style="display:flex;"><span>  <span style="color:#f92672">db</span>:
-</span></span><span style="display:flex;"><span>    <span style="color:#f92672">image</span>: <span style="color:#ae81ff">postgres:13</span>
-</span></span><span style="display:flex;"><span>    <span style="color:#f92672">environment</span>:
-</span></span><span style="display:flex;"><span>      <span style="color:#f92672">POSTGRES_PASSWORD</span>: <span style="color:#ae81ff">secret</span>
-</span></span><span style="display:flex;"><span>    
-</span></span><span style="display:flex;"><span>  <span style="color:#f92672">backend</span>:
-</span></span><span style="display:flex;"><span>    <span style="color:#f92672">build</span>: <span style="color:#ae81ff">./backend</span>
-</span></span><span style="display:flex;"><span>    <span style="color:#f92672">ports</span>:
-</span></span><span style="display:flex;"><span>      - <span style="color:#e6db74">&#34;8080:8080&#34;</span>
-</span></span><span style="display:flex;"><span>    <span style="color:#f92672">depends_on</span>: <span style="color:#75715e"># 重点在这：显式声明依赖</span>
-</span></span><span style="display:flex;"><span>      - <span style="color:#ae81ff">db </span>
-</span></span></code></pre></div><p>自从用了 <code>depends_on</code>，我再也不用在那儿猜数据库到底起没起来。更重要的是，这份 YAML 文件成了项目文档的一部分。新来的实习生，只要装好 Docker，一句 <code>docker compose up</code>，三分钟内就能在本地把整个复杂的微服务跑起来。</p>
-<blockquote>
-<p>团队里的后端老哥曾跟我吐槽：“以前配环境要一天，现在只要去楼下买杯咖啡的时间。”</p>
-</blockquote>
-<h2 id="二-那些年我们写死的-localhost">二、 那些年我们写死的 <code>localhost</code>
-</h2><p>刚开始用容器的时候，我踩过最痛的一个坑就是<strong>网络通讯</strong>。</p>
-<p>当时为了省事，我在代码配置文件里直接把数据库地址写成了 <code>localhost</code> 或者 <code>127.0.0.1</code>。在非容器环境这没问题，但一旦把服务放进容器里，<code>localhost</code> 指的是容器自己，而不是你的电脑，也不是隔壁的数据库容器。</p>
-<p>为了解决这个问题，我甚至干过把宿主机 IP 硬编码进配置文件的蠢事。结果换个 Wi-Fi，IP 变了，服务全挂。</p>
-<p><strong>其实，Docker Compose 自带了一个非常聪明的 DNS 服务。</strong></p>
-<p>在同一个 <code>docker-compose.yml</code> 里，服务名就是域名。你根本不需要关心 IP 是多少。</p>
-<p><strong>实战场景：</strong>
-假设你的后端服务是用 Node.js 写的，需要连接 Redis。</p>
-<p>不要在代码里写 IP，直接用服务名：</p>
-<div class="highlight"><pre tabindex="0" style="color:#f8f8f2;background-color:#272822;-moz-tab-size:4;-o-tab-size:4;tab-size:4;"><code class="language-yaml" data-lang="yaml"><span style="display:flex;"><span><span style="color:#f92672">services</span>:
-</span></span><span style="display:flex;"><span>  <span style="color:#f92672">my-redis</span>:  <span style="color:#75715e"># 这个服务名就是域名</span>
-</span></span><span style="display:flex;"><span>    <span style="color:#f92672">image</span>: <span style="color:#ae81ff">redis:alpine</span>
-</span></span><span style="display:flex;"><span>
-</span></span><span style="display:flex;"><span>  <span style="color:#f92672">app</span>:
-</span></span><span style="display:flex;"><span>    <span style="color:#f92672">build</span>: <span style="color:#ae81ff">.</span>
-</span></span><span style="display:flex;"><span>    <span style="color:#f92672">environment</span>:
-</span></span><span style="display:flex;"><span>      - <span style="color:#ae81ff">REDIS_HOST=my-redis</span> <span style="color:#75715e"># 直接填服务名</span>
-</span></span></code></pre></div><p>我当时为了验证这个，特意进到 <code>app</code> 容器里 ping 了一下 <code>my-redis</code>，看到通了的那一刻，我把项目里所有杂乱的 IP 配置全删了。这不仅解决了连接问题，还让你的架构图极其清晰——看 YAML 文件就知道谁连谁。</p>
-<h2 id="三-环境一致性消灭在我这能跑">三、 环境一致性：消灭“在我这能跑”
-</h2><p><img src="https://picsum.photos/800/450?random=1768388169553"
-	
-	
-	
-	loading="lazy"
-	
-		alt="配图"
-	
-	
-></p>
-<p>做运维或者 Dev 的朋友，最怕听到开发人员说：“奇怪，在我本地是好的呀，怎么上线就崩了？”</p>
-<p>这通常是环境变量背的锅。</p>
-<p>两年前，我有次周五下午发布（虽然不建议周五发布，但你们懂的），生产环境直接 500 报错。排查了半小时发现，本地开发用的数据库密码是 <code>123456</code>，而生产环境是强密码，且通过环境变量注入的逻辑在代码里有个 Bug。</p>
-<p>那个周末过得很不愉快。在那之后，我给团队定了个死规矩：<strong>所有变量配置，必须走 <code>.env</code> 文件。</strong></p>
-<p>Docker Compose 对 <code>.env</code> 的支持简直是神来之笔。</p>
-<p><strong>我的落地方法：</strong></p>
-<ol>
-<li>项目根目录下放一个 <code>.env.example</code>（模版），里面列出所有需要的变量名，但值留空或给默认值。</li>
-<li><code>.gitignore</code> 必须忽略 <code>.env</code>（防止把私钥传到 Git 上）。</li>
-<li><code>docker-compose.yml</code> 里引用这些变量。</li>
-</ol>
-<div class="highlight"><pre tabindex="0" style="color:#f8f8f2;background-color:#272822;-moz-tab-size:4;-o-tab-size:4;tab-size:4;"><code class="language-yaml" data-lang="yaml"><span style="display:flex;"><span><span style="color:#75715e"># docker-compose.yml</span>
-</span></span><span style="display:flex;"><span><span style="color:#f92672">services</span>:
-</span></span><span style="display:flex;"><span>  <span style="color:#f92672">web</span>:
-</span></span><span style="display:flex;"><span>    <span style="color:#f92672">image</span>: <span style="color:#ae81ff">my-app:${TAG_VERSION}</span> <span style="color:#75715e"># 版本号动态控制</span>
-</span></span><span style="display:flex;"><span>    <span style="color:#f92672">ports</span>:
-</span></span><span style="display:flex;"><span>      - <span style="color:#e6db74">&#34;${HOST_PORT}:80&#34;</span>
-</span></span></code></pre></div><p><img src="https://picsum.photos/800/450?random=1768388167309"
-	
-	
-	
-	loading="lazy"
-	
-		alt="配图"
-	
-	
-></p>
-<div class="highlight"><pre tabindex="0" style="color:#f8f8f2;background-color:#272822;-moz-tab-size:4;-o-tab-size:4;tab-size:4;"><code class="language-bash" data-lang="bash"><span style="display:flex;"><span><span style="color:#75715e"># .env 文件</span>
-</span></span><span style="display:flex;"><span>TAG_VERSION<span style="color:#f92672">=</span>v1.2.0
-</span></span><span style="display:flex;"><span>HOST_PORT<span style="color:#f92672">=</span><span style="color:#ae81ff">8080</span>
-</span></span></code></pre></div><p>这样一来，开发环境、测试环境、生产环境使用同一套 <code>docker-compose.yml</code>，只需要切换不同的 <code>.env</code> 文件。</p>
-<p>我现在有个习惯，<strong>每接手一个新项目，先看有没有 <code>.env.example</code> 和 <code>docker-compose.yml</code></strong>。如果有，说明这个团队的技术规范做得不错；如果没有，我大概率要做好踩坑的心理准备了。</p>
-<h2 id="既然聊到这总结一下">既然聊到这，总结一下
-</h2><p>Docker Compose 不是万能的，它不适合管理成百上千个跨服务器的微服务（那是 K8s 的地盘），但对于<strong>单机编排、本地开发环境搭建、中小规模的私有化部署</strong>，它是目前性价比最高的选择。</p>
-<p>它把原本分散在文档、脑子、和各种脚本里的知识，固化成了一份可执行的代码。</p>
-<p>如果你想从今天开始改变，建议尝试这 3 个小步骤：</p>
-<ol>
-<li><strong>盘点现状</strong>：找一个你手头最麻烦的、需要起多个服务的项目。</li>
-<li><strong>编写 YAML</strong>：不要追求完美，先写一个能把所有服务都拉起来的 <code>docker-compose.yml</code>，哪怕没有挂载数据卷也没关系。</li>
-<li><strong>一键启动</strong>：删掉原来的启动文档，尝试用 <code>docker compose up -d</code> 替代，如果不通，就看日志修 YAML，直到通为止。</li>
-</ol>
-<p>当你第一次看着终端里整齐划一的 <code>Started</code> 提示，相信我，你会爱上这种掌控感的。</p>
-<p><strong>最后留个话题：</strong>
-你们团队现在的本地开发环境是怎么搭建的？还在用文档+手动挡，还是已经上了容器化？欢迎在评论区聊聊那些年踩过的环境坑。</p>
-
-</section>
-
-
-    <footer class="article-footer">
-    
-    <section class="article-tags">
-        
-            <a href="/tags/Docker-Compose%E5%A4%9A%E5%AE%B9%E5%99%A8%E5%BA%94%E7%94%A8%E7%BC%96%E6%8E%92.html">Docker Compose：多容器应用编排</a>
-        
-    </section>
-
-
-    </footer>
-
-
-    
-</article>
-
-    
-
-    
-
-     
-    
-        
-    <script
-    src="https://giscus.app/client.js"
-    data-repo="pastor17/bloggiscus"
-    data-repo-id="R_kgDOQ6H9qQ"
-    data-category=""
-    data-category-id="DIC_kwDOQ6H9qc4C0-T8"
-    data-mapping="pathname"
-    data-strict="0"
-    data-reactions-enabled="1"
-    data-emit-metadata="0"
-    data-input-position="bottom"
-    data-theme="light"
-    data-lang="zh-CN"
-    data-loading="lazy"
-    crossorigin="anonymous"
-    async
-></script>
-<script>
-    function setGiscusTheme(theme) {
-        let giscus = document.querySelector("iframe.giscus-frame");
-        if (giscus) {
-            giscus.contentWindow.postMessage(
-                {
-                    giscus: {
-                        setConfig: {
-                            theme: theme,
-                        },
-                    },
-                },
-                "https://giscus.app"
-            );
-        }
-    }
-
-    (function () {
-        addEventListener("message", (e) => {
-            if (event.origin !== "https://giscus.app") return;
-            handler();
-        });
-        window.addEventListener("onColorSchemeChange", handler);
-
-        function handler() {
-            if (document.documentElement.dataset.scheme === "light") {
-                setGiscusTheme('light');
-            } else {
-                setGiscusTheme('dark_dimmed');
-            }
-        }
-    })();
-</script>
-
-    
-
-    <footer class="site-footer">
-    <section class="copyright">
-        &copy; 
-        
-        2026 SelfTechHub
-    </section>
-    
-    <section class="powerby">
-        
-
-    </section>
-</footer>
-
-
-    
-<div class="pswp" tabindex="-1" role="dialog" aria-hidden="true">
-
-    
-    <div class="pswp__bg"></div>
-
-    
-    <div class="pswp__scroll-wrap">
-
-        
-        <div class="pswp__container">
-            <div class="pswp__item"></div>
-            <div class="pswp__item"></div>
-            <div class="pswp__item"></div>
-        </div>
-
-        
-        <div class="pswp__ui pswp__ui--hidden">
-
-            <div class="pswp__top-bar">
-
-                
-
-                <div class="pswp__counter"></div>
-
-                <button class="pswp__button pswp__button--close" title="Close (Esc)"></button>
-
-                <button class="pswp__button pswp__button--share" title="Share"></button>
-
-                <button class="pswp__button pswp__button--fs" title="Toggle fullscreen"></button>
-
-                <button class="pswp__button pswp__button--zoom" title="Zoom in/out"></button>
-
-                
-                
-                <div class="pswp__preloader">
-                    <div class="pswp__preloader__icn">
-                        <div class="pswp__preloader__cut">
-                            <div class="pswp__preloader__donut"></div>
-                        </div>
-                    </div>
-                </div>
-            </div>
-
-            <div class="pswp__share-modal pswp__share-modal--hidden pswp__single-tap">
-                <div class="pswp__share-tooltip"></div>
-            </div>
-
-            <button class="pswp__button pswp__button--arrow--left" title="Previous (arrow left)">
-            </button>
-
-            <button class="pswp__button pswp__button--arrow--right" title="Next (arrow right)">
-            </button>
-
-            <div class="pswp__caption">
-                <div class="pswp__caption__center"></div>
-            </div>
-
-        </div>
-
-    </div>
-
-</div><script 
-                src="https://cdn.jsdelivr.net/npm/photoswipe@4.1.3/dist/photoswipe.min.js"integrity="sha256-ePwmChbbvXbsO02lbM3HoHbSHTHFAeChekF1xKJdleo="crossorigin="anonymous"
-                defer
-                >
-            </script><script 
-                src="https://cdn.jsdelivr.net/npm/photoswipe@4.1.3/dist/photoswipe-ui-default.min.js"integrity="sha256-UKkzOn/w1mBxRmLLGrSeyB4e1xbrp4xylgAWb3M42pU="crossorigin="anonymous"
-                defer
-                >
-            </script><link 
-                rel="stylesheet" 
-                href="https://cdn.jsdelivr.net/npm/photoswipe@4.1.3/dist/default-skin/default-skin.min.css"crossorigin="anonymous"
-            ><link 
-                rel="stylesheet" 
-                href="https://cdn.jsdelivr.net/npm/photoswipe@4.1.3/dist/photoswipe.min.css"crossorigin="anonymous"
-            >
-    
-
-            </main>
-        </div>
-        <script 
-                src="https://cdn.jsdelivr.net/npm/node-vibrant@3.1.6/dist/vibrant.min.js"integrity="sha256-awcR2jno4kI5X0zL8ex0vi2z&#43;KMkF24hUW8WePSA9HM="crossorigin="anonymous"
-                
-                >
-            </script><script type="text/javascript" src="/ts/main.c922af694cc257bf1ecc41c0dd7b0430f9114ec280ccf67cd2c6ad55f5316c4e.js" defer></script>
-<script>
-    (function () {
-        const customFont = document.createElement('link');
-        customFont.href = "https://fonts.googleapis.com/css2?family=Lato:wght@300;400;700&display=swap";
-
-        customFont.type = "text/css";
-        customFont.rel = "stylesheet";
-
-        document.head.appendChild(customFont);
-    }());
-</script>
-
-    </body>
-</html>
+<!doctype html><html lang=zh-cn dir=ltr><head><meta charset=utf-8><meta name=viewport content='width=device-width,initial-scale=1'><meta name=description content="还记得刚入行那会儿，每次接手新项目，最让我头疼的不是代码逻辑，而是那个写得乱七八糟的 README.md。“先装个 MySQL 5.7（不能是 8."><title>手写启动脚本的痛：Docker Compose 3年实战复盘</title><link rel=canonical href=https://blog.irudder.me/tech/devopsjichugongjurumenyushicao/docker-compose_duorongqiyingyongbianpai.html><link rel=stylesheet href=/scss/style.min.c77ce1b874b29b2ee9e54a89066c79ebf35cbe9cf399b31ab5d79167f9a965c9.css><meta property='og:title' content="手写启动脚本的痛：Docker Compose 3年实战复盘"><meta property='og:description' content="还记得刚入行那会儿，每次接手新项目，最让我头疼的不是代码逻辑，而是那个写得乱七八糟的 README.md。“先装个 MySQL 5.7（不能是 8."><meta property='og:url' content='https://blog.irudder.me/tech/devopsjichugongjurumenyushicao/docker-compose_duorongqiyingyongbianpai.html'><meta property='og:site_name' content='SelfTechHub'><meta property='og:type' content='article'><meta property='article:section' content='Tech'><meta property='article:tag' content='Docker Compose：多容器应用编排'><meta property='article:published_time' content='2021-09-03T00:00:00+08:00'><meta property='article:modified_time' content='2021-09-03T00:00:00+08:00'><meta name=twitter:title content="手写启动脚本的痛：Docker Compose 3年实战复盘"><meta name=twitter:description content="还记得刚入行那会儿，每次接手新项目，最让我头疼的不是代码逻辑，而是那个写得乱七八糟的 README.md。“先装个 MySQL 5.7（不能是 8."><link rel="shortcut icon" href=/images/logo.png></head><body class=article-page><script>(function(){const e="StackColorScheme";localStorage.getItem(e)||localStorage.setItem(e,"auto")})()</script><script>(function(){const t="StackColorScheme",e=localStorage.getItem(t),n=window.matchMedia("(prefers-color-scheme: dark)").matches===!0;e=="dark"||e==="auto"&&n?document.documentElement.dataset.scheme="dark":document.documentElement.dataset.scheme="light"})()</script><div class="container main-container flex on-phone--column extended"><aside class="sidebar left-sidebar sticky"><button class="hamburger hamburger--spin" type=button id=toggle-menu aria-label=切换菜单>
+<span class=hamburger-box><span class=hamburger-inner></span></span></button><header><figure class=site-avatar><a href=/><img src=/img/avatar_hu_8588ce14af1147e2.png width=300 height=286 class=site-logo loading=lazy alt=Avatar>
+</a><span class=emoji>🧠</span></figure><div class=site-meta><h1 class=site-name><a href=/>SelfTechHub</a></h1><h2 class=site-description>成长 · 技术 · 商业 · AI —— 把碎片知识沉淀为可复用的记忆体系</h2></div></header><ol class=menu-social><li><a href=https://github.com/pastor17 target=_blank title=GitHub rel=me><svg class="icon icon-tabler icon-tabler-brand-github" width="24" height="24" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor" fill="none" stroke-linecap="round" stroke-linejoin="round"><path stroke="none" d="M0 0h24v24H0z" fill="none"/><path d="M9 19c-4.3 1.4-4.3-2.5-6-3m12 5v-3.5c0-1 .1-1.4-.5-2 2.8-.3 5.5-1.4 5.5-6a4.6 4.6.0 00-1.3-3.2 4.2 4.2.0 00-.1-3.2s-1.1-.3-3.5 1.3a12.3 12.3.0 00-6.2.0C6.5 2.8 5.4 3.1 5.4 3.1a4.2 4.2.0 00-.1 3.2A4.6 4.6.0 004 9.5c0 4.6 2.7 5.7 5.5 6-.6.6-.6 1.2-.5 2V21"/></svg></a></li></ol><ol class=menu id=main-menu><li><a href=/><svg class="icon icon-tabler icon-tabler-home" width="24" height="24" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor" fill="none" stroke-linecap="round" stroke-linejoin="round"><path stroke="none" d="M0 0h24v24H0z"/><polyline points="5 12 3 12 12 3 21 12 19 12"/><path d="M5 12v7a2 2 0 002 2h10a2 2 0 002-2v-7"/><path d="M9 21v-6a2 2 0 012-2h2a2 2 0 012 2v6"/></svg>
+<span>首页</span></a></li><li><a href=/categories/%E6%88%90%E9%95%BF.html><span>成长认知</span></a></li><li><a href=/categories/%E6%8A%80%E6%9C%AF.html><span>技术精进</span></a></li><li><a href=/categories/%E5%95%86%E4%B8%9A.html><span>商业·财富</span></a></li><li><a href=/categories/ai.html><span>探索AI</span></a></li><li><a href=/about/><svg class="icon icon-tabler icon-tabler-user" width="24" height="24" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor" fill="none" stroke-linecap="round" stroke-linejoin="round"><path stroke="none" d="M0 0h24v24H0z"/><circle cx="12" cy="7" r="4"/><path d="M6 21v-2a4 4 0 014-4h4a4 4 0 014 4v2"/></svg>
+<span>关于</span></a></li><li class=menu-bottom-section><ol class=menu><li id=dark-mode-toggle><svg class="icon icon-tabler icon-tabler-toggle-left" width="24" height="24" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor" fill="none" stroke-linecap="round" stroke-linejoin="round"><path stroke="none" d="M0 0h24v24H0z"/><circle cx="8" cy="12" r="2"/><rect x="2" y="6" width="20" height="12" rx="6"/></svg>
+<svg class="icon icon-tabler icon-tabler-toggle-right" width="24" height="24" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor" fill="none" stroke-linecap="round" stroke-linejoin="round"><path stroke="none" d="M0 0h24v24H0z"/><circle cx="16" cy="12" r="2"/><rect x="2" y="6" width="20" height="12" rx="6"/></svg>
+<span>暗色模式</span></li></ol></li></ol></aside><aside class="sidebar right-sidebar sticky"><section class="widget archives"><div class=widget-icon><svg class="icon icon-tabler icon-tabler-hash" width="24" height="24" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor" fill="none" stroke-linecap="round" stroke-linejoin="round"><path stroke="none" d="M0 0h24v24H0z"/><line x1="5" y1="9" x2="19" y2="9"/><line x1="5" y1="15" x2="19" y2="15"/><line x1="11" y1="4" x2="7" y2="20"/><line x1="17" y1="4" x2="13" y2="20"/></svg></div><h2 class="widget-title section-title">目录</h2><div class=widget--toc><nav id=TableOfContents><ul><li><a href=#一-别再用-shell-脚本假装编排了>一、 别再用 Shell 脚本“假装”编排了</a></li><li><a href=#二-那些年我们写死的-localhost>二、 那些年我们写死的 <code>localhost</code></a></li><li><a href=#三-环境一致性消灭在我这能跑>三、 环境一致性：消灭“在我这能跑”</a></li><li><a href=#既然聊到这总结一下>既然聊到这，总结一下</a></li></ul></nav></div></section></aside><main class="main full-width"><article class=main-article><header class=article-header><div class=article-details><header class=article-category><a href=/categories/%E6%8A%80%E6%9C%AF.html>技术精进</a></header><div class=article-title-wrapper><h2 class=article-title><a href=/tech/devopsjichugongjurumenyushicao/docker-compose_duorongqiyingyongbianpai.html>手写启动脚本的痛：Docker Compose 3年实战复盘</a></h2><h3 class=article-subtitle>还记得刚入行那会儿，每次接手新项目，最让我头疼的不是代码逻辑，而是那个写得乱七八糟的 README.md。“先装个 MySQL 5.7（不能是 8.</h3></div><footer class=article-time><div><svg class="icon icon-tabler icon-tabler-calendar-time" width="56" height="56" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor" fill="none" stroke-linecap="round" stroke-linejoin="round"><path stroke="none" d="M0 0h24v24H0z"/><path d="M11.795 21H5a2 2 0 01-2-2V7a2 2 0 012-2h12a2 2 0 012 2v4"/><circle cx="18" cy="18" r="4"/><path d="M15 3v4"/><path d="M7 3v4"/><path d="M3 11h16"/><path d="M18 16.496V18l1 1"/></svg>
+<time class=article-time--published datetime=2021-09-03T00:00:00+08:00>2021-09-03</time></div><div><svg class="icon icon-tabler icon-tabler-clock" width="24" height="24" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor" fill="none" stroke-linecap="round" stroke-linejoin="round"><path stroke="none" d="M0 0h24v24H0z"/><circle cx="12" cy="12" r="9"/><polyline points="12 7 12 12 15 15"/></svg>
+<time class=article-time--reading>阅读时长: 5 分钟</time></div></footer></div></header><section class=article-content><p>还记得刚入行那会儿，每次接手新项目，最让我头疼的不是代码逻辑，而是那个写得乱七八糟的 <code>README.md</code>。</p><p>“先装个 MySQL 5.7（不能是 8.0 哦），再起个 Redis，然后由左向右分别打开三个终端窗口，依次运行这几行命令……”</p><p>我曾经天真地以为，只要我把这些步骤写成一个 <code>start.sh</code> 脚本，就能一劳永逸。直到三年前在一个中型电商项目的重构中，我踩了一个巨大的坑：因为团队里有人的 Python 版本不一致，我的“完美脚本”在他电脑上直接报错，最后还得手把手去调环境。</p><p>那天我就在想：<strong>要是能像点菜一样，一张单子列清楚，厨房照着做，做完直接端上来，该多好？</strong></p><p>这就是我后来死磕 Docker Compose 的起点。今天想站在“过来人”的角度，和大家复盘一下我是怎么用它把团队的开发效率拉回正轨的。</p><h2 id=一-别再用-shell-脚本假装编排了>一、 别再用 Shell 脚本“假装”编排了</h2><p>很多中小团队（包括当年的我们）都有个误区：觉得 Docker Compose 是用来部署生产环境集群的，本地开发用 Shell 脚本或者直接敲命令就够了。</p><p><strong>大错特错。</strong></p><p>那时候我们维护着一个包含 Web 端、API 服务和数据库的系统。每次启动，我要先确认数据库活了没有，再启动 API，最后起前端。为了解决“依赖顺序”问题，我在脚本里简单粗暴地加了 <code>sleep 10</code>。</p><p>结果显而易见：电脑慢的人 10秒不够，服务崩了；电脑快的人白等 10秒，浪费生命。</p><p>后来引入 Docker Compose，最大的改变不是技术上的，而是<strong>思维模式从“命令式”变成了“声明式”</strong>。</p><p>看看这个对比，你就懂我的意思了：</p><p><strong>以前的笨办法：</strong></p><div class=highlight><div class=chroma><table class=lntable><tr><td class=lntd><pre tabindex=0 class=chroma><code><span class=lnt>1
+</span><span class=lnt>2
+</span><span class=lnt>3
+</span><span class=lnt>4
+</span></code></pre></td><td class=lntd><pre tabindex=0 class=chroma><code class=language-bash data-lang=bash><span class=line><span class=cl><span class=c1># 这种脚本我看一眼就头大</span>
+</span></span><span class=line><span class=cl>docker run -d --name db postgres:13
+</span></span><span class=line><span class=cl>sleep <span class=m>5</span> <span class=c1># 听天由命的等待</span>
+</span></span><span class=line><span class=cl>docker run -d -p 8080:8080 --link db:db my-backend
+</span></span></code></pre></td></tr></table></div></div><p><strong>Docker Compose 的优雅（docker-compose.yml）：</strong></p><div class=highlight><div class=chroma><table class=lntable><tr><td class=lntd><pre tabindex=0 class=chroma><code><span class=lnt> 1
+</span><span class=lnt> 2
+</span><span class=lnt> 3
+</span><span class=lnt> 4
+</span><span class=lnt> 5
+</span><span class=lnt> 6
+</span><span class=lnt> 7
+</span><span class=lnt> 8
+</span><span class=lnt> 9
+</span><span class=lnt>10
+</span><span class=lnt>11
+</span><span class=lnt>12
+</span><span class=lnt>13
+</span></code></pre></td><td class=lntd><pre tabindex=0 class=chroma><code class=language-yaml data-lang=yaml><span class=line><span class=cl><span class=nt>version</span><span class=p>:</span><span class=w> </span><span class=s1>&#39;3.8&#39;</span><span class=w>
+</span></span></span><span class=line><span class=cl><span class=w></span><span class=nt>services</span><span class=p>:</span><span class=w>
+</span></span></span><span class=line><span class=cl><span class=w>  </span><span class=nt>db</span><span class=p>:</span><span class=w>
+</span></span></span><span class=line><span class=cl><span class=w>    </span><span class=nt>image</span><span class=p>:</span><span class=w> </span><span class=l>postgres:13</span><span class=w>
+</span></span></span><span class=line><span class=cl><span class=w>    </span><span class=nt>environment</span><span class=p>:</span><span class=w>
+</span></span></span><span class=line><span class=cl><span class=w>      </span><span class=nt>POSTGRES_PASSWORD</span><span class=p>:</span><span class=w> </span><span class=l>secret</span><span class=w>
+</span></span></span><span class=line><span class=cl><span class=w>    
+</span></span></span><span class=line><span class=cl><span class=w>  </span><span class=nt>backend</span><span class=p>:</span><span class=w>
+</span></span></span><span class=line><span class=cl><span class=w>    </span><span class=nt>build</span><span class=p>:</span><span class=w> </span><span class=l>./backend</span><span class=w>
+</span></span></span><span class=line><span class=cl><span class=w>    </span><span class=nt>ports</span><span class=p>:</span><span class=w>
+</span></span></span><span class=line><span class=cl><span class=w>      </span>- <span class=s2>&#34;8080:8080&#34;</span><span class=w>
+</span></span></span><span class=line><span class=cl><span class=w>    </span><span class=nt>depends_on</span><span class=p>:</span><span class=w> </span><span class=c># 重点在这：显式声明依赖</span><span class=w>
+</span></span></span><span class=line><span class=cl><span class=w>      </span>- <span class=l>db </span><span class=w>
+</span></span></span></code></pre></td></tr></table></div></div><p>自从用了 <code>depends_on</code>，我再也不用在那儿猜数据库到底起没起来。更重要的是，这份 YAML 文件成了项目文档的一部分。新来的实习生，只要装好 Docker，一句 <code>docker compose up</code>，三分钟内就能在本地把整个复杂的微服务跑起来。</p><blockquote><p>团队里的后端老哥曾跟我吐槽：“以前配环境要一天，现在只要去楼下买杯咖啡的时间。”</p></blockquote><h2 id=二-那些年我们写死的-localhost>二、 那些年我们写死的 <code>localhost</code></h2><p>刚开始用容器的时候，我踩过最痛的一个坑就是<strong>网络通讯</strong>。</p><p>当时为了省事，我在代码配置文件里直接把数据库地址写成了 <code>localhost</code> 或者 <code>127.0.0.1</code>。在非容器环境这没问题，但一旦把服务放进容器里，<code>localhost</code> 指的是容器自己，而不是你的电脑，也不是隔壁的数据库容器。</p><p>为了解决这个问题，我甚至干过把宿主机 IP 硬编码进配置文件的蠢事。结果换个 Wi-Fi，IP 变了，服务全挂。</p><p><strong>其实，Docker Compose 自带了一个非常聪明的 DNS 服务。</strong></p><p>在同一个 <code>docker-compose.yml</code> 里，服务名就是域名。你根本不需要关心 IP 是多少。</p><p><strong>实战场景：</strong>
+假设你的后端服务是用 Node.js 写的，需要连接 Redis。</p><p>不要在代码里写 IP，直接用服务名：</p><div class=highlight><div class=chroma><table class=lntable><tr><td class=lntd><pre tabindex=0 class=chroma><code><span class=lnt>1
+</span><span class=lnt>2
+</span><span class=lnt>3
+</span><span class=lnt>4
+</span><span class=lnt>5
+</span><span class=lnt>6
+</span><span class=lnt>7
+</span><span class=lnt>8
+</span></code></pre></td><td class=lntd><pre tabindex=0 class=chroma><code class=language-yaml data-lang=yaml><span class=line><span class=cl><span class=nt>services</span><span class=p>:</span><span class=w>
+</span></span></span><span class=line><span class=cl><span class=w>  </span><span class=nt>my-redis</span><span class=p>:</span><span class=w>  </span><span class=c># 这个服务名就是域名</span><span class=w>
+</span></span></span><span class=line><span class=cl><span class=w>    </span><span class=nt>image</span><span class=p>:</span><span class=w> </span><span class=l>redis:alpine</span><span class=w>
+</span></span></span><span class=line><span class=cl><span class=w>
+</span></span></span><span class=line><span class=cl><span class=w>  </span><span class=nt>app</span><span class=p>:</span><span class=w>
+</span></span></span><span class=line><span class=cl><span class=w>    </span><span class=nt>build</span><span class=p>:</span><span class=w> </span><span class=l>.</span><span class=w>
+</span></span></span><span class=line><span class=cl><span class=w>    </span><span class=nt>environment</span><span class=p>:</span><span class=w>
+</span></span></span><span class=line><span class=cl><span class=w>      </span>- <span class=l>REDIS_HOST=my-redis</span><span class=w> </span><span class=c># 直接填服务名</span><span class=w>
+</span></span></span></code></pre></td></tr></table></div></div><p>我当时为了验证这个，特意进到 <code>app</code> 容器里 ping 了一下 <code>my-redis</code>，看到通了的那一刻，我把项目里所有杂乱的 IP 配置全删了。这不仅解决了连接问题，还让你的架构图极其清晰——看 YAML 文件就知道谁连谁。</p><h2 id=三-环境一致性消灭在我这能跑>三、 环境一致性：消灭“在我这能跑”</h2><p><img src="https://picsum.photos/800/450?random=1768388169553" loading=lazy alt=配图></p><p>做运维或者 Dev 的朋友，最怕听到开发人员说：“奇怪，在我本地是好的呀，怎么上线就崩了？”</p><p>这通常是环境变量背的锅。</p><p>两年前，我有次周五下午发布（虽然不建议周五发布，但你们懂的），生产环境直接 500 报错。排查了半小时发现，本地开发用的数据库密码是 <code>123456</code>，而生产环境是强密码，且通过环境变量注入的逻辑在代码里有个 Bug。</p><p>那个周末过得很不愉快。在那之后，我给团队定了个死规矩：<strong>所有变量配置，必须走 <code>.env</code> 文件。</strong></p><p>Docker Compose 对 <code>.env</code> 的支持简直是神来之笔。</p><p><strong>我的落地方法：</strong></p><ol><li>项目根目录下放一个 <code>.env.example</code>（模版），里面列出所有需要的变量名，但值留空或给默认值。</li><li><code>.gitignore</code> 必须忽略 <code>.env</code>（防止把私钥传到 Git 上）。</li><li><code>docker-compose.yml</code> 里引用这些变量。</li></ol><div class=highlight><div class=chroma><table class=lntable><tr><td class=lntd><pre tabindex=0 class=chroma><code><span class=lnt>1
+</span><span class=lnt>2
+</span><span class=lnt>3
+</span><span class=lnt>4
+</span><span class=lnt>5
+</span><span class=lnt>6
+</span></code></pre></td><td class=lntd><pre tabindex=0 class=chroma><code class=language-yaml data-lang=yaml><span class=line><span class=cl><span class=c># docker-compose.yml</span><span class=w>
+</span></span></span><span class=line><span class=cl><span class=w></span><span class=nt>services</span><span class=p>:</span><span class=w>
+</span></span></span><span class=line><span class=cl><span class=w>  </span><span class=nt>web</span><span class=p>:</span><span class=w>
+</span></span></span><span class=line><span class=cl><span class=w>    </span><span class=nt>image</span><span class=p>:</span><span class=w> </span><span class=l>my-app:${TAG_VERSION}</span><span class=w> </span><span class=c># 版本号动态控制</span><span class=w>
+</span></span></span><span class=line><span class=cl><span class=w>    </span><span class=nt>ports</span><span class=p>:</span><span class=w>
+</span></span></span><span class=line><span class=cl><span class=w>      </span>- <span class=s2>&#34;${HOST_PORT}:80&#34;</span><span class=w>
+</span></span></span></code></pre></td></tr></table></div></div><p><img src="https://picsum.photos/800/450?random=1768388167309" loading=lazy alt=配图></p><div class=highlight><div class=chroma><table class=lntable><tr><td class=lntd><pre tabindex=0 class=chroma><code><span class=lnt>1
+</span><span class=lnt>2
+</span><span class=lnt>3
+</span></code></pre></td><td class=lntd><pre tabindex=0 class=chroma><code class=language-bash data-lang=bash><span class=line><span class=cl><span class=c1># .env 文件</span>
+</span></span><span class=line><span class=cl><span class=nv>TAG_VERSION</span><span class=o>=</span>v1.2.0
+</span></span><span class=line><span class=cl><span class=nv>HOST_PORT</span><span class=o>=</span><span class=m>8080</span>
+</span></span></code></pre></td></tr></table></div></div><p>这样一来，开发环境、测试环境、生产环境使用同一套 <code>docker-compose.yml</code>，只需要切换不同的 <code>.env</code> 文件。</p><p>我现在有个习惯，<strong>每接手一个新项目，先看有没有 <code>.env.example</code> 和 <code>docker-compose.yml</code></strong>。如果有，说明这个团队的技术规范做得不错；如果没有，我大概率要做好踩坑的心理准备了。</p><h2 id=既然聊到这总结一下>既然聊到这，总结一下</h2><p>Docker Compose 不是万能的，它不适合管理成百上千个跨服务器的微服务（那是 K8s 的地盘），但对于<strong>单机编排、本地开发环境搭建、中小规模的私有化部署</strong>，它是目前性价比最高的选择。</p><p>它把原本分散在文档、脑子、和各种脚本里的知识，固化成了一份可执行的代码。</p><p>如果你想从今天开始改变，建议尝试这 3 个小步骤：</p><ol><li><strong>盘点现状</strong>：找一个你手头最麻烦的、需要起多个服务的项目。</li><li><strong>编写 YAML</strong>：不要追求完美，先写一个能把所有服务都拉起来的 <code>docker-compose.yml</code>，哪怕没有挂载数据卷也没关系。</li><li><strong>一键启动</strong>：删掉原来的启动文档，尝试用 <code>docker compose up -d</code> 替代，如果不通，就看日志修 YAML，直到通为止。</li></ol><p>当你第一次看着终端里整齐划一的 <code>Started</code> 提示，相信我，你会爱上这种掌控感的。</p><p><strong>最后留个话题：</strong>
+你们团队现在的本地开发环境是怎么搭建的？还在用文档+手动挡，还是已经上了容器化？欢迎在评论区聊聊那些年踩过的环境坑。</p></section><footer class=article-footer><section class=article-tags><a href=/tags/Docker-Compose%E5%A4%9A%E5%AE%B9%E5%99%A8%E5%BA%94%E7%94%A8%E7%BC%96%E6%8E%92.html>Docker Compose：多容器应用编排</a></section></footer></article><script src=https://giscus.app/client.js data-repo=pastor17/bloggiscus data-repo-id=R_kgDOQ6H9qQ data-category data-category-id=DIC_kwDOQ6H9qc4C0-T8 data-mapping=pathname data-strict=0 data-reactions-enabled=1 data-emit-metadata=0 data-input-position=bottom data-theme=light data-lang=zh-CN data-loading=lazy crossorigin=anonymous async></script><script>function setGiscusTheme(e){let t=document.querySelector("iframe.giscus-frame");t&&t.contentWindow.postMessage({giscus:{setConfig:{theme:e}}},"https://giscus.app")}(function(){addEventListener("message",t=>{if(event.origin!=="https://giscus.app")return;e()}),window.addEventListener("onColorSchemeChange",e);function e(){setGiscusTheme(document.documentElement.dataset.scheme==="light"?"light":"dark_dimmed")}})()</script><footer class=site-footer><section class=copyright>&copy;
+2021 -
+2026 SelfTechHub</section><section class=powerby>拒绝一次性认知，把碎片知识沉淀为可复用的记忆体系<br></section></footer><div class=pswp tabindex=-1 role=dialog aria-hidden=true><div class=pswp__bg></div><div class=pswp__scroll-wrap><div class=pswp__container><div class=pswp__item></div><div class=pswp__item></div><div class=pswp__item></div></div><div class="pswp__ui pswp__ui--hidden"><div class=pswp__top-bar><div class=pswp__counter></div><button class="pswp__button pswp__button--close" title="Close (Esc)"></button>
+<button class="pswp__button pswp__button--share" title=Share></button>
+<button class="pswp__button pswp__button--fs" title="Toggle fullscreen"></button>
+<button class="pswp__button pswp__button--zoom" title="Zoom in/out"></button><div class=pswp__preloader><div class=pswp__preloader__icn><div class=pswp__preloader__cut><div class=pswp__preloader__donut></div></div></div></div></div><div class="pswp__share-modal pswp__share-modal--hidden pswp__single-tap"><div class=pswp__share-tooltip></div></div><button class="pswp__button pswp__button--arrow--left" title="Previous (arrow left)">
+</button>
+<button class="pswp__button pswp__button--arrow--right" title="Next (arrow right)"></button><div class=pswp__caption><div class=pswp__caption__center></div></div></div></div></div><script src=https://cdn.jsdelivr.net/npm/photoswipe@4.1.3/dist/photoswipe.min.js integrity="sha256-ePwmChbbvXbsO02lbM3HoHbSHTHFAeChekF1xKJdleo=" crossorigin=anonymous defer></script><script src=https://cdn.jsdelivr.net/npm/photoswipe@4.1.3/dist/photoswipe-ui-default.min.js integrity="sha256-UKkzOn/w1mBxRmLLGrSeyB4e1xbrp4xylgAWb3M42pU=" crossorigin=anonymous defer></script><link rel=stylesheet href=https://cdn.jsdelivr.net/npm/photoswipe@4.1.3/dist/default-skin/default-skin.min.css crossorigin=anonymous><link rel=stylesheet href=https://cdn.jsdelivr.net/npm/photoswipe@4.1.3/dist/photoswipe.min.css crossorigin=anonymous></main></div><script src=https://cdn.jsdelivr.net/npm/node-vibrant@3.1.6/dist/vibrant.min.js integrity="sha256-awcR2jno4kI5X0zL8ex0vi2z+KMkF24hUW8WePSA9HM=" crossorigin=anonymous></script><script type=text/javascript src=/ts/main.c922af694cc257bf1ecc41c0dd7b0430f9114ec280ccf67cd2c6ad55f5316c4e.js defer></script><script>(function(){const e=document.createElement("link");e.href="https://fonts.googleapis.com/css2?family=Lato:wght@300;400;700&display=swap",e.type="text/css",e.rel="stylesheet",document.head.appendChild(e)})()</script></body></html>

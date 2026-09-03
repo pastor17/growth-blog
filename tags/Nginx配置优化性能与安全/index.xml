@@ -1,144 +1,161 @@
-<?xml version="1.0" encoding="utf-8" standalone="yes"?>
-<rss version="2.0" xmlns:atom="http://www.w3.org/2005/Atom">
-    <channel>
-        <title>Nginx配置优化：性能与安全 on SelfTechHub</title>
-        <link>https://blog.irudder.me/tags/Nginx%E9%85%8D%E7%BD%AE%E4%BC%98%E5%8C%96%E6%80%A7%E8%83%BD%E4%B8%8E%E5%AE%89%E5%85%A8.html</link>
-        <description>Recent content in Nginx配置优化：性能与安全 on SelfTechHub</description>
-        <generator>Hugo -- gohugo.io</generator>
-        <language>zh-cn</language>
-        <lastBuildDate>Fri, 11 Mar 2022 00:00:00 +0000</lastBuildDate><atom:link href="https://blog.irudder.me/tags/Nginx%E9%85%8D%E7%BD%AE%E4%BC%98%E5%8C%96%E6%80%A7%E8%83%BD%E4%B8%8E%E5%AE%89%E5%85%A8/index.xml" rel="self" type="application/rss+xml" /><item>
-        <title>Nginx配置避坑指南：小白也能懂的性能与安全急救包</title>
-        <link>https://blog.irudder.me/tech/devopsjichugongjurumenyushicao/nginxpeizhiyouhua_xingnengyuanquan.html</link>
-        <pubDate>Fri, 11 Mar 2022 00:00:00 +0000</pubDate>
-        
-        <guid>https://blog.irudder.me/tech/devopsjichugongjurumenyushicao/nginxpeizhiyouhua_xingnengyuanquan.html</guid>
-        <description>&lt;h2 id=&#34;引言&#34;&gt;引言
+<?xml version="1.0" encoding="utf-8" standalone="yes"?><rss version="2.0" xmlns:atom="http://www.w3.org/2005/Atom"><channel><title>Nginx配置优化：性能与安全 on SelfTechHub</title><link>https://blog.irudder.me/tags/Nginx%E9%85%8D%E7%BD%AE%E4%BC%98%E5%8C%96%E6%80%A7%E8%83%BD%E4%B8%8E%E5%AE%89%E5%85%A8.html</link><description>Recent content in Nginx配置优化：性能与安全 on SelfTechHub</description><generator>Hugo -- gohugo.io</generator><language>zh-cn</language><lastBuildDate>Fri, 11 Mar 2022 00:00:00 +0800</lastBuildDate><atom:link href="https://blog.irudder.me/tags/Nginx%E9%85%8D%E7%BD%AE%E4%BC%98%E5%8C%96%E6%80%A7%E8%83%BD%E4%B8%8E%E5%AE%89%E5%85%A8/index.xml" rel="self" type="application/rss+xml"/><item><title>Nginx配置避坑指南：小白也能懂的性能与安全急救包</title><link>https://blog.irudder.me/tech/devopsjichugongjurumenyushicao/nginxpeizhiyouhua_xingnengyuanquan.html</link><pubDate>Fri, 11 Mar 2022 00:00:00 +0800</pubDate><guid>https://blog.irudder.me/tech/devopsjichugongjurumenyushicao/nginxpeizhiyouhua_xingnengyuanquan.html</guid><description>&lt;h2 id="引言"&gt;引言
 &lt;/h2&gt;&lt;p&gt;你是否经历过这样的时刻：辛辛苦苦写好的代码，在本地运行健步如飞，一部署到线上，只要并发稍微高一点，页面就开始转圈圈，甚至直接甩给你一个冷冰冰的 &lt;strong&gt;502 Bad Gateway&lt;/strong&gt;？&lt;/p&gt;
 &lt;p&gt;那一刻，作为新手的你可能第一反应是：“是不是我代码写得太烂了？”或者“是不是服务器买小了？”&lt;/p&gt;
 &lt;p&gt;&lt;strong&gt;先别急着自责，也别急着花钱升级服务器。&lt;/strong&gt;&lt;/p&gt;
 &lt;p&gt;我刚入行做运维那会儿，也曾因为同样的问题焦虑失眠。直到踩过无数个坑后，我才发现：很多时候，锅不在代码，而在那个默默无闻的守门员——&lt;strong&gt;Nginx&lt;/strong&gt; 身上。它默认的配置，往往是“能跑就行”，而不是“跑得快、跑得稳”。&lt;/p&gt;
 &lt;p&gt;今天，我们不谈深奥的底层原理，我就想用这几年攒下的“血泪经验”，带你手把手调整几个关键参数。哪怕你对Linux命令还不熟练，也能跟着做，给你的服务来一次“温柔的性能手术”。&lt;/p&gt;
 &lt;hr&gt;
-&lt;h2 id=&#34;一-别让你的服务器单腿蹦解锁并发能力&#34;&gt;一、 别让你的服务器“单腿蹦”：解锁并发能力
+&lt;h2 id="一-别让你的服务器单腿蹦解锁并发能力"&gt;一、 别让你的服务器“单腿蹦”：解锁并发能力
 &lt;/h2&gt;&lt;p&gt;很多新手（包括当年的我）安装完 Nginx 后，直接就启动了。大家往往忽略了一个最反常识的事实：&lt;strong&gt;Nginx 的默认配置，可能只用到了你服务器 10% 的能力。&lt;/strong&gt;&lt;/p&gt;
-&lt;h3 id=&#34;真实案例一次双十一前的惊魂&#34;&gt;真实案例：一次双十一前的惊魂
+&lt;h3 id="真实案例一次双十一前的惊魂"&gt;真实案例：一次双十一前的惊魂
 &lt;/h3&gt;&lt;p&gt;两年前，我帮一个创业团队做技术顾问。他们的服务器是 4核 8G 的配置，按理说支撑每天几万的访问量绰绰有余。但在一次小型促销活动开始前，压测数据显示：只要并发超过 500，服务器响应就迅速变慢。&lt;/p&gt;
 &lt;p&gt;我看了一眼他们的 &lt;code&gt;nginx.conf&lt;/code&gt;，发现第一行赫然写着：
 &lt;code&gt;worker_processes 1;&lt;/code&gt;&lt;/p&gt;
 &lt;p&gt;这意味着，无论服务器有几个核，Nginx 只派了一个“工人”在干活，其他三个核都在围观。就像你去超市，明明开了4个收银台，却只有一个收银员在慢悠悠地扫码，排队能不长吗？&lt;/p&gt;
-&lt;h3 id=&#34;避坑方法&#34;&gt;避坑方法
+&lt;h3 id="避坑方法"&gt;避坑方法
 &lt;/h3&gt;&lt;p&gt;打开你的配置文件（通常在 &lt;code&gt;/etc/nginx/nginx.conf&lt;/code&gt;），我们需要修改两个参数：&lt;/p&gt;
 &lt;ol&gt;
 &lt;li&gt;&lt;strong&gt;worker_processes&lt;/strong&gt;：改成 &lt;code&gt;auto&lt;/code&gt;。这会让 Nginx 自动检测 CPU 核心数，有几个核就派几个工人，榨干服务器性能。&lt;/li&gt;
 &lt;li&gt;&lt;strong&gt;worker_connections&lt;/strong&gt;：默认通常是 1024。对于现在的硬件来说，太保守了。&lt;/li&gt;
 &lt;/ol&gt;
 &lt;p&gt;&lt;strong&gt;修改建议：&lt;/strong&gt;&lt;/p&gt;
-&lt;div class=&#34;highlight&#34;&gt;&lt;pre tabindex=&#34;0&#34; style=&#34;color:#f8f8f2;background-color:#272822;-moz-tab-size:4;-o-tab-size:4;tab-size:4;&#34;&gt;&lt;code class=&#34;language-nginx&#34; data-lang=&#34;nginx&#34;&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;&lt;span style=&#34;color:#66d9ef&#34;&gt;events&lt;/span&gt; {
-&lt;/span&gt;&lt;/span&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;    &lt;span style=&#34;color:#75715e&#34;&gt;# 既然有能力，就多承担点。
-&lt;/span&gt;&lt;/span&gt;&lt;/span&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;&lt;span style=&#34;color:#75715e&#34;&gt;&lt;/span&gt;    &lt;span style=&#34;color:#75715e&#34;&gt;# 每个工人能同时处理的连接数，建议调整到 10240 甚至更高
-&lt;/span&gt;&lt;/span&gt;&lt;/span&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;&lt;span style=&#34;color:#75715e&#34;&gt;&lt;/span&gt;    &lt;span style=&#34;color:#f92672&#34;&gt;worker_connections&lt;/span&gt; &lt;span style=&#34;color:#ae81ff&#34;&gt;10240&lt;/span&gt;; 
-&lt;/span&gt;&lt;/span&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;    
-&lt;/span&gt;&lt;/span&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;    &lt;span style=&#34;color:#75715e&#34;&gt;# 开启这个参数，让多个工人轮流接客，防止惊群效应
-&lt;/span&gt;&lt;/span&gt;&lt;/span&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;&lt;span style=&#34;color:#75715e&#34;&gt;&lt;/span&gt;    &lt;span style=&#34;color:#f92672&#34;&gt;multi_accept&lt;/span&gt; &lt;span style=&#34;color:#66d9ef&#34;&gt;on&lt;/span&gt;; 
-&lt;/span&gt;&lt;/span&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;}
-&lt;/span&gt;&lt;/span&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;
-&lt;/span&gt;&lt;/span&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;&lt;span style=&#34;color:#75715e&#34;&gt;# 自动匹配CPU核心数
-&lt;/span&gt;&lt;/span&gt;&lt;/span&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;&lt;span style=&#34;color:#75715e&#34;&gt;&lt;/span&gt;&lt;span style=&#34;color:#66d9ef&#34;&gt;worker_processes&lt;/span&gt; &lt;span style=&#34;color:#e6db74&#34;&gt;auto&lt;/span&gt;;
-&lt;/span&gt;&lt;/span&gt;&lt;/code&gt;&lt;/pre&gt;&lt;/div&gt;&lt;p&gt;&lt;strong&gt;调整结果：&lt;/strong&gt; 修改并重启后，那台服务器的并发处理能力瞬间提升了 &lt;strong&gt;3倍&lt;/strong&gt; 以上，促销活动期间 CPU 负载均衡，稳如老狗。&lt;/p&gt;
+&lt;div class="highlight"&gt;&lt;div class="chroma"&gt;
+&lt;table class="lntable"&gt;&lt;tr&gt;&lt;td class="lntd"&gt;
+&lt;pre tabindex="0" class="chroma"&gt;&lt;code&gt;&lt;span class="lnt"&gt; 1
+&lt;/span&gt;&lt;span class="lnt"&gt; 2
+&lt;/span&gt;&lt;span class="lnt"&gt; 3
+&lt;/span&gt;&lt;span class="lnt"&gt; 4
+&lt;/span&gt;&lt;span class="lnt"&gt; 5
+&lt;/span&gt;&lt;span class="lnt"&gt; 6
+&lt;/span&gt;&lt;span class="lnt"&gt; 7
+&lt;/span&gt;&lt;span class="lnt"&gt; 8
+&lt;/span&gt;&lt;span class="lnt"&gt; 9
+&lt;/span&gt;&lt;span class="lnt"&gt;10
+&lt;/span&gt;&lt;span class="lnt"&gt;11
+&lt;/span&gt;&lt;/code&gt;&lt;/pre&gt;&lt;/td&gt;
+&lt;td class="lntd"&gt;
+&lt;pre tabindex="0" class="chroma"&gt;&lt;code class="language-nginx" data-lang="nginx"&gt;&lt;span class="line"&gt;&lt;span class="cl"&gt;&lt;span class="k"&gt;events&lt;/span&gt; &lt;span class="p"&gt;{&lt;/span&gt;
+&lt;/span&gt;&lt;/span&gt;&lt;span class="line"&gt;&lt;span class="cl"&gt; &lt;span class="c1"&gt;# 既然有能力，就多承担点。
+&lt;/span&gt;&lt;/span&gt;&lt;/span&gt;&lt;span class="line"&gt;&lt;span class="cl"&gt;&lt;span class="c1"&gt;&lt;/span&gt; &lt;span class="c1"&gt;# 每个工人能同时处理的连接数，建议调整到 10240 甚至更高
+&lt;/span&gt;&lt;/span&gt;&lt;/span&gt;&lt;span class="line"&gt;&lt;span class="cl"&gt;&lt;span class="c1"&gt;&lt;/span&gt; &lt;span class="kn"&gt;worker_connections&lt;/span&gt; &lt;span class="mi"&gt;10240&lt;/span&gt;&lt;span class="p"&gt;;&lt;/span&gt;
+&lt;/span&gt;&lt;/span&gt;&lt;span class="line"&gt;&lt;span class="cl"&gt;
+&lt;/span&gt;&lt;/span&gt;&lt;span class="line"&gt;&lt;span class="cl"&gt; &lt;span class="c1"&gt;# 开启这个参数，让多个工人轮流接客，防止惊群效应
+&lt;/span&gt;&lt;/span&gt;&lt;/span&gt;&lt;span class="line"&gt;&lt;span class="cl"&gt;&lt;span class="c1"&gt;&lt;/span&gt; &lt;span class="kn"&gt;multi_accept&lt;/span&gt; &lt;span class="no"&gt;on&lt;/span&gt;&lt;span class="p"&gt;;&lt;/span&gt;
+&lt;/span&gt;&lt;/span&gt;&lt;span class="line"&gt;&lt;span class="cl"&gt;&lt;span class="p"&gt;}&lt;/span&gt;
+&lt;/span&gt;&lt;/span&gt;&lt;span class="line"&gt;&lt;span class="cl"&gt;
+&lt;/span&gt;&lt;/span&gt;&lt;span class="line"&gt;&lt;span class="cl"&gt;&lt;span class="c1"&gt;# 自动匹配CPU核心数
+&lt;/span&gt;&lt;/span&gt;&lt;/span&gt;&lt;span class="line"&gt;&lt;span class="cl"&gt;&lt;span class="c1"&gt;&lt;/span&gt;&lt;span class="k"&gt;worker_processes&lt;/span&gt; &lt;span class="s"&gt;auto&lt;/span&gt;&lt;span class="p"&gt;;&lt;/span&gt;
+&lt;/span&gt;&lt;/span&gt;&lt;/code&gt;&lt;/pre&gt;&lt;/td&gt;&lt;/tr&gt;&lt;/table&gt;
+&lt;/div&gt;
+&lt;/div&gt;&lt;p&gt;&lt;strong&gt;调整结果：&lt;/strong&gt; 修改并重启后，那台服务器的并发处理能力瞬间提升了 &lt;strong&gt;3倍&lt;/strong&gt; 以上，促销活动期间 CPU 负载均衡，稳如老狗。&lt;/p&gt;
 &lt;hr&gt;
-&lt;h2 id=&#34;二-给你的门卫戴上口罩隐藏敏感信息&#34;&gt;二、 给你的门卫戴上口罩：隐藏敏感信息
+&lt;h2 id="二-给你的门卫戴上口罩隐藏敏感信息"&gt;二、 给你的门卫戴上口罩：隐藏敏感信息
 &lt;/h2&gt;&lt;p&gt;作为开发人员，我们总想把所有细节都展示出来，但在安全领域，&lt;strong&gt;“沉默”才是最好的保护。&lt;/strong&gt;&lt;/p&gt;
-&lt;h3 id=&#34;真实案例被扫描器盯上的测试服&#34;&gt;真实案例：被扫描器“盯上”的测试服
+&lt;h3 id="真实案例被扫描器盯上的测试服"&gt;真实案例：被扫描器“盯上”的测试服
 &lt;/h3&gt;&lt;p&gt;我有次在查看日志时，发现有一堆奇怪的请求在尝试攻击服务器的特定版本漏洞。原来，Nginx 默认会在 HTTP 头里告诉全世界：“嘿，我是 Nginx，版本是 1.18.0。”&lt;/p&gt;
 &lt;p&gt;这就像是你把家里的防盗门品牌和锁芯型号贴在了大门上。黑客甚至不需要高超的技术，只要搜一下这个版本的已知漏洞，就能拿着现成的脚本来试探你。&lt;/p&gt;
-&lt;h3 id=&#34;避坑方法-1&#34;&gt;避坑方法
+&lt;h3 id="避坑方法-1"&gt;避坑方法
 &lt;/h3&gt;&lt;p&gt;我们需要做一个极小但极重要的动作：&lt;strong&gt;隐藏版本号&lt;/strong&gt;。&lt;/p&gt;
 &lt;p&gt;此外，很多新手容易忽略文件上传的限制。如果你的接口没有限制大小，恶意用户上传几个 10GB 的文件，瞬间就能把你的磁盘塞满，导致服务瘫痪。&lt;/p&gt;
 &lt;p&gt;&lt;strong&gt;配置示例：&lt;/strong&gt;&lt;/p&gt;
-&lt;div class=&#34;highlight&#34;&gt;&lt;pre tabindex=&#34;0&#34; style=&#34;color:#f8f8f2;background-color:#272822;-moz-tab-size:4;-o-tab-size:4;tab-size:4;&#34;&gt;&lt;code class=&#34;language-nginx&#34; data-lang=&#34;nginx&#34;&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;&lt;span style=&#34;color:#66d9ef&#34;&gt;http&lt;/span&gt; {
-&lt;/span&gt;&lt;/span&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;    &lt;span style=&#34;color:#75715e&#34;&gt;# 安全第一步：闭嘴。隐藏版本号
-&lt;/span&gt;&lt;/span&gt;&lt;/span&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;&lt;span style=&#34;color:#75715e&#34;&gt;&lt;/span&gt;    &lt;span style=&#34;color:#f92672&#34;&gt;server_tokens&lt;/span&gt; &lt;span style=&#34;color:#66d9ef&#34;&gt;off&lt;/span&gt;; 
-&lt;/span&gt;&lt;/span&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;    
-&lt;/span&gt;&lt;/span&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;    &lt;span style=&#34;color:#75715e&#34;&gt;# 限制上传文件大小。
-&lt;/span&gt;&lt;/span&gt;&lt;/span&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;&lt;span style=&#34;color:#75715e&#34;&gt;&lt;/span&gt;    &lt;span style=&#34;color:#75715e&#34;&gt;# 默认是1M，根据业务调整，但别给太大，防止恶意塞满硬盘
-&lt;/span&gt;&lt;/span&gt;&lt;/span&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;&lt;span style=&#34;color:#75715e&#34;&gt;&lt;/span&gt;    &lt;span style=&#34;color:#f92672&#34;&gt;client_max_body_size&lt;/span&gt; &lt;span style=&#34;color:#e6db74&#34;&gt;10M&lt;/span&gt;;
-&lt;/span&gt;&lt;/span&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;
-&lt;/span&gt;&lt;/span&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;    &lt;span style=&#34;color:#75715e&#34;&gt;# ... 其他配置
-&lt;/span&gt;&lt;/span&gt;&lt;/span&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;&lt;span style=&#34;color:#75715e&#34;&gt;&lt;/span&gt;}
-&lt;/span&gt;&lt;/span&gt;&lt;/code&gt;&lt;/pre&gt;&lt;/div&gt;&lt;blockquote&gt;
-&lt;p&gt;&lt;strong&gt;小贴士&lt;/strong&gt;：我有一个习惯，每次修改完配置，都会习惯性地运行 &lt;code&gt;nginx -t&lt;/code&gt; 来检查语法。这个命令救了我无数次，避免了因为漏写一个分号导致整个线上服务挂掉的尴尬。&lt;/p&gt;
-&lt;/blockquote&gt;
-&lt;p&gt;&lt;img src=&#34;https://picsum.photos/800/450?random=1768389007264&#34;
-	
-	
-	
-	loading=&#34;lazy&#34;
-	
-		alt=&#34;配图&#34;
-	
-	
+&lt;div class="highlight"&gt;&lt;div class="chroma"&gt;
+&lt;table class="lntable"&gt;&lt;tr&gt;&lt;td class="lntd"&gt;
+&lt;pre tabindex="0" class="chroma"&gt;&lt;code&gt;&lt;span class="lnt"&gt; 1
+&lt;/span&gt;&lt;span class="lnt"&gt; 2
+&lt;/span&gt;&lt;span class="lnt"&gt; 3
+&lt;/span&gt;&lt;span class="lnt"&gt; 4
+&lt;/span&gt;&lt;span class="lnt"&gt; 5
+&lt;/span&gt;&lt;span class="lnt"&gt; 6
+&lt;/span&gt;&lt;span class="lnt"&gt; 7
+&lt;/span&gt;&lt;span class="lnt"&gt; 8
+&lt;/span&gt;&lt;span class="lnt"&gt; 9
+&lt;/span&gt;&lt;span class="lnt"&gt;10
+&lt;/span&gt;&lt;/code&gt;&lt;/pre&gt;&lt;/td&gt;
+&lt;td class="lntd"&gt;
+&lt;pre tabindex="0" class="chroma"&gt;&lt;code class="language-nginx" data-lang="nginx"&gt;&lt;span class="line"&gt;&lt;span class="cl"&gt;&lt;span class="k"&gt;http&lt;/span&gt; &lt;span class="p"&gt;{&lt;/span&gt;
+&lt;/span&gt;&lt;/span&gt;&lt;span class="line"&gt;&lt;span class="cl"&gt; &lt;span class="c1"&gt;# 安全第一步：闭嘴。隐藏版本号
+&lt;/span&gt;&lt;/span&gt;&lt;/span&gt;&lt;span class="line"&gt;&lt;span class="cl"&gt;&lt;span class="c1"&gt;&lt;/span&gt; &lt;span class="kn"&gt;server_tokens&lt;/span&gt; &lt;span class="no"&gt;off&lt;/span&gt;&lt;span class="p"&gt;;&lt;/span&gt;
+&lt;/span&gt;&lt;/span&gt;&lt;span class="line"&gt;&lt;span class="cl"&gt;
+&lt;/span&gt;&lt;/span&gt;&lt;span class="line"&gt;&lt;span class="cl"&gt; &lt;span class="c1"&gt;# 限制上传文件大小。
+&lt;/span&gt;&lt;/span&gt;&lt;/span&gt;&lt;span class="line"&gt;&lt;span class="cl"&gt;&lt;span class="c1"&gt;&lt;/span&gt; &lt;span class="c1"&gt;# 默认是1M，根据业务调整，但别给太大，防止恶意塞满硬盘
+&lt;/span&gt;&lt;/span&gt;&lt;/span&gt;&lt;span class="line"&gt;&lt;span class="cl"&gt;&lt;span class="c1"&gt;&lt;/span&gt; &lt;span class="kn"&gt;client_max_body_size&lt;/span&gt; &lt;span class="s"&gt;10M&lt;/span&gt;&lt;span class="p"&gt;;&lt;/span&gt;
+&lt;/span&gt;&lt;/span&gt;&lt;span class="line"&gt;&lt;span class="cl"&gt;
+&lt;/span&gt;&lt;/span&gt;&lt;span class="line"&gt;&lt;span class="cl"&gt; &lt;span class="c1"&gt;# ... 其他配置
+&lt;/span&gt;&lt;/span&gt;&lt;/span&gt;&lt;span class="line"&gt;&lt;span class="cl"&gt;&lt;span class="c1"&gt;&lt;/span&gt;&lt;span class="p"&gt;}&lt;/span&gt;
+&lt;/span&gt;&lt;/span&gt;&lt;/code&gt;&lt;/pre&gt;&lt;/td&gt;&lt;/tr&gt;&lt;/table&gt;
+&lt;/div&gt;
+&lt;/div&gt;&lt;blockquote&gt;
+&lt;p&gt;&lt;strong&gt;小贴士&lt;/strong&gt;：我有一个习惯，每次修改完配置，都会习惯性地运行 &lt;code&gt;nginx -t&lt;/code&gt; 来检查语法。这个命令救了我无数次，避免了因为漏写一个分号导致整个线上服务挂掉的尴尬。&lt;/p&gt;&lt;/blockquote&gt;
+&lt;p&gt;&lt;img src="https://picsum.photos/800/450?random=1768389007264"
+loading="lazy"
+alt="配图"
 &gt;&lt;/p&gt;
 &lt;hr&gt;
-&lt;h2 id=&#34;三-别让带宽成为瓶颈开启压缩魔法&#34;&gt;三、 别让带宽成为瓶颈：开启“压缩魔法”
+&lt;h2 id="三-别让带宽成为瓶颈开启压缩魔法"&gt;三、 别让带宽成为瓶颈：开启“压缩魔法”
 &lt;/h2&gt;&lt;p&gt;你有没有遇到过这种情况：服务器 CPU 和内存都很空闲，但网页加载就是慢，特别是图片和 CSS/JS 文件多的时候？&lt;/p&gt;
-&lt;h3 id=&#34;真实案例为了省钱而做的优化&#34;&gt;真实案例：为了省钱而做的优化
+&lt;h3 id="真实案例为了省钱而做的优化"&gt;真实案例：为了省钱而做的优化
 &lt;/h3&gt;&lt;p&gt;去年，我自己的一个小博客项目，因为用的云服务器带宽只有 1Mbps（穷人的痛），首页加载需要 5-6 秒。我当时甚至想关站了，觉得这带宽根本没法玩。&lt;/p&gt;
 &lt;p&gt;后来我检查网络传输，发现一个 &lt;code&gt;app.js&lt;/code&gt; 文件就有 800KB。在 1M 的带宽下，光传这个文件就要好几秒。&lt;/p&gt;
 &lt;p&gt;其实，文本类的文件（HTML, CSS, JS, JSON）由于重复字符多，非常适合压缩。Nginx 自带的 Gzip 就像一个压缩袋，能在传输前把文件体积压扁。&lt;/p&gt;
-&lt;h3 id=&#34;避坑方法-2&#34;&gt;避坑方法
+&lt;h3 id="避坑方法-2"&gt;避坑方法
 &lt;/h3&gt;&lt;p&gt;开启 Gzip 压缩。这几乎是&lt;strong&gt;性价比最高&lt;/strong&gt;的优化手段，没有任何副作用，只是稍微消耗一点点 CPU（几乎可以忽略不计），但能节省 40%-70% 的流量。&lt;/p&gt;
 &lt;p&gt;&lt;strong&gt;配置示例：&lt;/strong&gt;&lt;/p&gt;
-&lt;div class=&#34;highlight&#34;&gt;&lt;pre tabindex=&#34;0&#34; style=&#34;color:#f8f8f2;background-color:#272822;-moz-tab-size:4;-o-tab-size:4;tab-size:4;&#34;&gt;&lt;code class=&#34;language-nginx&#34; data-lang=&#34;nginx&#34;&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;&lt;span style=&#34;color:#66d9ef&#34;&gt;http&lt;/span&gt; {
-&lt;/span&gt;&lt;/span&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;    &lt;span style=&#34;color:#75715e&#34;&gt;# 开启gzip压缩魔法
-&lt;/span&gt;&lt;/span&gt;&lt;/span&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;&lt;span style=&#34;color:#75715e&#34;&gt;&lt;/span&gt;    &lt;span style=&#34;color:#f92672&#34;&gt;gzip&lt;/span&gt; &lt;span style=&#34;color:#66d9ef&#34;&gt;on&lt;/span&gt;;
-&lt;/span&gt;&lt;/span&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;    
-&lt;/span&gt;&lt;/span&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;    &lt;span style=&#34;color:#75715e&#34;&gt;# 小于1k的文件就不压了，压缩也要时间，得不偿失
-&lt;/span&gt;&lt;/span&gt;&lt;/span&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;&lt;span style=&#34;color:#75715e&#34;&gt;&lt;/span&gt;    &lt;span style=&#34;color:#f92672&#34;&gt;gzip_min_length&lt;/span&gt; &lt;span style=&#34;color:#ae81ff&#34;&gt;1k&lt;/span&gt;;
-&lt;/span&gt;&lt;/span&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;    
-&lt;/span&gt;&lt;/span&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;    &lt;span style=&#34;color:#75715e&#34;&gt;# 压缩级别1-9，建议4-6，平衡CPU消耗和压缩率
-&lt;/span&gt;&lt;/span&gt;&lt;/span&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;&lt;span style=&#34;color:#75715e&#34;&gt;&lt;/span&gt;    &lt;span style=&#34;color:#f92672&#34;&gt;gzip_comp_level&lt;/span&gt; &lt;span style=&#34;color:#ae81ff&#34;&gt;5&lt;/span&gt;;
-&lt;/span&gt;&lt;/span&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;    
-&lt;/span&gt;&lt;/span&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;    &lt;span style=&#34;color:#75715e&#34;&gt;# 需要压缩的文件类型，别忘了加上 json 和 xml
-&lt;/span&gt;&lt;/span&gt;&lt;/span&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;&lt;span style=&#34;color:#75715e&#34;&gt;&lt;/span&gt;    &lt;span style=&#34;color:#f92672&#34;&gt;gzip_types&lt;/span&gt; &lt;span style=&#34;color:#e6db74&#34;&gt;text/plain&lt;/span&gt; &lt;span style=&#34;color:#e6db74&#34;&gt;application/javascript&lt;/span&gt; &lt;span style=&#34;color:#e6db74&#34;&gt;application/x-javascript&lt;/span&gt; &lt;span style=&#34;color:#e6db74&#34;&gt;text/css&lt;/span&gt; &lt;span style=&#34;color:#e6db74&#34;&gt;application/xml&lt;/span&gt; &lt;span style=&#34;color:#e6db74&#34;&gt;text/javascript&lt;/span&gt; &lt;span style=&#34;color:#e6db74&#34;&gt;application/json&lt;/span&gt;;
-&lt;/span&gt;&lt;/span&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;    
-&lt;/span&gt;&lt;/span&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;    &lt;span style=&#34;color:#75715e&#34;&gt;# 让代理服务器也缓存压缩后的版本
-&lt;/span&gt;&lt;/span&gt;&lt;/span&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;&lt;span style=&#34;color:#75715e&#34;&gt;&lt;/span&gt;    &lt;span style=&#34;color:#f92672&#34;&gt;gzip_vary&lt;/span&gt; &lt;span style=&#34;color:#66d9ef&#34;&gt;on&lt;/span&gt;;
-&lt;/span&gt;&lt;/span&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;}
-&lt;/span&gt;&lt;/span&gt;&lt;/code&gt;&lt;/pre&gt;&lt;/div&gt;&lt;p&gt;&lt;strong&gt;调整结果：&lt;/strong&gt; 加上这段配置后，我的博客首页加载时间从 6 秒降到了 2 秒以内。那个 800KB 的 JS 文件，被压缩到了 200KB 左右。&lt;strong&gt;不用花钱升级带宽，速度提升了3倍。&lt;/strong&gt;&lt;/p&gt;
+&lt;div class="highlight"&gt;&lt;div class="chroma"&gt;
+&lt;table class="lntable"&gt;&lt;tr&gt;&lt;td class="lntd"&gt;
+&lt;pre tabindex="0" class="chroma"&gt;&lt;code&gt;&lt;span class="lnt"&gt; 1
+&lt;/span&gt;&lt;span class="lnt"&gt; 2
+&lt;/span&gt;&lt;span class="lnt"&gt; 3
+&lt;/span&gt;&lt;span class="lnt"&gt; 4
+&lt;/span&gt;&lt;span class="lnt"&gt; 5
+&lt;/span&gt;&lt;span class="lnt"&gt; 6
+&lt;/span&gt;&lt;span class="lnt"&gt; 7
+&lt;/span&gt;&lt;span class="lnt"&gt; 8
+&lt;/span&gt;&lt;span class="lnt"&gt; 9
+&lt;/span&gt;&lt;span class="lnt"&gt;10
+&lt;/span&gt;&lt;span class="lnt"&gt;11
+&lt;/span&gt;&lt;span class="lnt"&gt;12
+&lt;/span&gt;&lt;span class="lnt"&gt;13
+&lt;/span&gt;&lt;span class="lnt"&gt;14
+&lt;/span&gt;&lt;span class="lnt"&gt;15
+&lt;/span&gt;&lt;span class="lnt"&gt;16
+&lt;/span&gt;&lt;/code&gt;&lt;/pre&gt;&lt;/td&gt;
+&lt;td class="lntd"&gt;
+&lt;pre tabindex="0" class="chroma"&gt;&lt;code class="language-nginx" data-lang="nginx"&gt;&lt;span class="line"&gt;&lt;span class="cl"&gt;&lt;span class="k"&gt;http&lt;/span&gt; &lt;span class="p"&gt;{&lt;/span&gt;
+&lt;/span&gt;&lt;/span&gt;&lt;span class="line"&gt;&lt;span class="cl"&gt; &lt;span class="c1"&gt;# 开启gzip压缩魔法
+&lt;/span&gt;&lt;/span&gt;&lt;/span&gt;&lt;span class="line"&gt;&lt;span class="cl"&gt;&lt;span class="c1"&gt;&lt;/span&gt; &lt;span class="kn"&gt;gzip&lt;/span&gt; &lt;span class="no"&gt;on&lt;/span&gt;&lt;span class="p"&gt;;&lt;/span&gt;
+&lt;/span&gt;&lt;/span&gt;&lt;span class="line"&gt;&lt;span class="cl"&gt;
+&lt;/span&gt;&lt;/span&gt;&lt;span class="line"&gt;&lt;span class="cl"&gt; &lt;span class="c1"&gt;# 小于1k的文件就不压了，压缩也要时间，得不偿失
+&lt;/span&gt;&lt;/span&gt;&lt;/span&gt;&lt;span class="line"&gt;&lt;span class="cl"&gt;&lt;span class="c1"&gt;&lt;/span&gt; &lt;span class="kn"&gt;gzip_min_length&lt;/span&gt; &lt;span class="mi"&gt;1k&lt;/span&gt;&lt;span class="p"&gt;;&lt;/span&gt;
+&lt;/span&gt;&lt;/span&gt;&lt;span class="line"&gt;&lt;span class="cl"&gt;
+&lt;/span&gt;&lt;/span&gt;&lt;span class="line"&gt;&lt;span class="cl"&gt; &lt;span class="c1"&gt;# 压缩级别1-9，建议4-6，平衡CPU消耗和压缩率
+&lt;/span&gt;&lt;/span&gt;&lt;/span&gt;&lt;span class="line"&gt;&lt;span class="cl"&gt;&lt;span class="c1"&gt;&lt;/span&gt; &lt;span class="kn"&gt;gzip_comp_level&lt;/span&gt; &lt;span class="mi"&gt;5&lt;/span&gt;&lt;span class="p"&gt;;&lt;/span&gt;
+&lt;/span&gt;&lt;/span&gt;&lt;span class="line"&gt;&lt;span class="cl"&gt;
+&lt;/span&gt;&lt;/span&gt;&lt;span class="line"&gt;&lt;span class="cl"&gt; &lt;span class="c1"&gt;# 需要压缩的文件类型，别忘了加上 json 和 xml
+&lt;/span&gt;&lt;/span&gt;&lt;/span&gt;&lt;span class="line"&gt;&lt;span class="cl"&gt;&lt;span class="c1"&gt;&lt;/span&gt; &lt;span class="kn"&gt;gzip_types&lt;/span&gt; &lt;span class="s"&gt;text/plain&lt;/span&gt; &lt;span class="s"&gt;application/javascript&lt;/span&gt; &lt;span class="s"&gt;application/x-javascript&lt;/span&gt; &lt;span class="s"&gt;text/css&lt;/span&gt; &lt;span class="s"&gt;application/xml&lt;/span&gt; &lt;span class="s"&gt;text/javascript&lt;/span&gt; &lt;span class="s"&gt;application/json&lt;/span&gt;&lt;span class="p"&gt;;&lt;/span&gt;
+&lt;/span&gt;&lt;/span&gt;&lt;span class="line"&gt;&lt;span class="cl"&gt;
+&lt;/span&gt;&lt;/span&gt;&lt;span class="line"&gt;&lt;span class="cl"&gt; &lt;span class="c1"&gt;# 让代理服务器也缓存压缩后的版本
+&lt;/span&gt;&lt;/span&gt;&lt;/span&gt;&lt;span class="line"&gt;&lt;span class="cl"&gt;&lt;span class="c1"&gt;&lt;/span&gt; &lt;span class="kn"&gt;gzip_vary&lt;/span&gt; &lt;span class="no"&gt;on&lt;/span&gt;&lt;span class="p"&gt;;&lt;/span&gt;
+&lt;/span&gt;&lt;/span&gt;&lt;span class="line"&gt;&lt;span class="cl"&gt;&lt;span class="p"&gt;}&lt;/span&gt;
+&lt;/span&gt;&lt;/span&gt;&lt;/code&gt;&lt;/pre&gt;&lt;/td&gt;&lt;/tr&gt;&lt;/table&gt;
+&lt;/div&gt;
+&lt;/div&gt;&lt;p&gt;&lt;strong&gt;调整结果：&lt;/strong&gt; 加上这段配置后，我的博客首页加载时间从 6 秒降到了 2 秒以内。那个 800KB 的 JS 文件，被压缩到了 200KB 左右。&lt;strong&gt;不用花钱升级带宽，速度提升了3倍。&lt;/strong&gt;&lt;/p&gt;
 &lt;hr&gt;
-&lt;h2 id=&#34;结尾给焦虑降降温&#34;&gt;结尾：给焦虑降降温
+&lt;h2 id="结尾给焦虑降降温"&gt;结尾：给焦虑降降温
 &lt;/h2&gt;&lt;p&gt;读到这里，&lt;strong&gt;你有没有发现自己其实一直守着一座金矿，却只用了把铁锹在挖？&lt;/strong&gt;&lt;/p&gt;
 &lt;p&gt;很多人不敢动 Nginx 配置，是因为觉得它“太底层”、“太复杂”，生怕改坏了。但实际上，只要我们做好备份，每一次优化都是对系统掌控力的提升。&lt;/p&gt;
 &lt;p&gt;&lt;strong&gt;这里有 3 个立刻能做的小行动，建议你关掉文章后马上试试：&lt;/strong&gt;&lt;/p&gt;
-&lt;p&gt;&lt;img src=&#34;https://picsum.photos/800/450?random=1768389007803&#34;
-	
-	
-	
-	loading=&#34;lazy&#34;
-	
-		alt=&#34;配图&#34;
-	
-	
+&lt;p&gt;&lt;img src="https://picsum.photos/800/450?random=1768389007803"
+loading="lazy"
+alt="配图"
 &gt;&lt;/p&gt;
 &lt;ol&gt;
 &lt;li&gt;&lt;strong&gt;备份现状&lt;/strong&gt;：登录你的服务器，执行 &lt;code&gt;cp /etc/nginx/nginx.conf /etc/nginx/nginx.conf.bak&lt;/code&gt;。这是你的“后悔药”，有了它，你可以大胆尝试。&lt;/li&gt;
 &lt;li&gt;&lt;strong&gt;体检一次&lt;/strong&gt;：执行 &lt;code&gt;nginx -V&lt;/code&gt; 看看现在的版本，检查 &lt;code&gt;nginx.conf&lt;/code&gt; 里是不是还留着 &lt;code&gt;worker_processes 1;&lt;/code&gt; 这种“出厂设置”。&lt;/li&gt;
 &lt;li&gt;&lt;strong&gt;落地一项&lt;/strong&gt;：哪怕只开启 &lt;code&gt;gzip&lt;/code&gt; 或者 &lt;code&gt;server_tokens off&lt;/code&gt;，也是一次巨大的进步。&lt;/li&gt;
 &lt;/ol&gt;
-&lt;p&gt;&lt;img src=&#34;https://picsum.photos/800/450?random=1768389009738&#34;
-	
-	
-	
-	loading=&#34;lazy&#34;
-	
-		alt=&#34;配图&#34;
-	
-	
+&lt;p&gt;&lt;img src="https://picsum.photos/800/450?random=1768389009738"
+loading="lazy"
+alt="配图"
 &gt;&lt;/p&gt;
 &lt;p&gt;技术不仅是冰冷的代码，更是为了让我们哪怕在深夜也能睡个安稳觉。别让默认配置偷走你的性能，也别让未知的恐惧阻挡你探索的脚步。&lt;/p&gt;
-&lt;p&gt;咱们一起，把服务器调教得更顺手一点。加油！&lt;/p&gt;
-</description>
-        </item>
-        
-    </channel>
-</rss>
+&lt;p&gt;咱们一起，把服务器调教得更顺手一点。加油！&lt;/p&gt;</description></item></channel></rss>

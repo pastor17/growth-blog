@@ -1,100 +1,121 @@
-<?xml version="1.0" encoding="utf-8" standalone="yes"?>
-<rss version="2.0" xmlns:atom="http://www.w3.org/2005/Atom">
-    <channel>
-        <title>前端打包优化：Tree Shaking实战 on SelfTechHub</title>
-        <link>https://blog.irudder.me/tags/%E5%89%8D%E7%AB%AF%E6%89%93%E5%8C%85%E4%BC%98%E5%8C%96Tree-Shaking%E5%AE%9E%E6%88%98.html</link>
-        <description>Recent content in 前端打包优化：Tree Shaking实战 on SelfTechHub</description>
-        <generator>Hugo -- gohugo.io</generator>
-        <language>zh-cn</language>
-        <lastBuildDate>Mon, 05 Feb 2024 00:00:00 +0000</lastBuildDate><atom:link href="https://blog.irudder.me/tags/%E5%89%8D%E7%AB%AF%E6%89%93%E5%8C%85%E4%BC%98%E5%8C%96Tree-Shaking%E5%AE%9E%E6%88%98/index.xml" rel="self" type="application/rss+xml" /><item>
-        <title>体积减半？揭秘Tree Shaking“失效”的3个隐形杀手</title>
-        <link>https://blog.irudder.me/tech/jiagouyouhuashizhananlijiexi/qianduandabaoyouhua_tree-shakingshizhan.html</link>
-        <pubDate>Mon, 05 Feb 2024 00:00:00 +0000</pubDate>
-        
-        <guid>https://blog.irudder.me/tech/jiagouyouhuashizhananlijiexi/qianduandabaoyouhua_tree-shakingshizhan.html</guid>
-        <description>&lt;p&gt;还记得两年前那个周五的凌晨两点，我盯着Jenkins的构建日志发呆。&lt;/p&gt;
+<?xml version="1.0" encoding="utf-8" standalone="yes"?><rss version="2.0" xmlns:atom="http://www.w3.org/2005/Atom"><channel><title>前端打包优化：Tree Shaking实战 on SelfTechHub</title><link>https://blog.irudder.me/tags/%E5%89%8D%E7%AB%AF%E6%89%93%E5%8C%85%E4%BC%98%E5%8C%96Tree-Shaking%E5%AE%9E%E6%88%98.html</link><description>Recent content in 前端打包优化：Tree Shaking实战 on SelfTechHub</description><generator>Hugo -- gohugo.io</generator><language>zh-cn</language><lastBuildDate>Mon, 05 Feb 2024 00:00:00 +0800</lastBuildDate><atom:link href="https://blog.irudder.me/tags/%E5%89%8D%E7%AB%AF%E6%89%93%E5%8C%85%E4%BC%98%E5%8C%96Tree-Shaking%E5%AE%9E%E6%88%98/index.xml" rel="self" type="application/rss+xml"/><item><title>体积减半？揭秘Tree Shaking“失效”的3个隐形杀手</title><link>https://blog.irudder.me/tech/jiagouyouhuashizhananlijiexi/qianduandabaoyouhua_tree-shakingshizhan.html</link><pubDate>Mon, 05 Feb 2024 00:00:00 +0800</pubDate><guid>https://blog.irudder.me/tech/jiagouyouhuashizhananlijiexi/qianduandabaoyouhua_tree-shakingshizhan.html</guid><description>&lt;p&gt;还记得两年前那个周五的凌晨两点，我盯着Jenkins的构建日志发呆。&lt;/p&gt;
 &lt;p&gt;当时的那个后台管理系统项目，经过半年的功能堆砌，首屏加载文件（Main Bundle）竟然膨胀到了 4.8MB。在弱网环境下测试，白屏时间长达 8 秒。老板在群里丢下一句：“这速度，客户能忍？”&lt;/p&gt;
 &lt;p&gt;我当时信心满满地回复：“放心，我开了 Tree Shaking，构建时会自动剔除没用的代码。”&lt;/p&gt;
 &lt;p&gt;然而现实给了我一记响亮的耳光。明明配置了 &lt;code&gt;mode: production&lt;/code&gt;，明明用了 ES6 模块，为什么那些根本没用到的重型图表库、几年前遗留的加密函数，依然稳稳地躺在打包产物里？&lt;/p&gt;
 &lt;p&gt;Tree Shaking 并不是一个“开了就能用”的魔法开关。在实战中，我踩过无数坑，才发现让它失效的往往是我们习以为常的代码习惯。今天，我想带大家复盘那次优化经历，聊聊如何揪出那 50% 的冗余代码。&lt;/p&gt;
-&lt;p&gt;&lt;img src=&#34;https://picsum.photos/800/450?random=1768457833621&#34;
-	
-	
-	
-	loading=&#34;lazy&#34;
-	
-		alt=&#34;配图&#34;
-	
-	
+&lt;p&gt;&lt;img src="https://picsum.photos/800/450?random=1768457833621"
+loading="lazy"
+alt="配图"
 &gt;&lt;/p&gt;
-&lt;h2 id=&#34;一-被误杀的-css-与-sideeffects-的博弈&#34;&gt;一、 被误杀的 CSS 与 &lt;code&gt;sideEffects&lt;/code&gt; 的博弈
+&lt;h2 id="一-被误杀的-css-与-sideeffects-的博弈"&gt;一、 被误杀的 CSS 与 &lt;code&gt;sideEffects&lt;/code&gt; 的博弈
 &lt;/h2&gt;&lt;p&gt;很多人（包括当年的我）认为，Tree Shaking 只是 Webpack 自己的事。&lt;/p&gt;
 &lt;p&gt;在那次项目中，为了激进地减少体积，我直接在 &lt;code&gt;package.json&lt;/code&gt; 里加上了 &lt;code&gt;&amp;quot;sideEffects&amp;quot;: false&lt;/code&gt;。我想法很简单：只要没被引用的文件，统统干掉。&lt;/p&gt;
 &lt;p&gt;&lt;strong&gt;结果是灾难性的：&lt;/strong&gt; 项目跑起来了，但样式全崩了。所有的全局重置样式（Reset CSS）和引入的第三方 UI 库样式瞬间消失。&lt;/p&gt;
-&lt;p&gt;这是因为 Webpack 的 Tree Shaking 机制依赖于&lt;strong&gt;静态分析&lt;/strong&gt;。它看到 &lt;code&gt;import &#39;./style.css&#39;&lt;/code&gt;，发现并没有任何变量从这里被导出使用，于是判定为“无用代码”直接移除。但 CSS 的引入本身就是一种“副作用”（Side Effect），它会修改全局 DOM 样式。&lt;/p&gt;
+&lt;p&gt;这是因为 Webpack 的 Tree Shaking 机制依赖于&lt;strong&gt;静态分析&lt;/strong&gt;。它看到 &lt;code&gt;import './style.css'&lt;/code&gt;，发现并没有任何变量从这里被导出使用，于是判定为“无用代码”直接移除。但 CSS 的引入本身就是一种“副作用”（Side Effect），它会修改全局 DOM 样式。&lt;/p&gt;
 &lt;p&gt;&lt;strong&gt;避坑指南与实操：&lt;/strong&gt;&lt;/p&gt;
 &lt;p&gt;我们不能一刀切。正确的做法是告诉打包工具，“大部分文件是无副作用的，但这些文件你别动”。&lt;/p&gt;
 &lt;p&gt;我在 &lt;code&gt;package.json&lt;/code&gt; 中将配置修正为数组形式，这招瞬间救回了样式，同时剔除了 20% 的无用 JS 文件：&lt;/p&gt;
-&lt;div class=&#34;highlight&#34;&gt;&lt;pre tabindex=&#34;0&#34; style=&#34;color:#f8f8f2;background-color:#272822;-moz-tab-size:4;-o-tab-size:4;tab-size:4;&#34;&gt;&lt;code class=&#34;language-json&#34; data-lang=&#34;json&#34;&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;{
-&lt;/span&gt;&lt;/span&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;  &lt;span style=&#34;color:#f92672&#34;&gt;&amp;#34;name&amp;#34;&lt;/span&gt;: &lt;span style=&#34;color:#e6db74&#34;&gt;&amp;#34;my-project&amp;#34;&lt;/span&gt;,
-&lt;/span&gt;&lt;/span&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;  &lt;span style=&#34;color:#f92672&#34;&gt;&amp;#34;sideEffects&amp;#34;&lt;/span&gt;: [
-&lt;/span&gt;&lt;/span&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;    &lt;span style=&#34;color:#e6db74&#34;&gt;&amp;#34;*.css&amp;#34;&lt;/span&gt;,
-&lt;/span&gt;&lt;/span&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;    &lt;span style=&#34;color:#e6db74&#34;&gt;&amp;#34;*.less&amp;#34;&lt;/span&gt;,
-&lt;/span&gt;&lt;/span&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;    &lt;span style=&#34;color:#e6db74&#34;&gt;&amp;#34;*.scss&amp;#34;&lt;/span&gt;,
-&lt;/span&gt;&lt;/span&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;    &lt;span style=&#34;color:#e6db74&#34;&gt;&amp;#34;./src/utils/global-polyfill.js&amp;#34;&lt;/span&gt; 
-&lt;/span&gt;&lt;/span&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;  ]
-&lt;/span&gt;&lt;/span&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;}
-&lt;/span&gt;&lt;/span&gt;&lt;/code&gt;&lt;/pre&gt;&lt;/div&gt;&lt;p&gt;&lt;strong&gt;关键点：&lt;/strong&gt; 哪怕是 JS 文件，如果只执行逻辑不导出变量（比如挂载 window 对象、Polyfill），也必须加入这个白名单，否则不仅是样式丢失，连基础功能都会莫名其妙失效。&lt;/p&gt;
-&lt;h2 id=&#34;二-babel-的热心肠成了绊脚石&#34;&gt;二、 Babel 的“热心肠”成了绊脚石
+&lt;div class="highlight"&gt;&lt;div class="chroma"&gt;
+&lt;table class="lntable"&gt;&lt;tr&gt;&lt;td class="lntd"&gt;
+&lt;pre tabindex="0" class="chroma"&gt;&lt;code&gt;&lt;span class="lnt"&gt;1
+&lt;/span&gt;&lt;span class="lnt"&gt;2
+&lt;/span&gt;&lt;span class="lnt"&gt;3
+&lt;/span&gt;&lt;span class="lnt"&gt;4
+&lt;/span&gt;&lt;span class="lnt"&gt;5
+&lt;/span&gt;&lt;span class="lnt"&gt;6
+&lt;/span&gt;&lt;span class="lnt"&gt;7
+&lt;/span&gt;&lt;span class="lnt"&gt;8
+&lt;/span&gt;&lt;span class="lnt"&gt;9
+&lt;/span&gt;&lt;/code&gt;&lt;/pre&gt;&lt;/td&gt;
+&lt;td class="lntd"&gt;
+&lt;pre tabindex="0" class="chroma"&gt;&lt;code class="language-json" data-lang="json"&gt;&lt;span class="line"&gt;&lt;span class="cl"&gt;&lt;span class="p"&gt;{&lt;/span&gt;
+&lt;/span&gt;&lt;/span&gt;&lt;span class="line"&gt;&lt;span class="cl"&gt; &lt;span class="nt"&gt;&amp;#34;name&amp;#34;&lt;/span&gt;&lt;span class="p"&gt;:&lt;/span&gt; &lt;span class="s2"&gt;&amp;#34;my-project&amp;#34;&lt;/span&gt;&lt;span class="p"&gt;,&lt;/span&gt;
+&lt;/span&gt;&lt;/span&gt;&lt;span class="line"&gt;&lt;span class="cl"&gt; &lt;span class="nt"&gt;&amp;#34;sideEffects&amp;#34;&lt;/span&gt;&lt;span class="p"&gt;:&lt;/span&gt; &lt;span class="p"&gt;[&lt;/span&gt;
+&lt;/span&gt;&lt;/span&gt;&lt;span class="line"&gt;&lt;span class="cl"&gt; &lt;span class="s2"&gt;&amp;#34;*.css&amp;#34;&lt;/span&gt;&lt;span class="p"&gt;,&lt;/span&gt;
+&lt;/span&gt;&lt;/span&gt;&lt;span class="line"&gt;&lt;span class="cl"&gt; &lt;span class="s2"&gt;&amp;#34;*.less&amp;#34;&lt;/span&gt;&lt;span class="p"&gt;,&lt;/span&gt;
+&lt;/span&gt;&lt;/span&gt;&lt;span class="line"&gt;&lt;span class="cl"&gt; &lt;span class="s2"&gt;&amp;#34;*.scss&amp;#34;&lt;/span&gt;&lt;span class="p"&gt;,&lt;/span&gt;
+&lt;/span&gt;&lt;/span&gt;&lt;span class="line"&gt;&lt;span class="cl"&gt; &lt;span class="s2"&gt;&amp;#34;./src/utils/global-polyfill.js&amp;#34;&lt;/span&gt;
+&lt;/span&gt;&lt;/span&gt;&lt;span class="line"&gt;&lt;span class="cl"&gt; &lt;span class="p"&gt;]&lt;/span&gt;
+&lt;/span&gt;&lt;/span&gt;&lt;span class="line"&gt;&lt;span class="cl"&gt;&lt;span class="p"&gt;}&lt;/span&gt;
+&lt;/span&gt;&lt;/span&gt;&lt;/code&gt;&lt;/pre&gt;&lt;/td&gt;&lt;/tr&gt;&lt;/table&gt;
+&lt;/div&gt;
+&lt;/div&gt;&lt;p&gt;&lt;strong&gt;关键点：&lt;/strong&gt; 哪怕是 JS 文件，如果只执行逻辑不导出变量（比如挂载 window 对象、Polyfill），也必须加入这个白名单，否则不仅是样式丢失，连基础功能都会莫名其妙失效。&lt;/p&gt;
+&lt;h2 id="二-babel-的热心肠成了绊脚石"&gt;二、 Babel 的“热心肠”成了绊脚石
 &lt;/h2&gt;&lt;p&gt;解决了样式问题，我发现体积只下降了一点点。用 &lt;code&gt;webpack-bundle-analyzer&lt;/code&gt; 一看，很多没用到的 &lt;code&gt;lodash&lt;/code&gt; 方法依然被打包进去了。&lt;/p&gt;
-&lt;p&gt;&lt;img src=&#34;https://picsum.photos/800/450?random=1768457836605&#34;
-	
-	
-	
-	loading=&#34;lazy&#34;
-	
-		alt=&#34;配图&#34;
-	
-	
+&lt;p&gt;&lt;img src="https://picsum.photos/800/450?random=1768457836605"
+loading="lazy"
+alt="配图"
 &gt;&lt;/p&gt;
 &lt;p&gt;排查了一整天，我才发现真正的凶手竟然是 &lt;strong&gt;Babel&lt;/strong&gt;。&lt;/p&gt;
 &lt;p&gt;Tree Shaking 的核心依赖于 ES6 的模块机制（&lt;code&gt;import&lt;/code&gt; / &lt;code&gt;export&lt;/code&gt;），因为它是静态的，打包工具可以在编译时确定哪些导出被使用了。然而，早期的 Babel 配置非常“智能”，它默认会把 ES6 模块转译成 CommonJS（&lt;code&gt;require&lt;/code&gt; / &lt;code&gt;module.exports&lt;/code&gt;）。&lt;/p&gt;
 &lt;p&gt;这就好比 Webpack 想做外科手术切除肿瘤，但 Babel 提前把病人裹成了一个严严实实的木乃伊（CommonJS），Webpack 根本无从下刀，只能把整个模块全盘保留。&lt;/p&gt;
 &lt;p&gt;&lt;strong&gt;修正方案：&lt;/strong&gt;&lt;/p&gt;
 &lt;p&gt;检查你的 &lt;code&gt;.babelrc&lt;/code&gt; 或 &lt;code&gt;babel.config.js&lt;/code&gt;。一定要确保 &lt;code&gt;@babel/preset-env&lt;/code&gt; 不会转换模块类型。&lt;/p&gt;
-&lt;div class=&#34;highlight&#34;&gt;&lt;pre tabindex=&#34;0&#34; style=&#34;color:#f8f8f2;background-color:#272822;-moz-tab-size:4;-o-tab-size:4;tab-size:4;&#34;&gt;&lt;code class=&#34;language-javascript&#34; data-lang=&#34;javascript&#34;&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;&lt;span style=&#34;color:#75715e&#34;&gt;// babel.config.js
-&lt;/span&gt;&lt;/span&gt;&lt;/span&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;&lt;span style=&#34;color:#75715e&#34;&gt;&lt;/span&gt;&lt;span style=&#34;color:#a6e22e&#34;&gt;module&lt;/span&gt;.&lt;span style=&#34;color:#a6e22e&#34;&gt;exports&lt;/span&gt; &lt;span style=&#34;color:#f92672&#34;&gt;=&lt;/span&gt; {
-&lt;/span&gt;&lt;/span&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;  &lt;span style=&#34;color:#a6e22e&#34;&gt;presets&lt;/span&gt;&lt;span style=&#34;color:#f92672&#34;&gt;:&lt;/span&gt; [
-&lt;/span&gt;&lt;/span&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;    [
-&lt;/span&gt;&lt;/span&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;      &lt;span style=&#34;color:#e6db74&#34;&gt;&amp;#39;@babel/preset-env&amp;#39;&lt;/span&gt;,
-&lt;/span&gt;&lt;/span&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;      {
-&lt;/span&gt;&lt;/span&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;        &lt;span style=&#34;color:#75715e&#34;&gt;// 关键配置！关闭模块转换，留给 Webpack 处理
-&lt;/span&gt;&lt;/span&gt;&lt;/span&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;&lt;span style=&#34;color:#75715e&#34;&gt;&lt;/span&gt;        &lt;span style=&#34;color:#a6e22e&#34;&gt;modules&lt;/span&gt;&lt;span style=&#34;color:#f92672&#34;&gt;:&lt;/span&gt; &lt;span style=&#34;color:#66d9ef&#34;&gt;false&lt;/span&gt;, 
-&lt;/span&gt;&lt;/span&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;        &lt;span style=&#34;color:#a6e22e&#34;&gt;useBuiltIns&lt;/span&gt;&lt;span style=&#34;color:#f92672&#34;&gt;:&lt;/span&gt; &lt;span style=&#34;color:#e6db74&#34;&gt;&amp;#39;usage&amp;#39;&lt;/span&gt;,
-&lt;/span&gt;&lt;/span&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;        &lt;span style=&#34;color:#a6e22e&#34;&gt;corejs&lt;/span&gt;&lt;span style=&#34;color:#f92672&#34;&gt;:&lt;/span&gt; &lt;span style=&#34;color:#ae81ff&#34;&gt;3&lt;/span&gt;
-&lt;/span&gt;&lt;/span&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;      }
-&lt;/span&gt;&lt;/span&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;    ]
-&lt;/span&gt;&lt;/span&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;  ]
-&lt;/span&gt;&lt;/span&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;};
-&lt;/span&gt;&lt;/span&gt;&lt;/code&gt;&lt;/pre&gt;&lt;/div&gt;&lt;p&gt;修改完这一行配置并重新构建，Bundle 体积直接从 3.5MB 骤降到 2.1MB。那个瞬间，我真正体会到了“配置一行字，性能翻一倍”的快感。&lt;/p&gt;
-&lt;h2 id=&#34;三-全家桶导出的隐形代价&#34;&gt;三、 “全家桶”导出的隐形代价
+&lt;div class="highlight"&gt;&lt;div class="chroma"&gt;
+&lt;table class="lntable"&gt;&lt;tr&gt;&lt;td class="lntd"&gt;
+&lt;pre tabindex="0" class="chroma"&gt;&lt;code&gt;&lt;span class="lnt"&gt; 1
+&lt;/span&gt;&lt;span class="lnt"&gt; 2
+&lt;/span&gt;&lt;span class="lnt"&gt; 3
+&lt;/span&gt;&lt;span class="lnt"&gt; 4
+&lt;/span&gt;&lt;span class="lnt"&gt; 5
+&lt;/span&gt;&lt;span class="lnt"&gt; 6
+&lt;/span&gt;&lt;span class="lnt"&gt; 7
+&lt;/span&gt;&lt;span class="lnt"&gt; 8
+&lt;/span&gt;&lt;span class="lnt"&gt; 9
+&lt;/span&gt;&lt;span class="lnt"&gt;10
+&lt;/span&gt;&lt;span class="lnt"&gt;11
+&lt;/span&gt;&lt;span class="lnt"&gt;12
+&lt;/span&gt;&lt;span class="lnt"&gt;13
+&lt;/span&gt;&lt;span class="lnt"&gt;14
+&lt;/span&gt;&lt;/code&gt;&lt;/pre&gt;&lt;/td&gt;
+&lt;td class="lntd"&gt;
+&lt;pre tabindex="0" class="chroma"&gt;&lt;code class="language-javascript" data-lang="javascript"&gt;&lt;span class="line"&gt;&lt;span class="cl"&gt;&lt;span class="c1"&gt;// babel.config.js
+&lt;/span&gt;&lt;/span&gt;&lt;/span&gt;&lt;span class="line"&gt;&lt;span class="cl"&gt;&lt;span class="c1"&gt;&lt;/span&gt;&lt;span class="nx"&gt;module&lt;/span&gt;&lt;span class="p"&gt;.&lt;/span&gt;&lt;span class="nx"&gt;exports&lt;/span&gt; &lt;span class="o"&gt;=&lt;/span&gt; &lt;span class="p"&gt;{&lt;/span&gt;
+&lt;/span&gt;&lt;/span&gt;&lt;span class="line"&gt;&lt;span class="cl"&gt; &lt;span class="nx"&gt;presets&lt;/span&gt;&lt;span class="o"&gt;:&lt;/span&gt; &lt;span class="p"&gt;[&lt;/span&gt;
+&lt;/span&gt;&lt;/span&gt;&lt;span class="line"&gt;&lt;span class="cl"&gt; &lt;span class="p"&gt;[&lt;/span&gt;
+&lt;/span&gt;&lt;/span&gt;&lt;span class="line"&gt;&lt;span class="cl"&gt; &lt;span class="s1"&gt;&amp;#39;@babel/preset-env&amp;#39;&lt;/span&gt;&lt;span class="p"&gt;,&lt;/span&gt;
+&lt;/span&gt;&lt;/span&gt;&lt;span class="line"&gt;&lt;span class="cl"&gt; &lt;span class="p"&gt;{&lt;/span&gt;
+&lt;/span&gt;&lt;/span&gt;&lt;span class="line"&gt;&lt;span class="cl"&gt; &lt;span class="c1"&gt;// 关键配置！关闭模块转换，留给 Webpack 处理
+&lt;/span&gt;&lt;/span&gt;&lt;/span&gt;&lt;span class="line"&gt;&lt;span class="cl"&gt;&lt;span class="c1"&gt;&lt;/span&gt; &lt;span class="nx"&gt;modules&lt;/span&gt;&lt;span class="o"&gt;:&lt;/span&gt; &lt;span class="kc"&gt;false&lt;/span&gt;&lt;span class="p"&gt;,&lt;/span&gt;
+&lt;/span&gt;&lt;/span&gt;&lt;span class="line"&gt;&lt;span class="cl"&gt; &lt;span class="nx"&gt;useBuiltIns&lt;/span&gt;&lt;span class="o"&gt;:&lt;/span&gt; &lt;span class="s1"&gt;&amp;#39;usage&amp;#39;&lt;/span&gt;&lt;span class="p"&gt;,&lt;/span&gt;
+&lt;/span&gt;&lt;/span&gt;&lt;span class="line"&gt;&lt;span class="cl"&gt; &lt;span class="nx"&gt;corejs&lt;/span&gt;&lt;span class="o"&gt;:&lt;/span&gt; &lt;span class="mi"&gt;3&lt;/span&gt;
+&lt;/span&gt;&lt;/span&gt;&lt;span class="line"&gt;&lt;span class="cl"&gt; &lt;span class="p"&gt;}&lt;/span&gt;
+&lt;/span&gt;&lt;/span&gt;&lt;span class="line"&gt;&lt;span class="cl"&gt; &lt;span class="p"&gt;]&lt;/span&gt;
+&lt;/span&gt;&lt;/span&gt;&lt;span class="line"&gt;&lt;span class="cl"&gt; &lt;span class="p"&gt;]&lt;/span&gt;
+&lt;/span&gt;&lt;/span&gt;&lt;span class="line"&gt;&lt;span class="cl"&gt;&lt;span class="p"&gt;};&lt;/span&gt;
+&lt;/span&gt;&lt;/span&gt;&lt;/code&gt;&lt;/pre&gt;&lt;/td&gt;&lt;/tr&gt;&lt;/table&gt;
+&lt;/div&gt;
+&lt;/div&gt;&lt;p&gt;修改完这一行配置并重新构建，Bundle 体积直接从 3.5MB 骤降到 2.1MB。那个瞬间，我真正体会到了“配置一行字，性能翻一倍”的快感。&lt;/p&gt;
+&lt;h2 id="三-全家桶导出的隐形代价"&gt;三、 “全家桶”导出的隐形代价
 &lt;/h2&gt;&lt;p&gt;随着项目迭代，为了方便开发，我们团队内部封装了一个 &lt;code&gt;components/index.js&lt;/code&gt;，里面把所有的通用组件（按钮、表格、地图、富文本编辑器）全部 &lt;code&gt;export&lt;/code&gt; 出来。&lt;/p&gt;
 &lt;p&gt;开发时爽了，写代码只需一行：
-&lt;code&gt;import { Button } from &#39;@/components&#39;;&lt;/code&gt;&lt;/p&gt;
+&lt;code&gt;import { Button } from '@/components';&lt;/code&gt;&lt;/p&gt;
 &lt;p&gt;但这里藏着一个巨大的隐患。在某些老版本的构建工具或配置不严谨的情况下，这种“全家桶”式的导出（Barrel Export）会让 Tree Shaking 失效。&lt;/p&gt;
 &lt;p&gt;在那个项目中，我发现只要引入了一个小小的 &lt;code&gt;Button&lt;/code&gt;，Webpack 就会认为你可能需要访问该文件下的所有导出，结果把体积巨大的 &lt;code&gt;RichTextEditor&lt;/code&gt; 和 &lt;code&gt;AMap&lt;/code&gt;（高德地图组件）也顺带打包了进来。这就是典型的“拔出萝卜带出泥”。&lt;/p&gt;
 &lt;p&gt;&lt;strong&gt;优化策略：&lt;/strong&gt;&lt;/p&gt;
 &lt;p&gt;虽然现在的 Webpack 5 在处理这类“深层作用域分析”上已经很强了，但我亲测最稳妥、立竿见影的方法依然是&lt;strong&gt;保持引用的纯粹性&lt;/strong&gt;。&lt;/p&gt;
 &lt;p&gt;我花了两个小时，用正则替换配合人工检查，将核心页面的引用方式改为按需引入：&lt;/p&gt;
-&lt;div class=&#34;highlight&#34;&gt;&lt;pre tabindex=&#34;0&#34; style=&#34;color:#f8f8f2;background-color:#272822;-moz-tab-size:4;-o-tab-size:4;tab-size:4;&#34;&gt;&lt;code class=&#34;language-javascript&#34; data-lang=&#34;javascript&#34;&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;&lt;span style=&#34;color:#75715e&#34;&gt;// 优化前：引发“幽灵依赖”的风险
-&lt;/span&gt;&lt;/span&gt;&lt;/span&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;&lt;span style=&#34;color:#75715e&#34;&gt;&lt;/span&gt;&lt;span style=&#34;color:#66d9ef&#34;&gt;import&lt;/span&gt; { &lt;span style=&#34;color:#a6e22e&#34;&gt;Button&lt;/span&gt;, &lt;span style=&#34;color:#a6e22e&#34;&gt;UserCard&lt;/span&gt; } &lt;span style=&#34;color:#a6e22e&#34;&gt;from&lt;/span&gt; &lt;span style=&#34;color:#e6db74&#34;&gt;&amp;#39;@/components&amp;#39;&lt;/span&gt;;
-&lt;/span&gt;&lt;/span&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;
-&lt;/span&gt;&lt;/span&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;&lt;span style=&#34;color:#75715e&#34;&gt;// 优化后：路径清晰，配合 sideEffects 配置，100% 触发 Tree Shaking
-&lt;/span&gt;&lt;/span&gt;&lt;/span&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;&lt;span style=&#34;color:#75715e&#34;&gt;&lt;/span&gt;&lt;span style=&#34;color:#66d9ef&#34;&gt;import&lt;/span&gt; &lt;span style=&#34;color:#a6e22e&#34;&gt;Button&lt;/span&gt; &lt;span style=&#34;color:#a6e22e&#34;&gt;from&lt;/span&gt; &lt;span style=&#34;color:#e6db74&#34;&gt;&amp;#39;@/components/Button&amp;#39;&lt;/span&gt;;
-&lt;/span&gt;&lt;/span&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;&lt;span style=&#34;color:#66d9ef&#34;&gt;import&lt;/span&gt; &lt;span style=&#34;color:#a6e22e&#34;&gt;UserCard&lt;/span&gt; &lt;span style=&#34;color:#a6e22e&#34;&gt;from&lt;/span&gt; &lt;span style=&#34;color:#e6db74&#34;&gt;&amp;#39;@/components/UserCard&amp;#39;&lt;/span&gt;;
-&lt;/span&gt;&lt;/span&gt;&lt;/code&gt;&lt;/pre&gt;&lt;/div&gt;&lt;p&gt;对于第三方库（如 lodash 或 UI 组件库），如果不想手动改路径，可以配合 &lt;code&gt;babel-plugin-import&lt;/code&gt; 等插件来实现自动按需加载。&lt;/p&gt;
+&lt;div class="highlight"&gt;&lt;div class="chroma"&gt;
+&lt;table class="lntable"&gt;&lt;tr&gt;&lt;td class="lntd"&gt;
+&lt;pre tabindex="0" class="chroma"&gt;&lt;code&gt;&lt;span class="lnt"&gt;1
+&lt;/span&gt;&lt;span class="lnt"&gt;2
+&lt;/span&gt;&lt;span class="lnt"&gt;3
+&lt;/span&gt;&lt;span class="lnt"&gt;4
+&lt;/span&gt;&lt;span class="lnt"&gt;5
+&lt;/span&gt;&lt;span class="lnt"&gt;6
+&lt;/span&gt;&lt;/code&gt;&lt;/pre&gt;&lt;/td&gt;
+&lt;td class="lntd"&gt;
+&lt;pre tabindex="0" class="chroma"&gt;&lt;code class="language-javascript" data-lang="javascript"&gt;&lt;span class="line"&gt;&lt;span class="cl"&gt;&lt;span class="c1"&gt;// 优化前：引发“幽灵依赖”的风险
+&lt;/span&gt;&lt;/span&gt;&lt;/span&gt;&lt;span class="line"&gt;&lt;span class="cl"&gt;&lt;span class="c1"&gt;&lt;/span&gt;&lt;span class="kr"&gt;import&lt;/span&gt; &lt;span class="p"&gt;{&lt;/span&gt; &lt;span class="nx"&gt;Button&lt;/span&gt;&lt;span class="p"&gt;,&lt;/span&gt; &lt;span class="nx"&gt;UserCard&lt;/span&gt; &lt;span class="p"&gt;}&lt;/span&gt; &lt;span class="nx"&gt;from&lt;/span&gt; &lt;span class="s1"&gt;&amp;#39;@/components&amp;#39;&lt;/span&gt;&lt;span class="p"&gt;;&lt;/span&gt;
+&lt;/span&gt;&lt;/span&gt;&lt;span class="line"&gt;&lt;span class="cl"&gt;
+&lt;/span&gt;&lt;/span&gt;&lt;span class="line"&gt;&lt;span class="cl"&gt;&lt;span class="c1"&gt;// 优化后：路径清晰，配合 sideEffects 配置，100% 触发 Tree Shaking
+&lt;/span&gt;&lt;/span&gt;&lt;/span&gt;&lt;span class="line"&gt;&lt;span class="cl"&gt;&lt;span class="c1"&gt;&lt;/span&gt;&lt;span class="kr"&gt;import&lt;/span&gt; &lt;span class="nx"&gt;Button&lt;/span&gt; &lt;span class="nx"&gt;from&lt;/span&gt; &lt;span class="s1"&gt;&amp;#39;@/components/Button&amp;#39;&lt;/span&gt;&lt;span class="p"&gt;;&lt;/span&gt;
+&lt;/span&gt;&lt;/span&gt;&lt;span class="line"&gt;&lt;span class="cl"&gt;&lt;span class="kr"&gt;import&lt;/span&gt; &lt;span class="nx"&gt;UserCard&lt;/span&gt; &lt;span class="nx"&gt;from&lt;/span&gt; &lt;span class="s1"&gt;&amp;#39;@/components/UserCard&amp;#39;&lt;/span&gt;&lt;span class="p"&gt;;&lt;/span&gt;
+&lt;/span&gt;&lt;/span&gt;&lt;/code&gt;&lt;/pre&gt;&lt;/td&gt;&lt;/tr&gt;&lt;/table&gt;
+&lt;/div&gt;
+&lt;/div&gt;&lt;p&gt;对于第三方库（如 lodash 或 UI 组件库），如果不想手动改路径，可以配合 &lt;code&gt;babel-plugin-import&lt;/code&gt; 等插件来实现自动按需加载。&lt;/p&gt;
 &lt;p&gt;经过这波操作，首页的主包体积最终定格在 1.2MB 左右。相比最初的 4.8MB，我们成功瘦身了 75%。&lt;/p&gt;
-&lt;h2 id=&#34;总结与行动&#34;&gt;总结与行动
+&lt;h2 id="总结与行动"&gt;总结与行动
 &lt;/h2&gt;&lt;p&gt;Tree Shaking 从来不是银弹，它更像是一场需要开发者、工具配置、代码规范三方配合的精密手术。我也养成了习惯，每周五下午都会跑一遍包体积分析，看看有没有新的“赘肉”混进来。&lt;/p&gt;
 &lt;p&gt;如果你正为首屏加载速度发愁，不妨按照以下 3 个步骤立刻行动起来：&lt;/p&gt;
 &lt;ol&gt;
@@ -103,9 +124,4 @@
 &lt;li&gt;&lt;strong&gt;安装分析工具&lt;/strong&gt;：运行 &lt;code&gt;webpack-bundle-analyzer&lt;/code&gt;，肉眼定位那些本不该出现的大块头模块。&lt;/li&gt;
 &lt;/ol&gt;
 &lt;p&gt;&lt;strong&gt;最后，想问问大家：&lt;/strong&gt;
-在日常开发中，为了开发效率使用 &lt;code&gt;export *&lt;/code&gt; 统一导出，还是为了性能坚持写长路径的按需引入，&lt;strong&gt;你会选哪一种？A 还是 B？&lt;/strong&gt; 欢迎在评论区告诉我你的选择。&lt;/p&gt;
-</description>
-        </item>
-        
-    </channel>
-</rss>
+在日常开发中，为了开发效率使用 &lt;code&gt;export *&lt;/code&gt; 统一导出，还是为了性能坚持写长路径的按需引入，&lt;strong&gt;你会选哪一种？A 还是 B？&lt;/strong&gt; 欢迎在评论区告诉我你的选择。&lt;/p&gt;</description></item></channel></rss>
