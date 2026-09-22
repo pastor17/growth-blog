@@ -1,9 +1,5 @@
-<?xml version="1.0" encoding="utf-8" standalone="yes"?><rss version="2.0" xmlns:atom="http://www.w3.org/2005/Atom"><channel><title>数据一致性：中小项目的取舍策略 on SelfTechHub</title><link>https://blog.irudder.me/tags/%E6%95%B0%E6%8D%AE%E4%B8%80%E8%87%B4%E6%80%A7%E4%B8%AD%E5%B0%8F%E9%A1%B9%E7%9B%AE%E7%9A%84%E5%8F%96%E8%88%8D%E7%AD%96%E7%95%A5.html</link><description>Recent content in 数据一致性：中小项目的取舍策略 on SelfTechHub</description><generator>Hugo -- gohugo.io</generator><language>zh-cn</language><managingEditor>irudder@126.com (irudder)</managingEditor><webMaster>irudder@126.com (irudder)</webMaster><lastBuildDate>Sun, 09 Mar 2025 00:00:00 +0800</lastBuildDate><atom:link href="https://blog.irudder.me/tags/%E6%95%B0%E6%8D%AE%E4%B8%80%E8%87%B4%E6%80%A7%E4%B8%AD%E5%B0%8F%E9%A1%B9%E7%9B%AE%E7%9A%84%E5%8F%96%E8%88%8D%E7%AD%96%E7%95%A5/index.xml" rel="self" type="application/rss+xml"/><item><title>放弃强一致性后，系统反而稳了：中小项目的“反内卷”架构法</title><link>https://blog.irudder.me/tech/zhongxiaoxingxiangmujiagoushejizhinan/shujuyizhixing_zhongxiaoxiangmudiqushecelve.html</link><pubDate>Sun, 09 Mar 2025 00:00:00 +0800</pubDate><author>irudder@126.com (irudder)</author><guid>https://blog.irudder.me/tech/zhongxiaoxingxiangmujiagoushejizhinan/shujuyizhixing_zhongxiaoxiangmudiqushecelve.html</guid><description>&lt;p&gt;曾经很长一段时间，我对“架构师”这个头衔有着深深的误解。我认为一个优秀的架构，必然是严丝合缝、实时精准的，容不得半点数据延迟。&lt;/p&gt;
+<?xml version="1.0" encoding="utf-8" standalone="yes"?><rss version="2.0" xmlns:atom="http://www.w3.org/2005/Atom"><channel><title>数据一致性：中小项目的取舍策略 on SelfTechHub</title><link>https://blog.irudder.me/tags/%E6%95%B0%E6%8D%AE%E4%B8%80%E8%87%B4%E6%80%A7%E4%B8%AD%E5%B0%8F%E9%A1%B9%E7%9B%AE%E7%9A%84%E5%8F%96%E8%88%8D%E7%AD%96%E7%95%A5.html</link><description>Recent content in 数据一致性：中小项目的取舍策略 on SelfTechHub</description><generator>Hugo -- gohugo.io</generator><language>zh-cn</language><managingEditor>irudder@126.com (irudder)</managingEditor><webMaster>irudder@126.com (irudder)</webMaster><lastBuildDate>Sun, 09 Mar 2025 00:00:00 +0800</lastBuildDate><atom:link href="https://blog.irudder.me/tags/%E6%95%B0%E6%8D%AE%E4%B8%80%E8%87%B4%E6%80%A7%E4%B8%AD%E5%B0%8F%E9%A1%B9%E7%9B%AE%E7%9A%84%E5%8F%96%E8%88%8D%E7%AD%96%E7%95%A5/index.xml" rel="self" type="application/rss+xml"/><item><title>放弃强一致性后，系统反而稳了：中小项目的“反内卷”架构法</title><link>https://blog.irudder.me/tech/zhongxiaoxingxiangmujiagoushejizhinan/shujuyizhixing_zhongxiaoxiangmudiqushecelve.html</link><pubDate>Sun, 09 Mar 2025 00:00:00 +0800</pubDate><author>irudder@126.com (irudder)</author><guid>https://blog.irudder.me/tech/zhongxiaoxingxiangmujiagoushejizhinan/shujuyizhixing_zhongxiaoxiangmudiqushecelve.html</guid><description>&lt;img src="https://blog.irudder.me/images/covers/tech-2.jpg" alt="Featured image of post 放弃强一致性后，系统反而稳了：中小项目的“反内卷”架构法" /&gt;&lt;p&gt;曾经很长一段时间，我对“架构师”这个头衔有着深深的误解。我认为一个优秀的架构，必然是严丝合缝、实时精准的，容不得半点数据延迟。&lt;/p&gt;
 &lt;p&gt;直到几年前的一个凌晨三点，我盯着监控屏上因为分布式事务锁死导致的满屏红字，手里那杯早已凉透的咖啡怎么也喝不下去。那是我们团队刚接手的一个电商改造项目，为了追求所谓的“大厂标准”，我们在日均订单不到一万的系统里强行上了全套的分布式事务框架。结果呢？系统复杂度指数级上升，任何一个微服务的抖动都会拉垮整条链路。&lt;/p&gt;
-&lt;p&gt;&lt;img src="https://picsum.photos/800/450?random=1768456994769"
-loading="lazy"
-alt="配图"
-&gt;&lt;/p&gt;
 &lt;p&gt;那一刻我意识到，&lt;strong&gt;对于中小团队而言，完美的“强一致性”往往是一剂慢性毒药。&lt;/strong&gt; 我们在只有小米步枪的时候，非要扛着火箭炮行军，结果不仅没打胜仗，还把自己累垮了。&lt;/p&gt;
 &lt;p&gt;今天，我想和大家聊聊在资源有限、人力紧缺的中小项目中，如何放下对“完美数据”的执念，用一种更温和、更务实的方式去处理数据一致性。这不仅是技术取舍，更是一种放过自己的职场哲学。&lt;/p&gt;
 &lt;h2 id="01-别让技术洁癖拖垮了业务迭代"&gt;01 别让“技术洁癖”拖垮了业务迭代
@@ -79,10 +75,6 @@ alt="配图"
 &lt;h2 id="03-兜底机制给焦虑找一个出口"&gt;03 兜底机制：给焦虑找一个出口
 &lt;/h2&gt;&lt;p&gt;即便我们做了消息表，做了重试，依然会有焦虑：万一消息彻底丢了怎么办？万一代码逻辑真的有漏洞怎么办？&lt;/p&gt;
 &lt;p&gt;这种焦虑曾让我睡不好觉。直到我养成了一个习惯：&lt;strong&gt;给所有关键业务加上“T+1”或“T+N”的对账脚本。&lt;/strong&gt;&lt;/p&gt;
-&lt;p&gt;&lt;img src="https://picsum.photos/800/450?random=1768456990904"
-loading="lazy"
-alt="配图"
-&gt;&lt;/p&gt;
 &lt;p&gt;这就像是给系统买了一份保险。&lt;/p&gt;
 &lt;p&gt;比如在那个电商项目中，我们写了一个简单的 Python 脚本。它会在每天凌晨 2 点（这个时候流量最低），拉取前一天的支付流水和订单状态进行比对。&lt;/p&gt;
 &lt;ul&gt;

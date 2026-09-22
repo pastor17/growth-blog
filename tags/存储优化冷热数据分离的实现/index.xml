@@ -1,13 +1,9 @@
-<?xml version="1.0" encoding="utf-8" standalone="yes"?><rss version="2.0" xmlns:atom="http://www.w3.org/2005/Atom"><channel><title>存储优化：冷热数据分离的实现 on SelfTechHub</title><link>https://blog.irudder.me/tags/%E5%AD%98%E5%82%A8%E4%BC%98%E5%8C%96%E5%86%B7%E7%83%AD%E6%95%B0%E6%8D%AE%E5%88%86%E7%A6%BB%E7%9A%84%E5%AE%9E%E7%8E%B0.html</link><description>Recent content in 存储优化：冷热数据分离的实现 on SelfTechHub</description><generator>Hugo -- gohugo.io</generator><language>zh-cn</language><managingEditor>irudder@126.com (irudder)</managingEditor><webMaster>irudder@126.com (irudder)</webMaster><lastBuildDate>Sat, 20 Jun 2020 00:00:00 +0800</lastBuildDate><atom:link href="https://blog.irudder.me/tags/%E5%AD%98%E5%82%A8%E4%BC%98%E5%8C%96%E5%86%B7%E7%83%AD%E6%95%B0%E6%8D%AE%E5%88%86%E7%A6%BB%E7%9A%84%E5%AE%9E%E7%8E%B0/index.xml" rel="self" type="application/rss+xml"/><item><title>数据库报警的那夜：我是如何把存储成本砍半的？</title><link>https://blog.irudder.me/tech/jiagouyouhuashizhananlijiexi/cunchuyouhua_lengreshujufenlideshixian.html</link><pubDate>Sat, 20 Jun 2020 00:00:00 +0800</pubDate><author>irudder@126.com (irudder)</author><guid>https://blog.irudder.me/tech/jiagouyouhuashizhananlijiexi/cunchuyouhua_lengreshujufenlideshixian.html</guid><description>&lt;p&gt;凌晨3点，手机屏幕上刺眼的Zabbix报警红光把我和运维老张从睡梦中拽了起来——主库磁盘使用率飙升至92%，慢查询日志像雪花一样堆满了屏幕。&lt;/p&gt;
+<?xml version="1.0" encoding="utf-8" standalone="yes"?><rss version="2.0" xmlns:atom="http://www.w3.org/2005/Atom"><channel><title>存储优化：冷热数据分离的实现 on SelfTechHub</title><link>https://blog.irudder.me/tags/%E5%AD%98%E5%82%A8%E4%BC%98%E5%8C%96%E5%86%B7%E7%83%AD%E6%95%B0%E6%8D%AE%E5%88%86%E7%A6%BB%E7%9A%84%E5%AE%9E%E7%8E%B0.html</link><description>Recent content in 存储优化：冷热数据分离的实现 on SelfTechHub</description><generator>Hugo -- gohugo.io</generator><language>zh-cn</language><managingEditor>irudder@126.com (irudder)</managingEditor><webMaster>irudder@126.com (irudder)</webMaster><lastBuildDate>Sat, 20 Jun 2020 00:00:00 +0800</lastBuildDate><atom:link href="https://blog.irudder.me/tags/%E5%AD%98%E5%82%A8%E4%BC%98%E5%8C%96%E5%86%B7%E7%83%AD%E6%95%B0%E6%8D%AE%E5%88%86%E7%A6%BB%E7%9A%84%E5%AE%9E%E7%8E%B0/index.xml" rel="self" type="application/rss+xml"/><item><title>数据库报警的那夜：我是如何把存储成本砍半的？</title><link>https://blog.irudder.me/tech/jiagouyouhuashizhananlijiexi/cunchuyouhua_lengreshujufenlideshixian.html</link><pubDate>Sat, 20 Jun 2020 00:00:00 +0800</pubDate><author>irudder@126.com (irudder)</author><guid>https://blog.irudder.me/tech/jiagouyouhuashizhananlijiexi/cunchuyouhua_lengreshujufenlideshixian.html</guid><description>&lt;img src="https://blog.irudder.me/images/covers/tech-2.jpg" alt="Featured image of post 数据库报警的那夜：我是如何把存储成本砍半的？" /&gt;&lt;p&gt;凌晨3点，手机屏幕上刺眼的Zabbix报警红光把我和运维老张从睡梦中拽了起来——主库磁盘使用率飙升至92%，慢查询日志像雪花一样堆满了屏幕。&lt;/p&gt;
 &lt;p&gt;那一刻，我除了机械地建议“先扩容吧”，心里涌上一股深深的无力感。我们总以为随着业务增长，加配置、换SSD是万能解药，直到预算审批被CTO打回，并在邮件里冷冷地问了一句：“为什么我们的存储成本比业务增速快了三倍？”&lt;/p&gt;
 &lt;p&gt;这句话像根刺，扎了我很久。&lt;/p&gt;
 &lt;p&gt;如果你也正对着日益膨胀的表空间发愁，或者看着云厂商的账单心惊肉跳，请相信，你不是一个人在战斗。这几年，我从“无脑扩容”到“精打细算”，踩过不少坑，也总结出了一些关于&lt;strong&gt;冷热数据分离&lt;/strong&gt;的实战心得。今天不讲大道理，只想和你聊聊，怎么让数据“瘦身”，也让我们这些技术人能睡个安稳觉。&lt;/p&gt;
 &lt;h2 id="01-别被总有一天会用到的念头绑架"&gt;01. 别被“总有一天会用到”的念头绑架
 &lt;/h2&gt;&lt;p&gt;很多开发同学（包括当年的我）都有个“松鼠症”心态：数据进了数据库，就觉得它是神圣不可侵犯的，哪怕是三年前的日志，也觉得“万一哪天要查呢？”&lt;/p&gt;
-&lt;p&gt;&lt;img src="https://picsum.photos/800/450?random=1768531691302"
-loading="lazy"
-alt="配图"
-&gt;&lt;/p&gt;
 &lt;p&gt;&lt;strong&gt;观点：存储优化的第一步，不是技术选型，而是和业务方的一场“断舍离”。&lt;/strong&gt;&lt;/p&gt;
 &lt;p&gt;2020年，我负责一个电商中台项目。订单表 &lt;code&gt;orders&lt;/code&gt; 在两年内膨胀到了8亿行，单表体积破了300GB。每次做DDL（数据库定义语言）操作都像是在走钢丝，查询性能更是断崖式下跌。&lt;/p&gt;
 &lt;p&gt;当时我们试图通过分库分表来解决，但那是“重症猛药”，开发周期太长。&lt;/p&gt;
@@ -20,11 +16,7 @@ alt="配图"
 &lt;/ul&gt;
 &lt;p&gt;&lt;strong&gt;结果是立竿见影的&lt;/strong&gt;：主库数据量瞬间下降了80%，磁盘IOPS（每秒读写次数）降低了60%，那个让我们提心吊胆的报警群，终于安静了下来。&lt;/p&gt;
 &lt;h2 id="02-迁移就像搬家别搞暴力拆迁"&gt;02. 迁移就像搬家，别搞“暴力拆迁”
-&lt;/h2&gt;&lt;p&gt;&lt;img src="https://picsum.photos/800/450?random=1768531695031"
-loading="lazy"
-alt="配图"
-&gt;&lt;/p&gt;
-&lt;p&gt;定好了策略，怎么搬运数据是个精细活。我见过最惨的案例，是一个新来的小兄弟写了个脚本，在一个大事务里把冷数据 &lt;code&gt;INSERT&lt;/code&gt; 进归档表，然后直接 &lt;code&gt;DELETE&lt;/code&gt; 原表数据。&lt;/p&gt;
+&lt;/h2&gt;&lt;p&gt;定好了策略，怎么搬运数据是个精细活。我见过最惨的案例，是一个新来的小兄弟写了个脚本，在一个大事务里把冷数据 &lt;code&gt;INSERT&lt;/code&gt; 进归档表，然后直接 &lt;code&gt;DELETE&lt;/code&gt; 原表数据。&lt;/p&gt;
 &lt;p&gt;结果可想而知：主从延迟飙升，锁表导致线上交易卡顿，差点酿成P0级事故。&lt;/p&gt;
 &lt;p&gt;&lt;strong&gt;观点：数据迁移的核心是“温和”与“可逆”，永远给线上业务留呼吸口。&lt;/strong&gt;&lt;/p&gt;
 &lt;p&gt;我现在的习惯是，每周五下午抽出一点时间检查迁移任务的健康度，而这个任务本身，我是用这套逻辑实现的：&lt;/p&gt;
@@ -140,11 +132,7 @@ alt="配图"
 &lt;li&gt;&lt;strong&gt;预期收益&lt;/strong&gt;：释放主库空间 40%，备份时间缩短 1.5小时。&lt;/li&gt;
 &lt;/ul&gt;&lt;/blockquote&gt;
 &lt;h3 id="接下来你可以做的3件事"&gt;接下来你可以做的3件事：
-&lt;/h3&gt;&lt;p&gt;&lt;img src="https://picsum.photos/800/450?random=1768531688997"
-loading="lazy"
-alt="配图"
-&gt;&lt;/p&gt;
-&lt;ol&gt;
+&lt;/h3&gt;&lt;ol&gt;
 &lt;li&gt;&lt;strong&gt;Top 3 大表分析&lt;/strong&gt;：哪怕只找出系统里最大的3张表，分析它们的访问频次，你大概率能找到优化的突破口。&lt;/li&gt;
 &lt;li&gt;&lt;strong&gt;加上时间戳&lt;/strong&gt;：如果你的表里还没有 &lt;code&gt;create_time&lt;/code&gt; 或 &lt;code&gt;update_time&lt;/code&gt; 索引，今晚发布窗口就加上吧，这是分离的基础。&lt;/li&gt;
 &lt;li&gt;&lt;strong&gt;模拟演练&lt;/strong&gt;：在测试环境模拟一次“归档+删除”流程，计算一下耗时，这能让你在面对老板询问时底气十足。&lt;/li&gt;

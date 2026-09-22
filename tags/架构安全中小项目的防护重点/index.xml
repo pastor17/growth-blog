@@ -1,4 +1,4 @@
-<?xml version="1.0" encoding="utf-8" standalone="yes"?><rss version="2.0" xmlns:atom="http://www.w3.org/2005/Atom"><channel><title>架构安全：中小项目的防护重点 on SelfTechHub</title><link>https://blog.irudder.me/tags/%E6%9E%B6%E6%9E%84%E5%AE%89%E5%85%A8%E4%B8%AD%E5%B0%8F%E9%A1%B9%E7%9B%AE%E7%9A%84%E9%98%B2%E6%8A%A4%E9%87%8D%E7%82%B9.html</link><description>Recent content in 架构安全：中小项目的防护重点 on SelfTechHub</description><generator>Hugo -- gohugo.io</generator><language>zh-cn</language><managingEditor>irudder@126.com (irudder)</managingEditor><webMaster>irudder@126.com (irudder)</webMaster><lastBuildDate>Thu, 09 Nov 2023 00:00:00 +0800</lastBuildDate><atom:link href="https://blog.irudder.me/tags/%E6%9E%B6%E6%9E%84%E5%AE%89%E5%85%A8%E4%B8%AD%E5%B0%8F%E9%A1%B9%E7%9B%AE%E7%9A%84%E9%98%B2%E6%8A%A4%E9%87%8D%E7%82%B9/index.xml" rel="self" type="application/rss+xml"/><item><title>没钱没人？中小项目死守这3条安全红线</title><link>https://blog.irudder.me/tech/zhongxiaoxingxiangmujiagoushejizhinan/jiagouanquan_zhongxiaoxiangmudifanghuzhongdian.html</link><pubDate>Thu, 09 Nov 2023 00:00:00 +0800</pubDate><author>irudder@126.com (irudder)</author><guid>https://blog.irudder.me/tech/zhongxiaoxingxiangmujiagoushejizhinan/jiagouanquan_zhongxiaoxiangmudifanghuzhongdian.html</guid><description>&lt;p&gt;2018年的一个深夜，我盯着服务器监控大屏，心率飙到了120。&lt;/p&gt;
+<?xml version="1.0" encoding="utf-8" standalone="yes"?><rss version="2.0" xmlns:atom="http://www.w3.org/2005/Atom"><channel><title>架构安全：中小项目的防护重点 on SelfTechHub</title><link>https://blog.irudder.me/tags/%E6%9E%B6%E6%9E%84%E5%AE%89%E5%85%A8%E4%B8%AD%E5%B0%8F%E9%A1%B9%E7%9B%AE%E7%9A%84%E9%98%B2%E6%8A%A4%E9%87%8D%E7%82%B9.html</link><description>Recent content in 架构安全：中小项目的防护重点 on SelfTechHub</description><generator>Hugo -- gohugo.io</generator><language>zh-cn</language><managingEditor>irudder@126.com (irudder)</managingEditor><webMaster>irudder@126.com (irudder)</webMaster><lastBuildDate>Thu, 09 Nov 2023 00:00:00 +0800</lastBuildDate><atom:link href="https://blog.irudder.me/tags/%E6%9E%B6%E6%9E%84%E5%AE%89%E5%85%A8%E4%B8%AD%E5%B0%8F%E9%A1%B9%E7%9B%AE%E7%9A%84%E9%98%B2%E6%8A%A4%E9%87%8D%E7%82%B9/index.xml" rel="self" type="application/rss+xml"/><item><title>没钱没人？中小项目死守这3条安全红线</title><link>https://blog.irudder.me/tech/zhongxiaoxingxiangmujiagoushejizhinan/jiagouanquan_zhongxiaoxiangmudifanghuzhongdian.html</link><pubDate>Thu, 09 Nov 2023 00:00:00 +0800</pubDate><author>irudder@126.com (irudder)</author><guid>https://blog.irudder.me/tech/zhongxiaoxingxiangmujiagoushejizhinan/jiagouanquan_zhongxiaoxiangmudifanghuzhongdian.html</guid><description>&lt;img src="https://blog.irudder.me/images/covers/tech-1.jpg" alt="Featured image of post 没钱没人？中小项目死守这3条安全红线" /&gt;&lt;p&gt;2018年的一个深夜，我盯着服务器监控大屏，心率飙到了120。&lt;/p&gt;
 &lt;p&gt;当时我负责的一个电商SaaS项目（典型的中小团队，5个后端，1个运维），因为一次大促活动被黑产盯上了。对方没用什么高深的0-day漏洞，仅仅是用脚本遍历了我们的订单ID，就扒走了三万多条用户敏感数据。&lt;/p&gt;
 &lt;p&gt;我也曾天真地以为，安全是大厂才需要考虑的“富贵病”，中小项目只要业务跑得通、功能上线快就是王道。直到那次事故，不仅赔了客户一大笔钱，核心开发团队还因此背了处分，士气低落了整整半年。&lt;/p&gt;
 &lt;p&gt;也就是从那时起，我开始反思：&lt;strong&gt;在资源有限、没有专职安全团队的情况下，中小项目到底该怎么做架构防御？&lt;/strong&gt;&lt;/p&gt;
@@ -44,17 +44,9 @@
 &lt;/span&gt;&lt;/span&gt;&lt;/code&gt;&lt;/pre&gt;&lt;/td&gt;&lt;/tr&gt;&lt;/table&gt;
 &lt;/div&gt;
 &lt;/div&gt;&lt;p&gt;把这个逻辑下沉到Service层或DAO层的基类中，让开发人员“无感”地遵守安全规范，比开十次安全培训会都管用。&lt;/p&gt;
-&lt;p&gt;&lt;img src="https://picsum.photos/800/450?random=1768456743919"
-loading="lazy"
-alt="配图"
-&gt;&lt;/p&gt;
 &lt;h2 id="依赖地狱你引入的代码比你写的代码危险"&gt;依赖地狱：你引入的代码比你写的代码危险
 &lt;/h2&gt;&lt;p&gt;中小项目为了求快，通常是“拿来主义”。npm install一敲，maven一引，功能就有了。&lt;/p&gt;
 &lt;p&gt;但你有没有想过，你引入的一个用来格式化日期的不到100行代码的小库，背后可能依赖了深层嵌套的几十个包？&lt;/p&gt;
-&lt;p&gt;&lt;img src="https://picsum.photos/800/450?random=1768456743992"
-loading="lazy"
-alt="配图"
-&gt;&lt;/p&gt;
 &lt;p&gt;2021年Log4j2漏洞爆发的那个周末，应该是所有Java架构师的噩梦。但我印象更深的是另一次“小事故”。我们的前端项目引入了一个很冷门的图表库，结果这个库的维护者账号被盗，发了一个带挖矿脚本的新版本。我们的CI/CD流水线没有任何检查，直接把这个版本推到了生产环境，导致用户CPU飙升。&lt;/p&gt;
 &lt;p&gt;&lt;strong&gt;对于中小团队，供应链安全是性价比最高的防护手段。&lt;/strong&gt;&lt;/p&gt;
 &lt;p&gt;我现在每周五下午Review代码时，都会雷打不动地检查 &lt;code&gt;package.json&lt;/code&gt; 或 &lt;code&gt;pom.xml&lt;/code&gt; 的变动。&lt;/p&gt;

@@ -1,14 +1,10 @@
-<?xml version="1.0" encoding="utf-8" standalone="yes"?><rss version="2.0" xmlns:atom="http://www.w3.org/2005/Atom"><channel><title>Git分支管理策略：Git Flow vs Trunk Based on SelfTechHub</title><link>https://blog.irudder.me/tags/Git%E5%88%86%E6%94%AF%E7%AE%A1%E7%90%86%E7%AD%96%E7%95%A5Git-Flow-vs-Trunk-Based.html</link><description>Recent content in Git分支管理策略：Git Flow vs Trunk Based on SelfTechHub</description><generator>Hugo -- gohugo.io</generator><language>zh-cn</language><managingEditor>irudder@126.com (irudder)</managingEditor><webMaster>irudder@126.com (irudder)</webMaster><lastBuildDate>Mon, 02 Jun 2025 00:00:00 +0800</lastBuildDate><atom:link href="https://blog.irudder.me/tags/Git%E5%88%86%E6%94%AF%E7%AE%A1%E7%90%86%E7%AD%96%E7%95%A5Git-Flow-vs-Trunk-Based/index.xml" rel="self" type="application/rss+xml"/><item><title>被Git Flow折磨两年，换主干开发后真香</title><link>https://blog.irudder.me/tech/devopsjichugongjurumenyushicao/gitfenzhiguanlicelve_git-flow-vs-trunk-based.html</link><pubDate>Mon, 02 Jun 2025 00:00:00 +0800</pubDate><author>irudder@126.com (irudder)</author><guid>https://blog.irudder.me/tech/devopsjichugongjurumenyushicao/gitfenzhiguanlicelve_git-flow-vs-trunk-based.html</guid><description>&lt;p&gt;还记得两年前那个黑色的周五下午，离下班还有半小时。&lt;/p&gt;
+<?xml version="1.0" encoding="utf-8" standalone="yes"?><rss version="2.0" xmlns:atom="http://www.w3.org/2005/Atom"><channel><title>Git分支管理策略：Git Flow vs Trunk Based on SelfTechHub</title><link>https://blog.irudder.me/tags/Git%E5%88%86%E6%94%AF%E7%AE%A1%E7%90%86%E7%AD%96%E7%95%A5Git-Flow-vs-Trunk-Based.html</link><description>Recent content in Git分支管理策略：Git Flow vs Trunk Based on SelfTechHub</description><generator>Hugo -- gohugo.io</generator><language>zh-cn</language><managingEditor>irudder@126.com (irudder)</managingEditor><webMaster>irudder@126.com (irudder)</webMaster><lastBuildDate>Mon, 02 Jun 2025 00:00:00 +0800</lastBuildDate><atom:link href="https://blog.irudder.me/tags/Git%E5%88%86%E6%94%AF%E7%AE%A1%E7%90%86%E7%AD%96%E7%95%A5Git-Flow-vs-Trunk-Based/index.xml" rel="self" type="application/rss+xml"/><item><title>被Git Flow折磨两年，换主干开发后真香</title><link>https://blog.irudder.me/tech/devopsjichugongjurumenyushicao/gitfenzhiguanlicelve_git-flow-vs-trunk-based.html</link><pubDate>Mon, 02 Jun 2025 00:00:00 +0800</pubDate><author>irudder@126.com (irudder)</author><guid>https://blog.irudder.me/tech/devopsjichugongjurumenyushicao/gitfenzhiguanlicelve_git-flow-vs-trunk-based.html</guid><description>&lt;img src="https://blog.irudder.me/images/covers/tech-2.jpg" alt="Featured image of post 被Git Flow折磨两年，换主干开发后真香" /&gt;&lt;p&gt;还记得两年前那个黑色的周五下午，离下班还有半小时。&lt;/p&gt;
 &lt;p&gt;当时我们的后端兄弟“大刘”正准备把开发了两周的“双十一促销功能”分支合并回 &lt;code&gt;develop&lt;/code&gt; 分支。由于这两周内其他同事已经合入了四十多次代码，大刘对着满屏红色的 &lt;strong&gt;Merge Conflicts&lt;/strong&gt; 绝望地抓头。那天我们整个小组为了解冲突、修因合并产生的回归Bug，硬是加班到了凌晨两点。&lt;/p&gt;
 &lt;p&gt;那时我一直以为，严格遵守 Vincent Driessen 提出的 &lt;strong&gt;Git Flow&lt;/strong&gt;（也就是那张经典的、像地铁线路图一样的分支模型），是团队走向正规化的必经之路。&lt;/p&gt;
 &lt;p&gt;直到后来我带着团队转型 &lt;strong&gt;主干开发（Trunk Based Development）&lt;/strong&gt;，我才发现：&lt;strong&gt;对于大多数中小团队来说，过度的流程不是保护，而是累赘。&lt;/strong&gt;&lt;/p&gt;
 &lt;p&gt;今天就和大家聊聊，我们是如何从Git Flow的泥潭里爬出来，通过主干开发让上线效率翻倍的实战经历。&lt;/p&gt;
 &lt;h2 id="以为是规范其实是枷锁git-flow-的过度设计"&gt;以为是规范，其实是枷锁：Git Flow 的“过度设计”
-&lt;/h2&gt;&lt;p&gt;&lt;img src="https://picsum.photos/800/450?random=1768387328973"
-loading="lazy"
-alt="配图"
-&gt;&lt;/p&gt;
-&lt;p&gt;刚开始带团队时，为了显得“专业”，我强制要求大家严格执行 Git Flow。我们在 GitLab 里锁定了 &lt;code&gt;master&lt;/code&gt; 和 &lt;code&gt;develop&lt;/code&gt;，每个人开发新功能必须切 &lt;code&gt;feature&lt;/code&gt; 分支，测试切 &lt;code&gt;release&lt;/code&gt; 分支，修线上Bug切 &lt;code&gt;hotfix&lt;/code&gt; 分支。&lt;/p&gt;
+&lt;/h2&gt;&lt;p&gt;刚开始带团队时，为了显得“专业”，我强制要求大家严格执行 Git Flow。我们在 GitLab 里锁定了 &lt;code&gt;master&lt;/code&gt; 和 &lt;code&gt;develop&lt;/code&gt;，每个人开发新功能必须切 &lt;code&gt;feature&lt;/code&gt; 分支，测试切 &lt;code&gt;release&lt;/code&gt; 分支，修线上Bug切 &lt;code&gt;hotfix&lt;/code&gt; 分支。&lt;/p&gt;
 &lt;p&gt;看起来井井有条，但跑了半年，&lt;strong&gt;痛点&lt;/strong&gt;全暴露了：&lt;/p&gt;
 &lt;ol&gt;
 &lt;li&gt;&lt;strong&gt;“合并地狱”常态化&lt;/strong&gt;：就像开头提到的大刘，Feature 分支存活时间越长，和主干的差异就越大。最后合并的那一刻，就是风险爆发的时候。&lt;/li&gt;
@@ -17,18 +13,10 @@ alt="配图"
 &lt;/ol&gt;
 &lt;p&gt;当时我们复盘了一下数据：&lt;strong&gt;平均每个Feature分支的生命周期长达 5.5 天，而每次发布前的代码冻结和修复时间平均需要 1 天。&lt;/strong&gt;&lt;/p&gt;
 &lt;p&gt;对于一个只有 8 个开发人员、需要快速迭代的 SaaS 产品来说，这简直是灾难。&lt;/p&gt;
-&lt;p&gt;&lt;img src="https://picsum.photos/800/450?random=1768387335644"
-loading="lazy"
-alt="配图"
-&gt;&lt;/p&gt;
 &lt;h2 id="拥抱主干开发每天上线5次的快乐"&gt;拥抱主干开发：每天上线5次的快乐
 &lt;/h2&gt;&lt;p&gt;痛定思痛，我决定在核心业务线尝试 &lt;strong&gt;主干开发（Trunk Based Development，TBD）&lt;/strong&gt;。&lt;/p&gt;
 &lt;p&gt;简单说，就是团队只维护一条主干分支（通常是 &lt;code&gt;main&lt;/code&gt; 或 &lt;code&gt;master&lt;/code&gt;）。开发人员的所有代码，要么直接提交到主干，要么在极短命的 Feature 分支（存活不超过24小时）上开发完迅速合入主干。&lt;/p&gt;
 &lt;p&gt;刚提出这个方案时，团队炸锅了。&lt;/p&gt;
-&lt;p&gt;&lt;img src="https://picsum.photos/800/450?random=1768387333564"
-loading="lazy"
-alt="配图"
-&gt;&lt;/p&gt;
 &lt;blockquote&gt;
 &lt;p&gt;“直接往主干合？万一代码没写完，把线上搞挂了怎么办？”&lt;/p&gt;&lt;/blockquote&gt;
 &lt;p&gt;这是最真实的担忧。为了解决这个问题，我们引入了一个关键技术手段：&lt;strong&gt;特性开关（Feature Toggles）&lt;/strong&gt;。&lt;/p&gt;

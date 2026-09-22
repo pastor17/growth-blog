@@ -1,22 +1,14 @@
-<?xml version="1.0" encoding="utf-8" standalone="yes"?><rss version="2.0" xmlns:atom="http://www.w3.org/2005/Atom"><channel><title>前端首屏加载速度从3s优化到0.8s的实战 on SelfTechHub</title><link>https://blog.irudder.me/tags/%E5%89%8D%E7%AB%AF%E9%A6%96%E5%B1%8F%E5%8A%A0%E8%BD%BD%E9%80%9F%E5%BA%A6%E4%BB%8E3s%E4%BC%98%E5%8C%96%E5%88%B00.8s%E7%9A%84%E5%AE%9E%E6%88%98.html</link><description>Recent content in 前端首屏加载速度从3s优化到0.8s的实战 on SelfTechHub</description><generator>Hugo -- gohugo.io</generator><language>zh-cn</language><managingEditor>irudder@126.com (irudder)</managingEditor><webMaster>irudder@126.com (irudder)</webMaster><lastBuildDate>Mon, 18 Apr 2022 00:00:00 +0800</lastBuildDate><atom:link href="https://blog.irudder.me/tags/%E5%89%8D%E7%AB%AF%E9%A6%96%E5%B1%8F%E5%8A%A0%E8%BD%BD%E9%80%9F%E5%BA%A6%E4%BB%8E3s%E4%BC%98%E5%8C%96%E5%88%B00.8s%E7%9A%84%E5%AE%9E%E6%88%98/index.xml" rel="self" type="application/rss+xml"/><item><title>首屏3s到0.8s：一场"外科手术式"的架构优化复盘</title><link>https://blog.irudder.me/tech/jiagouyouhuashizhananlijiexi/qianduanshoupingjiazaisuducong3syouhuadao0.8sdeshizhan.html</link><pubDate>Mon, 18 Apr 2022 00:00:00 +0800</pubDate><author>irudder@126.com (irudder)</author><guid>https://blog.irudder.me/tech/jiagouyouhuashizhananlijiexi/qianduanshoupingjiazaisuducong3syouhuadao0.8sdeshizhan.html</guid><description>&lt;p&gt;&lt;strong&gt;&amp;ldquo;为什么用户在4G网络下打开我们的H5，白屏时间够我喝口水了？&amp;rdquo;&lt;/strong&gt;&lt;/p&gt;
+<?xml version="1.0" encoding="utf-8" standalone="yes"?><rss version="2.0" xmlns:atom="http://www.w3.org/2005/Atom"><channel><title>前端首屏加载速度从3s优化到0.8s的实战 on SelfTechHub</title><link>https://blog.irudder.me/tags/%E5%89%8D%E7%AB%AF%E9%A6%96%E5%B1%8F%E5%8A%A0%E8%BD%BD%E9%80%9F%E5%BA%A6%E4%BB%8E3s%E4%BC%98%E5%8C%96%E5%88%B00.8s%E7%9A%84%E5%AE%9E%E6%88%98.html</link><description>Recent content in 前端首屏加载速度从3s优化到0.8s的实战 on SelfTechHub</description><generator>Hugo -- gohugo.io</generator><language>zh-cn</language><managingEditor>irudder@126.com (irudder)</managingEditor><webMaster>irudder@126.com (irudder)</webMaster><lastBuildDate>Mon, 18 Apr 2022 00:00:00 +0800</lastBuildDate><atom:link href="https://blog.irudder.me/tags/%E5%89%8D%E7%AB%AF%E9%A6%96%E5%B1%8F%E5%8A%A0%E8%BD%BD%E9%80%9F%E5%BA%A6%E4%BB%8E3s%E4%BC%98%E5%8C%96%E5%88%B00.8s%E7%9A%84%E5%AE%9E%E6%88%98/index.xml" rel="self" type="application/rss+xml"/><item><title>首屏3s到0.8s：一场"外科手术式"的架构优化复盘</title><link>https://blog.irudder.me/tech/jiagouyouhuashizhananlijiexi/qianduanshoupingjiazaisuducong3syouhuadao0.8sdeshizhan.html</link><pubDate>Mon, 18 Apr 2022 00:00:00 +0800</pubDate><author>irudder@126.com (irudder)</author><guid>https://blog.irudder.me/tech/jiagouyouhuashizhananlijiexi/qianduanshoupingjiazaisuducong3syouhuadao0.8sdeshizhan.html</guid><description>&lt;img src="https://blog.irudder.me/images/covers/tech-1.jpg" alt="Featured image of post 首屏3s到0.8s：一场"外科手术式"的架构优化复盘" /&gt;&lt;p&gt;&lt;strong&gt;&amp;ldquo;为什么用户在4G网络下打开我们的H5，白屏时间够我喝口水了？&amp;rdquo;&lt;/strong&gt;&lt;/p&gt;
 &lt;p&gt;半年前的周一早会，当业务负责人把手机扔在会议桌上时，空气安静得可怕。那是我们核心的C端交易链路，理论上应该是最快的，但真实监控数据显示，P99的首屏加载时间（FCP）飙到了3.2秒。&lt;/p&gt;
 &lt;p&gt;我曾以为，前端优化无非就是压压图片、搞搞懒加载、把代码写得&amp;quot;漂亮&amp;quot;点。直到这次为了把3秒压到0.8s以内，我带着团队把整个链路翻了个底朝天，才发现：&lt;strong&gt;性能优化从来不是单点突破的技术问题，而是一场涉及架构设计、网络传输和运维协同的系统工程。&lt;/strong&gt;&lt;/p&gt;
 &lt;p&gt;这半年折腾下来，踩了不少坑，也总结了一套还算能打的方法论。今天不聊虚的，就把我们当时怎么&amp;quot;动刀子&amp;quot;的全过程复盘一下。&lt;/p&gt;
 &lt;h2 id="拒绝盲人摸象先给系统做个ct"&gt;拒绝&amp;quot;盲人摸象&amp;quot;，先给系统做个CT
 &lt;/h2&gt;&lt;p&gt;很多兄弟接到优化任务，第一反应是去改代码：压缩图片、去注释、甚至重写组件。这其实是个大坑。&lt;strong&gt;没有数据的优化，就是耍流氓。&lt;/strong&gt;&lt;/p&gt;
-&lt;p&gt;&lt;img src="https://picsum.photos/800/450?random=1768457308344"
-loading="lazy"
-alt="配图"
-&gt;&lt;/p&gt;
 &lt;p&gt;在项目初期，我们最大的问题是&amp;quot;觉得慢&amp;quot;，但不知道&amp;quot;慢在哪&amp;quot;。是DNS解析慢？是后端接口慢？还是JS执行慢？&lt;/p&gt;
 &lt;p&gt;为了搞清楚病灶，我强制要求团队暂停所有盲目的代码修改，先花了三天时间接入了全链路监控。我们基于 Performance API 做了一套简单的埋点上报，结合 Chrome DevTools 的 Performance 面板进行深度分析。&lt;/p&gt;
 &lt;p&gt;&lt;strong&gt;结果让我们大跌眼镜：&lt;/strong&gt;&lt;/p&gt;
 &lt;p&gt;我们一直以为是资源包太大导致的慢，结果数据显示，&lt;strong&gt;从 HTML 下载完成到开始请求 JS 资源，中间竟然有 400ms 的空窗期！&lt;/strong&gt;&lt;/p&gt;
 &lt;p&gt;原来，为了追求所谓的&amp;quot;架构整洁&amp;quot;，我们在 HTML &lt;code&gt;&amp;lt;head&amp;gt;&lt;/code&gt; 里塞了一堆同步执行的第三方 SDK（埋点、风控、AB测试）。这些脚本阻塞了浏览器的解析线程，导致关键资源迟迟无法并发下载。&lt;/p&gt;
-&lt;p&gt;&lt;img src="https://picsum.photos/800/450?random=1768457309063"
-loading="lazy"
-alt="配图"
-&gt;&lt;/p&gt;
 &lt;p&gt;&lt;strong&gt;落地动作：&lt;/strong&gt;&lt;/p&gt;
 &lt;p&gt;我们把所有非关键路径的 SDK 全部挪到 &lt;code&gt;requestIdleCallback&lt;/code&gt; 或者 &lt;code&gt;window.onload&lt;/code&gt; 之后执行。仅这一项改动，FCP 就直接下降了 300ms。&lt;/p&gt;
 &lt;blockquote&gt;
@@ -24,10 +16,6 @@ alt="配图"
 &lt;h2 id="你的-bundle-真的需要那么大吗"&gt;你的 Bundle 真的需要那么大吗？
 &lt;/h2&gt;&lt;p&gt;解决了阻塞问题，我们开始啃硬骨头：JS 体积。&lt;/p&gt;
 &lt;p&gt;当时的 &lt;code&gt;main.js&lt;/code&gt; 经过 Gzip 压缩后依然有 600KB。对于移动端设备，这意味着不仅下载耗时，&lt;strong&gt;JS 的解析和执行（Parse &amp;amp; Compile）更是耗电大户。&lt;/strong&gt;&lt;/p&gt;
-&lt;p&gt;&lt;img src="https://picsum.photos/800/450?random=1768457303430"
-loading="lazy"
-alt="配图"
-&gt;&lt;/p&gt;
 &lt;p&gt;我让团队用 &lt;code&gt;webpack-bundle-analyzer&lt;/code&gt; 跑了一遍分析，发现一个非常有意思的现象：我们的登录页竟然打包进了 &lt;code&gt;ECharts&lt;/code&gt; 和 &lt;code&gt;Three.js&lt;/code&gt; ——仅仅因为某个深层组件引用了一个通用工具函数，而那个工具函数所在的 &lt;code&gt;utils.js&lt;/code&gt; 文件里不小心为了方便，把所有重型库都 import 进来了。&lt;/p&gt;
 &lt;p&gt;这是一个典型的 Tree Shaking 失效案例。&lt;/p&gt;
 &lt;p&gt;&lt;strong&gt;我们做了两件事：&lt;/strong&gt;&lt;/p&gt;

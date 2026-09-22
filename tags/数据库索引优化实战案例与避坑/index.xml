@@ -1,12 +1,8 @@
-<?xml version="1.0" encoding="utf-8" standalone="yes"?><rss version="2.0" xmlns:atom="http://www.w3.org/2005/Atom"><channel><title>数据库索引优化：实战案例与避坑 on SelfTechHub</title><link>https://blog.irudder.me/tags/%E6%95%B0%E6%8D%AE%E5%BA%93%E7%B4%A2%E5%BC%95%E4%BC%98%E5%8C%96%E5%AE%9E%E6%88%98%E6%A1%88%E4%BE%8B%E4%B8%8E%E9%81%BF%E5%9D%91.html</link><description>Recent content in 数据库索引优化：实战案例与避坑 on SelfTechHub</description><generator>Hugo -- gohugo.io</generator><language>zh-cn</language><managingEditor>irudder@126.com (irudder)</managingEditor><webMaster>irudder@126.com (irudder)</webMaster><lastBuildDate>Fri, 26 Sep 2025 00:00:00 +0800</lastBuildDate><atom:link href="https://blog.irudder.me/tags/%E6%95%B0%E6%8D%AE%E5%BA%93%E7%B4%A2%E5%BC%95%E4%BC%98%E5%8C%96%E5%AE%9E%E6%88%98%E6%A1%88%E4%BE%8B%E4%B8%8E%E9%81%BF%E5%9D%91/index.xml" rel="self" type="application/rss+xml"/><item><title>半夜报警？这3个索引“负优化”案例让我长记性了</title><link>https://blog.irudder.me/tech/jiagouyouhuashizhananlijiexi/shujukusuoyinyouhua_shizhananliyubikeng.html</link><pubDate>Fri, 26 Sep 2025 00:00:00 +0800</pubDate><author>irudder@126.com (irudder)</author><guid>https://blog.irudder.me/tech/jiagouyouhuashizhananlijiexi/shujukusuoyinyouhua_shizhananliyubikeng.html</guid><description>&lt;p&gt;不知道大家有没有这种经历：明明给表加了索引，查询速度不仅没起飞，数据库的CPU反而先爆表了，甚至连写入都开始阻塞。&lt;/p&gt;
+<?xml version="1.0" encoding="utf-8" standalone="yes"?><rss version="2.0" xmlns:atom="http://www.w3.org/2005/Atom"><channel><title>数据库索引优化：实战案例与避坑 on SelfTechHub</title><link>https://blog.irudder.me/tags/%E6%95%B0%E6%8D%AE%E5%BA%93%E7%B4%A2%E5%BC%95%E4%BC%98%E5%8C%96%E5%AE%9E%E6%88%98%E6%A1%88%E4%BE%8B%E4%B8%8E%E9%81%BF%E5%9D%91.html</link><description>Recent content in 数据库索引优化：实战案例与避坑 on SelfTechHub</description><generator>Hugo -- gohugo.io</generator><language>zh-cn</language><managingEditor>irudder@126.com (irudder)</managingEditor><webMaster>irudder@126.com (irudder)</webMaster><lastBuildDate>Fri, 26 Sep 2025 00:00:00 +0800</lastBuildDate><atom:link href="https://blog.irudder.me/tags/%E6%95%B0%E6%8D%AE%E5%BA%93%E7%B4%A2%E5%BC%95%E4%BC%98%E5%8C%96%E5%AE%9E%E6%88%98%E6%A1%88%E4%BE%8B%E4%B8%8E%E9%81%BF%E5%9D%91/index.xml" rel="self" type="application/rss+xml"/><item><title>半夜报警？这3个索引“负优化”案例让我长记性了</title><link>https://blog.irudder.me/tech/jiagouyouhuashizhananlijiexi/shujukusuoyinyouhua_shizhananliyubikeng.html</link><pubDate>Fri, 26 Sep 2025 00:00:00 +0800</pubDate><author>irudder@126.com (irudder)</author><guid>https://blog.irudder.me/tech/jiagouyouhuashizhananlijiexi/shujukusuoyinyouhua_shizhananliyubikeng.html</guid><description>&lt;img src="https://blog.irudder.me/images/covers/tech-2.jpg" alt="Featured image of post 半夜报警？这3个索引“负优化”案例让我长记性了" /&gt;&lt;p&gt;不知道大家有没有这种经历：明明给表加了索引，查询速度不仅没起飞，数据库的CPU反而先爆表了，甚至连写入都开始阻塞。&lt;/p&gt;
 &lt;p&gt;我以前总觉得，“慢查询”最好的解药就是加索引。只要业务方喊慢，我就去 &lt;code&gt;ADD INDEX&lt;/code&gt;。直到三年前那次双11大促前的压测，我亲手搞挂了一个核心服务的数据库，才彻底明白：&lt;strong&gt;索引这把双刃剑，很多时候是拿反了的。&lt;/strong&gt;&lt;/p&gt;
 &lt;p&gt;今天咱们不聊那些枯燥的B+树原理，我想复盘这几年在一线实战中踩过的3个典型“坑”。这些都是真金白银砸出来的教训，希望能帮大家避开半夜两点的报警电话。&lt;/p&gt;
 &lt;h2 id="一-为了快我把所有字段都加了索引"&gt;一、 “为了快，我把所有字段都加了索引”
-&lt;/h2&gt;&lt;p&gt;&lt;img src="https://picsum.photos/800/450?random=1768458454016"
-loading="lazy"
-alt="配图"
-&gt;&lt;/p&gt;
-&lt;p&gt;这大概是很多新手（包括当年的我）最容易犯的错。&lt;/p&gt;
+&lt;/h2&gt;&lt;p&gt;这大概是很多新手（包括当年的我）最容易犯的错。&lt;/p&gt;
 &lt;p&gt;&lt;strong&gt;【真实场景】&lt;/strong&gt;
 当时我们在做一个用户行为日志表，数据量增长很快，每天大概新增500万条。业务方需求很多，今天想按 &lt;code&gt;user_id&lt;/code&gt; 查，明天想按 &lt;code&gt;event_type&lt;/code&gt; 查，后天又要按 &lt;code&gt;device_id&lt;/code&gt; 统计。&lt;/p&gt;
 &lt;p&gt;为了省事，也为了“未雨绸缪”，我一股脑给这几个高频字段全加了单列索引。心想：这下总没问题了吧？&lt;/p&gt;
@@ -41,11 +37,7 @@ alt="配图"
 &lt;/span&gt;&lt;/span&gt;&lt;/span&gt;&lt;span class="line"&gt;&lt;span class="cl"&gt;&lt;span class="w"&gt;&lt;/span&gt;&lt;span class="k"&gt;AND&lt;/span&gt;&lt;span class="w"&gt; &lt;/span&gt;&lt;span class="n"&gt;status&lt;/span&gt;&lt;span class="w"&gt; &lt;/span&gt;&lt;span class="o"&gt;=&lt;/span&gt;&lt;span class="w"&gt; &lt;/span&gt;&lt;span class="s1"&gt;&amp;#39;PAID&amp;#39;&lt;/span&gt;&lt;span class="p"&gt;;&lt;/span&gt;&lt;span class="w"&gt;
 &lt;/span&gt;&lt;/span&gt;&lt;/span&gt;&lt;/code&gt;&lt;/pre&gt;&lt;/td&gt;&lt;/tr&gt;&lt;/table&gt;
 &lt;/div&gt;
-&lt;/div&gt;&lt;p&gt;&lt;img src="https://picsum.photos/800/450?random=1768458460139"
-loading="lazy"
-alt="配图"
-&gt;&lt;/p&gt;
-&lt;p&gt;我当时自信满满地建了个索引：&lt;code&gt;idx_shop_time_status (shop_id, create_time, status)&lt;/code&gt;。
+&lt;/div&gt;&lt;p&gt;我当时自信满满地建了个索引：&lt;code&gt;idx_shop_time_status (shop_id, create_time, status)&lt;/code&gt;。
 我觉得这三个字段都覆盖了，肯定也是完美的。&lt;/p&gt;
 &lt;p&gt;&lt;strong&gt;【踩坑结果】&lt;/strong&gt;
 查询确实比没索引快，但依然有几百毫秒的延迟。用 &lt;code&gt;EXPLAIN&lt;/code&gt; 一看，&lt;code&gt;key_len&lt;/code&gt; 的长度不对，只有前两个字段生效了，&lt;code&gt;status&lt;/code&gt; 字段压根没用上索引！&lt;/p&gt;
@@ -94,10 +86,6 @@ alt="配图"
 &lt;p&gt;&lt;strong&gt;【复盘与改进】&lt;/strong&gt;
 当字段类型是字符串，而查询条件是数字时，MySQL会做&lt;strong&gt;隐式类型转换&lt;/strong&gt;。它会把表中每一行的 &lt;code&gt;phone&lt;/code&gt; 字段转换成数字，再去和输入值比较。
 这就相当于每一行都执行了一次函数操作：&lt;code&gt;CAST(phone AS signed)&lt;/code&gt;。&lt;strong&gt;在索引字段上做函数操作，索引直接失效，退化为全表扫描。&lt;/strong&gt;&lt;/p&gt;
-&lt;p&gt;&lt;img src="https://picsum.photos/800/450?random=1768458459019"
-loading="lazy"
-alt="配图"
-&gt;&lt;/p&gt;
 &lt;p&gt;&lt;strong&gt;【修正方案】&lt;/strong&gt;
 不需要改数据库，只需要改代码（或者SQL）：&lt;/p&gt;
 &lt;div class="highlight"&gt;&lt;div class="chroma"&gt;

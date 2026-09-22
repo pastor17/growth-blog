@@ -1,8 +1,4 @@
-<?xml version="1.0" encoding="utf-8" standalone="yes"?><rss version="2.0" xmlns:atom="http://www.w3.org/2005/Atom"><channel><title>使用Terraform管理云资源（IaC） on SelfTechHub</title><link>https://blog.irudder.me/tags/%E4%BD%BF%E7%94%A8Terraform%E7%AE%A1%E7%90%86%E4%BA%91%E8%B5%84%E6%BA%90IaC.html</link><description>Recent content in 使用Terraform管理云资源（IaC） on SelfTechHub</description><generator>Hugo -- gohugo.io</generator><language>zh-cn</language><managingEditor>irudder@126.com (irudder)</managingEditor><webMaster>irudder@126.com (irudder)</webMaster><lastBuildDate>Thu, 06 Feb 2020 00:00:00 +0800</lastBuildDate><atom:link href="https://blog.irudder.me/tags/%E4%BD%BF%E7%94%A8Terraform%E7%AE%A1%E7%90%86%E4%BA%91%E8%B5%84%E6%BA%90IaC/index.xml" rel="self" type="application/rss+xml"/><item><title>手滑删库才后悔？Terraform重构基础设施的3个血泪教训</title><link>https://blog.irudder.me/tech/devopsjichugongjurumenyushicao/shiyongterraformguanliyunziyuaniac.html</link><pubDate>Thu, 06 Feb 2020 00:00:00 +0800</pubDate><author>irudder@126.com (irudder)</author><guid>https://blog.irudder.me/tech/devopsjichugongjurumenyushicao/shiyongterraformguanliyunziyuaniac.html</guid><description>&lt;p&gt;&lt;img src="https://picsum.photos/800/450?random=1768388010817"
-loading="lazy"
-alt="配图"
-&gt;&lt;/p&gt;
-&lt;p&gt;不知你是否经历过这种名场面：为了快速修复一个线上Bug，直接登录云控制台手动改了安全组规则，想着“回头再补文档”。结果三个月后，系统扩容，新的实例自动应用了旧的配置，服务直接不可用，所有人都在排查代码，最后发现是基础设施配置漂移。&lt;/p&gt;
+<?xml version="1.0" encoding="utf-8" standalone="yes"?><rss version="2.0" xmlns:atom="http://www.w3.org/2005/Atom"><channel><title>使用Terraform管理云资源（IaC） on SelfTechHub</title><link>https://blog.irudder.me/tags/%E4%BD%BF%E7%94%A8Terraform%E7%AE%A1%E7%90%86%E4%BA%91%E8%B5%84%E6%BA%90IaC.html</link><description>Recent content in 使用Terraform管理云资源（IaC） on SelfTechHub</description><generator>Hugo -- gohugo.io</generator><language>zh-cn</language><managingEditor>irudder@126.com (irudder)</managingEditor><webMaster>irudder@126.com (irudder)</webMaster><lastBuildDate>Thu, 06 Feb 2020 00:00:00 +0800</lastBuildDate><atom:link href="https://blog.irudder.me/tags/%E4%BD%BF%E7%94%A8Terraform%E7%AE%A1%E7%90%86%E4%BA%91%E8%B5%84%E6%BA%90IaC/index.xml" rel="self" type="application/rss+xml"/><item><title>手滑删库才后悔？Terraform重构基础设施的3个血泪教训</title><link>https://blog.irudder.me/tech/devopsjichugongjurumenyushicao/shiyongterraformguanliyunziyuaniac.html</link><pubDate>Thu, 06 Feb 2020 00:00:00 +0800</pubDate><author>irudder@126.com (irudder)</author><guid>https://blog.irudder.me/tech/devopsjichugongjurumenyushicao/shiyongterraformguanliyunziyuaniac.html</guid><description>&lt;img src="https://blog.irudder.me/images/covers/tech-1.jpg" alt="Featured image of post 手滑删库才后悔？Terraform重构基础设施的3个血泪教训" /&gt;&lt;p&gt;不知你是否经历过这种名场面：为了快速修复一个线上Bug，直接登录云控制台手动改了安全组规则，想着“回头再补文档”。结果三个月后，系统扩容，新的实例自动应用了旧的配置，服务直接不可用，所有人都在排查代码，最后发现是基础设施配置漂移。&lt;/p&gt;
 &lt;p&gt;我曾经也是“控制台点点点（ClickOps）”的忠实拥趸，觉得写代码管理服务器太麻烦。直到三年前的一个周五下午，因为手动操作失误，我不小心把生产环境的RDS实例当成测试环境给重启了——那几分钟的报警声，我现在想起来还手心冒汗。&lt;/p&gt;
 &lt;p&gt;从那时候起，我开始死磕Terraform，强制自己和团队走IaC（基础设施即代码）路线。这几年踩坑无数，今天想复盘一下，从“能用”到“好用”，我们到底做对了哪些事。&lt;/p&gt;
 &lt;h2 id="拒绝巨石配置模块化才是解药"&gt;拒绝“巨石”配置，模块化才是解药
@@ -78,10 +74,6 @@ alt="配图"
 &lt;/h2&gt;&lt;p&gt;以前我们的发布流程是这样的：开发写好 &lt;code&gt;.tf&lt;/code&gt; 文件 -&amp;gt; 本地跑 &lt;code&gt;terraform plan&lt;/code&gt; 看一眼（甚至不看） -&amp;gt; 直接 &lt;code&gt;terraform apply&lt;/code&gt; -&amp;gt; 祈祷不报错。&lt;/p&gt;
 &lt;p&gt;这种“裸奔”上线非常危险。因为人眼是会疲劳的，面对控制台输出的几百行绿字（新增）和红字（删除），你很难瞬间发现那个关键的数据库参数被修改了。&lt;/p&gt;
 &lt;p&gt;&lt;strong&gt;我们引入了 GitOps 的工作流。&lt;/strong&gt;&lt;/p&gt;
-&lt;p&gt;&lt;img src="https://picsum.photos/800/450?random=1768388010843"
-loading="lazy"
-alt="配图"
-&gt;&lt;/p&gt;
 &lt;p&gt;现在，任何基础设施的变更，都必须提 Pull Request (PR)。我们配置了 CI 工具（如 GitHub Actions 或 GitLab CI），当 PR 提交时，机器人自动运行 &lt;code&gt;terraform plan&lt;/code&gt;，并将输出结果以评论的形式贴在 PR 里。&lt;/p&gt;
 &lt;p&gt;&lt;strong&gt;真实收益：&lt;/strong&gt;
 就在上个月，这个机制救了我们要命的一击。一个实习生在调整负载均衡配置时，误删了一个关键的 Listener 规则。如果不看 Plan，直接 Apply，线上流量瞬间就会中断。但在 PR 评论区，那个显眼的红色 &lt;strong&gt;&amp;quot;-&amp;quot;&lt;/strong&gt; 号（表示删除）被资深运维一眼揪了出来，直接驳回了合并请求。&lt;/p&gt;

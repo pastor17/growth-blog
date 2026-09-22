@@ -1,4 +1,4 @@
-<?xml version="1.0" encoding="utf-8" standalone="yes"?><rss version="2.0" xmlns:atom="http://www.w3.org/2005/Atom"><channel><title>服务器带宽打满的应急处理方案 on SelfTechHub</title><link>https://blog.irudder.me/tags/%E6%9C%8D%E5%8A%A1%E5%99%A8%E5%B8%A6%E5%AE%BD%E6%89%93%E6%BB%A1%E7%9A%84%E5%BA%94%E6%80%A5%E5%A4%84%E7%90%86%E6%96%B9%E6%A1%88.html</link><description>Recent content in 服务器带宽打满的应急处理方案 on SelfTechHub</description><generator>Hugo -- gohugo.io</generator><language>zh-cn</language><managingEditor>irudder@126.com (irudder)</managingEditor><webMaster>irudder@126.com (irudder)</webMaster><lastBuildDate>Fri, 17 Apr 2020 00:00:00 +0800</lastBuildDate><atom:link href="https://blog.irudder.me/tags/%E6%9C%8D%E5%8A%A1%E5%99%A8%E5%B8%A6%E5%AE%BD%E6%89%93%E6%BB%A1%E7%9A%84%E5%BA%94%E6%80%A5%E5%A4%84%E7%90%86%E6%96%B9%E6%A1%88/index.xml" rel="self" type="application/rss+xml"/><item><title>半夜报警带宽打满？这3个救命招数我用了五年</title><link>https://blog.irudder.me/tech/jiagouyouhuashizhananlijiexi/fuwuqidaikuandamandeyingjichulifangan.html</link><pubDate>Fri, 17 Apr 2020 00:00:00 +0800</pubDate><author>irudder@126.com (irudder)</author><guid>https://blog.irudder.me/tech/jiagouyouhuashizhananlijiexi/fuwuqidaikuandamandeyingjichulifangan.html</guid><description>&lt;p&gt;那时我还年轻，把手机铃声设置成最刺耳的“核警报”音效，生怕漏掉任何一个监控报警。&lt;/p&gt;
+<?xml version="1.0" encoding="utf-8" standalone="yes"?><rss version="2.0" xmlns:atom="http://www.w3.org/2005/Atom"><channel><title>服务器带宽打满的应急处理方案 on SelfTechHub</title><link>https://blog.irudder.me/tags/%E6%9C%8D%E5%8A%A1%E5%99%A8%E5%B8%A6%E5%AE%BD%E6%89%93%E6%BB%A1%E7%9A%84%E5%BA%94%E6%80%A5%E5%A4%84%E7%90%86%E6%96%B9%E6%A1%88.html</link><description>Recent content in 服务器带宽打满的应急处理方案 on SelfTechHub</description><generator>Hugo -- gohugo.io</generator><language>zh-cn</language><managingEditor>irudder@126.com (irudder)</managingEditor><webMaster>irudder@126.com (irudder)</webMaster><lastBuildDate>Fri, 17 Apr 2020 00:00:00 +0800</lastBuildDate><atom:link href="https://blog.irudder.me/tags/%E6%9C%8D%E5%8A%A1%E5%99%A8%E5%B8%A6%E5%AE%BD%E6%89%93%E6%BB%A1%E7%9A%84%E5%BA%94%E6%80%A5%E5%A4%84%E7%90%86%E6%96%B9%E6%A1%88/index.xml" rel="self" type="application/rss+xml"/><item><title>半夜报警带宽打满？这3个救命招数我用了五年</title><link>https://blog.irudder.me/tech/jiagouyouhuashizhananlijiexi/fuwuqidaikuandamandeyingjichulifangan.html</link><pubDate>Fri, 17 Apr 2020 00:00:00 +0800</pubDate><author>irudder@126.com (irudder)</author><guid>https://blog.irudder.me/tech/jiagouyouhuashizhananlijiexi/fuwuqidaikuandamandeyingjichulifangan.html</guid><description>&lt;img src="https://blog.irudder.me/images/covers/tech-1.jpg" alt="Featured image of post 半夜报警带宽打满？这3个救命招数我用了五年" /&gt;&lt;p&gt;那时我还年轻，把手机铃声设置成最刺耳的“核警报”音效，生怕漏掉任何一个监控报警。&lt;/p&gt;
 &lt;p&gt;哪怕现在回想起来，那种凌晨3点被震醒，看到监控群里赫然写着 &lt;strong&gt;“出口带宽占用率：100%”&lt;/strong&gt; 的绝望感，依然能让我指尖发麻。那时的第一反应往往是懵的：是被DDoS攻击了？还是代码写了死循环？或者是运营搞了什么大动作没通知我？&lt;/p&gt;
 &lt;p&gt;我曾经以为，只要服务器配置够高、带宽买得够大，就能高枕无忧。直到我在2019年的那次大促中，眼睁睁看着升级了三倍的带宽依然在两分钟内被吞噬殆尽，才明白了一个道理：&lt;strong&gt;带宽永远是稀缺资源，靠“硬抗”不仅费钱，而且无效。&lt;/strong&gt;&lt;/p&gt;
 &lt;p&gt;如果你现在也正对着那条“心跳停止”般的平直线条焦虑，请深呼吸，喝口水。这不是世界末日，我们都有过这样的时刻。这里有三个我这几年反复验证过的应急与复盘经验，希望能陪你度过这个难关。&lt;/p&gt;
@@ -32,11 +32,7 @@
 &lt;/span&gt;&lt;/span&gt;&lt;span class="line"&gt;&lt;span class="cl"&gt;tail -n &lt;span class="m"&gt;10000&lt;/span&gt; /var/log/nginx/access.log &lt;span class="p"&gt;|&lt;/span&gt; awk &lt;span class="s1"&gt;&amp;#39;{print $1}&amp;#39;&lt;/span&gt; &lt;span class="p"&gt;|&lt;/span&gt; sort &lt;span class="p"&gt;|&lt;/span&gt; uniq -c &lt;span class="p"&gt;|&lt;/span&gt; sort -nr &lt;span class="p"&gt;|&lt;/span&gt; head -n &lt;span class="m"&gt;10&lt;/span&gt;
 &lt;/span&gt;&lt;/span&gt;&lt;/code&gt;&lt;/pre&gt;&lt;/td&gt;&lt;/tr&gt;&lt;/table&gt;
 &lt;/div&gt;
-&lt;/div&gt;&lt;p&gt;&lt;img src="https://picsum.photos/800/450?random=1768457593637"
-loading="lazy"
-alt="配图"
-&gt;&lt;/p&gt;
-&lt;p&gt;看到结果的那一刻，焦虑感通常会消退一半，因为未知才是恐惧的根源。&lt;/p&gt;
+&lt;/div&gt;&lt;p&gt;看到结果的那一刻，焦虑感通常会消退一半，因为未知才是恐惧的根源。&lt;/p&gt;
 &lt;h2 id="止血第一治疗第二该砍就得砍"&gt;止血第一，治疗第二：该“砍”就得“砍”
 &lt;/h2&gt;&lt;p&gt;找到了元凶，接下来就是最艰难的决策时刻：&lt;strong&gt;止血&lt;/strong&gt;。&lt;/p&gt;
 &lt;p&gt;很多技术同学（包括曾经的我）在这时候容易陷入“完美主义”陷阱，试图通过优化代码、调整内核参数来优雅地解决问题。但在此刻，&lt;strong&gt;业务可用性高于一切&lt;/strong&gt;。&lt;/p&gt;
@@ -71,10 +67,6 @@ alt="配图"
 &lt;h2 id="哪怕再小的图片也请搬出服务器"&gt;哪怕再小的图片，也请搬出服务器
 &lt;/h2&gt;&lt;p&gt;这是我这五年里最深刻的感悟，也是想送给所有架构师的一句话：&lt;strong&gt;服务器是用来计算的，不是用来发文件的。&lt;/strong&gt;&lt;/p&gt;
 &lt;p&gt;早期做项目，为了图省事，我习惯把用户上传的头像、Banner图直接存在服务器本地磁盘，让Nginx直接吐出去。随着用户量增长，这个隐患就像定时炸弹。&lt;/p&gt;
-&lt;p&gt;&lt;img src="https://picsum.photos/800/450?random=1768457588612"
-loading="lazy"
-alt="配图"
-&gt;&lt;/p&gt;
 &lt;p&gt;有一次，一个简单的H5营销页面火了。页面只有一张背景图，大小是2MB。看似不大，但当并发达到1000QPS时，需要的带宽是 &lt;code&gt;2MB * 1000 * 8 = 16Gbps&lt;/code&gt;。
 这根本不是普通云服务器能承受的量级。哪怕我们扩容了服务器，CPU闲得发慌，带宽却早已窒息。&lt;/p&gt;
 &lt;p&gt;从那以后，我有了一个雷打不动的习惯：&lt;strong&gt;无论项目多小，静态资源（图片、JS、CSS、视频）一律上对象存储（OSS/S3）+ CDN。&lt;/strong&gt;&lt;/p&gt;

@@ -1,4 +1,4 @@
-<?xml version="1.0" encoding="utf-8" standalone="yes"?><rss version="2.0" xmlns:atom="http://www.w3.org/2005/Atom"><channel><title>多环境配置管理（Dev/Test/Prod）最佳实践 on SelfTechHub</title><link>https://blog.irudder.me/tags/%E5%A4%9A%E7%8E%AF%E5%A2%83%E9%85%8D%E7%BD%AE%E7%AE%A1%E7%90%86Dev/Test/Prod%E6%9C%80%E4%BD%B3%E5%AE%9E%E8%B7%B5.html</link><description>Recent content in 多环境配置管理（Dev/Test/Prod）最佳实践 on SelfTechHub</description><generator>Hugo -- gohugo.io</generator><language>zh-cn</language><managingEditor>irudder@126.com (irudder)</managingEditor><webMaster>irudder@126.com (irudder)</webMaster><lastBuildDate>Thu, 22 Oct 2020 00:00:00 +0800</lastBuildDate><atom:link href="https://blog.irudder.me/tags/%E5%A4%9A%E7%8E%AF%E5%A2%83%E9%85%8D%E7%BD%AE%E7%AE%A1%E7%90%86Dev/Test/Prod%E6%9C%80%E4%BD%B3%E5%AE%9E%E8%B7%B5/index.xml" rel="self" type="application/rss+xml"/><item><title>深夜炸库后，我悟出的配置管理“断舍离”法则</title><link>https://blog.irudder.me/tech/zhongxiaoxingxiangmujiagoushejizhinan/duohuanjingpeizhiguanlidev_test_prodzuijiashijian.html</link><pubDate>Thu, 22 Oct 2020 00:00:00 +0800</pubDate><author>irudder@126.com (irudder)</author><guid>https://blog.irudder.me/tech/zhongxiaoxingxiangmujiagoushejizhinan/duohuanjingpeizhiguanlidev_test_prodzuijiashijian.html</guid><description>&lt;p&gt;如果你曾在凌晨三点，盯着报错日志手脚冰凉，只因为生产环境连错了一个数据库地址，那么请深呼吸——你并不孤单。&lt;/p&gt;
+<?xml version="1.0" encoding="utf-8" standalone="yes"?><rss version="2.0" xmlns:atom="http://www.w3.org/2005/Atom"><channel><title>多环境配置管理（Dev/Test/Prod）最佳实践 on SelfTechHub</title><link>https://blog.irudder.me/tags/%E5%A4%9A%E7%8E%AF%E5%A2%83%E9%85%8D%E7%BD%AE%E7%AE%A1%E7%90%86Dev/Test/Prod%E6%9C%80%E4%BD%B3%E5%AE%9E%E8%B7%B5.html</link><description>Recent content in 多环境配置管理（Dev/Test/Prod）最佳实践 on SelfTechHub</description><generator>Hugo -- gohugo.io</generator><language>zh-cn</language><managingEditor>irudder@126.com (irudder)</managingEditor><webMaster>irudder@126.com (irudder)</webMaster><lastBuildDate>Thu, 22 Oct 2020 00:00:00 +0800</lastBuildDate><atom:link href="https://blog.irudder.me/tags/%E5%A4%9A%E7%8E%AF%E5%A2%83%E9%85%8D%E7%BD%AE%E7%AE%A1%E7%90%86Dev/Test/Prod%E6%9C%80%E4%BD%B3%E5%AE%9E%E8%B7%B5/index.xml" rel="self" type="application/rss+xml"/><item><title>深夜炸库后，我悟出的配置管理“断舍离”法则</title><link>https://blog.irudder.me/tech/zhongxiaoxingxiangmujiagoushejizhinan/duohuanjingpeizhiguanlidev_test_prodzuijiashijian.html</link><pubDate>Thu, 22 Oct 2020 00:00:00 +0800</pubDate><author>irudder@126.com (irudder)</author><guid>https://blog.irudder.me/tech/zhongxiaoxingxiangmujiagoushejizhinan/duohuanjingpeizhiguanlidev_test_prodzuijiashijian.html</guid><description>&lt;img src="https://blog.irudder.me/images/covers/tech-1.jpg" alt="Featured image of post 深夜炸库后，我悟出的配置管理“断舍离”法则" /&gt;&lt;p&gt;如果你曾在凌晨三点，盯着报错日志手脚冰凉，只因为生产环境连错了一个数据库地址，那么请深呼吸——你并不孤单。&lt;/p&gt;
 &lt;p&gt;很多年前，我还是个热血青年，坚信“架构要完美”、“配置要集中”。直到有一次，因为一个不起眼的 &lt;code&gt;.properties&lt;/code&gt; 文件覆盖错误，我把测试环境的脏数据写进了生产库。那晚为了回滚数据，我和运维兄弟抽掉了两包烟，东方既白时才敢合眼。&lt;/p&gt;
 &lt;p&gt;那次事故后，我陷入了深深的自我怀疑：&lt;strong&gt;对于只有十几人的中小团队，我们真的需要那些大厂标配的重型配置中心吗？&lt;/strong&gt; 还是说，我们把简单的问题复杂化了？&lt;/p&gt;
 &lt;p&gt;如果你也正对着 Dev/Test/Prod 复杂的环境差异感到头秃，或是被频繁的配置漂移搞得心力交瘁，这篇“老兵复盘”或许能给你一点温暖的慰藉和实用的解法。&lt;/p&gt;
@@ -37,10 +37,6 @@
 &lt;/div&gt;&lt;p&gt;这招虽然老套，但它强制切断了“人工修改文件”的路径。从此以后，不管是哪个开发人员提交代码，只要流水线配置没错，环境就不可能乱。&lt;/p&gt;
 &lt;h2 id="拒绝过度架构适合的才是最好的"&gt;拒绝“过度架构”，适合的才是最好的
 &lt;/h2&gt;&lt;p&gt;随着团队扩张，大家开始嫌弃环境变量不好管理。于是，有人提议上某大厂开源的分布式配置中心（比如 Nacos 或 Apollo）。&lt;/p&gt;
-&lt;p&gt;&lt;img src="https://picsum.photos/800/450?random=1768456135067"
-loading="lazy"
-alt="配图"
-&gt;&lt;/p&gt;
 &lt;p&gt;“大厂都在用，肯定没问题。”——这句话是个甜蜜的陷阱。&lt;/p&gt;
 &lt;p&gt;&lt;strong&gt;真实案例：&lt;/strong&gt;
 我们花费了整整两周时间搭建了一套高可用的配置中心集群。起初很爽，配置热更新酷毙了。
@@ -53,10 +49,6 @@ alt="配图"
 &lt;li&gt;&lt;strong&gt;GitOps 思维&lt;/strong&gt;：建立一个独立的私有 Git 仓库，专门存放各环境配置（Config Repo）。&lt;/li&gt;
 &lt;li&gt;&lt;strong&gt;K8s ConfigMap&lt;/strong&gt;：利用 Kubernetes 原生的 ConfigMap/Secret 管理配置。部署脚本从 Config Repo 拉取文件，生成 K8s 对象。&lt;/li&gt;
 &lt;/ul&gt;
-&lt;p&gt;&lt;img src="https://picsum.photos/800/450?random=1768456136670"
-loading="lazy"
-alt="配图"
-&gt;&lt;/p&gt;
 &lt;p&gt;这种方式虽然不能“秒级热更”，但胜在&lt;strong&gt;极其稳定、可追溯、零维护成本&lt;/strong&gt;。对于 99% 的中小业务场景，重启服务生效那一分钟，完全是可以接受的。&lt;/p&gt;
 &lt;blockquote&gt;
 &lt;p&gt;“不要为了解决 1% 的极端问题，引入 100% 的复杂度。”这是我写在办公桌便利贴上的一句话。&lt;/p&gt;&lt;/blockquote&gt;
@@ -77,10 +69,6 @@ alt="配图"
 &lt;h2 id="写在最后"&gt;写在最后
 &lt;/h2&gt;&lt;p&gt;多环境配置管理，说到底不是技术问题，而是&lt;strong&gt;纪律问题&lt;/strong&gt;。&lt;/p&gt;
 &lt;p&gt;回顾这十几年的踩坑史，我发现最舒服的架构，往往不是那些听起来高大上的名词，而是那些&lt;strong&gt;你也懂、我也懂、新来的实习生看一眼文档也能懂&lt;/strong&gt;的方案。&lt;/p&gt;
-&lt;p&gt;&lt;img src="https://picsum.photos/800/450?random=1768456137532"
-loading="lazy"
-alt="配图"
-&gt;&lt;/p&gt;
 &lt;p&gt;&lt;strong&gt;那么，你目前的团队更倾向于哪种方案呢？&lt;/strong&gt;
 A. 简单粗暴：环境变量/本地文件一把梭
 B. 规范管理：独立的 Git 配置仓库 + CI/CD 注入

@@ -1,14 +1,10 @@
-<?xml version="1.0" encoding="utf-8" standalone="yes"?><rss version="2.0" xmlns:atom="http://www.w3.org/2005/Atom"><channel><title>Jenkins/GitLab CI流水线搭建保姆级教程 on SelfTechHub</title><link>https://blog.irudder.me/tags/Jenkins/GitLab-CI%E6%B5%81%E6%B0%B4%E7%BA%BF%E6%90%AD%E5%BB%BA%E4%BF%9D%E5%A7%86%E7%BA%A7%E6%95%99%E7%A8%8B.html</link><description>Recent content in Jenkins/GitLab CI流水线搭建保姆级教程 on SelfTechHub</description><generator>Hugo -- gohugo.io</generator><language>zh-cn</language><managingEditor>irudder@126.com (irudder)</managingEditor><webMaster>irudder@126.com (irudder)</webMaster><lastBuildDate>Wed, 03 Jun 2020 00:00:00 +0800</lastBuildDate><atom:link href="https://blog.irudder.me/tags/Jenkins/GitLab-CI%E6%B5%81%E6%B0%B4%E7%BA%BF%E6%90%AD%E5%BB%BA%E4%BF%9D%E5%A7%86%E7%BA%A7%E6%95%99%E7%A8%8B/index.xml" rel="self" type="application/rss+xml"/><item><title>凌晨3点回滚代码后，我重构了这套CI/CD流水线</title><link>https://blog.irudder.me/tech/devopsjichugongjurumenyushicao/jenkins_gitlab-ciliushuixiandajianbaomujijiaocheng.html</link><pubDate>Wed, 03 Jun 2020 00:00:00 +0800</pubDate><author>irudder@126.com (irudder)</author><guid>https://blog.irudder.me/tech/devopsjichugongjurumenyushicao/jenkins_gitlab-ciliushuixiandajianbaomujijiaocheng.html</guid><description>&lt;p&gt;很多年前，我经历过一次堪称“噩梦”的发布事故。&lt;/p&gt;
+<?xml version="1.0" encoding="utf-8" standalone="yes"?><rss version="2.0" xmlns:atom="http://www.w3.org/2005/Atom"><channel><title>Jenkins/GitLab CI流水线搭建保姆级教程 on SelfTechHub</title><link>https://blog.irudder.me/tags/Jenkins/GitLab-CI%E6%B5%81%E6%B0%B4%E7%BA%BF%E6%90%AD%E5%BB%BA%E4%BF%9D%E5%A7%86%E7%BA%A7%E6%95%99%E7%A8%8B.html</link><description>Recent content in Jenkins/GitLab CI流水线搭建保姆级教程 on SelfTechHub</description><generator>Hugo -- gohugo.io</generator><language>zh-cn</language><managingEditor>irudder@126.com (irudder)</managingEditor><webMaster>irudder@126.com (irudder)</webMaster><lastBuildDate>Wed, 03 Jun 2020 00:00:00 +0800</lastBuildDate><atom:link href="https://blog.irudder.me/tags/Jenkins/GitLab-CI%E6%B5%81%E6%B0%B4%E7%BA%BF%E6%90%AD%E5%BB%BA%E4%BF%9D%E5%A7%86%E7%BA%A7%E6%95%99%E7%A8%8B/index.xml" rel="self" type="application/rss+xml"/><item><title>凌晨3点回滚代码后，我重构了这套CI/CD流水线</title><link>https://blog.irudder.me/tech/devopsjichugongjurumenyushicao/jenkins_gitlab-ciliushuixiandajianbaomujijiaocheng.html</link><pubDate>Wed, 03 Jun 2020 00:00:00 +0800</pubDate><author>irudder@126.com (irudder)</author><guid>https://blog.irudder.me/tech/devopsjichugongjurumenyushicao/jenkins_gitlab-ciliushuixiandajianbaomujijiaocheng.html</guid><description>&lt;img src="https://blog.irudder.me/images/covers/tech-1.jpg" alt="Featured image of post 凌晨3点回滚代码后，我重构了这套CI/CD流水线" /&gt;&lt;p&gt;很多年前，我经历过一次堪称“噩梦”的发布事故。&lt;/p&gt;
 &lt;p&gt;那时我们团队还在用“半自动化”脚本发布：本地打包jar包，FTP上传服务器，手动重启脚本。某天凌晨上线，因为我的本地JDK版本和服务器不一致，导致服务启动后隐蔽报错。排查、回滚、重新打包，折腾到凌晨3点，整个人都在发抖。&lt;/p&gt;
 &lt;p&gt;那一刻我意识到：&lt;strong&gt;依赖人的记性和手速去发布代码，是系统稳定性的最大隐患。&lt;/strong&gt;&lt;/p&gt;
 &lt;p&gt;后来我花了两个周末，把团队的发布流程从“刀耕火种”迁移到了标准化的CI/CD流水线上。结果是惊人的：部署频率从每周1次变成了每天10次，回滚时间从30分钟缩短到了30秒。&lt;/p&gt;
 &lt;p&gt;这篇文章不讲那些虚无缥缈的概念，我把这几年在中小团队落地Jenkins和GitLab CI摸索出的“保姆级”框架分享给你。&lt;/p&gt;
 &lt;h2 id="告别人工智障拥抱不可变基础设施"&gt;告别“人工智障”，拥抱“不可变基础设施”
-&lt;/h2&gt;&lt;p&gt;&lt;img src="https://picsum.photos/800/450?random=1768387659579"
-loading="lazy"
-alt="配图"
-&gt;&lt;/p&gt;
-&lt;p&gt;很多运维新手搭建流水线时，容易陷入一个误区：把CI工具仅仅当作一个“远程执行脚本”的工具。&lt;/p&gt;
+&lt;/h2&gt;&lt;p&gt;很多运维新手搭建流水线时，容易陷入一个误区：把CI工具仅仅当作一个“远程执行脚本”的工具。&lt;/p&gt;
 &lt;p&gt;比如，在Jenkins里写一堆Shell脚本，连到服务器上去&lt;code&gt;git pull&lt;/code&gt;，然后&lt;code&gt;mvn clean install&lt;/code&gt;。这其实是“伪CI”。一旦服务器环境被谁偷偷改了个配置，流水线立马炸锅。&lt;/p&gt;
 &lt;p&gt;&lt;strong&gt;真实的痛点是环境一致性问题。&lt;/strong&gt;&lt;/p&gt;
 &lt;p&gt;我之前带过一个电商项目，开发环境一切正常，上线就报&lt;code&gt;ClassNotDefFound&lt;/code&gt;。查了一整天，发现是运维在生产环境手动装了个老版本的依赖库。&lt;/p&gt;
@@ -25,10 +21,6 @@ alt="配图"
 &lt;/ul&gt;
 &lt;p&gt;我有过惨痛教训。两年前，我为了“显得专业”，在一个5人的初创团队强推Jenkins。结果光是配置Slave节点、维护那堆三天两头更新的插件、处理权限隔离，就占用了我每周五下午的宝贵摸鱼时间。&lt;/p&gt;
 &lt;p&gt;后来切到GitLab CI，就一个&lt;code&gt;.gitlab-ci.yml&lt;/code&gt;文件随代码库管理，开发人员自己就能看懂改懂。&lt;/p&gt;
-&lt;p&gt;&lt;img src="https://picsum.photos/800/450?random=1768387654494"
-loading="lazy"
-alt="配图"
-&gt;&lt;/p&gt;
 &lt;p&gt;&lt;strong&gt;这里有一个我亲测好用的判断标准：&lt;/strong&gt;&lt;/p&gt;
 &lt;p&gt;如果你的构建逻辑能写在200行Shell脚本内，用GitLab CI效率最高；如果你的构建需要审批流、需要调用十几个外部系统接口、需要复杂的UI交互，Jenkins才是重型武器。&lt;/p&gt;
 &lt;h2 id="保姆级实战打造一条防弹流水线"&gt;保姆级实战：打造一条“防弹”流水线
@@ -166,7 +158,6 @@ alt="配图"
 &lt;/span&gt;&lt;span class="lnt"&gt;42
 &lt;/span&gt;&lt;span class="lnt"&gt;43
 &lt;/span&gt;&lt;span class="lnt"&gt;44
-&lt;/span&gt;&lt;span class="lnt"&gt;45
 &lt;/span&gt;&lt;/code&gt;&lt;/pre&gt;&lt;/td&gt;
 &lt;td class="lntd"&gt;
 &lt;pre tabindex="0" class="chroma"&gt;&lt;code class="language-yaml" data-lang="yaml"&gt;&lt;span class="line"&gt;&lt;span class="cl"&gt;&lt;span class="nt"&gt;stages&lt;/span&gt;&lt;span class="p"&gt;:&lt;/span&gt;&lt;span class="w"&gt;
@@ -206,7 +197,6 @@ alt="配图"
 &lt;/span&gt;&lt;/span&gt;&lt;/span&gt;&lt;span class="line"&gt;&lt;span class="cl"&gt;&lt;span class="w"&gt; &lt;/span&gt;&lt;span class="nt"&gt;only&lt;/span&gt;&lt;span class="p"&gt;:&lt;/span&gt;&lt;span class="w"&gt;
 &lt;/span&gt;&lt;/span&gt;&lt;/span&gt;&lt;span class="line"&gt;&lt;span class="cl"&gt;&lt;span class="w"&gt; &lt;/span&gt;- &lt;span class="l"&gt;develop&lt;/span&gt;&lt;span class="w"&gt;
 &lt;/span&gt;&lt;/span&gt;&lt;/span&gt;&lt;span class="line"&gt;&lt;span class="cl"&gt;&lt;span class="w"&gt;
-&lt;/span&gt;&lt;/span&gt;&lt;/span&gt;&lt;span class="line"&gt;&lt;span class="cl"&gt;&lt;span class="w"&gt;&lt;/span&gt;!&lt;span class="p"&gt;[&lt;/span&gt;&lt;span class="l"&gt;配图](https://picsum.photos/800/450?random=1768387659882)&lt;/span&gt;&lt;span class="w"&gt;
 &lt;/span&gt;&lt;/span&gt;&lt;/span&gt;&lt;span class="line"&gt;&lt;span class="cl"&gt;&lt;span class="w"&gt;
 &lt;/span&gt;&lt;/span&gt;&lt;/span&gt;&lt;span class="line"&gt;&lt;span class="cl"&gt;&lt;span class="w"&gt;&lt;/span&gt;&lt;span class="c"&gt;# 步骤3：失败/成功通知&lt;/span&gt;&lt;span class="w"&gt;
 &lt;/span&gt;&lt;/span&gt;&lt;/span&gt;&lt;span class="line"&gt;&lt;span class="cl"&gt;&lt;span class="w"&gt;&lt;/span&gt;&lt;span class="nt"&gt;job_notify&lt;/span&gt;&lt;span class="p"&gt;:&lt;/span&gt;&lt;span class="w"&gt;

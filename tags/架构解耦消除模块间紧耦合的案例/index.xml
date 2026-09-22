@@ -1,13 +1,9 @@
-<?xml version="1.0" encoding="utf-8" standalone="yes"?><rss version="2.0" xmlns:atom="http://www.w3.org/2005/Atom"><channel><title>架构解耦：消除模块间紧耦合的案例 on SelfTechHub</title><link>https://blog.irudder.me/tags/%E6%9E%B6%E6%9E%84%E8%A7%A3%E8%80%A6%E6%B6%88%E9%99%A4%E6%A8%A1%E5%9D%97%E9%97%B4%E7%B4%A7%E8%80%A6%E5%90%88%E7%9A%84%E6%A1%88%E4%BE%8B.html</link><description>Recent content in 架构解耦：消除模块间紧耦合的案例 on SelfTechHub</description><generator>Hugo -- gohugo.io</generator><language>zh-cn</language><managingEditor>irudder@126.com (irudder)</managingEditor><webMaster>irudder@126.com (irudder)</webMaster><lastBuildDate>Wed, 15 Jan 2020 00:00:00 +0800</lastBuildDate><atom:link href="https://blog.irudder.me/tags/%E6%9E%B6%E6%9E%84%E8%A7%A3%E8%80%A6%E6%B6%88%E9%99%A4%E6%A8%A1%E5%9D%97%E9%97%B4%E7%B4%A7%E8%80%A6%E5%90%88%E7%9A%84%E6%A1%88%E4%BE%8B/index.xml" rel="self" type="application/rss+xml"/><item><title>系统从"动一下挂一片"到秒级发布：我的解耦复盘</title><link>https://blog.irudder.me/tech/jiagouyouhuashizhananlijiexi/jiagoujieou_xiaochumokuaijianjinouhedeanli.html</link><pubDate>Wed, 15 Jan 2020 00:00:00 +0800</pubDate><author>irudder@126.com (irudder)</author><guid>https://blog.irudder.me/tech/jiagouyouhuashizhananlijiexi/jiagoujieou_xiaochumokuaijianjinouhedeanli.html</guid><description>&lt;p&gt;五年前，我所在的团队维护着一个典型的&amp;quot;大泥球&amp;quot;单体应用。那时候，我最怕的就是周五下午的发布窗口。&lt;/p&gt;
+<?xml version="1.0" encoding="utf-8" standalone="yes"?><rss version="2.0" xmlns:atom="http://www.w3.org/2005/Atom"><channel><title>架构解耦：消除模块间紧耦合的案例 on SelfTechHub</title><link>https://blog.irudder.me/tags/%E6%9E%B6%E6%9E%84%E8%A7%A3%E8%80%A6%E6%B6%88%E9%99%A4%E6%A8%A1%E5%9D%97%E9%97%B4%E7%B4%A7%E8%80%A6%E5%90%88%E7%9A%84%E6%A1%88%E4%BE%8B.html</link><description>Recent content in 架构解耦：消除模块间紧耦合的案例 on SelfTechHub</description><generator>Hugo -- gohugo.io</generator><language>zh-cn</language><managingEditor>irudder@126.com (irudder)</managingEditor><webMaster>irudder@126.com (irudder)</webMaster><lastBuildDate>Wed, 15 Jan 2020 00:00:00 +0800</lastBuildDate><atom:link href="https://blog.irudder.me/tags/%E6%9E%B6%E6%9E%84%E8%A7%A3%E8%80%A6%E6%B6%88%E9%99%A4%E6%A8%A1%E5%9D%97%E9%97%B4%E7%B4%A7%E8%80%A6%E5%90%88%E7%9A%84%E6%A1%88%E4%BE%8B/index.xml" rel="self" type="application/rss+xml"/><item><title>系统从"动一下挂一片"到秒级发布：我的解耦复盘</title><link>https://blog.irudder.me/tech/jiagouyouhuashizhananlijiexi/jiagoujieou_xiaochumokuaijianjinouhedeanli.html</link><pubDate>Wed, 15 Jan 2020 00:00:00 +0800</pubDate><author>irudder@126.com (irudder)</author><guid>https://blog.irudder.me/tech/jiagouyouhuashizhananlijiexi/jiagoujieou_xiaochumokuaijianjinouhedeanli.html</guid><description>&lt;img src="https://blog.irudder.me/images/covers/tech-2.jpg" alt="Featured image of post 系统从"动一下挂一片"到秒级发布：我的解耦复盘" /&gt;&lt;p&gt;五年前，我所在的团队维护着一个典型的&amp;quot;大泥球&amp;quot;单体应用。那时候，我最怕的就是周五下午的发布窗口。&lt;/p&gt;
 &lt;p&gt;记得有一次，仅仅是为了修改用户积分的显示逻辑，代码合并后，竟然导致支付模块的退款功能不可用。那晚我们在会议室排查到凌晨三点，最后发现竟是因为两个模块共用了一个实体类，而在序列化时产生了一点微小的版本冲突。&lt;/p&gt;
 &lt;p&gt;那一刻我深刻意识到：&lt;strong&gt;模块间的隐形耦合，才是扼杀开发效率和系统稳定性的头号杀手。&lt;/strong&gt;&lt;/p&gt;
 &lt;p&gt;这几年，我经手了十几个系统的架构重构，从&amp;quot;牵一发而动全身&amp;quot;到现在的独立部署、秒级扩容，我总结了三个最容易被忽视的耦合陷阱，以及我们当时是如何一步步填坑的。&lt;/p&gt;
 &lt;h2 id="共享数据库看似方便实则致命"&gt;共享数据库：看似方便，实则致命
 &lt;/h2&gt;&lt;p&gt;很多初创项目为了开发快，习惯让多个服务读写同一个数据库，甚至同一张表。这在流量低时是捷径，流量上来后就是地雷。&lt;/p&gt;
-&lt;p&gt;&lt;img src="https://picsum.photos/800/450?random=1768458157983"
-loading="lazy"
-alt="配图"
-&gt;&lt;/p&gt;
 &lt;p&gt;&lt;strong&gt;真实案例回顾&lt;/strong&gt;
 2021年，我们负责的一个电商中台系统，&amp;ldquo;订单服务&amp;quot;和&amp;quot;营销服务&amp;quot;共用一个 MySQL 实例。双十一大促前夕，营销团队为了统计某个活动效果，在生产环境跑了一个复杂的联表查询 SQL。&lt;/p&gt;
 &lt;p&gt;&lt;strong&gt;结果：&lt;/strong&gt; 数据库 CPU 瞬间飙升到 100%，大量的慢查询导致数据库锁表，核心的&amp;quot;下单&amp;quot;接口直接超时，造成了长达 15 分钟的交易中断，直接损失数十万。&lt;/p&gt;
@@ -90,10 +86,6 @@ alt="配图"
 &lt;/ol&gt;
 &lt;h2 id="总结与落地工具"&gt;总结与落地工具
 &lt;/h2&gt;&lt;p&gt;架构解耦不是为了炫技，而是为了&lt;strong&gt;降低认知负载&lt;/strong&gt;和&lt;strong&gt;隔离故障风险&lt;/strong&gt;。&lt;/p&gt;
-&lt;p&gt;&lt;img src="https://picsum.photos/800/450?random=1768458157811"
-loading="lazy"
-alt="配图"
-&gt;&lt;/p&gt;
 &lt;p&gt;回顾这几年的填坑之路，如果你的系统正面临&amp;quot;改不动、不敢发&amp;quot;的窘境，我建议你从这三个动作开始：&lt;/p&gt;
 &lt;ol&gt;
 &lt;li&gt;&lt;strong&gt;查数据库&lt;/strong&gt;：找出所有被跨服务访问的表，列入拆分计划（先做读写分离，再做物理拆分）。&lt;/li&gt;

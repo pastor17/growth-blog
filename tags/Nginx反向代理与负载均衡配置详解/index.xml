@@ -1,9 +1,5 @@
-<?xml version="1.0" encoding="utf-8" standalone="yes"?><rss version="2.0" xmlns:atom="http://www.w3.org/2005/Atom"><channel><title>Nginx反向代理与负载均衡配置详解 on SelfTechHub</title><link>https://blog.irudder.me/tags/Nginx%E5%8F%8D%E5%90%91%E4%BB%A3%E7%90%86%E4%B8%8E%E8%B4%9F%E8%BD%BD%E5%9D%87%E8%A1%A1%E9%85%8D%E7%BD%AE%E8%AF%A6%E8%A7%A3.html</link><description>Recent content in Nginx反向代理与负载均衡配置详解 on SelfTechHub</description><generator>Hugo -- gohugo.io</generator><language>zh-cn</language><managingEditor>irudder@126.com (irudder)</managingEditor><webMaster>irudder@126.com (irudder)</webMaster><lastBuildDate>Sun, 25 Jun 2023 00:00:00 +0800</lastBuildDate><atom:link href="https://blog.irudder.me/tags/Nginx%E5%8F%8D%E5%90%91%E4%BB%A3%E7%90%86%E4%B8%8E%E8%B4%9F%E8%BD%BD%E5%9D%87%E8%A1%A1%E9%85%8D%E7%BD%AE%E8%AF%A6%E8%A7%A3/index.xml" rel="self" type="application/rss+xml"/><item><title>3次生产事故后，我总结的Nginx反代与负载均衡实战</title><link>https://blog.irudder.me/tech/devopsjichugongjurumenyushicao/nginxfanxiangdailiyufuzaijunhengpeizhixiangjie.html</link><pubDate>Sun, 25 Jun 2023 00:00:00 +0800</pubDate><author>irudder@126.com (irudder)</author><guid>https://blog.irudder.me/tech/devopsjichugongjurumenyushicao/nginxfanxiangdailiyufuzaijunhengpeizhixiangjie.html</guid><description>&lt;p&gt;记得刚入行那年，我最怕看到的画面不是满屏的代码报错，而是浏览器里那个冷冰冰的 &lt;strong&gt;&amp;ldquo;502 Bad Gateway&amp;rdquo;&lt;/strong&gt;。&lt;/p&gt;
+<?xml version="1.0" encoding="utf-8" standalone="yes"?><rss version="2.0" xmlns:atom="http://www.w3.org/2005/Atom"><channel><title>Nginx反向代理与负载均衡配置详解 on SelfTechHub</title><link>https://blog.irudder.me/tags/Nginx%E5%8F%8D%E5%90%91%E4%BB%A3%E7%90%86%E4%B8%8E%E8%B4%9F%E8%BD%BD%E5%9D%87%E8%A1%A1%E9%85%8D%E7%BD%AE%E8%AF%A6%E8%A7%A3.html</link><description>Recent content in Nginx反向代理与负载均衡配置详解 on SelfTechHub</description><generator>Hugo -- gohugo.io</generator><language>zh-cn</language><managingEditor>irudder@126.com (irudder)</managingEditor><webMaster>irudder@126.com (irudder)</webMaster><lastBuildDate>Sun, 25 Jun 2023 00:00:00 +0800</lastBuildDate><atom:link href="https://blog.irudder.me/tags/Nginx%E5%8F%8D%E5%90%91%E4%BB%A3%E7%90%86%E4%B8%8E%E8%B4%9F%E8%BD%BD%E5%9D%87%E8%A1%A1%E9%85%8D%E7%BD%AE%E8%AF%A6%E8%A7%A3/index.xml" rel="self" type="application/rss+xml"/><item><title>3次生产事故后，我总结的Nginx反代与负载均衡实战</title><link>https://blog.irudder.me/tech/devopsjichugongjurumenyushicao/nginxfanxiangdailiyufuzaijunhengpeizhixiangjie.html</link><pubDate>Sun, 25 Jun 2023 00:00:00 +0800</pubDate><author>irudder@126.com (irudder)</author><guid>https://blog.irudder.me/tech/devopsjichugongjurumenyushicao/nginxfanxiangdailiyufuzaijunhengpeizhixiangjie.html</guid><description>&lt;img src="https://blog.irudder.me/images/covers/tech-2.jpg" alt="Featured image of post 3次生产事故后，我总结的Nginx反代与负载均衡实战" /&gt;&lt;p&gt;记得刚入行那年，我最怕看到的画面不是满屏的代码报错，而是浏览器里那个冷冰冰的 &lt;strong&gt;&amp;ldquo;502 Bad Gateway&amp;rdquo;&lt;/strong&gt;。&lt;/p&gt;
 &lt;p&gt;那时候觉得 Nginx 就是个黑盒，配置文件里的每一行指令都像是在对着服务器念咒语——念对了万事大吉，念错了一个分号，服务直接趴窝。我曾天真地以为，照着网上的教程把 &lt;code&gt;proxy_pass&lt;/code&gt; 粘贴进去就算完事了，直到我经历了那几个心惊肉跳的深夜。&lt;/p&gt;
-&lt;p&gt;&lt;img src="https://picsum.photos/800/450?random=1768387964200"
-loading="lazy"
-alt="配图"
-&gt;&lt;/p&gt;
 &lt;p&gt;DevOps 的路上，我们大概率都会遇到这样的时刻：代码逻辑明明没问题，但请求就是发不到后端；或者明明加了机器做负载均衡，用户却总抱怨登录状态莫名丢失。&lt;/p&gt;
 &lt;p&gt;今天，我想把自己这几年记在备忘录里的 Nginx 实操经验翻出来，不讲晦涩的原理，只聊聊在真实业务场景下，怎么配置反向代理和负载均衡，才能让你睡个安稳觉。&lt;/p&gt;
 &lt;h2 id="别让反向代理成为黑洞不仅是转发更是伪装"&gt;别让“反向代理”成为黑洞：不仅是转发，更是“伪装”
@@ -47,11 +43,7 @@ alt="配图"
 &lt;/div&gt;
 &lt;/div&gt;&lt;p&gt;自从加上这几行，后端日志里再也没出现过满屏的 &lt;code&gt;127.0.0.1&lt;/code&gt;，排查问题时的效率提升了不止一倍。&lt;/p&gt;
 &lt;h2 id="负载均衡的玄学不只是轮询更要专一"&gt;负载均衡的“玄学”：不只是轮询，更要“专一”
-&lt;/h2&gt;&lt;p&gt;&lt;img src="https://picsum.photos/800/450?random=1768387968026"
-loading="lazy"
-alt="配图"
-&gt;&lt;/p&gt;
-&lt;p&gt;随着业务量增长，单台服务器撑不住了，我们自然会想到加机器，上负载均衡。&lt;/p&gt;
+&lt;/h2&gt;&lt;p&gt;随着业务量增长，单台服务器撑不住了，我们自然会想到加机器，上负载均衡。&lt;/p&gt;
 &lt;p&gt;大概两年前，我们要搞一个线上的抢购活动。为了保险，我临时加了两台服务器，配置了最简单的 &lt;code&gt;upstream&lt;/code&gt; 轮询。我想着，三台机器平均分担压力，这下稳了吧？&lt;/p&gt;
 &lt;p&gt;结果活动刚开始五分钟，客服电话就被打爆了。用户反馈：“我刚登录进去，一点‘立即购买’，就提示我请先登录！”&lt;/p&gt;
 &lt;p&gt;即使是现在，回想起当时的冷汗直冒还心有余悸。排查后发现，问题出在 Session 上。默认的轮询策略（Round Robin）会把同一个用户的请求随机分发到不同的服务器上。用户在 A 服务器登录了，Session 存在 A 上；下一次点击被分发到了 B 服务器，B 上面没有 Session，自然就判定用户未登录。&lt;/p&gt;

@@ -1,10 +1,6 @@
-<?xml version="1.0" encoding="utf-8" standalone="yes"?><rss version="2.0" xmlns:atom="http://www.w3.org/2005/Atom"><channel><title>安全性设计：防止SQL注入与XSS攻击 on SelfTechHub</title><link>https://blog.irudder.me/tags/%E5%AE%89%E5%85%A8%E6%80%A7%E8%AE%BE%E8%AE%A1%E9%98%B2%E6%AD%A2SQL%E6%B3%A8%E5%85%A5%E4%B8%8EXSS%E6%94%BB%E5%87%BB.html</link><description>Recent content in 安全性设计：防止SQL注入与XSS攻击 on SelfTechHub</description><generator>Hugo -- gohugo.io</generator><language>zh-cn</language><managingEditor>irudder@126.com (irudder)</managingEditor><webMaster>irudder@126.com (irudder)</webMaster><lastBuildDate>Tue, 02 Aug 2022 00:00:00 +0800</lastBuildDate><atom:link href="https://blog.irudder.me/tags/%E5%AE%89%E5%85%A8%E6%80%A7%E8%AE%BE%E8%AE%A1%E9%98%B2%E6%AD%A2SQL%E6%B3%A8%E5%85%A5%E4%B8%8EXSS%E6%94%BB%E5%87%BB/index.xml" rel="self" type="application/rss+xml"/><item><title>别等库被删才哭：中小团队防SQL注入与XSS实战</title><link>https://blog.irudder.me/tech/zhongxiaoxingxiangmujiagoushejizhinan/anquanxingsheji_fangzhisqlzhuruyuxssgongji.html</link><pubDate>Tue, 02 Aug 2022 00:00:00 +0800</pubDate><author>irudder@126.com (irudder)</author><guid>https://blog.irudder.me/tech/zhongxiaoxingxiangmujiagoushejizhinan/anquanxingsheji_fangzhisqlzhuruyuxssgongji.html</guid><description>&lt;p&gt;还记得两年前的一个凌晨三点，我的手机像疯了一样震动。&lt;/p&gt;
+<?xml version="1.0" encoding="utf-8" standalone="yes"?><rss version="2.0" xmlns:atom="http://www.w3.org/2005/Atom"><channel><title>安全性设计：防止SQL注入与XSS攻击 on SelfTechHub</title><link>https://blog.irudder.me/tags/%E5%AE%89%E5%85%A8%E6%80%A7%E8%AE%BE%E8%AE%A1%E9%98%B2%E6%AD%A2SQL%E6%B3%A8%E5%85%A5%E4%B8%8EXSS%E6%94%BB%E5%87%BB.html</link><description>Recent content in 安全性设计：防止SQL注入与XSS攻击 on SelfTechHub</description><generator>Hugo -- gohugo.io</generator><language>zh-cn</language><managingEditor>irudder@126.com (irudder)</managingEditor><webMaster>irudder@126.com (irudder)</webMaster><lastBuildDate>Tue, 02 Aug 2022 00:00:00 +0800</lastBuildDate><atom:link href="https://blog.irudder.me/tags/%E5%AE%89%E5%85%A8%E6%80%A7%E8%AE%BE%E8%AE%A1%E9%98%B2%E6%AD%A2SQL%E6%B3%A8%E5%85%A5%E4%B8%8EXSS%E6%94%BB%E5%87%BB/index.xml" rel="self" type="application/rss+xml"/><item><title>别等库被删才哭：中小团队防SQL注入与XSS实战</title><link>https://blog.irudder.me/tech/zhongxiaoxingxiangmujiagoushejizhinan/anquanxingsheji_fangzhisqlzhuruyuxssgongji.html</link><pubDate>Tue, 02 Aug 2022 00:00:00 +0800</pubDate><author>irudder@126.com (irudder)</author><guid>https://blog.irudder.me/tech/zhongxiaoxingxiangmujiagoushejizhinan/anquanxingsheji_fangzhisqlzhuruyuxssgongji.html</guid><description>&lt;img src="https://blog.irudder.me/images/covers/tech-1.jpg" alt="Featured image of post 别等库被删才哭：中小团队防SQL注入与XSS实战" /&gt;&lt;p&gt;还记得两年前的一个凌晨三点，我的手机像疯了一样震动。&lt;/p&gt;
 &lt;p&gt;电话那头是运维老张，声音都在抖：“老李，咱们后台管理系统的首页被人挂了赌博广告，而且用户表刚才被批量导出了……”&lt;/p&gt;
 &lt;p&gt;我当时脑子“嗡”的一下，那是个刚上线不久的内部运营工具，大家都在赶进度，想着“反正是内网用，不用太讲究”。结果，就因为一个实习生为了省事，在搜索框里写了一句原生的SQL拼接，整个数据库差点被人连锅端。&lt;/p&gt;
-&lt;p&gt;&lt;img src="https://picsum.photos/800/450?random=1768456084481"
-loading="lazy"
-alt="配图"
-&gt;&lt;/p&gt;
 &lt;p&gt;&lt;strong&gt;哪怕是内网项目，也不能裸奔。&lt;/strong&gt; 这就是我今天要和大家聊的：在资源有限的中小团队，如何用最低的成本，堵住SQL注入和XSS这两个最大的窟窿。&lt;/p&gt;
 &lt;h2 id="这种省事的代码就是定时炸弹"&gt;这种“省事”的代码，就是定时炸弹
 &lt;/h2&gt;&lt;p&gt;咱们先说SQL注入。很多刚入行的兄弟，或者赶工期的老手，特别喜欢用字符串拼接来拼凑SQL语句。觉得直观、快。&lt;/p&gt;
@@ -65,12 +61,6 @@ alt="配图"
 &lt;p&gt;好消息是，现代前端框架（Vue, React, Angular）默认都自带了转义功能。
 &lt;strong&gt;但也别大意&lt;/strong&gt;，比如 Vue 里的 &lt;code&gt;v-html&lt;/code&gt; 或者 React 里的 &lt;code&gt;dangerouslySetInnerHTML&lt;/code&gt;，这俩就是给 XSS 开的后门。除非万不得已（比如渲染富文本编辑器内容），&lt;strong&gt;千万别用&lt;/strong&gt;。&lt;/p&gt;
 &lt;/li&gt;
-&lt;/ol&gt;
-&lt;p&gt;&lt;img src="https://picsum.photos/800/450?random=1768456086339"
-loading="lazy"
-alt="配图"
-&gt;&lt;/p&gt;
-&lt;ol start="2"&gt;
 &lt;li&gt;
 &lt;p&gt;&lt;strong&gt;给浏览器穿防弹衣：CSP（内容安全策略）&lt;/strong&gt;
 这是个被很多人忽略的神器。只需要在 HTTP 响应头里加一行配置，就能告诉浏览器：&lt;strong&gt;“只许执行我指定域名的脚本，其他的一律拦截。”&lt;/strong&gt;&lt;/p&gt;

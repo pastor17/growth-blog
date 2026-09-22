@@ -1,4 +1,4 @@
-<?xml version="1.0" encoding="utf-8" standalone="yes"?><rss version="2.0" xmlns:atom="http://www.w3.org/2005/Atom"><channel><title>一键部署：Shell脚本简化发布流程 on SelfTechHub</title><link>https://blog.irudder.me/tags/%E4%B8%80%E9%94%AE%E9%83%A8%E7%BD%B2Shell%E8%84%9A%E6%9C%AC%E7%AE%80%E5%8C%96%E5%8F%91%E5%B8%83%E6%B5%81%E7%A8%8B.html</link><description>Recent content in 一键部署：Shell脚本简化发布流程 on SelfTechHub</description><generator>Hugo -- gohugo.io</generator><language>zh-cn</language><managingEditor>irudder@126.com (irudder)</managingEditor><webMaster>irudder@126.com (irudder)</webMaster><lastBuildDate>Fri, 23 Jun 2023 00:00:00 +0800</lastBuildDate><atom:link href="https://blog.irudder.me/tags/%E4%B8%80%E9%94%AE%E9%83%A8%E7%BD%B2Shell%E8%84%9A%E6%9C%AC%E7%AE%80%E5%8C%96%E5%8F%91%E5%B8%83%E6%B5%81%E7%A8%8B/index.xml" rel="self" type="application/rss+xml"/><item><title>告别凌晨3点上线：一个Shell脚本如何拯救了我的发际线</title><link>https://blog.irudder.me/tech/zhongxiaoxingtuanduidevopsluodifangan/yijianbushu_shelljiaobenjianhuafabuliucheng.html</link><pubDate>Fri, 23 Jun 2023 00:00:00 +0800</pubDate><author>irudder@126.com (irudder)</author><guid>https://blog.irudder.me/tech/zhongxiaoxingtuanduidevopsluodifangan/yijianbushu_shelljiaobenjianhuafabuliucheng.html</guid><description>&lt;p&gt;我还记得2019年的那个冬天，那是我们团队最黑暗的一段日子。&lt;/p&gt;
+<?xml version="1.0" encoding="utf-8" standalone="yes"?><rss version="2.0" xmlns:atom="http://www.w3.org/2005/Atom"><channel><title>一键部署：Shell脚本简化发布流程 on SelfTechHub</title><link>https://blog.irudder.me/tags/%E4%B8%80%E9%94%AE%E9%83%A8%E7%BD%B2Shell%E8%84%9A%E6%9C%AC%E7%AE%80%E5%8C%96%E5%8F%91%E5%B8%83%E6%B5%81%E7%A8%8B.html</link><description>Recent content in 一键部署：Shell脚本简化发布流程 on SelfTechHub</description><generator>Hugo -- gohugo.io</generator><language>zh-cn</language><managingEditor>irudder@126.com (irudder)</managingEditor><webMaster>irudder@126.com (irudder)</webMaster><lastBuildDate>Fri, 23 Jun 2023 00:00:00 +0800</lastBuildDate><atom:link href="https://blog.irudder.me/tags/%E4%B8%80%E9%94%AE%E9%83%A8%E7%BD%B2Shell%E8%84%9A%E6%9C%AC%E7%AE%80%E5%8C%96%E5%8F%91%E5%B8%83%E6%B5%81%E7%A8%8B/index.xml" rel="self" type="application/rss+xml"/><item><title>告别凌晨3点上线：一个Shell脚本如何拯救了我的发际线</title><link>https://blog.irudder.me/tech/zhongxiaoxingtuanduidevopsluodifangan/yijianbushu_shelljiaobenjianhuafabuliucheng.html</link><pubDate>Fri, 23 Jun 2023 00:00:00 +0800</pubDate><author>irudder@126.com (irudder)</author><guid>https://blog.irudder.me/tech/zhongxiaoxingtuanduidevopsluodifangan/yijianbushu_shelljiaobenjianhuafabuliucheng.html</guid><description>&lt;img src="https://blog.irudder.me/images/covers/tech-1.jpg" alt="Featured image of post 告别凌晨3点上线：一个Shell脚本如何拯救了我的发际线" /&gt;&lt;p&gt;我还记得2019年的那个冬天，那是我们团队最黑暗的一段日子。&lt;/p&gt;
 &lt;p&gt;那时候，我是个刚升职的技术主管，手下带着4个开发兄弟。为了赶业务进度，我们几乎每周都要发两个版本。那时候的发布流程全靠&amp;quot;人肉&amp;quot;：本地打包 Jar 包，用 FTP 传到服务器，手动杀进程，再手动启动，盯着滚动的日志祈祷不要报错。&lt;/p&gt;
 &lt;p&gt;有一次凌晨3点，眼皮打架的我，在生产环境误删了一个配置文件。虽然只花了15分钟恢复，但这15分钟里，我的心跳大概有一百八。也就是在那个吃着已经凉透的泡面的深夜，我突然意识到：&lt;strong&gt;我们要对抗的不是复杂的业务逻辑，而是对&amp;quot;人肉操作&amp;quot;的盲目自信。&lt;/strong&gt;&lt;/p&gt;
 &lt;p&gt;如果你也正身处在一个没有专职运维、资源有限的中小团队，每天在写代码和修服务器之间反复横跳，那么这篇文章就是写给你的。我想和你聊聊，我是如何用最土、但也最管用的 Shell 脚本，把团队从发布的焦虑中解救出来的。&lt;/p&gt;
@@ -70,20 +70,12 @@
 &lt;/div&gt;&lt;p&gt;当屏幕上出现那行绿色的 &lt;code&gt;[SUCCESS]&lt;/code&gt; 时，那种多巴胺分泌的快乐，比写出一段精妙的代码还要强烈。因为它意味着：&lt;strong&gt;今晚可以按时回家了。&lt;/strong&gt;&lt;/p&gt;
 &lt;h2 id="脚本之外建立不焦虑的发布文化"&gt;脚本之外：建立&amp;quot;不焦虑&amp;quot;的发布文化
 &lt;/h2&gt;&lt;p&gt;有了脚本只是第一步，更重要的是改变习惯。&lt;/p&gt;
-&lt;p&gt;&lt;img src="https://picsum.photos/800/450?random=1768389806188"
-loading="lazy"
-alt="配图"
-&gt;&lt;/p&gt;
 &lt;p&gt;起初，团队里的老开发老李很抵触，他觉得：&amp;ldquo;我手动搞了两年也没出大事，敲个脚本命令反而觉得心里没底，不知道它在后台干了啥。&amp;rdquo;&lt;/p&gt;
 &lt;p&gt;这很正常，&lt;strong&gt;恐惧源于不可控。&lt;/strong&gt;&lt;/p&gt;
 &lt;p&gt;为了消除这种顾虑，我做了一件小事：&lt;strong&gt;把脚本代码纳入版本管理，并邀请大家一起 Review。&lt;/strong&gt;&lt;/p&gt;
 &lt;p&gt;我们在周五下午的例会（我习惯在这个时候买点奶茶，大家心态比较放松）上，逐行讲解脚本的逻辑。当大家看到脚本里把 &lt;code&gt;cp&lt;/code&gt;（复制）改成了 &lt;code&gt;rsync&lt;/code&gt;（同步），把粗暴的 &lt;code&gt;kill&lt;/code&gt; 变成了循环检测 pid 消失时，信任感建立起来了。&lt;/p&gt;
 &lt;p&gt;后来，老李成了这个脚本的维护主力。有一次，他在脚本里增加了一个&amp;quot;回滚&amp;quot;功能——只需要加一个 &lt;code&gt;-r&lt;/code&gt; 参数，就能在一分钟内把服务切回上一个备份版本。&lt;/p&gt;
 &lt;p&gt;那次改动后的一个月，线上出现了一个严重的空指针异常。当时正好我在高铁上，信号极差。老李在群里淡定地回了一句：&amp;ldquo;别慌，我执行了回滚。&amp;rdquo;&lt;/p&gt;
-&lt;p&gt;&lt;img src="https://picsum.photos/800/450?random=1768389803575"
-loading="lazy"
-alt="配图"
-&gt;&lt;/p&gt;
 &lt;p&gt;那一刻，我知道，我们终于从&amp;quot;发布焦虑症&amp;quot;中毕业了。我们不再依赖某个人的&amp;quot;高超手速&amp;rdquo;，而是依赖一套固化的、可重复的逻辑。&lt;/p&gt;
 &lt;h2 id="给你的落地建议"&gt;给你的落地建议
 &lt;/h2&gt;&lt;p&gt;如果你也想开始这段旅程，不需要等到下个季度，也不需要申请什么大笔预算。我也&lt;strong&gt;不建议&lt;/strong&gt;你一上来就去追求所谓完美的 DevOps 流程。&lt;/p&gt;

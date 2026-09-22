@@ -1,10 +1,6 @@
-<?xml version="1.0" encoding="utf-8" standalone="yes"?><rss version="2.0" xmlns:atom="http://www.w3.org/2005/Atom"><channel><title>连接池优化：解决数据库连接耗尽问题 on SelfTechHub</title><link>https://blog.irudder.me/tags/%E8%BF%9E%E6%8E%A5%E6%B1%A0%E4%BC%98%E5%8C%96%E8%A7%A3%E5%86%B3%E6%95%B0%E6%8D%AE%E5%BA%93%E8%BF%9E%E6%8E%A5%E8%80%97%E5%B0%BD%E9%97%AE%E9%A2%98.html</link><description>Recent content in 连接池优化：解决数据库连接耗尽问题 on SelfTechHub</description><generator>Hugo -- gohugo.io</generator><language>zh-cn</language><managingEditor>irudder@126.com (irudder)</managingEditor><webMaster>irudder@126.com (irudder)</webMaster><lastBuildDate>Wed, 01 Jun 2022 00:00:00 +0800</lastBuildDate><atom:link href="https://blog.irudder.me/tags/%E8%BF%9E%E6%8E%A5%E6%B1%A0%E4%BC%98%E5%8C%96%E8%A7%A3%E5%86%B3%E6%95%B0%E6%8D%AE%E5%BA%93%E8%BF%9E%E6%8E%A5%E8%80%97%E5%B0%BD%E9%97%AE%E9%A2%98/index.xml" rel="self" type="application/rss+xml"/><item><title>凌晨3点的报警：救回崩溃数据库的3个关键</title><link>https://blog.irudder.me/tech/jiagouyouhuashizhananlijiexi/lianjiechiyouhua_jiejueshujukulianjiehaojinwenti.html</link><pubDate>Wed, 01 Jun 2022 00:00:00 +0800</pubDate><author>irudder@126.com (irudder)</author><guid>https://blog.irudder.me/tech/jiagouyouhuashizhananlijiexi/lianjiechiyouhua_jiejueshujukulianjiehaojinwenti.html</guid><description>&lt;p&gt;那一刻的绝望感，我相信做过后端或运维的朋友都懂。&lt;/p&gt;
+<?xml version="1.0" encoding="utf-8" standalone="yes"?><rss version="2.0" xmlns:atom="http://www.w3.org/2005/Atom"><channel><title>连接池优化：解决数据库连接耗尽问题 on SelfTechHub</title><link>https://blog.irudder.me/tags/%E8%BF%9E%E6%8E%A5%E6%B1%A0%E4%BC%98%E5%8C%96%E8%A7%A3%E5%86%B3%E6%95%B0%E6%8D%AE%E5%BA%93%E8%BF%9E%E6%8E%A5%E8%80%97%E5%B0%BD%E9%97%AE%E9%A2%98.html</link><description>Recent content in 连接池优化：解决数据库连接耗尽问题 on SelfTechHub</description><generator>Hugo -- gohugo.io</generator><language>zh-cn</language><managingEditor>irudder@126.com (irudder)</managingEditor><webMaster>irudder@126.com (irudder)</webMaster><lastBuildDate>Wed, 01 Jun 2022 00:00:00 +0800</lastBuildDate><atom:link href="https://blog.irudder.me/tags/%E8%BF%9E%E6%8E%A5%E6%B1%A0%E4%BC%98%E5%8C%96%E8%A7%A3%E5%86%B3%E6%95%B0%E6%8D%AE%E5%BA%93%E8%BF%9E%E6%8E%A5%E8%80%97%E5%B0%BD%E9%97%AE%E9%A2%98/index.xml" rel="self" type="application/rss+xml"/><item><title>凌晨3点的报警：救回崩溃数据库的3个关键</title><link>https://blog.irudder.me/tech/jiagouyouhuashizhananlijiexi/lianjiechiyouhua_jiejueshujukulianjiehaojinwenti.html</link><pubDate>Wed, 01 Jun 2022 00:00:00 +0800</pubDate><author>irudder@126.com (irudder)</author><guid>https://blog.irudder.me/tech/jiagouyouhuashizhananlijiexi/lianjiechiyouhua_jiejueshujukulianjiehaojinwenti.html</guid><description>&lt;img src="https://blog.irudder.me/images/covers/tech-2.jpg" alt="Featured image of post 凌晨3点的报警：救回崩溃数据库的3个关键" /&gt;&lt;p&gt;那一刻的绝望感，我相信做过后端或运维的朋友都懂。&lt;/p&gt;
 &lt;p&gt;手机在凌晨3:17分疯狂震动，屏幕上赫然跳动着那行令人窒息的报警信息：&lt;code&gt;Data source rejected establishment of connection, message from server: &amp;quot;Too many connections&amp;quot;&lt;/code&gt;。&lt;/p&gt;
 &lt;p&gt;你揉着惺忪的睡眼打开电脑，看着监控面板上飙升到顶的红色曲线，手心开始冒汗。那一刻，你可能和我当初一样，下意识的第一反应是：“赶紧把连接池调大点！”&lt;/p&gt;
-&lt;p&gt;&lt;img src="https://picsum.photos/800/450?random=1768458024874"
-loading="lazy"
-alt="配图"
-&gt;&lt;/p&gt;
 &lt;p&gt;&lt;strong&gt;请停下来。&lt;/strong&gt;&lt;/p&gt;
 &lt;p&gt;我也曾以为“池子越大，并发越高”，直到在一次双十一压测中，我亲手把所有的数据库节点都拖垮了。那时我才明白，技术上的许多“直觉”，往往是通往灾难的捷径。&lt;/p&gt;
 &lt;p&gt;今天，我想陪大家聊聊关于连接池的那些“反直觉”真相。这不是一篇枯燥的技术文档，而是无数个不眠之夜换来的实战复盘。希望这些经验能像一杯热茶，在这个寒冬里，给你和你的系统带来一点温暖和确定性。&lt;/p&gt;
@@ -76,10 +72,6 @@ alt="配图"
 &lt;li&gt;&lt;strong&gt;兜底思维&lt;/strong&gt;：开启连接泄漏检测（Leak Detection），给代码加一道保险。&lt;/li&gt;
 &lt;li&gt;&lt;strong&gt;顺势而为&lt;/strong&gt;：利用驱动特性，配置合理的生命周期（MaxLifetime），减少无用的交互。&lt;/li&gt;
 &lt;/ol&gt;
-&lt;p&gt;&lt;img src="https://picsum.photos/800/450?random=1768458026843"
-loading="lazy"
-alt="配图"
-&gt;&lt;/p&gt;
 &lt;p&gt;在这个充满不确定性的时代，让我们的系统变得更具韧性，或许是我们能给用户、给团队、给自己最好的安慰。&lt;/p&gt;
 &lt;p&gt;&lt;strong&gt;最后，想问问大家：&lt;/strong&gt;&lt;/p&gt;
 &lt;p&gt;你在维护系统的过程中，遇到过最离谱的数据库崩溃原因是什么？是半夜的定时任务？还是某条没有索引的慢 SQL？&lt;/p&gt;

@@ -1,10 +1,6 @@
-<?xml version="1.0" encoding="utf-8" standalone="yes"?><rss version="2.0" xmlns:atom="http://www.w3.org/2005/Atom"><channel><title>数据库设计：范式与反范式的权衡 on SelfTechHub</title><link>https://blog.irudder.me/tags/%E6%95%B0%E6%8D%AE%E5%BA%93%E8%AE%BE%E8%AE%A1%E8%8C%83%E5%BC%8F%E4%B8%8E%E5%8F%8D%E8%8C%83%E5%BC%8F%E7%9A%84%E6%9D%83%E8%A1%A1.html</link><description>Recent content in 数据库设计：范式与反范式的权衡 on SelfTechHub</description><generator>Hugo -- gohugo.io</generator><language>zh-cn</language><managingEditor>irudder@126.com (irudder)</managingEditor><webMaster>irudder@126.com (irudder)</webMaster><lastBuildDate>Tue, 09 Jan 2024 00:00:00 +0800</lastBuildDate><atom:link href="https://blog.irudder.me/tags/%E6%95%B0%E6%8D%AE%E5%BA%93%E8%AE%BE%E8%AE%A1%E8%8C%83%E5%BC%8F%E4%B8%8E%E5%8F%8D%E8%8C%83%E5%BC%8F%E7%9A%84%E6%9D%83%E8%A1%A1/index.xml" rel="self" type="application/rss+xml"/><item><title>死守范式差点搞垮项目？聊聊数据库设计的“灰度哲学”</title><link>https://blog.irudder.me/tech/danxiangmuquanliuchengchaijie10fenzhongkedu/shujukusheji_fanshiyufanfanshidequanheng.html</link><pubDate>Tue, 09 Jan 2024 00:00:00 +0800</pubDate><author>irudder@126.com (irudder)</author><guid>https://blog.irudder.me/tech/danxiangmuquanliuchengchaijie10fenzhongkedu/shujukusheji_fanshiyufanfanshidequanheng.html</guid><description>&lt;p&gt;2019年的一个深夜，为了解决一个查询耗时8秒的订单列表接口，我盯着屏幕上那个包含了12个&lt;code&gt;LEFT JOIN&lt;/code&gt;的SQL语句，陷入了深深的自我怀疑。&lt;/p&gt;
+<?xml version="1.0" encoding="utf-8" standalone="yes"?><rss version="2.0" xmlns:atom="http://www.w3.org/2005/Atom"><channel><title>数据库设计：范式与反范式的权衡 on SelfTechHub</title><link>https://blog.irudder.me/tags/%E6%95%B0%E6%8D%AE%E5%BA%93%E8%AE%BE%E8%AE%A1%E8%8C%83%E5%BC%8F%E4%B8%8E%E5%8F%8D%E8%8C%83%E5%BC%8F%E7%9A%84%E6%9D%83%E8%A1%A1.html</link><description>Recent content in 数据库设计：范式与反范式的权衡 on SelfTechHub</description><generator>Hugo -- gohugo.io</generator><language>zh-cn</language><managingEditor>irudder@126.com (irudder)</managingEditor><webMaster>irudder@126.com (irudder)</webMaster><lastBuildDate>Tue, 09 Jan 2024 00:00:00 +0800</lastBuildDate><atom:link href="https://blog.irudder.me/tags/%E6%95%B0%E6%8D%AE%E5%BA%93%E8%AE%BE%E8%AE%A1%E8%8C%83%E5%BC%8F%E4%B8%8E%E5%8F%8D%E8%8C%83%E5%BC%8F%E7%9A%84%E6%9D%83%E8%A1%A1/index.xml" rel="self" type="application/rss+xml"/><item><title>死守范式差点搞垮项目？聊聊数据库设计的“灰度哲学”</title><link>https://blog.irudder.me/tech/danxiangmuquanliuchengchaijie10fenzhongkedu/shujukusheji_fanshiyufanfanshidequanheng.html</link><pubDate>Tue, 09 Jan 2024 00:00:00 +0800</pubDate><author>irudder@126.com (irudder)</author><guid>https://blog.irudder.me/tech/danxiangmuquanliuchengchaijie10fenzhongkedu/shujukusheji_fanshiyufanfanshidequanheng.html</guid><description>&lt;img src="https://blog.irudder.me/images/covers/tech-1.jpg" alt="Featured image of post 死守范式差点搞垮项目？聊聊数据库设计的“灰度哲学”" /&gt;&lt;p&gt;2019年的一个深夜，为了解决一个查询耗时8秒的订单列表接口，我盯着屏幕上那个包含了12个&lt;code&gt;LEFT JOIN&lt;/code&gt;的SQL语句，陷入了深深的自我怀疑。&lt;/p&gt;
 &lt;p&gt;当时的我认为，数据库设计必须严格遵守“第三范式（3NF）”，任何数据冗余都是不可饶恕的“罪过”。直到那个项目上线后，数据库CPU长期飙升到90%，我才意识到：&lt;strong&gt;教科书里的完美范式，在真实的业务洪流面前，有时甚至是一种灾难。&lt;/strong&gt;&lt;/p&gt;
 &lt;p&gt;在这几年的技术管理复盘中，我发现很多中小团队在数据库设计上非左即右：要么是死扣范式的“洁癖派”，要么是一张宽表走天下的“野路子”。今天，我想结合两次真实的“翻车”经历，聊聊如何在范式与反范式之间，找到那个性价比最高的平衡点。&lt;/p&gt;
-&lt;p&gt;&lt;img src="https://picsum.photos/800/450?random=1768448906502"
-loading="lazy"
-alt="配图"
-&gt;&lt;/p&gt;
 &lt;h2 id="一-掉进完美洁癖的陷阱当join成为性能杀手"&gt;一、 掉进“完美洁癖”的陷阱：当Join成为性能杀手
 &lt;/h2&gt;&lt;p&gt;这发生在我刚做架构师不久的一个电商SaaS项目上。为了追求数据结构的极致纯净，我将用户信息拆分得“支离破碎”。&lt;/p&gt;
 &lt;h3 id="案例复盘被拆碎的用户表"&gt;案例复盘：被拆碎的用户表
@@ -78,10 +74,6 @@ alt="配图"
 &lt;/h3&gt;&lt;p&gt;对于那些“展示用、但不参与搜索条件”的字段，完全不需要单独建表。&lt;/p&gt;
 &lt;p&gt;&lt;strong&gt;实操案例：&lt;/strong&gt;
 在SaaS产品的“自定义表单”功能中，客户可能会配置几十个不同的字段。与其搞复杂的EAV（Entity-Attribute-Value）模型，不如直接利用MySQL 5.7+的JSON特性。&lt;/p&gt;
-&lt;p&gt;&lt;img src="https://picsum.photos/800/450?random=1768448910637"
-loading="lazy"
-alt="配图"
-&gt;&lt;/p&gt;
 &lt;div class="highlight"&gt;&lt;div class="chroma"&gt;
 &lt;table class="lntable"&gt;&lt;tr&gt;&lt;td class="lntd"&gt;
 &lt;pre tabindex="0" class="chroma"&gt;&lt;code&gt;&lt;span class="lnt"&gt;1

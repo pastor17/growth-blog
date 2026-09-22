@@ -1,16 +1,8 @@
-<?xml version="1.0" encoding="utf-8" standalone="yes"?><rss version="2.0" xmlns:atom="http://www.w3.org/2005/Atom"><channel><title>分布式锁的实现与死锁预防 on SelfTechHub</title><link>https://blog.irudder.me/tags/%E5%88%86%E5%B8%83%E5%BC%8F%E9%94%81%E7%9A%84%E5%AE%9E%E7%8E%B0%E4%B8%8E%E6%AD%BB%E9%94%81%E9%A2%84%E9%98%B2.html</link><description>Recent content in 分布式锁的实现与死锁预防 on SelfTechHub</description><generator>Hugo -- gohugo.io</generator><language>zh-cn</language><managingEditor>irudder@126.com (irudder)</managingEditor><webMaster>irudder@126.com (irudder)</webMaster><lastBuildDate>Wed, 24 Mar 2021 00:00:00 +0800</lastBuildDate><atom:link href="https://blog.irudder.me/tags/%E5%88%86%E5%B8%83%E5%BC%8F%E9%94%81%E7%9A%84%E5%AE%9E%E7%8E%B0%E4%B8%8E%E6%AD%BB%E9%94%81%E9%A2%84%E9%98%B2/index.xml" rel="self" type="application/rss+xml"/><item><title>生产环境挂机2小时：我对分布式锁的3次“痛彻领悟”</title><link>https://blog.irudder.me/tech/zhongxiaoxingxiangmujiagoushejizhinan/fenbushisuodeshixianyusisuoyufang.html</link><pubDate>Wed, 24 Mar 2021 00:00:00 +0800</pubDate><author>irudder@126.com (irudder)</author><guid>https://blog.irudder.me/tech/zhongxiaoxingxiangmujiagoushejizhinan/fenbushisuodeshixianyusisuoyufang.html</guid><description>&lt;p&gt;曾几何时，我认为分布式锁不过是 Redis 的一行命令。直到2021年的那个双十一预热活动，我们的库存中心在流量高峰期突然“假死”，整个系统像被施了定身术，重启服务都无济于事。&lt;/p&gt;
+<?xml version="1.0" encoding="utf-8" standalone="yes"?><rss version="2.0" xmlns:atom="http://www.w3.org/2005/Atom"><channel><title>分布式锁的实现与死锁预防 on SelfTechHub</title><link>https://blog.irudder.me/tags/%E5%88%86%E5%B8%83%E5%BC%8F%E9%94%81%E7%9A%84%E5%AE%9E%E7%8E%B0%E4%B8%8E%E6%AD%BB%E9%94%81%E9%A2%84%E9%98%B2.html</link><description>Recent content in 分布式锁的实现与死锁预防 on SelfTechHub</description><generator>Hugo -- gohugo.io</generator><language>zh-cn</language><managingEditor>irudder@126.com (irudder)</managingEditor><webMaster>irudder@126.com (irudder)</webMaster><lastBuildDate>Wed, 24 Mar 2021 00:00:00 +0800</lastBuildDate><atom:link href="https://blog.irudder.me/tags/%E5%88%86%E5%B8%83%E5%BC%8F%E9%94%81%E7%9A%84%E5%AE%9E%E7%8E%B0%E4%B8%8E%E6%AD%BB%E9%94%81%E9%A2%84%E9%98%B2/index.xml" rel="self" type="application/rss+xml"/><item><title>生产环境挂机2小时：我对分布式锁的3次“痛彻领悟”</title><link>https://blog.irudder.me/tech/zhongxiaoxingxiangmujiagoushejizhinan/fenbushisuodeshixianyusisuoyufang.html</link><pubDate>Wed, 24 Mar 2021 00:00:00 +0800</pubDate><author>irudder@126.com (irudder)</author><guid>https://blog.irudder.me/tech/zhongxiaoxingxiangmujiagoushejizhinan/fenbushisuodeshixianyusisuoyufang.html</guid><description>&lt;img src="https://blog.irudder.me/images/covers/tech-1.jpg" alt="Featured image of post 生产环境挂机2小时：我对分布式锁的3次“痛彻领悟”" /&gt;&lt;p&gt;曾几何时，我认为分布式锁不过是 Redis 的一行命令。直到2021年的那个双十一预热活动，我们的库存中心在流量高峰期突然“假死”，整个系统像被施了定身术，重启服务都无济于事。&lt;/p&gt;
 &lt;p&gt;那次事故导致核心业务停摆近2小时，老板在钉钉群里的每一个问号，都像敲在我头上的重锤。&lt;/p&gt;
 &lt;p&gt;复盘当晚，我盯着屏幕上看似完美的 &lt;code&gt;SETNX&lt;/code&gt; 代码发呆。作为负责中小团队技术选型的架构师，我甚至一度陷入自我怀疑：&lt;strong&gt;为什么教科书式的写法，到了真实的高并发战场上却不堪一击？&lt;/strong&gt;&lt;/p&gt;
-&lt;p&gt;&lt;img src="https://picsum.photos/800/450?random=1768451890775"
-loading="lazy"
-alt="配图"
-&gt;&lt;/p&gt;
 &lt;p&gt;这也是很多资深开发容易陷入的误区：&lt;strong&gt;把“实现了功能”等同于“生产可用”。&lt;/strong&gt;&lt;/p&gt;
 &lt;p&gt;在这篇文章里，我不讲枯燥的 CAP 理论，只想和你分享我在实战中踩过的三个深坑，以及我和团队是如何填坑的。&lt;/p&gt;
-&lt;p&gt;&lt;img src="https://picsum.photos/800/450?random=1768451885264"
-loading="lazy"
-alt="配图"
-&gt;&lt;/p&gt;
 &lt;h2 id="坑一原子性的薛定谔陷阱"&gt;坑一：原子性的“薛定谔”陷阱
 &lt;/h2&gt;&lt;p&gt;那是项目早期的代码。为了防止商品超卖，我们在下单接口加了锁。当时的逻辑简单粗暴：&lt;/p&gt;
 &lt;div class="highlight"&gt;&lt;div class="chroma"&gt;

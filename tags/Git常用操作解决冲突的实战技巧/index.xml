@@ -1,10 +1,6 @@
-<?xml version="1.0" encoding="utf-8" standalone="yes"?><rss version="2.0" xmlns:atom="http://www.w3.org/2005/Atom"><channel><title>Git常用操作：解决冲突的实战技巧 on SelfTechHub</title><link>https://blog.irudder.me/tags/Git%E5%B8%B8%E7%94%A8%E6%93%8D%E4%BD%9C%E8%A7%A3%E5%86%B3%E5%86%B2%E7%AA%81%E7%9A%84%E5%AE%9E%E6%88%98%E6%8A%80%E5%B7%A7.html</link><description>Recent content in Git常用操作：解决冲突的实战技巧 on SelfTechHub</description><generator>Hugo -- gohugo.io</generator><language>zh-cn</language><managingEditor>irudder@126.com (irudder)</managingEditor><webMaster>irudder@126.com (irudder)</webMaster><lastBuildDate>Tue, 11 May 2021 00:00:00 +0800</lastBuildDate><atom:link href="https://blog.irudder.me/tags/Git%E5%B8%B8%E7%94%A8%E6%93%8D%E4%BD%9C%E8%A7%A3%E5%86%B3%E5%86%B2%E7%AA%81%E7%9A%84%E5%AE%9E%E6%88%98%E6%8A%80%E5%B7%A7/index.xml" rel="self" type="application/rss+xml"/><item><title>看到Merge Conflict就手抖？3招化解代码冲突焦虑</title><link>https://blog.irudder.me/tech/devopsjichugongjurumenyushicao/gitchangyongcaozuo_jiejuechongtudeshizhanjiqiao.html</link><pubDate>Tue, 11 May 2021 00:00:00 +0800</pubDate><author>irudder@126.com (irudder)</author><guid>https://blog.irudder.me/tech/devopsjichugongjurumenyushicao/gitchangyongcaozuo_jiejuechongtudeshizhanjiqiao.html</guid><description>&lt;p&gt;还记得你第一次在终端里看到 &lt;code&gt;CONFLICT (content): Merge conflict in...&lt;/code&gt; 这行字时的心情吗？&lt;/p&gt;
+<?xml version="1.0" encoding="utf-8" standalone="yes"?><rss version="2.0" xmlns:atom="http://www.w3.org/2005/Atom"><channel><title>Git常用操作：解决冲突的实战技巧 on SelfTechHub</title><link>https://blog.irudder.me/tags/Git%E5%B8%B8%E7%94%A8%E6%93%8D%E4%BD%9C%E8%A7%A3%E5%86%B3%E5%86%B2%E7%AA%81%E7%9A%84%E5%AE%9E%E6%88%98%E6%8A%80%E5%B7%A7.html</link><description>Recent content in Git常用操作：解决冲突的实战技巧 on SelfTechHub</description><generator>Hugo -- gohugo.io</generator><language>zh-cn</language><managingEditor>irudder@126.com (irudder)</managingEditor><webMaster>irudder@126.com (irudder)</webMaster><lastBuildDate>Tue, 11 May 2021 00:00:00 +0800</lastBuildDate><atom:link href="https://blog.irudder.me/tags/Git%E5%B8%B8%E7%94%A8%E6%93%8D%E4%BD%9C%E8%A7%A3%E5%86%B3%E5%86%B2%E7%AA%81%E7%9A%84%E5%AE%9E%E6%88%98%E6%8A%80%E5%B7%A7/index.xml" rel="self" type="application/rss+xml"/><item><title>看到Merge Conflict就手抖？3招化解代码冲突焦虑</title><link>https://blog.irudder.me/tech/devopsjichugongjurumenyushicao/gitchangyongcaozuo_jiejuechongtudeshizhanjiqiao.html</link><pubDate>Tue, 11 May 2021 00:00:00 +0800</pubDate><author>irudder@126.com (irudder)</author><guid>https://blog.irudder.me/tech/devopsjichugongjurumenyushicao/gitchangyongcaozuo_jiejuechongtudeshizhanjiqiao.html</guid><description>&lt;img src="https://blog.irudder.me/images/covers/tech-2.jpg" alt="Featured image of post 看到Merge Conflict就手抖？3招化解代码冲突焦虑" /&gt;&lt;p&gt;还记得你第一次在终端里看到 &lt;code&gt;CONFLICT (content): Merge conflict in...&lt;/code&gt; 这行字时的心情吗？&lt;/p&gt;
 &lt;p&gt;我印象很深。那是刚入行不久的一个周五下午，离下班还有半小时，我满心欢喜地敲下 &lt;code&gt;git merge&lt;/code&gt;，准备合并完代码去过周末。结果，屏幕上弹出的一大片红色报错和代码里莫名其妙出现的 &lt;code&gt;&amp;lt;&amp;lt;&amp;lt;&amp;lt;&amp;lt;&amp;lt;&amp;lt; HEAD&lt;/code&gt;，瞬间让我手心冒汗。&lt;/p&gt;
 &lt;p&gt;那一刻，我感觉自己像是闯了大祸，甚至不敢告诉坐在旁边的导师，生怕被认为是技术太菜。&lt;/p&gt;
-&lt;p&gt;&lt;img src="https://picsum.photos/800/450?random=1768388055338"
-loading="lazy"
-alt="配图"
-&gt;&lt;/p&gt;
 &lt;p&gt;后来我才明白，&lt;strong&gt;代码冲突不是你的错，它只是团队协作的“副作用”&lt;/strong&gt;。甚至可以说，有冲突说明团队是活跃的，大家都在努力产出。&lt;/p&gt;
 &lt;p&gt;今天，我想和你聊聊如何在面对冲突时，从慌乱的“救火队员”变成从容的“指挥官”。我们不谈枯燥的指令列表，只谈我在实战中踩过坑后总结出的心法。&lt;/p&gt;
 &lt;h2 id="拒绝暴力解决学会给冲突按暂停键"&gt;拒绝“暴力解决”，学会给冲突按暂停键
@@ -53,10 +49,6 @@ alt="配图"
 &lt;li&gt;&lt;code&gt;&amp;lt;&amp;lt;&amp;lt;&amp;lt;&amp;lt;&amp;lt;&amp;lt; HEAD&lt;/code&gt; 到 &lt;code&gt;=======&lt;/code&gt; 中间的内容，是你当前分支（你的代码）。&lt;/li&gt;
 &lt;li&gt;&lt;code&gt;=======&lt;/code&gt; 到 &lt;code&gt;&amp;gt;&amp;gt;&amp;gt;&amp;gt;&amp;gt;&amp;gt;&amp;gt;&lt;/code&gt; 中间的内容，是你要合并进来的分支（同事的代码）。&lt;/li&gt;
 &lt;/ul&gt;
-&lt;p&gt;&lt;img src="https://picsum.photos/800/450?random=1768388057442"
-loading="lazy"
-alt="配图"
-&gt;&lt;/p&gt;
 &lt;p&gt;很多新手会陷入“二选一”的误区：要么保留我的，要么保留他的。&lt;/p&gt;
 &lt;p&gt;但在真实业务中，&lt;strong&gt;往往需要“第三种选择”&lt;/strong&gt;。比如在这个案例中，直接选谁的都会出问题。正确的做法可能并不是删除某一段，而是将两者的逻辑结合：&lt;/p&gt;
 &lt;div class="highlight"&gt;&lt;div class="chroma"&gt;

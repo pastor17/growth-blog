@@ -1,4 +1,4 @@
-<?xml version="1.0" encoding="utf-8" standalone="yes"?><rss version="2.0" xmlns:atom="http://www.w3.org/2005/Atom"><channel><title>前端组件化拆解思路 on SelfTechHub</title><link>https://blog.irudder.me/tags/%E5%89%8D%E7%AB%AF%E7%BB%84%E4%BB%B6%E5%8C%96%E6%8B%86%E8%A7%A3%E6%80%9D%E8%B7%AF.html</link><description>Recent content in 前端组件化拆解思路 on SelfTechHub</description><generator>Hugo -- gohugo.io</generator><language>zh-cn</language><managingEditor>irudder@126.com (irudder)</managingEditor><webMaster>irudder@126.com (irudder)</webMaster><lastBuildDate>Sun, 16 Feb 2025 00:00:00 +0800</lastBuildDate><atom:link href="https://blog.irudder.me/tags/%E5%89%8D%E7%AB%AF%E7%BB%84%E4%BB%B6%E5%8C%96%E6%8B%86%E8%A7%A3%E6%80%9D%E8%B7%AF/index.xml" rel="self" type="application/rss+xml"/><item><title>重构火葬场？3个原则，把前端组件拆解效率提50%</title><link>https://blog.irudder.me/tech/danxiangmuquanliuchengchaijie10fenzhongkedu/qianduanzujianhuachaijiesilu.html</link><pubDate>Sun, 16 Feb 2025 00:00:00 +0800</pubDate><author>irudder@126.com (irudder)</author><guid>https://blog.irudder.me/tech/danxiangmuquanliuchengchaijie10fenzhongkedu/qianduanzujianhuachaijiesilu.html</guid><description>&lt;p&gt;两年前接手过一个后台管理系统，那简直是一场灾难。&lt;/p&gt;
+<?xml version="1.0" encoding="utf-8" standalone="yes"?><rss version="2.0" xmlns:atom="http://www.w3.org/2005/Atom"><channel><title>前端组件化拆解思路 on SelfTechHub</title><link>https://blog.irudder.me/tags/%E5%89%8D%E7%AB%AF%E7%BB%84%E4%BB%B6%E5%8C%96%E6%8B%86%E8%A7%A3%E6%80%9D%E8%B7%AF.html</link><description>Recent content in 前端组件化拆解思路 on SelfTechHub</description><generator>Hugo -- gohugo.io</generator><language>zh-cn</language><managingEditor>irudder@126.com (irudder)</managingEditor><webMaster>irudder@126.com (irudder)</webMaster><lastBuildDate>Sun, 16 Feb 2025 00:00:00 +0800</lastBuildDate><atom:link href="https://blog.irudder.me/tags/%E5%89%8D%E7%AB%AF%E7%BB%84%E4%BB%B6%E5%8C%96%E6%8B%86%E8%A7%A3%E6%80%9D%E8%B7%AF/index.xml" rel="self" type="application/rss+xml"/><item><title>重构火葬场？3个原则，把前端组件拆解效率提50%</title><link>https://blog.irudder.me/tech/danxiangmuquanliuchengchaijie10fenzhongkedu/qianduanzujianhuachaijiesilu.html</link><pubDate>Sun, 16 Feb 2025 00:00:00 +0800</pubDate><author>irudder@126.com (irudder)</author><guid>https://blog.irudder.me/tech/danxiangmuquanliuchengchaijie10fenzhongkedu/qianduanzujianhuachaijiesilu.html</guid><description>&lt;img src="https://blog.irudder.me/images/covers/tech-2.jpg" alt="Featured image of post 重构火葬场？3个原则，把前端组件拆解效率提50%" /&gt;&lt;p&gt;两年前接手过一个后台管理系统，那简直是一场灾难。&lt;/p&gt;
 &lt;p&gt;当时有个需求很简单：把所有页面的“导出Excel”按钮颜色从蓝色改成绿色。结果，团队里的两个小伙伴整整改了一天半。为什么？因为这个按钮在40多个页面里是直接复制粘贴的代码，而且有的页面写死在HTML里，有的封装了一半，有的甚至跟具体的业务接口绑死在一起。&lt;/p&gt;
 &lt;p&gt;那时我才深刻意识到：&lt;strong&gt;很多中小团队所谓的“组件化”，其实只是“把代码挪个位置”而已。&lt;/strong&gt;&lt;/p&gt;
 &lt;p&gt;如果你觉得组件化就是为了“复用”，那你大概率还在踩坑。对于中小团队，组件化的核心价值只有两个：&lt;strong&gt;降低认知负荷&lt;/strong&gt;和&lt;strong&gt;隔离变更风险&lt;/strong&gt;。&lt;/p&gt;
@@ -116,20 +116,12 @@
 &lt;/ul&gt;
 &lt;/li&gt;
 &lt;/ol&gt;
-&lt;p&gt;&lt;img src="https://picsum.photos/800/450?random=1768448999982"
-loading="lazy"
-alt="配图"
-&gt;&lt;/p&gt;
 &lt;p&gt;&lt;strong&gt;实操步骤：&lt;/strong&gt;
 当你写代码时，如果发现在一个通用按钮里引入了 &lt;code&gt;store&lt;/code&gt; 或者 &lt;code&gt;axios&lt;/code&gt;，请立刻停手。你应该在外面包一层，把点击事件抛出来。&lt;/p&gt;
 &lt;blockquote&gt;
 &lt;p&gt;“展示组件就像个没头脑的画师，容器组件才是那个操心的管家。”&lt;/p&gt;&lt;/blockquote&gt;
 &lt;h2 id="三-别做预言家遵循三次法则"&gt;三、 别做“预言家”：遵循“三次法则”
 &lt;/h2&gt;&lt;p&gt;很多有追求的开发人员（包括曾经的我）都有洁癖，写第一遍代码时就想把它封装得完美无缺，支持未来可能出现的各种需求。&lt;/p&gt;
-&lt;p&gt;&lt;img src="https://picsum.photos/800/450?random=1768449002596"
-loading="lazy"
-alt="配图"
-&gt;&lt;/p&gt;
 &lt;p&gt;&lt;strong&gt;观点：&lt;/strong&gt; 过早优化是万恶之源。在重复出现第三次之前，允许复制粘贴。&lt;/p&gt;
 &lt;p&gt;&lt;strong&gt;真实案例：&lt;/strong&gt;
 去年做个活动页，有个倒计时功能。有个兄弟觉得以后肯定常用，于是花了半天时间封装了一个巨牛逼的 &lt;code&gt;CountDown&lt;/code&gt;：支持毫秒级、支持服务器时间校准、支持自定义格式化字符串、支持倒计时结束回调&amp;hellip;&lt;/p&gt;
@@ -140,10 +132,6 @@ alt="配图"
 &lt;li&gt;&lt;strong&gt;第二次：&lt;/strong&gt; 当遇到相似场景，允许复制粘贴（Copy-Paste），稍微改改。&lt;/li&gt;
 &lt;li&gt;&lt;strong&gt;第三次：&lt;/strong&gt; 当你发现自己在复制第三次时，这时候你已经非常清楚共性是什么、差异是什么了。&lt;strong&gt;此刻，才是重构和提取组件的最佳时机。&lt;/strong&gt;&lt;/li&gt;
 &lt;/ol&gt;
-&lt;p&gt;&lt;img src="https://picsum.photos/800/450?random=1768449002620"
-loading="lazy"
-alt="配图"
-&gt;&lt;/p&gt;
 &lt;p&gt;不要为了“可能”的需求去写代码，只为“当前”的痛点去封装。&lt;/p&gt;
 &lt;h2 id="总结与行动"&gt;总结与行动
 &lt;/h2&gt;&lt;p&gt;组件化拆解不是为了炫技，而是为了&lt;strong&gt;让队友少骂你两句&lt;/strong&gt;，为了&lt;strong&gt;下班能准时走&lt;/strong&gt;。&lt;/p&gt;

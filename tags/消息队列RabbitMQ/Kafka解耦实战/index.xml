@@ -1,4 +1,4 @@
-<?xml version="1.0" encoding="utf-8" standalone="yes"?><rss version="2.0" xmlns:atom="http://www.w3.org/2005/Atom"><channel><title>消息队列（RabbitMQ/Kafka）解耦实战 on SelfTechHub</title><link>https://blog.irudder.me/tags/%E6%B6%88%E6%81%AF%E9%98%9F%E5%88%97RabbitMQ/Kafka%E8%A7%A3%E8%80%A6%E5%AE%9E%E6%88%98.html</link><description>Recent content in 消息队列（RabbitMQ/Kafka）解耦实战 on SelfTechHub</description><generator>Hugo -- gohugo.io</generator><language>zh-cn</language><managingEditor>irudder@126.com (irudder)</managingEditor><webMaster>irudder@126.com (irudder)</webMaster><lastBuildDate>Mon, 04 Dec 2023 00:00:00 +0800</lastBuildDate><atom:link href="https://blog.irudder.me/tags/%E6%B6%88%E6%81%AF%E9%98%9F%E5%88%97RabbitMQ/Kafka%E8%A7%A3%E8%80%A6%E5%AE%9E%E6%88%98/index.xml" rel="self" type="application/rss+xml"/><item><title>深夜3点被报警惊醒？RabbitMQ解耦实战指南</title><link>https://blog.irudder.me/tech/zhongxiaoxingxiangmujiagoushejizhinan/xiaoxiduilierabbitmq_kafkajieoushizhan.html</link><pubDate>Mon, 04 Dec 2023 00:00:00 +0800</pubDate><author>irudder@126.com (irudder)</author><guid>https://blog.irudder.me/tech/zhongxiaoxingxiangmujiagoushejizhinan/xiaoxiduilierabbitmq_kafkajieoushizhan.html</guid><description>&lt;p&gt;还记得三年前那个周五的深夜，我正睡得迷迷糊糊，手机突然像疯了一样震动起来。运维群里的报警信息一条接一条：数据库连接池爆满，CPU飙升到99%，用户投诉无法下单。&lt;/p&gt;
+<?xml version="1.0" encoding="utf-8" standalone="yes"?><rss version="2.0" xmlns:atom="http://www.w3.org/2005/Atom"><channel><title>消息队列（RabbitMQ/Kafka）解耦实战 on SelfTechHub</title><link>https://blog.irudder.me/tags/%E6%B6%88%E6%81%AF%E9%98%9F%E5%88%97RabbitMQ/Kafka%E8%A7%A3%E8%80%A6%E5%AE%9E%E6%88%98.html</link><description>Recent content in 消息队列（RabbitMQ/Kafka）解耦实战 on SelfTechHub</description><generator>Hugo -- gohugo.io</generator><language>zh-cn</language><managingEditor>irudder@126.com (irudder)</managingEditor><webMaster>irudder@126.com (irudder)</webMaster><lastBuildDate>Mon, 04 Dec 2023 00:00:00 +0800</lastBuildDate><atom:link href="https://blog.irudder.me/tags/%E6%B6%88%E6%81%AF%E9%98%9F%E5%88%97RabbitMQ/Kafka%E8%A7%A3%E8%80%A6%E5%AE%9E%E6%88%98/index.xml" rel="self" type="application/rss+xml"/><item><title>深夜3点被报警惊醒？RabbitMQ解耦实战指南</title><link>https://blog.irudder.me/tech/zhongxiaoxingxiangmujiagoushejizhinan/xiaoxiduilierabbitmq_kafkajieoushizhan.html</link><pubDate>Mon, 04 Dec 2023 00:00:00 +0800</pubDate><author>irudder@126.com (irudder)</author><guid>https://blog.irudder.me/tech/zhongxiaoxingxiangmujiagoushejizhinan/xiaoxiduilierabbitmq_kafkajieoushizhan.html</guid><description>&lt;img src="https://blog.irudder.me/images/covers/tech-1.jpg" alt="Featured image of post 深夜3点被报警惊醒？RabbitMQ解耦实战指南" /&gt;&lt;p&gt;还记得三年前那个周五的深夜，我正睡得迷迷糊糊，手机突然像疯了一样震动起来。运维群里的报警信息一条接一条：数据库连接池爆满，CPU飙升到99%，用户投诉无法下单。&lt;/p&gt;
 &lt;p&gt;那时候我负责的一个电商SaaS项目正处于快速增长期。排查了一圈才发现，罪魁祸首竟然是一个毫不起眼的“发送营销短信”功能。因为短信服务商的接口超时，导致主业务流程阻塞，成千上万的下单请求卡在线程池里，最终拖垮了整个系统。&lt;/p&gt;
 &lt;p&gt;那一刻我才深刻意识到：&lt;strong&gt;所谓的“架构设计”，不是为了炫技，而是为了让我们能睡个安稳觉。&lt;/strong&gt;&lt;/p&gt;
 &lt;p&gt;很多中小团队的兄弟跟我抱怨，系统像一团乱麻，改在一个地方，崩在另一个地方。其实，这多半是因为业务逻辑“缠绕”得太紧了。今天我想和大家聊聊，如何用消息队列（特别是对中小团队更友好的RabbitMQ）来做解耦。不讲晦涩的大道理，只聊怎么落地，怎么避坑。&lt;/p&gt;
@@ -33,10 +33,6 @@
 &lt;p&gt;这就好比你去餐厅吃饭。前台点完餐（发消息），给你个号牌（返回成功），你就可以找座了。厨房（消费者）看到订单慢慢做，做好了一个个叫号。前台不需要一直站在厨房门口等着菜炒熟。&lt;/p&gt;
 &lt;p&gt;&lt;strong&gt;代码实战（Python示例）：&lt;/strong&gt;&lt;/p&gt;
 &lt;p&gt;这一步不用把架构想得太复杂，简单实用为主。&lt;/p&gt;
-&lt;p&gt;&lt;img src="https://picsum.photos/800/450?random=1768451799047"
-loading="lazy"
-alt="配图"
-&gt;&lt;/p&gt;
 &lt;div class="highlight"&gt;&lt;div class="chroma"&gt;
 &lt;table class="lntable"&gt;&lt;tr&gt;&lt;td class="lntd"&gt;
 &lt;pre tabindex="0" class="chroma"&gt;&lt;code&gt;&lt;span class="lnt"&gt; 1
@@ -96,10 +92,6 @@ alt="配图"
 &lt;p&gt;我有个做金融的朋友，在做“支付成功后解冻保证金”的功能时，为了追求高性能用了消息队列。结果有一天，MQ服务重启，几笔退款消息丢了。用户钱扣了，保证金没退，客服电话被打爆，老板差点让他当场走人。&lt;/p&gt;
 &lt;p&gt;&lt;strong&gt;如果你决定引入MQ，请务必把“可靠性”刻在脑子里。&lt;/strong&gt;&lt;/p&gt;
 &lt;p&gt;这里有我亲测有效的两个“安全锁”：&lt;/p&gt;
-&lt;p&gt;&lt;img src="https://picsum.photos/800/450?random=1768451796210"
-loading="lazy"
-alt="配图"
-&gt;&lt;/p&gt;
 &lt;p&gt;&lt;strong&gt;1. 消息持久化（存盘）：&lt;/strong&gt;
 就像上面的代码里写的 &lt;code&gt;durable=True&lt;/code&gt; 和 &lt;code&gt;delivery_mode=2&lt;/code&gt;。这保证了即使RabbitMQ服务器断电重启，队列和消息也不会消失。&lt;/p&gt;
 &lt;p&gt;&lt;strong&gt;2. 手动ACK（确认回执）：&lt;/strong&gt;

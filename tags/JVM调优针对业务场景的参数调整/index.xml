@@ -1,4 +1,4 @@
-<?xml version="1.0" encoding="utf-8" standalone="yes"?><rss version="2.0" xmlns:atom="http://www.w3.org/2005/Atom"><channel><title>JVM调优：针对业务场景的参数调整 on SelfTechHub</title><link>https://blog.irudder.me/tags/JVM%E8%B0%83%E4%BC%98%E9%92%88%E5%AF%B9%E4%B8%9A%E5%8A%A1%E5%9C%BA%E6%99%AF%E7%9A%84%E5%8F%82%E6%95%B0%E8%B0%83%E6%95%B4.html</link><description>Recent content in JVM调优：针对业务场景的参数调整 on SelfTechHub</description><generator>Hugo -- gohugo.io</generator><language>zh-cn</language><managingEditor>irudder@126.com (irudder)</managingEditor><webMaster>irudder@126.com (irudder)</webMaster><lastBuildDate>Thu, 08 Oct 2020 00:00:00 +0800</lastBuildDate><atom:link href="https://blog.irudder.me/tags/JVM%E8%B0%83%E4%BC%98%E9%92%88%E5%AF%B9%E4%B8%9A%E5%8A%A1%E5%9C%BA%E6%99%AF%E7%9A%84%E5%8F%82%E6%95%B0%E8%B0%83%E6%95%B4/index.xml" rel="self" type="application/rss+xml"/><item><title>频繁Full GC致死？3个真实案例教你JVM“保命”调优</title><link>https://blog.irudder.me/tech/jiagouyouhuashizhananlijiexi/jvmdiaoyou_zhenduiyewuchangjingdecanshutiaozheng.html</link><pubDate>Thu, 08 Oct 2020 00:00:00 +0800</pubDate><author>irudder@126.com (irudder)</author><guid>https://blog.irudder.me/tech/jiagouyouhuashizhananlijiexi/jvmdiaoyou_zhenduiyewuchangjingdecanshutiaozheng.html</guid><description>&lt;p&gt;“给这台机器加到16G内存，应该就不卡了。”&lt;/p&gt;
+<?xml version="1.0" encoding="utf-8" standalone="yes"?><rss version="2.0" xmlns:atom="http://www.w3.org/2005/Atom"><channel><title>JVM调优：针对业务场景的参数调整 on SelfTechHub</title><link>https://blog.irudder.me/tags/JVM%E8%B0%83%E4%BC%98%E9%92%88%E5%AF%B9%E4%B8%9A%E5%8A%A1%E5%9C%BA%E6%99%AF%E7%9A%84%E5%8F%82%E6%95%B0%E8%B0%83%E6%95%B4.html</link><description>Recent content in JVM调优：针对业务场景的参数调整 on SelfTechHub</description><generator>Hugo -- gohugo.io</generator><language>zh-cn</language><managingEditor>irudder@126.com (irudder)</managingEditor><webMaster>irudder@126.com (irudder)</webMaster><lastBuildDate>Thu, 08 Oct 2020 00:00:00 +0800</lastBuildDate><atom:link href="https://blog.irudder.me/tags/JVM%E8%B0%83%E4%BC%98%E9%92%88%E5%AF%B9%E4%B8%9A%E5%8A%A1%E5%9C%BA%E6%99%AF%E7%9A%84%E5%8F%82%E6%95%B0%E8%B0%83%E6%95%B4/index.xml" rel="self" type="application/rss+xml"/><item><title>频繁Full GC致死？3个真实案例教你JVM“保命”调优</title><link>https://blog.irudder.me/tech/jiagouyouhuashizhananlijiexi/jvmdiaoyou_zhenduiyewuchangjingdecanshutiaozheng.html</link><pubDate>Thu, 08 Oct 2020 00:00:00 +0800</pubDate><author>irudder@126.com (irudder)</author><guid>https://blog.irudder.me/tech/jiagouyouhuashizhananlijiexi/jvmdiaoyou_zhenduiyewuchangjingdecanshutiaozheng.html</guid><description>&lt;img src="https://blog.irudder.me/images/covers/tech-2.jpg" alt="Featured image of post 频繁Full GC致死？3个真实案例教你JVM“保命”调优" /&gt;&lt;p&gt;“给这台机器加到16G内存，应该就不卡了。”&lt;/p&gt;
 &lt;p&gt;这句话我大概听过不下五十次。曾经我也天真地以为，只要堆内存（Heap）给得足够大，Garbage Collection (GC) 就能离我远去。直到2021年的一次大促压测，我亲手把一个核心服务的Heap从4G扩到32G，结果应用不仅没变快，反而出现了长达5秒的“假死”——请求全部超时，监控曲线心电图直接拉成一条直线。&lt;/p&gt;
 &lt;p&gt;那时候我才明白：&lt;strong&gt;JVM调优从来不是“大碗宽面”管饱，而是一场在吞吐量与延迟之间走钢丝的艺术。&lt;/strong&gt;&lt;/p&gt;
 &lt;p&gt;很多兄弟在面对线上OOM（内存溢出）或者CPU飙高时，第一反应是重启，第二反应是加配置。但这通常只能延缓死亡，无法根治顽疾。今天不聊那些晦涩的内存模型理论，我想结合这几年在一线“填坑”的经历，分享3个典型的业务场景调优案例。&lt;/p&gt;
@@ -14,10 +14,6 @@
 &lt;p&gt;&lt;strong&gt;硬核解法：&lt;/strong&gt;
 除了优化代码（改为流式查询、分批写入Excel）这种“治本”的方法外，JVM层面必须做防御性调整。&lt;/p&gt;
 &lt;p&gt;我们调大了TLAB（线程本地分配缓冲区），但这还不够。对于这种不可避免的大对象业务，G1收集器比CMS更智能。&lt;/p&gt;
-&lt;p&gt;&lt;img src="https://picsum.photos/800/450?random=1768458407218"
-loading="lazy"
-alt="配图"
-&gt;&lt;/p&gt;
 &lt;p&gt;我将垃圾收集器切换为G1，并调整了Region大小：&lt;/p&gt;
 &lt;div class="highlight"&gt;&lt;div class="chroma"&gt;
 &lt;table class="lntable"&gt;&lt;tr&gt;&lt;td class="lntd"&gt;
@@ -33,16 +29,8 @@ alt="配图"
 &lt;/div&gt;
 &lt;/div&gt;&lt;p&gt;&lt;strong&gt;结果：&lt;/strong&gt;
 G1将堆切分为多个Region，大对象虽然还要占连续的Region（Humongous Region），但G1会在Young GC阶段顺手处理掉这部分对象，而不需要等到Full GC。月底的报表导出再也没崩过，Old Gen曲线平滑如水。&lt;/p&gt;
-&lt;p&gt;&lt;img src="https://picsum.photos/800/450?random=1768458405615"
-loading="lazy"
-alt="配图"
-&gt;&lt;/p&gt;
 &lt;h2 id="二-吞吐量的骗局高并发下的卡顿之谜"&gt;二、 吞吐量的骗局：高并发下的“卡顿”之谜
-&lt;/h2&gt;&lt;p&gt;&lt;img src="https://picsum.photos/800/450?random=1768458404128"
-loading="lazy"
-alt="配图"
-&gt;&lt;/p&gt;
-&lt;p&gt;2022年，我在负责一个高并发的C端营销服务。QPS（每秒查询率）大概在1.5万左右。&lt;/p&gt;
+&lt;/h2&gt;&lt;p&gt;2022年，我在负责一个高并发的C端营销服务。QPS（每秒查询率）大概在1.5万左右。&lt;/p&gt;
 &lt;p&gt;起初为了追求高吞吐量，我们给ParNew + CMS组合配置了较大的新生代（Young Gen），比例大概是 1:1（NewRatio=1）。逻辑是：大部分请求都是短命的，让它们在新生代自生自灭，别去烦老年代。&lt;/p&gt;
 &lt;p&gt;&lt;strong&gt;踩坑经历：&lt;/strong&gt;
 上线后，吞吐量确实不错，但TP99（99%的请求响应时间）偶尔会飙升到800ms以上。对于要求200ms内返回的接口，这是不可接受的。&lt;/p&gt;

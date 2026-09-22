@@ -1,11 +1,7 @@
-<?xml version="1.0" encoding="utf-8" standalone="yes"?><rss version="2.0" xmlns:atom="http://www.w3.org/2005/Atom"><channel><title>架构演进：从单体到分布式的平滑过渡 on SelfTechHub</title><link>https://blog.irudder.me/tags/%E6%9E%B6%E6%9E%84%E6%BC%94%E8%BF%9B%E4%BB%8E%E5%8D%95%E4%BD%93%E5%88%B0%E5%88%86%E5%B8%83%E5%BC%8F%E7%9A%84%E5%B9%B3%E6%BB%91%E8%BF%87%E6%B8%A1.html</link><description>Recent content in 架构演进：从单体到分布式的平滑过渡 on SelfTechHub</description><generator>Hugo -- gohugo.io</generator><language>zh-cn</language><managingEditor>irudder@126.com (irudder)</managingEditor><webMaster>irudder@126.com (irudder)</webMaster><lastBuildDate>Sat, 24 Feb 2024 00:00:00 +0800</lastBuildDate><atom:link href="https://blog.irudder.me/tags/%E6%9E%B6%E6%9E%84%E6%BC%94%E8%BF%9B%E4%BB%8E%E5%8D%95%E4%BD%93%E5%88%B0%E5%88%86%E5%B8%83%E5%BC%8F%E7%9A%84%E5%B9%B3%E6%BB%91%E8%BF%87%E6%B8%A1/index.xml" rel="self" type="application/rss+xml"/><item><title>单体硬拆必挂？3个低成本过渡分布式的实战心法</title><link>https://blog.irudder.me/tech/zhongxiaoxingxiangmujiagoushejizhinan/jiagouyanjin_congdantidaofenbushidepinghuaguodu.html</link><pubDate>Sat, 24 Feb 2024 00:00:00 +0800</pubDate><author>irudder@126.com (irudder)</author><guid>https://blog.irudder.me/tech/zhongxiaoxingxiangmujiagoushejizhinan/jiagouyanjin_congdantidaofenbushidepinghuaguodu.html</guid><description>&lt;p&gt;还记得2019年，我作为架构师接手过一个B2B电商重构项目。当时团队里大家热情高涨，觉得单体架构（Monolith）太土了，必须上微服务。结果我们花了3个月把一个运行良好的单体应用强行拆成了8个微服务。&lt;/p&gt;
+<?xml version="1.0" encoding="utf-8" standalone="yes"?><rss version="2.0" xmlns:atom="http://www.w3.org/2005/Atom"><channel><title>架构演进：从单体到分布式的平滑过渡 on SelfTechHub</title><link>https://blog.irudder.me/tags/%E6%9E%B6%E6%9E%84%E6%BC%94%E8%BF%9B%E4%BB%8E%E5%8D%95%E4%BD%93%E5%88%B0%E5%88%86%E5%B8%83%E5%BC%8F%E7%9A%84%E5%B9%B3%E6%BB%91%E8%BF%87%E6%B8%A1.html</link><description>Recent content in 架构演进：从单体到分布式的平滑过渡 on SelfTechHub</description><generator>Hugo -- gohugo.io</generator><language>zh-cn</language><managingEditor>irudder@126.com (irudder)</managingEditor><webMaster>irudder@126.com (irudder)</webMaster><lastBuildDate>Sat, 24 Feb 2024 00:00:00 +0800</lastBuildDate><atom:link href="https://blog.irudder.me/tags/%E6%9E%B6%E6%9E%84%E6%BC%94%E8%BF%9B%E4%BB%8E%E5%8D%95%E4%BD%93%E5%88%B0%E5%88%86%E5%B8%83%E5%BC%8F%E7%9A%84%E5%B9%B3%E6%BB%91%E8%BF%87%E6%B8%A1/index.xml" rel="self" type="application/rss+xml"/><item><title>单体硬拆必挂？3个低成本过渡分布式的实战心法</title><link>https://blog.irudder.me/tech/zhongxiaoxingxiangmujiagoushejizhinan/jiagouyanjin_congdantidaofenbushidepinghuaguodu.html</link><pubDate>Sat, 24 Feb 2024 00:00:00 +0800</pubDate><author>irudder@126.com (irudder)</author><guid>https://blog.irudder.me/tech/zhongxiaoxingxiangmujiagoushejizhinan/jiagouyanjin_congdantidaofenbushidepinghuaguodu.html</guid><description>&lt;img src="https://blog.irudder.me/images/covers/tech-2.jpg" alt="Featured image of post 单体硬拆必挂？3个低成本过渡分布式的实战心法" /&gt;&lt;p&gt;还记得2019年，我作为架构师接手过一个B2B电商重构项目。当时团队里大家热情高涨，觉得单体架构（Monolith）太土了，必须上微服务。结果我们花了3个月把一个运行良好的单体应用强行拆成了8个微服务。&lt;/p&gt;
 &lt;p&gt;上线第一周，噩梦开始了：原本内网调用变成了RPC，网络延迟让页面响应慢了2秒；为了查一个“订单状态不一致”的Bug，我和两个骨干开发在服务器日志里“游泳”了整整6个小时，最后发现是因为没有分布式事务机制，导致数据在两个服务间烂尾了。&lt;/p&gt;
 &lt;p&gt;这次惨痛的教训让我明白了一个反常识的道理：&lt;strong&gt;对于中小团队，过早追求“完美的分布式架构”，往往是项目猝死的开始。&lt;/strong&gt;&lt;/p&gt;
 &lt;p&gt;架构不是为了炫技，而是为了解决具体问题。如果你正面临单体架构臃肿、维护困难的痛点，但又不敢轻易动刀，下面这三个“平滑过渡”的实战心法，也许能帮你省下几个通宵加班的夜晚。&lt;/p&gt;
-&lt;p&gt;&lt;img src="https://picsum.photos/800/450?random=1768456613574"
-loading="lazy"
-alt="配图"
-&gt;&lt;/p&gt;
 &lt;h2 id="一-别急着拆进程先拆代码边界"&gt;一、 别急着拆进程，先拆“代码边界”
 &lt;/h2&gt;&lt;p&gt;很多团队在做架构演进时，最大的误区就是觉得“拆分=物理隔离”。不管三七二十一，先把订单模块新建一个Git仓库，部署成一个独立Jar包再说。&lt;/p&gt;
 &lt;p&gt;其实，&lt;strong&gt;混乱的单体拆分后，只会变成混乱的分布式。&lt;/strong&gt; 如果你的代码里，订单Service直接通过SQL Join查询了用户表，或者在Controller层随意调用库存逻辑，这时候物理拆分只会带来无穷无尽的“跨服务调用”灾难。&lt;/p&gt;
@@ -42,10 +38,6 @@ alt="配图"
 &lt;/div&gt;&lt;p&gt;通过这种方式，我们在不增加运维成本（不用部署K8s、不用搞Service Mesh）的前提下，理清了90%的业务边界。这一步做好了，后面物理拆分只是“复制粘贴”几分钟的事。&lt;/p&gt;
 &lt;h2 id="二-找准坏邻居用绞杀者模式定向爆破"&gt;二、 找准“坏邻居”，用绞杀者模式定向爆破
 &lt;/h2&gt;&lt;p&gt;当你理清了代码边界，是不是就要把所有模块一次性全拆出去？&lt;/p&gt;
-&lt;p&gt;&lt;img src="https://picsum.photos/800/450?random=1768456616098"
-loading="lazy"
-alt="配图"
-&gt;&lt;/p&gt;
 &lt;p&gt;千万别。对于中小团队，资源有限，&lt;strong&gt;全面开花等于全面风险。&lt;/strong&gt; 我们需要找到系统里的那个“坏邻居”。&lt;/p&gt;
 &lt;p&gt;&lt;strong&gt;实战案例：&lt;/strong&gt;&lt;/p&gt;
 &lt;p&gt;2021年，我们的主系统一到周五下午4点就卡顿，甚至OOM（内存溢出）重启。经过排查，发现是财务部门在这个时间点由于要通过“报表导出功能”拉取一周的数据，巨大的内存消耗拖垮了正常的交易业务。&lt;/p&gt;
@@ -66,10 +58,6 @@ alt="配图"
 &lt;p&gt;在那之后，我强制要求所有服务接入 Trace ID。&lt;/p&gt;
 &lt;p&gt;你不一定非要上SkyWalking或Zipkin这种全套重型监控（维护它们也需要成本）。对于中小团队，一个低成本的方案是：&lt;strong&gt;利用MDC（Mapped Diagnostic Context）&lt;/strong&gt;。&lt;/p&gt;
 &lt;p&gt;&lt;strong&gt;落地方法：&lt;/strong&gt;&lt;/p&gt;
-&lt;p&gt;&lt;img src="https://picsum.photos/800/450?random=1768456617033"
-loading="lazy"
-alt="配图"
-&gt;&lt;/p&gt;
 &lt;p&gt;在请求进入网关或第一个服务时，生成一个唯一的 &lt;code&gt;traceId&lt;/code&gt;，并在所有后续的HTTP Header、MQ消息体中透传这个ID。&lt;/p&gt;
 &lt;p&gt;在日志配置文件中，把这个ID打印出来。&lt;/p&gt;
 &lt;div class="highlight"&gt;&lt;div class="chroma"&gt;

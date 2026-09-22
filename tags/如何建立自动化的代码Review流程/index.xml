@@ -1,8 +1,4 @@
-<?xml version="1.0" encoding="utf-8" standalone="yes"?><rss version="2.0" xmlns:atom="http://www.w3.org/2005/Atom"><channel><title>如何建立自动化的代码Review流程 on SelfTechHub</title><link>https://blog.irudder.me/tags/%E5%A6%82%E4%BD%95%E5%BB%BA%E7%AB%8B%E8%87%AA%E5%8A%A8%E5%8C%96%E7%9A%84%E4%BB%A3%E7%A0%81Review%E6%B5%81%E7%A8%8B.html</link><description>Recent content in 如何建立自动化的代码Review流程 on SelfTechHub</description><generator>Hugo -- gohugo.io</generator><language>zh-cn</language><managingEditor>irudder@126.com (irudder)</managingEditor><webMaster>irudder@126.com (irudder)</webMaster><lastBuildDate>Sun, 08 Dec 2024 00:00:00 +0800</lastBuildDate><atom:link href="https://blog.irudder.me/tags/%E5%A6%82%E4%BD%95%E5%BB%BA%E7%AB%8B%E8%87%AA%E5%8A%A8%E5%8C%96%E7%9A%84%E4%BB%A3%E7%A0%81Review%E6%B5%81%E7%A8%8B/index.xml" rel="self" type="application/rss+xml"/><item><title>拒绝“人肉”Review：中小团队自动化CR实战避坑</title><link>https://blog.irudder.me/tech/zhongxiaoxingtuanduidevopsluodifangan/ruhejianlizidonghuadedaimareviewliucheng.html</link><pubDate>Sun, 08 Dec 2024 00:00:00 +0800</pubDate><author>irudder@126.com (irudder)</author><guid>https://blog.irudder.me/tech/zhongxiaoxingtuanduidevopsluodifangan/ruhejianlizidonghuadedaimareviewliucheng.html</guid><description>&lt;p&gt;我曾经天真地以为，所谓的代码审查（Code Review，简称CR），就是把大家拉到一个会议室，投屏逐行“找茬”。&lt;/p&gt;
-&lt;p&gt;&lt;img src="https://picsum.photos/800/450?random=1768442480427"
-loading="lazy"
-alt="配图"
-&gt;&lt;/p&gt;
+<?xml version="1.0" encoding="utf-8" standalone="yes"?><rss version="2.0" xmlns:atom="http://www.w3.org/2005/Atom"><channel><title>如何建立自动化的代码Review流程 on SelfTechHub</title><link>https://blog.irudder.me/tags/%E5%A6%82%E4%BD%95%E5%BB%BA%E7%AB%8B%E8%87%AA%E5%8A%A8%E5%8C%96%E7%9A%84%E4%BB%A3%E7%A0%81Review%E6%B5%81%E7%A8%8B.html</link><description>Recent content in 如何建立自动化的代码Review流程 on SelfTechHub</description><generator>Hugo -- gohugo.io</generator><language>zh-cn</language><managingEditor>irudder@126.com (irudder)</managingEditor><webMaster>irudder@126.com (irudder)</webMaster><lastBuildDate>Sun, 08 Dec 2024 00:00:00 +0800</lastBuildDate><atom:link href="https://blog.irudder.me/tags/%E5%A6%82%E4%BD%95%E5%BB%BA%E7%AB%8B%E8%87%AA%E5%8A%A8%E5%8C%96%E7%9A%84%E4%BB%A3%E7%A0%81Review%E6%B5%81%E7%A8%8B/index.xml" rel="self" type="application/rss+xml"/><item><title>拒绝“人肉”Review：中小团队自动化CR实战避坑</title><link>https://blog.irudder.me/tech/zhongxiaoxingtuanduidevopsluodifangan/ruhejianlizidonghuadedaimareviewliucheng.html</link><pubDate>Sun, 08 Dec 2024 00:00:00 +0800</pubDate><author>irudder@126.com (irudder)</author><guid>https://blog.irudder.me/tech/zhongxiaoxingtuanduidevopsluodifangan/ruhejianlizidonghuadedaimareviewliucheng.html</guid><description>&lt;img src="https://blog.irudder.me/images/covers/tech-2.jpg" alt="Featured image of post 拒绝“人肉”Review：中小团队自动化CR实战避坑" /&gt;&lt;p&gt;我曾经天真地以为，所谓的代码审查（Code Review，简称CR），就是把大家拉到一个会议室，投屏逐行“找茬”。&lt;/p&gt;
 &lt;p&gt;直到两年前，我所在的那个15人的研发团队经历了惨痛的一周：周二因为一个少写的空指针判断导致线上服务重启，周四因为两个开发人员为了“花括号是否换行”争论了半小时，周五发版前发现某段核心逻辑根本没被测试覆盖。&lt;/p&gt;
 &lt;p&gt;那时候我才意识到，&lt;strong&gt;依靠“人肉”和“自觉”的CR流程，在业务快速迭代的中小团队里，基本是个伪命题。&lt;/strong&gt; 人会疲惫，会遗忘，会被情绪左右，但机器不会。&lt;/p&gt;
 &lt;p&gt;这两年，我尝试从零搭建了一套适合中小团队的自动化CR流程，没花什么钱，但效果很显著：线上故障率降低了约60%，Review的平均耗时从单次40分钟缩减到了15分钟。今天就把这套“低成本、高效率”的实操经验分享出来。&lt;/p&gt;
@@ -20,10 +16,6 @@ alt="配图"
 &lt;p&gt;从那以后，阿强在Review时再也没提过格式问题，大家只讨论业务逻辑和架构设计，CR的氛围瞬间从“找茬”变成了“技术交流”。&lt;/p&gt;
 &lt;h2 id="引入隐形守卫静态扫描与ci门禁"&gt;引入“隐形守卫”：静态扫描与CI门禁
 &lt;/h2&gt;&lt;p&gt;解决了格式问题，下一步是解决“低级Bug”和“代码异味”。中小团队往往没有专职测试开发，如果等QA测试才发现空指针、资源未关闭等问题，修复成本太高。&lt;/p&gt;
-&lt;p&gt;&lt;img src="https://picsum.photos/800/450?random=1768442478512"
-loading="lazy"
-alt="配图"
-&gt;&lt;/p&gt;
 &lt;p&gt;&lt;strong&gt;观点：在代码合并（Merge）之前，必须经过自动化流水线的“拷问”。&lt;/strong&gt;&lt;/p&gt;
 &lt;p&gt;&lt;strong&gt;真实案例：&lt;/strong&gt;
 即使有了本地检查，还是有人会通过 &lt;code&gt;git commit --no-verify&lt;/code&gt; 跳过检查（别笑，真的有）。有一次，一段包含SQL注入风险的代码被强行推了上去。虽然Reviewer眼尖发现了，但我觉得这事儿不能靠运气。&lt;/p&gt;

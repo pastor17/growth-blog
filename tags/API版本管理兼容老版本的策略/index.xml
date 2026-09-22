@@ -1,4 +1,4 @@
-<?xml version="1.0" encoding="utf-8" standalone="yes"?><rss version="2.0" xmlns:atom="http://www.w3.org/2005/Atom"><channel><title>API版本管理：兼容老版本的策略 on SelfTechHub</title><link>https://blog.irudder.me/tags/API%E7%89%88%E6%9C%AC%E7%AE%A1%E7%90%86%E5%85%BC%E5%AE%B9%E8%80%81%E7%89%88%E6%9C%AC%E7%9A%84%E7%AD%96%E7%95%A5.html</link><description>Recent content in API版本管理：兼容老版本的策略 on SelfTechHub</description><generator>Hugo -- gohugo.io</generator><language>zh-cn</language><managingEditor>irudder@126.com (irudder)</managingEditor><webMaster>irudder@126.com (irudder)</webMaster><lastBuildDate>Fri, 24 Oct 2025 00:00:00 +0800</lastBuildDate><atom:link href="https://blog.irudder.me/tags/API%E7%89%88%E6%9C%AC%E7%AE%A1%E7%90%86%E5%85%BC%E5%AE%B9%E8%80%81%E7%89%88%E6%9C%AC%E7%9A%84%E7%AD%96%E7%95%A5/index.xml" rel="self" type="application/rss+xml"/><item><title>被老版本API拖垮？中小团队的3个低成本兼容策略</title><link>https://blog.irudder.me/tech/zhongxiaoxingxiangmujiagoushejizhinan/apibanbenguanli_jianronglaobanbendecelve.html</link><pubDate>Fri, 24 Oct 2025 00:00:00 +0800</pubDate><author>irudder@126.com (irudder)</author><guid>https://blog.irudder.me/tech/zhongxiaoxingxiangmujiagoushejizhinan/apibanbenguanli_jianronglaobanbendecelve.html</guid><description>&lt;h2 id="引言"&gt;引言
+<?xml version="1.0" encoding="utf-8" standalone="yes"?><rss version="2.0" xmlns:atom="http://www.w3.org/2005/Atom"><channel><title>API版本管理：兼容老版本的策略 on SelfTechHub</title><link>https://blog.irudder.me/tags/API%E7%89%88%E6%9C%AC%E7%AE%A1%E7%90%86%E5%85%BC%E5%AE%B9%E8%80%81%E7%89%88%E6%9C%AC%E7%9A%84%E7%AD%96%E7%95%A5.html</link><description>Recent content in API版本管理：兼容老版本的策略 on SelfTechHub</description><generator>Hugo -- gohugo.io</generator><language>zh-cn</language><managingEditor>irudder@126.com (irudder)</managingEditor><webMaster>irudder@126.com (irudder)</webMaster><lastBuildDate>Fri, 24 Oct 2025 00:00:00 +0800</lastBuildDate><atom:link href="https://blog.irudder.me/tags/API%E7%89%88%E6%9C%AC%E7%AE%A1%E7%90%86%E5%85%BC%E5%AE%B9%E8%80%81%E7%89%88%E6%9C%AC%E7%9A%84%E7%AD%96%E7%95%A5/index.xml" rel="self" type="application/rss+xml"/><item><title>被老版本API拖垮？中小团队的3个低成本兼容策略</title><link>https://blog.irudder.me/tech/zhongxiaoxingxiangmujiagoushejizhinan/apibanbenguanli_jianronglaobanbendecelve.html</link><pubDate>Fri, 24 Oct 2025 00:00:00 +0800</pubDate><author>irudder@126.com (irudder)</author><guid>https://blog.irudder.me/tech/zhongxiaoxingxiangmujiagoushejizhinan/apibanbenguanli_jianronglaobanbendecelve.html</guid><description>&lt;img src="https://blog.irudder.me/images/covers/tech-1.jpg" alt="Featured image of post 被老版本API拖垮？中小团队的3个低成本兼容策略" /&gt;&lt;h2 id="引言"&gt;引言
 &lt;/h2&gt;&lt;p&gt;两年前的一个周五下午，我正准备合上电脑去过周末，客服群突然炸了。&lt;/p&gt;
 &lt;p&gt;“大量用户反馈App无法下单，提示数据解析错误！”&lt;/p&gt;
 &lt;p&gt;我的第一反应是：“不可能，刚发布的V2.0版本经过了完整测试，后端接口也升级了，怎么会有问题？”排查了半小时，冷汗下来了——报错的全是&lt;strong&gt;三个月前发布的V1.5版本的老客户端&lt;/strong&gt;。&lt;/p&gt;
@@ -77,10 +77,6 @@
 &lt;h2 id="策略三数据驱动的安乐死不再盲目维护"&gt;策略三：数据驱动的“安乐死”——不再盲目维护
 &lt;/h2&gt;&lt;p&gt;“这个老接口到底能不能下线？”&lt;/p&gt;
 &lt;p&gt;这是我作为技术负责人被问得最多的问题。以前我们靠猜，或者靠运营去吼。结果往往是：哪怕只有一个用户在用，我们也不敢停，导致系统里堆积了大量僵尸代码。&lt;/p&gt;
-&lt;p&gt;&lt;img src="https://picsum.photos/800/450?random=1768456284257"
-loading="lazy"
-alt="配图"
-&gt;&lt;/p&gt;
 &lt;p&gt;后来我强制要求：&lt;strong&gt;所有API网关（或Nginx日志）必须记录 &lt;code&gt;Client-Version&lt;/code&gt; 或 &lt;code&gt;User-Agent&lt;/code&gt;。&lt;/strong&gt;&lt;/p&gt;
 &lt;p&gt;我每周五下午会花15分钟看一眼Grafana大盘。我们的策略非常硬核：&lt;/p&gt;
 &lt;ol&gt;
@@ -95,10 +91,6 @@ alt="配图"
 &lt;h2 id="结尾与行动"&gt;结尾与行动
 &lt;/h2&gt;&lt;p&gt;兼容老版本API，本质上是在**“技术洁癖”&lt;strong&gt;和&lt;/strong&gt;“商业现实”**之间走钢丝。&lt;/p&gt;
 &lt;p&gt;中小团队没有奈飞、亚马逊那样完善的微服务治理体系，我们更需要的是一种**“代码级的自觉”&lt;strong&gt;和&lt;/strong&gt;“低成本的观测手段”**。&lt;/p&gt;
-&lt;p&gt;&lt;img src="https://picsum.photos/800/450?random=1768456278134"
-loading="lazy"
-alt="配图"
-&gt;&lt;/p&gt;
 &lt;p&gt;最后，我想请你思考一下：&lt;strong&gt;你的项目中，目前有多少代码是为了兼容“也许根本不存在的用户”而保留的？&lt;/strong&gt;&lt;/p&gt;
 &lt;p&gt;如果你想立刻改善现状，建议从这3个动作开始：&lt;/p&gt;
 &lt;ol&gt;

@@ -1,8 +1,4 @@
-<?xml version="1.0" encoding="utf-8" standalone="yes"?><rss version="2.0" xmlns:atom="http://www.w3.org/2005/Atom"><channel><title>版本管理：语义化版本的最佳实践 on SelfTechHub</title><link>https://blog.irudder.me/tags/%E7%89%88%E6%9C%AC%E7%AE%A1%E7%90%86%E8%AF%AD%E4%B9%89%E5%8C%96%E7%89%88%E6%9C%AC%E7%9A%84%E6%9C%80%E4%BD%B3%E5%AE%9E%E8%B7%B5.html</link><description>Recent content in 版本管理：语义化版本的最佳实践 on SelfTechHub</description><generator>Hugo -- gohugo.io</generator><language>zh-cn</language><managingEditor>irudder@126.com (irudder)</managingEditor><webMaster>irudder@126.com (irudder)</webMaster><lastBuildDate>Tue, 08 Feb 2022 00:00:00 +0800</lastBuildDate><atom:link href="https://blog.irudder.me/tags/%E7%89%88%E6%9C%AC%E7%AE%A1%E7%90%86%E8%AF%AD%E4%B9%89%E5%8C%96%E7%89%88%E6%9C%AC%E7%9A%84%E6%9C%80%E4%BD%B3%E5%AE%9E%E8%B7%B5/index.xml" rel="self" type="application/rss+xml"/><item><title>v1.0.0是个陷阱？中小团队版本管理的3次血泪复盘</title><link>https://blog.irudder.me/tech/danxiangmuquanliuchengchaijie10fenzhongkedu/banbenguanli_yuyihuabanbendezuijiashijian.html</link><pubDate>Tue, 08 Feb 2022 00:00:00 +0800</pubDate><author>irudder@126.com (irudder)</author><guid>https://blog.irudder.me/tech/danxiangmuquanliuchengchaijie10fenzhongkedu/banbenguanli_yuyihuabanbendezuijiashijian.html</guid><description>&lt;p&gt;&lt;img src="https://picsum.photos/800/450?random=1768450023702"
-loading="lazy"
-alt="配图"
-&gt;&lt;/p&gt;
-&lt;p&gt;&lt;strong&gt;引言&lt;/strong&gt;&lt;/p&gt;
+<?xml version="1.0" encoding="utf-8" standalone="yes"?><rss version="2.0" xmlns:atom="http://www.w3.org/2005/Atom"><channel><title>版本管理：语义化版本的最佳实践 on SelfTechHub</title><link>https://blog.irudder.me/tags/%E7%89%88%E6%9C%AC%E7%AE%A1%E7%90%86%E8%AF%AD%E4%B9%89%E5%8C%96%E7%89%88%E6%9C%AC%E7%9A%84%E6%9C%80%E4%BD%B3%E5%AE%9E%E8%B7%B5.html</link><description>Recent content in 版本管理：语义化版本的最佳实践 on SelfTechHub</description><generator>Hugo -- gohugo.io</generator><language>zh-cn</language><managingEditor>irudder@126.com (irudder)</managingEditor><webMaster>irudder@126.com (irudder)</webMaster><lastBuildDate>Tue, 08 Feb 2022 00:00:00 +0800</lastBuildDate><atom:link href="https://blog.irudder.me/tags/%E7%89%88%E6%9C%AC%E7%AE%A1%E7%90%86%E8%AF%AD%E4%B9%89%E5%8C%96%E7%89%88%E6%9C%AC%E7%9A%84%E6%9C%80%E4%BD%B3%E5%AE%9E%E8%B7%B5/index.xml" rel="self" type="application/rss+xml"/><item><title>v1.0.0是个陷阱？中小团队版本管理的3次血泪复盘</title><link>https://blog.irudder.me/tech/danxiangmuquanliuchengchaijie10fenzhongkedu/banbenguanli_yuyihuabanbendezuijiashijian.html</link><pubDate>Tue, 08 Feb 2022 00:00:00 +0800</pubDate><author>irudder@126.com (irudder)</author><guid>https://blog.irudder.me/tech/danxiangmuquanliuchengchaijie10fenzhongkedu/banbenguanli_yuyihuabanbendezuijiashijian.html</guid><description>&lt;img src="https://blog.irudder.me/images/covers/tech-1.jpg" alt="Featured image of post v1.0.0是个陷阱？中小团队版本管理的3次血泪复盘" /&gt;&lt;p&gt;&lt;strong&gt;引言&lt;/strong&gt;&lt;/p&gt;
 &lt;p&gt;你是否经历过这样的&amp;quot;黑色星期五&amp;quot;：明明只更新了一个&amp;quot;修复小Bug&amp;quot;的补丁版本，生产环境的某个核心服务却突然崩了？&lt;/p&gt;
 &lt;p&gt;两年前，我所在的团队就踩过这样一个大坑。当时我们引用的一个第三方内部库，版本号从 &lt;code&gt;1.2.4&lt;/code&gt; 升级到了 &lt;code&gt;1.2.5&lt;/code&gt;。按照语义化版本（SemVer）的通用理解，最后一位是&amp;quot;Patch&amp;quot;，代表向后兼容的Bug修复，理应安全无痛。&lt;/p&gt;
 &lt;p&gt;结果上线后，支付接口全线报错。排查发现，维护那个库的兄弟在修复Bug时，顺手改了一个API的参数类型——&lt;strong&gt;这本该是一个Major级别的变更，他却把它藏在了一个Patch里。&lt;/strong&gt;&lt;/p&gt;
@@ -45,17 +41,9 @@ alt="配图"
 &lt;li&gt;如果你的提交包含 &lt;code&gt;BREAKING CHANGE: ...&lt;/code&gt; -&amp;gt; 机器人自动升 &lt;strong&gt;Major&lt;/strong&gt;。&lt;/li&gt;
 &lt;/ul&gt;
 &lt;p&gt;这套机制运行了一年多，最大的好处是：&lt;strong&gt;开发者在写Commit Message时，被迫要思考这次改动的影响范围。&lt;/strong&gt; 这比上线前拍脑袋决定版本号要靠谱得多。&lt;/p&gt;
-&lt;p&gt;&lt;img src="https://picsum.photos/800/450?random=1768450020006"
-loading="lazy"
-alt="配图"
-&gt;&lt;/p&gt;
 &lt;hr&gt;
 &lt;h2 id="误区三陷入永远的-v0x安全屋"&gt;误区三：陷入&amp;quot;永远的 v0.x&amp;quot;安全屋
-&lt;/h2&gt;&lt;p&gt;&lt;img src="https://picsum.photos/800/450?random=1768450018714"
-loading="lazy"
-alt="配图"
-&gt;&lt;/p&gt;
-&lt;p&gt;这是一个心态问题。很多初创团队为了&amp;quot;免责&amp;quot;，喜欢长期把版本号停留在 &lt;code&gt;0.x.x&lt;/code&gt;。&lt;/p&gt;
+&lt;/h2&gt;&lt;p&gt;这是一个心态问题。很多初创团队为了&amp;quot;免责&amp;quot;，喜欢长期把版本号停留在 &lt;code&gt;0.x.x&lt;/code&gt;。&lt;/p&gt;
 &lt;p&gt;根据 SemVer 规范，&lt;code&gt;0.y.z&lt;/code&gt; 意味着&amp;quot;初始开发阶段，一切皆不稳定&amp;quot;。这意味着你可以随时发布破坏性变更而无需负责。&lt;/p&gt;
 &lt;p&gt;&lt;strong&gt;真实案例：&lt;/strong&gt;
 我曾接手过一个内部组件库，它已经被全公司5个项目使用了两年，但版本号依然是 &lt;code&gt;0.9.86&lt;/code&gt;。&lt;/p&gt;

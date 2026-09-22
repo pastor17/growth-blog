@@ -1,14 +1,10 @@
-<?xml version="1.0" encoding="utf-8" standalone="yes"?><rss version="2.0" xmlns:atom="http://www.w3.org/2005/Atom"><channel><title>高并发场景下的缓存策略（Redis）设计 on SelfTechHub</title><link>https://blog.irudder.me/tags/%E9%AB%98%E5%B9%B6%E5%8F%91%E5%9C%BA%E6%99%AF%E4%B8%8B%E7%9A%84%E7%BC%93%E5%AD%98%E7%AD%96%E7%95%A5Redis%E8%AE%BE%E8%AE%A1.html</link><description>Recent content in 高并发场景下的缓存策略（Redis）设计 on SelfTechHub</description><generator>Hugo -- gohugo.io</generator><language>zh-cn</language><managingEditor>irudder@126.com (irudder)</managingEditor><webMaster>irudder@126.com (irudder)</webMaster><lastBuildDate>Mon, 01 Jan 2024 00:00:00 +0800</lastBuildDate><atom:link href="https://blog.irudder.me/tags/%E9%AB%98%E5%B9%B6%E5%8F%91%E5%9C%BA%E6%99%AF%E4%B8%8B%E7%9A%84%E7%BC%93%E5%AD%98%E7%AD%96%E7%95%A5Redis%E8%AE%BE%E8%AE%A1/index.xml" rel="self" type="application/rss+xml"/><item><title>QPS翻倍后Redis崩了？这3个缓存策略救了我一命</title><link>https://blog.irudder.me/tech/zhongxiaoxingxiangmujiagoushejizhinan/gaobingfachangjingxiadehuancuncelveredissheji.html</link><pubDate>Mon, 01 Jan 2024 00:00:00 +0800</pubDate><author>irudder@126.com (irudder)</author><guid>https://blog.irudder.me/tech/zhongxiaoxingxiangmujiagoushejizhinan/gaobingfachangjingxiadehuancuncelveredissheji.html</guid><description>&lt;p&gt;早些年做架构的时候，我曾天真地以为，只要给数据库加上一层 Redis，再给每个 Key 设个随机过期时间，就能搞定 90% 的高并发问题。&lt;/p&gt;
+<?xml version="1.0" encoding="utf-8" standalone="yes"?><rss version="2.0" xmlns:atom="http://www.w3.org/2005/Atom"><channel><title>高并发场景下的缓存策略（Redis）设计 on SelfTechHub</title><link>https://blog.irudder.me/tags/%E9%AB%98%E5%B9%B6%E5%8F%91%E5%9C%BA%E6%99%AF%E4%B8%8B%E7%9A%84%E7%BC%93%E5%AD%98%E7%AD%96%E7%95%A5Redis%E8%AE%BE%E8%AE%A1.html</link><description>Recent content in 高并发场景下的缓存策略（Redis）设计 on SelfTechHub</description><generator>Hugo -- gohugo.io</generator><language>zh-cn</language><managingEditor>irudder@126.com (irudder)</managingEditor><webMaster>irudder@126.com (irudder)</webMaster><lastBuildDate>Mon, 01 Jan 2024 00:00:00 +0800</lastBuildDate><atom:link href="https://blog.irudder.me/tags/%E9%AB%98%E5%B9%B6%E5%8F%91%E5%9C%BA%E6%99%AF%E4%B8%8B%E7%9A%84%E7%BC%93%E5%AD%98%E7%AD%96%E7%95%A5Redis%E8%AE%BE%E8%AE%A1/index.xml" rel="self" type="application/rss+xml"/><item><title>QPS翻倍后Redis崩了？这3个缓存策略救了我一命</title><link>https://blog.irudder.me/tech/zhongxiaoxingxiangmujiagoushejizhinan/gaobingfachangjingxiadehuancuncelveredissheji.html</link><pubDate>Mon, 01 Jan 2024 00:00:00 +0800</pubDate><author>irudder@126.com (irudder)</author><guid>https://blog.irudder.me/tech/zhongxiaoxingxiangmujiagoushejizhinan/gaobingfachangjingxiadehuancuncelveredissheji.html</guid><description>&lt;img src="https://blog.irudder.me/images/covers/tech-2.jpg" alt="Featured image of post QPS翻倍后Redis崩了？这3个缓存策略救了我一命" /&gt;&lt;p&gt;早些年做架构的时候，我曾天真地以为，只要给数据库加上一层 Redis，再给每个 Key 设个随机过期时间，就能搞定 90% 的高并发问题。&lt;/p&gt;
 &lt;p&gt;直到两年前的一次双十一大促预演，现实狠狠给了我一巴掌。&lt;/p&gt;
 &lt;p&gt;那天下午2点，流量只是比平时翻了一倍，我们的数据库 CPU 却突然飙到了 100%，报警群里的消息像机关枪一样响个不停。排查下来发现，不是 Redis 挂了，而是&lt;strong&gt;缓存策略太粗糙&lt;/strong&gt;——几个热点 Key 同时过期，加上一个看似不起眼的 Big Key，直接击穿了数据库，顺带把带宽打满了。&lt;/p&gt;
 &lt;p&gt;这次“踩坑”让我深刻意识到：&lt;strong&gt;在中小团队资源有限的情况下，盲目堆机器没用，精细化的缓存策略才是保命符。&lt;/strong&gt;&lt;/p&gt;
 &lt;p&gt;今天想和大家复盘一下，我在那次事故后总结的一套适合中小项目的 Redis 避坑指南，不讲虚的理论，只聊怎么落地。&lt;/p&gt;
 &lt;h3 id="-策略一热点-key-别用强一致试试逻辑过期"&gt;## 策略一：热点 Key 别用强一致，试试“逻辑过期”
 &lt;/h3&gt;&lt;p&gt;很多兄弟在处理热点数据（比如首页 Banner、爆款商品详情）时，最怕的就是&lt;strong&gt;缓存击穿&lt;/strong&gt;。&lt;/p&gt;
-&lt;p&gt;&lt;img src="https://picsum.photos/800/450?random=1768451744631"
-loading="lazy"
-alt="配图"
-&gt;&lt;/p&gt;
 &lt;p&gt;经典的教科书方案是“加互斥锁（Mutex Lock）”：当缓存失效时，只允许一个线程去查库重建缓存，其他线程等待。&lt;/p&gt;
 &lt;p&gt;说实话，这在理论上很完美，但在我们那次事故中，因为代码里的锁粒度没控制好，加上数据库响应慢，导致大量线程阻塞在应用层，Tomcat 线程池瞬间被打满，整个服务直接假死。&lt;/p&gt;
 &lt;p&gt;&lt;strong&gt;后来我改用了“逻辑过期”方案，效果出奇的好。&lt;/strong&gt;&lt;/p&gt;
@@ -49,10 +45,6 @@ alt="配图"
 &lt;p&gt;我现在每周五下午做 Code Review 时，都会专门让团队扫一遍 Redis 里的 Key 大小，&lt;strong&gt;超过 10KB 的必须说明理由&lt;/strong&gt;，这已经成了我们的铁律。&lt;/p&gt;
 &lt;h3 id="-策略三缓存一致性放弃既要又要"&gt;## 策略三：缓存一致性，放弃“既要又要”
 &lt;/h3&gt;&lt;p&gt;“先更新数据库，还是先删除缓存？”这个问题，在面试里能聊半小时，但在实战中，中小团队最容易被绕晕。&lt;/p&gt;
-&lt;p&gt;&lt;img src="https://picsum.photos/800/450?random=1768451745669"
-loading="lazy"
-alt="配图"
-&gt;&lt;/p&gt;
 &lt;p&gt;我们也尝试过复杂的“延迟双删”策略，甚至想引入 Canal 监听 Binlog 来异步更新缓存。结果呢？架构变得极其复杂，Canal 偶尔挂一次，排查问题能要了半条命。&lt;/p&gt;
 &lt;p&gt;对于大多数并发量在万级（QPS &amp;lt; 10k）的业务，我强烈建议采用 &lt;strong&gt;Cache Aside Pattern（旁路缓存模式）的改良版&lt;/strong&gt;，别搞太复杂。&lt;/p&gt;
 &lt;p&gt;&lt;strong&gt;我的实操建议：&lt;/strong&gt;&lt;/p&gt;
@@ -73,10 +65,6 @@ alt="配图"
 &lt;/ol&gt;
 &lt;p&gt;&lt;strong&gt;最后，做个小调查：&lt;/strong&gt;&lt;/p&gt;
 &lt;p&gt;在处理热点数据缓存失效时，&lt;strong&gt;你更倾向于用“互斥锁”来保证数据准确，还是用“逻辑过期”来保证服务可用？&lt;/strong&gt; A 还是 B？&lt;/p&gt;
-&lt;p&gt;&lt;img src="https://picsum.photos/800/450?random=1768451744977"
-loading="lazy"
-alt="配图"
-&gt;&lt;/p&gt;
 &lt;p&gt;欢迎在评论区告诉我你的选择和踩坑经历。&lt;/p&gt;
 &lt;hr&gt;
 &lt;p&gt;&lt;strong&gt;本周行动建议：&lt;/strong&gt;

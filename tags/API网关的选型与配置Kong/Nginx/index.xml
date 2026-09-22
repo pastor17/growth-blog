@@ -1,4 +1,4 @@
-<?xml version="1.0" encoding="utf-8" standalone="yes"?><rss version="2.0" xmlns:atom="http://www.w3.org/2005/Atom"><channel><title>API网关的选型与配置（Kong/Nginx） on SelfTechHub</title><link>https://blog.irudder.me/tags/API%E7%BD%91%E5%85%B3%E7%9A%84%E9%80%89%E5%9E%8B%E4%B8%8E%E9%85%8D%E7%BD%AEKong/Nginx.html</link><description>Recent content in API网关的选型与配置（Kong/Nginx） on SelfTechHub</description><generator>Hugo -- gohugo.io</generator><language>zh-cn</language><managingEditor>irudder@126.com (irudder)</managingEditor><webMaster>irudder@126.com (irudder)</webMaster><lastBuildDate>Sun, 27 Sep 2020 00:00:00 +0800</lastBuildDate><atom:link href="https://blog.irudder.me/tags/API%E7%BD%91%E5%85%B3%E7%9A%84%E9%80%89%E5%9E%8B%E4%B8%8E%E9%85%8D%E7%BD%AEKong/Nginx/index.xml" rel="self" type="application/rss+xml"/><item><title>小团队别乱上Kong！API网关避坑指南与Nginx实战</title><link>https://blog.irudder.me/tech/zhongxiaoxingxiangmujiagoushejizhinan/apiwangguandexuanxingyupeizhikong_nginx.html</link><pubDate>Sun, 27 Sep 2020 00:00:00 +0800</pubDate><author>irudder@126.com (irudder)</author><guid>https://blog.irudder.me/tech/zhongxiaoxingxiangmujiagoushejizhinan/apiwangguandexuanxingyupeizhikong_nginx.html</guid><description>&lt;p&gt;2019年，我负责一个电商SaaS项目的中台重构。当时团队也就是7、8个后端，大家都觉得&amp;quot;微服务&amp;quot;这词儿听着洋气，于是我们大刀阔斧地引入了Kong作为API网关。&lt;/p&gt;
+<?xml version="1.0" encoding="utf-8" standalone="yes"?><rss version="2.0" xmlns:atom="http://www.w3.org/2005/Atom"><channel><title>API网关的选型与配置（Kong/Nginx） on SelfTechHub</title><link>https://blog.irudder.me/tags/API%E7%BD%91%E5%85%B3%E7%9A%84%E9%80%89%E5%9E%8B%E4%B8%8E%E9%85%8D%E7%BD%AEKong/Nginx.html</link><description>Recent content in API网关的选型与配置（Kong/Nginx） on SelfTechHub</description><generator>Hugo -- gohugo.io</generator><language>zh-cn</language><managingEditor>irudder@126.com (irudder)</managingEditor><webMaster>irudder@126.com (irudder)</webMaster><lastBuildDate>Sun, 27 Sep 2020 00:00:00 +0800</lastBuildDate><atom:link href="https://blog.irudder.me/tags/API%E7%BD%91%E5%85%B3%E7%9A%84%E9%80%89%E5%9E%8B%E4%B8%8E%E9%85%8D%E7%BD%AEKong/Nginx/index.xml" rel="self" type="application/rss+xml"/><item><title>小团队别乱上Kong！API网关避坑指南与Nginx实战</title><link>https://blog.irudder.me/tech/zhongxiaoxingxiangmujiagoushejizhinan/apiwangguandexuanxingyupeizhikong_nginx.html</link><pubDate>Sun, 27 Sep 2020 00:00:00 +0800</pubDate><author>irudder@126.com (irudder)</author><guid>https://blog.irudder.me/tech/zhongxiaoxingxiangmujiagoushejizhinan/apiwangguandexuanxingyupeizhikong_nginx.html</guid><description>&lt;img src="https://blog.irudder.me/images/covers/tech-1.jpg" alt="Featured image of post 小团队别乱上Kong！API网关避坑指南与Nginx实战" /&gt;&lt;p&gt;2019年，我负责一个电商SaaS项目的中台重构。当时团队也就是7、8个后端，大家都觉得&amp;quot;微服务&amp;quot;这词儿听着洋气，于是我们大刀阔斧地引入了Kong作为API网关。&lt;/p&gt;
 &lt;p&gt;当时的想法很美好：我们要动态路由，我们要插件化，我们要像Netflix那样酷。&lt;/p&gt;
 &lt;p&gt;结果呢？为了维护Kong的Postgres数据库，我们专门搭了一套高可用；为了写一个简单的自定义鉴权插件，我们逼着Java开发去学Lua脚本。最要命的是，每次Kong的版本升级，插件兼容性都能让我们通宵排查。&lt;/p&gt;
 &lt;p&gt;&lt;strong&gt;我曾以为&amp;quot;功能强大&amp;quot;是选型的唯一标准，直到踩了这几个大坑才明白：对于中小团队，&amp;ldquo;可控&amp;quot;和&amp;quot;简单&amp;quot;才是架构的生命线。&lt;/strong&gt;&lt;/p&gt;
@@ -25,10 +25,6 @@
 &lt;li&gt;不需要动态（秒级）调整路由规则。&lt;/li&gt;
 &lt;/ol&gt;
 &lt;hr&gt;
-&lt;p&gt;&lt;img src="https://picsum.photos/800/450?random=1768455950517"
-loading="lazy"
-alt="配图"
-&gt;&lt;/p&gt;
 &lt;h2 id="二-拒绝面条式配置nginx也能很优雅"&gt;二、 拒绝&amp;quot;面条式配置&amp;rdquo;，Nginx也能很优雅
 &lt;/h2&gt;&lt;p&gt;很多人排斥Nginx，是因为觉得改&lt;code&gt;nginx.conf&lt;/code&gt;很痛苦。几千行的配置文件，这就好比写代码把所有逻辑都塞进&lt;code&gt;main&lt;/code&gt;函数里，当然痛苦。&lt;/p&gt;
 &lt;p&gt;我用了3年的一个习惯是：&lt;strong&gt;像写代码一样管理Nginx配置。&lt;/strong&gt;&lt;/p&gt;
@@ -145,10 +141,6 @@ alt="配图"
 &lt;hr&gt;
 &lt;h2 id="四-总结与落地工具"&gt;四、 总结与落地工具
 &lt;/h2&gt;&lt;p&gt;架构设计里有一句名言：&amp;quot;&lt;strong&gt;没有最好的架构，只有最合适的架构。&lt;/strong&gt;&amp;quot;&lt;/p&gt;
-&lt;p&gt;&lt;img src="https://picsum.photos/800/450?random=1768455954576"
-loading="lazy"
-alt="配图"
-&gt;&lt;/p&gt;
 &lt;p&gt;对于日活百万以下、团队规模不大的项目，Nginx不是妥协，而是&lt;strong&gt;最优解&lt;/strong&gt;。它稳定、高效、免费，且拥有全世界最庞大的社区支持。&lt;/p&gt;
 &lt;p&gt;当你发现自己花费在维护网关上的时间，超过了开发业务逻辑的时间，那就说明你过度设计了。&lt;/p&gt;
 &lt;p&gt;最后，分享一个我常用的&lt;strong&gt;Nginx反向代理标准模板&lt;/strong&gt;，你可以直接复制到你的&lt;code&gt;vhosts&lt;/code&gt;文件中，只需改改域名和端口就能用：&lt;/p&gt;
@@ -191,7 +183,6 @@ alt="配图"
 &lt;/span&gt;&lt;span class="lnt"&gt;35
 &lt;/span&gt;&lt;span class="lnt"&gt;36
 &lt;/span&gt;&lt;span class="lnt"&gt;37
-&lt;/span&gt;&lt;span class="lnt"&gt;38
 &lt;/span&gt;&lt;/code&gt;&lt;/pre&gt;&lt;/td&gt;
 &lt;td class="lntd"&gt;
 &lt;pre tabindex="0" class="chroma"&gt;&lt;code class="language-nginx" data-lang="nginx"&gt;&lt;span class="line"&gt;&lt;span class="cl"&gt;&lt;span class="c1"&gt;# 这是一个可以直接复用的生产级模板
@@ -207,10 +198,9 @@ alt="配图"
 &lt;/span&gt;&lt;/span&gt;&lt;span class="line"&gt;&lt;span class="cl"&gt; &lt;span class="kn"&gt;listen&lt;/span&gt; &lt;span class="mi"&gt;443&lt;/span&gt; &lt;span class="s"&gt;ssl&lt;/span&gt; &lt;span class="s"&gt;http2&lt;/span&gt;&lt;span class="p"&gt;;&lt;/span&gt;
 &lt;/span&gt;&lt;/span&gt;&lt;span class="line"&gt;&lt;span class="cl"&gt; &lt;span class="kn"&gt;server_name&lt;/span&gt; &lt;span class="s"&gt;api.your-company.com&lt;/span&gt;&lt;span class="p"&gt;;&lt;/span&gt;
 &lt;/span&gt;&lt;/span&gt;&lt;span class="line"&gt;&lt;span class="cl"&gt;
-&lt;/span&gt;&lt;/span&gt;&lt;span class="line"&gt;&lt;span class="cl"&gt;&lt;span class="kn"&gt;![配图](https://picsum.photos/800/450?random=1768455955907)&lt;/span&gt;
 &lt;/span&gt;&lt;/span&gt;&lt;span class="line"&gt;&lt;span class="cl"&gt;
 &lt;/span&gt;&lt;/span&gt;&lt;span class="line"&gt;&lt;span class="cl"&gt; &lt;span class="c1"&gt;# SSL证书路径
-&lt;/span&gt;&lt;/span&gt;&lt;/span&gt;&lt;span class="line"&gt;&lt;span class="cl"&gt;&lt;span class="c1"&gt;&lt;/span&gt; &lt;span class="s"&gt;ssl_certificate&lt;/span&gt; &lt;span class="s"&gt;/etc/nginx/ssl/live/api.your-company.com/fullchain.pem&lt;/span&gt;&lt;span class="p"&gt;;&lt;/span&gt;
+&lt;/span&gt;&lt;/span&gt;&lt;/span&gt;&lt;span class="line"&gt;&lt;span class="cl"&gt;&lt;span class="c1"&gt;&lt;/span&gt; &lt;span class="kn"&gt;ssl_certificate&lt;/span&gt; &lt;span class="s"&gt;/etc/nginx/ssl/live/api.your-company.com/fullchain.pem&lt;/span&gt;&lt;span class="p"&gt;;&lt;/span&gt;
 &lt;/span&gt;&lt;/span&gt;&lt;span class="line"&gt;&lt;span class="cl"&gt; &lt;span class="kn"&gt;ssl_certificate_key&lt;/span&gt; &lt;span class="s"&gt;/etc/nginx/ssl/live/api.your-company.com/privkey.pem&lt;/span&gt;&lt;span class="p"&gt;;&lt;/span&gt;
 &lt;/span&gt;&lt;/span&gt;&lt;span class="line"&gt;&lt;span class="cl"&gt;
 &lt;/span&gt;&lt;/span&gt;&lt;span class="line"&gt;&lt;span class="cl"&gt; &lt;span class="c1"&gt;# 核心代理配置

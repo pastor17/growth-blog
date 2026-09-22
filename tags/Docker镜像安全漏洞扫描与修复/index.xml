@@ -1,9 +1,5 @@
-<?xml version="1.0" encoding="utf-8" standalone="yes"?><rss version="2.0" xmlns:atom="http://www.w3.org/2005/Atom"><channel><title>Docker镜像安全：漏洞扫描与修复 on SelfTechHub</title><link>https://blog.irudder.me/tags/Docker%E9%95%9C%E5%83%8F%E5%AE%89%E5%85%A8%E6%BC%8F%E6%B4%9E%E6%89%AB%E6%8F%8F%E4%B8%8E%E4%BF%AE%E5%A4%8D.html</link><description>Recent content in Docker镜像安全：漏洞扫描与修复 on SelfTechHub</description><generator>Hugo -- gohugo.io</generator><language>zh-cn</language><managingEditor>irudder@126.com (irudder)</managingEditor><webMaster>irudder@126.com (irudder)</webMaster><lastBuildDate>Thu, 02 Jul 2020 00:00:00 +0800</lastBuildDate><atom:link href="https://blog.irudder.me/tags/Docker%E9%95%9C%E5%83%8F%E5%AE%89%E5%85%A8%E6%BC%8F%E6%B4%9E%E6%89%AB%E6%8F%8F%E4%B8%8E%E4%BF%AE%E5%A4%8D/index.xml" rel="self" type="application/rss+xml"/><item><title>炸掉生产环境后，我重构了Docker镜像安全流</title><link>https://blog.irudder.me/tech/devopsjichugongjurumenyushicao/dockerjingxianganquan_loudongsaomiaoyuxiufu.html</link><pubDate>Thu, 02 Jul 2020 00:00:00 +0800</pubDate><author>irudder@126.com (irudder)</author><guid>https://blog.irudder.me/tech/devopsjichugongjurumenyushicao/dockerjingxianganquan_loudongsaomiaoyuxiufu.html</guid><description>&lt;p&gt;曾几何时，我也和大多数开发者一样，觉得只要代码逻辑没BUG，单元测试全绿，应用就是安全的。&lt;/p&gt;
+<?xml version="1.0" encoding="utf-8" standalone="yes"?><rss version="2.0" xmlns:atom="http://www.w3.org/2005/Atom"><channel><title>Docker镜像安全：漏洞扫描与修复 on SelfTechHub</title><link>https://blog.irudder.me/tags/Docker%E9%95%9C%E5%83%8F%E5%AE%89%E5%85%A8%E6%BC%8F%E6%B4%9E%E6%89%AB%E6%8F%8F%E4%B8%8E%E4%BF%AE%E5%A4%8D.html</link><description>Recent content in Docker镜像安全：漏洞扫描与修复 on SelfTechHub</description><generator>Hugo -- gohugo.io</generator><language>zh-cn</language><managingEditor>irudder@126.com (irudder)</managingEditor><webMaster>irudder@126.com (irudder)</webMaster><lastBuildDate>Thu, 02 Jul 2020 00:00:00 +0800</lastBuildDate><atom:link href="https://blog.irudder.me/tags/Docker%E9%95%9C%E5%83%8F%E5%AE%89%E5%85%A8%E6%BC%8F%E6%B4%9E%E6%89%AB%E6%8F%8F%E4%B8%8E%E4%BF%AE%E5%A4%8D/index.xml" rel="self" type="application/rss+xml"/><item><title>炸掉生产环境后，我重构了Docker镜像安全流</title><link>https://blog.irudder.me/tech/devopsjichugongjurumenyushicao/dockerjingxianganquan_loudongsaomiaoyuxiufu.html</link><pubDate>Thu, 02 Jul 2020 00:00:00 +0800</pubDate><author>irudder@126.com (irudder)</author><guid>https://blog.irudder.me/tech/devopsjichugongjurumenyushicao/dockerjingxianganquan_loudongsaomiaoyuxiufu.html</guid><description>&lt;img src="https://blog.irudder.me/images/covers/tech-1.jpg" alt="Featured image of post 炸掉生产环境后，我重构了Docker镜像安全流" /&gt;&lt;p&gt;曾几何时，我也和大多数开发者一样，觉得只要代码逻辑没BUG，单元测试全绿，应用就是安全的。&lt;/p&gt;
 &lt;p&gt;直到两年前的一个周五下午，临下班前我们推送了一个紧急修复补丁。CI/CD流水线一路绿灯，大家开开心心去过周末。结果周六凌晨，运维电话被打爆——生产环境的容器被植入了挖矿脚本，CPU直接飙到100%。&lt;/p&gt;
-&lt;p&gt;&lt;img src="https://picsum.photos/800/450?random=1768388766114"
-loading="lazy"
-alt="配图"
-&gt;&lt;/p&gt;
 &lt;p&gt;排查结果让我们背脊发凉：并不是我们的业务代码有漏洞，而是那个用来构建镜像的基础镜像（Base Image），不知何时被上游植入了恶意代码，且包含了一个存在已久的远程执行漏洞（RCE）。&lt;/p&gt;
 &lt;p&gt;这次“翻车”彻底改变了我的认知：&lt;strong&gt;在容器化时代，应用安全不再仅限于代码本身，Docker镜像就是新的“攻击面”。&lt;/strong&gt;&lt;/p&gt;
 &lt;p&gt;很多团队在DevOps建设中狂奔，却往往在镜像安全上“裸奔”。今天我想结合那次惨痛教训，复盘一套适合中小团队的镜像安全治理方案。&lt;/p&gt;
@@ -22,10 +18,6 @@ alt="配图"
 &lt;/ul&gt;
 &lt;blockquote&gt;
 &lt;p&gt;&lt;strong&gt;数据对比&lt;/strong&gt;：将一个Python应用从 &lt;code&gt;python:3.9&lt;/code&gt; 迁移到 &lt;code&gt;gcr.io/distroless/python3&lt;/code&gt; 后，镜像体积从 900MB 降至 50MB，扫描出的漏洞数量从 400+ 降到了 &lt;strong&gt;0&lt;/strong&gt;。&lt;/p&gt;&lt;/blockquote&gt;
-&lt;p&gt;&lt;img src="https://picsum.photos/800/450?random=1768388764771"
-loading="lazy"
-alt="配图"
-&gt;&lt;/p&gt;
 &lt;p&gt;&lt;strong&gt;实操建议：&lt;/strong&gt;
 不要使用 &lt;code&gt;latest&lt;/code&gt; 标签，请锁定具体的SHA256摘要值。&lt;/p&gt;
 &lt;div class="highlight"&gt;&lt;div class="chroma"&gt;

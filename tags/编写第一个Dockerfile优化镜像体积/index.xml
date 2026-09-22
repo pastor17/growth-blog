@@ -1,10 +1,6 @@
-<?xml version="1.0" encoding="utf-8" standalone="yes"?><rss version="2.0" xmlns:atom="http://www.w3.org/2005/Atom"><channel><title>编写第一个Dockerfile：优化镜像体积 on SelfTechHub</title><link>https://blog.irudder.me/tags/%E7%BC%96%E5%86%99%E7%AC%AC%E4%B8%80%E4%B8%AADockerfile%E4%BC%98%E5%8C%96%E9%95%9C%E5%83%8F%E4%BD%93%E7%A7%AF.html</link><description>Recent content in 编写第一个Dockerfile：优化镜像体积 on SelfTechHub</description><generator>Hugo -- gohugo.io</generator><language>zh-cn</language><managingEditor>irudder@126.com (irudder)</managingEditor><webMaster>irudder@126.com (irudder)</webMaster><lastBuildDate>Fri, 13 Dec 2024 00:00:00 +0800</lastBuildDate><atom:link href="https://blog.irudder.me/tags/%E7%BC%96%E5%86%99%E7%AC%AC%E4%B8%80%E4%B8%AADockerfile%E4%BC%98%E5%8C%96%E9%95%9C%E5%83%8F%E4%BD%93%E7%A7%AF/index.xml" rel="self" type="application/rss+xml"/><item><title>从1.2GB到80MB：我重写Dockerfile的“瘦身”实录</title><link>https://blog.irudder.me/tech/devopsjichugongjurumenyushicao/bianxiediyigedockerfile_youhuajingxiangtiji.html</link><pubDate>Fri, 13 Dec 2024 00:00:00 +0800</pubDate><author>irudder@126.com (irudder)</author><guid>https://blog.irudder.me/tech/devopsjichugongjurumenyushicao/bianxiediyigedockerfile_youhuajingxiangtiji.html</guid><description>&lt;p&gt;大概在三年前的一个周五下午，我正准备结束一周的工作，监控群里突然弹出了磁盘告警。排查后发现，CI/CD 流水线所在的构建服务器磁盘爆满，而罪魁祸首竟然是一个刚刚构建的 Node.js 前端应用镜像——体积高达 1.2GB。&lt;/p&gt;
+<?xml version="1.0" encoding="utf-8" standalone="yes"?><rss version="2.0" xmlns:atom="http://www.w3.org/2005/Atom"><channel><title>编写第一个Dockerfile：优化镜像体积 on SelfTechHub</title><link>https://blog.irudder.me/tags/%E7%BC%96%E5%86%99%E7%AC%AC%E4%B8%80%E4%B8%AADockerfile%E4%BC%98%E5%8C%96%E9%95%9C%E5%83%8F%E4%BD%93%E7%A7%AF.html</link><description>Recent content in 编写第一个Dockerfile：优化镜像体积 on SelfTechHub</description><generator>Hugo -- gohugo.io</generator><language>zh-cn</language><managingEditor>irudder@126.com (irudder)</managingEditor><webMaster>irudder@126.com (irudder)</webMaster><lastBuildDate>Fri, 13 Dec 2024 00:00:00 +0800</lastBuildDate><atom:link href="https://blog.irudder.me/tags/%E7%BC%96%E5%86%99%E7%AC%AC%E4%B8%80%E4%B8%AADockerfile%E4%BC%98%E5%8C%96%E9%95%9C%E5%83%8F%E4%BD%93%E7%A7%AF/index.xml" rel="self" type="application/rss+xml"/><item><title>从1.2GB到80MB：我重写Dockerfile的“瘦身”实录</title><link>https://blog.irudder.me/tech/devopsjichugongjurumenyushicao/bianxiediyigedockerfile_youhuajingxiangtiji.html</link><pubDate>Fri, 13 Dec 2024 00:00:00 +0800</pubDate><author>irudder@126.com (irudder)</author><guid>https://blog.irudder.me/tech/devopsjichugongjurumenyushicao/bianxiediyigedockerfile_youhuajingxiangtiji.html</guid><description>&lt;img src="https://blog.irudder.me/images/covers/tech-2.jpg" alt="Featured image of post 从1.2GB到80MB：我重写Dockerfile的“瘦身”实录" /&gt;&lt;p&gt;大概在三年前的一个周五下午，我正准备结束一周的工作，监控群里突然弹出了磁盘告警。排查后发现，CI/CD 流水线所在的构建服务器磁盘爆满，而罪魁祸首竟然是一个刚刚构建的 Node.js 前端应用镜像——体积高达 1.2GB。&lt;/p&gt;
 &lt;p&gt;当时我就在想：&lt;strong&gt;一个只是用来托管静态文件的 Nginx 容器，凭什么比我电脑上的操作系统安装包还大？&lt;/strong&gt;&lt;/p&gt;
 &lt;p&gt;这并不是个例。在很多中小团队中，大家往往把 Dockerfile 当作 Shell 脚本来写，认为只要 &lt;code&gt;docker run&lt;/code&gt; 能跑起来就算成功。但实际上，镜像体积不仅关乎存储成本，更直接影响&lt;strong&gt;分发速度、启动时间以及生产环境的安全性&lt;/strong&gt;。&lt;/p&gt;
-&lt;p&gt;&lt;img src="https://picsum.photos/800/450?random=1768387582351"
-loading="lazy"
-alt="配图"
-&gt;&lt;/p&gt;
 &lt;p&gt;今天，我想结合那次具体的优化经历，复盘一下如何通过三个核心策略，将一个臃肿的“巨无霸”镜像优化到 80MB，并总结出一套可复用的 Dockerfile 编写心法。&lt;/p&gt;
 &lt;hr&gt;
 &lt;h2 id="一-警惕层的陷阱少即是多"&gt;一、 警惕“层”的陷阱：少即是多
@@ -63,10 +59,6 @@ alt="配图"
 &lt;/h2&gt;&lt;p&gt;分析那个 1.2GB 的镜像层级时，我发现了真正的庞然大物：&lt;code&gt;node_modules&lt;/code&gt; 和各类编译工具（gcc, make, python等）。&lt;/p&gt;
 &lt;p&gt;这是一个典型的开发误区：&lt;strong&gt;把“构建环境”带入了“生产环境”。&lt;/strong&gt;&lt;/p&gt;
 &lt;p&gt;应用运行时只需要编译后的静态文件（HTML/CSS/JS）和 Nginx 服务器，根本不需要 Node.js 环境，更不需要那几百兆的源码依赖。然而，为了执行 &lt;code&gt;npm run build&lt;/code&gt;，我们被迫安装了这一整套工具链。&lt;/p&gt;
-&lt;p&gt;&lt;img src="https://picsum.photos/800/450?random=1768387578488"
-loading="lazy"
-alt="配图"
-&gt;&lt;/p&gt;
 &lt;p&gt;在 Docker 17.05 之前，我们需要维护两个 Dockerfile（一个用于构建，一个用于运行），非常麻烦。但现在，我们可以使用&lt;strong&gt;多阶段构建（Multi-stage Builds）&lt;/strong&gt;。&lt;/p&gt;
 &lt;p&gt;&lt;strong&gt;优化策略：掐头去尾，只留精华&lt;/strong&gt;&lt;/p&gt;
 &lt;p&gt;我将 Dockerfile 重构为两个阶段：&lt;/p&gt;

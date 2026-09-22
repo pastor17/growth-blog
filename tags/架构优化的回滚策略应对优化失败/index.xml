@@ -1,8 +1,4 @@
-<?xml version="1.0" encoding="utf-8" standalone="yes"?><rss version="2.0" xmlns:atom="http://www.w3.org/2005/Atom"><channel><title>架构优化的回滚策略：应对优化失败 on SelfTechHub</title><link>https://blog.irudder.me/tags/%E6%9E%B6%E6%9E%84%E4%BC%98%E5%8C%96%E7%9A%84%E5%9B%9E%E6%BB%9A%E7%AD%96%E7%95%A5%E5%BA%94%E5%AF%B9%E4%BC%98%E5%8C%96%E5%A4%B1%E8%B4%A5.html</link><description>Recent content in 架构优化的回滚策略：应对优化失败 on SelfTechHub</description><generator>Hugo -- gohugo.io</generator><language>zh-cn</language><managingEditor>irudder@126.com (irudder)</managingEditor><webMaster>irudder@126.com (irudder)</webMaster><lastBuildDate>Wed, 26 Jan 2022 00:00:00 +0800</lastBuildDate><atom:link href="https://blog.irudder.me/tags/%E6%9E%B6%E6%9E%84%E4%BC%98%E5%8C%96%E7%9A%84%E5%9B%9E%E6%BB%9A%E7%AD%96%E7%95%A5%E5%BA%94%E5%AF%B9%E4%BC%98%E5%8C%96%E5%A4%B1%E8%B4%A5/index.xml" rel="self" type="application/rss+xml"/><item><title>架构优化翻车？3个“保命”回滚策略，别等炸库才看</title><link>https://blog.irudder.me/tech/jiagouyouhuashizhananlijiexi/jiagouyouhuadehuiguncelve_yingduiyouhuashibai.html</link><pubDate>Wed, 26 Jan 2022 00:00:00 +0800</pubDate><author>irudder@126.com (irudder)</author><guid>https://blog.irudder.me/tech/jiagouyouhuashizhananlijiexi/jiagouyouhuadehuiguncelve_yingduiyouhuashibai.html</guid><description>&lt;p&gt;&lt;img src="https://picsum.photos/800/450?random=1768531784584"
-loading="lazy"
-alt="配图"
-&gt;&lt;/p&gt;
-&lt;p&gt;做架构优化这么多年，我养成了一个略显“神经质”的习惯：&lt;strong&gt;每次审核技术方案，我都会直接跳过花里胡哨的性能提升数据，先翻到最后一页看“回滚方案”。&lt;/strong&gt;&lt;/p&gt;
+<?xml version="1.0" encoding="utf-8" standalone="yes"?><rss version="2.0" xmlns:atom="http://www.w3.org/2005/Atom"><channel><title>架构优化的回滚策略：应对优化失败 on SelfTechHub</title><link>https://blog.irudder.me/tags/%E6%9E%B6%E6%9E%84%E4%BC%98%E5%8C%96%E7%9A%84%E5%9B%9E%E6%BB%9A%E7%AD%96%E7%95%A5%E5%BA%94%E5%AF%B9%E4%BC%98%E5%8C%96%E5%A4%B1%E8%B4%A5.html</link><description>Recent content in 架构优化的回滚策略：应对优化失败 on SelfTechHub</description><generator>Hugo -- gohugo.io</generator><language>zh-cn</language><managingEditor>irudder@126.com (irudder)</managingEditor><webMaster>irudder@126.com (irudder)</webMaster><lastBuildDate>Wed, 26 Jan 2022 00:00:00 +0800</lastBuildDate><atom:link href="https://blog.irudder.me/tags/%E6%9E%B6%E6%9E%84%E4%BC%98%E5%8C%96%E7%9A%84%E5%9B%9E%E6%BB%9A%E7%AD%96%E7%95%A5%E5%BA%94%E5%AF%B9%E4%BC%98%E5%8C%96%E5%A4%B1%E8%B4%A5/index.xml" rel="self" type="application/rss+xml"/><item><title>架构优化翻车？3个“保命”回滚策略，别等炸库才看</title><link>https://blog.irudder.me/tech/jiagouyouhuashizhananlijiexi/jiagouyouhuadehuiguncelve_yingduiyouhuashibai.html</link><pubDate>Wed, 26 Jan 2022 00:00:00 +0800</pubDate><author>irudder@126.com (irudder)</author><guid>https://blog.irudder.me/tech/jiagouyouhuashizhananlijiexi/jiagouyouhuadehuiguncelve_yingduiyouhuashibai.html</guid><description>&lt;img src="https://blog.irudder.me/images/covers/tech-2.jpg" alt="Featured image of post 架构优化翻车？3个“保命”回滚策略，别等炸库才看" /&gt;&lt;p&gt;做架构优化这么多年，我养成了一个略显“神经质”的习惯：&lt;strong&gt;每次审核技术方案，我都会直接跳过花里胡哨的性能提升数据，先翻到最后一页看“回滚方案”。&lt;/strong&gt;&lt;/p&gt;
 &lt;p&gt;如果没有回滚方案，或者只写了轻飘飘的一句“重新部署旧版本”，这个方案在我这儿绝对过不去。&lt;/p&gt;
 &lt;p&gt;很多开发同学有个误区，觉得架构优化就是“升级打怪”，只要技术够新、方案够牛，就一定能成。但我亲眼见过太多次，为了追求那20%的性能提升，因为没有兜底策略，导致核心业务瘫痪，最后不得不全组通宵填坑。&lt;/p&gt;
 &lt;p&gt;&lt;strong&gt;架构优化的本质不是代码重构，而是一场带保险的“心脏手术”。&lt;/strong&gt; 手术失败不可怕，可怕的是你把病人的氧气管拔了，却接不回去。&lt;/p&gt;
@@ -14,10 +10,6 @@ alt="配图"
 迁移脚本跑得很欢，上线当天也很顺利。但第二天大促，ES 集群因为配置参数问题，瞬间被打挂，无法写入。&lt;/p&gt;
 &lt;p&gt;这时候老李傻眼了：&lt;strong&gt;因为是全量切换，MySQL 已经停止写入了。&lt;/strong&gt; 想回滚？昨晚到现在产生的一百多万条新数据都在 ES 的内存或者损坏的索引里，MySQL 里根本没有。最后只能停机维护，全组人对着日志人肉补数据，那场面惨不忍睹。&lt;/p&gt;
 &lt;p&gt;&lt;strong&gt;硬核解法：双写 + 灰度读&lt;/strong&gt;&lt;/p&gt;
-&lt;p&gt;&lt;img src="https://picsum.photos/800/450?random=1768531784484"
-loading="lazy"
-alt="配图"
-&gt;&lt;/p&gt;
 &lt;p&gt;对数据存储的优化，永远不要做“切换”，要做“过渡”。&lt;/p&gt;
 &lt;ol&gt;
 &lt;li&gt;&lt;strong&gt;第一阶段（双写）：&lt;/strong&gt; 老库（MySQL）保持主写入，新库（ES）异步写入。此时读取依然走老库。&lt;/li&gt;
@@ -62,11 +54,7 @@ alt="配图"
 &lt;/div&gt;
 &lt;/div&gt;&lt;p&gt;&lt;strong&gt;底层逻辑：&lt;/strong&gt; 这种策略的核心在于&lt;strong&gt;数据冗余&lt;/strong&gt;。用存储空间换取回滚的“时间窗口”。只要老库里有全量数据，任何时候你都有按 Ctrl+Z 的底气。&lt;/p&gt;
 &lt;h2 id="策略二流量层面的金丝雀别搞大爆炸式上线"&gt;策略二：流量层面的“金丝雀”——别搞大爆炸式上线
-&lt;/h2&gt;&lt;p&gt;&lt;img src="https://picsum.photos/800/450?random=1768531783126"
-loading="lazy"
-alt="配图"
-&gt;&lt;/p&gt;
-&lt;p&gt;“大爆炸”式发布（Big Bang Release）是运维的噩梦。有些架构师喜欢把重构后的代码一次性全量推上线，美其名曰“长痛不如短痛”。结果往往是痛得死去活来。&lt;/p&gt;
+&lt;/h2&gt;&lt;p&gt;“大爆炸”式发布（Big Bang Release）是运维的噩梦。有些架构师喜欢把重构后的代码一次性全量推上线，美其名曰“长痛不如短痛”。结果往往是痛得死去活来。&lt;/p&gt;
 &lt;p&gt;&lt;strong&gt;真实案例：&lt;/strong&gt;
 某金融科技公司的支付网关重构，从单体应用拆分成微服务。周五晚上（犯了大忌）全量上线。
 刚开始半小时没问题，凌晨流量低峰也没事。周六早上高峰期一来，由于微服务之间的 RPC 超时设置不合理，导致雪崩效应。所有支付请求卡死。

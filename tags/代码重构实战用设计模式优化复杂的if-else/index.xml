@@ -1,4 +1,4 @@
-<?xml version="1.0" encoding="utf-8" standalone="yes"?><rss version="2.0" xmlns:atom="http://www.w3.org/2005/Atom"><channel><title>代码重构实战：用设计模式优化复杂的if-Else on SelfTechHub</title><link>https://blog.irudder.me/tags/%E4%BB%A3%E7%A0%81%E9%87%8D%E6%9E%84%E5%AE%9E%E6%88%98%E7%94%A8%E8%AE%BE%E8%AE%A1%E6%A8%A1%E5%BC%8F%E4%BC%98%E5%8C%96%E5%A4%8D%E6%9D%82%E7%9A%84if-else.html</link><description>Recent content in 代码重构实战：用设计模式优化复杂的if-Else on SelfTechHub</description><generator>Hugo -- gohugo.io</generator><language>zh-cn</language><managingEditor>irudder@126.com (irudder)</managingEditor><webMaster>irudder@126.com (irudder)</webMaster><lastBuildDate>Wed, 16 Feb 2022 00:00:00 +0800</lastBuildDate><atom:link href="https://blog.irudder.me/tags/%E4%BB%A3%E7%A0%81%E9%87%8D%E6%9E%84%E5%AE%9E%E6%88%98%E7%94%A8%E8%AE%BE%E8%AE%A1%E6%A8%A1%E5%BC%8F%E4%BC%98%E5%8C%96%E5%A4%8D%E6%9D%82%E7%9A%84if-else/index.xml" rel="self" type="application/rss+xml"/><item><title>告别3000行if-else：核心链路重构的3个实战心法</title><link>https://blog.irudder.me/tech/jiagouyouhuashizhananlijiexi/daimazhonggoushizhan_yongshejimoshiyouhuafuzadeif-else.html</link><pubDate>Wed, 16 Feb 2022 00:00:00 +0800</pubDate><author>irudder@126.com (irudder)</author><guid>https://blog.irudder.me/tech/jiagouyouhuashizhananlijiexi/daimazhonggoushizhan_yongshejimoshiyouhuafuzadeif-else.html</guid><description>&lt;p&gt;两年前的一个周五下午，我正准备进行代码Review，监控群突然炸了。核心交易系统的CPU水位飙升到90%，排查后发现，罪魁祸首竟是一段长达3000行的&lt;code&gt;PaymentService&lt;/code&gt;类。&lt;/p&gt;
+<?xml version="1.0" encoding="utf-8" standalone="yes"?><rss version="2.0" xmlns:atom="http://www.w3.org/2005/Atom"><channel><title>代码重构实战：用设计模式优化复杂的if-Else on SelfTechHub</title><link>https://blog.irudder.me/tags/%E4%BB%A3%E7%A0%81%E9%87%8D%E6%9E%84%E5%AE%9E%E6%88%98%E7%94%A8%E8%AE%BE%E8%AE%A1%E6%A8%A1%E5%BC%8F%E4%BC%98%E5%8C%96%E5%A4%8D%E6%9D%82%E7%9A%84if-else.html</link><description>Recent content in 代码重构实战：用设计模式优化复杂的if-Else on SelfTechHub</description><generator>Hugo -- gohugo.io</generator><language>zh-cn</language><managingEditor>irudder@126.com (irudder)</managingEditor><webMaster>irudder@126.com (irudder)</webMaster><lastBuildDate>Wed, 16 Feb 2022 00:00:00 +0800</lastBuildDate><atom:link href="https://blog.irudder.me/tags/%E4%BB%A3%E7%A0%81%E9%87%8D%E6%9E%84%E5%AE%9E%E6%88%98%E7%94%A8%E8%AE%BE%E8%AE%A1%E6%A8%A1%E5%BC%8F%E4%BC%98%E5%8C%96%E5%A4%8D%E6%9D%82%E7%9A%84if-else/index.xml" rel="self" type="application/rss+xml"/><item><title>告别3000行if-else：核心链路重构的3个实战心法</title><link>https://blog.irudder.me/tech/jiagouyouhuashizhananlijiexi/daimazhonggoushizhan_yongshejimoshiyouhuafuzadeif-else.html</link><pubDate>Wed, 16 Feb 2022 00:00:00 +0800</pubDate><author>irudder@126.com (irudder)</author><guid>https://blog.irudder.me/tech/jiagouyouhuashizhananlijiexi/daimazhonggoushizhan_yongshejimoshiyouhuafuzadeif-else.html</guid><description>&lt;img src="https://blog.irudder.me/images/covers/tech-2.jpg" alt="Featured image of post 告别3000行if-else：核心链路重构的3个实战心法" /&gt;&lt;p&gt;两年前的一个周五下午，我正准备进行代码Review，监控群突然炸了。核心交易系统的CPU水位飙升到90%，排查后发现，罪魁祸首竟是一段长达3000行的&lt;code&gt;PaymentService&lt;/code&gt;类。&lt;/p&gt;
 &lt;p&gt;那是典型的&amp;quot;面条代码&amp;quot;：为了支持不同渠道（支付宝、微信、银联）、不同商户类型、不同营销活动的组合，前人堆砌了数不清的&lt;code&gt;if-else&lt;/code&gt;嵌套。一位新来的同事只是想加一个小众渠道的立减逻辑，结果因为没看清第18层嵌套的逻辑，导致全渠道金额计算错误。&lt;/p&gt;
 &lt;p&gt;这不仅仅是代码丑陋的问题，&lt;strong&gt;这是架构的隐形债务&lt;/strong&gt;。对于架构师和高级开发来说，复杂的&lt;code&gt;if-else&lt;/code&gt;意味着高昂的认知成本、脆弱的扩展性和随时可能爆炸的线上雷。&lt;/p&gt;
 &lt;p&gt;很多教程只讲设计模式的UML图，却不讲&amp;quot;什么场景用什么&amp;quot;。今天，我想结合这几年拆解10+线上架构优化的经验，聊聊如何用设计模式真正驯服这些复杂的判断逻辑。&lt;/p&gt;
@@ -35,10 +35,6 @@
 &lt;/div&gt;&lt;p&gt;每次上线新券种，都要修改主类，违反了&lt;strong&gt;开闭原则（OCP）&lt;/strong&gt;，且极易改坏旧逻辑。&lt;/p&gt;
 &lt;p&gt;&lt;strong&gt;重构方案：策略模式 + Spring Map注入&lt;/strong&gt;&lt;/p&gt;
 &lt;p&gt;我们不需要手写工厂类，利用Spring的特性，可以将Bean Name作为Key，服务实例作为Value自动注入。&lt;/p&gt;
-&lt;p&gt;&lt;img src="https://picsum.photos/800/450?random=1768457548081"
-loading="lazy"
-alt="配图"
-&gt;&lt;/p&gt;
 &lt;ol&gt;
 &lt;li&gt;&lt;strong&gt;定义接口&lt;/strong&gt;：&lt;code&gt;CouponStrategy&lt;/code&gt;，包含&lt;code&gt;calculate()&lt;/code&gt;和&lt;code&gt;send()&lt;/code&gt;方法。&lt;/li&gt;
 &lt;li&gt;&lt;strong&gt;具体实现&lt;/strong&gt;：&lt;code&gt;DiscountStrategy&lt;/code&gt;、&lt;code&gt;CashOffStrategy&lt;/code&gt;分别实现接口，并标注&lt;code&gt;@Component(&amp;quot;DISCOUNT&amp;quot;)&lt;/code&gt;。&lt;/li&gt;
@@ -209,11 +205,7 @@ alt="配图"
 &lt;p&gt;&lt;strong&gt;实战结果：&lt;/strong&gt;
 我们在重构物流中台的运单状态机时使用了此模式。当时业务方要求增加一个&amp;quot;异常挂起&amp;quot;状态，该状态下拦截所有操作。我们只新增了一个&lt;code&gt;SuspendedState&lt;/code&gt;类，重写了所有方法返回&amp;quot;禁止操作&amp;quot;提示，就完成了需求，&lt;strong&gt;完全没有触碰核心调度逻辑&lt;/strong&gt;，测试覆盖率达到了100%。&lt;/p&gt;
 &lt;h3 id="总结与落地工具"&gt;总结与落地工具
-&lt;/h3&gt;&lt;p&gt;&lt;img src="https://picsum.photos/800/450?random=1768457549485"
-loading="lazy"
-alt="配图"
-&gt;&lt;/p&gt;
-&lt;p&gt;重构不是为了炫技，而是为了&lt;strong&gt;降低熵增&lt;/strong&gt;。&lt;/p&gt;
+&lt;/h3&gt;&lt;p&gt;重构不是为了炫技，而是为了&lt;strong&gt;降低熵增&lt;/strong&gt;。&lt;/p&gt;
 &lt;p&gt;什么时候该重构？我大概总结了一个简单的判断标准：&lt;/p&gt;
 &lt;ul&gt;
 &lt;li&gt;&lt;strong&gt;重复度&lt;/strong&gt;：当一段&lt;code&gt;if-else&lt;/code&gt;逻辑在3个以上的地方重复出现；&lt;/li&gt;

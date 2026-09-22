@@ -1,4 +1,4 @@
-<?xml version="1.0" encoding="utf-8" standalone="yes"?><rss version="2.0" xmlns:atom="http://www.w3.org/2005/Atom"><channel><title>监控告警：自定义Prometheus规则 on SelfTechHub</title><link>https://blog.irudder.me/tags/%E7%9B%91%E6%8E%A7%E5%91%8A%E8%AD%A6%E8%87%AA%E5%AE%9A%E4%B9%89Prometheus%E8%A7%84%E5%88%99.html</link><description>Recent content in 监控告警：自定义Prometheus规则 on SelfTechHub</description><generator>Hugo -- gohugo.io</generator><language>zh-cn</language><managingEditor>irudder@126.com (irudder)</managingEditor><webMaster>irudder@126.com (irudder)</webMaster><lastBuildDate>Tue, 18 Jun 2024 00:00:00 +0800</lastBuildDate><atom:link href="https://blog.irudder.me/tags/%E7%9B%91%E6%8E%A7%E5%91%8A%E8%AD%A6%E8%87%AA%E5%AE%9A%E4%B9%89Prometheus%E8%A7%84%E5%88%99/index.xml" rel="self" type="application/rss+xml"/><item><title>告警响不停？3招教你写出"不扰民"的Prometheus规则</title><link>https://blog.irudder.me/tech/devopsjichugongjurumenyushicao/jiankonggaojing_zidingyiprometheusguize.html</link><pubDate>Tue, 18 Jun 2024 00:00:00 +0800</pubDate><author>irudder@126.com (irudder)</author><guid>https://blog.irudder.me/tech/devopsjichugongjurumenyushicao/jiankonggaojing_zidingyiprometheusguize.html</guid><description>&lt;p&gt;刚接手运维工作那会儿，我犯过一个极其&amp;quot;经典&amp;quot;的错误：觉得监控覆盖率越高越好，于是把网上抄来的Prometheus规则一股脑全配上了。&lt;/p&gt;
+<?xml version="1.0" encoding="utf-8" standalone="yes"?><rss version="2.0" xmlns:atom="http://www.w3.org/2005/Atom"><channel><title>监控告警：自定义Prometheus规则 on SelfTechHub</title><link>https://blog.irudder.me/tags/%E7%9B%91%E6%8E%A7%E5%91%8A%E8%AD%A6%E8%87%AA%E5%AE%9A%E4%B9%89Prometheus%E8%A7%84%E5%88%99.html</link><description>Recent content in 监控告警：自定义Prometheus规则 on SelfTechHub</description><generator>Hugo -- gohugo.io</generator><language>zh-cn</language><managingEditor>irudder@126.com (irudder)</managingEditor><webMaster>irudder@126.com (irudder)</webMaster><lastBuildDate>Tue, 18 Jun 2024 00:00:00 +0800</lastBuildDate><atom:link href="https://blog.irudder.me/tags/%E7%9B%91%E6%8E%A7%E5%91%8A%E8%AD%A6%E8%87%AA%E5%AE%9A%E4%B9%89Prometheus%E8%A7%84%E5%88%99/index.xml" rel="self" type="application/rss+xml"/><item><title>告警响不停？3招教你写出"不扰民"的Prometheus规则</title><link>https://blog.irudder.me/tech/devopsjichugongjurumenyushicao/jiankonggaojing_zidingyiprometheusguize.html</link><pubDate>Tue, 18 Jun 2024 00:00:00 +0800</pubDate><author>irudder@126.com (irudder)</author><guid>https://blog.irudder.me/tech/devopsjichugongjurumenyushicao/jiankonggaojing_zidingyiprometheusguize.html</guid><description>&lt;img src="https://blog.irudder.me/images/covers/tech-1.jpg" alt="Featured image of post 告警响不停？3招教你写出"不扰民"的Prometheus规则" /&gt;&lt;p&gt;刚接手运维工作那会儿，我犯过一个极其&amp;quot;经典&amp;quot;的错误：觉得监控覆盖率越高越好，于是把网上抄来的Prometheus规则一股脑全配上了。&lt;/p&gt;
 &lt;p&gt;结果就是，我的手机成了24小时震动的按摩棒。凌晨3点被&amp;quot;CPU使用率超过80%&amp;ldquo;的告警惊醒，爬起来一看，只是个定时备份任务在跑，两分钟后就自动恢复了。这种&amp;quot;狼来了&amp;quot;的故事发生几次后，我和团队对告警彻底麻木了，直到真正发生线上故障时，那条关键的报错信息淹没在了几百条无效告警里，导致我们晚了半小时才介入处理。&lt;/p&gt;
 &lt;p&gt;那时候我才明白：&lt;strong&gt;写告警规则不是填空题，而是一门关于&amp;quot;信噪比&amp;quot;的艺术。&lt;/strong&gt;&lt;/p&gt;
 &lt;p&gt;很多兄弟在落地Prometheus时，往往只关注&amp;quot;能不能抓到指标&amp;rdquo;，却忽略了&amp;quot;这玩意儿到底该不该报&amp;quot;。今天咱们不聊虚的，我想结合这几年踩过的坑，聊聊怎么写出既精准又&amp;quot;不扰民&amp;quot;的高质量Prometheus规则。&lt;/p&gt;
@@ -6,10 +6,6 @@
 &lt;/h2&gt;&lt;p&gt;新手写规则最喜欢&amp;quot;直来直去&amp;quot;。比如监控磁盘，看到剩下10%就马上报警。这听起来没毛病，但在实际生产环境里，这种瞬时值的判断非常容易误报。&lt;/p&gt;
 &lt;p&gt;&lt;strong&gt;真实案例：&lt;/strong&gt;
 我们有个日志处理服务，每隔几小时会有一次短暂的数据写入洪峰，磁盘I/O和使用率会瞬间飙高，但很快就会被清理脚本释放。刚开始我们设置了&lt;code&gt;node_filesystem_free_bytes &amp;lt; 10%&lt;/code&gt;就告警，结果运维群每天都要炸几次锅，大家查了一圈发现&amp;quot;没事啊&amp;quot;，久而久之就没人看了。&lt;/p&gt;
-&lt;p&gt;&lt;img src="https://picsum.photos/800/450?random=1768388366841"
-loading="lazy"
-alt="配图"
-&gt;&lt;/p&gt;
 &lt;p&gt;&lt;strong&gt;避坑方法论：&lt;/strong&gt;
 告警的本质是呼叫人工介入。如果它能自己恢复，就不应该半夜叫醒你。我们需要引入&lt;strong&gt;持续时间（Duration）&lt;strong&gt;和&lt;/strong&gt;趋势预测（Prediction）&lt;/strong&gt;。&lt;/p&gt;
 &lt;ol&gt;
@@ -134,11 +130,7 @@ Weaveworks 提出的 RED 方法论非常适合微服务监控。我们在写规�
 &lt;/span&gt;&lt;/span&gt;&lt;/span&gt;&lt;span class="line"&gt;&lt;span class="cl"&gt;&lt;span class="w"&gt; &lt;/span&gt;&lt;span class="nt"&gt;expr&lt;/span&gt;&lt;span class="p"&gt;:&lt;/span&gt;&lt;span class="w"&gt; &lt;/span&gt;&lt;span class="l"&gt;sum by (job) (http_inprogress_requests)&lt;/span&gt;&lt;span class="w"&gt;
 &lt;/span&gt;&lt;/span&gt;&lt;/span&gt;&lt;/code&gt;&lt;/pre&gt;&lt;/td&gt;&lt;/tr&gt;&lt;/table&gt;
 &lt;/div&gt;
-&lt;/div&gt;&lt;p&gt;&lt;img src="https://picsum.photos/800/450?random=1768388366148"
-loading="lazy"
-alt="配图"
-&gt;&lt;/p&gt;
-&lt;ol start="2"&gt;
+&lt;/div&gt;&lt;ol start="2"&gt;
 &lt;li&gt;&lt;strong&gt;基于中间指标告警：&lt;/strong&gt;&lt;/li&gt;
 &lt;/ol&gt;
 &lt;div class="highlight"&gt;&lt;div class="chroma"&gt;

@@ -1,4 +1,4 @@
-<?xml version="1.0" encoding="utf-8" standalone="yes"?><rss version="2.0" xmlns:atom="http://www.w3.org/2005/Atom"><channel><title>Nginx配置优化：性能与安全 on SelfTechHub</title><link>https://blog.irudder.me/tags/Nginx%E9%85%8D%E7%BD%AE%E4%BC%98%E5%8C%96%E6%80%A7%E8%83%BD%E4%B8%8E%E5%AE%89%E5%85%A8.html</link><description>Recent content in Nginx配置优化：性能与安全 on SelfTechHub</description><generator>Hugo -- gohugo.io</generator><language>zh-cn</language><managingEditor>irudder@126.com (irudder)</managingEditor><webMaster>irudder@126.com (irudder)</webMaster><lastBuildDate>Fri, 11 Mar 2022 00:00:00 +0800</lastBuildDate><atom:link href="https://blog.irudder.me/tags/Nginx%E9%85%8D%E7%BD%AE%E4%BC%98%E5%8C%96%E6%80%A7%E8%83%BD%E4%B8%8E%E5%AE%89%E5%85%A8/index.xml" rel="self" type="application/rss+xml"/><item><title>Nginx配置避坑指南：小白也能懂的性能与安全急救包</title><link>https://blog.irudder.me/tech/devopsjichugongjurumenyushicao/nginxpeizhiyouhua_xingnengyuanquan.html</link><pubDate>Fri, 11 Mar 2022 00:00:00 +0800</pubDate><author>irudder@126.com (irudder)</author><guid>https://blog.irudder.me/tech/devopsjichugongjurumenyushicao/nginxpeizhiyouhua_xingnengyuanquan.html</guid><description>&lt;h2 id="引言"&gt;引言
+<?xml version="1.0" encoding="utf-8" standalone="yes"?><rss version="2.0" xmlns:atom="http://www.w3.org/2005/Atom"><channel><title>Nginx配置优化：性能与安全 on SelfTechHub</title><link>https://blog.irudder.me/tags/Nginx%E9%85%8D%E7%BD%AE%E4%BC%98%E5%8C%96%E6%80%A7%E8%83%BD%E4%B8%8E%E5%AE%89%E5%85%A8.html</link><description>Recent content in Nginx配置优化：性能与安全 on SelfTechHub</description><generator>Hugo -- gohugo.io</generator><language>zh-cn</language><managingEditor>irudder@126.com (irudder)</managingEditor><webMaster>irudder@126.com (irudder)</webMaster><lastBuildDate>Fri, 11 Mar 2022 00:00:00 +0800</lastBuildDate><atom:link href="https://blog.irudder.me/tags/Nginx%E9%85%8D%E7%BD%AE%E4%BC%98%E5%8C%96%E6%80%A7%E8%83%BD%E4%B8%8E%E5%AE%89%E5%85%A8/index.xml" rel="self" type="application/rss+xml"/><item><title>Nginx配置避坑指南：小白也能懂的性能与安全急救包</title><link>https://blog.irudder.me/tech/devopsjichugongjurumenyushicao/nginxpeizhiyouhua_xingnengyuanquan.html</link><pubDate>Fri, 11 Mar 2022 00:00:00 +0800</pubDate><author>irudder@126.com (irudder)</author><guid>https://blog.irudder.me/tech/devopsjichugongjurumenyushicao/nginxpeizhiyouhua_xingnengyuanquan.html</guid><description>&lt;img src="https://blog.irudder.me/images/covers/tech-1.jpg" alt="Featured image of post Nginx配置避坑指南：小白也能懂的性能与安全急救包" /&gt;&lt;h2 id="引言"&gt;引言
 &lt;/h2&gt;&lt;p&gt;你是否经历过这样的时刻：辛辛苦苦写好的代码，在本地运行健步如飞，一部署到线上，只要并发稍微高一点，页面就开始转圈圈，甚至直接甩给你一个冷冰冰的 &lt;strong&gt;502 Bad Gateway&lt;/strong&gt;？&lt;/p&gt;
 &lt;p&gt;那一刻，作为新手的你可能第一反应是：“是不是我代码写得太烂了？”或者“是不是服务器买小了？”&lt;/p&gt;
 &lt;p&gt;&lt;strong&gt;先别急着自责，也别急着花钱升级服务器。&lt;/strong&gt;&lt;/p&gt;
@@ -86,10 +86,6 @@
 &lt;/div&gt;
 &lt;/div&gt;&lt;blockquote&gt;
 &lt;p&gt;&lt;strong&gt;小贴士&lt;/strong&gt;：我有一个习惯，每次修改完配置，都会习惯性地运行 &lt;code&gt;nginx -t&lt;/code&gt; 来检查语法。这个命令救了我无数次，避免了因为漏写一个分号导致整个线上服务挂掉的尴尬。&lt;/p&gt;&lt;/blockquote&gt;
-&lt;p&gt;&lt;img src="https://picsum.photos/800/450?random=1768389007264"
-loading="lazy"
-alt="配图"
-&gt;&lt;/p&gt;
 &lt;hr&gt;
 &lt;h2 id="三-别让带宽成为瓶颈开启压缩魔法"&gt;三、 别让带宽成为瓶颈：开启“压缩魔法”
 &lt;/h2&gt;&lt;p&gt;你有没有遇到过这种情况：服务器 CPU 和内存都很空闲，但网页加载就是慢，特别是图片和 CSS/JS 文件多的时候？&lt;/p&gt;
@@ -144,18 +140,10 @@ alt="配图"
 &lt;/h2&gt;&lt;p&gt;读到这里，&lt;strong&gt;你有没有发现自己其实一直守着一座金矿，却只用了把铁锹在挖？&lt;/strong&gt;&lt;/p&gt;
 &lt;p&gt;很多人不敢动 Nginx 配置，是因为觉得它“太底层”、“太复杂”，生怕改坏了。但实际上，只要我们做好备份，每一次优化都是对系统掌控力的提升。&lt;/p&gt;
 &lt;p&gt;&lt;strong&gt;这里有 3 个立刻能做的小行动，建议你关掉文章后马上试试：&lt;/strong&gt;&lt;/p&gt;
-&lt;p&gt;&lt;img src="https://picsum.photos/800/450?random=1768389007803"
-loading="lazy"
-alt="配图"
-&gt;&lt;/p&gt;
 &lt;ol&gt;
 &lt;li&gt;&lt;strong&gt;备份现状&lt;/strong&gt;：登录你的服务器，执行 &lt;code&gt;cp /etc/nginx/nginx.conf /etc/nginx/nginx.conf.bak&lt;/code&gt;。这是你的“后悔药”，有了它，你可以大胆尝试。&lt;/li&gt;
 &lt;li&gt;&lt;strong&gt;体检一次&lt;/strong&gt;：执行 &lt;code&gt;nginx -V&lt;/code&gt; 看看现在的版本，检查 &lt;code&gt;nginx.conf&lt;/code&gt; 里是不是还留着 &lt;code&gt;worker_processes 1;&lt;/code&gt; 这种“出厂设置”。&lt;/li&gt;
 &lt;li&gt;&lt;strong&gt;落地一项&lt;/strong&gt;：哪怕只开启 &lt;code&gt;gzip&lt;/code&gt; 或者 &lt;code&gt;server_tokens off&lt;/code&gt;，也是一次巨大的进步。&lt;/li&gt;
 &lt;/ol&gt;
-&lt;p&gt;&lt;img src="https://picsum.photos/800/450?random=1768389009738"
-loading="lazy"
-alt="配图"
-&gt;&lt;/p&gt;
 &lt;p&gt;技术不仅是冰冷的代码，更是为了让我们哪怕在深夜也能睡个安稳觉。别让默认配置偷走你的性能，也别让未知的恐惧阻挡你探索的脚步。&lt;/p&gt;
 &lt;p&gt;咱们一起，把服务器调教得更顺手一点。加油！&lt;/p&gt;</description></item></channel></rss>

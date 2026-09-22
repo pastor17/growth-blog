@@ -1,13 +1,9 @@
-<?xml version="1.0" encoding="utf-8" standalone="yes"?><rss version="2.0" xmlns:atom="http://www.w3.org/2005/Atom"><channel><title>缓存优化：命中率提升的实战技巧 on SelfTechHub</title><link>https://blog.irudder.me/tags/%E7%BC%93%E5%AD%98%E4%BC%98%E5%8C%96%E5%91%BD%E4%B8%AD%E7%8E%87%E6%8F%90%E5%8D%87%E7%9A%84%E5%AE%9E%E6%88%98%E6%8A%80%E5%B7%A7.html</link><description>Recent content in 缓存优化：命中率提升的实战技巧 on SelfTechHub</description><generator>Hugo -- gohugo.io</generator><language>zh-cn</language><managingEditor>irudder@126.com (irudder)</managingEditor><webMaster>irudder@126.com (irudder)</webMaster><lastBuildDate>Thu, 15 Sep 2022 00:00:00 +0800</lastBuildDate><atom:link href="https://blog.irudder.me/tags/%E7%BC%93%E5%AD%98%E4%BC%98%E5%8C%96%E5%91%BD%E4%B8%AD%E7%8E%87%E6%8F%90%E5%8D%87%E7%9A%84%E5%AE%9E%E6%88%98%E6%8A%80%E5%B7%A7/index.xml" rel="self" type="application/rss+xml"/><item><title>缓存命中率跌破30%？这3个“反常识”救了我</title><link>https://blog.irudder.me/tech/jiagouyouhuashizhananlijiexi/huancunyouhua_mingzhonglvtishengdeshizhanjiqiao.html</link><pubDate>Thu, 15 Sep 2022 00:00:00 +0800</pubDate><author>irudder@126.com (irudder)</author><guid>https://blog.irudder.me/tech/jiagouyouhuashizhananlijiexi/huancunyouhua_mingzhonglvtishengdeshizhanjiqiao.html</guid><description>&lt;p&gt;我看过太多由于盲目堆砌缓存导致的线上事故。&lt;/p&gt;
+<?xml version="1.0" encoding="utf-8" standalone="yes"?><rss version="2.0" xmlns:atom="http://www.w3.org/2005/Atom"><channel><title>缓存优化：命中率提升的实战技巧 on SelfTechHub</title><link>https://blog.irudder.me/tags/%E7%BC%93%E5%AD%98%E4%BC%98%E5%8C%96%E5%91%BD%E4%B8%AD%E7%8E%87%E6%8F%90%E5%8D%87%E7%9A%84%E5%AE%9E%E6%88%98%E6%8A%80%E5%B7%A7.html</link><description>Recent content in 缓存优化：命中率提升的实战技巧 on SelfTechHub</description><generator>Hugo -- gohugo.io</generator><language>zh-cn</language><managingEditor>irudder@126.com (irudder)</managingEditor><webMaster>irudder@126.com (irudder)</webMaster><lastBuildDate>Thu, 15 Sep 2022 00:00:00 +0800</lastBuildDate><atom:link href="https://blog.irudder.me/tags/%E7%BC%93%E5%AD%98%E4%BC%98%E5%8C%96%E5%91%BD%E4%B8%AD%E7%8E%87%E6%8F%90%E5%8D%87%E7%9A%84%E5%AE%9E%E6%88%98%E6%8A%80%E5%B7%A7/index.xml" rel="self" type="application/rss+xml"/><item><title>缓存命中率跌破30%？这3个“反常识”救了我</title><link>https://blog.irudder.me/tech/jiagouyouhuashizhananlijiexi/huancunyouhua_mingzhonglvtishengdeshizhanjiqiao.html</link><pubDate>Thu, 15 Sep 2022 00:00:00 +0800</pubDate><author>irudder@126.com (irudder)</author><guid>https://blog.irudder.me/tech/jiagouyouhuashizhananlijiexi/huancunyouhua_mingzhonglvtishengdeshizhanjiqiao.html</guid><description>&lt;img src="https://blog.irudder.me/images/covers/tech-1.jpg" alt="Featured image of post 缓存命中率跌破30%？这3个“反常识”救了我" /&gt;&lt;p&gt;我看过太多由于盲目堆砌缓存导致的线上事故。&lt;/p&gt;
 &lt;p&gt;很多时候，我们盯着监控大盘上 &lt;code&gt;99%&lt;/code&gt; 的缓存命中率沾沾自喜，却忽略了应用端的 Latency（延迟）正在悄悄攀升，直到数据库连接池被瞬间打爆。&lt;/p&gt;
 &lt;p&gt;去年双11备战期间，我负责的一个核心营销系统就遭遇了这种“幽灵拥堵”。明明 Redis 命中率很高，但系统吞吐量死活上不去。排查了整整两个通宵，我才发现：&lt;strong&gt;有时候，教科书式的缓存策略，反而是生产环境的毒药。&lt;/strong&gt;&lt;/p&gt;
 &lt;p&gt;今天不谈由简入繁的理论，我想分享那次事故中，我通过反思踩坑经历总结出的3个“实战级”优化技巧。&lt;/p&gt;
 &lt;h2 id="一-放弃大而全拥抱碎片化"&gt;一、 放弃“大而全”，拥抱“碎片化”
-&lt;/h2&gt;&lt;p&gt;&lt;img src="https://picsum.photos/800/450?random=1768458656188"
-loading="lazy"
-alt="配图"
-&gt;&lt;/p&gt;
-&lt;p&gt;很多开发同学（包括两年前的我）在写代码时习惯图省事：要用用户信息？直接把整个 &lt;code&gt;User&lt;/code&gt; 对象序列化成 JSON 塞进 Redis。&lt;/p&gt;
+&lt;/h2&gt;&lt;p&gt;很多开发同学（包括两年前的我）在写代码时习惯图省事：要用用户信息？直接把整个 &lt;code&gt;User&lt;/code&gt; 对象序列化成 JSON 塞进 Redis。&lt;/p&gt;
 &lt;blockquote&gt;
 &lt;p&gt;“反正内存便宜，一次取出来下次直接用，省得反复查库。”&lt;/p&gt;&lt;/blockquote&gt;
 &lt;p&gt;这听起来没毛病，但当并发量上来后，这就是一颗定时炸弹。&lt;/p&gt;
@@ -20,10 +16,6 @@ alt="配图"
 &lt;/ol&gt;
 &lt;p&gt;&lt;strong&gt;硬核解法：&lt;/strong&gt;
 我们连夜对高频 Key 做了&lt;strong&gt;Hash 结构拆分&lt;/strong&gt;。&lt;/p&gt;
-&lt;p&gt;&lt;img src="https://picsum.photos/800/450?random=1768458650246"
-loading="lazy"
-alt="配图"
-&gt;&lt;/p&gt;
 &lt;p&gt;不要把所有鸡蛋装在一个篮子里。我们将 &lt;code&gt;User:1001&lt;/code&gt; 从 String 类型改为 Hash 类型，将 &lt;code&gt;vip_level&lt;/code&gt;、&lt;code&gt;nickname&lt;/code&gt;、&lt;code&gt;avatar&lt;/code&gt; 独立存储。&lt;/p&gt;
 &lt;div class="highlight"&gt;&lt;div class="chroma"&gt;
 &lt;table class="lntable"&gt;&lt;tr&gt;&lt;td class="lntd"&gt;
@@ -57,10 +49,6 @@ alt="配图"
 &lt;p&gt;&lt;strong&gt;硬核解法：&lt;/strong&gt;
 不要相信绝对的时间。我们在设置过期时间时，强制引入了&lt;strong&gt;随机抖动（Jitter）&lt;/strong&gt;。&lt;/p&gt;
 &lt;p&gt;我现在的习惯是，写个工具类，所有涉及 TTL 的地方都必须走这个方法：&lt;/p&gt;
-&lt;p&gt;&lt;img src="https://picsum.photos/800/450?random=1768458658638"
-loading="lazy"
-alt="配图"
-&gt;&lt;/p&gt;
 &lt;div class="highlight"&gt;&lt;div class="chroma"&gt;
 &lt;table class="lntable"&gt;&lt;tr&gt;&lt;td class="lntd"&gt;
 &lt;pre tabindex="0" class="chroma"&gt;&lt;code&gt;&lt;span class="lnt"&gt;1

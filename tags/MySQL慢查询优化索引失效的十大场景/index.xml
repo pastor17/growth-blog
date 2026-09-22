@@ -1,4 +1,4 @@
-<?xml version="1.0" encoding="utf-8" standalone="yes"?><rss version="2.0" xmlns:atom="http://www.w3.org/2005/Atom"><channel><title>MySQL慢查询优化：索引失效的十大场景 on SelfTechHub</title><link>https://blog.irudder.me/tags/MySQL%E6%85%A2%E6%9F%A5%E8%AF%A2%E4%BC%98%E5%8C%96%E7%B4%A2%E5%BC%95%E5%A4%B1%E6%95%88%E7%9A%84%E5%8D%81%E5%A4%A7%E5%9C%BA%E6%99%AF.html</link><description>Recent content in MySQL慢查询优化：索引失效的十大场景 on SelfTechHub</description><generator>Hugo -- gohugo.io</generator><language>zh-cn</language><managingEditor>irudder@126.com (irudder)</managingEditor><webMaster>irudder@126.com (irudder)</webMaster><lastBuildDate>Sun, 23 Aug 2020 00:00:00 +0800</lastBuildDate><atom:link href="https://blog.irudder.me/tags/MySQL%E6%85%A2%E6%9F%A5%E8%AF%A2%E4%BC%98%E5%8C%96%E7%B4%A2%E5%BC%95%E5%A4%B1%E6%95%88%E7%9A%84%E5%8D%81%E5%A4%A7%E5%9C%BA%E6%99%AF/index.xml" rel="self" type="application/rss+xml"/><item><title>加了索引还慢？揭秘10个索引失效现场，别再背锅了！</title><link>https://blog.irudder.me/tech/jiagouyouhuashizhananlijiexi/mysqlmanchaxunyouhua_suoyinshixiaodeshidachangjing.html</link><pubDate>Sun, 23 Aug 2020 00:00:00 +0800</pubDate><author>irudder@126.com (irudder)</author><guid>https://blog.irudder.me/tech/jiagouyouhuashizhananlijiexi/mysqlmanchaxunyouhua_suoyinshixiaodeshidachangjing.html</guid><description>&lt;p&gt;凌晨两点，报警群里的钉钉机器人突然“发疯”，提示数据库 CPU 飙升到 99%。&lt;/p&gt;
+<?xml version="1.0" encoding="utf-8" standalone="yes"?><rss version="2.0" xmlns:atom="http://www.w3.org/2005/Atom"><channel><title>MySQL慢查询优化：索引失效的十大场景 on SelfTechHub</title><link>https://blog.irudder.me/tags/MySQL%E6%85%A2%E6%9F%A5%E8%AF%A2%E4%BC%98%E5%8C%96%E7%B4%A2%E5%BC%95%E5%A4%B1%E6%95%88%E7%9A%84%E5%8D%81%E5%A4%A7%E5%9C%BA%E6%99%AF.html</link><description>Recent content in MySQL慢查询优化：索引失效的十大场景 on SelfTechHub</description><generator>Hugo -- gohugo.io</generator><language>zh-cn</language><managingEditor>irudder@126.com (irudder)</managingEditor><webMaster>irudder@126.com (irudder)</webMaster><lastBuildDate>Sun, 23 Aug 2020 00:00:00 +0800</lastBuildDate><atom:link href="https://blog.irudder.me/tags/MySQL%E6%85%A2%E6%9F%A5%E8%AF%A2%E4%BC%98%E5%8C%96%E7%B4%A2%E5%BC%95%E5%A4%B1%E6%95%88%E7%9A%84%E5%8D%81%E5%A4%A7%E5%9C%BA%E6%99%AF/index.xml" rel="self" type="application/rss+xml"/><item><title>加了索引还慢？揭秘10个索引失效现场，别再背锅了！</title><link>https://blog.irudder.me/tech/jiagouyouhuashizhananlijiexi/mysqlmanchaxunyouhua_suoyinshixiaodeshidachangjing.html</link><pubDate>Sun, 23 Aug 2020 00:00:00 +0800</pubDate><author>irudder@126.com (irudder)</author><guid>https://blog.irudder.me/tech/jiagouyouhuashizhananlijiexi/mysqlmanchaxunyouhua_suoyinshixiaodeshidachangjing.html</guid><description>&lt;img src="https://blog.irudder.me/images/covers/tech-2.jpg" alt="Featured image of post 加了索引还慢？揭秘10个索引失效现场，别再背锅了！" /&gt;&lt;p&gt;凌晨两点，报警群里的钉钉机器人突然“发疯”，提示数据库 CPU 飙升到 99%。&lt;/p&gt;
 &lt;p&gt;作为运维负责人，我揉着惺忪的睡眼打开监控，发现一条看起来“人畜无害”的查询 SQL 堵塞了整个线程池。更要命的是，开发兄弟在旁边一脸委屈地发誓：“哥，这个字段我明明加了索引的，本地测都很快，怎么上线就炸了？”&lt;/p&gt;
 &lt;p&gt;这种场景，不知道你是不是也似曾相识？&lt;/p&gt;
 &lt;p&gt;很多时候，我们以为加了索引就是给数据库穿上了“加速鞋”，殊不知在某些特定写法的“骚操作”下，索引会直接失效，让查询变成全表扫描（Full Table Scan）的“慢动作重播”。&lt;/p&gt;
@@ -9,10 +9,6 @@
 &lt;p&gt;&lt;strong&gt;真实复盘：&lt;/strong&gt;
 大概两年前，我们接手了一个电商大促活动。系统里有一个根据手机号查询用户订单的接口。表结构里 &lt;code&gt;phone&lt;/code&gt; 字段定义的是 &lt;code&gt;VARCHAR(20)&lt;/code&gt;，并且建了索引。&lt;/p&gt;
 &lt;p&gt;结果大促开始没多久，数据库就开始告警。DBA 一看慢日志，抓到了这条 SQL：&lt;/p&gt;
-&lt;p&gt;&lt;img src="https://picsum.photos/800/450?random=1768457181740"
-loading="lazy"
-alt="配图"
-&gt;&lt;/p&gt;
 &lt;div class="highlight"&gt;&lt;div class="chroma"&gt;
 &lt;table class="lntable"&gt;&lt;tr&gt;&lt;td class="lntd"&gt;
 &lt;pre tabindex="0" class="chroma"&gt;&lt;code&gt;&lt;span class="lnt"&gt;1
@@ -48,10 +44,6 @@ alt="配图"
 &lt;p&gt;&lt;strong&gt;只要在索引列上做计算、使用函数（如 &lt;code&gt;left&lt;/code&gt;, &lt;code&gt;substr&lt;/code&gt;, &lt;code&gt;to_days&lt;/code&gt; 等），索引大概率会失效。&lt;/strong&gt;&lt;/p&gt;
 &lt;p&gt;&lt;strong&gt;落地建议：&lt;/strong&gt;
 把计算放到“等号右边”，或者在应用层算好再传给数据库。上面那个例子，改成范围查询瞬间起飞：&lt;/p&gt;
-&lt;p&gt;&lt;img src="https://picsum.photos/800/450?random=1768457179798"
-loading="lazy"
-alt="配图"
-&gt;&lt;/p&gt;
 &lt;div class="highlight"&gt;&lt;div class="chroma"&gt;
 &lt;table class="lntable"&gt;&lt;tr&gt;&lt;td class="lntd"&gt;
 &lt;pre tabindex="0" class="chroma"&gt;&lt;code&gt;&lt;span class="lnt"&gt;1
@@ -107,10 +99,6 @@ MySQL 的 B+树索引是“最左前缀”匹配。想象你在查电话簿，�
 &lt;li&gt;&lt;strong&gt;字符集不统一&lt;/strong&gt;：两个表做关联查询（JOIN），如果一个表是 &lt;code&gt;utf8&lt;/code&gt;，另一个是 &lt;code&gt;utf8mb4&lt;/code&gt;，索引也会失效！这个问题极隐蔽，排查起来能要把人逼疯。&lt;/li&gt;
 &lt;/ol&gt;
 &lt;hr&gt;
-&lt;p&gt;&lt;img src="https://picsum.photos/800/450?random=1768457180805"
-loading="lazy"
-alt="配图"
-&gt;&lt;/p&gt;
 &lt;h2 id="五-写给你的落地锦囊"&gt;五、 写给你的落地锦囊
 &lt;/h2&gt;&lt;p&gt;说了这么多坑，最后给你一套我一直在用的&lt;strong&gt;排查与优化模板&lt;/strong&gt;。下次遇到慢查询，别慌，按这个步骤来。&lt;/p&gt;
 &lt;h3 id="1-必杀技explain"&gt;1. 必杀技：EXPLAIN

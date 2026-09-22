@@ -1,4 +1,4 @@
-<?xml version="1.0" encoding="utf-8" standalone="yes"?><rss version="2.0" xmlns:atom="http://www.w3.org/2005/Atom"><channel><title>架构重构：小步迭代的优化方法 on SelfTechHub</title><link>https://blog.irudder.me/tags/%E6%9E%B6%E6%9E%84%E9%87%8D%E6%9E%84%E5%B0%8F%E6%AD%A5%E8%BF%AD%E4%BB%A3%E7%9A%84%E4%BC%98%E5%8C%96%E6%96%B9%E6%B3%95.html</link><description>Recent content in 架构重构：小步迭代的优化方法 on SelfTechHub</description><generator>Hugo -- gohugo.io</generator><language>zh-cn</language><managingEditor>irudder@126.com (irudder)</managingEditor><webMaster>irudder@126.com (irudder)</webMaster><lastBuildDate>Thu, 07 May 2020 00:00:00 +0800</lastBuildDate><atom:link href="https://blog.irudder.me/tags/%E6%9E%B6%E6%9E%84%E9%87%8D%E6%9E%84%E5%B0%8F%E6%AD%A5%E8%BF%AD%E4%BB%A3%E7%9A%84%E4%BC%98%E5%8C%96%E6%96%B9%E6%B3%95/index.xml" rel="self" type="application/rss+xml"/><item><title>别再推倒重来！中小团队架构重构的3个「手术刀」式策略</title><link>https://blog.irudder.me/tech/zhongxiaoxingxiangmujiagoushejizhinan/jiagouzhonggou_xiaobudiedaideyouhuafangfa.html</link><pubDate>Thu, 07 May 2020 00:00:00 +0800</pubDate><author>irudder@126.com (irudder)</author><guid>https://blog.irudder.me/tech/zhongxiaoxingxiangmujiagoushejizhinan/jiagouzhonggou_xiaobudiedaideyouhuafangfa.html</guid><description>&lt;p&gt;2019年冬天，我所在的团队曾面临一个生死攸关的抉择：核心交易系统的代码已经跑了4年，也就是我们常说的“屎山”——逻辑耦合严重、改一行代码崩三个功能。当时的CTO拍板决定：&lt;strong&gt;停掉所有新需求，全员闭关两个月，从零重写V2.0版本。&lt;/strong&gt;&lt;/p&gt;
+<?xml version="1.0" encoding="utf-8" standalone="yes"?><rss version="2.0" xmlns:atom="http://www.w3.org/2005/Atom"><channel><title>架构重构：小步迭代的优化方法 on SelfTechHub</title><link>https://blog.irudder.me/tags/%E6%9E%B6%E6%9E%84%E9%87%8D%E6%9E%84%E5%B0%8F%E6%AD%A5%E8%BF%AD%E4%BB%A3%E7%9A%84%E4%BC%98%E5%8C%96%E6%96%B9%E6%B3%95.html</link><description>Recent content in 架构重构：小步迭代的优化方法 on SelfTechHub</description><generator>Hugo -- gohugo.io</generator><language>zh-cn</language><managingEditor>irudder@126.com (irudder)</managingEditor><webMaster>irudder@126.com (irudder)</webMaster><lastBuildDate>Thu, 07 May 2020 00:00:00 +0800</lastBuildDate><atom:link href="https://blog.irudder.me/tags/%E6%9E%B6%E6%9E%84%E9%87%8D%E6%9E%84%E5%B0%8F%E6%AD%A5%E8%BF%AD%E4%BB%A3%E7%9A%84%E4%BC%98%E5%8C%96%E6%96%B9%E6%B3%95/index.xml" rel="self" type="application/rss+xml"/><item><title>别再推倒重来！中小团队架构重构的3个「手术刀」式策略</title><link>https://blog.irudder.me/tech/zhongxiaoxingxiangmujiagoushejizhinan/jiagouzhonggou_xiaobudiedaideyouhuafangfa.html</link><pubDate>Thu, 07 May 2020 00:00:00 +0800</pubDate><author>irudder@126.com (irudder)</author><guid>https://blog.irudder.me/tech/zhongxiaoxingxiangmujiagoushejizhinan/jiagouzhonggou_xiaobudiedaideyouhuafangfa.html</guid><description>&lt;img src="https://blog.irudder.me/images/covers/tech-1.jpg" alt="Featured image of post 别再推倒重来！中小团队架构重构的3个「手术刀」式策略" /&gt;&lt;p&gt;2019年冬天，我所在的团队曾面临一个生死攸关的抉择：核心交易系统的代码已经跑了4年，也就是我们常说的“屎山”——逻辑耦合严重、改一行代码崩三个功能。当时的CTO拍板决定：&lt;strong&gt;停掉所有新需求，全员闭关两个月，从零重写V2.0版本。&lt;/strong&gt;&lt;/p&gt;
 &lt;p&gt;结果想必很多人都猜到了：原本计划两个月的重构拖到了半年，上线当天发生了严重的据不一致，导致公司直接损失了六位数，团队士气跌入谷底。&lt;/p&gt;
 &lt;p&gt;那次惨痛的经历给我打下了思想钢印：&lt;strong&gt;对于中小团队，任何试图通过“大爆炸”式重写来解决技术债的行为，大概率都是自杀。&lt;/strong&gt;&lt;/p&gt;
 &lt;p&gt;架构重构不该是推倒重建的爆破工程，而应该是一场精密的显微外科手术。特别是对于资源有限、业务压力大的中小团队，“小步快跑、由于改动引发的故障归零”才是王道。这也是我这几年一直在践行的**“手术刀”式重构法则**。&lt;/p&gt;
@@ -14,10 +14,6 @@
 &lt;/ol&gt;
 &lt;blockquote&gt;
 &lt;p&gt;“只有当新旧系统的运行结果一致性达到99.99%以上时，我们才敢真正切换开关。”&lt;/p&gt;&lt;/blockquote&gt;
-&lt;p&gt;&lt;img src="https://picsum.photos/800/450?random=1768457088148"
-loading="lazy"
-alt="配图"
-&gt;&lt;/p&gt;
 &lt;p&gt;这个过程持续了三个星期。直到某个周五下午，监控大盘显示新旧系统的差异归零，我们才平滑地切断了老系统的流量。整个过程用户零感知，而我们将一个维护成本极高的单体模块，成功剥离成了独立服务。&lt;/p&gt;
 &lt;p&gt;&lt;strong&gt;核心逻辑：&lt;/strong&gt; 面对遗留系统，&lt;strong&gt;隔离优于修改&lt;/strong&gt;。用“绞杀者模式（Strangler Fig Pattern）”逐步替代，而不是原地翻修。&lt;/p&gt;
 &lt;h2 id="策略二数据驱动拒绝审美式重构"&gt;策略二：数据驱动，拒绝“审美式”重构
@@ -45,11 +41,7 @@ alt="配图"
 &lt;/span&gt;&lt;/span&gt;&lt;/span&gt;&lt;span class="line"&gt;&lt;span class="cl"&gt;&lt;span class="w"&gt;&lt;/span&gt;&lt;span class="n"&gt;metricService&lt;/span&gt;&lt;span class="p"&gt;.&lt;/span&gt;&lt;span class="na"&gt;record&lt;/span&gt;&lt;span class="p"&gt;(&lt;/span&gt;&lt;span class="s"&gt;&amp;#34;serialization_cost&amp;#34;&lt;/span&gt;&lt;span class="p"&gt;,&lt;/span&gt;&lt;span class="w"&gt; &lt;/span&gt;&lt;span class="n"&gt;System&lt;/span&gt;&lt;span class="p"&gt;.&lt;/span&gt;&lt;span class="na"&gt;currentTimeMillis&lt;/span&gt;&lt;span class="p"&gt;()&lt;/span&gt;&lt;span class="w"&gt; &lt;/span&gt;&lt;span class="o"&gt;-&lt;/span&gt;&lt;span class="w"&gt; &lt;/span&gt;&lt;span class="n"&gt;start&lt;/span&gt;&lt;span class="p"&gt;);&lt;/span&gt;&lt;span class="w"&gt;
 &lt;/span&gt;&lt;/span&gt;&lt;/span&gt;&lt;/code&gt;&lt;/pre&gt;&lt;/td&gt;&lt;/tr&gt;&lt;/table&gt;
 &lt;/div&gt;
-&lt;/div&gt;&lt;p&gt;&lt;img src="https://picsum.photos/800/450?random=1768457085601"
-loading="lazy"
-alt="配图"
-&gt;&lt;/p&gt;
-&lt;p&gt;&lt;strong&gt;方法论：&lt;/strong&gt;
+&lt;/div&gt;&lt;p&gt;&lt;strong&gt;方法论：&lt;/strong&gt;
 在动手改任何一行代码前，先问自己三个问题：&lt;/p&gt;
 &lt;ol&gt;
 &lt;li&gt;当前的性能瓶颈/痛点有数据支撑吗？&lt;/li&gt;

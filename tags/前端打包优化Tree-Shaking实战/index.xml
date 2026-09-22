@@ -1,12 +1,8 @@
-<?xml version="1.0" encoding="utf-8" standalone="yes"?><rss version="2.0" xmlns:atom="http://www.w3.org/2005/Atom"><channel><title>前端打包优化：Tree Shaking实战 on SelfTechHub</title><link>https://blog.irudder.me/tags/%E5%89%8D%E7%AB%AF%E6%89%93%E5%8C%85%E4%BC%98%E5%8C%96Tree-Shaking%E5%AE%9E%E6%88%98.html</link><description>Recent content in 前端打包优化：Tree Shaking实战 on SelfTechHub</description><generator>Hugo -- gohugo.io</generator><language>zh-cn</language><managingEditor>irudder@126.com (irudder)</managingEditor><webMaster>irudder@126.com (irudder)</webMaster><lastBuildDate>Mon, 05 Feb 2024 00:00:00 +0800</lastBuildDate><atom:link href="https://blog.irudder.me/tags/%E5%89%8D%E7%AB%AF%E6%89%93%E5%8C%85%E4%BC%98%E5%8C%96Tree-Shaking%E5%AE%9E%E6%88%98/index.xml" rel="self" type="application/rss+xml"/><item><title>体积减半？揭秘Tree Shaking“失效”的3个隐形杀手</title><link>https://blog.irudder.me/tech/jiagouyouhuashizhananlijiexi/qianduandabaoyouhua_tree-shakingshizhan.html</link><pubDate>Mon, 05 Feb 2024 00:00:00 +0800</pubDate><author>irudder@126.com (irudder)</author><guid>https://blog.irudder.me/tech/jiagouyouhuashizhananlijiexi/qianduandabaoyouhua_tree-shakingshizhan.html</guid><description>&lt;p&gt;还记得两年前那个周五的凌晨两点，我盯着Jenkins的构建日志发呆。&lt;/p&gt;
+<?xml version="1.0" encoding="utf-8" standalone="yes"?><rss version="2.0" xmlns:atom="http://www.w3.org/2005/Atom"><channel><title>前端打包优化：Tree Shaking实战 on SelfTechHub</title><link>https://blog.irudder.me/tags/%E5%89%8D%E7%AB%AF%E6%89%93%E5%8C%85%E4%BC%98%E5%8C%96Tree-Shaking%E5%AE%9E%E6%88%98.html</link><description>Recent content in 前端打包优化：Tree Shaking实战 on SelfTechHub</description><generator>Hugo -- gohugo.io</generator><language>zh-cn</language><managingEditor>irudder@126.com (irudder)</managingEditor><webMaster>irudder@126.com (irudder)</webMaster><lastBuildDate>Mon, 05 Feb 2024 00:00:00 +0800</lastBuildDate><atom:link href="https://blog.irudder.me/tags/%E5%89%8D%E7%AB%AF%E6%89%93%E5%8C%85%E4%BC%98%E5%8C%96Tree-Shaking%E5%AE%9E%E6%88%98/index.xml" rel="self" type="application/rss+xml"/><item><title>体积减半？揭秘Tree Shaking“失效”的3个隐形杀手</title><link>https://blog.irudder.me/tech/jiagouyouhuashizhananlijiexi/qianduandabaoyouhua_tree-shakingshizhan.html</link><pubDate>Mon, 05 Feb 2024 00:00:00 +0800</pubDate><author>irudder@126.com (irudder)</author><guid>https://blog.irudder.me/tech/jiagouyouhuashizhananlijiexi/qianduandabaoyouhua_tree-shakingshizhan.html</guid><description>&lt;img src="https://blog.irudder.me/images/covers/tech-1.jpg" alt="Featured image of post 体积减半？揭秘Tree Shaking“失效”的3个隐形杀手" /&gt;&lt;p&gt;还记得两年前那个周五的凌晨两点，我盯着Jenkins的构建日志发呆。&lt;/p&gt;
 &lt;p&gt;当时的那个后台管理系统项目，经过半年的功能堆砌，首屏加载文件（Main Bundle）竟然膨胀到了 4.8MB。在弱网环境下测试，白屏时间长达 8 秒。老板在群里丢下一句：“这速度，客户能忍？”&lt;/p&gt;
 &lt;p&gt;我当时信心满满地回复：“放心，我开了 Tree Shaking，构建时会自动剔除没用的代码。”&lt;/p&gt;
 &lt;p&gt;然而现实给了我一记响亮的耳光。明明配置了 &lt;code&gt;mode: production&lt;/code&gt;，明明用了 ES6 模块，为什么那些根本没用到的重型图表库、几年前遗留的加密函数，依然稳稳地躺在打包产物里？&lt;/p&gt;
 &lt;p&gt;Tree Shaking 并不是一个“开了就能用”的魔法开关。在实战中，我踩过无数坑，才发现让它失效的往往是我们习以为常的代码习惯。今天，我想带大家复盘那次优化经历，聊聊如何揪出那 50% 的冗余代码。&lt;/p&gt;
-&lt;p&gt;&lt;img src="https://picsum.photos/800/450?random=1768457833621"
-loading="lazy"
-alt="配图"
-&gt;&lt;/p&gt;
 &lt;h2 id="一-被误杀的-css-与-sideeffects-的博弈"&gt;一、 被误杀的 CSS 与 &lt;code&gt;sideEffects&lt;/code&gt; 的博弈
 &lt;/h2&gt;&lt;p&gt;很多人（包括当年的我）认为，Tree Shaking 只是 Webpack 自己的事。&lt;/p&gt;
 &lt;p&gt;在那次项目中，为了激进地减少体积，我直接在 &lt;code&gt;package.json&lt;/code&gt; 里加上了 &lt;code&gt;&amp;quot;sideEffects&amp;quot;: false&lt;/code&gt;。我想法很简单：只要没被引用的文件，统统干掉。&lt;/p&gt;
@@ -42,10 +38,6 @@ alt="配图"
 &lt;/div&gt;&lt;p&gt;&lt;strong&gt;关键点：&lt;/strong&gt; 哪怕是 JS 文件，如果只执行逻辑不导出变量（比如挂载 window 对象、Polyfill），也必须加入这个白名单，否则不仅是样式丢失，连基础功能都会莫名其妙失效。&lt;/p&gt;
 &lt;h2 id="二-babel-的热心肠成了绊脚石"&gt;二、 Babel 的“热心肠”成了绊脚石
 &lt;/h2&gt;&lt;p&gt;解决了样式问题，我发现体积只下降了一点点。用 &lt;code&gt;webpack-bundle-analyzer&lt;/code&gt; 一看，很多没用到的 &lt;code&gt;lodash&lt;/code&gt; 方法依然被打包进去了。&lt;/p&gt;
-&lt;p&gt;&lt;img src="https://picsum.photos/800/450?random=1768457836605"
-loading="lazy"
-alt="配图"
-&gt;&lt;/p&gt;
 &lt;p&gt;排查了一整天，我才发现真正的凶手竟然是 &lt;strong&gt;Babel&lt;/strong&gt;。&lt;/p&gt;
 &lt;p&gt;Tree Shaking 的核心依赖于 ES6 的模块机制（&lt;code&gt;import&lt;/code&gt; / &lt;code&gt;export&lt;/code&gt;），因为它是静态的，打包工具可以在编译时确定哪些导出被使用了。然而，早期的 Babel 配置非常“智能”，它默认会把 ES6 模块转译成 CommonJS（&lt;code&gt;require&lt;/code&gt; / &lt;code&gt;module.exports&lt;/code&gt;）。&lt;/p&gt;
 &lt;p&gt;这就好比 Webpack 想做外科手术切除肿瘤，但 Babel 提前把病人裹成了一个严严实实的木乃伊（CommonJS），Webpack 根本无从下刀，只能把整个模块全盘保留。&lt;/p&gt;

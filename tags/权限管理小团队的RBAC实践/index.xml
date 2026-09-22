@@ -1,16 +1,8 @@
-<?xml version="1.0" encoding="utf-8" standalone="yes"?><rss version="2.0" xmlns:atom="http://www.w3.org/2005/Atom"><channel><title>权限管理：小团队的RBAC实践 on SelfTechHub</title><link>https://blog.irudder.me/tags/%E6%9D%83%E9%99%90%E7%AE%A1%E7%90%86%E5%B0%8F%E5%9B%A2%E9%98%9F%E7%9A%84RBAC%E5%AE%9E%E8%B7%B5.html</link><description>Recent content in 权限管理：小团队的RBAC实践 on SelfTechHub</description><generator>Hugo -- gohugo.io</generator><language>zh-cn</language><managingEditor>irudder@126.com (irudder)</managingEditor><webMaster>irudder@126.com (irudder)</webMaster><lastBuildDate>Thu, 13 Nov 2025 00:00:00 +0800</lastBuildDate><atom:link href="https://blog.irudder.me/tags/%E6%9D%83%E9%99%90%E7%AE%A1%E7%90%86%E5%B0%8F%E5%9B%A2%E9%98%9F%E7%9A%84RBAC%E5%AE%9E%E8%B7%B5/index.xml" rel="self" type="application/rss+xml"/><item><title>别等删库才后悔：小团队RBAC避坑实录</title><link>https://blog.irudder.me/tech/zhongxiaoxingtuanduidevopsluodifangan/quanxianguanli_xiaotuanduiderbacshijian.html</link><pubDate>Thu, 13 Nov 2025 00:00:00 +0800</pubDate><author>irudder@126.com (irudder)</author><guid>https://blog.irudder.me/tech/zhongxiaoxingtuanduidevopsluodifangan/quanxianguanli_xiaotuanduiderbacshijian.html</guid><description>&lt;p&gt;&lt;img src="https://picsum.photos/800/450?random=1768389999538"
-loading="lazy"
-alt="配图"
-&gt;&lt;/p&gt;
-&lt;p&gt;老实说，在创业初期，我一度认为“权限管理”就是效率的绊脚石。&lt;/p&gt;
+<?xml version="1.0" encoding="utf-8" standalone="yes"?><rss version="2.0" xmlns:atom="http://www.w3.org/2005/Atom"><channel><title>权限管理：小团队的RBAC实践 on SelfTechHub</title><link>https://blog.irudder.me/tags/%E6%9D%83%E9%99%90%E7%AE%A1%E7%90%86%E5%B0%8F%E5%9B%A2%E9%98%9F%E7%9A%84RBAC%E5%AE%9E%E8%B7%B5.html</link><description>Recent content in 权限管理：小团队的RBAC实践 on SelfTechHub</description><generator>Hugo -- gohugo.io</generator><language>zh-cn</language><managingEditor>irudder@126.com (irudder)</managingEditor><webMaster>irudder@126.com (irudder)</webMaster><lastBuildDate>Thu, 13 Nov 2025 00:00:00 +0800</lastBuildDate><atom:link href="https://blog.irudder.me/tags/%E6%9D%83%E9%99%90%E7%AE%A1%E7%90%86%E5%B0%8F%E5%9B%A2%E9%98%9F%E7%9A%84RBAC%E5%AE%9E%E8%B7%B5/index.xml" rel="self" type="application/rss+xml"/><item><title>别等删库才后悔：小团队RBAC避坑实录</title><link>https://blog.irudder.me/tech/zhongxiaoxingtuanduidevopsluodifangan/quanxianguanli_xiaotuanduiderbacshijian.html</link><pubDate>Thu, 13 Nov 2025 00:00:00 +0800</pubDate><author>irudder@126.com (irudder)</author><guid>https://blog.irudder.me/tech/zhongxiaoxingtuanduidevopsluodifangan/quanxianguanli_xiaotuanduiderbacshijian.html</guid><description>&lt;img src="https://blog.irudder.me/images/covers/tech-2.jpg" alt="Featured image of post 别等删库才后悔：小团队RBAC避坑实录" /&gt;&lt;p&gt;老实说，在创业初期，我一度认为“权限管理”就是效率的绊脚石。&lt;/p&gt;
 &lt;p&gt;那时候团队一共才5个人，大家都在同一个屋檐下写代码，谁负责什么一嗓子就能吼明白。为了图方便，我们的数据库账号密码直接钉在钉钉群公告里，服务器SSH密钥也是人手一份。&lt;/p&gt;
 &lt;p&gt;当时我的理由很充分：“大家都是兄弟，相互信任，搞那么复杂的权限申请流程，这代码还怎么写？功能还上不上线了？”&lt;/p&gt;
 &lt;p&gt;直到那个周五的晚上，新来的后端实习生本来想在本地环境清空测试数据，结果因为配置没切换干净，直接连上生产环境执行了 &lt;code&gt;DROP TABLE&lt;/code&gt;。虽然我们有备份，但恢复数据那两个小时里，客服电话被打爆的恐惧感，我现在都记得清清楚楚。&lt;/p&gt;
 &lt;p&gt;从那以后，我才真正意识到：&lt;strong&gt;权限管理的本质不是“不信任”，而是“保护”。&lt;/strong&gt; 它保护系统不被误操作搞崩，也保护团队成员不因背锅而心态爆炸。&lt;/p&gt;
-&lt;p&gt;&lt;img src="https://picsum.photos/800/450?random=1768390000373"
-loading="lazy"
-alt="配图"
-&gt;&lt;/p&gt;
 &lt;p&gt;今天想复盘一下，在资源有限的中小团队，我们是如何从“裸奔”过渡到一套低成本、可落地的RBAC（基于角色的访问控制）体系的。&lt;/p&gt;
 &lt;h2 id="告别一把梭不仅是代码层面的重构"&gt;告别“一把梭”：不仅是代码层面的重构
 &lt;/h2&gt;&lt;p&gt;很多技术负责人在做权限改造时，容易陷入一个误区：上来就想搞一套像阿里云RAM那样大而全的系统，或者在代码里硬编码一堆 &lt;code&gt;if (user.id === 1)&lt;/code&gt;。&lt;/p&gt;
@@ -18,10 +10,6 @@ alt="配图"
 &lt;p&gt;&lt;strong&gt;痛定思痛，我们决定引入RBAC，但必须遵循“奥卡姆剃刀”原则：如无必要，勿增实体。&lt;/strong&gt;&lt;/p&gt;
 &lt;p&gt;对于20人以内的研发团队，你根本不需要复杂的权限继承、互斥组。你只需要最基础的&lt;strong&gt;用户-角色-权限&lt;/strong&gt;三层模型。&lt;/p&gt;
 &lt;p&gt;&lt;strong&gt;我是怎么做的？&lt;/strong&gt;&lt;/p&gt;
-&lt;p&gt;&lt;img src="https://picsum.photos/800/450?random=1768389997658"
-loading="lazy"
-alt="配图"
-&gt;&lt;/p&gt;
 &lt;p&gt;我把原来混乱的权限梳理成了三个标准角色，这套逻辑我用了快三年，基本能覆盖90%的场景：&lt;/p&gt;
 &lt;ol&gt;
 &lt;li&gt;&lt;strong&gt;Admin（管理员）&lt;/strong&gt;：拥有所有权限，只有CTO和运维负责人持有。&lt;/li&gt;

@@ -1,9 +1,5 @@
-<?xml version="1.0" encoding="utf-8" standalone="yes"?><rss version="2.0" xmlns:atom="http://www.w3.org/2005/Atom"><channel><title>配置中心（Nacos/Apollo）在小团队的应用 on SelfTechHub</title><link>https://blog.irudder.me/tags/%E9%85%8D%E7%BD%AE%E4%B8%AD%E5%BF%83Nacos/Apollo%E5%9C%A8%E5%B0%8F%E5%9B%A2%E9%98%9F%E7%9A%84%E5%BA%94%E7%94%A8.html</link><description>Recent content in 配置中心（Nacos/Apollo）在小团队的应用 on SelfTechHub</description><generator>Hugo -- gohugo.io</generator><language>zh-cn</language><managingEditor>irudder@126.com (irudder)</managingEditor><webMaster>irudder@126.com (irudder)</webMaster><lastBuildDate>Sun, 06 Feb 2022 00:00:00 +0800</lastBuildDate><atom:link href="https://blog.irudder.me/tags/%E9%85%8D%E7%BD%AE%E4%B8%AD%E5%BF%83Nacos/Apollo%E5%9C%A8%E5%B0%8F%E5%9B%A2%E9%98%9F%E7%9A%84%E5%BA%94%E7%94%A8/index.xml" rel="self" type="application/rss+xml"/><item><title>小团队别碰Apollo？Nacos配置管理的血泪避坑指南</title><link>https://blog.irudder.me/tech/zhongxiaoxingtuanduidevopsluodifangan/peizhizhongxinnacos_apollozaixiaotuanduideyingyong.html</link><pubDate>Sun, 06 Feb 2022 00:00:00 +0800</pubDate><author>irudder@126.com (irudder)</author><guid>https://blog.irudder.me/tech/zhongxiaoxingtuanduidevopsluodifangan/peizhizhongxinnacos_apollozaixiaotuanduideyingyong.html</guid><description>&lt;p&gt;还记得那个让人心惊肉跳的周五下午吗？&lt;/p&gt;
+<?xml version="1.0" encoding="utf-8" standalone="yes"?><rss version="2.0" xmlns:atom="http://www.w3.org/2005/Atom"><channel><title>配置中心（Nacos/Apollo）在小团队的应用 on SelfTechHub</title><link>https://blog.irudder.me/tags/%E9%85%8D%E7%BD%AE%E4%B8%AD%E5%BF%83Nacos/Apollo%E5%9C%A8%E5%B0%8F%E5%9B%A2%E9%98%9F%E7%9A%84%E5%BA%94%E7%94%A8.html</link><description>Recent content in 配置中心（Nacos/Apollo）在小团队的应用 on SelfTechHub</description><generator>Hugo -- gohugo.io</generator><language>zh-cn</language><managingEditor>irudder@126.com (irudder)</managingEditor><webMaster>irudder@126.com (irudder)</webMaster><lastBuildDate>Sun, 06 Feb 2022 00:00:00 +0800</lastBuildDate><atom:link href="https://blog.irudder.me/tags/%E9%85%8D%E7%BD%AE%E4%B8%AD%E5%BF%83Nacos/Apollo%E5%9C%A8%E5%B0%8F%E5%9B%A2%E9%98%9F%E7%9A%84%E5%BA%94%E7%94%A8/index.xml" rel="self" type="application/rss+xml"/><item><title>小团队别碰Apollo？Nacos配置管理的血泪避坑指南</title><link>https://blog.irudder.me/tech/zhongxiaoxingtuanduidevopsluodifangan/peizhizhongxinnacos_apollozaixiaotuanduideyingyong.html</link><pubDate>Sun, 06 Feb 2022 00:00:00 +0800</pubDate><author>irudder@126.com (irudder)</author><guid>https://blog.irudder.me/tech/zhongxiaoxingtuanduidevopsluodifangan/peizhizhongxinnacos_apollozaixiaotuanduideyingyong.html</guid><description>&lt;img src="https://blog.irudder.me/images/covers/tech-2.jpg" alt="Featured image of post 小团队别碰Apollo？Nacos配置管理的血泪避坑指南" /&gt;&lt;p&gt;还记得那个让人心惊肉跳的周五下午吗？&lt;/p&gt;
 &lt;p&gt;为了修复一个线上文案错误，后端老张不得不修改代码里的&lt;code&gt;constant&lt;/code&gt;常量，重新打包、停止服务、上传Jar包、重启应用。就在重启的那几十秒里，三个核心订单因为服务不可用导致支付回调失败，客户群里炸了锅。&lt;/p&gt;
-&lt;p&gt;&lt;img src="https://picsum.photos/800/450?random=1768389443894"
-loading="lazy"
-alt="配图"
-&gt;&lt;/p&gt;
 &lt;p&gt;或者更糟糕的场景：测试环境的数据库地址被不小心带到了生产环境配置文件中，一次代码提交，直接把生产库的数据洗白了。&lt;/p&gt;
 &lt;p&gt;如果你还在用Git管理敏感配置，或者每次修改配置都要重启服务，那么你的团队正在通过一种极其昂贵且危险的方式“裸奔”。&lt;/p&gt;
 &lt;p&gt;作为一名在小团队摸爬滚打多年的技术负责人，我桌面上至今保留着一个名为“事故复盘”的文件夹。今天不谈高大上的架构理论，只想聊聊在缺乏专职运维、资源有限的中小团队，如何用最低成本搞定配置中心这件事。&lt;/p&gt;
@@ -65,11 +61,7 @@ alt="配图"
 &lt;/span&gt;&lt;/span&gt;&lt;/span&gt;&lt;span class="line"&gt;&lt;span class="cl"&gt;&lt;span class="w"&gt;&lt;/span&gt;&lt;span class="p"&gt;}&lt;/span&gt;&lt;span class="w"&gt;
 &lt;/span&gt;&lt;/span&gt;&lt;/span&gt;&lt;/code&gt;&lt;/pre&gt;&lt;/td&gt;&lt;/tr&gt;&lt;/table&gt;
 &lt;/div&gt;
-&lt;/div&gt;&lt;p&gt;&lt;img src="https://picsum.photos/800/450?random=1768389445578"
-loading="lazy"
-alt="配图"
-&gt;&lt;/p&gt;
-&lt;p&gt;这就是DevOps的精髓：&lt;strong&gt;让开发人员通过配置控制业务，而不是通过部署控制业务。&lt;/strong&gt;&lt;/p&gt;
+&lt;/div&gt;&lt;p&gt;这就是DevOps的精髓：&lt;strong&gt;让开发人员通过配置控制业务，而不是通过部署控制业务。&lt;/strong&gt;&lt;/p&gt;
 &lt;p&gt;我曾在一次线上故障中，通过动态修改日志级别配置（从INFO改为DEBUG），在不重启服务的情况下瞬间捕获到了异常堆栈，5分钟内定位了问题。这种掌控感，试过一次就回不去了。&lt;/p&gt;
 &lt;h2 id="权限隔离别让实习生删了生产库"&gt;权限隔离：别让实习生删了生产库
 &lt;/h2&gt;&lt;p&gt;小团队最容易犯的错误就是“全员Admin”。为了图省事，Nacos/Apollo的账号密码直接写在公司Wiki里，谁都能上去改两笔。&lt;/p&gt;

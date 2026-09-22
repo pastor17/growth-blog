@@ -1,4 +1,4 @@
-<?xml version="1.0" encoding="utf-8" standalone="yes"?><rss version="2.0" xmlns:atom="http://www.w3.org/2005/Atom"><channel><title>测试策略：单元测试与集成测试的比例 on SelfTechHub</title><link>https://blog.irudder.me/tags/%E6%B5%8B%E8%AF%95%E7%AD%96%E7%95%A5%E5%8D%95%E5%85%83%E6%B5%8B%E8%AF%95%E4%B8%8E%E9%9B%86%E6%88%90%E6%B5%8B%E8%AF%95%E7%9A%84%E6%AF%94%E4%BE%8B.html</link><description>Recent content in 测试策略：单元测试与集成测试的比例 on SelfTechHub</description><generator>Hugo -- gohugo.io</generator><language>zh-cn</language><managingEditor>irudder@126.com (irudder)</managingEditor><webMaster>irudder@126.com (irudder)</webMaster><lastBuildDate>Thu, 03 Jul 2025 00:00:00 +0800</lastBuildDate><atom:link href="https://blog.irudder.me/tags/%E6%B5%8B%E8%AF%95%E7%AD%96%E7%95%A5%E5%8D%95%E5%85%83%E6%B5%8B%E8%AF%95%E4%B8%8E%E9%9B%86%E6%88%90%E6%B5%8B%E8%AF%95%E7%9A%84%E6%AF%94%E4%BE%8B/index.xml" rel="self" type="application/rss+xml"/><item><title>还在死磕80%覆盖率？中小团队测试避坑指南</title><link>https://blog.irudder.me/tech/danxiangmuquanliuchengchaijie10fenzhongkedu/ceshicelve_danyuanceshiyujichengceshidebili.html</link><pubDate>Thu, 03 Jul 2025 00:00:00 +0800</pubDate><author>irudder@126.com (irudder)</author><guid>https://blog.irudder.me/tech/danxiangmuquanliuchengchaijie10fenzhongkedu/ceshicelve_danyuanceshiyujichengceshidebili.html</guid><description>&lt;p&gt;前几年带团队的时候，我曾是个不折不扣的“原教旨主义者”。那时我把谷歌的“测试金字塔”奉为圭臬，要求团队死磕单元测试覆盖率，少于80%的代码坚决不许合入主分支。&lt;/p&gt;
+<?xml version="1.0" encoding="utf-8" standalone="yes"?><rss version="2.0" xmlns:atom="http://www.w3.org/2005/Atom"><channel><title>测试策略：单元测试与集成测试的比例 on SelfTechHub</title><link>https://blog.irudder.me/tags/%E6%B5%8B%E8%AF%95%E7%AD%96%E7%95%A5%E5%8D%95%E5%85%83%E6%B5%8B%E8%AF%95%E4%B8%8E%E9%9B%86%E6%88%90%E6%B5%8B%E8%AF%95%E7%9A%84%E6%AF%94%E4%BE%8B.html</link><description>Recent content in 测试策略：单元测试与集成测试的比例 on SelfTechHub</description><generator>Hugo -- gohugo.io</generator><language>zh-cn</language><managingEditor>irudder@126.com (irudder)</managingEditor><webMaster>irudder@126.com (irudder)</webMaster><lastBuildDate>Thu, 03 Jul 2025 00:00:00 +0800</lastBuildDate><atom:link href="https://blog.irudder.me/tags/%E6%B5%8B%E8%AF%95%E7%AD%96%E7%95%A5%E5%8D%95%E5%85%83%E6%B5%8B%E8%AF%95%E4%B8%8E%E9%9B%86%E6%88%90%E6%B5%8B%E8%AF%95%E7%9A%84%E6%AF%94%E4%BE%8B/index.xml" rel="self" type="application/rss+xml"/><item><title>还在死磕80%覆盖率？中小团队测试避坑指南</title><link>https://blog.irudder.me/tech/danxiangmuquanliuchengchaijie10fenzhongkedu/ceshicelve_danyuanceshiyujichengceshidebili.html</link><pubDate>Thu, 03 Jul 2025 00:00:00 +0800</pubDate><author>irudder@126.com (irudder)</author><guid>https://blog.irudder.me/tech/danxiangmuquanliuchengchaijie10fenzhongkedu/ceshicelve_danyuanceshiyujichengceshidebili.html</guid><description>&lt;img src="https://blog.irudder.me/images/covers/tech-2.jpg" alt="Featured image of post 还在死磕80%覆盖率？中小团队测试避坑指南" /&gt;&lt;p&gt;前几年带团队的时候，我曾是个不折不扣的“原教旨主义者”。那时我把谷歌的“测试金字塔”奉为圭臬，要求团队死磕单元测试覆盖率，少于80%的代码坚决不许合入主分支。&lt;/p&gt;
 &lt;p&gt;结果呢？&lt;/p&gt;
 &lt;p&gt;某个周五下午，我们满怀信心地发布了一个版本——毕竟CI流水线全是绿色的。然而上线不到十分钟，客服电话就被打爆了：用户下单后无法扣减库存。&lt;/p&gt;
 &lt;p&gt;大家手忙脚乱地回滚、排查，最后发现是一个简单的数据库字段映射错误。&lt;strong&gt;最讽刺的是，那个报错的函数，单元测试覆盖率是100%。&lt;/strong&gt; 因为写测试的哥们把数据库交互全Mock（模拟）掉了，测试代码跑得飞快，却完全是在“自嗨”。&lt;/p&gt;
@@ -8,10 +8,6 @@
 &lt;/h2&gt;&lt;p&gt;很多技术负责人（包括曾经的我）都有个执念：单元测试（Unit Test）写得越多，代码质量越好。理论上没错，但在中小团队的实际场景里，这往往是个坑。&lt;/p&gt;
 &lt;p&gt;我见过一个真实案例。有个做SaaS的小团队，为了追求所谓的“工程卓越”，规定所有业务逻辑必须写单元测试。&lt;/p&gt;
 &lt;p&gt;结果发生了什么？开发人员小李在写一个“用户注册”功能时，逻辑本身只有50行代码，但他写了200行测试代码。为什么？因为他要Mock数据库、Mock发送邮件的服务、Mock消息队列&amp;hellip;&lt;/p&gt;
-&lt;p&gt;&lt;img src="https://picsum.photos/800/450?random=1768449119874"
-loading="lazy"
-alt="配图"
-&gt;&lt;/p&gt;
 &lt;p&gt;&lt;strong&gt;这带来了两个致命问题：&lt;/strong&gt;&lt;/p&gt;
 &lt;ol&gt;
 &lt;li&gt;&lt;strong&gt;维护成本极高&lt;/strong&gt;：每当业务逻辑微调（比如注册流程加个验证码），小李不仅要改业务代码，还得去修那一大堆Mock逻辑。我亲眼看到他因为改测试代码改到崩溃，最后偷偷把断言（Assert）删了，只为了让流水线变绿。&lt;/li&gt;
@@ -43,7 +39,6 @@ alt="配图"
 &lt;/span&gt;&lt;span class="lnt"&gt;14
 &lt;/span&gt;&lt;span class="lnt"&gt;15
 &lt;/span&gt;&lt;span class="lnt"&gt;16
-&lt;/span&gt;&lt;span class="lnt"&gt;17
 &lt;/span&gt;&lt;/code&gt;&lt;/pre&gt;&lt;/td&gt;
 &lt;td class="lntd"&gt;
 &lt;pre tabindex="0" class="chroma"&gt;&lt;code class="language-javascript" data-lang="javascript"&gt;&lt;span class="line"&gt;&lt;span class="cl"&gt;&lt;span class="c1"&gt;// 伪代码示例：更务实的集成测试风格
@@ -56,8 +51,7 @@ alt="配图"
 &lt;/span&gt;&lt;/span&gt;&lt;span class="line"&gt;&lt;span class="cl"&gt; &lt;span class="p"&gt;.&lt;/span&gt;&lt;span class="nx"&gt;post&lt;/span&gt;&lt;span class="p"&gt;(&lt;/span&gt;&lt;span class="s1"&gt;&amp;#39;/api/register&amp;#39;&lt;/span&gt;&lt;span class="p"&gt;)&lt;/span&gt;
 &lt;/span&gt;&lt;/span&gt;&lt;span class="line"&gt;&lt;span class="cl"&gt; &lt;span class="p"&gt;.&lt;/span&gt;&lt;span class="nx"&gt;send&lt;/span&gt;&lt;span class="p"&gt;({&lt;/span&gt; &lt;span class="nx"&gt;email&lt;/span&gt;&lt;span class="o"&gt;:&lt;/span&gt; &lt;span class="s1"&gt;&amp;#39;test@example.com&amp;#39;&lt;/span&gt;&lt;span class="p"&gt;,&lt;/span&gt; &lt;span class="nx"&gt;password&lt;/span&gt;&lt;span class="o"&gt;:&lt;/span&gt; &lt;span class="s1"&gt;&amp;#39;123&amp;#39;&lt;/span&gt; &lt;span class="p"&gt;});&lt;/span&gt;
 &lt;/span&gt;&lt;/span&gt;&lt;span class="line"&gt;&lt;span class="cl"&gt;
-&lt;/span&gt;&lt;/span&gt;&lt;span class="line"&gt;&lt;span class="cl"&gt;&lt;span class="o"&gt;!&lt;/span&gt;&lt;span class="p"&gt;[&lt;/span&gt;&lt;span class="nx"&gt;配图&lt;/span&gt;&lt;span class="p"&gt;](&lt;/span&gt;&lt;span class="nx"&gt;https&lt;/span&gt;&lt;span class="o"&gt;:&lt;/span&gt;&lt;span class="c1"&gt;//picsum.photos/800/450?random=1768449123363)
-&lt;/span&gt;&lt;/span&gt;&lt;/span&gt;&lt;span class="line"&gt;&lt;span class="cl"&gt;&lt;span class="c1"&gt;&lt;/span&gt;
+&lt;/span&gt;&lt;/span&gt;&lt;span class="line"&gt;&lt;span class="cl"&gt;
 &lt;/span&gt;&lt;/span&gt;&lt;span class="line"&gt;&lt;span class="cl"&gt; &lt;span class="c1"&gt;// 3. 断言：检查响应和数据库真实状态
 &lt;/span&gt;&lt;/span&gt;&lt;/span&gt;&lt;span class="line"&gt;&lt;span class="cl"&gt;&lt;span class="c1"&gt;&lt;/span&gt; &lt;span class="nx"&gt;expect&lt;/span&gt;&lt;span class="p"&gt;(&lt;/span&gt;&lt;span class="nx"&gt;response&lt;/span&gt;&lt;span class="p"&gt;.&lt;/span&gt;&lt;span class="nx"&gt;status&lt;/span&gt;&lt;span class="p"&gt;).&lt;/span&gt;&lt;span class="nx"&gt;toBe&lt;/span&gt;&lt;span class="p"&gt;(&lt;/span&gt;&lt;span class="mi"&gt;200&lt;/span&gt;&lt;span class="p"&gt;);&lt;/span&gt;
 &lt;/span&gt;&lt;/span&gt;&lt;span class="line"&gt;&lt;span class="cl"&gt; &lt;span class="kr"&gt;const&lt;/span&gt; &lt;span class="nx"&gt;user&lt;/span&gt; &lt;span class="o"&gt;=&lt;/span&gt; &lt;span class="kr"&gt;await&lt;/span&gt; &lt;span class="nx"&gt;db&lt;/span&gt;&lt;span class="p"&gt;.&lt;/span&gt;&lt;span class="nx"&gt;findUser&lt;/span&gt;&lt;span class="p"&gt;(&lt;/span&gt;&lt;span class="s1"&gt;&amp;#39;test@example.com&amp;#39;&lt;/span&gt;&lt;span class="p"&gt;);&lt;/span&gt;
@@ -71,10 +65,6 @@ alt="配图"
 &lt;li&gt;&lt;strong&gt;抗重构能力强&lt;/strong&gt;：无论你内部代码怎么重构，把Service层拆分也好，换ORM框架也好，只要对外的HTTP接口不变，这个集成测试就不用改。这对于需求天天变的团队来说，简直是救命稻草。&lt;/li&gt;
 &lt;/ul&gt;
 &lt;p&gt;我曾在一个电商项目中，强制将集成测试的比例提升到60%，单元测试降到20%。结果是，那个季度的Bug率下降了40%，而且大家再也不怕重构老代码了。&lt;/p&gt;
-&lt;p&gt;&lt;img src="https://picsum.photos/800/450?random=1768449117627"
-loading="lazy"
-alt="配图"
-&gt;&lt;/p&gt;
 &lt;h2 id="倒转金字塔试试测试奖杯模型"&gt;倒转金字塔：试试“测试奖杯”模型
 &lt;/h2&gt;&lt;p&gt;那么，具体的比例该怎么定？&lt;/p&gt;
 &lt;p&gt;很多教科书教的是“金字塔模型”（底层大量单元测试，中间少量集成测试）。但现在，前端界的大神 Kent C. Dodds 提出的**“测试奖杯”（Testing Trophy）**模型，其实更适合绝大多数中小团队的后端和全栈开发。&lt;/p&gt;

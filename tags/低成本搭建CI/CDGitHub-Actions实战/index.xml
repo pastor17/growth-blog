@@ -1,13 +1,9 @@
-<?xml version="1.0" encoding="utf-8" standalone="yes"?><rss version="2.0" xmlns:atom="http://www.w3.org/2005/Atom"><channel><title>低成本搭建CI/CD：GitHub Actions实战 on SelfTechHub</title><link>https://blog.irudder.me/tags/%E4%BD%8E%E6%88%90%E6%9C%AC%E6%90%AD%E5%BB%BACI/CDGitHub-Actions%E5%AE%9E%E6%88%98.html</link><description>Recent content in 低成本搭建CI/CD：GitHub Actions实战 on SelfTechHub</description><generator>Hugo -- gohugo.io</generator><language>zh-cn</language><managingEditor>irudder@126.com (irudder)</managingEditor><webMaster>irudder@126.com (irudder)</webMaster><lastBuildDate>Wed, 17 Aug 2022 00:00:00 +0800</lastBuildDate><atom:link href="https://blog.irudder.me/tags/%E4%BD%8E%E6%88%90%E6%9C%AC%E6%90%AD%E5%BB%BACI/CDGitHub-Actions%E5%AE%9E%E6%88%98/index.xml" rel="self" type="application/rss+xml"/><item><title>抛弃Jenkins后，我用GitHub Actions帮团队省下80%维护成本</title><link>https://blog.irudder.me/tech/zhongxiaoxingtuanduidevopsluodifangan/dichengbendajianci_cd_github-actionsshizhan.html</link><pubDate>Wed, 17 Aug 2022 00:00:00 +0800</pubDate><author>irudder@126.com (irudder)</author><guid>https://blog.irudder.me/tech/zhongxiaoxingtuanduidevopsluodifangan/dichengbendajianci_cd_github-actionsshizhan.html</guid><description>&lt;p&gt;记得三年前，作为一家20人规模初创公司的技术负责人，我最害怕的就是周五下午。&lt;/p&gt;
+<?xml version="1.0" encoding="utf-8" standalone="yes"?><rss version="2.0" xmlns:atom="http://www.w3.org/2005/Atom"><channel><title>低成本搭建CI/CD：GitHub Actions实战 on SelfTechHub</title><link>https://blog.irudder.me/tags/%E4%BD%8E%E6%88%90%E6%9C%AC%E6%90%AD%E5%BB%BACI/CDGitHub-Actions%E5%AE%9E%E6%88%98.html</link><description>Recent content in 低成本搭建CI/CD：GitHub Actions实战 on SelfTechHub</description><generator>Hugo -- gohugo.io</generator><language>zh-cn</language><managingEditor>irudder@126.com (irudder)</managingEditor><webMaster>irudder@126.com (irudder)</webMaster><lastBuildDate>Wed, 17 Aug 2022 00:00:00 +0800</lastBuildDate><atom:link href="https://blog.irudder.me/tags/%E4%BD%8E%E6%88%90%E6%9C%AC%E6%90%AD%E5%BB%BACI/CDGitHub-Actions%E5%AE%9E%E6%88%98/index.xml" rel="self" type="application/rss+xml"/><item><title>抛弃Jenkins后，我用GitHub Actions帮团队省下80%维护成本</title><link>https://blog.irudder.me/tech/zhongxiaoxingtuanduidevopsluodifangan/dichengbendajianci_cd_github-actionsshizhan.html</link><pubDate>Wed, 17 Aug 2022 00:00:00 +0800</pubDate><author>irudder@126.com (irudder)</author><guid>https://blog.irudder.me/tech/zhongxiaoxingtuanduidevopsluodifangan/dichengbendajianci_cd_github-actionsshizhan.html</guid><description>&lt;img src="https://blog.irudder.me/images/covers/tech-2.jpg" alt="Featured image of post 抛弃Jenkins后，我用GitHub Actions帮团队省下80%维护成本" /&gt;&lt;p&gt;记得三年前，作为一家20人规模初创公司的技术负责人，我最害怕的就是周五下午。&lt;/p&gt;
 &lt;p&gt;那时候我们还在用一台老旧的阿里云ECS跑Jenkins。每当有新人入职，我就得花半天教他怎么配置构建参数；每隔两个月，Jenkins的插件升级就会搞崩整个流水线，导致我要在深夜盯着报错日志发愁。&lt;/p&gt;
 &lt;p&gt;我曾坚定地认为：&lt;strong&gt;只有自建CI/CD系统才足够安全、可控。&lt;/strong&gt; 直到2021年的一次&amp;quot;灾难&amp;quot;——由于构建节点磁盘爆满，我们错过了一个紧急修复的黄金发布窗口，导致客户投诉量激增。&lt;/p&gt;
 &lt;p&gt;那天之后，我痛定思痛，决定带领团队从重型运维转向轻量化DevOps，全面迁移至GitHub Actions。今天这篇复盘，就是想聊聊对于没有专职运维的中小团队，如何用最低的成本，搭建一套不输大厂的自动化发布流。&lt;/p&gt;
 &lt;h2 id="算清楚隐形账免费的往往是最贵的"&gt;算清楚&amp;quot;隐形账&amp;quot;：免费的往往是最贵的
-&lt;/h2&gt;&lt;p&gt;&lt;img src="https://picsum.photos/800/450?random=1768389248585"
-loading="lazy"
-alt="配图"
-&gt;&lt;/p&gt;
-&lt;p&gt;很多技术主管在选型时会陷入一个误区：开源软件免费，所以成本低。&lt;/p&gt;
+&lt;/h2&gt;&lt;p&gt;很多技术主管在选型时会陷入一个误区：开源软件免费，所以成本低。&lt;/p&gt;
 &lt;p&gt;在我们团队只有5个开发的时候，维护Jenkins似乎没什么问题。但当团队扩张到15人，后端、前端、移动端项目混杂时，问题爆发了。&lt;/p&gt;
 &lt;p&gt;2021年Q3，我做了一次详细的成本核算：&lt;/p&gt;
 &lt;ul&gt;
@@ -20,10 +16,6 @@ alt="配图"
 &lt;p&gt;&lt;strong&gt;&amp;ldquo;中小团队的核心资源是开发者的注意力，而不是服务器资源。任何能让开发者少操心的工具，都是在省钱。&amp;rdquo;&lt;/strong&gt;&lt;/p&gt;&lt;/blockquote&gt;
 &lt;h2 id="告别黑盒让流水线代码化-pipeline-as-code"&gt;告别&amp;quot;黑盒&amp;quot;：让流水线代码化 (Pipeline as Code)
 &lt;/h2&gt;&lt;p&gt;以前用Jenkins时，构建逻辑都藏在复杂的UI配置里。&lt;/p&gt;
-&lt;p&gt;&lt;img src="https://picsum.photos/800/450?random=1768389249903"
-loading="lazy"
-alt="配图"
-&gt;&lt;/p&gt;
 &lt;p&gt;有个叫小李的后端同事，想给自己的微服务加一个简单的代码风格检查（Lint）。他得先找我要Jenkins权限，然后在一堆输入框里摸索，最后因为配错了一个环境变量，把整个测试环境搞挂了。&lt;/p&gt;
 &lt;p&gt;&lt;strong&gt;CI/CD不应该只是运维人员的&amp;quot;特权&amp;quot;，它应该是代码的一部分。&lt;/strong&gt;&lt;/p&gt;
 &lt;p&gt;迁移到GitHub Actions后，所有的构建逻辑都变成了一个 &lt;code&gt;.github/workflows/main.yml&lt;/code&gt; 文件。这带来了两个立竿见影的改变：&lt;/p&gt;
@@ -133,10 +125,6 @@ alt="配图"
 &lt;h2 id="写在最后"&gt;写在最后
 &lt;/h2&gt;&lt;p&gt;从自建Jenkins到拥抱GitHub Actions，不仅仅是工具的替换，更是团队DevOps文化的升级。&lt;/p&gt;
 &lt;p&gt;我们不再需要一个专门的&amp;quot;发布管理员&amp;quot;，每个开发者在提交代码的那一刻，就对自己代码的构建和测试负责。我也终于把周五下午的时间解放出来，可以安安心心地做一些技术预研，而不是盯着进度条祈祷不要报错。&lt;/p&gt;
-&lt;p&gt;&lt;img src="https://picsum.photos/800/450?random=1768389244913"
-loading="lazy"
-alt="配图"
-&gt;&lt;/p&gt;
 &lt;p&gt;&lt;strong&gt;对于正在纠结的中小团队，我的建议很直接：&lt;/strong&gt;
 如果是100人以下的研发团队，且没有复杂的合规（如金融级内网隔离）要求，&lt;strong&gt;尽早切到GitHub Actions或GitLab CI。&lt;/strong&gt; 别让维护工具本身，成为了你们的负担。&lt;/p&gt;
 &lt;hr&gt;

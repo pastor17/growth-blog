@@ -1,10 +1,6 @@
-<?xml version="1.0" encoding="utf-8" standalone="yes"?><rss version="2.0" xmlns:atom="http://www.w3.org/2005/Atom"><channel><title>网络优化：CDN缓存策略调整案例 on SelfTechHub</title><link>https://blog.irudder.me/tags/%E7%BD%91%E7%BB%9C%E4%BC%98%E5%8C%96CDN%E7%BC%93%E5%AD%98%E7%AD%96%E7%95%A5%E8%B0%83%E6%95%B4%E6%A1%88%E4%BE%8B.html</link><description>Recent content in 网络优化：CDN缓存策略调整案例 on SelfTechHub</description><generator>Hugo -- gohugo.io</generator><language>zh-cn</language><managingEditor>irudder@126.com (irudder)</managingEditor><webMaster>irudder@126.com (irudder)</webMaster><lastBuildDate>Mon, 18 Sep 2023 00:00:00 +0800</lastBuildDate><atom:link href="https://blog.irudder.me/tags/%E7%BD%91%E7%BB%9C%E4%BC%98%E5%8C%96CDN%E7%BC%93%E5%AD%98%E7%AD%96%E7%95%A5%E8%B0%83%E6%95%B4%E6%A1%88%E4%BE%8B/index.xml" rel="self" type="application/rss+xml"/><item><title>CDN配置错了？3个真实案例帮我省下40%带宽</title><link>https://blog.irudder.me/tech/jiagouyouhuashizhananlijiexi/wangluoyouhua_cdnhuancuncelvetiaozhenganli.html</link><pubDate>Mon, 18 Sep 2023 00:00:00 +0800</pubDate><author>irudder@126.com (irudder)</author><guid>https://blog.irudder.me/tech/jiagouyouhuashizhananlijiexi/wangluoyouhua_cdnhuancuncelvetiaozhenganli.html</guid><description>&lt;blockquote&gt;
+<?xml version="1.0" encoding="utf-8" standalone="yes"?><rss version="2.0" xmlns:atom="http://www.w3.org/2005/Atom"><channel><title>网络优化：CDN缓存策略调整案例 on SelfTechHub</title><link>https://blog.irudder.me/tags/%E7%BD%91%E7%BB%9C%E4%BC%98%E5%8C%96CDN%E7%BC%93%E5%AD%98%E7%AD%96%E7%95%A5%E8%B0%83%E6%95%B4%E6%A1%88%E4%BE%8B.html</link><description>Recent content in 网络优化：CDN缓存策略调整案例 on SelfTechHub</description><generator>Hugo -- gohugo.io</generator><language>zh-cn</language><managingEditor>irudder@126.com (irudder)</managingEditor><webMaster>irudder@126.com (irudder)</webMaster><lastBuildDate>Mon, 18 Sep 2023 00:00:00 +0800</lastBuildDate><atom:link href="https://blog.irudder.me/tags/%E7%BD%91%E7%BB%9C%E4%BC%98%E5%8C%96CDN%E7%BC%93%E5%AD%98%E7%AD%96%E7%95%A5%E8%B0%83%E6%95%B4%E6%A1%88%E4%BE%8B/index.xml" rel="self" type="application/rss+xml"/><item><title>CDN配置错了？3个真实案例帮我省下40%带宽</title><link>https://blog.irudder.me/tech/jiagouyouhuashizhananlijiexi/wangluoyouhua_cdnhuancuncelvetiaozhenganli.html</link><pubDate>Mon, 18 Sep 2023 00:00:00 +0800</pubDate><author>irudder@126.com (irudder)</author><guid>https://blog.irudder.me/tech/jiagouyouhuashizhananlijiexi/wangluoyouhua_cdnhuancuncelvetiaozhenganli.html</guid><description>&lt;img src="https://blog.irudder.me/images/covers/tech-2.jpg" alt="Featured image of post CDN配置错了？3个真实案例帮我省下40%带宽" /&gt;&lt;blockquote&gt;
 &lt;p&gt;“为什么我们买了最贵的CDN套餐，源站数据库的CPU还是在报警？”&lt;/p&gt;&lt;/blockquote&gt;
 &lt;p&gt;这是我职业生涯早期最常问自己的一个问题。那时候我天真地以为，CDN（内容分发网络）就是一个“傻瓜式”开关，只要把域名的CNAME指过去，网站就能自动起飞。&lt;/p&gt;
-&lt;p&gt;&lt;img src="https://picsum.photos/800/450?random=1768457983261"
-loading="lazy"
-alt="配图"
-&gt;&lt;/p&gt;
 &lt;p&gt;直到2020年的一次大促活动，我们的服务器在流量峰值时崩了。排查后发现，虽然CDN显示流量很大，但**回源率（请求穿透CDN直达源站的比例）**竟然高达35%。这意味着，CDN基本没拦住多少请求，钱白花了，服务器还挂了。&lt;/p&gt;
 &lt;p&gt;那次事故后的复盘会议，我喝了整整三杯冰美式才冷静下来。从那以后，我养成了一个习惯：每接手一个新系统，第一件事就是体检它的缓存策略。&lt;/p&gt;
 &lt;p&gt;今天我想分享3个真实的“血泪”案例，希望能帮你避开那些看似不起眼、实则致命的CDN配置大坑。&lt;/p&gt;
@@ -16,10 +12,6 @@ alt="配图"
 本来这张 &lt;code&gt;banner.jpg&lt;/code&gt; 只需要被CDN缓存一次，之后几十万用户访问都应该直接从CDN边缘节点读取。
 但因为CDN默认配置是**“带参数缓存”**，在CDN眼里，&lt;code&gt;banner.jpg?v=1&lt;/code&gt; 和 &lt;code&gt;banner.jpg?v=2&lt;/code&gt; 是完全不同的两个文件。&lt;/p&gt;
 &lt;p&gt;结果就是，每次有一个新的参数组合（甚至只是时间戳不同），CDN就会认为自己“没有这个文件”，转头向源站服务器请求。那天下午，我们的源站带宽瞬间打满，因为所有所谓的“缓存”都变成了透传。&lt;/p&gt;
-&lt;p&gt;&lt;img src="https://picsum.photos/800/450?random=1768457984106"
-loading="lazy"
-alt="配图"
-&gt;&lt;/p&gt;
 &lt;p&gt;&lt;strong&gt;避坑方案&lt;/strong&gt;：
 针对图片、CSS、JS等静态资源，必须在CDN后台开启**“忽略参数缓存”**（或称“去问号缓存”）。&lt;/p&gt;
 &lt;p&gt;这就好比你去奶茶店点单，不管你说“我要一杯珍珠奶茶，我是小红推荐来的”还是“我要一杯珍珠奶茶，我是小明推荐来的”，店员（CDN）都只应该给你那杯标准的珍珠奶茶，而不是因为推荐人不同就重新去后厨（源站）现做。&lt;/p&gt;

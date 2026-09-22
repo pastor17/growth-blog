@@ -1,24 +1,16 @@
-<?xml version="1.0" encoding="utf-8" standalone="yes"?><rss version="2.0" xmlns:atom="http://www.w3.org/2005/Atom"><channel><title>架构解耦：减少模块依赖的方法 on SelfTechHub</title><link>https://blog.irudder.me/tags/%E6%9E%B6%E6%9E%84%E8%A7%A3%E8%80%A6%E5%87%8F%E5%B0%91%E6%A8%A1%E5%9D%97%E4%BE%9D%E8%B5%96%E7%9A%84%E6%96%B9%E6%B3%95.html</link><description>Recent content in 架构解耦：减少模块依赖的方法 on SelfTechHub</description><generator>Hugo -- gohugo.io</generator><language>zh-cn</language><managingEditor>irudder@126.com (irudder)</managingEditor><webMaster>irudder@126.com (irudder)</webMaster><lastBuildDate>Sat, 23 Sep 2023 00:00:00 +0800</lastBuildDate><atom:link href="https://blog.irudder.me/tags/%E6%9E%B6%E6%9E%84%E8%A7%A3%E8%80%A6%E5%87%8F%E5%B0%91%E6%A8%A1%E5%9D%97%E4%BE%9D%E8%B5%96%E7%9A%84%E6%96%B9%E6%B3%95/index.xml" rel="self" type="application/rss+xml"/><item><title>拒绝"分布式大泥球"：中小团队低成本解耦实战</title><link>https://blog.irudder.me/tech/zhongxiaoxingxiangmujiagoushejizhinan/jiagoujieou_jianshaomokuaiyilaidefangfa.html</link><pubDate>Sat, 23 Sep 2023 00:00:00 +0800</pubDate><author>irudder@126.com (irudder)</author><guid>https://blog.irudder.me/tech/zhongxiaoxingxiangmujiagoushejizhinan/jiagoujieou_jianshaomokuaiyilaidefangfa.html</guid><description>&lt;p&gt;三年前的一个周五下午，我正准备合上电脑去过周末，监控群突然炸了。&lt;/p&gt;
+<?xml version="1.0" encoding="utf-8" standalone="yes"?><rss version="2.0" xmlns:atom="http://www.w3.org/2005/Atom"><channel><title>架构解耦：减少模块依赖的方法 on SelfTechHub</title><link>https://blog.irudder.me/tags/%E6%9E%B6%E6%9E%84%E8%A7%A3%E8%80%A6%E5%87%8F%E5%B0%91%E6%A8%A1%E5%9D%97%E4%BE%9D%E8%B5%96%E7%9A%84%E6%96%B9%E6%B3%95.html</link><description>Recent content in 架构解耦：减少模块依赖的方法 on SelfTechHub</description><generator>Hugo -- gohugo.io</generator><language>zh-cn</language><managingEditor>irudder@126.com (irudder)</managingEditor><webMaster>irudder@126.com (irudder)</webMaster><lastBuildDate>Sat, 23 Sep 2023 00:00:00 +0800</lastBuildDate><atom:link href="https://blog.irudder.me/tags/%E6%9E%B6%E6%9E%84%E8%A7%A3%E8%80%A6%E5%87%8F%E5%B0%91%E6%A8%A1%E5%9D%97%E4%BE%9D%E8%B5%96%E7%9A%84%E6%96%B9%E6%B3%95/index.xml" rel="self" type="application/rss+xml"/><item><title>拒绝"分布式大泥球"：中小团队低成本解耦实战</title><link>https://blog.irudder.me/tech/zhongxiaoxingxiangmujiagoushejizhinan/jiagoujieou_jianshaomokuaiyilaidefangfa.html</link><pubDate>Sat, 23 Sep 2023 00:00:00 +0800</pubDate><author>irudder@126.com (irudder)</author><guid>https://blog.irudder.me/tech/zhongxiaoxingxiangmujiagoushejizhinan/jiagoujieou_jianshaomokuaiyilaidefangfa.html</guid><description>&lt;img src="https://blog.irudder.me/images/covers/tech-1.jpg" alt="Featured image of post 拒绝"分布式大泥球"：中小团队低成本解耦实战" /&gt;&lt;p&gt;三年前的一个周五下午，我正准备合上电脑去过周末，监控群突然炸了。&lt;/p&gt;
 &lt;p&gt;起因看似荒谬：新来的实习生在底层通用的 &lt;code&gt;common-utils&lt;/code&gt; 包里，修改了一个关于用户状态的枚举值（Enum），仅仅是想给营销活动加个新状态。结果，负责订单服务的核心链路直接报错——因为订单服务引用了这个通用包，但没有及时重新编译发布，序列化版本不一致，导致整个下单接口 500 错误。&lt;/p&gt;
 &lt;p&gt;那时候我才意识到，我们所谓的&amp;quot;微服务架构&amp;quot;，其实是个骗局。我们只是把代码拆到了不同的仓库里，但实际上，通过无数个共享的 Jar 包、直连的数据库表、深不见底的 RPC 调用链，构建出了一个更难维护的**&amp;ldquo;分布式大泥球&amp;rdquo;**。&lt;/p&gt;
 &lt;p&gt;这也是很多中小团队架构师最头疼的问题：&lt;strong&gt;想拆分，怕改不动；不拆分，牵一发而动全身。&lt;/strong&gt;&lt;/p&gt;
 &lt;p&gt;今天不谈高大上的 DDD 理论，只聊聊我在一线&amp;quot;填坑&amp;quot;这几年总结出来的三个低成本、高回报的解耦策略。&lt;/p&gt;
 &lt;h2 id="二-警惕伪复用别让-common-包成为垃圾场"&gt;二、 警惕&amp;quot;伪复用&amp;quot;：别让 Common 包成为垃圾场
 &lt;/h2&gt;&lt;p&gt;很多团队为了追求&amp;quot;代码复用&amp;quot;，恨不得把所有的 DTO、枚举、工具类都塞进一个 &lt;code&gt;common.jar&lt;/code&gt; 里。只要这个包一更新，几十个服务都要跟着重新发版，这哪里是解耦，这是&lt;strong&gt;物理绑定&lt;/strong&gt;。&lt;/p&gt;
-&lt;p&gt;&lt;img src="https://picsum.photos/800/450?random=1768456943056"
-loading="lazy"
-alt="配图"
-&gt;&lt;/p&gt;
 &lt;h3 id="真实踩坑案例"&gt;真实踩坑案例
 &lt;/h3&gt;&lt;p&gt;2022年，我们在重构会员系统时，发现了一个叫 &lt;code&gt;UserDTO&lt;/code&gt; 的对象被定义在公共包里。在这个 DTO 里，既有支付需要的 &lt;code&gt;bankCardId&lt;/code&gt;，又有营销需要的 &lt;code&gt;couponList&lt;/code&gt;，还有客服需要的 &lt;code&gt;lastLoginTime&lt;/code&gt;。&lt;/p&gt;
 &lt;p&gt;某次营销活动，开发同学给 &lt;code&gt;couponList&lt;/code&gt; 的逻辑加了个复杂的校验注解。结果，支付服务只是单纯引用了这个对象做数据透传，根本不需要校验优惠券，却因为引入了新的依赖包（校验库版本冲突），导致支付服务启动失败。排查依赖冲突花了整整4个小时，当晚所有人的心态都崩了。&lt;/p&gt;
 &lt;h3 id="硬核解法去中心化复用"&gt;硬核解法：去中心化复用
 &lt;/h3&gt;&lt;p&gt;在那次事故后，我给团队定了一条死规矩：&lt;strong&gt;业务逻辑对象，严禁放入 Common 包。&lt;/strong&gt;&lt;/p&gt;
 &lt;p&gt;我们采取了看似&amp;quot;反常识&amp;quot;的做法：&lt;strong&gt;允许适当的代码冗余。&lt;/strong&gt;&lt;/p&gt;
-&lt;p&gt;&lt;img src="https://picsum.photos/800/450?random=1768456943270"
-loading="lazy"
-alt="配图"
-&gt;&lt;/p&gt;
 &lt;ol&gt;
 &lt;li&gt;&lt;strong&gt;纯粹的工具类&lt;/strong&gt;（如 StringUtil、加密算法）保留在 Common 包。&lt;/li&gt;
 &lt;li&gt;&lt;strong&gt;业务对象（POJO/DTO）&lt;/strong&gt;，哪怕长得一模一样，也要在各自的服务里自己定义。&lt;/li&gt;
@@ -37,10 +29,6 @@ alt="配图"
 &lt;h3 id="硬核解法领域事件驱动event-driven"&gt;硬核解法：领域事件驱动（Event-Driven）
 &lt;/h3&gt;&lt;p&gt;我们花了两个月时间，彻底切断了服务间的数据库直连。&lt;/p&gt;
 &lt;p&gt;这里的核心原则是：&lt;strong&gt;谁产生数据，谁负责通知；谁需要数据，谁负责订阅。&lt;/strong&gt;&lt;/p&gt;
-&lt;p&gt;&lt;img src="https://picsum.photos/800/450?random=1768456942492"
-loading="lazy"
-alt="配图"
-&gt;&lt;/p&gt;
 &lt;p&gt;我们引入了一个轻量级的消息队列（对于中小团队，Redis Stream 或者 RabbitMQ 足矣，不需要搞 Kafka 那么重）。&lt;/p&gt;
 &lt;ul&gt;
 &lt;li&gt;&lt;strong&gt;Before:&lt;/strong&gt; 积分服务 SQL -&amp;gt; &lt;code&gt;SELECT * FROM order_db.orders WHERE status = 'PAID'&lt;/code&gt;&lt;/li&gt;

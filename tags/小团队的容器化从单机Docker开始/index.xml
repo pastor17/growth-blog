@@ -1,4 +1,4 @@
-<?xml version="1.0" encoding="utf-8" standalone="yes"?><rss version="2.0" xmlns:atom="http://www.w3.org/2005/Atom"><channel><title>小团队的容器化：从单机Docker开始 on SelfTechHub</title><link>https://blog.irudder.me/tags/%E5%B0%8F%E5%9B%A2%E9%98%9F%E7%9A%84%E5%AE%B9%E5%99%A8%E5%8C%96%E4%BB%8E%E5%8D%95%E6%9C%BADocker%E5%BC%80%E5%A7%8B.html</link><description>Recent content in 小团队的容器化：从单机Docker开始 on SelfTechHub</description><generator>Hugo -- gohugo.io</generator><language>zh-cn</language><managingEditor>irudder@126.com (irudder)</managingEditor><webMaster>irudder@126.com (irudder)</webMaster><lastBuildDate>Sun, 07 Jan 2024 00:00:00 +0800</lastBuildDate><atom:link href="https://blog.irudder.me/tags/%E5%B0%8F%E5%9B%A2%E9%98%9F%E7%9A%84%E5%AE%B9%E5%99%A8%E5%8C%96%E4%BB%8E%E5%8D%95%E6%9C%BADocker%E5%BC%80%E5%A7%8B/index.xml" rel="self" type="application/rss+xml"/><item><title>只有3个开发，别碰K8s！单机Docker救了我们的命</title><link>https://blog.irudder.me/tech/zhongxiaoxingtuanduidevopsluodifangan/xiaotuanduiderongqihua_congdanjidockerkaishi.html</link><pubDate>Sun, 07 Jan 2024 00:00:00 +0800</pubDate><author>irudder@126.com (irudder)</author><guid>https://blog.irudder.me/tech/zhongxiaoxingtuanduidevopsluodifangan/xiaotuanduiderongqihua_congdanjidockerkaishi.html</guid><description>&lt;p&gt;我曾以为拥抱云原生就是要在第一时间上 Kubernetes（K8s），搞微服务，弄Service Mesh。直到2021年，我带着一个5人的技术团队，因为盲目上K8s，在某次大促前夕，因为Etcd集群的一个节点故障导致整个控制面瘫痪，我们修了整整一夜，业务停摆了6个小时。&lt;/p&gt;
+<?xml version="1.0" encoding="utf-8" standalone="yes"?><rss version="2.0" xmlns:atom="http://www.w3.org/2005/Atom"><channel><title>小团队的容器化：从单机Docker开始 on SelfTechHub</title><link>https://blog.irudder.me/tags/%E5%B0%8F%E5%9B%A2%E9%98%9F%E7%9A%84%E5%AE%B9%E5%99%A8%E5%8C%96%E4%BB%8E%E5%8D%95%E6%9C%BADocker%E5%BC%80%E5%A7%8B.html</link><description>Recent content in 小团队的容器化：从单机Docker开始 on SelfTechHub</description><generator>Hugo -- gohugo.io</generator><language>zh-cn</language><managingEditor>irudder@126.com (irudder)</managingEditor><webMaster>irudder@126.com (irudder)</webMaster><lastBuildDate>Sun, 07 Jan 2024 00:00:00 +0800</lastBuildDate><atom:link href="https://blog.irudder.me/tags/%E5%B0%8F%E5%9B%A2%E9%98%9F%E7%9A%84%E5%AE%B9%E5%99%A8%E5%8C%96%E4%BB%8E%E5%8D%95%E6%9C%BADocker%E5%BC%80%E5%A7%8B/index.xml" rel="self" type="application/rss+xml"/><item><title>只有3个开发，别碰K8s！单机Docker救了我们的命</title><link>https://blog.irudder.me/tech/zhongxiaoxingtuanduidevopsluodifangan/xiaotuanduiderongqihua_congdanjidockerkaishi.html</link><pubDate>Sun, 07 Jan 2024 00:00:00 +0800</pubDate><author>irudder@126.com (irudder)</author><guid>https://blog.irudder.me/tech/zhongxiaoxingtuanduidevopsluodifangan/xiaotuanduiderongqihua_congdanjidockerkaishi.html</guid><description>&lt;img src="https://blog.irudder.me/images/covers/tech-2.jpg" alt="Featured image of post 只有3个开发，别碰K8s！单机Docker救了我们的命" /&gt;&lt;p&gt;我曾以为拥抱云原生就是要在第一时间上 Kubernetes（K8s），搞微服务，弄Service Mesh。直到2021年，我带着一个5人的技术团队，因为盲目上K8s，在某次大促前夕，因为Etcd集群的一个节点故障导致整个控制面瘫痪，我们修了整整一夜，业务停摆了6个小时。&lt;/p&gt;
 &lt;p&gt;那个凌晨4点，看着依然红一片的监控面板，我意识到一个残酷的真相：&lt;strong&gt;对于没有专职运维的中小团队，复杂的架构不是护城河，而是随时会爆炸的地雷。&lt;/strong&gt;&lt;/p&gt;
 &lt;p&gt;也就是从那时起，我开始推行&amp;quot;极简容器化&amp;quot;策略。今天想和大家复盘一下，我们是如何仅靠单机Docker和Docker Compose，就解决了90%的运维痛点，让团队从此告别&amp;quot;在我电脑上明明能运行&amp;quot;的扯皮。&lt;/p&gt;
 &lt;h2 id="拒绝过度设计docker-compose-才是中小团队的瑞士军刀"&gt;拒绝过度设计：Docker Compose 才是中小团队的瑞士军刀
@@ -90,7 +90,6 @@
 &lt;/span&gt;&lt;span class="lnt"&gt;17
 &lt;/span&gt;&lt;span class="lnt"&gt;18
 &lt;/span&gt;&lt;span class="lnt"&gt;19
-&lt;/span&gt;&lt;span class="lnt"&gt;20
 &lt;/span&gt;&lt;/code&gt;&lt;/pre&gt;&lt;/td&gt;
 &lt;td class="lntd"&gt;
 &lt;pre tabindex="0" class="chroma"&gt;&lt;code class="language-bash" data-lang="bash"&gt;&lt;span class="line"&gt;&lt;span class="cl"&gt;&lt;span class="cp"&gt;#!/bin/bash
@@ -104,7 +103,6 @@
 &lt;/span&gt;&lt;/span&gt;&lt;span class="line"&gt;&lt;span class="cl"&gt;&lt;span class="nb"&gt;echo&lt;/span&gt; &lt;span class="s2"&gt;&amp;#34;Step 2: Stopping old container...&amp;#34;&lt;/span&gt;
 &lt;/span&gt;&lt;/span&gt;&lt;span class="line"&gt;&lt;span class="cl"&gt;docker-compose down
 &lt;/span&gt;&lt;/span&gt;&lt;span class="line"&gt;&lt;span class="cl"&gt;
-&lt;/span&gt;&lt;/span&gt;&lt;span class="line"&gt;&lt;span class="cl"&gt;!&lt;span class="o"&gt;[&lt;/span&gt;配图&lt;span class="o"&gt;](&lt;/span&gt;https://picsum.photos/800/450?random&lt;span class="o"&gt;=&lt;/span&gt;1768390391607&lt;span class="o"&gt;)&lt;/span&gt;
 &lt;/span&gt;&lt;/span&gt;&lt;span class="line"&gt;&lt;span class="cl"&gt;
 &lt;/span&gt;&lt;/span&gt;&lt;span class="line"&gt;&lt;span class="cl"&gt;&lt;span class="nb"&gt;echo&lt;/span&gt; &lt;span class="s2"&gt;&amp;#34;Step 3: Starting new container...&amp;#34;&lt;/span&gt;
 &lt;/span&gt;&lt;/span&gt;&lt;span class="line"&gt;&lt;span class="cl"&gt;docker-compose up -d
@@ -150,7 +148,6 @@
 &lt;/span&gt;&lt;span class="lnt"&gt;19
 &lt;/span&gt;&lt;span class="lnt"&gt;20
 &lt;/span&gt;&lt;span class="lnt"&gt;21
-&lt;/span&gt;&lt;span class="lnt"&gt;22
 &lt;/span&gt;&lt;/code&gt;&lt;/pre&gt;&lt;/td&gt;
 &lt;td class="lntd"&gt;
 &lt;pre tabindex="0" class="chroma"&gt;&lt;code class="language-dockerfile" data-lang="dockerfile"&gt;&lt;span class="line"&gt;&lt;span class="cl"&gt;&lt;span class="c"&gt;# 使用具体版本号，别用 latest&lt;/span&gt;&lt;span class="err"&gt;
@@ -172,7 +169,6 @@
 &lt;/span&gt;&lt;/span&gt;&lt;/span&gt;&lt;span class="line"&gt;&lt;span class="cl"&gt;&lt;span class="err"&gt;&lt;/span&gt;&lt;span class="c"&gt;# 不要用 root 用户运行应用&lt;/span&gt;&lt;span class="err"&gt;
 &lt;/span&gt;&lt;/span&gt;&lt;/span&gt;&lt;span class="line"&gt;&lt;span class="cl"&gt;&lt;span class="err"&gt;&lt;/span&gt;&lt;span class="k"&gt;USER&lt;/span&gt;&lt;span class="w"&gt; &lt;/span&gt;&lt;span class="s"&gt;node&lt;/span&gt;&lt;span class="err"&gt;
 &lt;/span&gt;&lt;/span&gt;&lt;/span&gt;&lt;span class="line"&gt;&lt;span class="cl"&gt;&lt;span class="err"&gt;
-&lt;/span&gt;&lt;/span&gt;&lt;/span&gt;&lt;span class="line"&gt;&lt;span class="cl"&gt;&lt;span class="err"&gt;&lt;/span&gt;!&lt;span class="o"&gt;[&lt;/span&gt;配图&lt;span class="o"&gt;](&lt;/span&gt;https://picsum.photos/800/450?random&lt;span class="o"&gt;=&lt;/span&gt;1768390394652&lt;span class="o"&gt;)&lt;/span&gt;&lt;span class="err"&gt;
 &lt;/span&gt;&lt;/span&gt;&lt;/span&gt;&lt;span class="line"&gt;&lt;span class="cl"&gt;&lt;span class="err"&gt;
 &lt;/span&gt;&lt;/span&gt;&lt;/span&gt;&lt;span class="line"&gt;&lt;span class="cl"&gt;&lt;span class="err"&gt;&lt;/span&gt;&lt;span class="k"&gt;CMD&lt;/span&gt; &lt;span class="p"&gt;[&lt;/span&gt;&lt;span class="s2"&gt;&amp;#34;node&amp;#34;&lt;/span&gt;&lt;span class="p"&gt;,&lt;/span&gt; &lt;span class="s2"&gt;&amp;#34;src/index.js&amp;#34;&lt;/span&gt;&lt;span class="p"&gt;]&lt;/span&gt;&lt;span class="err"&gt;
 &lt;/span&gt;&lt;/span&gt;&lt;/span&gt;&lt;/code&gt;&lt;/pre&gt;&lt;/td&gt;&lt;/tr&gt;&lt;/table&gt;

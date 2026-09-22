@@ -1,8 +1,4 @@
-<?xml version="1.0" encoding="utf-8" standalone="yes"?><rss version="2.0" xmlns:atom="http://www.w3.org/2005/Atom"><channel><title>配置管理：Vault管理敏感信息 on SelfTechHub</title><link>https://blog.irudder.me/tags/%E9%85%8D%E7%BD%AE%E7%AE%A1%E7%90%86Vault%E7%AE%A1%E7%90%86%E6%95%8F%E6%84%9F%E4%BF%A1%E6%81%AF.html</link><description>Recent content in 配置管理：Vault管理敏感信息 on SelfTechHub</description><generator>Hugo -- gohugo.io</generator><language>zh-cn</language><managingEditor>irudder@126.com (irudder)</managingEditor><webMaster>irudder@126.com (irudder)</webMaster><lastBuildDate>Wed, 12 Jan 2022 00:00:00 +0800</lastBuildDate><atom:link href="https://blog.irudder.me/tags/%E9%85%8D%E7%BD%AE%E7%AE%A1%E7%90%86Vault%E7%AE%A1%E7%90%86%E6%95%8F%E6%84%9F%E4%BF%A1%E6%81%AF/index.xml" rel="self" type="application/rss+xml"/><item><title>还在代码里硬编码密码？深夜炸雷的教训与Vault自救指南</title><link>https://blog.irudder.me/tech/devopsjichugongjurumenyushicao/peizhiguanli_vaultguanliminganxinxi.html</link><pubDate>Wed, 12 Jan 2022 00:00:00 +0800</pubDate><author>irudder@126.com (irudder)</author><guid>https://blog.irudder.me/tech/devopsjichugongjurumenyushicao/peizhiguanli_vaultguanliminganxinxi.html</guid><description>&lt;p&gt;如果你是一个开发者或者刚刚接手运维工作的“背锅侠”，你大概率经历过这样的惊魂时刻：&lt;/p&gt;
-&lt;p&gt;&lt;img src="https://picsum.photos/800/450?random=1768388501970"
-loading="lazy"
-alt="配图"
-&gt;&lt;/p&gt;
+<?xml version="1.0" encoding="utf-8" standalone="yes"?><rss version="2.0" xmlns:atom="http://www.w3.org/2005/Atom"><channel><title>配置管理：Vault管理敏感信息 on SelfTechHub</title><link>https://blog.irudder.me/tags/%E9%85%8D%E7%BD%AE%E7%AE%A1%E7%90%86Vault%E7%AE%A1%E7%90%86%E6%95%8F%E6%84%9F%E4%BF%A1%E6%81%AF.html</link><description>Recent content in 配置管理：Vault管理敏感信息 on SelfTechHub</description><generator>Hugo -- gohugo.io</generator><language>zh-cn</language><managingEditor>irudder@126.com (irudder)</managingEditor><webMaster>irudder@126.com (irudder)</webMaster><lastBuildDate>Wed, 12 Jan 2022 00:00:00 +0800</lastBuildDate><atom:link href="https://blog.irudder.me/tags/%E9%85%8D%E7%BD%AE%E7%AE%A1%E7%90%86Vault%E7%AE%A1%E7%90%86%E6%95%8F%E6%84%9F%E4%BF%A1%E6%81%AF/index.xml" rel="self" type="application/rss+xml"/><item><title>还在代码里硬编码密码？深夜炸雷的教训与Vault自救指南</title><link>https://blog.irudder.me/tech/devopsjichugongjurumenyushicao/peizhiguanli_vaultguanliminganxinxi.html</link><pubDate>Wed, 12 Jan 2022 00:00:00 +0800</pubDate><author>irudder@126.com (irudder)</author><guid>https://blog.irudder.me/tech/devopsjichugongjurumenyushicao/peizhiguanli_vaultguanliminganxinxi.html</guid><description>&lt;img src="https://blog.irudder.me/images/covers/tech-1.jpg" alt="Featured image of post 还在代码里硬编码密码？深夜炸雷的教训与Vault自救指南" /&gt;&lt;p&gt;如果你是一个开发者或者刚刚接手运维工作的“背锅侠”，你大概率经历过这样的惊魂时刻：&lt;/p&gt;
 &lt;p&gt;或者是某位同事不小心把包含 &lt;code&gt;AWS_SECRET_KEY&lt;/code&gt; 的配置文件推到了公开的 GitHub 仓库；或者是数据库密码改了，但只有你的服务挂了，因为你把密码硬编码在了代码的第 302 行；又或者是离职三个月的前端外包小哥，居然还能连上你们的测试服数据库。&lt;/p&gt;
 &lt;p&gt;我曾以为把密码写在环境变量里、或者用 Kubernetes 的 Secret 就万事大吉了。直到两年前的一个凌晨三点，我被报警电话叫醒，因为一个泄露的密钥，我们的云服务账单在两小时内被刷爆了五千美金。&lt;/p&gt;
 &lt;p&gt;那一刻的无力感让我明白：&lt;strong&gt;管理敏感信息（Secrets），不是一个技术问题，而是一个关于“睡个好觉”的生存问题。&lt;/strong&gt;&lt;/p&gt;
@@ -24,10 +20,6 @@ alt="配图"
 &lt;h2 id="治愈焦虑从静态密码到动态凭据"&gt;治愈焦虑：从“静态密码”到“动态凭据”
 &lt;/h2&gt;&lt;p&gt;Vault 最让我感到“治愈”的功能，不是它加密有多强（虽然确实很强），而是&lt;strong&gt;Dynamic Secrets（动态凭据）&lt;/strong&gt;。&lt;/p&gt;
 &lt;p&gt;这是什么概念？&lt;/p&gt;
-&lt;p&gt;&lt;img src="https://picsum.photos/800/450?random=1768388501794"
-loading="lazy"
-alt="配图"
-&gt;&lt;/p&gt;
 &lt;p&gt;传统的做法是：我（运维）创建一个数据库账号 &lt;code&gt;root/123456&lt;/code&gt;，然后把这个账号分发给 10 个微服务。这个密码万年不变，一旦泄露，全得重来。&lt;/p&gt;
 &lt;p&gt;Vault 的做法是：服务 A 启动时，找 Vault 说：“我是服务 A，我要连数据库。” Vault 确认身份后，&lt;strong&gt;临时&lt;/strong&gt;在数据库里创建一个账号 &lt;code&gt;user_temp_8s7d&lt;/code&gt;，给它 1 小时的有效期，然后把密码给服务 A。&lt;/p&gt;
 &lt;p&gt;&lt;strong&gt;一小时后，这个账号自动销毁。&lt;/strong&gt;&lt;/p&gt;
@@ -120,10 +112,6 @@ alt="配图"
 &lt;/span&gt;&lt;/span&gt;&lt;/code&gt;&lt;/pre&gt;&lt;/td&gt;&lt;/tr&gt;&lt;/table&gt;
 &lt;/div&gt;
 &lt;/div&gt;&lt;p&gt;&lt;strong&gt;如果你想在明天就开始改变，不妨尝试这 3 个具体行动：&lt;/strong&gt;&lt;/p&gt;
-&lt;p&gt;&lt;img src="https://picsum.photos/800/450?random=1768388493561"
-loading="lazy"
-alt="配图"
-&gt;&lt;/p&gt;
 &lt;ol&gt;
 &lt;li&gt;&lt;strong&gt;全局搜索&lt;/strong&gt;：立刻在你的代码仓库里搜索 &lt;code&gt;password&lt;/code&gt;、&lt;code&gt;secret&lt;/code&gt;、&lt;code&gt;key&lt;/code&gt; 等关键词，把搜出来的硬编码全部记录下来（相信我，结果会吓你一跳）。&lt;/li&gt;
 &lt;li&gt;&lt;strong&gt;本地体验&lt;/strong&gt;：不要急着上生产，在本地 Docker 跑一个 &lt;code&gt;vault server -dev&lt;/code&gt;，体验一下 &lt;code&gt;vault kv put&lt;/code&gt; 和 &lt;code&gt;vault kv get&lt;/code&gt; 的手感。&lt;/li&gt;

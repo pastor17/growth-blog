@@ -1,4 +1,4 @@
-<?xml version="1.0" encoding="utf-8" standalone="yes"?><rss version="2.0" xmlns:atom="http://www.w3.org/2005/Atom"><channel><title>接口幂等性：防止重复提交的设计 on SelfTechHub</title><link>https://blog.irudder.me/tags/%E6%8E%A5%E5%8F%A3%E5%B9%82%E7%AD%89%E6%80%A7%E9%98%B2%E6%AD%A2%E9%87%8D%E5%A4%8D%E6%8F%90%E4%BA%A4%E7%9A%84%E8%AE%BE%E8%AE%A1.html</link><description>Recent content in 接口幂等性：防止重复提交的设计 on SelfTechHub</description><generator>Hugo -- gohugo.io</generator><language>zh-cn</language><managingEditor>irudder@126.com (irudder)</managingEditor><webMaster>irudder@126.com (irudder)</webMaster><lastBuildDate>Wed, 17 Dec 2025 00:00:00 +0800</lastBuildDate><atom:link href="https://blog.irudder.me/tags/%E6%8E%A5%E5%8F%A3%E5%B9%82%E7%AD%89%E6%80%A7%E9%98%B2%E6%AD%A2%E9%87%8D%E5%A4%8D%E6%8F%90%E4%BA%A4%E7%9A%84%E8%AE%BE%E8%AE%A1/index.xml" rel="self" type="application/rss+xml"/><item><title>用户手抖点两下，公司损失一万八：中小团队的幂等性实战</title><link>https://blog.irudder.me/tech/zhongxiaoxingxiangmujiagoushejizhinan/jiekoumidengxing_fangzhichongfutijiaodesheji.html</link><pubDate>Wed, 17 Dec 2025 00:00:00 +0800</pubDate><author>irudder@126.com (irudder)</author><guid>https://blog.irudder.me/tech/zhongxiaoxingxiangmujiagoushejizhinan/jiekoumidengxing_fangzhichongfutijiaodesheji.html</guid><description>&lt;p&gt;记得是三年前的一个周五晚上，那时候我刚加入一家电商创业团队做架构重构。晚上10点，客服群突然炸了：“用户说充值了一笔钱，但是余额里多了两倍的数额！”&lt;/p&gt;
+<?xml version="1.0" encoding="utf-8" standalone="yes"?><rss version="2.0" xmlns:atom="http://www.w3.org/2005/Atom"><channel><title>接口幂等性：防止重复提交的设计 on SelfTechHub</title><link>https://blog.irudder.me/tags/%E6%8E%A5%E5%8F%A3%E5%B9%82%E7%AD%89%E6%80%A7%E9%98%B2%E6%AD%A2%E9%87%8D%E5%A4%8D%E6%8F%90%E4%BA%A4%E7%9A%84%E8%AE%BE%E8%AE%A1.html</link><description>Recent content in 接口幂等性：防止重复提交的设计 on SelfTechHub</description><generator>Hugo -- gohugo.io</generator><language>zh-cn</language><managingEditor>irudder@126.com (irudder)</managingEditor><webMaster>irudder@126.com (irudder)</webMaster><lastBuildDate>Wed, 17 Dec 2025 00:00:00 +0800</lastBuildDate><atom:link href="https://blog.irudder.me/tags/%E6%8E%A5%E5%8F%A3%E5%B9%82%E7%AD%89%E6%80%A7%E9%98%B2%E6%AD%A2%E9%87%8D%E5%A4%8D%E6%8F%90%E4%BA%A4%E7%9A%84%E8%AE%BE%E8%AE%A1/index.xml" rel="self" type="application/rss+xml"/><item><title>用户手抖点两下，公司损失一万八：中小团队的幂等性实战</title><link>https://blog.irudder.me/tech/zhongxiaoxingxiangmujiagoushejizhinan/jiekoumidengxing_fangzhichongfutijiaodesheji.html</link><pubDate>Wed, 17 Dec 2025 00:00:00 +0800</pubDate><author>irudder@126.com (irudder)</author><guid>https://blog.irudder.me/tech/zhongxiaoxingxiangmujiagoushejizhinan/jiekoumidengxing_fangzhichongfutijiaodesheji.html</guid><description>&lt;img src="https://blog.irudder.me/images/covers/tech-1.jpg" alt="Featured image of post 用户手抖点两下，公司损失一万八：中小团队的幂等性实战" /&gt;&lt;p&gt;记得是三年前的一个周五晚上，那时候我刚加入一家电商创业团队做架构重构。晚上10点，客服群突然炸了：“用户说充值了一笔钱，但是余额里多了两倍的数额！”&lt;/p&gt;
 &lt;p&gt;排查下来，原因简单得让人想哭：用户在弱网环境下点击“确认支付”，前端Loading转圈没反应，用户心急多点了几下。请求因为网络抖动几乎同时到达后端，不仅扣款流水记了两笔，用户余额也加了两次。&lt;/p&gt;
 &lt;p&gt;那天晚上我们紧急回滚数据、安抚用户，折腾到凌晨三点。&lt;/p&gt;
 &lt;p&gt;很多资深开发在面试时能把“幂等性”背得滚瓜烂熟，但真到了中小项目的实战中，往往因为赶进度、觉得“概率小”或者过度依赖前端限制，而埋下巨大的隐患。&lt;/p&gt;
@@ -21,11 +21,7 @@
 &lt;/span&gt;&lt;/span&gt;&lt;/span&gt;&lt;span class="line"&gt;&lt;span class="cl"&gt;&lt;span class="w"&gt;&lt;/span&gt;&lt;span class="k"&gt;ADD&lt;/span&gt;&lt;span class="w"&gt; &lt;/span&gt;&lt;span class="k"&gt;CONSTRAINT&lt;/span&gt;&lt;span class="w"&gt; &lt;/span&gt;&lt;span class="n"&gt;uk_user_coupon&lt;/span&gt;&lt;span class="w"&gt; &lt;/span&gt;&lt;span class="k"&gt;UNIQUE&lt;/span&gt;&lt;span class="w"&gt; &lt;/span&gt;&lt;span class="p"&gt;(&lt;/span&gt;&lt;span class="n"&gt;user_id&lt;/span&gt;&lt;span class="p"&gt;,&lt;/span&gt;&lt;span class="w"&gt; &lt;/span&gt;&lt;span class="n"&gt;coupon_id&lt;/span&gt;&lt;span class="p"&gt;);&lt;/span&gt;&lt;span class="w"&gt;
 &lt;/span&gt;&lt;/span&gt;&lt;/span&gt;&lt;/code&gt;&lt;/pre&gt;&lt;/td&gt;&lt;/tr&gt;&lt;/table&gt;
 &lt;/div&gt;
-&lt;/div&gt;&lt;p&gt;&lt;img src="https://picsum.photos/800/450?random=1768456517977"
-loading="lazy"
-alt="配图"
-&gt;&lt;/p&gt;
-&lt;p&gt;&lt;strong&gt;落地效果：&lt;/strong&gt;
+&lt;/div&gt;&lt;p&gt;&lt;strong&gt;落地效果：&lt;/strong&gt;
 当重复请求打进来时，第一个请求成功插入，后续请求会直接报 &lt;code&gt;DuplicateKeyException&lt;/code&gt;。我们在Service层捕获这个异常，直接返回“领取成功”或者“您已领取”给前端。&lt;/p&gt;
 &lt;blockquote&gt;
 &lt;p&gt;&lt;strong&gt;踩坑提醒：&lt;/strong&gt;
@@ -93,10 +89,6 @@ alt="配图"
 &lt;p&gt;&lt;strong&gt;真实案例：&lt;/strong&gt;
 在订单系统中，订单状态流转是：&lt;code&gt;待支付 -&amp;gt; 已支付 -&amp;gt; 待发货&lt;/code&gt;。
 曾出现过一个诡异Bug：支付回调接口被第三方支付公司重复调用了（这是常态，人家要确保你收到了）。第一次调用将订单改为“已支付”，并触发了发货逻辑；第二次调用又触发了一次发货逻辑。结果仓库发了两份货。&lt;/p&gt;
-&lt;p&gt;&lt;img src="https://picsum.photos/800/450?random=1768456518076"
-loading="lazy"
-alt="配图"
-&gt;&lt;/p&gt;
 &lt;p&gt;&lt;strong&gt;解决方案：&lt;/strong&gt;
 利用SQL的行级锁和状态条件更新，实现天然幂等。&lt;/p&gt;
 &lt;p&gt;不要写这样的代码：&lt;/p&gt;

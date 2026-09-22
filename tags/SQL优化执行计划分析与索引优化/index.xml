@@ -1,11 +1,7 @@
-<?xml version="1.0" encoding="utf-8" standalone="yes"?><rss version="2.0" xmlns:atom="http://www.w3.org/2005/Atom"><channel><title>SQL优化：执行计划分析与索引优化 on SelfTechHub</title><link>https://blog.irudder.me/tags/SQL%E4%BC%98%E5%8C%96%E6%89%A7%E8%A1%8C%E8%AE%A1%E5%88%92%E5%88%86%E6%9E%90%E4%B8%8E%E7%B4%A2%E5%BC%95%E4%BC%98%E5%8C%96.html</link><description>Recent content in SQL优化：执行计划分析与索引优化 on SelfTechHub</description><generator>Hugo -- gohugo.io</generator><language>zh-cn</language><managingEditor>irudder@126.com (irudder)</managingEditor><webMaster>irudder@126.com (irudder)</webMaster><lastBuildDate>Thu, 10 Aug 2023 00:00:00 +0800</lastBuildDate><atom:link href="https://blog.irudder.me/tags/SQL%E4%BC%98%E5%8C%96%E6%89%A7%E8%A1%8C%E8%AE%A1%E5%88%92%E5%88%86%E6%9E%90%E4%B8%8E%E7%B4%A2%E5%BC%95%E4%BC%98%E5%8C%96/index.xml" rel="self" type="application/rss+xml"/><item><title>加了索引反而慢？深度复盘2个让CPU飙升的“见鬼”现场</title><link>https://blog.irudder.me/tech/jiagouyouhuashizhananlijiexi/sqlyouhua_zhixingjihuafenxiyusuoyinyouhua.html</link><pubDate>Thu, 10 Aug 2023 00:00:00 +0800</pubDate><author>irudder@126.com (irudder)</author><guid>https://blog.irudder.me/tech/jiagouyouhuashizhananlijiexi/sqlyouhua_zhixingjihuafenxiyusuoyinyouhua.html</guid><description>&lt;p&gt;早些年我刚带团队那会儿，有个执念：&lt;strong&gt;“只要SQL慢，加个索引准没错。”&lt;/strong&gt;&lt;/p&gt;
+<?xml version="1.0" encoding="utf-8" standalone="yes"?><rss version="2.0" xmlns:atom="http://www.w3.org/2005/Atom"><channel><title>SQL优化：执行计划分析与索引优化 on SelfTechHub</title><link>https://blog.irudder.me/tags/SQL%E4%BC%98%E5%8C%96%E6%89%A7%E8%A1%8C%E8%AE%A1%E5%88%92%E5%88%86%E6%9E%90%E4%B8%8E%E7%B4%A2%E5%BC%95%E4%BC%98%E5%8C%96.html</link><description>Recent content in SQL优化：执行计划分析与索引优化 on SelfTechHub</description><generator>Hugo -- gohugo.io</generator><language>zh-cn</language><managingEditor>irudder@126.com (irudder)</managingEditor><webMaster>irudder@126.com (irudder)</webMaster><lastBuildDate>Thu, 10 Aug 2023 00:00:00 +0800</lastBuildDate><atom:link href="https://blog.irudder.me/tags/SQL%E4%BC%98%E5%8C%96%E6%89%A7%E8%A1%8C%E8%AE%A1%E5%88%92%E5%88%86%E6%9E%90%E4%B8%8E%E7%B4%A2%E5%BC%95%E4%BC%98%E5%8C%96/index.xml" rel="self" type="application/rss+xml"/><item><title>加了索引反而慢？深度复盘2个让CPU飙升的“见鬼”现场</title><link>https://blog.irudder.me/tech/jiagouyouhuashizhananlijiexi/sqlyouhua_zhixingjihuafenxiyusuoyinyouhua.html</link><pubDate>Thu, 10 Aug 2023 00:00:00 +0800</pubDate><author>irudder@126.com (irudder)</author><guid>https://blog.irudder.me/tech/jiagouyouhuashizhananlijiexi/sqlyouhua_zhixingjihuafenxiyusuoyinyouhua.html</guid><description>&lt;img src="https://blog.irudder.me/images/covers/tech-1.jpg" alt="Featured image of post 加了索引反而慢？深度复盘2个让CPU飙升的“见鬼”现场" /&gt;&lt;p&gt;早些年我刚带团队那会儿，有个执念：&lt;strong&gt;“只要SQL慢，加个索引准没错。”&lt;/strong&gt;&lt;/p&gt;
 &lt;p&gt;直到有次大促前的压测，一个核心查询接口响应时间突然从200ms飙到了2秒，DBA那边的CPU报警响个不停。我自信满满地打开代码，指着屏幕说：“这字段肯定没加索引。”结果一查，索引健在，而且是独立索引。&lt;/p&gt;
 &lt;p&gt;那种“明明做了优化，数据库却不买账”的挫败感，相信很多人都体会过。&lt;/p&gt;
 &lt;p&gt;后来我才明白，索引不是万能药，有时候它反而是拖慢系统的毒药。今天不聊那些教科书上的B+树原理，我想结合这几年踩过的坑，复盘两个真实的“反常识”案例，聊聊怎么透过&lt;code&gt;EXPLAIN&lt;/code&gt;看透数据库的“小心思”。&lt;/p&gt;
-&lt;p&gt;&lt;img src="https://picsum.photos/800/450?random=1768457786942"
-loading="lazy"
-alt="配图"
-&gt;&lt;/p&gt;
 &lt;h2 id="隐形杀手因为懒而引发的全表扫描"&gt;隐形杀手：因为“懒”而引发的全表扫描
 &lt;/h2&gt;&lt;p&gt;很多时候，性能问题不是因为技术多难，而是因为开发习惯上的“想当然”。&lt;/p&gt;
 &lt;p&gt;&lt;strong&gt;观点：&lt;/strong&gt; 类型隐式转换是索引失效的头号隐形杀手，且往往在测试环境很难发现（数据量不够大）。&lt;/p&gt;
@@ -74,10 +70,6 @@ alt="配图"
 &lt;/div&gt;
 &lt;/div&gt;&lt;p&gt;&lt;strong&gt;深度分析：&lt;/strong&gt;
 大家要理解MySQL执行 &lt;code&gt;LIMIT 2000000, 20&lt;/code&gt; 是怎么干的。它不是直接跳到第200万行，而是&lt;strong&gt;先扫描读取200万+20行数据&lt;/strong&gt;，然后把前200万行全部扔掉，只给你最后那20行。&lt;/p&gt;
-&lt;p&gt;&lt;img src="https://picsum.photos/800/450?random=1768457784787"
-loading="lazy"
-alt="配图"
-&gt;&lt;/p&gt;
 &lt;p&gt;这纯属“由于太老实而累死”。那200万行数据的IO开销和CPU转换开销，全是无用功。&lt;/p&gt;
 &lt;p&gt;&lt;strong&gt;落地优化：&lt;/strong&gt;
 我们当时采用了**“延迟关联”（Deferred Join）** 的方法，效果立竿见影，查询时间从8秒优化到了0.5秒。&lt;/p&gt;
@@ -108,11 +100,7 @@ alt="配图"
 &lt;/span&gt;&lt;/span&gt;&lt;/span&gt;&lt;span class="line"&gt;&lt;span class="cl"&gt;&lt;span class="w"&gt;&lt;/span&gt;&lt;span class="p"&gt;)&lt;/span&gt;&lt;span class="w"&gt; &lt;/span&gt;&lt;span class="n"&gt;t2&lt;/span&gt;&lt;span class="w"&gt; &lt;/span&gt;&lt;span class="k"&gt;ON&lt;/span&gt;&lt;span class="w"&gt; &lt;/span&gt;&lt;span class="n"&gt;t1&lt;/span&gt;&lt;span class="p"&gt;.&lt;/span&gt;&lt;span class="n"&gt;id&lt;/span&gt;&lt;span class="w"&gt; &lt;/span&gt;&lt;span class="o"&gt;=&lt;/span&gt;&lt;span class="w"&gt; &lt;/span&gt;&lt;span class="n"&gt;t2&lt;/span&gt;&lt;span class="p"&gt;.&lt;/span&gt;&lt;span class="n"&gt;id&lt;/span&gt;&lt;span class="p"&gt;;&lt;/span&gt;&lt;span class="w"&gt;
 &lt;/span&gt;&lt;/span&gt;&lt;/span&gt;&lt;/code&gt;&lt;/pre&gt;&lt;/td&gt;&lt;/tr&gt;&lt;/table&gt;
 &lt;/div&gt;
-&lt;/div&gt;&lt;p&gt;&lt;img src="https://picsum.photos/800/450?random=1768457784359"
-loading="lazy"
-alt="配图"
-&gt;&lt;/p&gt;
-&lt;p&gt;如果你的ID是连续自增的（虽然现在很少见），甚至可以记录上一次查询的最大ID，直接用 &lt;code&gt;WHERE id &amp;gt; last_max_id LIMIT 20&lt;/code&gt;，那性能更是起飞。&lt;/p&gt;
+&lt;/div&gt;&lt;p&gt;如果你的ID是连续自增的（虽然现在很少见），甚至可以记录上一次查询的最大ID，直接用 &lt;code&gt;WHERE id &amp;gt; last_max_id LIMIT 20&lt;/code&gt;，那性能更是起飞。&lt;/p&gt;
 &lt;h2 id="索引选择困难症优化器也会脑抽"&gt;索引选择困难症：优化器也会“脑抽”
 &lt;/h2&gt;&lt;p&gt;有时候你索引建得好好的，SQL也没写错，但MySQL就是不用你的索引，非要去全表扫描，或者选了个更烂的索引。&lt;/p&gt;
 &lt;p&gt;&lt;strong&gt;观点：&lt;/strong&gt; 优化器是根据“统计信息”来估算成本的。如果统计信息不准（比如数据分布倾斜），优化器就会误判。&lt;/p&gt;

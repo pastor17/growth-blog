@@ -1,4 +1,4 @@
-<?xml version="1.0" encoding="utf-8" standalone="yes"?><rss version="2.0" xmlns:atom="http://www.w3.org/2005/Atom"><channel><title>GitLab Runner：私有化部署CI/CD on SelfTechHub</title><link>https://blog.irudder.me/tags/GitLab-Runner%E7%A7%81%E6%9C%89%E5%8C%96%E9%83%A8%E7%BD%B2CI/CD.html</link><description>Recent content in GitLab Runner：私有化部署CI/CD on SelfTechHub</description><generator>Hugo -- gohugo.io</generator><language>zh-cn</language><managingEditor>irudder@126.com (irudder)</managingEditor><webMaster>irudder@126.com (irudder)</webMaster><lastBuildDate>Thu, 01 Sep 2022 00:00:00 +0800</lastBuildDate><atom:link href="https://blog.irudder.me/tags/GitLab-Runner%E7%A7%81%E6%9C%89%E5%8C%96%E9%83%A8%E7%BD%B2CI/CD/index.xml" rel="self" type="application/rss+xml"/><item><title>GitLab Runner避坑：从手动发布到自动化的3次进化</title><link>https://blog.irudder.me/tech/devopsjichugongjurumenyushicao/gitlab-runner_siyouhuabushuci_cd.html</link><pubDate>Thu, 01 Sep 2022 00:00:00 +0800</pubDate><author>irudder@126.com (irudder)</author><guid>https://blog.irudder.me/tech/devopsjichugongjurumenyushicao/gitlab-runner_siyouhuabushuci_cd.html</guid><description>&lt;p&gt;&lt;strong&gt;3年前，我曾以为“自动化部署”是大厂的专利，直到我在周五晚上因为传错了一个jar包，被迫在机房待到了凌晨2点。&lt;/strong&gt;&lt;/p&gt;
+<?xml version="1.0" encoding="utf-8" standalone="yes"?><rss version="2.0" xmlns:atom="http://www.w3.org/2005/Atom"><channel><title>GitLab Runner：私有化部署CI/CD on SelfTechHub</title><link>https://blog.irudder.me/tags/GitLab-Runner%E7%A7%81%E6%9C%89%E5%8C%96%E9%83%A8%E7%BD%B2CI/CD.html</link><description>Recent content in GitLab Runner：私有化部署CI/CD on SelfTechHub</description><generator>Hugo -- gohugo.io</generator><language>zh-cn</language><managingEditor>irudder@126.com (irudder)</managingEditor><webMaster>irudder@126.com (irudder)</webMaster><lastBuildDate>Thu, 01 Sep 2022 00:00:00 +0800</lastBuildDate><atom:link href="https://blog.irudder.me/tags/GitLab-Runner%E7%A7%81%E6%9C%89%E5%8C%96%E9%83%A8%E7%BD%B2CI/CD/index.xml" rel="self" type="application/rss+xml"/><item><title>GitLab Runner避坑：从手动发布到自动化的3次进化</title><link>https://blog.irudder.me/tech/devopsjichugongjurumenyushicao/gitlab-runner_siyouhuabushuci_cd.html</link><pubDate>Thu, 01 Sep 2022 00:00:00 +0800</pubDate><author>irudder@126.com (irudder)</author><guid>https://blog.irudder.me/tech/devopsjichugongjurumenyushicao/gitlab-runner_siyouhuabushuci_cd.html</guid><description>&lt;img src="https://blog.irudder.me/images/covers/tech-2.jpg" alt="Featured image of post GitLab Runner避坑：从手动发布到自动化的3次进化" /&gt;&lt;p&gt;&lt;strong&gt;3年前，我曾以为“自动化部署”是大厂的专利，直到我在周五晚上因为传错了一个jar包，被迫在机房待到了凌晨2点。&lt;/strong&gt;&lt;/p&gt;
 &lt;p&gt;那时我还在一家几十人的软件外包公司，每次发布版本，整个流程充满了“原始部落”的气息：本地打包 -&amp;gt; 打开FTP/Xshell -&amp;gt; 停止服务 -&amp;gt; 备份 -&amp;gt; 上传新包 -&amp;gt; 重启。&lt;/p&gt;
 &lt;p&gt;这一套动作，熟练的运维可能只要10分钟，但如果是一个刚入职的开发，或者是疲惫的周五下午，出错率几乎是100%。&lt;/p&gt;
 &lt;p&gt;也就是那个凌晨，我痛定思痛，决定必须把CI/CD（持续集成/持续部署）这块骨头啃下来。今天我想站在一个“过来人”的角度，聊聊如何利用 &lt;strong&gt;GitLab Runner&lt;/strong&gt; 搭建一套私有化的自动化流水线。不讲枯燥的概念，只聊我踩过的坑和落地的实操。&lt;/p&gt;
@@ -13,10 +13,6 @@
 &lt;p&gt;&lt;strong&gt;真实的转折点&lt;/strong&gt;发生在一次紧急热修复。客户系统崩了，我代码改好了，结果卡在GitLab的共享队列里排队了半小时。老板在后面站着，我在前面汗流浃背。&lt;/p&gt;
 &lt;p&gt;那一刻我明白：&lt;strong&gt;只有私有化部署Runner，才能把控制权握在自己手里。&lt;/strong&gt;&lt;/p&gt;
 &lt;p&gt;简单理解，GitLab Server是“包工头”，负责发号施令；GitLab Runner就是“搬砖工”，负责干活。我们现在要做的，就是雇一个只听命于我们自己的“搬砖工”，安在自己的服务器上。&lt;/p&gt;
-&lt;p&gt;&lt;img src="https://picsum.photos/800/450?random=1768388406244"
-loading="lazy"
-alt="配图"
-&gt;&lt;/p&gt;
 &lt;hr&gt;
 &lt;h2 id="二-只要两步给你的代码配个私人管家"&gt;二、 只要两步，给你的代码配个“私人管家”
 &lt;/h2&gt;&lt;p&gt;很多人被官方文档里长篇大论的安装劝退。其实，对于中小团队，最稳妥、最干净的方式只有一种：&lt;strong&gt;Docker安装&lt;/strong&gt;。&lt;/p&gt;
@@ -51,11 +47,7 @@ alt="配图"
 &lt;pre tabindex="0" class="chroma"&gt;&lt;code class="language-bash" data-lang="bash"&gt;&lt;span class="line"&gt;&lt;span class="cl"&gt;docker &lt;span class="nb"&gt;exec&lt;/span&gt; -it gitlab-runner gitlab-runner register
 &lt;/span&gt;&lt;/span&gt;&lt;/code&gt;&lt;/pre&gt;&lt;/td&gt;&lt;/tr&gt;&lt;/table&gt;
 &lt;/div&gt;
-&lt;/div&gt;&lt;p&gt;&lt;img src="https://picsum.photos/800/450?random=1768388414375"
-loading="lazy"
-alt="配图"
-&gt;&lt;/p&gt;
-&lt;p&gt;接下来会是一次简单的问答交互，我建议的配置如下：&lt;/p&gt;
+&lt;/div&gt;&lt;p&gt;接下来会是一次简单的问答交互，我建议的配置如下：&lt;/p&gt;
 &lt;ol&gt;
 &lt;li&gt;&lt;strong&gt;URL&lt;/strong&gt;: 填你在GitLab页面看到的。&lt;/li&gt;
 &lt;li&gt;&lt;strong&gt;Token&lt;/strong&gt;: 填页面上的Token。&lt;/li&gt;

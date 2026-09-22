@@ -1,4 +1,4 @@
-<?xml version="1.0" encoding="utf-8" standalone="yes"?><rss version="2.0" xmlns:atom="http://www.w3.org/2005/Atom"><channel><title>Terraform模块化：可复用的基础设施代码 on SelfTechHub</title><link>https://blog.irudder.me/tags/Terraform%E6%A8%A1%E5%9D%97%E5%8C%96%E5%8F%AF%E5%A4%8D%E7%94%A8%E7%9A%84%E5%9F%BA%E7%A1%80%E8%AE%BE%E6%96%BD%E4%BB%A3%E7%A0%81.html</link><description>Recent content in Terraform模块化：可复用的基础设施代码 on SelfTechHub</description><generator>Hugo -- gohugo.io</generator><language>zh-cn</language><managingEditor>irudder@126.com (irudder)</managingEditor><webMaster>irudder@126.com (irudder)</webMaster><lastBuildDate>Tue, 06 Sep 2022 00:00:00 +0800</lastBuildDate><atom:link href="https://blog.irudder.me/tags/Terraform%E6%A8%A1%E5%9D%97%E5%8C%96%E5%8F%AF%E5%A4%8D%E7%94%A8%E7%9A%84%E5%9F%BA%E7%A1%80%E8%AE%BE%E6%96%BD%E4%BB%A3%E7%A0%81/index.xml" rel="self" type="application/rss+xml"/><item><title>拒绝复制粘贴！Terraform模块化让架构部署快3倍</title><link>https://blog.irudder.me/tech/devopsjichugongjurumenyushicao/terraformmokuaihua_kefuyongdejichusheshidaima.html</link><pubDate>Tue, 06 Sep 2022 00:00:00 +0800</pubDate><author>irudder@126.com (irudder)</author><guid>https://blog.irudder.me/tech/devopsjichugongjurumenyushicao/terraformmokuaihua_kefuyongdejichusheshidaima.html</guid><description>&lt;p&gt;作为一名长期在DevOps一线摸爬滚打的工程师，我见过太多团队在基础设施代码（IaC）上栽跟头。&lt;/p&gt;
+<?xml version="1.0" encoding="utf-8" standalone="yes"?><rss version="2.0" xmlns:atom="http://www.w3.org/2005/Atom"><channel><title>Terraform模块化：可复用的基础设施代码 on SelfTechHub</title><link>https://blog.irudder.me/tags/Terraform%E6%A8%A1%E5%9D%97%E5%8C%96%E5%8F%AF%E5%A4%8D%E7%94%A8%E7%9A%84%E5%9F%BA%E7%A1%80%E8%AE%BE%E6%96%BD%E4%BB%A3%E7%A0%81.html</link><description>Recent content in Terraform模块化：可复用的基础设施代码 on SelfTechHub</description><generator>Hugo -- gohugo.io</generator><language>zh-cn</language><managingEditor>irudder@126.com (irudder)</managingEditor><webMaster>irudder@126.com (irudder)</webMaster><lastBuildDate>Tue, 06 Sep 2022 00:00:00 +0800</lastBuildDate><atom:link href="https://blog.irudder.me/tags/Terraform%E6%A8%A1%E5%9D%97%E5%8C%96%E5%8F%AF%E5%A4%8D%E7%94%A8%E7%9A%84%E5%9F%BA%E7%A1%80%E8%AE%BE%E6%96%BD%E4%BB%A3%E7%A0%81/index.xml" rel="self" type="application/rss+xml"/><item><title>拒绝复制粘贴！Terraform模块化让架构部署快3倍</title><link>https://blog.irudder.me/tech/devopsjichugongjurumenyushicao/terraformmokuaihua_kefuyongdejichusheshidaima.html</link><pubDate>Tue, 06 Sep 2022 00:00:00 +0800</pubDate><author>irudder@126.com (irudder)</author><guid>https://blog.irudder.me/tech/devopsjichugongjurumenyushicao/terraformmokuaihua_kefuyongdejichusheshidaima.html</guid><description>&lt;img src="https://blog.irudder.me/images/covers/tech-2.jpg" alt="Featured image of post 拒绝复制粘贴！Terraform模块化让架构部署快3倍" /&gt;&lt;p&gt;作为一名长期在DevOps一线摸爬滚打的工程师，我见过太多团队在基础设施代码（IaC）上栽跟头。&lt;/p&gt;
 &lt;p&gt;最典型的一个场景是：由于业务扩张，公司需要快速在AWS上新开一个测试环境。开发负责人小张打开了生产环境的 &lt;code&gt;main.tf&lt;/code&gt; 文件——那是一个长达2500行的庞然大物，里面混杂着VPC、EC2、RDS和一大堆安全组规则。&lt;/p&gt;
 &lt;p&gt;他深吸一口气，按下 &lt;code&gt;Ctrl+C&lt;/code&gt; 和 &lt;code&gt;Ctrl+V&lt;/code&gt;，然后开始漫长的&amp;quot;查找替换&amp;quot;之旅。结果不出所料，新环境部署失败了。因为他在第1800行漏改了一个子网ID，导致数据库无法连接。&lt;/p&gt;
 &lt;p&gt;这不仅仅是小张的问题，这是**反模式（Anti-pattern）**的胜利。&lt;/p&gt;
@@ -55,23 +55,21 @@
 &lt;/h3&gt;&lt;p&gt;好的模块应该包含你的&lt;strong&gt;技术观点（Opinion）&lt;/strong&gt;。比如，作为运维负责人，你规定公司的Web服务器必须挂载数据盘，必须有特定的Tag。&lt;/p&gt;
 &lt;div class="highlight"&gt;&lt;div class="chroma"&gt;
 &lt;table class="lntable"&gt;&lt;tr&gt;&lt;td class="lntd"&gt;
-&lt;pre tabindex="0" class="chroma"&gt;&lt;code&gt;&lt;span class="lnt"&gt; 1
-&lt;/span&gt;&lt;span class="lnt"&gt; 2
-&lt;/span&gt;&lt;span class="lnt"&gt; 3
-&lt;/span&gt;&lt;span class="lnt"&gt; 4
-&lt;/span&gt;&lt;span class="lnt"&gt; 5
-&lt;/span&gt;&lt;span class="lnt"&gt; 6
-&lt;/span&gt;&lt;span class="lnt"&gt; 7
-&lt;/span&gt;&lt;span class="lnt"&gt; 8
-&lt;/span&gt;&lt;span class="lnt"&gt; 9
-&lt;/span&gt;&lt;span class="lnt"&gt;10
+&lt;pre tabindex="0" class="chroma"&gt;&lt;code&gt;&lt;span class="lnt"&gt;1
+&lt;/span&gt;&lt;span class="lnt"&gt;2
+&lt;/span&gt;&lt;span class="lnt"&gt;3
+&lt;/span&gt;&lt;span class="lnt"&gt;4
+&lt;/span&gt;&lt;span class="lnt"&gt;5
+&lt;/span&gt;&lt;span class="lnt"&gt;6
+&lt;/span&gt;&lt;span class="lnt"&gt;7
+&lt;/span&gt;&lt;span class="lnt"&gt;8
+&lt;/span&gt;&lt;span class="lnt"&gt;9
 &lt;/span&gt;&lt;/code&gt;&lt;/pre&gt;&lt;/td&gt;
 &lt;td class="lntd"&gt;
 &lt;pre tabindex="0" class="chroma"&gt;&lt;code class="language-hcl" data-lang="hcl"&gt;&lt;span class="line"&gt;&lt;span class="cl"&gt;&lt;span class="c1"&gt;# 这是一个优秀的模块调用示例
 &lt;/span&gt;&lt;/span&gt;&lt;/span&gt;&lt;span class="line"&gt;&lt;span class="cl"&gt;&lt;span class="c1"&gt;&lt;/span&gt;&lt;span class="k"&gt;module&lt;/span&gt; &lt;span class="s2"&gt;&amp;#34;web_server&amp;#34;&lt;/span&gt; {
-&lt;/span&gt;&lt;/span&gt;&lt;span class="line"&gt;&lt;span class="cl"&gt;&lt;span class="n"&gt; source&lt;/span&gt; &lt;span class="o"&gt;=&lt;/span&gt; &lt;span class="s2"&gt;&amp;#34;./modules/company-standard-web&amp;#34;&lt;/span&gt;
-&lt;/span&gt;&lt;/span&gt;&lt;span class="line"&gt;&lt;span class="cl"&gt;
-&lt;/span&gt;&lt;/span&gt;&lt;span class="line"&gt;&lt;span class="cl"&gt;&lt;span class="n"&gt;![配图](https://picsum.photos/800/450?random&lt;/span&gt;&lt;span class="o"&gt;=&lt;/span&gt;&lt;span class="m"&gt;1768389055495&lt;/span&gt;&lt;span class="p"&gt;)&lt;/span&gt;&lt;span class="c1"&gt;
+&lt;/span&gt;&lt;/span&gt;&lt;span class="line"&gt;&lt;span class="cl"&gt;&lt;span class="n"&gt; source&lt;/span&gt; &lt;span class="o"&gt;=&lt;/span&gt; &lt;span class="s2"&gt;&amp;#34;./modules/company-standard-web&amp;#34;&lt;/span&gt;&lt;span class="c1"&gt;
+&lt;/span&gt;&lt;/span&gt;&lt;/span&gt;&lt;span class="line"&gt;&lt;span class="cl"&gt;&lt;span class="c1"&gt;
 &lt;/span&gt;&lt;/span&gt;&lt;/span&gt;&lt;span class="line"&gt;&lt;span class="cl"&gt;&lt;span class="c1"&gt;
 &lt;/span&gt;&lt;/span&gt;&lt;/span&gt;&lt;span class="line"&gt;&lt;span class="cl"&gt;&lt;span class="c1"&gt; # 必填项极少，降低心智负担
 &lt;/span&gt;&lt;/span&gt;&lt;/span&gt;&lt;span class="line"&gt;&lt;span class="cl"&gt;&lt;span class="c1"&gt;&lt;/span&gt;&lt;span class="n"&gt; app_name&lt;/span&gt; &lt;span class="o"&gt;=&lt;/span&gt; &lt;span class="s2"&gt;&amp;#34;payment-service&amp;#34;&lt;/span&gt;
@@ -120,10 +118,6 @@
 &lt;h2 id="总结与落地工具箱"&gt;总结与落地工具箱
 &lt;/h2&gt;&lt;p&gt;Terraform模块化不是为了炫技，而是为了&lt;strong&gt;让基础设施像应用代码一样可维护&lt;/strong&gt;。它能帮你把&amp;quot;部落知识&amp;quot;（比如：我们的服务器必须配这三个安全组）固化成代码逻辑。&lt;/p&gt;
 &lt;p&gt;最后，分享一个我自用的&lt;strong&gt;模块化目录结构模板&lt;/strong&gt;，你可以直接在项目中复刻：&lt;/p&gt;
-&lt;p&gt;&lt;img src="https://picsum.photos/800/450?random=1768389055837"
-loading="lazy"
-alt="配图"
-&gt;&lt;/p&gt;
 &lt;div class="highlight"&gt;&lt;div class="chroma"&gt;
 &lt;table class="lntable"&gt;&lt;tr&gt;&lt;td class="lntd"&gt;
 &lt;pre tabindex="0" class="chroma"&gt;&lt;code&gt;&lt;span class="lnt"&gt; 1

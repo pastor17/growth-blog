@@ -1,14 +1,10 @@
-<?xml version="1.0" encoding="utf-8" standalone="yes"?><rss version="2.0" xmlns:atom="http://www.w3.org/2005/Atom"><channel><title>记一次线上CPU 100%的排查与解决过程 on SelfTechHub</title><link>https://blog.irudder.me/tags/%E8%AE%B0%E4%B8%80%E6%AC%A1%E7%BA%BF%E4%B8%8ACPU-100%E7%9A%84%E6%8E%92%E6%9F%A5%E4%B8%8E%E8%A7%A3%E5%86%B3%E8%BF%87%E7%A8%8B.html</link><description>Recent content in 记一次线上CPU 100%的排查与解决过程 on SelfTechHub</description><generator>Hugo -- gohugo.io</generator><language>zh-cn</language><managingEditor>irudder@126.com (irudder)</managingEditor><webMaster>irudder@126.com (irudder)</webMaster><lastBuildDate>Sun, 26 Mar 2023 00:00:00 +0800</lastBuildDate><atom:link href="https://blog.irudder.me/tags/%E8%AE%B0%E4%B8%80%E6%AC%A1%E7%BA%BF%E4%B8%8ACPU-100%E7%9A%84%E6%8E%92%E6%9F%A5%E4%B8%8E%E8%A7%A3%E5%86%B3%E8%BF%87%E7%A8%8B/index.xml" rel="self" type="application/rss+xml"/><item><title>凌晨3点CPU飙升100%：排查过程与血泪教训</title><link>https://blog.irudder.me/tech/jiagouyouhuashizhananlijiexi/jiyicixianshangcpu-100%depaichayujiejueguocheng.html</link><pubDate>Sun, 26 Mar 2023 00:00:00 +0800</pubDate><author>irudder@126.com (irudder)</author><guid>https://blog.irudder.me/tech/jiagouyouhuashizhananlijiexi/jiyicixianshangcpu-100%depaichayujiejueguocheng.html</guid><description>&lt;p&gt;不知你是否经历过这种时刻：手机在凌晨疯狂震动，告警群里全是红色的&lt;code&gt;[CRITICAL]&lt;/code&gt;，服务器CPU监控线笔直地拉成一条横线，且居高不下。&lt;/p&gt;
+<?xml version="1.0" encoding="utf-8" standalone="yes"?><rss version="2.0" xmlns:atom="http://www.w3.org/2005/Atom"><channel><title>记一次线上CPU 100%的排查与解决过程 on SelfTechHub</title><link>https://blog.irudder.me/tags/%E8%AE%B0%E4%B8%80%E6%AC%A1%E7%BA%BF%E4%B8%8ACPU-100%E7%9A%84%E6%8E%92%E6%9F%A5%E4%B8%8E%E8%A7%A3%E5%86%B3%E8%BF%87%E7%A8%8B.html</link><description>Recent content in 记一次线上CPU 100%的排查与解决过程 on SelfTechHub</description><generator>Hugo -- gohugo.io</generator><language>zh-cn</language><managingEditor>irudder@126.com (irudder)</managingEditor><webMaster>irudder@126.com (irudder)</webMaster><lastBuildDate>Sun, 26 Mar 2023 00:00:00 +0800</lastBuildDate><atom:link href="https://blog.irudder.me/tags/%E8%AE%B0%E4%B8%80%E6%AC%A1%E7%BA%BF%E4%B8%8ACPU-100%E7%9A%84%E6%8E%92%E6%9F%A5%E4%B8%8E%E8%A7%A3%E5%86%B3%E8%BF%87%E7%A8%8B/index.xml" rel="self" type="application/rss+xml"/><item><title>凌晨3点CPU飙升100%：排查过程与血泪教训</title><link>https://blog.irudder.me/tech/jiagouyouhuashizhananlijiexi/jiyicixianshangcpu-100%depaichayujiejueguocheng.html</link><pubDate>Sun, 26 Mar 2023 00:00:00 +0800</pubDate><author>irudder@126.com (irudder)</author><guid>https://blog.irudder.me/tech/jiagouyouhuashizhananlijiexi/jiyicixianshangcpu-100%depaichayujiejueguocheng.html</guid><description>&lt;img src="https://blog.irudder.me/images/covers/tech-1.jpg" alt="Featured image of post 凌晨3点CPU飙升100%：排查过程与血泪教训" /&gt;&lt;p&gt;不知你是否经历过这种时刻：手机在凌晨疯狂震动，告警群里全是红色的&lt;code&gt;[CRITICAL]&lt;/code&gt;，服务器CPU监控线笔直地拉成一条横线，且居高不下。&lt;/p&gt;
 &lt;p&gt;我一直信奉&amp;quot;周五不发布&amp;quot;的铁律，但两年前的那次破例，让我结结实实地踩了一个大坑。当时为了赶一个看似简单的&amp;quot;数据同步优化&amp;quot;功能，我在周五傍晚匆忙上了一个补丁。结果当天凌晨3点，负责核心结算的微服务集群CPU全线打满，业务响应时间从20ms飙升到超时。&lt;/p&gt;
 &lt;p&gt;这不仅是一次事故复盘，更是我对&amp;quot;防御性编程&amp;quot;认知的转折点。在那之前，我以为代码逻辑跑通就行；在那之后，我明白了什么是&lt;strong&gt;敬畏生产环境&lt;/strong&gt;。&lt;/p&gt;
 &lt;h2 id="拒绝重启现场保留作案证据"&gt;拒绝重启，现场保留&amp;quot;作案证据&amp;quot;
 &lt;/h2&gt;&lt;p&gt;面对线上CPU爆表，很多运维或新手的本能反应是——&lt;strong&gt;重启试试&lt;/strong&gt;。&lt;/p&gt;
 &lt;p&gt;重启确实能暂时止血，但它同时也销毁了&amp;quot;犯罪现场&amp;quot;。如果不知道病因，重启只是把定时炸弹的时间重置了，下一次爆炸会来得更猛烈。&lt;/p&gt;
 &lt;p&gt;&lt;strong&gt;我当时强行按住了想去点重启按钮的手，坚持要先抓取堆栈信息。&lt;/strong&gt;&lt;/p&gt;
-&lt;p&gt;&lt;img src="https://picsum.photos/800/450?random=1768457134097"
-loading="lazy"
-alt="配图"
-&gt;&lt;/p&gt;
 &lt;p&gt;这就好比破案，你得先留存指纹。在Linux环境下，定位Java应用CPU高的标准动作其实就那几步，但我发现很多人在紧张时容易乱。&lt;/p&gt;
 &lt;ol&gt;
 &lt;li&gt;&lt;strong&gt;定位进程&lt;/strong&gt;：&lt;code&gt;top&lt;/code&gt; 命令一敲，PID为 &lt;code&gt;18920&lt;/code&gt; 的Java进程稳居榜首，CPU占用率达到了惊人的 780%（8核机器）。&lt;/li&gt;
@@ -20,11 +16,7 @@ alt="配图"
 &lt;p&gt;&lt;strong&gt;思考题&lt;/strong&gt;：如果你的生产环境没有权限执行 jstack 或者 top 命令被阉割了，你们现有的监控系统（如Prometheus, SkyWalking）能直接定位到代码行吗？&lt;/p&gt;&lt;/blockquote&gt;
 &lt;p&gt;这一套组合拳打完，仅仅耗时2分钟。屏幕上清晰地打印出了罪魁祸首的代码行数。看到那个类名的时候，我后背一阵发凉——正是我下午提交的那个&amp;quot;优化&amp;quot;代码。&lt;/p&gt;
 &lt;h2 id="死循环隐藏在异常处理里的杀手"&gt;死循环：隐藏在异常处理里的杀手
-&lt;/h2&gt;&lt;p&gt;&lt;img src="https://picsum.photos/800/450?random=1768457132484"
-loading="lazy"
-alt="配图"
-&gt;&lt;/p&gt;
-&lt;p&gt;堆栈指向了一行看似人畜无害的代码：一个处理Redis消息队列的 &lt;code&gt;while&lt;/code&gt; 循环。&lt;/p&gt;
+&lt;/h2&gt;&lt;p&gt;堆栈指向了一行看似人畜无害的代码：一个处理Redis消息队列的 &lt;code&gt;while&lt;/code&gt; 循环。&lt;/p&gt;
 &lt;p&gt;在这个案例中，我的初衷是好的。为了保证数据不丢失，我写了一个消费者线程，不断从Redis中拉取数据进行处理。代码逻辑大致如下（简化版）：&lt;/p&gt;
 &lt;div class="highlight"&gt;&lt;div class="chroma"&gt;
 &lt;table class="lntable"&gt;&lt;tr&gt;&lt;td class="lntd"&gt;
@@ -56,11 +48,7 @@ alt="配图"
 &lt;/span&gt;&lt;/span&gt;&lt;/span&gt;&lt;span class="line"&gt;&lt;span class="cl"&gt;&lt;span class="w"&gt;&lt;/span&gt;&lt;span class="p"&gt;}&lt;/span&gt;&lt;span class="w"&gt;
 &lt;/span&gt;&lt;/span&gt;&lt;/span&gt;&lt;/code&gt;&lt;/pre&gt;&lt;/td&gt;&lt;/tr&gt;&lt;/table&gt;
 &lt;/div&gt;
-&lt;/div&gt;&lt;p&gt;&lt;img src="https://picsum.photos/800/450?random=1768457131032"
-loading="lazy"
-alt="配图"
-&gt;&lt;/p&gt;
-&lt;p&gt;问题出在哪里？&lt;/p&gt;
+&lt;/div&gt;&lt;p&gt;问题出在哪里？&lt;/p&gt;
 &lt;p&gt;当晚凌晨，云服务商的Redis实例发生了一次短暂的内网抖动。&lt;code&gt;redisService.pop(key)&lt;/code&gt; 抛出了连接异常。&lt;/p&gt;
 &lt;p&gt;按照正常的逻辑，异常被捕获，打印日志。但是，&lt;strong&gt;由于catch块中没有哪怕1毫秒的 sleep，也没有跳出循环&lt;/strong&gt;，这个 &lt;code&gt;while(true)&lt;/code&gt; 瞬间变成了一个极其紧密的死循环。&lt;/p&gt;
 &lt;p&gt;线程疯狂地 抛出异常 -&amp;gt; 捕获异常 -&amp;gt; 打印日志 -&amp;gt; 再次重试。&lt;/p&gt;
